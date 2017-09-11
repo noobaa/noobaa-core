@@ -52,8 +52,8 @@ function pack(dest, name) {
         .on('error', gutil.log);
 
     var src_stream = gulp.src(NVA_Package_sources, {
-        base: 'src'
-    })
+            base: 'src'
+        })
         .pipe(gulp_rename(p => {
             p.dirname = path.join('src', p.dirname);
         }))
@@ -61,15 +61,15 @@ function pack(dest, name) {
     // TODO bring back uglify .pipe(gulp_uglify());
 
     var node_modules_stream = gulp.src([
-        'node_modules/**/*',
-        '!node_modules/babel*/**/*',
-        '!node_modules/gulp*/**/*',
-        '!node_modules/node-inspector/**/*',
-        '!node_modules/chromedriver/**/*',
-        '!node_modules/selenium-webdriver/**/*',
-        '!node_modules/selenium-standalone/**/*',
-        '!node_modules/phantomjs-prebuilt/**/*'
-    ], {
+            'node_modules/**/*',
+            '!node_modules/babel*/**/*',
+            '!node_modules/gulp*/**/*',
+            '!node_modules/node-inspector/**/*',
+            '!node_modules/chromedriver/**/*',
+            '!node_modules/selenium-webdriver/**/*',
+            '!node_modules/selenium-standalone/**/*',
+            '!node_modules/phantomjs-prebuilt/**/*'
+        ], {
             base: 'node_modules'
         })
         .pipe(gulp_rename(p => {
@@ -113,14 +113,14 @@ function pack(dest, name) {
 
     return event_stream
         .merge(
-        pkg_stream,
-        src_stream,
-        basejs_stream,
-        agent_distro,
-        build_stream,
-        build_native_stream,
-        build_fe_stream,
-        node_modules_stream
+            pkg_stream,
+            src_stream,
+            basejs_stream,
+            agent_distro,
+            build_stream,
+            build_native_stream,
+            build_fe_stream,
+            node_modules_stream
         )
         .pipe(gulp_rename(p => {
             p.dirname = path.join('noobaa-core', p.dirname);

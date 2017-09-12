@@ -226,8 +226,7 @@ class HostedAgents {
             return;
         }
         let agent = this._started_agents[node_name].agent;
-        let agent_pool = this._started_agents[node_name].cloud_pool ||
-            this._started_agents[node_name].mongo_pool;
+        let agent_pool = this._started_agents[node_name].pool;
         if (agent) {
             agent.stop();
         }

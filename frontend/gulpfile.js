@@ -36,8 +36,7 @@ const libs = [
     { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' },
     { name: 'chartjs',              path: './src/lib/chart.js/dist/Chart.js' },
     { name: 'rx',                   path: './src/lib/rxjs/dist/rx.lite.js' },
-    { name: 'big-integer',          path: './src/lib/big-integer/BigInteger.min.js' },
-    { name: 'ajv',                  path: './src/lib/ajv/dist/ajv.min.js' }
+    { name: 'big-integer',          path: './src/lib/big-integer/BigInteger.min.js' }
 ];
 
 const apiBlackList = [
@@ -122,6 +121,7 @@ gulp.task('build-api', () => {
         plugins: ['transform-runtime']
     });
 
+    b.require('../node_modules/ajv', { expose: 'ajv' });
     b.require('../src/api/index.js', { expose: 'nb-api' });
 
     return b.bundle()
@@ -181,14 +181,9 @@ gulp.task('build-js-style', () => {
         .pipe(gulp.dest(buildPath));
 });
 
-gulp.task('install-deps', cb => {
-    // Install the FE dependencies.
-    gulp.src('./bower.json')
-        .pipe($.install(() => {
-            // Build and bundle the ajv dependency.
-            gulp.src('./src/lib/ajv/package.json')
-                .pipe($.install(() => cb()));
-        }));
+gulp.task('install-deps', () => {
+    return gulp.src('./bower.json')
+        .pipe($.install());
 });
 
 gulp.task('lint-app', () => {

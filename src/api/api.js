@@ -1,14 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let _ = require('lodash');
-let url = require('url');
-let RPC = require('../rpc/rpc');
-let RpcSchema = require('../rpc/rpc_schema');
+const _ = require('lodash');
+const url = require('url');
+const RPC = require('../rpc/rpc');
+const RpcSchema = require('../rpc/rpc_schema');
 
 // registring all api's on the same RpcSchema object
 // so they share the schema namespace
-let api_schema = new RpcSchema();
+const api_schema = new RpcSchema();
 api_schema.register_api(require('./common_api'));
 api_schema.register_api(require('./auth_api'));
 api_schema.register_api(require('./account_api'));

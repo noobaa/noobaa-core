@@ -126,7 +126,7 @@ function find_shard_index(shardname) {
     return shard_idx;
 }
 
-function get_cluster_info() {
+function get_cluster_info(rs_status) {
     const get_hb = true;
     let local_info = system_store.get_local_cluster_info(get_hb);
     let shards = local_info.shards.map(shard => ({
@@ -136,7 +136,7 @@ function get_cluster_info() {
     // list online members accoring to local mongo rs status
     let online_members = [local_info.owner_address];
     if (local_info.is_clusterized && local_info.heartbeat) {
-        online_members = _get_online_members(local_info.heartbeat.health.mongo_rs_status);
+        online_members = _get_online_members(rs_status || local_info.heartbeat.health.mongo_rs_status);
     }
     _.each(system_store.data.clusters, cinfo => {
         let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
@@ -223,7 +223,7 @@ function get_cluster_info() {
         }
     });
     let cluster_info = {
-        master_secret: system_store.get_server_secret(),
+        master_secret: _get_master_secret(rs_status),
         shards: shards,
         min_requirements: get_min_requirements()
     };
@@ -242,6 +242,25 @@ function _get_online_members(rs_status) {
         });
     }
     return online_members;
+}
+
+function _get_master_secret(rs_status) {
+    let local_info = system_store.get_local_cluster_info(true);
+    let master_secret = local_info.owner_secret;
+    if (!local_info.is_clusterized) {
+        return master_secret;
+    }
+    if (_.isUndefined(rs_status) && local_info.heartbeat) {
+        rs_status = local_info.heartbeat.health.mongo_rs_status;
+    }
+
+    if (rs_status && rs_status.members) {
+        const master_member = rs_status.find(member => member.stateStr === 'PRIMARY');
+        const master_address = master_member.name.substring(0, master_member.name.indexOf(':'));
+        master_secret = (system_store.data.clusters.find(server => server.owner_address === master_address)).secret;
+    }
+
+    return master_secret;
 }
 
 function get_potential_masters() {

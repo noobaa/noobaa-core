@@ -43,6 +43,7 @@ const node_allocator = require('../node_services/node_allocator');
 const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
 const system_utils = require('../utils/system_utils');
+const MongoCtrl = require('../utils/mongo_ctrl');
 const api = require('../../api/api');
 const ssl_utils = require('../../util/ssl_utils');
 
@@ -410,7 +411,13 @@ function read_system(req) {
             node_allocator.refresh_tiering_alloc(bucket.tiering))),
 
         deletable_buckets: P.props(_.mapValues(system.buckets_by_name, bucket =>
-            bucket_server.can_delete_bucket(system, bucket)))
+            bucket_server.can_delete_bucket(system, bucket))),
+
+        rs_status: system_store.get_local_cluster_info().is_clusterized ?
+            MongoCtrl.get_hb_rs_status()
+            .catch(err => {
+                dbg.error('failed getting updated rs_status on read_system', err);
+            }) : undefined
     }).then(({
         nodes_aggregate_pool_no_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_and_mongo,
@@ -421,7 +428,8 @@ function read_system(req) {
         accounts,
         has_ssl_cert,
         aggregate_data_free_by_tier,
-        deletable_buckets
+        deletable_buckets,
+        rs_status
     }) => {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
@@ -526,7 +534,7 @@ function read_system(req) {
         };
 
         // fill cluster information if we have a cluster.
-        const cluster_info = cutil.get_cluster_info();
+        const cluster_info = cutil.get_cluster_info(rs_status);
         response.cluster = cluster_info;
         const all_connected = _.every(cluster_info.shards[0].servers, server => server.status === 'CONNECTED'); // must be connected
         const enough_disk = _.every(cluster_info.shards[0].servers, server => server.storage.free > 3 * 1024 * 1024 * 1024); // must have at least 3GB free

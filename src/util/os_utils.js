@@ -9,6 +9,7 @@ const moment = require('moment-timezone');
 const node_df = require('node-df');
 const blockutils = require('linux-blockutils');
 var spawn = require('child_process').spawn;
+const ip_module = require('ip');
 
 const P = require('./promise');
 const config = require('../../config.js');
@@ -817,6 +818,135 @@ function handle_unreleased_fds() {
         });
 }
 
+
+function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
+    return P.resolve()
+        .then(() => {
+            if (os.type() === 'Linux') {
+                // get iptables rules and check port range against it.
+                return get_iptables_rules();
+            }
+            return [];
+        })
+        .then(rules => {
+            const filtered_rules = rules.filter(rule => {
+                if (
+                    // filter out rules on loopback interface
+                    rule.in === 'lo' ||
+
+                    // remove reject rules on specific interfaces, since we don't know on which interface
+                    // we will receive packets. we prefer to not give false positive (on firewall blocking)
+                    (rule.target === 'REJECT' && rule.in !== '*') ||
+
+                    // filter out rules that are not relevant for the given ips.
+                    // TODO: this is not a perfect solution. the real solution should be to get both the
+                    // interface name and address, and check for match on both. we still do not know on
+                    // what interface the traffic is coming so it's still need to be resolved
+                    dest_ips.every(dest_ip => !ip_module.cidrSubnet(rule.dst).contains(dest_ip)) ||
+
+                    // filter non tcp rules
+                    (rule.protocol !== 'tcp' && rule.protocol !== 'all') ||
+
+                    // filter out rules that are not relevant to new connections
+                    !rule.new_connection
+
+                ) {
+                    return false;
+                }
+                // otherwise return true
+                return true;
+            });
+            if (!filtered_rules.length) {
+                return true;
+            }
+
+            let ports_groups = _.groupBy(_.range(start_port, end_port + 1), port => {
+                // go over all relevant rules, and look for the first matching rule (maybe partial match)
+                for (const rule of filtered_rules) {
+                    if (port >= rule.start_port && port <= rule.end_port) {
+                        // the rule matches some of the range. return if accept or reject
+                        return rule.allow ? 'allowed' : 'blocked';
+                    }
+                }
+                return 'allowed';
+            });
+            dbg.log0(`is_port_range_open_in_firewall: checked range [${start_port}, ${end_port}]:`, ports_groups);
+            // for now if any port in the range is blocked, return false
+            return _.isUndefined(ports_groups.blocked);
+        })
+        .catch(err => {
+            dbg.error('got error on is_port_range_open_in_firewall', err);
+        });
+}
+
+function get_iptables_rules() {
+    if (os.type() !== 'Linux') {
+        return P.resolve([]);
+    }
+    const iptables_command = 'iptables -L INPUT -nv';
+    return promise_utils.exec(iptables_command, false, true, 10000)
+        .then(output => {
+            // split output to lines, and remove first two lines (title lines) and empty lines
+            let raw_rules = output.split('\n')
+                .slice(2)
+                .filter(line => Boolean(line.length));
+            return raw_rules.map(line => {
+                line = line.trim();
+                // split by spaces to different attributes, but limit to 9. the last attribute
+                // can contain spaces, so we will extract it separately
+                let attributes = line.split(/\s+/, 9);
+                if (attributes.length !== 9) {
+                    throw new Error('Failed parsing iptables output. expected split to return 9 fields');
+                }
+                // split again by the last attribute, and take the last element
+                const last_attr = attributes[8];
+                const last_attr_split = line.split(last_attr);
+                const info = last_attr_split[last_attr_split.length - 1].trim();
+                // get the port out of the additional information
+                let start_port = 0; // default to 0
+                let end_port = Math.pow(2, 16) - 1; // default to max port value
+                const dpt = 'dpt:';
+                const dports = 'dports ';
+                const dpt_index = info.indexOf(dpt);
+                const dports_index = info.indexOf(dports);
+                if (dpt_index !== -1) {
+                    // cut info to start with the port number
+                    const dpt_substr = info.substring(dpt_index + dpt.length);
+                    start_port = parseInt(dpt_substr.split(' ')[0], 10);
+                    end_port = start_port;
+                } else if (dports_index > -1) {
+                    // port range rule
+                    const dports_substr = info.substring(dports_index + dports.length);
+                    const ports_str = dports_substr.split(' ')[0];
+                    const ports = ports_str.split(':');
+                    start_port = parseInt(ports[0], 10);
+                    if (ports.length === 2) {
+                        end_port = parseInt(ports[1], 10);
+                    } else {
+                        end_port = start_port;
+                    }
+                }
+                // is the rule relevant for new connections
+                const new_connection = info.indexOf('state ') === -1 || info.indexOf('NEW') > -1;
+                return {
+                    allow: attributes[2] === 'ACCEPT',
+                    protocol: attributes[3],
+                    in: attributes[5],
+                    src: attributes[7],
+                    dst: attributes[8],
+                    new_connection,
+                    start_port,
+                    end_port,
+                };
+            });
+        })
+        .catch(err => {
+            dbg.error(`got error on get_iptables_rules:`, err);
+            return [];
+        });
+}
+
+
 // EXPORTS
 exports.os_info = os_info;
 exports.read_drives = read_drives;
@@ -852,3 +982,5 @@ exports.get_disk_mount_points = get_disk_mount_points;
 exports.get_distro = get_distro;
 exports.handle_unreleased_fds = handle_unreleased_fds;
 exports.calc_cpu_usage = calc_cpu_usage;
+exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
+exports.get_iptables_rules = get_iptables_rules;

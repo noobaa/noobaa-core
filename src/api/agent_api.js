@@ -63,6 +63,9 @@ module.exports = {
                     n2n_config: {
                         $ref: 'common_api#/definitions/n2n_config'
                     },
+                    ports_allowed: {
+                        type: 'boolean'
+                    },
                     enabled: {
                         type: 'boolean'
                     },

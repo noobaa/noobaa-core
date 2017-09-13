@@ -180,7 +180,7 @@ function _generateQueryKey(query) {
 }
 
 function _mapDataToHost(host = {}, data, fetchTime) {
-    const { storage_nodes_info, s3_nodes_info, os_info, port_range, debug } = data;
+    const { storage_nodes_info, s3_nodes_info, os_info, ports, debug } = data;
     const { diagnostics = initialHostDiagnosticsState } = host;
 
     const activities = (storage_nodes_info.data_activities || [])
@@ -199,9 +199,9 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         mode: data.mode,
         version: data.version,
         ip: data.ip,
-        ports: port_range && {
-            min: port_range.min || port_range.port,
-            max: port_range.max || port_range.port,
+        ports: ports && {
+            min: ports.range.min || ports.range.port,
+            max: ports.range.max || ports.range.port,
         },
         protocol: data.connectivity,
         endpoint: data.base_address,

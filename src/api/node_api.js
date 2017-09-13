@@ -591,6 +591,7 @@ module.exports = {
                 'DECOMMISSIONING',
                 'MIGRATING',
                 'N2N_ERRORS',
+                'N2N_PORTS_BLOCKED',
                 'GATEWAY_ERRORS',
                 'IO_ERRORS',
                 'LOW_CAPACITY',
@@ -640,6 +641,9 @@ module.exports = {
                     type: 'integer'
                 },
                 N2N_ERRORS: {
+                    type: 'integer'
+                },
+                N2N_PORTS_BLOCKED: {
                     type: 'integer'
                 },
                 GATEWAY_ERRORS: {

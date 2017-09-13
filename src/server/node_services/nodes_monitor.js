@@ -62,6 +62,7 @@ const AGENT_INFO_FIELDS = [
     'is_internal_agent',
     'node_type',
     'host_name',
+    'ports_allowed',
     'permission_tempering'
 ];
 const MONITOR_INFO_FIELDS = [
@@ -210,6 +211,7 @@ const mode_priority = Object.freeze({
     NO_CAPACITY: HAS_ISSUES_PRI,
     LOW_CAPACITY: HAS_ISSUES_PRI,
     OPTIMAL: OPTIMAL_PRI,
+    N2N_PORTS_BLOCKED: OPTIMAL_PRI,
     DECOMMISSIONED: DECOMMISSIONED_PRI,
 });
 const mode_by_priority = Object.freeze({
@@ -1899,6 +1901,7 @@ class NodesMonitor extends EventEmitter {
             (item.io_reported_errors && 'IO_ERRORS') ||
             ((item.node.node_type !== 'ENDPOINT_S3' && free.lesserOrEquals(MB)) && 'NO_CAPACITY') ||
             ((item.node.node_type !== 'ENDPOINT_S3' && free_ratio.lesserOrEquals(20)) && 'LOW_CAPACITY') ||
+            ((item.node.node_type === 'BLOCK_STORE_FS' && !item.node.ports_allowed) && 'N2N_PORTS_BLOCKED') ||
             'OPTIMAL';
     }
 
@@ -2309,6 +2312,8 @@ class NodesMonitor extends EventEmitter {
         host_item.node.decommissioning = !host_item.node.decommissioned &&
             host_nodes.every(item => item.node.decommissioned || item.node.decommissioning);
 
+        host_item.node.ports_allowed = host_nodes.every(item => item.node.ports_allowed);
+
         host_item.trusted = host_nodes.every(item => item.trusted);
         host_item.migrating_to_pool = host_nodes.some(item => item.node.migrating_to_pool);
         host_item.n2n_errors = host_nodes.some(item => item.n2n_errors);
@@ -2357,7 +2362,8 @@ class NodesMonitor extends EventEmitter {
                     GATEWAY_ERRORS = 0,
                     INITIALIZING = 0,
                     DECOMMISSIONING = 0,
-                    MIGRATING = 0
+                    MIGRATING = 0,
+                    N2N_PORTS_BLOCKED = 0
             } = _.mapValues(_.groupBy(storage_nodes, i => i.mode), arr => arr.length);
             const DETENTION = IO_ERRORS + N2N_ERRORS + GATEWAY_ERRORS;
             const enabled_nodes_count = storage_nodes.length - DECOMMISSIONED;
@@ -2380,6 +2386,7 @@ class NodesMonitor extends EventEmitter {
                 (DETENTION && 'SOME_STORAGE_DETENTION') || // some in detention
                 (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
                 (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
+                (N2N_PORTS_BLOCKED && 'N2N_PORTS_BLOCKED') ||
                 'OPTIMAL';
         } else {
             host_item.storage_nodes_mode = 'OPTIMAL'; // if no storage nodes, consider storage mode as optimal
@@ -2418,6 +2425,10 @@ class NodesMonitor extends EventEmitter {
             host_item.mode = storage_mode === 'OFFLINE' ? 'STORAGE_OFFLINE' : storage_mode;
         } else {
             host_item.mode = mode_by_priority[s3_priority];
+            // in case the mode is optimal, check if there are blocked ports
+            if (host_item.mode === 'OPTIMAL' && storage_mode === 'N2N_PORTS_BLOCKED') {
+                host_item.mode = 'N2N_PORTS_BLOCKED';
+            }
         }
     }
 
@@ -2910,7 +2921,13 @@ class NodesMonitor extends EventEmitter {
         info.suggested_pool = host_item.suggested_pool;
         info.mode = host_item.mode;
 
-        info.port_range = (host_item.node.n2n_config || {}).tcp_permanent_passive;
+        const port_range = (host_item.node.n2n_config || {}).tcp_permanent_passive;
+        if (port_range) {
+            info.ports = {
+                range: port_range,
+                allowed: host_item.node.ports_allowed
+            };
+        }
         info.base_address = host_item.node.base_address;
         if (adminfo) {
             const stats = _.get(host_item, 's3_nodes[0].node.endpoint_stats');

@@ -66,6 +66,10 @@ module.exports = {
             type: 'integer'
         },
 
+        ports_allowed: {
+            type: 'boolean',
+        },
+
         ip: {
             // the public ip of the node
             type: 'string',

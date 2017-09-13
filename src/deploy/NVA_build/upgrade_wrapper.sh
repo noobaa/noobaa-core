@@ -448,7 +448,7 @@ function post_upgrade {
 		deploy_log "installing ntp"
 		yum install -y ntp
 		/sbin/chkconfig ntpd on 2345
-		/etc/init.d/ntpd start
+		systemctl start ntpd.service
 		sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 		ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
 	fi

@@ -7,7 +7,7 @@ FIRST_INSTALL_MARK="/etc/first_install.mrk"
 NOOBAANET="/etc/noobaa_network"
 
 function prepare_ifcfg() {
-  local interface=$1
+  local interface=${1}
   local curmac=$(ifconfig -a | grep ${interface} | awk '{print $5}')
   local uuid=$(uuidgen)
   if [ -f "/etc/sysconfig/network-scripts/ifcfg-${interface}" ]; then
@@ -25,18 +25,18 @@ function prepare_ifcfg() {
   sudo ifconfig ${interface} up
 }
 
-function fix_network() {
-  local test=$(grep eth /etc/udev/rules.d/70-persistent-net.rules|wc -l)
-  local curmac=$(ifconfig -a | grep eth | awk '{print $5}')
-  if [ "${test}" == "2" ]; then
-    sudo sed -i 's:.*NAME="eth0".*::' /etc/udev/rules.d/70-persistent-net.rules
-    sudo sed -i 's:\(.*\)NAME="eth1"\(.*\):\1NAME="eth0"\2:' /etc/udev/rules.d/70-persistent-net.rules
-    sudo sed -i "s/HWADDR=.*/HWADDR=$curmac/" /etc/sysconfig/network-scripts/ifcfg-eth0
-    sudo /sbin/udevadm control --reload-rules
-    sudo /sbin/udevadm trigger --attr-match=subsystem=net
-    sudo service network restart
-  fi
-}
+#function fix_network() {
+#  local test=$(grep eth /etc/udev/rules.d/70-persistent-net.rules|wc -l)
+#  local curmac=$(ifconfig -a | grep eth | awk '{print $5}')
+#  if [ "${test}" == "2" ]; then
+#    sudo sed -i 's:.*NAME="eth0".*::' /etc/udev/rules.d/70-persistent-net.rules
+#    sudo sed -i 's:\(.*\)NAME="eth1"\(.*\):\1NAME="eth0"\2:' /etc/udev/rules.d/70-persistent-net.rules
+#    sudo sed -i "s/HWADDR=.*/HWADDR=$curmac/" /etc/sysconfig/network-scripts/ifcfg-eth0
+#    sudo /sbin/udevadm control --reload-rules
+#    sudo /sbin/udevadm trigger --attr-match=subsystem=net
+#    sudo service network restart
+#  fi
+# }
 
 function validate_mask() {
   grep -E -q '^(254|252|248|240|224|192|128)\.0\.0\.0|255\.(254|252|248|240|224|192|128|0)\.0\.0|255\.255\.(254|252|248|240|224|192|128|0)\.0|255\.255\.255\.(254|252|248|240|224|192|128|0)' <<< "$1" && return 0 || return 1
@@ -44,7 +44,7 @@ function validate_mask() {
 
 function configure_interface_ip() {
     local interface=$1
-    local current_ip=$(ifconfig ${interface}  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
+    local current_ip=$(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}')
 
     dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Current IP for \Z4\Zb${interface}\Z : \Z4\Zb${current_ip}\Zn .\nChoose IP Assignment (Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 3 1 "Static IP" 2 "Dynamic IP" 3 "Exit" 2> choice
 
@@ -109,13 +109,13 @@ function configure_interface_ip() {
       sudo bash -c "echo '#NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"
       sudo bash -c "echo '#NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
       sudo bash -c "echo '#NooBaa Configured Search' >> /etc/resolv.conf"
-      ifcfg=$(ifconfig | grep inet | grep -v inet6 | grep -v 127.0.0.1) # ipv4
+      ifcfg=$(ifconfig | grep -w inet | grep -v 127.0.0.1) # ipv4
       if [[ "${dynamic}" -eq "2" && "${ifcfg}" == "" ]]; then
         dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1ERROR" --msgbox "\Zb\Z1Was unable to get dynamically allocated IP via DHCP" 5 55
       fi
     fi
 
-    local new_ip=$(ifconfig ${interface}  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
+    local new_ip=$(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}')
     if [ "${new_ip}" != "${current_ip}" ] && [ ps -ef | grep mongod | grep -q "\-\-replSet" ]; then
       dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1WARNING" --msgbox "\Zb\Z1\nThe interface IP was changed and this server is part of cluster!\n
       if the is the IP you use for your cluster - Go to cluster screen - find this server and change its IP in Change IP action" 7 55
@@ -123,7 +123,8 @@ function configure_interface_ip() {
 }
 
 function configure_ips_dialog {
-    local interfaces=$(ifconfig -a | grep eth | awk '{print $1}')
+    local interfaces=$(ifconfig -a | grep ^en | awk '{print $1}')
+    interfaces=${interfaces//:/}
     local str=""
     IFS=$'\n'
     count=0
@@ -249,7 +250,7 @@ function configure_ntp_dialog {
     sudo sed -i "s/.*NooBaa Configured NTP Server//" /etc/ntp.conf
     sudo bash -c "echo 'server ${ntp_server} iburst # NooBaa Configured NTP Server' >> /etc/ntp.conf"
     sudo /sbin/chkconfig ntpd on 2345
-    sudo /etc/init.d/ntpd restart > /dev/null 2>&1
+    sudo systemctl restart ntpd.service > /dev/null 2>&1
     sudo /etc/init.d/rsyslog restart > /dev/null 2>&1
     sudo /etc/init.d/supervisord restart > /dev/null 2>&1
 } 
@@ -327,14 +328,15 @@ function update_ips_etc_issue {
   ips=""
   while read line ; do
     ips="${ips}, ${line}"
-  done < <(ifconfig | grep 'inet addr' | grep -v 127.0.0.1 | cut -f 2 -d':' | cut -f 1 -d' ')
+  done < <(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}')
   ips=${ips##,} # removing last comma
   sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${ips}\x1b[0m:" /etc/issue
 }
 
 function update_noobaa_net {
   sudo bash -c "> ${NOOBAANET}"
-  eths=$(ifconfig -a | grep eth | awk '{print $1}')
+  eths=$(ifconfig -a | grep ^en | awk '{print $1}')
+  eths=${eths//:/}
   for eth in ${eths}; do
       sudo bash -c "echo ${eth} >> ${NOOBAANET}"
   done
@@ -365,7 +367,7 @@ is a short first install wizard to help configure \n\Z5\ZbNooBaa\Zn to best suit
 }
 
 function end_wizard {
-  local current_ip=$(ifconfig | grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ' | head -n 1)
+  local current_ip=$(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use.\nYou can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 72
   date | sudo tee -a ${FIRST_INSTALL_MARK}
   update_noobaa_net

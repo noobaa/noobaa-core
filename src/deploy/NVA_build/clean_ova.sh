@@ -3,8 +3,8 @@ set -e
 isAzure=false
 isesx=false
 function clean_ifcfg() {
-    eths=$(ifconfig | grep eth | awk '{print $1}')
-    for eth in ${eths}; do
+    eths=$(ifconfig | grep ^en | awk '{print $1}')
+    for eth in ${eths//:/}; do
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${eth}
         sudo sed -i "s:.*${eth}.*::" /etc/udev/rules.d/70-persistent-net.rules
     done
@@ -44,6 +44,8 @@ then
     echo "make sure no swap entry in fstab!"
     cat /etc/fstab
 else
+    #calling yum upgrade befor cleaning the network
+    yum upgrade -y 
     clean_ifcfg
     sudo rm /etc/first_install.mrk
 fi   

@@ -44,6 +44,8 @@ then
     echo "make sure no swap entry in fstab!"
     cat /etc/fstab
 else
+    #calling yum upgrade befor cleaning the network
+    yum upgrade -y 
     clean_ifcfg
     sudo rm /etc/first_install.mrk
 fi   

@@ -114,6 +114,11 @@ const modeToStateIcon = deepFreeze({
         css: 'warning',
         tooltip: 'Services has Issues'
     },
+    N2N_PORTS_BLOCKED: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    },
     OPTIMAL: {
         name: 'healthy',
         css: 'success',

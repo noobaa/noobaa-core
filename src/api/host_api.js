@@ -343,8 +343,16 @@ module.exports = {
                 rpc_address: {
                     type: 'string'
                 },
-                port_range: {
-                    $ref: 'common_api#/definitions/port_range_config'
+                ports: {
+                    type: 'object',
+                    properties: {
+                        range: {
+                            $ref: 'common_api#/definitions/port_range_config'
+                        },
+                        allowed: {
+                            type: 'boolean'
+                        }
+                    }
                 },
                 suggested_pool: {
                     type: 'string'
@@ -439,6 +447,7 @@ module.exports = {
                 'IN_PROCESS',
                 'NO_CAPACITY',
                 'LOW_CAPACITY',
+                'N2N_PORTS_BLOCKED',
                 'INITIALIZING',
                 'OPTIMAL',
                 'SOME_STORAGE_OFFLINE',
@@ -477,6 +486,7 @@ module.exports = {
                 'IN_PROCESS',
                 'NO_CAPACITY',
                 'LOW_CAPACITY',
+                'N2N_PORTS_BLOCKED',
                 'INITIALIZING',
                 'OPTIMAL',
                 'SOME_STORAGE_OFFLINE',
@@ -581,6 +591,9 @@ module.exports = {
                     type: 'integer'
                 },
                 LOW_CAPACITY: {
+                    type: 'integer'
+                },
+                N2N_PORTS_BLOCKED: {
                     type: 'integer'
                 },
                 INITIALIZING: {

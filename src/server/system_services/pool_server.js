@@ -452,7 +452,8 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode) {
     const { hosts, storage } = pool_info;
     const data_activities = pool_info.data_activities ? pool_info.data_activities.activities : [];
     const { count } = hosts;
-    const { OFFLINE: offline = 0, OPTIMAL: optimal = 0 } = storage_by_mode;
+    const offline = storage_by_mode.OFFLINE || 0;
+    const optimal = storage_by_mode.OPTIMAL || 0;
     const offline_ratio = (offline / count) * 100;
     const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);

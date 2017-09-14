@@ -9,12 +9,12 @@ const _ = require('lodash');
 const promise_utils = require('../../util/promise_utils');
 const serverName = argv.server_ip || '127.0.0.1';
 const systemName = argv.system_ip;
-const rpc = api.new_rpc('wss://' + serverName + ':8443');
-var client = rpc.new_client({});
+let rpc;
+let client;
 const bucketName = 'first.bucket';
-var failures_in_test = false;
-var newAccount;
-var s3AccessKeys = {};
+let failures_in_test = false;
+let newAccount;
+let s3AccessKeys = {};
 let errors = [];
 
 const {
@@ -163,15 +163,17 @@ function verify_s3_access(email) {
 }
 
 function login_user(email) {
-    console.info('disconnecting RPC');
-    rpc.disconnect_all();
+    rpc = api.new_rpc('wss://' + serverName + ':8443');
     client = rpc.new_client({});
-    console.log('Creating token with user ' + email);
-    return P.resolve(client.create_auth_token({
-        email: email,
-        system: 'demo',
-        password: "DeMo1",
-    }))
+    rpc.disable_validation();
+    return P.fcall(() => {
+        let auth_params = {
+            email: email,
+            password: 'DeMo1',
+            system: 'demo'
+        };
+        return client.create_auth_token(auth_params);
+    })
         .then(res => {
             if (res.token !== null && res.token !== '') {
                 console.log('Account has access to server');

@@ -393,6 +393,9 @@ module.exports = {
                     },
                     ping: {
                         type: 'boolean'
+                    },
+                    version_check: {
+                        type: 'boolean'
                     }
                 },
             },

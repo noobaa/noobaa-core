@@ -241,7 +241,8 @@ function create_system(req) {
             }
             return attempt_server_resolve(_.defaults({
                     rpc_params: {
-                        server_name: req.rpc_params.dns_name
+                        server_name: req.rpc_params.dns_name,
+                        version_check: true
                     }
                 }, req))
                 .then(result => {
@@ -1083,7 +1084,8 @@ function update_hostname(req) {
             // Use defaults to add dns_name property without altering the original request
             return attempt_server_resolve(_.defaults({
                     rpc_params: {
-                        server_name: req.rpc_params.hostname
+                        server_name: req.rpc_params.hostname,
+                        version_check: true
                     }
                 }, req))
                 .then(result => {
@@ -1103,11 +1105,13 @@ function update_hostname(req) {
 
 
 function attempt_server_resolve(req) {
+    let result;
     //If already in IP form, no need for resolving
     if (net.isIP(req.rpc_params.server_name)) {
         dbg.log2('attempt_server_resolve recieved an IP form', req.rpc_params.server_name);
-        return { valid: true };
+        return P.resolve({ valid: true });
     }
+
     dbg.log0('attempt_server_resolve', req.rpc_params.server_name);
     return P.promisify(dns.resolve)(req.rpc_params.server_name)
         .timeout(30000)
@@ -1117,19 +1121,47 @@ function attempt_server_resolve(req) {
                 return net_utils.ping(req.rpc_params.server_name)
                     .catch(err => {
                         dbg.error('ping failed', err);
-                        return {
+                        result = {
                             valid: false,
                             reason: err.code
                         };
-                    })
-                    .return({
-                        valid: true
                     });
             }
-            return {
-                valid: true
-            };
         })
+        .then(() => {
+            dbg.log('resolution passed, testing version');
+            if (req.rpc_params.version_check && !result) {
+                let options = {
+                    url: `http://${req.rpc_params.server_name}:${process.env.PORT}/version`,
+                    method: 'GET',
+                    strictSSL: false, // means rejectUnauthorized: false
+                };
+                dbg.log0('Sending Get Version Request To DNS Name:', options);
+                return P.fromCallback(callback => request(options, callback), {
+                        multiArgs: true
+                    })
+                    .spread(function(response, reply) {
+                        dbg.log0('Received Response From DNS Name', response.statusCode);
+                        if (response.statusCode !== 200 || String(reply) !== pkg.version) {
+                            dbg.error('version failed');
+                            result = {
+                                valid: false,
+                                reason: `Provided DNS Name doesn't seem to point to the current server`
+                            };
+                        }
+                    })
+                    .catch(err => {
+                        dbg.error('version failed', err);
+                        result = {
+                            valid: false,
+                            reason: err.code
+                        };
+                    });
+            }
+        })
+        .then(() => (result ? result : {
+            valid: true
+        }))
         .catch(P.TimeoutError, () => {
             dbg.error('resolve timedout');
             return {

@@ -92,10 +92,6 @@ function configure_interface_ip() {
       sudo dmesg -n 1
       sudo service network restart &> /dev/null
       sudo dmesg -n 3
-      #dhcpclient rewrites resolv.conf, add NooBaa marks to the new files
-      sudo bash -c "echo '#NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"
-      sudo bash -c "echo '#NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
-      sudo bash -c "echo '#NooBaa Configured Search' >> /etc/resolv.conf"
       ifcfg=$(ifconfig | grep -w inet | grep -v 127.0.0.1) # ipv4
       if [[ "${dynamic}" -eq "2" && "${ifcfg}" == "" ]]; then
         dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1ERROR" --msgbox "\Zb\Z1Was unable to get dynamically allocated IP via DHCP" 5 55
@@ -158,14 +154,17 @@ function configure_dns_dialog {
       dns2=$(tail -1 answer_dns)
     done
 
-    sudo sed -i "s/.*NooBaa Configured Primary DNS Server//" /etc/resolv.conf
-    sudo sed -i "s/.*NooBaa Configured Secondary DNS Server//" /etc/resolv.conf
+    sudo sed -i "s/.*NooBaa Configured DNS Servers//" /etc/dhclient.conf
 
     sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
-    sudo bash -c "echo 'nameserver ${dns1} #NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"
     if [ "${dns2}" != "" ]; then
-      sudo bash -c "echo 'nameserver ${dns2} #NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
+      sudo bash -c "echo 'prepend domain-name-servers ${dns1},${dns2} ; #NooBaa Configured DNS Servers' >> /etc/dhclient.conf"
+    else
+      sudo bash -c "echo 'prepend domain-name-servers ${dns1} ; #NooBaa Configured DNS Servers' >> /etc/dhclient.conf"
     fi
+    sudo dmesg -n 1 # need to restart network to update /etc/resolv.conf - supressing too much logs
+    sudo service network restart &> /dev/null
+    sudo dmesg -n 3
     sudo supervisorctl restart all > /dev/null 2>&1
 }
 

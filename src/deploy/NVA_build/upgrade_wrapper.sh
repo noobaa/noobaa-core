@@ -463,15 +463,14 @@ function post_upgrade {
 		echo "#NooBaa Configured Proxy Server"	 >> /etc/yum.conf
 	fi
 
-	local noobaa_dns=$(grep 'NooBaa Configured Primary DNS Server' /etc/resolv.conf | wc -l)
+	local noobaa_dns=$(grep 'NooBaa Configured DNS Servers' /etc/dhclient.conf | wc -l)
 	if [ ${noobaa_dns} -eq 0 ]; then #was not configured yet
-			echo "#NooBaa Configured Primary DNS Server" >> /etc/resolv.conf
-			echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
+			echo "#NooBaa Configured DNS Servers" >> /etc/dhclient.conf
 	fi
 
-  local noobaa_search=$(grep 'NooBaa Configured Search' /etc/resolv.conf | wc -l)
+  local noobaa_search=$(grep 'NooBaa Configured Search' /etc/dhclient.conf | wc -l)
 	if [ ${noobaa_search} -eq 0 ]; then #was not configured yet
-			echo "#NooBaa Configured Search" >> /etc/resolv.conf			
+			echo "#NooBaa Configured Search" >> /etc/dhclient.conf			
 	fi
 
 	#Upgrade mongo to 3.2 if needed

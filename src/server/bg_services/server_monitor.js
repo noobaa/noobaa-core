@@ -117,7 +117,7 @@ function _verify_dns_cluster_config() {
         .then(platform_dns_config => {
             if (!_are_platform_and_cluster_conf_equal(platform_dns_config, cluster_conf)) {
                 dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_config, 'cluster_conf:', cluster_conf);
-                return os_utils.set_dns_server(cluster_conf)
+                return os_utils.set_dns_server(cluster_conf.dns_servers, cluster_conf.search_domains)
                     .then(() => os_utils.restart_services());
             }
         })

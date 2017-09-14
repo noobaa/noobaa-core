@@ -514,20 +514,14 @@ function get_dns_servers() {
     };
 
     if (os.type() === 'Linux') {
-        return promise_utils.exec("cat /etc/resolv.conf | grep NooBaa", true, true)
+        return promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured DNS Servers'  | awk '{print $3}'", true, true)
             .then(cmd_res => {
-                let conf_lines = cmd_res.split(/\n/);
-                dns_config.dns_servers = conf_lines.map(line => {
-                        let regex_res = (/nameserver (.*) #NooBaa/).exec(line);
-                        return regex_res && regex_res[1];
-                    })
-                    .filter(regex_group => !_.isEmpty(regex_group));
-
-                dns_config.search_domains = conf_lines.map(line => {
-                        let regex_res = (/search (.*) #NooBaa/).exec(line);
-                        return regex_res && regex_res[1];
-                    })
-                    .filter(regex_group => !_.isEmpty(regex_group));
+                dns_config.dns_servers = cmd_res.trim().split(',');
+            })
+            .then(() => promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured Search' | awk '{print $3}'", true, true))
+            .then(cmd_res => {
+                const search = cmd_res.trim().split(',');
+                dns_config.search_domains = search.map(domain => domain.replace(/"/g, ''));
                 return dns_config;
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
@@ -539,25 +533,23 @@ function get_dns_servers() {
 function set_dns_server(servers, search_domains) {
     if (os.type() === 'Linux') {
         var commands_to_exec = [];
-        if (servers[0]) {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/nameserver " +
-                servers[0] + " #NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
-        } else {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/#NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
-        }
-
-        if (servers[1]) {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/nameserver " +
-                servers[1] + " #NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
-        } else {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/#NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
+        if (servers[0] && servers[1]) {
+            commands_to_exec.push("echo 'prepend domain-name-servers " + servers[0] + "," + servers[1] + " ; #NooBaa Configured DNS Servers' > /etc/dhclient.conf");
+        } else if (servers[0]) {
+            commands_to_exec.push("echo 'prepend domain-name-servers " + servers[0] + " ; #NooBaa Configured DNS Servers' > /etc/dhclient.conf");
         }
 
         if (search_domains && search_domains.length) {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/search " +
-                search_domains + " #NooBaa Configured Search/' /etc/resolv.conf");
-        } else {
-            commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/resolv.conf");
+            let command = "echo 'prepend domain-search \"" + search_domains[0] + "\"";
+            for (let i = 1; i < search_domains.length; ++i) {
+                command += ",\"" + search_domains[i] + "\"";
+            }
+            command += " ; #NooBaa Configured Search' >> /etc/dhclient.conf";
+            commands_to_exec.push(command);
+        }
+
+        if (commands_to_exec.length) {
+            commands_to_exec.push("service network restart");
         }
 
         return P.each(commands_to_exec, function(command) {

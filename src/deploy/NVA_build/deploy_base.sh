@@ -80,9 +80,8 @@ function install_platform {
     # By Default, NTP is disabled, set local TZ to US Pacific
     echo "#NooBaa Configured NTP Server"     >> /etc/ntp.conf
     echo "#NooBaa Configured Proxy Server"     >> /etc/yum.conf
-    echo "#NooBaa Configured Primary DNS Server" >> /etc/resolv.conf
-    echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
-    echo "#NooBaa Configured Search" >> /etc/resolv.conf
+    echo "#NooBaa Configured DNS Servers" >> /etc/dhclient.conf
+    echo "#NooBaa Configured Search" >> /etc/dhclient.conf
     sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
     ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
 

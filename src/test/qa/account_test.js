@@ -210,12 +210,17 @@ function verify_account_in_system(email, is_contain) {
     });
 }
 P.fcall(function() {
-    var auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
-    return client.create_auth_token(auth_params);
+    rpc = api.new_rpc('wss://' + serverName + ':8443');
+    client = rpc.new_client({});
+    rpc.disable_validation();
+    return P.fcall(() => {
+        let auth_params = {
+            email: 'demo@noobaa.com',
+            password: 'DeMo1',
+            system: 'demo'
+        };
+        return client.create_auth_token(auth_params);
+    });
     })
     .then(() => P.resolve(create_account(true, true)))
     .delay(10000)

@@ -257,7 +257,7 @@ function _get_master_secret(rs_status) {
     if (rs_status && rs_status.members) {
         const master_member = rs_status.members.find(member => member.stateStr === 'PRIMARY');
         const master_address = master_member.name.substring(0, master_member.name.indexOf(':'));
-        master_secret = (system_store.data.clusters.find(server => server.owner_address === master_address)).secret;
+        master_secret = (system_store.data.clusters.find(server => server.owner_address === master_address)).owner_secret;
     }
 
     return master_secret;

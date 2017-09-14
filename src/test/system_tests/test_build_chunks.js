@@ -577,7 +577,7 @@ function test_tear_down() {
         .then(system => {
             let pools_to_delete = [];
             _.each(system.pools, pool => {
-                if (pool.name !== config.NEW_SYSTEM_POOL_NAME && pool.name !== config.INTERNAL_STORAGE_POOL_NAME) {
+                if (pool.name !== config.NEW_SYSTEM_POOL_NAME && pool.name.indexOf(config.INTERNAL_STORAGE_POOL_NAME) === -1) {
                     pools_to_delete.push(client.node.list_nodes({
                             query: {
                                 pools: [pool.name],

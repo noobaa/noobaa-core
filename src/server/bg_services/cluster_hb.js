@@ -9,6 +9,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const os_utils = require('../../util/os_utils');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const Dispatcher = require('../notifications/dispatcher');
+const size_utils = require('../../util/size_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const server_monitor = require('./server_monitor');
 const clustering_utils = require('../utils/clustering_utils');
@@ -40,6 +41,12 @@ function do_heartbeat() {
             .then(() => os_utils.os_info(true)
                 .then(os_info => {
                     heartbeat.health.os_info = os_info;
+                    //Adjust tolerance of minimum RAM requirement to 1 GB below actual minimum
+                    const min_ram = clustering_utils.get_min_requirements().ram;
+                    if (heartbeat.health.os_info.totalmem < min_ram &&
+                        heartbeat.health.os_info.totalmem > (min_ram - size_utils.GIGABYTE)) {
+                        heartbeat.health.os_info.totalmem = min_ram;
+                    }
                     heartbeat.health.usage = os_utils.calc_cpu_usage(os.cpus(), this.cpu_info);
                     this.cpu_info = os_info.cpu_info;
                 }))

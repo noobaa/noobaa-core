@@ -1183,7 +1183,8 @@ export function attemptResolveSystemName(name) {
     logAction('attemptResolveSystemName', { name });
 
     api.system.attempt_server_resolve({
-        server_name: name
+        server_name: name,
+        version_check: true
     })
         .then(
             reply => sleep(500, reply)

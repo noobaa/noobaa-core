@@ -672,7 +672,7 @@ module.exports = {
                     $ref: '#/definitions/bucket_mode'
                 },
                 undeletable: {
-                   $ref: '#/definitions/undeletable_bucket_reason'
+                    $ref: '#/definitions/undeletable_bucket_reason'
                 }
             }
         },
@@ -785,6 +785,10 @@ module.exports = {
         bucket_mode: {
             type: 'string',
             enum: [
+                // TODO: Remove the comment when FE supports the feature
+                // 'SPILLOVER_NO_RESOURCES',
+                // 'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
+                // 'SPILLOVER_NO_CAPACITY',
                 'NO_RESOURCES',
                 'NOT_ENOUGH_HEALTHY_RESOURCES',
                 'NO_CAPACITY',

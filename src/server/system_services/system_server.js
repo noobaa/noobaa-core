@@ -73,7 +73,6 @@ function _init() {
         P.fcall(function() {
                 if (system_store.is_finished_initial_load && system_store.data.systems.length) {
                     return P.join(
-                            P.map(system_store.data.systems, system => _ensure_spillover_structure(system)),
                             _initialize_debug_level()
                         )
                         .then(() => {
@@ -352,6 +351,7 @@ function create_system(req) {
                 auth_token: reply_token
             });
         })
+        .then(() => _ensure_spillover_structure(system_changes))
         .then(() => _init_system(system_changes.insert.systems[0]._id))
         .then(() => system_utils.mongo_wrapper_system_created())
         .then(() => ({
@@ -1192,16 +1192,19 @@ function create_internal_tier(system_id, mongo_pool_id) {
     }]);
 }
 
-function _ensure_spillover_structure(system) {
+function _ensure_spillover_structure(system_changes) {
     const support_account = _.find(system_store.data.accounts, account => account.is_support);
+    const system_id = system_changes.insert.systems[0]._id;
+    const tiering_policy_id = system_changes.insert.tieringpolicies[0]._id;
+
     if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
     return P.fcall(function() {
-            if (!pool_server.get_internal_mongo_pool(system._id)) {
+            if (!pool_server.get_internal_mongo_pool(system_id)) {
                 return server_rpc.client.pool.create_mongo_pool({
-                    name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`
+                    name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`
                 }, {
                     auth_token: auth_server.make_auth_token({
-                        system_id: system._id,
+                        system_id: system_id,
                         role: 'admin',
                         account_id: support_account._id
                     })
@@ -1209,14 +1212,27 @@ function _ensure_spillover_structure(system) {
             }
         })
         .then(() => {
-            if (!tier_server.get_internal_storage_tier(system._id)) {
-                const mongo_pool = pool_server.get_internal_mongo_pool(system._id);
+            if (!tier_server.get_internal_storage_tier(system_id)) {
+                const mongo_pool = pool_server.get_internal_mongo_pool(system_id);
                 if (!mongo_pool) throw new Error('MONGO POOL CREATION FAILURE');
-                const internal_tier = create_internal_tier(system._id, mongo_pool._id);
+                const internal_tier = create_internal_tier(system_id, mongo_pool._id);
 
                 return {
                     insert: {
                         tiers: [internal_tier]
+                    },
+                    update: {
+                        tieringpolicies: [{
+                            _id: tiering_policy_id,
+                            $push: {
+                                tiers: {
+                                    tier: internal_tier._id,
+                                    order: 1,
+                                    spillover: true,
+                                    disabled: false
+                                }
+                            }
+                        }]
                     }
                 };
             }

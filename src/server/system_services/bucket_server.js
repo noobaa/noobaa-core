@@ -89,18 +89,17 @@ function create_bucket(req) {
 
     if (req.rpc_params.tiering) {
         tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
-        // TODO: Disabled spillover untill the UI will support the feature
-        // changes.update.tieringpolicies = [{
-        //     _id: tiering_policy._id,
-        //     $push: {
-        //         tiers: {
-        //             tier: internal_storage_tier._id,
-        //             order: 1,
-        //             spillover: true,
-        //             disabled: true
-        //         }
-        //     }
-        // }];
+        changes.update.tieringpolicies = [{
+            _id: tiering_policy._id,
+            $push: {
+                tiers: {
+                    tier: internal_storage_tier._id,
+                    order: 1,
+                    spillover: true,
+                    disabled: true
+                }
+            }
+        }];
     } else {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
@@ -113,19 +112,16 @@ function create_bucket(req) {
         );
         tiering_policy = tier_server.new_policy_defaults(
             bucket_with_suffix, req.system._id, [{
-                    tier: tier._id,
-                    order: 0,
-                    spillover: false,
-                    disabled: false
-                }
-                // TODO: Disabled spillover untill the UI will support the feature
-                // , {
-                //     tier: internal_storage_tier._id,
-                //     order: 1,
-                //     spillover: true,
-                //     disabled: true
-                // }
-            ]
+                tier: tier._id,
+                order: 0,
+                spillover: false,
+                disabled: false
+            }, {
+                tier: internal_storage_tier._id,
+                order: 1,
+                spillover: true,
+                disabled: true
+            }]
         );
 
         changes.insert.tieringpolicies = [tiering_policy];
@@ -1212,21 +1208,24 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     }
 
     info.mode = calc_bucket_mode(has_any_pool_configured, has_any_valid_pool_configured, is_no_storage,
-        is_storage_low, is_quota_low, is_quota_exceeded);
+        is_storage_low, is_quota_low, is_quota_exceeded, spillover_allowed_in_policy);
 
     return info;
 }
 
 function calc_bucket_mode(has_any_pool_configured, has_any_valid_pool_configured, is_no_storage,
-    is_storage_low, is_quota_low, is_quota_exceeded) {
+    is_storage_low, is_quota_low, is_quota_exceeded, spillover_allowed_in_policy) {
     if (!has_any_pool_configured) {
-        return 'NO_RESOURCES';
+        // TODO: Remove the comment when FE supports the feature
+        return /*spillover_allowed_in_policy ? 'SPILLOVER_NO_RESOURCES' :*/ 'NO_RESOURCES';
     }
     if (!has_any_valid_pool_configured) {
-        return 'NOT_ENOUGH_HEALTHY_RESOURCES';
+        // TODO: Remove the comment when FE supports the feature
+        return /*spillover_allowed_in_policy ? 'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES' :*/ 'NOT_ENOUGH_HEALTHY_RESOURCES';
     }
     if (is_no_storage) {
-        return 'NO_CAPACITY';
+        // TODO: Remove the comment when FE supports the feature
+        return /*spillover_allowed_in_policy ? 'SPILLOVER_NO_CAPACITY' :*/ 'NO_CAPACITY';
     }
     if (is_storage_low) {
         return 'LOW_CAPACITY';

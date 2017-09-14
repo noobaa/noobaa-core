@@ -112,13 +112,13 @@ mocha.describe('md_store', function() {
 
         mocha.it('aggregate_objects_by_create_dates()', function() {
             const till_time = Date.now();
-            const from_time = till_time.getTime() - (24 * 3600 * 1000);
+            const from_time = till_time - (24 * 3600 * 1000);
             return md_store.aggregate_objects_by_create_dates(from_time, till_time);
         });
 
         mocha.it('aggregate_objects_by_delete_dates()', function() {
             const till_time = Date.now();
-            const from_time = till_time.getTime() - (24 * 3600 * 1000);
+            const from_time = till_time - (24 * 3600 * 1000);
             return md_store.aggregate_objects_by_delete_dates(from_time, till_time);
         });
 

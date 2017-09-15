@@ -21,7 +21,7 @@ import notificationsReducer from './notificaitons-reducer';
 import topologyReducer from './topology-reducer';
 import hostPartsReducer from './host-parts-reducer';
 import cloudTargetsReducer from './cloud-targets-reducer';
-import helpMetadataReducer from './help-metadata-reducer';
+import interactiveHelpReducer from './interactive-help-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -44,5 +44,5 @@ export default combineReducers({
     objectUploads: objectUploadsReducer,
     topology: topologyReducer,
     cloudTargets: cloudTargetsReducer,
-    helpMetadata: helpMetadataReducer
+    interactiveHelp: interactiveHelpReducer
 });

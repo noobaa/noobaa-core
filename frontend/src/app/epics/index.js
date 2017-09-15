@@ -46,7 +46,7 @@ import deleteNamespaceResource from './delete-namespace-resource';
 import createGatewayBucket from './create-gateway-bucket';
 import updateGatewayBucketPlacement from './update-gateway-bucket-placement';
 import deleteGatewayBucket from './delete-gateway-bucket';
-import ensureHelpMeta from './ensure-help-meta';
+import ensureHelpMetadata from './ensure-help-metadata';
 
 const generalEpics = [
     handleLocationRequests,
@@ -123,8 +123,8 @@ const namespaceRelatedEpics = [
     deleteNamespaceResource
 ];
 
-const externalData = [
-    ensureHelpMeta
+const helpRelatedEpics = [
+    ensureHelpMetadata
 ];
 
 // A utility that combine multiple epics into one epic.
@@ -148,5 +148,5 @@ export default _combineEpics([
     ...resourceRelatedEpics,
     ...hostRelatedEpics,
     ...namespaceRelatedEpics,
-    ...externalData
+    ...helpRelatedEpics
 ]);

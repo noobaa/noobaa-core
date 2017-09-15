@@ -15,4 +15,5 @@ export * from './host-actions';
 export * from './account-actions';
 export * from './cloud-actions';
 export * from './namespace-actions';
-export * from './external-data-actions';
+export * from './help-metadata-actions';
+

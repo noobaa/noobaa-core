@@ -7,23 +7,19 @@ class ExternalDataStore {
 
     async fetch(name) {
         const item = this[itemsSym].get(name);
+        if(!item || item.value) return false;
 
-        if(!item || item.value) return;
-
-        await fetch(this[itemsSym].get(name).uri)
-            .then(response => {
-                const contentType = response.headers.get('content-type');
-                if(contentType && contentType.includes('application/json')) {
-                    return response.json();
-                }
-            })
-            .then(json => {
+        try {
+            const response = await fetch(item.uri);
+            const contentType = response.headers.get('content-type');
+            if(contentType && contentType.includes('application/json')) {
+                const json = await response.json();
                 this[itemsSym].set(name, { ...item, value: json });
-            })
-            .catch(error => {
-                return error;
-            });
-
+                return true;
+            }
+        } catch(error) {
+            throw error;
+        }
     }
 
     get(name) {
@@ -34,5 +30,5 @@ class ExternalDataStore {
 }
 
 export default new ExternalDataStore([
-    ['interactiveHelp', { uri: `${window.location.origin}/fe/assets/interactive-help.json` }]
+    ['helpMetadata', { uri: `${window.location.origin}/fe/assets/interactive-help.json` }]
 ]);

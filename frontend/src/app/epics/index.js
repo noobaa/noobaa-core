@@ -51,7 +51,7 @@ import fetchBucketObjects from './fetch-bucket-objects';
 import deleteBucketObject from './delete-bucket-object';
 import abortObjectUpload from './abort-object-upload';
 import fetchSystemStorageHistory from './fetch-system-storage-history';
-import ensureHelpMeta from './ensure-help-meta';
+import ensureHelpMetadata from './ensure-help-metadata';
 
 const generalEpics = [
     handleLocationRequests,
@@ -133,8 +133,8 @@ const namespaceRelatedEpics = [
     deleteNamespaceResource
 ];
 
-const externalData = [
-    ensureHelpMeta
+const helpRelatedEpics = [
+    ensureHelpMetadata
 ];
 
 // A utility that combine multiple epics into one epic.
@@ -158,5 +158,5 @@ export default _combineEpics([
     ...resourceRelatedEpics,
     ...hostRelatedEpics,
     ...namespaceRelatedEpics,
-    ...externalData
+    ...helpRelatedEpics
 ]);

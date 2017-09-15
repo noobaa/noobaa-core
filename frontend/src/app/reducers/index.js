@@ -25,6 +25,7 @@ import bucketObjectsReducer from './bucket-objects-reducer';
 import storageHistoryReducer from './storage-history-reducer';
 import systemReducer from './system-reducer';
 import helpMetadataReducer from './help-metadata-reducer';
+import interactiveHelpReducer from './interactive-help-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -50,5 +51,6 @@ export default combineReducers({
     bucketObjects: bucketObjectsReducer,
     storageHistory: storageHistoryReducer,
     system: systemReducer,
-    helpMetadata: helpMetadataReducer
+    helpMetadata: helpMetadataReducer,
+    interactiveHelp: interactiveHelpReducer
 });

@@ -582,3 +582,18 @@ export function openEditSpilloverTargetsModal() {
     };
 }
 
+export function openShowVideoModal(title, url) {
+    return {
+        type: 'OPEN_MODAL',
+        payload: {
+            component: {
+                name: 'show-video-modal',
+                params: { url },
+            },
+            options: {
+                size: 'large',
+                title
+            }
+        }
+    };
+}

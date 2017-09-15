@@ -8,12 +8,11 @@
         <div class="greedy push-next">
             <input type="search"
                 placeholder="Search"
-                ko.textInput="throttledSearch"
+                ko.textInput="throttledFilter"
             />
         </div>
         <dropdown class="align-end" params="
-            placeholder: 'All Topics',
-            options: categories,
+            options: categoryOptions,
             selected: form.selectedCategory
         "></dropdown>
     </div>
@@ -21,7 +20,7 @@
     <div class="column greedy push-next results-container">
         <ul class="list-no-style legend-items" ko.foreach="rows">
             <li class="separator">
-                <a class="row content-middle no-outline" target="_blank" ko.attr.href="uri">
+                <a class="row content-middle no-outline" ko.click="onSelect">
                     <svg-icon class="highlight push-both"
                         params="name: icon"
                     ></svg-icon>
@@ -32,11 +31,11 @@
                 </a>
             </li>
         </ul>
-        <span class="pad empty-list-message" ko.visible="isNoResults">No results for this topic</span>
+        <span class="pad empty-list-message" ko.visible="hasNoResults">No results for this topic</span>
     </div>
 
     <span class="align-middle">
-        Can't find what you are looking for? Check out our <a class="link" target="_blank" ko.attr.href="deskUri">support center</a>
+        Can't find what you are looking for? Check out our <a class="link" target="_blank" ko.attr.href="deskUrl">support center</a>
     </span>
 </form>
 

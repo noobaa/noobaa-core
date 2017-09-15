@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { COMPLETE_ENSURE_HELP_META } from 'action-types';
+import { COMPLETE_ENSURE_HELP_METADATA } from 'action-types';
 // ------------------------------
 // Initial State
 // ------------------------------
@@ -26,5 +26,5 @@ function onCompleteEnsureHelpMetadata(/*_ , { payload }*/) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [COMPLETE_ENSURE_HELP_META]: onCompleteEnsureHelpMetadata
+    [COMPLETE_ENSURE_HELP_METADATA]: onCompleteEnsureHelpMetadata
 });

@@ -1,12 +1,6 @@
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
-
-const helpIconsMapping = deepFreeze({
-    ARTICLE: 'article',
-    LINK: 'link',
-    SLIDES: 'guide',
-    VIDEO: 'video'
-});
+import { openShowVideoModal } from 'action-creators';
+import { action$ } from 'state';
 
 export default class TopicRowViewModel {
     constructor() {
@@ -14,6 +8,7 @@ export default class TopicRowViewModel {
         this.subtitle = ko.observable();
         this.uri = ko.observable();
         this.icon = ko.observable();
+        this.kind = ko.observable();
     }
 
     onTopic(topic) {
@@ -22,6 +17,16 @@ export default class TopicRowViewModel {
         this.title(title);
         this.subtitle(subtitle);
         this.uri(uri);
-        this.icon(helpIconsMapping[kind]);
+        this.icon(kind.toLowerCase());
+        this.kind(kind);
+    }
+
+    onSelect() {
+        if(this.kind() != 'VIDEO') {
+            window.open(this.uri(),'_newtab');
+        } else {
+            action$.onNext(openShowVideoModal(this.title(), this.uri()));
+        }
+
     }
 }

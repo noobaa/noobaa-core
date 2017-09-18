@@ -22,6 +22,13 @@ function ssh_exec(client, command) {
                 });
         }));
 }
+function ssh_disconnect(client) {
+    return new P((resolve, reject) => client
+        .once('ready', resolve)
+        .once('error', reject)
+        .on('end', resolve));
+}
 
 exports.ssh_exec = ssh_exec;
 exports.ssh_connect = ssh_connect;
+exports.ssh_disconnect = ssh_disconnect;

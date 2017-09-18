@@ -6,9 +6,8 @@ const _ = require('lodash');
 const net = require('net');
 const dgram = require('dgram');
 const http = require('http');
-const ssh = require('../qa/ssh_functions');
-const ssh2 = require('ssh2');
 const promise_utils = require('../../util/promise_utils');
+const server_ops = require('../qa/server_functions');
 const argv = require('minimist')(process.argv);
 const serverName = argv.server_ip;
 const api = require('../../api');
@@ -17,7 +16,6 @@ const api = require('../../api');
 let secret;
 let rpc;
 let client;
-let client_ssh;
 let old_time = 0;
 let configured_ntp = argv.ntp_server || 'pool.ntp.org';
 let primary_dns = argv.primary_dns || '8.8.8.8';
@@ -36,7 +34,6 @@ let external_server_ip = argv.external_server_ip;
 let udp_rsyslog_port = argv.udp_syslog_port || 5001;
 let tcp_rsyslog_port = argv.tcp_syslog_port || 5002;
 let ph_proxy_port = argv.ph_proxy_port || 5003;
-let activation_code = 'pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6ek&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQayzLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd';
 
 let errors = [];
 
@@ -98,85 +95,16 @@ P.fcall(function() {
         console.log('Secret is ' + secret);
     })
     .then(() => rpc.disconnect_all())
-    .then(() => {
-        client_ssh = new ssh2.Client();
-        return ssh.ssh_connect(client_ssh, {
-                host: external_server_ip,
-              //  port: 22,
-                username: 'noobaaroot',
-                password: secret,
-                keepaliveInterval: 5000,
-            })
-            .then(() => ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a'))
-            .then(() => ssh.ssh_exec(client_ssh, 'sudo reboot -fn'))
-            .then(() => client_ssh.end())
-            .catch(err => {
-                saveErrorAndResume(`${external_server_ip} FAILED`, err);
-                failures_in_test = true;
-                throw err;
-            });
-    })
-    .then(() => {
-        console.log('Waiting for connection server');
-        rpc = api.new_rpc('wss://' + serverName + ':8443');
-        client = rpc.new_client({});
-        let retries = 10;
-        let final_result;
-        return promise_utils.pwhile(
-            function() {
-                return retries > 0;
-            },
-            function() {
-                return P.resolve(client.account.accounts_status({}))
-                    .then(res => {
-                        console.log('Server is ready !!!!', res);
-                        retries = 0;
-                        final_result = res;
-                    })
-                    .catch(() => {
-                        console.warn('Waiting for read server config, will retry extra', retries, 'times');
-                        return P.delay(30000);
-                    });
-            }).then(() => final_result);
-    })
-    .then(() => {
-        console.log('Validate activation code');
-        return P.resolve(client.system.validate_activation({
-            code: activation_code,
-            email: 'demo@noobaa.com'
-        }));
-    })
-    .then(result => {
-        let code_is = result.valid;
-        if (code_is === true) {
-            console.log('Activation code is valid');
-        } else {
-            saveErrorAndResume('Activation code is not valid for new system failure!!!');
+    .then(() => server_ops.clean_ova(external_server_ip, secret))
+    .then(() => server_ops.wait_server_recoonect(serverName))
+    .then(() => server_ops.validate_activation_code(serverName)
+        .catch(err => {
+            saveErrorAndResume(err.message);
             failures_in_test = true;
-        }
-    })
-    .then(() => P.resolve(client.system.create_system({
-        email: 'demo@noobaa.com',
-        name: 'demo',
-        password: 'DeMo1',
-        activation_code: activation_code
-    })))
-    .then(() => P.resolve(client.account.accounts_status({})))
-    .then(res => P.resolve()
-        .then(() => promise_utils.pwhile(
-            function() {
-                return !res.has_accounts === true;
-            },
-            function() {
-                console.warn('Waiting for account has status true');
-                return P.delay(5000);
-            }))
-        .timeout(1 * 60000)
-        .then(() => {
-            console.log('Account has status: ' + res.has_accounts);
-        })
-        .catch(() => {
-            saveErrorAndResume('Couldn\'t create system');
+        }))
+    .then(() => server_ops.create_system_and_check(serverName)
+        .catch(err => {
+            saveErrorAndResume(err.message);
             failures_in_test = true;
         }))
     .then(() => {
@@ -201,8 +129,8 @@ P.fcall(function() {
         let retries = 6;
         let final_result;
         return promise_utils.pwhile(function() {
-                return retries > 0;
-            },
+            return retries > 0;
+        },
             function() {
                 return P.resolve(client.cluster_server.read_server_config({}))
                     .then(res => {

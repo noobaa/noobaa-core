@@ -1,0 +1,80 @@
+<!-- Copyright (C) 2017 NooBaa -->
+
+<div class="help-viewer-content column text-left"
+     ko.visible="visible"
+     ko.css.visible="visible"
+>
+   <h2 class="row heading3 viewer-heading content-middle">
+       <span class="greedy push-next no-wrap" ko.text="title"></span>
+
+       <button class="resize-btn icon-btn no-outline push-next-half"
+               tabindex="-1"
+               ko.click="onResize"
+       >
+           <svg-icon class="icon-small" params="name: resizeIcon"></svg-icon>
+       </button>
+       <button class="close-btn icon-btn no-outline"
+           tabindex="-1"
+           ko.click="onClose"
+       >
+           <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
+       </button>
+   </h2>
+    <div class="viewer-body column" ko.css.minimized="minimized" ko.with="topic">
+        <!-- ko if: kind === 'ARTICLE' -->
+        <div class="scrollable-container column pad-half">
+            <a class="article-uri"
+                ko.attr.href="uri"
+                target="_blank"
+            >
+                Open in new tab <svg-icon params="name: 'external-link'"></svg-icon>
+            </a>
+            <div class="body" ko.html="body"></div>
+            <div class="align-end">
+                <button class="btn" ko.click="$parent.onClose">
+                    Done
+                </button>
+            </div>
+        </div>
+        <!-- /ko -->
+        <!-- ko if: kind === 'SLIDES' -->
+        <div class="column greedy scrollable-container pad-half" ko.with="slides[$parent.slide()]">
+            <h2 class="heading2" ko.text="title"></h2>
+            <div ko.with="desc">
+                <!-- ko if: kind === 'TEXT' -->
+                <div ko.foreach="content">
+                    <p ko.text="$data" />
+                </div>
+                <!-- /ko -->
+                <!-- ko if: kind === 'BULLETS' -->
+                <ul ko.foreach="content">
+                    <li ko.text="$data" />
+                </ul>
+                <!-- /ko -->
+                <!-- ko if: kind === 'LIST' -->
+                <ol ko.foreach="content">
+                    <li ko.text="$data" />
+                </ol>
+                <!-- /ko -->
+            </div>
+            <div class="greedy">
+                <img ko.attr.src="image" />
+            </div>
+        </div>
+        <div class="row align-end content-middle pad-half">
+            <button class="link push-next"
+                ko.click="$parent.onPrev"
+                ko.visible="$parent.isShowPrevious"
+            >
+                Previous
+            </button>
+            <button class="btn" ko.click="$parent.onNext" ko.visible="!$parent.isShowDone()">
+                Next Step
+            </button>
+            <button class="btn" ko.click="$parent.onClose" ko.visible="$parent.isShowDone">
+                Done
+            </button>
+        </div>
+        <!-- /ko -->
+    </div>
+</div>

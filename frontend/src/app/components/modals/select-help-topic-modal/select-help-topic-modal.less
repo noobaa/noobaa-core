@@ -7,6 +7,23 @@
         background-color: @color3;
         overflow: auto;
 
+        .topics-list {
+            .icon-col {
+                min-width: 60px;
+            }
+
+            .topic-col {
+                max-width: 350px;
+            }
+
+            .category-col {
+                min-width: 120px;
+                font-size: @font-size1;
+                padding: @gutter/4 @gutter/2;
+                text-align: center;
+            }
+        }
+
         .separator:not(:first-child) {
             border: none;
             margin: 2px 0;

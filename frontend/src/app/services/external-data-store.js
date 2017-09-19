@@ -1,4 +1,20 @@
+/* Copyright (C) 2017 NooBaa */
+
+import { externalDataSchema } from '../schema';
+import { createSchemaValidator } from '../utils/schema-utils';
+//import { deepFreeze } from 'utils/core-utils';
+
 const itemsSym = Symbol();
+
+// Check state against schema
+function _validateJson(json, name) {
+    const schemaValidator = createSchemaValidator(externalDataSchema[name]);
+    const errors = schemaValidator(json);
+    if (errors) {
+        console.error('INVALID JSON', { json, errors });
+        throw new Error('Invalid json');
+    }
+}
 
 class ExternalDataStore {
     constructor(uris) {
@@ -14,10 +30,12 @@ class ExternalDataStore {
             const contentType = response.headers.get('content-type');
             if(contentType && contentType.includes('application/json')) {
                 const json = await response.json();
+                _validateJson(json, name);
                 this[itemsSym].set(name, { ...item, value: json });
                 return true;
             }
         } catch(error) {
+            console.warn('fetch.error', error);
             throw error;
         }
     }

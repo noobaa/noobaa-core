@@ -1,0 +1,35 @@
+{
+  "name": "netstorageapi",
+  "version": "1.1.3",
+  "description": "Akamai Netstorage API for Node.js",
+  "main": "./lib/netstorage.js",
+  "scripts": {
+    "test": "./node_modules/mocha/bin/mocha --reporter spec --no-timeouts --ui bdd test/test-*"
+  },
+  "pre-commit": [
+    "test"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/akamai-open/NetstorageKit-Node"
+  },
+  "keywords": [
+    "netstorage",
+    "akamai",
+    "open",
+    "api",
+    "filestore",
+    "objectstore"
+  ],
+  "author": "Astin Choi <asciineo@gmail.com>",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^3.2.0",
+    "pre-commit": "^1.2.2"
+  },
+  "dependencies": {
+    "lodash": "^4.17.4",
+    "xml2js": "^0.4.17"
+  }
+}

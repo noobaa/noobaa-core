@@ -15,43 +15,52 @@
         },
         "4mixcnv": {
             "label": "Configuration",
-            "orde": 9
+            "order": 9
         }
     },
     "topics": {
         "abtest0": {
+            "name": "abtest0",
             "category": "asdasas",
             "kind": "ARTICLE",
-            "title": "NooBaa Hybrid Model: a, b, test",
+            "title": "Joining storage nodes to NooBaa: a, b, test, demo, nodes, storage",
             "subtitle": "When to use Sync vs Cloud Storage",
-            "keywords": ["a", "b", "test"],
-            "uri": "https://noobaa.desk.com/"
+            "keywords": ["a", "b", "test", "demo", "nodes", "storage"],
+            "uri": "https://noobaa.desk.com/customer/portal/articles/2852040",
+            "body": "<div id=\"DIV_1\"><div id=\"DIV_2\"><p id=\"P_4\">Last Updated: Aug 30, 2017 02:42PM PDT</p></div><div id=\"DIV_5\"><p id=\"P_6\"><span id=\"SPAN_7\"><span id=\"SPAN_8\">A storage node is a machine with an operating system, CPU, memory, and file system. By installing NooBaa daemon, you actually turn this machine into NooBaa storage node and can start using it as a storage target for NooBaa.</span></span></p><p id=\"P_9\"><span id=\"SPAN_10\"><span id=\"SPAN_11\">Steps:</span></span></p><ol id=\"OL_12\"><li id=\"LI_13\"><p id=\"P_14\"><span id=\"SPAN_15\"><span id=\"SPAN_16\">Go to</span> <span id=\"SPAN_17\">Overview &gt; Install nodes</span></span></p></li><li id=\"LI_18\"><p id=\"P_19\"><span id=\"SPAN_20\"><span id=\"SPAN_21\">In the install nodes Wizard</span> <span id=\"SPAN_22\">“Assign”</span> <span id=\"SPAN_23\">step you need to choose the target pool for the future installed nodes. A pool is a group of nodes created by the administrator to reflect specific characteristics of these nodes. It can be a physical location, performance or any other characteristics. NooBaa’s machine learning algorithm will use this grouping in addition to real-time monitoring of the nodes in order to suggest grouping for any newly introduced node.</span><span id=\"SPAN_24\"></span><span id=\"SPAN_25\"></span><br id=\"BR_26\" /><br id=\"BR_27\" /><img alt=\"\" src=\"https://noobaa.desk.com/customer/portal/attachments/803341\" id=\"IMG_28\" /></span></p></li><li id=\"LI_29\"><p id=\"P_30\"><span id=\"SPAN_31\"><span id=\"SPAN_32\">In the wizard</span> <span id=\"SPAN_33\">“select drives” step</span> <span id=\"SPAN_34\">you will need to choose rather use the installed nodes drives as it is (include all drives) or exclude some of the drives from the upcoming installation.</span><br id=\"BR_35\" /> <span id=\"SPAN_36\">To exclude drive choose the second option and type drives name accurately. After each name hit “enter” key.</span><br id=\"BR_37\" /><br id=\"BR_38\" /> <span id=\"SPAN_39\">* You can also prepare all the drives names in a separate note document (write a drive name and hit enter) and copy the list directly to the Exclude drives text field.</span><br id=\"BR_40\" /> <span id=\"SPAN_41\">* Drives names can be Windows or Linux compatible - at the installation string we will use only the relevant names according to the os type.</span><br id=\"BR_42\" /> <span id=\"SPAN_43\"><img height=\"402\" src=\"https://lh5.googleusercontent.com/Pp8F_HybaVsKrXPjGe8_Fmpmu5jR7XWYs6UEuOBmhdEAQrYaeOxMbRmRoIAk7fLeUSvSryfvjhNL9mXnl1bkIFNpXRUCmliVzUO4pVGKmmksdEA50XZ9VLMzqg2Hbmwb3ZGLNgZz\" width=\"455\" id=\"IMG_44\" alt='' /></span><br id=\"BR_45\" /><br id=\"BR_46\" /> <span id=\"SPAN_47\"><img height=\"403\" src=\"https://lh3.googleusercontent.com/WwQ9o_fr9jBGD7D5AiwZQqJcubNfeFoJmoJz6v9-cPuijjyaNHTdptyp2h8GjOQA3LbIqX3LnbemZLFIHTrV7kSAv7UwVQBrawdmrj3hM5fFDgoZ9rMcPRlHmvcg9xpxBot02obE\" width=\"455\" id=\"IMG_48\" alt='' /></span></span><br id=\"BR_49\" /></p></li><li id=\"LI_50\"><p id=\"P_51\"><span id=\"SPAN_52\"><span id=\"SPAN_53\">In</span> <span id=\"SPAN_54\">“Install” step</span> <span id=\"SPAN_55\">you will need to copy the installation script according to the machine OS type (you can copy both if needed) and paste it to a distribution tool (any distribution tool, including Puppet, Chef, SCCM, will work as well).</span></span></p></li></ol><p id=\"P_56\"><span id=\"SPAN_57\"><span id=\"SPAN_58\"><img height=\"461\" src=\"https://lh5.googleusercontent.com/53f01ntzkYayTuaatfOldoVsDjh2NKTWTyYq0WF5r_NTMbQVG-E_oxXr4wUKle47RI99YVBFWHCEAsuCgn7A0Eq9XJBqDBXBEy0ibyuflS41Cu2AK33KtriZ_EU1S7BP5w3JRMdo\" width=\"520\" id=\"IMG_59\" alt='' /></span></span><br id=\"BR_60\" /></p> <span id=\"SPAN_61\"><span id=\"SPAN_62\">All nodes will be assigned to the pool you’ve chosen in the first step and can be found under</span> <span id=\"SPAN_63\">Resources &gt; Pools &gt; Resource name</span><br id=\"BR_64\" /> <span id=\"SPAN_65\"><img src=\"https://lh3.googleusercontent.com/39D9bim5AwnxcnFLuo9CV8WZ_lyUKQiaCiUDVgtAn3x2rsCr9LtwaUyrbMAKhrGxInGaS20Cc4vRPDhKgYgnN8Bl9-F9OoFNCnlX3FKI5blTk--zhve-g3VGtDi6bKvd2vxxF_Y5\"/>​</span></span></div></div>"
         },
         "abtest1": {
+            "name": "abtest1",
             "category": "asdasas",
             "kind": "ARTICLE",
-            "title": "NooBaa Hybrid Model: a, c, test",
+            "title": "Minimum requirements: a, c, test",
             "subtitle": "When to use Sync vs Cloud Storage",
             "keywords": ["a", "c", "test"],
-            "uri": "https://noobaa.desk.com/"
+            "uri": "https://noobaa.desk.com/customer/portal/articles/2866081",
+            "body": "<div class=\"article__body markdown\" itemprop=\"articleBody\"> <div dir=\"ltr\"><span id=\"docs-internal-guid-2bdc2e46-2e44-72a4-36f4-8bcf2063a1c8\"><span style=\"background-color: transparent; font-weight: 700; vertical-align: baseline; white-space: pre-wrap;\">Recommended OVA VM settings:</span></span></div><ul><li dir=\"ltr\"><div dir=\"ltr\"><span id=\"docs-internal-guid-2bdc2e46-2e44-72a4-36f4-8bcf2063a1c8\"><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">8 CPUs, 16GB RAM or </span></span><span style=\"color: rgb(68, 68, 68); font-family: helvetica;\">A3, A4 or A7&nbsp;</span>on Azure marketplace.</div></li><li dir=\"ltr\"><div dir=\"ltr\"><span id=\"docs-internal-guid-2bdc2e46-2e44-72a4-36f4-8bcf2063a1c8\"><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Firewall - The nodes need network access on port 8443 to the VM.</span></span></div></li><li dir=\"ltr\"><div dir=\"ltr\">The nodes and the core VM need network access one to another on one of the ports 60100-60600 (configurable).​</div></li><li dir=\"ltr\"><div dir=\"ltr\"><span id=\"docs-internal-guid-2bdc2e46-2e44-72a4-36f4-8bcf2063a1c8\"><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Three windows or Linux nodes, each with more than 15GB free space.</span></span></div></li><li dir=\"ltr\"><div dir=\"ltr\"><span id=\"docs-internal-guid-2bdc2e46-2e44-72a4-36f4-8bcf2063a1c8\"><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Alternatively, you can connect only cloud resource (Azure blob storage or AWS S3) and start working immediately.</span></span><br><br>&nbsp;</div></li></ul> </div>"
         },
         "abtest3": {
+            "name": "abtest3",
             "category": "2wqqwe",
             "kind": "ARTICLE",
-            "title": "NooBaa Hybrid Model: a, d",
+            "title": "Create a new nodes pool: a, d",
             "subtitle": "When to use Sync vs Cloud Storage",
             "keywords": ["a", "d"],
-            "uri": "https://noobaa.desk.com/"
+            "uri": "https://noobaa.desk.com/customer/portal/articles/2852671",
+            "body": "<div class=\"article__body markdown\" itemprop=\"articleBody\"> <p dir=\"ltr\"><span id=\"docs-internal-guid-769c2192-a73f-3bd1-2711-96076d5e7760\"><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Nodes pool is a group of storage nodes that can be used for a data placement policy within NooBaa's buckets. All assigned storage nodes in each pool will be used for capacity aggregation. </span></span></p><p dir=\"ltr\"><span id=\"docs-internal-guid-769c2192-a73f-3bd1-2711-96076d5e7760\"><span style=\"fbackground-color: transparent; font-weight: 700; vertical-align: baseline; white-space: pre-wrap;\">Steps:</span></span></p><ol dir=\"ltr\"><li><p><span><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Go to </span><span style=\"background-color: transparent; font-weight: 700; vertical-align: baseline; white-space: pre-wrap;\">Resources &gt; Node Pools &gt; Create Pool </span></span></p></li><li><p><span id=\"docs-internal-guid-769c2192-a73f-3bd1-2711-96076d5e7760\"><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\"><span><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Type a valid pool name according to the name constraints</span></span></span></span></p></li><li><span id=\"docs-internal-guid-769c2192-a73f-3bd1-2711-96076d5e7760\"><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Assign nodes to the new pool by&nbsp;</span></span><span style=\"background-color: transparent; white-space: pre-wrap;\">moving them from other pools. </span></li></ol><ul dir=\"ltr\"><li><span><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">All currently used nodes will have to go through a migration process.</span></span></li><li><span><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Each pool must have at least 3 nodes (for data replicas). </span></span></li><li><p><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Make sure that the nodes you choose to move from another pool will not leave that pool with less than 3 nodes. If it does, that pool could no longer be available for data placement.</span><br><br><img alt=\"\" src=\"https://noobaa.desk.com/customer/portal/attachments/803325\"></p></li></ul> </div>"
         },
         "abtest4": {
+            "name": "abtest4",
             "category": "2wqqwe",
             "kind": "ARTICLE",
-            "title": "NooBaa Hybrid Model 2: a, d",
+            "title": "Create a cloud resource: a, d",
             "subtitle": "When to use Sync vs Cloud Storage",
             "keywords": ["a", "d"],
-            "uri": "https://noobaa.desk.com/"
+            "uri": "https://noobaa.desk.com/customer/en/portal/articles/2852133-create-a-cloud-resource",
+            "body": "<div class=\"article__body markdown\" itemprop=\"articleBody\"> <p dir=\"ltr\"><span id=\"docs-internal-guid-1d8c7db5-a29e-4854-5a75-714aecc796bd\"><span style=\"background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">A cloud resource can be either an Azure blob storage, AWS S3 bucket or any AWS S3 compatible service. Cloud resource can be used for NooBaa's bucket data placement policy</span></span><br><br><span style=\"color: rgb(0, 0, 0); font-family: Arial; font-size: 14.6667px; font-weight: bold; white-space: pre-wrap;\">Steps:</span></p><ol><li dir=\"ltr\"><p dir=\"ltr\"><span id=\"docs-internal-guid-1d8c7db5-a29e-4854-5a75-714aecc796bd\"><span style=\"font-size: 11pt; background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Go to </span><span style=\"font-size: 11pt; background-color: transparent; font-weight: 700; vertical-align: baseline; white-space: pre-wrap;\">Resources &gt; Cloud Storage &gt; Add Cloud Resource </span></span></p></li><li dir=\"ltr\"><p dir=\"ltr\"><span id=\"docs-internal-guid-1d8c7db5-a29e-4854-5a75-714aecc796bd\"><span style=\"font-size: 11pt; background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">In the target connection drop-down select “Add new connection” to create a new public cloud connection access or choose an existing one. </span></span></p></li><li dir=\"ltr\"><p dir=\"ltr\"><span id=\"docs-internal-guid-1d8c7db5-a29e-4854-5a75-714aecc796bd\"><span style=\"font-size: 11pt; background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Choose a target bucket you wish to use for storage purposes (this bucket will store the files uploaded to the NooBaa bucket you will decide to connect. This data will only be readable with NooBaa access) </span></span></p></li><li dir=\"ltr\"><p dir=\"ltr\"><span id=\"docs-internal-guid-1d8c7db5-a29e-4854-5a75-714aecc796bd\"><span style=\"font-size: 11pt; background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Edit the resource name according to the system names rules - this name cannot be edited later on.</span></span></p></li><li dir=\"ltr\"><p dir=\"ltr\"><span id=\"docs-internal-guid-1d8c7db5-a29e-4854-5a75-714aecc796bd\"><span style=\"font-size: 11pt; background-color: transparent; vertical-align: baseline; white-space: pre-wrap;\">Click “Create” and the new resource will be added to the cloud storage list. This might take a few minutes of initializing the resource. </span></span><br><br>If you got an error, please check the following article about &nbsp;<br><br><img alt=\"\" src=\"https://noobaa.desk.com/customer/portal/attachments/803053\"></p></li></ol> </div>"
         },
         "abtest5": {
+            "name": "abtest5",
             "category": "3243243",
             "kind": "LINK",
             "title": "How Can I Use Internal Storage: b, c, d, test",
@@ -60,14 +69,42 @@
             "uri": "https://noobaa.desk.com/"
         },
         "abtest6": {
+            "name": "abtest6",
             "category": "3243243",
             "kind": "SLIDES",
             "title": "Install Nodes: c, d",
             "subtitle": "Learn how to install nodes and how to use their capacity",
             "keywords": ["c", "d"],
-            "uri": "https://noobaa.desk.com/"
+            "uri": "https://noobaa.desk.com/",
+            "slides": [
+                {
+                    "title": "Slide 1: TEXT",
+                    "desc": {
+                        "kind": "TEXT",
+                        "content": ["Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin sed tristique lectus. Fusce tristique quis eros eget tristique. Cras imperdiet commodo tellus, a sollicitudin nisi rutrum vitae.", "Nunc quis semper ligula, vitae vulputate erat. Vestibulum suscipit elementum mattis."]
+                    },
+                    "image": "https://lh5.googleusercontent.com/Pp8F_HybaVsKrXPjGe8_Fmpmu5jR7XWYs6UEuOBmhdEAQrYaeOxMbRmRoIAk7fLeUSvSryfvjhNL9mXnl1bkIFNpXRUCmliVzUO4pVGKmmksdEA50XZ9VLMzqg2Hbmwb3ZGLNgZz"
+                },
+                {
+                    "title": "Slide 2: BULLETS",
+                    "desc": {
+                        "kind": "BULLETS",
+                        "content": ["item1", "item2"]
+                    },
+                    "image": "https://assistly-production.s3.amazonaws.com/258749/portal_attachments/812871/Screen_Shot_2017-08-31_at_0.09.43_original.png?AWSAccessKeyId=AKIAJNSFWOZ6ZS23BMKQ&Expires=1506955220&Signature=lTXUT8L%2F315UCK5TQ1%2B4FZytvMw%3D&response-content-disposition=filename%3D%22Screen_Shot_2017-08-31_at_0.09.43.png%22&response-content-type=image%2Fpng"
+                },
+                {
+                    "title": "Slide 3: LIST",
+                    "desc": {
+                        "kind": "LIST",
+                        "content": ["item1", "item2"]
+                    },
+                    "image": "https://lh5.googleusercontent.com/Pp8F_HybaVsKrXPjGe8_Fmpmu5jR7XWYs6UEuOBmhdEAQrYaeOxMbRmRoIAk7fLeUSvSryfvjhNL9mXnl1bkIFNpXRUCmliVzUO4pVGKmmksdEA50XZ9VLMzqg2Hbmwb3ZGLNgZz"
+                }
+            ]
         },
         "abtest7": {
+            "name": "abtest7",
             "category": "3243243",
             "kind": "VIDEO",
             "title": "NooBaa setup teaser: d",
@@ -76,6 +113,7 @@
             "uri": "https://www.youtube.com/embed/MM82dZI9kVo"
         },
         "abtest8": {
+            "name": "abtest7",
             "category": "3243243",
             "kind": "VIDEO",
             "title": "A NooBaa teaser: s",

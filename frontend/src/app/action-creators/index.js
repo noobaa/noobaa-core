@@ -18,4 +18,5 @@ export * from './namespace-actions';
 export * from './object-actions';
 export * from './external-data-actions';
 export * from './help-metadata-actions';
+export * from './interactive-help-actions';
 

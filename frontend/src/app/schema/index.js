@@ -15,6 +15,7 @@ import system from './system';
 import notifications from './notifications';
 import alerts from './alerts';
 import interactiveHelp from './interactive-help';
+import * as helpMetadata from './help-metadata';
 import state from './state.js';
 
 const schemas = {
@@ -33,6 +34,7 @@ const schemas = {
     notifications,
     alerts,
     interactiveHelp,
+    helpMetadata,
     state
 };
 
@@ -44,4 +46,11 @@ export default deepFreeze(
         $ref: '#/def/state'
     })
 );
+
+export const externalDataSchema = deepFreeze({
+    helpMetadata: {
+        def: schemas,
+        $ref: '#/def/helpMetadata/helpMetadata'
+    }
+});
 

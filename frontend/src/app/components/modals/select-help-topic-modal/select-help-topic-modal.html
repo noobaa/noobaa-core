@@ -20,13 +20,16 @@
     <div class="column greedy push-next results-container">
         <ul class="list-no-style legend-items" ko.foreach="rows">
             <li class="separator">
-                <a class="row content-middle no-outline" ko.click="onSelect">
-                    <svg-icon class="highlight push-both"
+                <a class="row content-middle no-outline topics-list cursor-pointer" ko.click="onSelect">
+                    <svg-icon class="highlight icon-col"
                         params="name: icon"
                     ></svg-icon>
-                    <div class="column">
-                        <h3 class="heading3 push-prev-half">{{title}}</h3>
-                        <span>{{subtitle}}</span>
+                    <div class="column greedy topic-col">
+                        <h3 class="heading3 push-prev-half no-wrap">{{title}}</h3>
+                        <span ko.text="subtitle" class="no-wrap"></span>
+                    </div>
+                    <div class="column alt-bg push-both category-col">
+                        {{category}}
                     </div>
                 </a>
             </li>
@@ -35,7 +38,8 @@
     </div>
 
     <span class="align-middle">
-        Can't find what you are looking for? Check out our <a class="link" target="_blank" ko.attr.href="deskUrl">support center</a>
+        Can't find what you are looking for? Check out our
+        <a class="link" target="_blank" ko.attr.href="deskUrl">support center</a>
     </span>
 </form>
 

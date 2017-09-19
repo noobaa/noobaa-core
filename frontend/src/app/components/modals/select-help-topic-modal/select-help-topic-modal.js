@@ -67,7 +67,7 @@ class SelectHelpTopicModalViewModel extends Observer {
             state$.getMany(
                 ['interactiveHelp', 'metadataLoaded'],
                 ['session', 'user'],
-                ['forms', formName, 'fields'],
+                ['forms', formName, 'fields']
             ),
             this.onInteractiveHelp
         );
@@ -90,8 +90,8 @@ class SelectHelpTopicModalViewModel extends Observer {
             .map(category => ({ label: category.label, value: category }));
         const rows = _filterByKeywords(topicsList, categories, filter.value, selectedCategory.value)
             .map((topic, i) => {
-                const row = this.rows.get(i) || new TopicRowViewModel();
-                row.onTopic(topic);
+                const row = this.rows.get(i) || new TopicRowViewModel(this.close);
+                row.onTopic(topic, categories[topic.category].label);
                 return row;
             });
 

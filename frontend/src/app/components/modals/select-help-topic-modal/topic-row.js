@@ -1,32 +1,39 @@
 import ko from 'knockout';
-import { openShowVideoModal } from 'action-creators';
 import { action$ } from 'state';
+import { openShowVideoModal, selectHelpTopic } from 'action-creators';
 
 export default class TopicRowViewModel {
-    constructor() {
+    constructor(onClose) {
+        this.uri = ko.observable();
         this.title = ko.observable();
         this.subtitle = ko.observable();
-        this.uri = ko.observable();
+        this.name = '';
+        this.kind = '';
         this.icon = ko.observable();
-        this.kind = ko.observable();
+        this.category = ko.observable();
+        this.close = onClose;
     }
 
-    onTopic(topic) {
-        const { title, subtitle, kind, uri } = topic;
-
+    onTopic(topic, category) {
+        const { uri, kind, title, subtitle, name } = topic;
+        this.uri(uri);
         this.title(title);
         this.subtitle(subtitle);
-        this.uri(uri);
-        this.icon(kind.toLowerCase());
-        this.kind(kind);
+        this.category(category);
+        this.name = name;
+        this.kind = kind;
+        this.icon(topic.kind.toLowerCase());
     }
 
     onSelect() {
-        if(this.kind() != 'VIDEO') {
-            window.open(this.uri(),'_newtab');
-        } else {
-            action$.onNext(openShowVideoModal(this.title(), this.uri()));
-        }
+        this.close();
 
+        if (this.kind === 'LINK') {
+            window.open(this.uri(),'_newtab');
+        } else if (this.kind === 'VIDEO') {
+            action$.onNext(openShowVideoModal(this.title(), this.uri()));
+        } else {
+            action$.onNext(selectHelpTopic(this.name));
+        }
     }
 }

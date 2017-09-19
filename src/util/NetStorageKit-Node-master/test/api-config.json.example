@@ -1,0 +1,6 @@
+{
+  "hostname": "api-hostname.akamaihd.net",
+  "keyName": "key_name",
+  "key": "long_key_string",
+  "cpCode": "cp_code"
+}

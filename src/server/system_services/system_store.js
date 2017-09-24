@@ -52,6 +52,7 @@ const COLLECTIONS = [{
     db_indexes: [{
         fields: {
             name: 1,
+            deleted: 1
         },
         options: {
             unique: true,

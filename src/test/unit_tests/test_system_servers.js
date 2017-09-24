@@ -24,12 +24,15 @@ mocha.describe('system_servers', function() {
     const TIER = PREFIX + '-tier';
     const TIERING_POLICY = PREFIX + '-tiering-policy';
     const BUCKET = PREFIX + '-bucket';
+    const NAMESPACE_BUCKET = PREFIX + '-namespace-bucket';
     const SYS1 = SYS + '-1';
     const EMAIL_DOMAIN = '@coretest.coretest';
     const EMAIL = SYS + EMAIL_DOMAIN;
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
     const CLOUD_SYNC_CONNECTION = 'Connection 1';
+    const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
+    const NAMESPACE_RESOURCE_NAME = PREFIX + '-namespace-resource';
     const SERVER_RESTART_DELAY = 10000;
     let server_secret = '';
 
@@ -236,6 +239,28 @@ mocha.describe('system_servers', function() {
             .then(() => client.pool.get_associated_buckets({
                 name: POOL
             }))
+            .then(() => {
+                if (config.SKIP_EXTERNAL_TESTS) return;
+                if (!process.env.AWS_ACCESS_KEY_ID ||
+                    !process.env.AWS_SECRET_ACCESS_KEY) {
+                    throw new Error('No valid AWS credentials in env - ' +
+                        'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
+                        'for testing account.add_external_connection()');
+                }
+                return P.resolve()
+                    .then(() => client.account.add_external_connection({
+                        name: NAMESPACE_RESOURCE_CONNECTION,
+                        endpoint: 'https://s3.amazonaws.com',
+                        endpoint_type: 'AWS',
+                        identity: process.env.AWS_ACCESS_KEY_ID,
+                        secret: process.env.AWS_SECRET_ACCESS_KEY
+                    }));
+            })
+            .then(() => client.pool.create_namespace_resource({
+                name: NAMESPACE_RESOURCE_NAME,
+                connection: NAMESPACE_RESOURCE_CONNECTION,
+                target_bucket: BUCKET
+            }))
             ////////////
             //  TIER  //
             ////////////
@@ -293,6 +318,22 @@ mocha.describe('system_servers', function() {
             // //////////////
             // //  BUCKET  //
             // //////////////
+            .then(() => client.bucket.create_bucket({
+                name: NAMESPACE_BUCKET,
+                namespace: {
+                    read_resources: [NAMESPACE_RESOURCE_NAME],
+                    write_resource: NAMESPACE_RESOURCE_NAME
+                },
+            }))
+            .then(() => client.bucket.delete_bucket({
+                name: NAMESPACE_BUCKET,
+            }))
+            .then(() => client.pool.delete_namespace_resource({
+                name: NAMESPACE_RESOURCE_NAME,
+            }))
+            .then(() => client.account.delete_external_connection({
+                connection_name: NAMESPACE_RESOURCE_CONNECTION,
+            }))
             .then(() => client.bucket.create_bucket({
                 name: BUCKET,
                 tiering: TIERING_POLICY,

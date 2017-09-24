@@ -29,14 +29,20 @@ module.exports = {
                     tag: {
                         type: 'string',
                     },
-                    write_resource: {
-                        type: 'string'
-                    },
-                    read_resources: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
+                    namespace: {
+                        type: 'object',
+                        required: ['write_resource', 'read_resources'],
+                        properties: {
+                            write_resource: {
+                                type: 'string'
+                            },
+                            read_resources: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                },
+                            }
+                        }
                     }
                 }
             },
@@ -750,11 +756,11 @@ module.exports = {
                 read_resources: {
                     type: 'array',
                     items: {
-                        $ref: 'pool_api#/definitions/namespace_resource_info'
+                        type: 'string'
                     }
                 },
                 write_resource: {
-                    $ref: 'pool_api#/definitions/namespace_resource_info'
+                    type: 'string'
                 }
             }
         },

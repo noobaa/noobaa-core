@@ -201,7 +201,7 @@ class CreatePoolModalViewModel extends Observer {
         // Connect to the state tree.
         this.observe(
             state$.getMany(
-                ['hostPools', 'items'],
+                'hostPools',
                 'hosts',
                 ['forms', formName, 'fields']
             ),

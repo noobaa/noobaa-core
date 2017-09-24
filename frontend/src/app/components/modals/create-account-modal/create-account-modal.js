@@ -12,7 +12,7 @@ import { getCloudServiceMeta } from 'utils/ui-utils';
 import { isEmail } from 'validations';
 import { createAccount } from 'action-creators';
 
-const s3PlacementToolTip = `The selected resource will be associated to this account as it’s default 
+const s3PlacementToolTip = `The selected resource will be associated to this account as it’s default
     data placement for each new bucket that will be created via an S3 application.`;
 
 function mapResourceToOptions({ type, name: value, storage }) {
@@ -79,7 +79,7 @@ class CreateAccountWizardViewModel extends Observer {
         });
 
         this.observe(
-            state$.getMany('accounts', ['hostPools', 'items'], 'cloudResources', 'buckets'),
+            state$.getMany('accounts', 'hostPools', 'cloudResources', 'buckets'),
             this.onState
         );
     }

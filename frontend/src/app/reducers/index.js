@@ -8,11 +8,11 @@ import drawerReducer from './drawer-reducer';
 import modalsReducer from './modals-reducer';
 import formsReducer from './forms-reducer';
 import bucketsReducer from './buckets-reducer';
-import nsBucketsReducer from './ns-buckets-reducer';
+import gatewayBucketsReducer from './gateway-buckets-reducer';
 import hostPoolsReducer from './host-pools-reducer';
 import cloudResourcesReducer from './cloud-resources-reducer';
 import internalResourcesReducer from './internal-resources-reducer';
-import externalResourcesReducer from './external-resources-reducer';
+import namespaceResourcesReducer from './namespace-resources-reducer';
 import hostsReducer from './hosts-reducer';
 import accountsReducer from './accounts-reducer';
 import objectUploadsReducer from './object-uploads-reducer';
@@ -20,6 +20,7 @@ import alertsReducer from './alerts-reducer';
 import notificationsReducer from './notificaitons-reducer';
 import topologyReducer from './topology-reducer';
 import hostPartsReducer from './host-parts-reducer';
+import cloudTargetsReducer from './cloud-targets-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -31,14 +32,15 @@ export default combineReducers({
     notifications: notificationsReducer,
     alerts: alertsReducer,
     buckets: bucketsReducer,
-    nsBuckets: nsBucketsReducer,
+    gatewayBuckets: gatewayBucketsReducer,
     cloudResources: cloudResourcesReducer,
     internalResources: internalResourcesReducer,
-    externalResources: externalResourcesReducer,
+    namespaceResources: namespaceResourcesReducer,
     hostPools: hostPoolsReducer,
     hosts: hostsReducer,
     hostParts: hostPartsReducer,
     accounts: accountsReducer,
     objectUploads: objectUploadsReducer,
-    topology: topologyReducer
+    topology: topologyReducer,
+    cloudTargets: cloudTargetsReducer
 });

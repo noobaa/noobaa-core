@@ -18,7 +18,7 @@ export default class AccountRowViewModel {
             id: ko.observable(),
             subject: 'account',
             group: deleteGroup,
-            undeletable: this.isSystemOwner,
+            disabled: this.isSystemOwner,
             tooltip: ko.observable(),
             onDelete: email => onDelete(email, this.isCurrentUser)
         };

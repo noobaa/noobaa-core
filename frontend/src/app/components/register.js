@@ -84,7 +84,9 @@ export default function register(ko) {
     ko.components.register('disable-host-storage-warning-modal',        require('./modals/disable-host-storage-warning-modal/disable-host-storage-warning-modal').default);
     ko.components.register('disable-host-last-service-warning-modal',   require('./modals/disable-host-last-service-warning-modal/disable-host-last-service-warning-modal').default);
     ko.components.register('connect-app-modal',                         require('./modals/connect-app-modal/connect-app-modal').default);
-
+    ko.components.register('create-namespace-resource-modal',           require('./modals/create-namespace-resource-modal/create-namespace-resource-modal').default);
+    ko.components.register('create-gateway-bucket-modal',               require('./modals/create-gateway-bucket-modal/create-gateway-bucket-modal').default);
+    ko.components.register('edit-gateway-bucket-data-placement-modal',  require('./modals/edit-gateway-bucket-data-placement-modal/edit-gateway-bucket-data-placement-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -102,7 +104,7 @@ export default function register(ko) {
     ko.components.register('buckets-panel',         require('./buckets/buckets-panel/buckets-panel').default);
     ko.components.register('buckets-table',         require('./buckets/buckets-table/buckets-table').default);
     ko.components.register('create-bucket-wizard',  require('./buckets/create-bucket-wizard/create-bucket-wizard').default);
-    ko.components.register('ns-buckets-table',      require('./buckets/ns-buckets-table/ns-buckets-table').default);
+    ko.components.register('gateway-buckets-table', require('./buckets/gateway-buckets-table/gateway-buckets-table').default);
     /** INJECT:buckets **/
 
     // -------------------------------
@@ -114,18 +116,16 @@ export default function register(ko) {
     ko.components.register('bucket-data-placement-form',    require('./bucket/bucket-data-placement-form/bucket-data-placement-form').default);
     ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
     ko.components.register('bucket-s3-access-table',        require('./bucket/bucket-s3-access-table/bucket-s3-access-table').default);
-    ko.components.register('bucket-namespace-form',         require('./bucket/bucket-namespace-form/bucket-namespace-form').default);
     /** INJECT:bucket **/
 
     // -------------------------------
     // Namespace Bucket
     // -------------------------------
-    ko.components.register('ns-bucket-panel',               require('./ns-bucket/ns-bucket-panel/ns-bucket-panel').default);
-    ko.components.register('ns-bucket-summary',             require('./ns-bucket/ns-bucket-summary/ns-bucket-summary').default);
-    ko.components.register('ns-bucket-data-placement-form', require('./ns-bucket/ns-bucket-data-placement-form/ns-bucket-data-placement-form').default);
-    ko.components.register('ns-bucket-s3-access-table',     require('./ns-bucket/ns-bucket-s3-access-table/ns-bucket-s3-access-table').default);
-    ko.components.register('ns-bucket-objects-table',       require('./ns-bucket/ns-bucket-objects-table/ns-bucket-objects-table').default);
-    /** INJECT:ns-bucket **/
+    ko.components.register('gateway-bucket-panel',               require('./gateway-bucket/gateway-bucket-panel/gateway-bucket-panel').default);
+    ko.components.register('gateway-bucket-summary',             require('./gateway-bucket/gateway-bucket-summary/gateway-bucket-summary').default);
+    ko.components.register('gateway-bucket-data-placement-form', require('./gateway-bucket/gateway-bucket-data-placement-form/gateway-bucket-data-placement-form').default);
+    ko.components.register('gateway-bucket-s3-access-form',      require('./gateway-bucket/gateway-bucket-s3-access-form/gateway-bucket-s3-access-form').default);
+    /** INJECT:gateway-bucket **/
 
     // -------------------------------
     // Object
@@ -141,7 +141,7 @@ export default function register(ko) {
     ko.components.register('resources-panel',           require('./resources/resources-panel/resources-panel').default);
     ko.components.register('pools-table',               require('./resources/pools-table/pools-table').default);
     ko.components.register('cloud-resources-table',     require('./resources/cloud-resources-table/cloud-resources-table').default);
-    ko.components.register('external-resources-table',  require('./resources/external-resources-table/external-resources-table').default);
+    ko.components.register('namespace-resources-table', require('./resources/namespace-resources-table/namespace-resources-table').default);
     /** INJECT:resources **/
 
     // -------------------------------

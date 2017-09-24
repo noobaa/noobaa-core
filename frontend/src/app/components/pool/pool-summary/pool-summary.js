@@ -107,7 +107,7 @@ class PoolSummaryViewModel extends Observer {
             }
         };
 
-        this.observe(state$.get('hostPools', 'items', ko.unwrap(poolName)), this.onPool);
+        this.observe(state$.get('hostPools', ko.unwrap(poolName)), this.onPool);
     }
 
     onPool(pool) {

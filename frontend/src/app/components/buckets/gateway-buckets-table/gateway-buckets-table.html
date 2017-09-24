@@ -1,0 +1,37 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="column alt-bg pad">
+    <div class="row content-middle push-next">
+        <div class="greedy">
+            <input type="search"
+                class="push-next"
+                placeholder="Filter by bucket name"
+                ko.textInput="ko.pc(filter, onFilterThrottled)" />
+        </div>
+        <div ko.tooltip="createButtonTooltip">
+            <button class="btn"
+                ko.click="onCreate"
+                ko.enable="allowCreateBucket"
+            >
+                Create Gateway Bucket
+            </button>
+        </div>
+    </div>
+    <p>
+        Gateway buckets are a direct gateway that can be configured namespace resources and can be used for data visibility without replicas or encryptions
+    </p>
+</div>
+
+<data-table class="greedy buckets-table" params="
+    columns: columns,
+    sorting: ko.pc(sorting, onSort, $component),
+    data: rows,
+    loading: !bucketsLoaded(),
+    emptyMessage: 'System does not contain any namespace buckets'
+"></data-table>
+
+<paginator params="
+    itemCount: bucketCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>

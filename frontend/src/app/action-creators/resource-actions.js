@@ -9,7 +9,7 @@ import {
     FAIL_DELETE_RESOURCE,
     ASSIGN_HOSTS_TO_POOL,
     COMPLETE_ASSIGN_HOSTS_TO_POOL,
-    FAIL_ASSIGN_HOSTS_TO_POOL
+    FAIL_ASSIGN_HOSTS_TO_POOL,
 } from 'action-types';
 
 export function createHostsPool(name, hosts) {

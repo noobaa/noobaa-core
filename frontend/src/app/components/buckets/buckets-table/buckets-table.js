@@ -102,9 +102,10 @@ class BucketsTableViewModel extends BaseViewModel {
 
                 return systemInfo() && systemInfo().buckets
                     .filter(
-                        ({ name }) => name.toLowerCase().includes(
-                            (this.filter() || '').toLowerCase()
-                        )
+                        bucket => bucket.bucket_type === 'REGULAR' &&
+                            bucket.name.toLowerCase().includes(
+                                (this.filter() || '').toLowerCase()
+                            )
                     )
                     .sort(compareOp);
             }

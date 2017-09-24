@@ -1,0 +1,36 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="column alt-bg pad">
+    <div class="row content-middle push-next">
+        <div class="greedy">
+            <input type="search"
+                class="push-next"
+                placeholder="Filter by resource name"
+                ko.textInput="ko.pc(filter, onFilterThrottled)" />
+        </div>
+        <button class="btn"
+            ko.enable="resourcesLoaded"
+            ko.click="onCreate"
+        >
+            Create Namespace Resource
+        </button>
+    </div>
+    <p>
+        Namespace resource can be an Azure blob storage, AWS bucket or any S3 compatible
+        service and can be used for data visibility without replicas or encryption
+    </p>
+</div>
+
+<data-table class="greedy resources-table" params="
+    columns: columns,
+    sorting: ko.pc(sorting, onSort, $component),
+    data: rows,
+    loading: !resourcesLoaded(),
+    emptyMessage: 'System does not contain any external resources'
+"></data-table>
+
+<paginator params="
+    itemCount: resourceCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>

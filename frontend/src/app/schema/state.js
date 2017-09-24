@@ -16,6 +16,9 @@ export default {
         },
         internalResources: {
             $ref: '#/def/internalResources'
+        },
+        cloudTargets: {
+            $ref: '#/def/cloudTargets'
         }
     },
 };

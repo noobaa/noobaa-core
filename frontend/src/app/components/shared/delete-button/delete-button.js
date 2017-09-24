@@ -11,9 +11,9 @@ class DeleteButtonViewModel extends BaseViewModel {
         id = randomString(),
         group = ko.observable(),
         onDelete,
-        tooltip = 'delete',
+        subject,
+        tooltip,
         disabled = false,
-        subject
     }) {
         super();
 
@@ -27,7 +27,10 @@ class DeleteButtonViewModel extends BaseViewModel {
         });
 
         this.tooltip = ko.pureComputed(
-            () => this.isActive() ? undefined : { text: tooltip, align: 'end' }
+            () => {
+                const text = tooltip == null ? `Delete ${ko.unwrap(subject)}` : ko.unwrap(tooltip);
+                return this.isActive() ? undefined : { text, align: 'end' };
+            }
         );
 
         this.icon = ko.pureComputed(

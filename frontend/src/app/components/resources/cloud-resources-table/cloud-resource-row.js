@@ -23,9 +23,9 @@ export default class CloudResourceRowViewModel extends BaseViewModel {
                 const icon = getPoolStateIcon(resource());
                 return {
                     ...icon,
-                    tooltip: { 
-                        text: icon.tooltip, 
-                        align: 'start' 
+                    tooltip: {
+                        text: icon.tooltip,
+                        align: 'start'
                     }
                 };
             }
@@ -68,7 +68,7 @@ export default class CloudResourceRowViewModel extends BaseViewModel {
         this.deleteBtn = {
             subject: 'resources',
             group: deleteGroup,
-            undeletable: undeletable,
+            disabled: undeletable,
             tooltip: ko.pureComputed(
                 () => undeletable() ? undeletableReasons[undeletable()] : 'delete resources'
             ),

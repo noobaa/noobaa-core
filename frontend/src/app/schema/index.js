@@ -6,6 +6,7 @@ import session from './session';
 import objectUploads from './object-uploads';
 import internalResources from './internal-resources';
 import buckets from './buckets';
+import cloudTargets from './cloud-targets';
 import state from './state.js';
 
 const schemas = {
@@ -15,6 +16,7 @@ const schemas = {
     objectUploads,
     internalResources,
     buckets,
+    cloudTargets,
     state
 };
 

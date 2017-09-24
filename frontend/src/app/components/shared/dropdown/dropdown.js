@@ -6,7 +6,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { isDefined, clamp } from 'utils/core-utils';
 
-const INPUT_THROTTLE = 1000;
+const inputThrottle = 1000;
 
 function matchByPrefix({ label }, input) {
     return label.toLowerCase().startsWith(input);
@@ -20,37 +20,52 @@ class DropdownViewModel extends BaseViewModel {
         disabled = false,
         matchOperator = matchByPrefix,
         hasFocus = false,
-        invalid
+        loading = false,
+        invalid,
     }) {
         super();
 
         this.name = randomString(5);
+
         this.options = ko.pureComputed(
-            () => (ko.unwrap(options) || []).map(
-                option => {
-                    // Handle seperators
-                    if (!option) {
-                        return null;
-                    }
+            () => {
+                let selectedFound = false;
+                const normalized = (ko.deepUnwrap(options) || [])
+                    .map(option => {
+                        // Handle seperators
+                        if (!options) return null;
 
-                    // Normalize option.
-                    const { value = option, label = value, remark,
-                        css, icon, selectedIcon, tooltip,
-                        disabled = false } = option;
+                        // Normalize option.
+                        const {
+                            value = option,
+                            label = value,
+                            remark,
+                            css,
+                            icon: _icon,
+                            selectedIcon,
+                            tooltip,
+                            disabled = false
+                        } = option;
 
-                    let _icon = icon;
-                    if (selectedIcon) {
-                        _icon = ko.pureComputed(
-                            () => ko.unwrap(
-                                selected() === value ? selectedIcon : icon
-                            )
-                        );
-                    }
+                        const icon = !selectedIcon ?
+                            _icon :
+                            ko.pureComputed(
+                                () => selected() === value ? selectedIcon : icon
+                            );
 
-                    return { value ,label, remark, css, tooltip,
-                        disabled, icon: _icon };
+                        if (selected.peek() === value) {
+                            selectedFound = true;
+                        }
+
+                        return { value ,label, remark, css, tooltip, disabled, icon };
+                    });
+
+                if (selected.peek() && !selectedFound) {
+                    selected(null);
                 }
-            )
+
+                return normalized;
+            }
         );
 
         this.selected = selected;
@@ -71,12 +86,12 @@ class DropdownViewModel extends BaseViewModel {
         );
 
         this.invalid = isDefined(invalid) ? invalid : ko.pureComputed(
-            () => ko.unwrap(this.selected.isModified) &&
-                !ko.unwrap(this.selected.isValid)
+            () => ko.unwrap(selected.isModified) && !ko.unwrap(selected.isValid)
         );
 
         this.disabled = disabled;
         this.hasFocus = hasFocus;
+        this.loading = loading;
         this.active = ko.observable(false);
         this.matchOperator = matchOperator;
         this.searchInput = '';
@@ -143,11 +158,11 @@ class DropdownViewModel extends BaseViewModel {
 
     moveSelectionBy(step) {
         const options = this.options();
+        const last = options.length - 1;
 
-        let i = clamp(this.selectedIndex() + step, 0, options.length - 1);
+        let i = clamp(this.selectedIndex() + step, 0, last);
         const dir = clamp(step, -1, 1);
-
-        while (options[i] === null || options[i].disabled) {
+        while (options[i] === null || (options[i] || {}).disabled) {
             i += dir;
         }
 
@@ -159,7 +174,7 @@ class DropdownViewModel extends BaseViewModel {
 
     sreachBy(keyCode) {
         const char = String.fromCharCode(keyCode).toLowerCase();
-        this.searchInput = Date.now() - this.lastInput <= INPUT_THROTTLE ?
+        this.searchInput = Date.now() - this.lastInput <= inputThrottle ?
             this.searchInput + char :
             char;
 

@@ -550,9 +550,13 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'writable', 'mode', 'bucket_type'],
+            required: ['name', 'bucket_type', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'writable', 'mode'],
             properties: {
                 name: {
+                    type: 'string',
+                },
+                bucket_type: {
+                    enum: ['REGULAR', 'NAMESPACE'],
                     type: 'string',
                 },
                 namespace: {
@@ -681,10 +685,6 @@ module.exports = {
                 },
                 undeletable: {
                     $ref: '#/definitions/undeletable_bucket_reason'
-                },
-                bucket_type: {
-                    enum: ['REGULAR', 'NAMESPACE'],
-                    type: 'string',
                 },
             }
         },

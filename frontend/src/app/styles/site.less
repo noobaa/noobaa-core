@@ -242,7 +242,6 @@ pre {
     svg-icon {
         fill: @color15;
     }
-
 }
 
 .bullet-list {
@@ -376,4 +375,33 @@ pre {
     line-height: 1.1;
     color: @color5;
     font-weight: 500;
+}
+
+.restriction-list {
+    .list-no-style();
+    .remark();
+
+    &.disabled {
+        color: @color15;
+    }
+
+    padding-left: 0;
+
+    > li {
+        &::before {
+            content: '\2022';
+            text-align: center;
+            display: inline-block;
+            width: 5px;
+            margin-right: 1em;
+        }
+
+        &.success::before {
+            content: '\2713';
+        }
+
+        &.error::before {
+            content: '\2715';
+        }
+    }
 }

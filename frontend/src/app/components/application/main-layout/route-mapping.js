@@ -19,12 +19,12 @@ export default deepFreeze({
     [routes.bucket]: {
         panel: 'bucket',
         area: 'buckets',
-        crumbsGenerator: _generateBucketCrumbs
+        crumbsGenerator: _generateDataBucketCrumbs
     },
-    [routes.nsBucket]: {
-        panel: 'ns-bucket',
+    [routes.gatewayBucket]: {
+        panel: 'gateway-bucket',
         area: 'buckets',
-        crumbsGenerator: _generateBucketCrumbs
+        crumbsGenerator: _generateGatewayBucketCrumbs
     },
     [routes.object]: {
         area: 'buckets',
@@ -102,7 +102,7 @@ function _generateBucketsCrumbs(params) {
     ];
 }
 
-function _generateBucketCrumbs(params) {
+function _generateDataBucketCrumbs(params) {
     return [
         ..._generateBucketsCrumbs(params),
         {
@@ -115,9 +115,22 @@ function _generateBucketCrumbs(params) {
     ];
 }
 
+function _generateGatewayBucketCrumbs(params) {
+    return [
+        ..._generateBucketsCrumbs(params),
+        {
+            url: realizeUri(
+                routes.gatewayBucket,
+                pick(params, ['system', 'bucket'])
+            ),
+            label: params.bucket
+        }
+    ];
+}
+
 function _generateObjectCrumbs(params) {
     return [
-        ..._generateBucketCrumbs(params),
+        ..._generateDataBucketCrumbs(params),
         {
             url: realizeUri(
                 routes.object,

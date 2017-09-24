@@ -52,21 +52,41 @@ class EditAccountS3AccessModalViewModel extends Observer {
         this.observe(
             state$.getMany(
                 ['accounts', accountName],
-                ['hostPools', 'items'],
+                'hostPools',
                 'cloudResources',
-                'buckets'
+                'buckets',
+                'gatewayBuckets'
             ),
             this.onState
         );
     }
 
-    onState([ account, hostPools, cloudResources, buckets ]) {
+    onState([ account, hostPools, cloudResources, buckets, gatewayBuckets ]) {
         if(!account) {
             this.isFormInitialized(false);
             return;
         }
 
+        const resourceOptions = flatMap(
+            [ hostPools, cloudResources ],
+            resources => Object.values(resources).map(mapResourceToOption)
+        );
+
+        const allBuckets = [
+            ...Object.keys(buckets),
+            ...Object.keys(gatewayBuckets)
+        ];
+
+        const bucketOptions = allBuckets
+            .map(bucket => {
+                const value = bucket;
+                const tooltip =  { text: bucket, breakWords: true };
+                return { value, tooltip };
+            });
+
         this.isOwner(account.isOwner);
+        this.resourceOptions(resourceOptions);
+        this.bucketOptions(bucketOptions);
 
         if (!this.form) {
             this.form = new FormViewModel({
@@ -84,18 +104,6 @@ class EditAccountS3AccessModalViewModel extends Observer {
             });
             this.isFormInitialized(true);
         }
-
-        this.resourceOptions(flatMap(
-            [ hostPools, cloudResources ],
-            resources => Object.values(resources).map(mapResourceToOption)
-        ));
-
-        this.bucketOptions(Object.keys(buckets)
-            .map(bucket => ({
-                value: bucket,
-                tooltip: { text: bucket, breakWords: true }
-            }))
-        );
     }
 
     onForm(form) {

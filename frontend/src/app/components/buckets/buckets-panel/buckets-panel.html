@@ -7,23 +7,22 @@
         >
             Data Buckets
         </a>
-        <a class="preview-only"
-            ko.attr.href="tabHref('namespace-buckets')"
-            ko.css.selected="selectedTab.eq('namespace-buckets')"
+        <a
+            ko.attr.href="tabHref('gateway-buckets')"
+            ko.css.selected="selectedTab.eq('gateway-buckets')"
         >
-            Namespace Buckets
-            <span class="beta-tag"></span>
+            Gateway Buckets
         </a>
     </nav>
 
     <div class="tabs-row">
-        <buckets-table class="tab"
+        <buckets-table class="tab column"
             ko.css.selected="selectedTab.eq('data-buckets')"
         ></buckets-table>
 
-        <ns-buckets-table class="tab preview-only"
-            ko.css.selected="selectedTab.eq('namespace-buckets')"
-        ></ns-buckets-table>
+        <gateway-buckets-table class="tab column"
+            ko.css.selected="selectedTab.eq('gateway-buckets')"
+        ></gateway-buckets-table>
     </div>
 </section>
 

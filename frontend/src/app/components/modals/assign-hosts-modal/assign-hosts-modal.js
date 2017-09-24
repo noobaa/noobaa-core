@@ -163,7 +163,7 @@ class AssignHostsModalViewModel extends Observer {
 
         this.observe(
             state$.getMany(
-                ['hostPools', 'items'],
+                'hostPools',
                 'hosts',
                 ['forms', formName, 'fields']
             ),

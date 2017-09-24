@@ -2,72 +2,21 @@
 
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import {
-    FETCH_SYSTEM_INFO,
-    COMPLETE_FETCH_SYSTEM_INFO,
-    FAIL_FETCH_SYSTEM_INFO
-} from 'action-types';
+import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = {
-    fetching: false,
-    items: undefined
-};
+const initialState = undefined;
 
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onFetchSystemInfo(state) {
-    return {
-        ...state,
-        fetching: true
-    };
-}
-
 function onCompleteFetchSystemInfo(state, { payload }) {
     const { pools, buckets, tiers } = payload;
     const nodePools = pools.filter(pool => pool.resource_type === 'HOSTS');
     const bucketMapping = _mapPoolsToBuckets(buckets, tiers);
-
-    const items = keyByProperty(nodePools, 'name', pool => {
-        const activityList = (pool.data_activities.activities || [])
-            .map(activity => ({
-                type: activity.reason,
-                nodeCount: activity.count,
-                progress: activity.progress,
-                eta: activity.time.end
-            }));
-
-        return {
-            name: pool.name,
-            mode: pool.mode,
-            storage: pool.storage,
-            associatedAccounts: pool.associated_accounts,
-            connectedBuckets: bucketMapping[pool.name] || [],
-            hostCount: pool.hosts.count,
-            hostsByMode: pool.hosts.by_mode,
-            undeletable: pool.undeletable,
-            activities: {
-                hostCount: pool.data_activities.host_count,
-                list: activityList
-            }
-        };
-    });
-
-    return {
-        ...state,
-        items: items,
-        fetching: false,
-    };
-}
-
-function onFailFetchSystemInfo(state) {
-    return {
-        ...state,
-        fetching: false
-    };
+    return keyByProperty(nodePools, 'name', pool => _mapPool(pool, bucketMapping));
 }
 
 // ------------------------------
@@ -94,11 +43,34 @@ function _mapPoolsToBuckets(buckets, tiers) {
         pair => pair.bucket
     );
 }
+
+function _mapPool(pool, bucketMapping) {
+    const activityList = (pool.data_activities.activities || [])
+        .map(activity => ({
+            type: activity.reason,
+            nodeCount: activity.count,
+            progress: activity.progress,
+            eta: activity.time.end
+        }));
+
+    return {
+        name: pool.name,
+        mode: pool.mode,
+        storage: pool.storage,
+        associatedAccounts: pool.associated_accounts,
+        connectedBuckets: bucketMapping[pool.name] || [],
+        hostCount: pool.hosts.count,
+        hostsByMode: pool.hosts.by_mode,
+        undeletable: pool.undeletable,
+        activities: {
+            hostCount: pool.data_activities.host_count,
+            list: activityList
+        }
+    };
+}
 // ------------------------------
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [FETCH_SYSTEM_INFO]: onFetchSystemInfo,
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
-    [FAIL_FETCH_SYSTEM_INFO]: onFailFetchSystemInfo
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
 });

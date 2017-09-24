@@ -450,7 +450,7 @@ export function openConnectAppModal() {
 
 export function openDisableHostStorageWarningModal(host, isLastService) {
     return {
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'disable-host-storage-warning-modal',
@@ -467,7 +467,7 @@ export function openDisableHostStorageWarningModal(host, isLastService) {
 
 export function openDisableHostLastServiceWarningModal(host, service) {
     return {
-        type: 'OPEN_MODAL',
+        type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'disable-host-last-service-warning-modal',
@@ -482,3 +482,44 @@ export function openDisableHostLastServiceWarningModal(host, service) {
     };
 }
 
+export function openCreateNamespaceResourceModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'create-namespace-resource-modal',
+            options: {
+                title: 'Create Namespace Resource',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function openCreateGatewayBucketModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'create-gateway-bucket-modal',
+            options: {
+                title: 'Create Gateway Bucket',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function openEditGatewayBucketDataPlacementModal(bucket) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-gateway-bucket-data-placement-modal',
+                params: { bucket }
+            },
+            options: {
+                title: 'Edit Placement Policy',
+                size: 'medium'
+            }
+        }
+    };
+}

@@ -328,3 +328,7 @@ export function hashCode(value) {
         0
     );
 }
+
+export function omitUndefined(obj) {
+    return mapValues(obj, echo, true);
+}

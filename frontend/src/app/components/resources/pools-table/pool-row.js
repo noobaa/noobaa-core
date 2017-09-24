@@ -51,7 +51,7 @@ export default class PoolRowViewModel {
 
         this.deleteButton = {
             subject: 'pool',
-            undeletable: ko.observable(),
+            disabled: ko.observable(),
             tooltip: ko.observable(),
             id: ko.observable(),
             group: deleteGroup,
@@ -88,7 +88,7 @@ export default class PoolRowViewModel {
         this.reservedCapacity(reserved);
 
         this.deleteButton.id(name);
-        this.deleteButton.undeletable(Boolean(undeletable));
+        this.deleteButton.disabled(Boolean(undeletable));
         this.deleteButton.tooltip(undeletableReasons[undeletable]);
     }
 }

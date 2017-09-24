@@ -25,13 +25,6 @@
         >
             Cloud sync
         </a>
-
-        <a class="preview-only"
-            ko.css.selected="selectedTab.eq('namespace')"
-            ko.attr.href="tabHref('namespace')"
-        >
-            Namespace
-        </a>
     </nav>
 
     <div class="tabs-row">
@@ -54,10 +47,5 @@
             ko.css.selected="selectedTab.eq('cloud-sync')"
             params="bucketName: bucket"
         ></bucket-cloud-sync-form>
-
-        <bucket-namespace-form class="tab preview-only"
-            ko.css.selected="selectedTab.eq('namespace')"
-            params="bucketName: bucket"
-        ></bucket-namespace-form>
     </div>
 </div>

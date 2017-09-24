@@ -6,7 +6,7 @@ import { OPEN_DRAWER, CLOSE_DRAWER } from 'action-types';
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = null;
+const initialState = undefined;
 
 // ------------------------------
 // Action Handlers

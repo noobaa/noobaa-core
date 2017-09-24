@@ -34,7 +34,8 @@
         },
         clickBubble: false
     ">
-        <ul class="list-no-style" data-bind="foreach: options, scrollTo: selectedIndex">
+        <loading-indicator class="alt-colors align-middle pad" data-bind="visible: loading"></loading-indicator>
+        <ul class="list-no-style" data-bind="foreach: options, scrollTo: selectedIndex, visible: !ko.unwrap(loading)">
             <li data-bind="css: { seperator: !$data }, if: $data">
                 <label class="option row content-middle" data-bind="
                     css: { disabled: disabled },

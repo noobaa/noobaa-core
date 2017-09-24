@@ -85,6 +85,26 @@ const internalResourceModeToStateIcon = deepFreeze({
     }
 });
 
+const namespaceResourceModeToStateIcon = deepFreeze({
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy',
+    }
+});
+
+const namespaceResourceServiceToIcon = deepFreeze({
+    AWS: {
+        name: 'aws-s3-resource',
+        tooltip: 'AWS S3 resource'
+    },
+
+    AZURE: {
+        name: 'azure-resource',
+        tooltip: 'Azure blob resource'
+    }
+});
+
 export function getHostsPoolStateIcon(pool) {
     const { mode } = pool;
     const state = hostsPoolModeToStateIcon[mode];
@@ -96,3 +116,12 @@ export function getInternalResourceStateIcon(resource) {
     return internalResourceModeToStateIcon[mode];
 }
 
+export function getNamespaceResourceStateIcon(resource) {
+    const { mode } = resource;
+    return namespaceResourceModeToStateIcon[mode];
+}
+
+export function getNamespaceResourceTypeIcon(resource) {
+    const { service } = resource;
+    return namespaceResourceServiceToIcon[service];
+}

@@ -108,12 +108,12 @@ class PoolsTableViewModel extends Observer {
 
     onPools([ pools, location ]) {
         const { system, tab } = location.params;
-        if ((tab && tab !== 'pools') || !pools.items) return;
+        if (!pools || (tab && tab !== 'pools')) return;
 
         const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = location.query;
         const { compareKey } = columns.find(column => column.name === sortBy);
 
-        const poolList = Object.values(pools.items);
+        const poolList = Object.values(pools);
         const hostCount = poolList.reduce((sum, pool) => sum + pool.hostCount, 0);
         const compareOp = createCompareFunc(compareKey, order);
         const pageStart = Number(page) * this.pageSize;

@@ -2,8 +2,6 @@ import ko from 'knockout';
 import { getCloudServiceMeta } from 'utils/ui-utils';
 import { stringifyAmount } from 'utils/string-utils';
 
-const undeletableReason = 'Cannot delete currently used connection';
-
 export default class ConnectionRowViewModel {
     constructor({ deleteGroup, onDelete }) {
         this.service = ko.observable();
@@ -17,7 +15,7 @@ export default class ConnectionRowViewModel {
             id: ko.observable(),
             group: deleteGroup,
             onDelete: onDelete,
-            undeletable: ko.observable(),
+            disabled: ko.observable(),
             tooltip: ko.observable()
         };
     }
@@ -37,6 +35,9 @@ export default class ConnectionRowViewModel {
                 breakWords: true
             } : ''
         };
+        const deleteToolTip = hasExternalConnections ?
+            'Cannot delete currently used connection' :
+            'Delete Connection';
 
         this.name(name);
         this.service(serviceInfo);
@@ -44,7 +45,7 @@ export default class ConnectionRowViewModel {
         this.identity(identity);
         this.externalTargets(externalTargetsInfo);
         this.deleteButton.id(name);
-        this.deleteButton.undeletable(hasExternalConnections);
-        this.deleteButton.tooltip(hasExternalConnections ? undeletableReason : '');
+        this.deleteButton.disabled(hasExternalConnections);
+        this.deleteButton.tooltip(deleteToolTip);
     }
 }

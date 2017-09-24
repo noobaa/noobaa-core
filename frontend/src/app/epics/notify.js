@@ -31,7 +31,18 @@ import {
     COMPLETE_DELETE_ACCOUNT,
     FAIL_DELETE_ACCOUNT,
     COMPLETE_DELETE_EXTERNAL_CONNECTION,
-    FAIL_DELETE_EXTERNAL_CONNECTION
+    FAIL_DELETE_EXTERNAL_CONNECTION,
+    COMPLETE_CREATE_NAMESPACE_RESOURCE,
+    FAIL_CREATE_NAMSPACE_RESOURCE,
+    COMPLETE_DELETE_NAMESPACE_RESOURCE,
+    FAIL_DELETE_NAMSPACE_RESOURCE,
+    COMPLETE_CREATE_GATEWAY_BUCKET,
+    FAIL_CREATE_GATEWAY_BUCKET,
+    COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT,
+    FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT,
+    COMPLETE_DELETE_GATEWAY_BUCKET,
+    FAIL_DELETE_GATEWAY_BUCKET
+
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -206,7 +217,57 @@ const actionToNotification = deepFreeze({
     [FAIL_DELETE_EXTERNAL_CONNECTION]: ({ connection }) => ({
         message: `Connection ${connection} deletion failed`,
         severity: 'error'
-    })
+    }),
+
+    [COMPLETE_CREATE_NAMESPACE_RESOURCE]: ({ name }) => ({
+        message: `Namespace resource ${name} created successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_CREATE_NAMSPACE_RESOURCE]: ({ name }) => ({
+        message: `Namespace resource ${name} creation failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_DELETE_NAMESPACE_RESOURCE]: ({ name }) => ({
+        message: `Namespace resource ${name} deleted successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_DELETE_NAMSPACE_RESOURCE]: ({ name }) => ({
+        message: `Namespace resource ${name} deletion failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_CREATE_GATEWAY_BUCKET]: ({ name }) =>({
+        message: `Gateway bucket ${name} created successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_CREATE_GATEWAY_BUCKET]: ({ name }) => ({
+        message: `Gateway bucket ${name} creation failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT]: ({ name }) => ({
+        message: `Gateway bucket ${name} placement policy updated successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT]: ({ name }) => ({
+        message: `Updating gateway bucket ${name} placement policy failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
+        message: `Gateway bucket ${name} deleted successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
+        message: `Gateway bucket ${name} deletion failed`,
+        severity: 'error'
+    }),
 });
 
 export default function(action$) {

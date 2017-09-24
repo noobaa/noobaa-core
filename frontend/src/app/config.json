@@ -1,5 +1,5 @@
 {
-    "inputThrottle": 500,
+    "inputThrottle": 300,
     "paginationPageSize": 25,
     "infinitScrollPageSize": 25,
     "timeShortFormat": "DD MMM YYYY hh:mm:ss",

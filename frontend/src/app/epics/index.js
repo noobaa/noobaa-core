@@ -36,11 +36,18 @@ import downloadFile from './download-file';
 import fetchHostObjects from './fetch-host-objects';
 import tryDeleteAccount from './try-delete-account';
 import signOutDeletedUser from './sign-out-deleted-user';
+import fetchCloudTargets from './fetch-cloud-targets';
+import createNamespaceResource from './create-namespace-resource';
+import deleteNamespaceResource from './delete-namespace-resource';
+import createGatewayBucket from './create-gateway-bucket';
+import updateGatewayBucketPlacement from './update-gateway-bucket-placement';
+import deleteGatewayBucket from './delete-gateway-bucket';
 
 const generalEpics = [
     handleLocationRequests,
     notify,
-    downloadFile
+    downloadFile,
+    fetchCloudTargets
 ];
 
 const sessionRelatedEpics = [
@@ -77,7 +84,10 @@ const accountRelatedEpics = [
 ];
 
 const bucketRelatedEpics = [
-    updateBucketQuota
+    updateBucketQuota,
+    createGatewayBucket,
+    updateGatewayBucketPlacement,
+    deleteGatewayBucket
 ];
 
 const objectRelatedEpics = [
@@ -99,6 +109,11 @@ const hostRelatedEpics = [
     toggleHostNodes
 ];
 
+const namespaceRelatedEpics = [
+    createNamespaceResource,
+    deleteNamespaceResource
+];
+
 // A utility that combine multiple epics into one epic.
 function _combineEpics(epics) {
     return (action$, injected) => {
@@ -118,5 +133,6 @@ export default _combineEpics([
     ...bucketRelatedEpics,
     ...objectRelatedEpics,
     ...resourceRelatedEpics,
-    ...hostRelatedEpics
+    ...hostRelatedEpics,
+    ...namespaceRelatedEpics
 ]);

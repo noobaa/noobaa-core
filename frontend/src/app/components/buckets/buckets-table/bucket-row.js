@@ -203,7 +203,7 @@ export default class BucketRowViewModel extends BaseViewModel {
         this.deleteButton = {
             subject: 'bucket',
             group: deleteGroup,
-            undeletable: isUndeletable,
+            disabled: isUndeletable,
             tooltip: ko.pureComputed(
                 () => {
                     const { undeletable } = bucket() || {};

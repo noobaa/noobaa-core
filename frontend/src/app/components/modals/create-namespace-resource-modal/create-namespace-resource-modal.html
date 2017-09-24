@@ -1,0 +1,57 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<form class="column greedy" ko.submit="form.submit">
+    <p class="push-next">
+        Use a bucket from a public cloud to serve as a NooBaa storage resource
+    </p>
+
+    <section class="coulmn greedy">
+        <editor params="label: 'Target Connection'">
+            <dropdown params="
+                options: connectionOptions,
+                selected: form.connection,
+                placeholder: 'Choose Connection',
+                invalid: form.connection.isInvalidTouched
+            "></dropdown>
+            <validation-message params="field: form.connection"></validation-message>
+        </editor>
+
+        <editor params="label: 'Target Bucket', disabled: !form.connection()">
+            <dropdown params="
+                options: targetOptions,
+                selected: form.target,
+                disabled: !form.connection(),
+                loading: fetchingTargets,
+                placeholder: 'Choose Bucket',
+                invalid: form.target.isInvalidTouched
+            "></dropdown>
+            <validation-message params="field: form.target"></validation-message>
+        </editor>
+
+        <editor params="label: 'Resource Name', disabled: !form.connection()">
+            <input type="text"
+                class="push-next-half"
+                ko.textInput="throttledResourceName"
+                ko.enable="form.connection"
+                ko.attr.placeholder="'Type Name'"
+                ko.validationCss="form.resourceName"
+            />
+
+            <ul class="restriction-list"
+                ko.css.disabled="!form.connection()"
+                ko.foreach="nameRestrictionList"
+            >
+                <li ko.text="label" ko.css="css"></li>
+            </ul>
+        </editor>
+    </section>
+
+    <div class="row align-end">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">
+            Create
+        </button>
+    </div>
+</form>

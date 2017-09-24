@@ -13,3 +13,5 @@ export * from './bucket-actions';
 export * from './resource-actions';
 export * from './host-actions';
 export * from './account-actions';
+export * from './cloud-actions';
+export * from './namespace-actions';

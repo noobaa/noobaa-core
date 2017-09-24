@@ -17,7 +17,7 @@ class PoolAssociatedAccountsListViewModel extends Observer {
 
         this.observe(
             state$.getMany(
-                ['hostPools', 'items', ko.unwrap(poolName), 'associatedAccounts'],
+                ['hostPools', ko.unwrap(poolName), 'associatedAccounts'],
                 ['location', 'params', 'system']
             ),
             this.onAccounts

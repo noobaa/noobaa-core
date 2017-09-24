@@ -359,7 +359,14 @@ module.exports = {
                 },
                 identity: {
                     type: 'string'
-                }
+                },
+                mode: {
+                    type: 'string',
+                    enum: ['OPTIMAL']
+                },
+                undeletable: {
+                    $ref: 'common_api#/definitions/undeletable_enum'
+                },
             }
         },
 

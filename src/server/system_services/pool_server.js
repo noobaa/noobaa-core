@@ -7,7 +7,6 @@
 'use strict';
 
 const _ = require('lodash');
-const util = require('util');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
@@ -518,6 +517,8 @@ function get_namespace_resource_info(namespace_resource) {
         endpoint: namespace_resource.connection.endpoint,
         target_bucket: namespace_resource.connection.target_bucket,
         identity: namespace_resource.connection.access_key,
+        mode: 'OPTIMAL',
+        undeletable: check_namespace_resource_deletion(namespace_resource)
     };
 
     return info;

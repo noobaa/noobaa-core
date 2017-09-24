@@ -128,30 +128,30 @@ function create_bucket(req) {
         changes.insert.tiers = [tier];
     }
 
-    const read_resources = _.compact(req.rpc_params.read_resources
-        .map(ns_name =>
-            req.system.namespace_resources_by_name[ns_name] &&
-            req.system.namespace_resources_by_name[ns_name]._id)
-    );
-    const wr_obj = req.system.namespace_resources_by_name[req.rpc_params.write_resource];
-    const write_resource = wr_obj && wr_obj._id;
-    if (req.rpc_params.read_resources &&
-        (!read_resources.length ||
-            (read_resources.length !== req.rpc_params.read_resources.length)
-        )) {
-        throw new RpcError('INVALID_READ_RESOURCES');
-    }
-    if (req.rpc_params.write_resource && !write_resource) {
-        throw new RpcError('INVALID_WRITE_RESOURCES');
-    }
-
     let bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
         tiering_policy._id,
         req.rpc_params.tag);
 
-    if (req.rpc_params.read_resources && req.rpc_params.write_resource) {
+    if (req.rpc_params.namespace) {
+        const read_resources = _.compact(req.rpc_params.namespace.read_resources
+            .map(ns_name =>
+                req.system.namespace_resources_by_name[ns_name] &&
+                req.system.namespace_resources_by_name[ns_name]._id)
+        );
+        const wr_obj = req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource];
+        const write_resource = wr_obj && wr_obj._id;
+        if (req.rpc_params.namespace.read_resources &&
+            (!read_resources.length ||
+                (read_resources.length !== req.rpc_params.namespace.read_resources.length)
+            )) {
+            throw new RpcError('INVALID_READ_RESOURCES');
+        }
+        if (req.rpc_params.namespace.write_resource && !write_resource) {
+            throw new RpcError('INVALID_WRITE_RESOURCES');
+        }
+
         bucket.namespace = {
             read_resources,
             write_resource
@@ -1086,9 +1086,9 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         name: bucket.name,
         namespace: bucket.namespace ? {
             write_resource: pool_server.get_namespace_resource_info(
-                bucket.namespace.write_resource),
+                bucket.namespace.write_resource).name,
             read_resources: _.map(bucket.namespace.read_resources, rs =>
-                pool_server.get_namespace_resource_info(rs))
+                pool_server.get_namespace_resource_info(rs).name)
         } : undefined,
         tiering: tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool, aggregate_data_free_by_tier),
         tag: bucket.tag ? bucket.tag : '',

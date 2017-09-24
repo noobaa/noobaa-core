@@ -254,6 +254,10 @@ function update_bucket(req) {
     };
 
     if (req.rpc_params.namespace) {
+        if (!bucket.namespace) {
+            throw new RpcError('CANNOT_CONVERT_BUCKET_TO_NAMESPACE_BUCKET');
+        }
+
         if (!req.rpc_params.namespace.read_resources.length) {
             throw new RpcError('INVALID_READ_RESOURCES');
         }
@@ -1323,7 +1327,8 @@ function resolve_tiering_policy(req, policy_name) {
 function can_delete_bucket(system, bucket) {
     return P.resolve()
         .then(() => {
-            if (_.map(system.buckets_by_name).length === 1) {
+            if (bucket.namespace) return;
+            if (_.map(system.buckets_by_name).filter(b => !b.namespace).length === 1) {
                 return 'LAST_BUCKET';
             }
             return MDStore.instance().has_any_completed_objects_in_bucket(bucket._id)

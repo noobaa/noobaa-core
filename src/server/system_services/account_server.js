@@ -687,6 +687,10 @@ function check_azure_connection(params) {
             .then(() => blob_svc)
             .catch(err => {
                 dbg.warn(`got error on listContainersSegmented with params`, params, ` error: ${err}`);
+                if (err.code === 'AuthenticationFailed' &&
+                    err.authenticationerrordetail && err.authenticationerrordetail.indexOf('Request date header too old') > -1) {
+                    throw err_to_status(err, 'TIME_SKEW');
+                }
                 throw err_to_status(err, err instanceof StorageError ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
             })
         )

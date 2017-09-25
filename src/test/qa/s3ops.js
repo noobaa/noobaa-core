@@ -2,9 +2,9 @@
 'use strict';
 
 const promise_utils = require('../../util/promise_utils');
-let crypto = require('crypto');
-let AWS = require('aws-sdk');
-let P = require('../../util/promise');
+const crypto = require('crypto');
+const AWS = require('aws-sdk');
+const P = require('../../util/promise');
 
 const accessKeyDefault = '123';
 const secretKeyDefault = 'abc';
@@ -17,8 +17,8 @@ function validate_multiplier(multiplier) {
 
 function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
     validate_multiplier(multiplier);
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -28,13 +28,13 @@ function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
     bucket = bucket || 'first.bucket';
     data_size = data_size || 50;
 
-    var actual_size = data_size * multiplier;
+    const actual_size = data_size * multiplier;
 
-    var data = crypto.randomBytes(actual_size);
+    let data = crypto.randomBytes(actual_size);
     let md5 = crypto.createHash('md5').update(data)
         .digest('hex');
 
-    var params = {
+    let params = {
         Bucket: bucket,
         Key: file_name,
         Body: data,
@@ -43,7 +43,7 @@ function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
         },
     };
     console.log(`>>> UPLOAD - About to upload object... ${file_name}, md5: ${md5}, size: ${data.length}`);
-    var start_ts = Date.now();
+    let start_ts = Date.now();
     return P.ninvoke(s3bucket, 'putObject', params)
         .then(res => {
             console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
@@ -56,8 +56,8 @@ function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
 }
 
 function copy_file_with_md5(ip, bucket, source, destination) {
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -66,14 +66,14 @@ function copy_file_with_md5(ip, bucket, source, destination) {
     });
     bucket = bucket || 'first.bucket';
 
-    var params = {
+    let params = {
         Bucket: bucket,
         CopySource: bucket + '/' + source,
         Key: destination,
         MetadataDirective: 'COPY'
     };
     console.log('>>> COPY - About to copy object... from: ' + source + ' to: ' + destination);
-    var start_ts = Date.now();
+    let start_ts = Date.now();
     return P.ninvoke(s3bucket, 'copyObject', params)
         .then(res => {
             console.log('Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
@@ -86,8 +86,8 @@ function copy_file_with_md5(ip, bucket, source, destination) {
 
 function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multiplier) {
     validate_multiplier(multiplier);
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -97,18 +97,18 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multi
     bucket = bucket || 'first.bucket';
     data_size = data_size || 50;
 
-    var actual_size = data_size * multiplier;
+    const actual_size = data_size * multiplier;
 
-    var data = crypto.randomBytes(actual_size);
+    let data = crypto.randomBytes(actual_size);
     let md5 = crypto.createHash('md5').update(data)
         .digest('hex');
 
-    var start_ts = Date.now();
-    var size = Math.ceil(actual_size / parts_num);
+    let start_ts = Date.now();
+    let size = Math.ceil(actual_size / parts_num);
 
     console.log(`>>> MultiPart UPLOAD - About to multipart upload object... ${
         file_name}, md5: ${md5}, size: ${data.length}`);
-    var params = {
+    let params = {
         Bucket: bucket,
         Key: file_name,
         Body: data,
@@ -116,7 +116,7 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multi
             md5: md5
         },
     };
-    var options = {
+    let options = {
         partSize: size
     };
     return P.ninvoke(s3bucket, 'upload', params, options)
@@ -131,8 +131,8 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multi
 }
 
 function get_file_check_md5(ip, bucket, file_name) {
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -140,19 +140,19 @@ function get_file_check_md5(ip, bucket, file_name) {
         sslEnabled: false,
     });
 
-    var params = {
+    let params = {
         Bucket: bucket,
         Key: file_name,
     };
 
     console.log('>>> DOWNLOAD - About to download object...' + file_name);
-    var start_ts = Date.now();
+    let start_ts = Date.now();
     return P.ninvoke(s3bucket, 'getObject', params)
         .then(res => {
             console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
-            var md5 = crypto.createHash('md5').update(res.Body)
+            let md5 = crypto.createHash('md5').update(res.Body)
                 .digest('hex');
-            var file_md5 = res.Metadata.md5;
+            let file_md5 = res.Metadata.md5;
             if (md5 === file_md5) {
                 console.log(`uploaded MD5: ${file_md5} and downloaded MD5: ${
                     md5} - they are same, size: ${res.ContentLength}`);
@@ -169,8 +169,8 @@ function get_file_check_md5(ip, bucket, file_name) {
 }
 
 function check_MD5_all_objects(ip, bucket, prefix) {
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -178,7 +178,7 @@ function check_MD5_all_objects(ip, bucket, prefix) {
         sslEnabled: false,
     });
 
-    var params = {
+    let params = {
         Bucket: bucket,
         Prefix: prefix,
     };
@@ -200,8 +200,8 @@ function check_MD5_all_objects(ip, bucket, prefix) {
 }
 
 function get_a_random_file(ip, bucket, prefix) {
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -209,7 +209,7 @@ function get_a_random_file(ip, bucket, prefix) {
         sslEnabled: false,
     });
 
-    var params = {
+    let params = {
         Bucket: bucket,
         Prefix: prefix,
     };
@@ -228,21 +228,22 @@ function get_a_random_file(ip, bucket, prefix) {
             throw err;
         });
 }
+
 function get_list_files(ip, bucket, prefix) {
-    let rest_endpoint = 'http://' + ip + ':80';
-    let s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
-    var params = {
+    let params = {
         Bucket: bucket,
         Prefix: prefix,
     };
-    var list = [];
-    var listFiles = [];
+    let list = [];
+    let listFiles = [];
     return P.ninvoke(s3bucket, 'listObjects', params)
         .then(res => {
             list = res.Contents;
@@ -261,21 +262,55 @@ function get_list_files(ip, bucket, prefix) {
             throw err;
         });
 }
-function get_list_prefixes(ip, bucket) {
-    let rest_endpoint = 'http://' + ip + ':80';
-    let s3bucket = new AWS.S3({
+
+function get_list_multipart_uploads(ip, bucket) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
-    var params = {
+    let params = {
+        Bucket: bucket,
+    };
+    let list = [];
+    let listFiles = [];
+    return P.ninvoke(s3bucket, 'listMultipartUploads', params)
+        .then(res => {
+            list = res.data.Uploads;
+            if (list.length === 0) {
+                console.warn('No objects in bucket');
+            } else {
+                list.forEach(function(file) {
+                    listFiles.push({Key: file.Key});
+                    console.log('files key is: ' + file.Key);
+                });
+            }
+            return listFiles;
+        })
+        .catch(err => {
+            console.error('Getting multipart uploads list failed!', err);
+            throw err;
+        });
+}
+
+function get_list_prefixes(ip, bucket) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    let params = {
         Bucket: bucket,
         Delimiter: "/"
     };
-    var list = [];
-    var listPrefixes = [];
+    let list = [];
+    let listPrefixes = [];
     return P.ninvoke(s3bucket, 'listObjects', params)
         .then(res => {
             list = res.CommonPrefixes;
@@ -295,8 +330,8 @@ function get_list_prefixes(ip, bucket) {
         });
 }
 function get_file_number(ip, bucket, prefix) {
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -304,7 +339,7 @@ function get_file_number(ip, bucket, prefix) {
         sslEnabled: false,
     });
 
-    var params = {
+    let params = {
         Bucket: bucket,
         Prefix: prefix,
     };
@@ -321,8 +356,8 @@ function get_file_number(ip, bucket, prefix) {
 }
 
 function delete_file(ip, bucket, file_name) {
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -330,12 +365,12 @@ function delete_file(ip, bucket, file_name) {
         sslEnabled: false,
     });
 
-    var params = {
+    let params = {
         Bucket: bucket,
         Key: file_name,
     };
 
-    var start_ts = Date.now();
+    let start_ts = Date.now();
     console.log('>>> DELETE - About to delete object...' + file_name);
     return P.ninvoke(s3bucket, 'deleteObject', params)
         .then(() => {
@@ -349,25 +384,25 @@ function delete_file(ip, bucket, file_name) {
 }
 
 function delete_folder(ip, bucket, ...list) {
-    let rest_endpoint = 'http://' + ip + ':80';
-    let s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
-            var params = {
-                Bucket: bucket,
-                Delete: {Objects: list},
-            };
-            return P.ninvoke(s3bucket, 'deleteObjects', params)
-                .catch(err => console.error('deleting objects with error' + err));
+    let params = {
+        Bucket: bucket,
+        Delete: {Objects: list},
+    };
+    return P.ninvoke(s3bucket, 'deleteObjects', params)
+        .catch(err => console.error('deleting objects with error' + err));
 }
 
 function get_file_size(ip, bucket, file_name) {
-    let rest_endpoint = 'http://' + ip + ':80';
-    let s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -389,8 +424,8 @@ function get_file_size(ip, bucket, file_name) {
 }
 
 function set_file_attribute(ip, bucket, file_name) {
-    let rest_endpoint = 'http://' + ip + ':80';
-    let s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -419,8 +454,8 @@ function set_file_attribute(ip, bucket, file_name) {
 }
 
 function set_file_attribute_with_copy(ip, bucket, file_name) {
-    let rest_endpoint = 'http://' + ip + ':80';
-    let s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -455,17 +490,17 @@ function set_file_attribute_with_copy(ip, bucket, file_name) {
 }
 
 function get_list_buckets(ip) {
-    let rest_endpoint = 'http://' + ip + ':80';
-    let s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
-    var params = {};
-    var list = [];
-    var listBuckets = [];
+    let params = {};
+    let list = [];
+    let listBuckets = [];
     return P.ninvoke(s3bucket, 'listBuckets', params)
         .then(res => {
             list = res.Buckets;
@@ -486,8 +521,8 @@ function get_list_buckets(ip) {
 }
 
 function create_bucket(ip, bucket_name) {
-    let rest_endpoint = 'http://' + ip + ':80';
-    let s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
         secretAccessKey: secretKeyDefault,
@@ -506,6 +541,117 @@ function create_bucket(ip, bucket_name) {
             throw err;
         });
 }
+
+function delete_bucket(ip, bucket_name) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    let params = {
+        Bucket: bucket_name,
+    };
+    return P.ninvoke(s3bucket, 'deleteBucket', params)
+        .then(res => console.log("Deleted bucket ", res))
+        .catch(err => {
+            console.error('Deleting bucket is failed!', err);
+            throw err;
+        });
+}
+
+function get_object_uploadId(ip, bucket, object_name) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    let params = {
+        Bucket: bucket,
+    };
+    let list = [];
+    let dataObject = [];
+    let uploadObjectId;
+    return P.ninvoke(s3bucket, 'listObjects', params)
+        .then(res => {
+            list = res.Contents;
+            if (list.length === 0) {
+                console.warn('No objects in bucket ', bucket);
+            } else {
+                dataObject = list.find(content => content.Key === object_name);
+                console.log('Object has data: ', JSON.stringify(dataObject));
+                uploadObjectId = dataObject.Owner.ID;
+                }
+            return uploadObjectId;
+        })
+        .catch(err => {
+            console.error('Getting object uploadId failed!', err);
+            throw err;
+        });
+}
+
+function get_bucket_uploadId(ip, bucket) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    let params = {};
+    let list = [];
+    let dataBucket = [];
+    let uploadBucketId;
+    return P.ninvoke(s3bucket, 'listBuckets', params)
+        .then(res => {
+            list = res.Contents;
+            if (list.length === 0) {
+                console.warn('No buckets ');
+            } else {
+                dataBucket = list.find(buckets => buckets.Name === bucket);
+                console.log('Bucket data info is ', JSON.stringify(dataBucket));
+                uploadBucketId = dataBucket.Owner.ID;
+            }
+            return uploadBucketId;
+        })
+        .catch(err => {
+            console.error('Getting buckets uploadId failed!', err);
+            throw err;
+        });
+}
+
+function is_bucket_exist(ip, bucket) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    let params = {
+        Bucket: bucket
+    };
+    let existBucket = true;
+    return P.ninvoke(s3bucket, 'headBucket', params)
+        .catch(err => {
+            console.log('Bucket is not exist', err);
+            existBucket = false;
+            return existBucket;
+        });
+}
+
+exports.get_list_multipart_uploads = get_list_multipart_uploads;
+exports.delete_bucket = delete_bucket;
+exports.get_object_uploadId = get_object_uploadId;
+exports.get_bucket_uploadId = get_bucket_uploadId;
+exports.is_bucket_exist = is_bucket_exist;
 exports.put_file_with_md5 = put_file_with_md5;
 exports.copy_file_with_md5 = copy_file_with_md5;
 exports.upload_file_with_md5 = upload_file_with_md5;

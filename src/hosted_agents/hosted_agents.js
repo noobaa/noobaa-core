@@ -219,7 +219,7 @@ class HostedAgents {
     }
 
 
-    _stop_agent(node_name) {
+    _stop_agent(node_name, should_clean) {
         dbg.log0(`Stopping agent for pool id ${node_name}`);
         if (!this._started_agents[node_name]) {
             dbg.warn(`${node_name} is not started. ignoring stop`);
@@ -232,7 +232,7 @@ class HostedAgents {
         }
         return P.resolve()
             .then(() => {
-                if (agent_pool) {
+                if (agent_pool && should_clean) {
                     dbg.log0(`delete agent_pool ${agent_pool.name} ${agent_pool._id}`);
                     return system_store.make_changes({
                         remove: {
@@ -270,7 +270,7 @@ function remove_pool_agent(req) {
         node_name = 'noobaa-internal-agent-' + pool._id;
     }
     return HostedAgents.instance()
-        ._stop_agent(node_name);
+        ._stop_agent(node_name, true);
 }
 
 function _get_pool_token_wrapper(token_pool) {
@@ -329,6 +329,6 @@ exports.remove_pool_agent = remove_pool_agent;
 exports.start = req => HostedAgents.instance().start();
 exports.stop = req => HostedAgents.instance().stop();
 exports.create_agent = req => HostedAgents.instance().start_local_agent(req.params);
-exports.remove_agent = req => HostedAgents.instance()._stop_agent(req.params.name);
+exports.remove_agent = req => HostedAgents.instance()._stop_agent(req.params.name, true);
 
 // exports.background_worker = background_worker;

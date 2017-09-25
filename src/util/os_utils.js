@@ -823,11 +823,103 @@ function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
     return P.resolve()
         .then(() => {
             if (os.type() === 'Linux') {
-                // get iptables rules and check port range against it.
-                return get_iptables_rules();
+                return _check_ports_on_linux(dest_ips, start_port, end_port);
+            } else if (os.type() === 'Windows_NT') {
+                return _check_ports_on_windows(dest_ips, start_port, end_port);
             }
-            return [];
+            return true;
         })
+        .catch(err => {
+            dbg.error('got error on is_port_range_open_in_firewall', err);
+            return true;
+        });
+}
+
+
+function _check_ports_on_windows(dest_ips, start_port, end_port) {
+    let allowed_by_default = true;
+    // get the current profile, and check if it's enabled:
+    return promise_utils.exec('netsh advfirewall show currentprofile', false, true, 60000)
+        .then(curr_profile_out => {
+            const lines = curr_profile_out.trim().split('\r\n');
+            // check if firewall is on for this profile. the on\off indication is in the 3rd line:
+            const firewall_enabled = lines[2].split(/\s+/)[1].trim() === 'ON';
+            if (firewall_enabled) {
+                // get the default rule for inbound traffic:
+                const policy_line = lines.find(line => line.indexOf('Firewall Policy') > -1);
+                allowed_by_default = policy_line.indexOf('BlockInbound') === -1;
+                // get all active inbound rules
+                return _get_win_fw_rules();
+            }
+        })
+        .then(rules => {
+            // filter out non TCP rules
+            const filtered_rules = rules.filter(rule => (rule.Protocol && (rule.Protocol === 'TCP' || rule.Protocol === 'Any')));
+            // sort the rules so that block rules are first:
+            filtered_rules.sort((a, b) => {
+                if (a.Action === 'Block' && b.Action !== 'Block') return -1;
+                else if (a.Action !== 'Block' && b.Action === 'Block') return 1;
+                else return 0;
+            });
+
+            let ports_groups = _.groupBy(_.range(start_port, end_port + 1), port => {
+                // go over all relevant rules, and look for the first matching rule (maybe partial match)
+                for (const rule of filtered_rules) {
+                    if (port >= rule.LocalPort[0] && port <= rule.LocalPort[1]) {
+                        // the rule matches some of the range. return if accept or reject
+                        return rule.Action;
+                    }
+                }
+                // if none of the rules matches the port, return the default action
+                return allowed_by_default ? 'Allow' : 'Block';
+            });
+            dbg.log0(`is_port_range_open_in_firewall: checked range [${start_port}, ${end_port}]:`, ports_groups);
+            // for now if any port in the range is blocked, return false
+            return _.isUndefined(ports_groups.Block);
+        })
+        .catch(err => {
+            dbg.error('failed checking firewall rules on windows. treat as all ports are open', err);
+            return true;
+        });
+}
+
+function _get_win_fw_rules() {
+    const fields_to_use = ['RemoteIP', 'Protocol', 'LocalPort', 'Rule Name', 'Action'];
+    // return fs.readFileAsync('/Users/dannyzaken/Downloads/monitor.txt', 'utf8')
+    return promise_utils.exec('netsh advfirewall monitor show firewall rule name=all dir=in profile=active', false, true, 60000)
+        .then(rules_output => {
+            const rules = rules_output.toString().trim()
+                // split by empty line separator between different rules
+                .split('\r\n\r\n')
+                // map each rule to an object
+                .map(block => block.split('\r\n')
+                    // remove separator line
+                    .filter(line => line.indexOf('---') === -1)
+                    .reduce((prev_obj, line) => {
+                        const split_line = line.split(':').map(word => word.trim());
+                        const key = split_line[0];
+                        const val = split_line[1];
+                        const ret_obj = {};
+                        if (key === 'LocalPort') {
+                            const ports = val.split('-').map(port => parseInt(port, 10));
+                            // if single port than push "end port" to be the same as start port
+                            if (ports.length === 1) ports.push(ports[0]);
+                            ret_obj[key] = ports;
+                        } else if (fields_to_use.includes(key)) {
+                            ret_obj[key] = val;
+                        }
+                        return Object.assign(ret_obj, prev_obj);
+                    }, {})
+                );
+
+            return rules;
+        });
+}
+
+
+function _check_ports_on_linux(dest_ips, start_port, end_port) {
+    // get iptables rules and check port range against it.
+    return get_iptables_rules()
         .then(rules => {
             const filtered_rules = rules.filter(rule => {
                 if (
@@ -873,9 +965,6 @@ function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
             dbg.log0(`is_port_range_open_in_firewall: checked range [${start_port}, ${end_port}]:`, ports_groups);
             // for now if any port in the range is blocked, return false
             return _.isUndefined(ports_groups.blocked);
-        })
-        .catch(err => {
-            dbg.error('got error on is_port_range_open_in_firewall', err);
         });
 }
 

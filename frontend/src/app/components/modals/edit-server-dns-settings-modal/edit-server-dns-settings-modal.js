@@ -20,6 +20,8 @@ const warnings = deepFreeze({
              logged out from the management console`
 });
 
+const searchDomainTooltip = 'If configured, search domains will be added to the fully qualified domain names when trying to resolve host names';
+
 class EditServerDNSSettingsModalViewModel extends BaseViewModel {
     constructor({ serverSecret, onClose }) {
         super();
@@ -56,37 +58,43 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
         this.primaryDNS = ko.observableWithDefault(
                 () => dnsServers()[0]
             )
-            .extend({
-                required: {
-                    onlyIf: () => this.secondaryDNS(),
-                    message: 'A primary DNS must be configured prior to a secondary DNS'
-                },
-                isIP: true
-            });
+            .extend({ isIP: true });
 
         this.secondaryDNS = ko.observableWithDefault(
                 () => dnsServers()[1]
             )
-            .extend({ isIP: true });
+            .extend({
+                isIP: {
+                    onlyIf: this.primaryDNS
+                }
+            });
 
-        this.updating = ko.observable(false);
+        this.isUpdatingOrPrimaryDNS = ko.pureComputed(
+            () => !this.primaryDNS() || this.isUpdating()
+        );
+
+        this.isUpdating = ko.observable(false);
         this.errors = ko.validation.group(this);
+        this.searchDomainTooltip = searchDomainTooltip;
     }
 
     update() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
-
         } else {
-            const searchDomains = (this.searchDomains() || '')
-                .split(',')
-                .map(domain => domain.trim())
-                .filter(Boolean);
+            if(!this.primaryDNS()) {
+                updateServerDNSSettings(this.serverSecret, '', '', []);
+            } else {
+                const searchDomains = (this.searchDomains() || '')
+                        .split(',')
+                        .map(domain => domain.trim())
+                        .filter(Boolean);
 
-            updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), searchDomains);
+                updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), searchDomains);
+            }
 
             action$.onNext(lockModal());
-            this.updating(true);
+            this.isUpdating(true);
         }
     }
 

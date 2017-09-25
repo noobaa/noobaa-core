@@ -274,6 +274,10 @@ function update_bucket(req) {
             throw new RpcError('INVALID_WRITE_RESOURCES');
         }
         _.set(bucket_updates, 'namespace.write_resource', write_resource);
+
+        if (!_.includes(req.rpc_params.namespace.read_resources, req.rpc_params.namespace.write_resource)) {
+            throw new RpcError('INVALID_NAMESPACE_CONFIGURATION');
+        }
     }
 
     if (req.rpc_params.new_name) {

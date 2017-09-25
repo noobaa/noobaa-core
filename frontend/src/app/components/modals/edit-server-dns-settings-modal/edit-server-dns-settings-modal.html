@@ -6,39 +6,47 @@
     <span class="greedy" ko.text="warning"></span>
 </div>
 
-<p class="push-next" ko.css.disabled="updating">
+<p class="push-next" ko.css.disabled="isUpdating">
     Setup the server to use the following DNS servers for name resolution
 </p>
 
 <section class="greedy">
     <editor class="push-prev" params="
         label: 'Primary DNS',
-        disabled: updating
+        disabled: isUpdating
     ">
         <input type="text"
             ko.value="primaryDNS"
-            ko.disable="updating"
+            ko.disable="isUpdating"
         />
     </editor>
     <editor class="push-next" params="
         label: 'Secondary DNS',
-        disabled: updating
+        disabled: isUpdatingOrPrimaryDNS
     ">
         <input type="text"
             ko.value="secondaryDNS"
-            ko.disable="updating"
+            ko.disable="isUpdatingOrPrimaryDNS"
         />
     </editor>
     <editor class="push-next" params="
         label: 'Search Domains',
-        disabled: updating
+        disabled: isUpdatingOrPrimaryDNS
     ">
-        <input type="text"
-            placeholder="E.g. noobaa, dev.lab"
-            ko.value="searchDomains"
-            ko.disable="updating"
-        />
-        <p class="remark" ko.css.disabled="updating">
+        <div class="row">
+            <input type="text"
+                placeholder="E.g. noobaa, dev.lab"
+                ko.value="searchDomains"
+                ko.disable="isUpdatingOrPrimaryDNS"
+            />
+            <svg-icon class="icon-small push-prev-half align-middle"
+                      params="name: 'question'"
+                      ko.tooltip="searchDomainTooltip"
+                      ko.css.disabled="isUpdatingOrPrimaryDNS"
+            >
+            </svg-icon>
+        </div>
+        <p class="remark" ko.css.disabled="isUpdatingOrPrimaryDNS">
             Type Domain names seperated by a comma
         </p>
     </editor>
@@ -47,14 +55,14 @@
 <div class="row content-middle align-end push-prev">
     <button class="link push-next alt-colors"
         ko.click="cancel"
-        ko.disable="updating"
+        ko.disable="isUpdating"
     >
         Cancel
     </button>
 
     <working-button ko.shakeOnClick="errors().length" params="
         click: update,
-        working: updating,
+        working: isUpdating,
         workingLabel: 'Restarting...'
     ">
         Update and restart system

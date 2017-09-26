@@ -36,7 +36,7 @@ function normalizeValue(value) {
             breakWords: false
         };
 
-    } else if (value instanceof Array) {
+    } else if (Array.isArray(value)) {
         const list = value.filter(isDefined);
         const text = list.length > 0 ?
             (list.length === 1 ? list[0] : toHtmlList(list)) :
@@ -51,7 +51,7 @@ function normalizeValue(value) {
 
     } else if (isObject(value)) {
         let { text, position, align } = value;
-        if (text instanceof Array) {
+        if (Array.isArray(text)) {
             const list = text.filter(isDefined);
             text = list.length > 0 ?
                 (list.length > 1 ? toHtmlList(list) :  list[0]) :

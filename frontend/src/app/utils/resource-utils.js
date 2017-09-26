@@ -102,6 +102,11 @@ const namespaceResourceServiceToIcon = deepFreeze({
     AZURE: {
         name: 'azure-resource',
         tooltip: 'Azure blob resource'
+    },
+
+    S3_COMPATIBLE: {
+        name: 'cloud-resource',
+        tooltip: 'Generic S3 compatible resource'
     }
 });
 

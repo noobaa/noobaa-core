@@ -13,7 +13,7 @@ import { openAddCloudConnectionModal } from 'action-creators';
 
 const addConnectionOption = deepFreeze({
     label: 'Add new connection',
-    value: {}
+    value: '__ADD_NEW_CONNECTION__'
 });
 
 const usedTargetTooltip = deepFreeze({

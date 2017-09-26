@@ -9,7 +9,7 @@ export function matchPattern(value, regExp) {
 
 export function notIn(value, params) {
     params = ko.unwrap(params);
-    if (params instanceof Array) {
+    if (Array.isArray(params)) {
         params = { list: params };
     }
 

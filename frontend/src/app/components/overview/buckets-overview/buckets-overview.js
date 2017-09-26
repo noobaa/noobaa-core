@@ -251,7 +251,9 @@ class BucketsOverviewViewModel extends BaseViewModel {
 
         this.bucketCount = ko.pureComputed(
             () => {
-                const count = (systemInfo() ? systemInfo().buckets : []).length;
+                const count = (systemInfo() ? systemInfo().buckets : [])
+                    .filter(bucket => bucket.bucket_type === 'REGULAR')
+                    .length;
                 return stringifyAmount('Bucket', count, 'No');
             }
         );

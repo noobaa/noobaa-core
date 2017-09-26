@@ -3,8 +3,8 @@
 <div class="dropdown-wrapper no-outline" data-bind="
     event: {
         blur: () => active(false),
-        click: () => handleClick(),
-        keydown: (_, evt) => handleKeyPress(evt)
+        click: () => onClick(),
+        keydown: (_, evt) => onKeyPress(evt)
     },
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
     hasFocus: hasFocus,
@@ -50,7 +50,7 @@
                         checkedValue: value
                     "/>
                     <!-- ko if: icon -->
-                    <svg-icon params="name: icon"></svg-icon>
+                    <svg-icon params="name: $component.optionIcon($data)"></svg-icon>
                     <!-- /ko -->
                     <div class="option-label no-wrap greedy" >
                         <div data-bind="css: css, text: label"></div>

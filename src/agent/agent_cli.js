@@ -197,10 +197,14 @@ AgentCLI.prototype.rename_agent_storage = function(mount_points) {
         return fs_utils.file_must_exist(old_path)
             .then(() => fs_utils.file_must_not_exist(mount_point.mount))
             .then(() => {
-                dbg.log0(`renaming ${old_path} to ${mount_point.mount}`);
-                return fs.rename(old_path, mount_point.mount);
-            })
-            .catch(err => dbg.log0(`skipping rename for mount ${mount_point.mount}`, err.message));
+                    dbg.log0(`renaming ${old_path} to ${mount_point.mount}`);
+                    return fs.renameAsync(old_path, mount_point.mount)
+                        .catch(err => {
+                            dbg.error(`failed renaming ${old_path} to ${mount_points.mount}. got error:`, err);
+                            throw err;
+                        });
+                },
+                err => dbg.log0(`skipping rename for mount ${mount_point.mount}`, err.message));
     });
 };
 

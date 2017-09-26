@@ -145,7 +145,7 @@ exports.aggregate_data_free_by_tier = req => nodes_aggregator.aggregate_data_fre
 exports.migrate_nodes_to_pool = req => monitor.migrate_nodes_to_pool(req);
 exports.n2n_signal = req => monitor.n2n_signal(req.rpc_params);
 exports.n2n_proxy = req => monitor.n2n_proxy(req.rpc_params);
-exports.test_node_network = req => monitor.test_node_network(req.rpc_params);
+exports.test_node_network = req => monitor.test_node_network(req);
 exports.set_debug_node = req => monitor.set_debug_node(req);
 exports.collect_agent_diagnostics = req => monitor.collect_agent_diagnostics(req.rpc_params);
 exports.report_error_on_node_blocks = req => monitor.report_error_on_node_blocks(req.rpc_params);

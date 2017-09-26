@@ -19,6 +19,31 @@ export default {
                 entityId: ({ node }) => node && node.name
             },
 
+            storage_disabled: {
+                message: 'Node Storage Disabled',
+                entityId: ({ node }) => node && node.name
+            },
+
+            storage_enabled: {
+                message: 'Node Storage Enabled',
+                entityId: ({ node }) => node && node.name
+            },
+
+            edit_drives: {
+                message: 'Node Storage Drives Edited',
+                entityId: ({ node }) => node && node.name
+            },
+
+            endpoint_disabled: {
+                message: 'Node S3 Endpoint Disabled',
+                entityId: ({ node }) => node && node.name
+            },
+
+            endpoint_enabled: {
+                message: 'Node S3 Endpoint Enabled',
+                entityId: ({ node }) => node && node.name
+            },
+
             recommission: {
                 message: 'Node Reactivated',
                 entityId: ({ node }) => node && node.name

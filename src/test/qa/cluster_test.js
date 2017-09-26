@@ -205,14 +205,12 @@ function checkClusterStatus(servers, oldMasterNumber) {
 }
 
 let servers = [];
-let master;
-let slaves;
 
-function setNTPConfig(serverIp) {
-    rpc = api.new_rpc('wss://' + serverIp + ':8443');
+function setNTPConfig(serverIndex) {
+    rpc = api.new_rpc('wss://' + servers[serverIndex].ip + ':8443');
     client = rpc.new_client({});
     rpc.disable_validation();
-    let secretVm;
+    console.log('Secret is ', servers[serverIndex].secret, 'for server ip ', servers[serverIndex].ip);
     return P.fcall(() => {
         let auth_params = {
             email: 'demo@noobaa.com',
@@ -221,28 +219,17 @@ function setNTPConfig(serverIp) {
         };
         return client.create_auth_token(auth_params);
     })
-        .then(() => client.system.read_system({}))
-        .then(result => {
-            secretVm = result.cluster.master_secret;
-            console.log('Secret is ', secretVm, 'for server ip ', serverIp);
+        .then(() => {
+            console.log('Setting ntp config');
+            return client.cluster_server.update_time_config({
+                target_secret: servers[serverIndex].secret,
+                timezone: configured_timezone,
+                ntp_server: configured_ntp
+            });
         })
-        .then(() => { // time configuration - ntp
-        console.log('Checking connection before setup ntp', configured_ntp);
-        return client.system.attempt_server_resolve({
-            server_name: configured_ntp
-        });
-    })
         .then(() => {
-        console.log('Setting ntp config');
-        return client.cluster_server.update_time_config({
-            target_secret: secretVm,
-            timezone: configured_timezone,
-            ntp_server: configured_ntp
-        });
-    })
-        .then(() => {
-        console.log('Reading system');
-        return client.cluster_server.read_server_config({});
+            console.log('Reading system');
+            return client.cluster_server.read_server_config({});
         })
         .then(result => {
             let ntp = result.ntp_server;
@@ -281,10 +268,12 @@ function delayInSec(sec) {
     return P.delay(sec * 1000);
 }
 
-function createCluster(requestedServers) {
-    slaves = Array.from(requestedServers);
-    master = slaves.shift();
-    return P.each(slaves, slave => azf.addServerToCluster(master.ip, slave.ip, slave.secret, slave.name))
+function createCluster(requestedServes, masterIndex, clusterIndex) {
+    let master = requestedServes[masterIndex].ip;
+    let cluster_ip = requestedServes[clusterIndex].ip;
+    let cluster_secret = requestedServes[clusterIndex].secret;
+    let cluster_name = requestedServes[clusterIndex].name;
+    return azf.addServerToCluster(master, cluster_ip, cluster_secret, cluster_name)
         .then(() => delayInSec(90));
 }
 
@@ -465,6 +454,26 @@ console.log(`${YELLOW}Timeout in min is: ${timeout}${NC}`);
 let masterIndex = 0;
 console.log('Breaking on error?', breakonerror);
 
+function checkAddClusterRules() {
+    return createCluster(servers, masterIndex, 1)
+        .catch(err => {
+            if (err.message.includes('Could not add members when NTP is not set')) {
+                console.log(err.message, ' - as should');
+            } else {
+                saveErrorAndResume('Error is not returned when add cluster without set ntp in master');
+            }
+        })
+        .then(() => setNTPConfig(0))
+        .then(() => createCluster(servers, masterIndex, 1)
+            .catch(err => {
+                if (err.message.includes('Could not add members when NTP is not set')) {
+                    console.log(err.message, ' - as should');
+                } else {
+                    console.warn('Error is not returned when add cluster without set ntp in in cluster server');
+                }
+            }));
+}
+
 function runFirstFlow() {
     console.log(`${RED}<======= Starting first flow =======>${NC}`);
     return azf.stopVirtualMachine(servers[1].name)
@@ -545,11 +554,12 @@ return azf.authenticate()
     })
     .then(() => cleanEnv())
     .then(() => prepareServers(servers))
-    .then(() => {
-        servers.forEach(system => setNTPConfig(system.ip));
-    })
+    .then(() => checkAddClusterRules())
+    .then(() => setNTPConfig(1))
+    .then(() => createCluster(servers, masterIndex, 1))
+    .then(() => setNTPConfig(2))
+    .then(() => createCluster(servers, masterIndex, 2))
     .then(() => delayInSec(90))
-    .then(() => createCluster(servers))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
     .then(() => getAgentConf())
     .then(() => runCreateAgents())

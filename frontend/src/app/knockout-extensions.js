@@ -23,7 +23,7 @@ ko.deepUnwrap = function(value) {
                 res[key] = ko.deepUnwrap(naked[key]);
                 return res;
             },
-            naked instanceof Array ? [] : {}
+            Array.isArray(naked) ? [] : {}
         );
     } else {
         return naked;

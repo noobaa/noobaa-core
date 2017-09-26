@@ -1,14 +1,18 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="column pad alt-bg">
-    <div class="align-end">
-        <button class="btn"
-            ko.click="onAddConnection"
-            ko.disable="connectionsLoading"
-        >
-            Add Connection
-        </button>
+<div class="row pad alt-bg">
+    <div class="greedy">
+        <input type="search"
+            class="push-next"
+            placeholder="Filter by conenction name"
+            ko.textInput="ko.pc(filter, onFilterThrottled)" />
     </div>
+    <button class="btn"
+        ko.click="onAddConnection"
+        ko.disable="connectionsLoading"
+    >
+        Add Connection
+    </button>
 </div>
 
 <data-table class="greedy connections-table" params="
@@ -16,7 +20,7 @@
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
     loading: connectionsLoading,
-    emptyMessage: 'The account has no external connections'
+    emptyMessage: emptyMessage
 "></data-table>
 
 <paginator params="

@@ -4,7 +4,7 @@ import template from './dropdown.html';
 import { randomString } from 'utils/string-utils';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { isDefined, clamp } from 'utils/core-utils';
+import { isDefined, isString, clamp } from 'utils/core-utils';
 
 const inputThrottle = 1000;
 
@@ -33,7 +33,7 @@ class DropdownViewModel extends BaseViewModel {
                 const normalized = (ko.deepUnwrap(options) || [])
                     .map(option => {
                         // Handle seperators
-                        if (!options) return null;
+                        if (!option) return null;
 
                         // Normalize option.
                         const {
@@ -41,23 +41,21 @@ class DropdownViewModel extends BaseViewModel {
                             label = value,
                             remark,
                             css,
-                            icon: _icon,
-                            selectedIcon,
-                            tooltip,
+                            icon,
+                            selectedIcon = icon,
+                            tooltip: _tooltip,
                             disabled = false
                         } = option;
 
-                        const icon = !selectedIcon ?
-                            _icon :
-                            ko.pureComputed(
-                                () => selected() === value ? selectedIcon : icon
-                            );
+                        const tooltip = (isString(_tooltip) || Array.isArray(_tooltip)) ?
+                             { text: _tooltip, position: 'after' } :
+                             _tooltip;
 
                         if (selected.peek() === value) {
                             selectedFound = true;
                         }
 
-                        return { value ,label, remark, css, tooltip, disabled, icon };
+                        return { value ,label, remark, css, tooltip, disabled, selectedIcon, icon };
                     });
 
                 if (selected.peek() && !selectedFound) {
@@ -98,7 +96,12 @@ class DropdownViewModel extends BaseViewModel {
         this.lastInput = 0;
     }
 
-    handleClick() {
+    optionIcon(option) {
+        const { value, icon, selectedIcon } = option;
+        return this.selected() === value ? selectedIcon : icon;
+    }
+
+    onClick() {
         if (!ko.unwrap(this.disabled)) {
             this.active.toggle();
         }
@@ -106,7 +109,7 @@ class DropdownViewModel extends BaseViewModel {
         return true;
     }
 
-    handleKeyPress({ which }) {
+    onKeyPress({ which }) {
         const optionsCount = this.options().length;
 
         switch(which) {

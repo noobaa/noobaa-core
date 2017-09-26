@@ -3,10 +3,10 @@
 import template from './account-connections-table.html';
 import Observer from 'observer';
 import ConnectionRowViewModel from './connection-row';
-import { deepFreeze, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { state$, action$ } from 'state';
-import { paginationPageSize } from 'config';
+import { inputThrottle, paginationPageSize } from 'config';
 import ko from 'knockout';
 import {
     requestLocation,
@@ -57,16 +57,20 @@ class AccountConnectionsTableViewModel extends Observer {
         this.pathname = '';
         this.columns = columns;
         this.connectionsLoading = ko.observable();
-        this.selectedForDelete = ko.observable();
-        this.rows = ko.observableArray();
+        this.filter = ko.observable();
         this.sorting = ko.observable();
         this.pageSize = paginationPageSize;
         this.page = ko.observable();
+        this.selectedForDelete = ko.observable();
         this.connectionCount = ko.observable();
+        this.emptyMessage = ko.observable();
+        this.rows = ko.observableArray();
         this.deleteGroup = ko.pureComputed({
             read: this.selectedForDelete,
             write: val => this.onSelectForDelete(val)
         });
+
+        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
             state$.getMany(
@@ -86,7 +90,7 @@ class AccountConnectionsTableViewModel extends Observer {
         const { tab = 'connections' } = params;
         if (tab !== 'connections') return;
 
-        const { sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
+        const { filter, sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
         const { compareKey } = columns.find(column => column.name === sortBy);
         const pageStart = Number(page) * this.pageSize;
         const rowParams = {
@@ -94,7 +98,10 @@ class AccountConnectionsTableViewModel extends Observer {
             onDelete: this.onDeleteConnection.bind(this)
         };
 
-        const rows = Array.from(connections)
+        const filteredConnections = connections
+            .filter(resource => !filter || resource.name.toLowerCase().includes(filter.toLowerCase()));
+
+        const rows = filteredConnections
             .sort(createCompareFunc(compareKey, order))
             .slice(pageStart, pageStart + this.pageSize)
             .map((connection, i) => {
@@ -103,54 +110,65 @@ class AccountConnectionsTableViewModel extends Observer {
                 return row;
             });
 
+        const emptyMessage = connections.length > 0 ?
+            'The filter does not match and connection' :
+            'The account has no external connections';
+
+        this.pathname = pathname;
+        this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
-        this.connectionCount(connections.length);
-        this.pathname = pathname;
+        this.connectionCount(filteredConnections.length);
+        this.emptyMessage(emptyMessage);
         this.selectedForDelete(selectedForDelete);
         this.rows(rows);
         this.connectionsLoading(false);
     }
 
-    onSort({ sortBy, order }) {
-        const query = {
-            sortBy: sortBy,
-            order: order,
+    onFilter(filter) {
+        this._query({
+            filter: filter,
             page: 0,
-            selectedForDelete: undefined
-        };
+            selectedForDelete: null
+        });
+    }
 
-        action$.onNext(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
+    onSort(sorting) {
+        this._query({
+            sorting: sorting,
+            page: 0,
+            selectedForDelete: null
+        });
     }
 
     onPage(page) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            sortBy: sortBy,
-            order: order,
+        this._query({
             page: page,
-            selectedForDelete: undefined
-        };
-
-        action$.onNext(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
+            selectedForDelete: null
+        });
     }
 
-    onSelectForDelete(connection) {
-        const { sortBy, order } = this.sorting();
+    onSelectForDelete(resource) {
+        const selectedForDelete = this.selectedForDelete() === resource ? null : resource;
+        this._query({ selectedForDelete });
+    }
+
+    _query({
+        filter = this.filter(),
+        sorting = this.sorting(),
+        page = this.page(),
+        selectedForDelete = this.selectedForDelete()
+    }) {
         const query = {
-            sortBy: sortBy,
-            order: order,
-            page: this.page(),
-            selectedForDelete: connection || undefined
+            filter: filter || undefined,
+            sortBy: sorting.sortBy,
+            order: sorting.order,
+            page: page,
+            selectedForDelete: selectedForDelete || undefined
         };
 
-        action$.onNext(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
+        const url = realizeUri(this.pathname, {}, query);
+        action$.onNext(requestLocation(url));
     }
 
     onAddConnection() {

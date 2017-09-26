@@ -83,11 +83,10 @@ export function compareArray(a, b) {
     return 0;
 }
 
-export function createCompareFunc(valueSelector, factor = 1) {
+export function createCompareFunc(valueSelector, factor = 1, ...additionalArgs) {
     return (a,b) => {
-        let key1 = valueSelector(a);
-        let key2 = valueSelector(b);
-
+        const key1 = valueSelector(a, ...additionalArgs);
+        const key2 = valueSelector(b, ...additionalArgs);
         return factor * (
             Array.isArray(key1) ? compareArray(key1, key2) : compare(key1, key2)
         );

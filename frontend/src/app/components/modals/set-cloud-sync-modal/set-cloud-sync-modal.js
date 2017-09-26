@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
-import { getCloudServiceMeta } from 'utils/ui-utils';
+import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { openAddCloudConnectionModal } from 'action-creators';
 import { action$ } from 'state';
 
@@ -50,7 +50,7 @@ const directionOptions = deepFreeze([
 
 const addConnectionOption = deepFreeze({
     label: 'Add new connection',
-    value: {}
+    value: '__ADD_NEW_CONNECTION__'
 });
 
 const allowedServices = deepFreeze([
@@ -60,7 +60,7 @@ const allowedServices = deepFreeze([
 
 const usedTargetTooltip = deepFreeze({
     CLOUD_RESOURCE: name => `Already used by ${name} cloud resource`,
-    NAMESPACE_RESOURCE: name => `Already used by ${name} namespace resource`,    
+    NAMESPACE_RESOURCE: name => `Already used by ${name} namespace resource`,
     CLOUD_SYNC: name => `Already used by bucket's ${name} cloud sync policy`
 });
 

@@ -13,15 +13,21 @@
 </ol>
 
 <editor params="label: 'Server IP'">
-    <input type="text" ko.value="address"/>
-    <svg-icon class="validating-indicator spin"
-        ko.visible="asyncValidation.isValidating"
-        params="name: 'in-progress'"></svg-icon>
+    <div class="row content-middle" data-bind="validationOptions: { insertMessages: false }">
+        <input type="text" ko.value="address"/>
+        <svg-icon class="spin push-prev-half"
+            ko.visible="asyncValidation.isValidating"
+            params="name: 'in-progress'"></svg-icon>
+    </div>
+    <span class="val-msg" data-bind="validationMessage: address"></span>
 </editor>
 
 <editor params="label: 'Server Secret Key'">
-    <input type="text" ko.value="secret"/>
-    <svg-icon class="validating-indicator spin"
-        ko.visible="asyncValidation.isValidating"
-        params="name: 'in-progress'"></svg-icon>
+    <div class="row content-middle" data-bind="validationOptions: { insertMessages: false }">
+        <input type="text" ko.value="secret"/>
+        <svg-icon class="spin push-prev-half"
+            ko.visible="asyncValidation.isValidating"
+            params="name: 'in-progress'"></svg-icon>
+    </div>
+    <span class="val-msg" data-bind="validationMessage: secret"></span>
 </editor>

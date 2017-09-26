@@ -18,21 +18,29 @@
                 <p class="heading3">Create your owner account</p>
 
                 <editor params="label: 'Activation code'">
-                    <input type="text" placeholder="Your activation code"
-                        ko.value="activationCode">
-
-                    <svg-icon class="validating-indicator spin"
-                        ko.visible="activationCode.isValidating"
-                        params="name: 'in-progress'"></svg-icon>
+                    <div class="row content-middle"
+                        data-bind="validationOptions: { insertMessages: false }"
+                    >
+                        <input type="text" placeholder="Your activation code"
+                            ko.value="activationCode">
+                        <svg-icon class="spin push-prev-half"
+                            ko.visible="activationCode.isValidating"
+                            params="name: 'in-progress'"></svg-icon>
+                    </div>
+                    <span class="val-msg" data-bind="validationMessage: activationCode"></span>
                 </editor>
 
                 <editor params="label: 'Email address'">
-                    <input type="text" placeholder="Your email address"
-                        ko.value="email">
-
-                    <svg-icon class="validating-indicator spin"
-                        ko.visible="email.isValidating"
-                        params="name: 'in-progress'"></svg-icon>
+                    <div class="row content-middle"
+                        data-bind="validationOptions: { insertMessages: false }"
+                    >
+                        <input type="text" placeholder="Your email address"
+                               ko.value="email">
+                        <svg-icon class="spin push-prev-half"
+                                  ko.visible="email.isValidating"
+                                  params="name: 'in-progress'"></svg-icon>
+                    </div>
+                    <span class="val-msg" data-bind="validationMessage: email"></span>
                 </editor>
 
                 <editor class="push-next" params="
@@ -62,11 +70,15 @@
                 </editor>
 
                 <editor class="preview-only" params="label: 'Server DNS name'">
-                    <input type="text" ko.value="serverDNSName">
-
-                    <svg-icon class="validating-indicator spin"
-                        ko.visible="serverDNSName.isValidating"
-                        params="name: 'in-progress'"></svg-icon>
+                    <div class="row content-middle"
+                        data-bind="validationOptions: { insertMessages: false }"
+                    >
+                        <input type="text" ko.value="serverDNSName">
+                        <svg-icon class="spin push-prev-half"
+                                  ko.visible="serverDNSName.isValidating"
+                                  params="name: 'in-progress'"></svg-icon>
+                    </div>
+                    <span class="val-msg" data-bind="validationMessage: serverDNSName"></span>
                     <p class="hint">optional</p>
                 </editor>
 

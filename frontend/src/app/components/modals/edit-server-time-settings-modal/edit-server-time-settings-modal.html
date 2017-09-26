@@ -19,12 +19,15 @@
         </date-time-chooser>
 
         <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
-            <input type="text" placeholder="IP or DNS name" data-bind="
-                value: ntpServer
-            "/>
-            <svg-icon class="validating-indicator spin"
-                        data-bind="visible: ntpServer.isValidating"
-                        params="name: 'in-progress'"></svg-icon>
+            <div class="row content-middle"
+                data-bind="validationOptions: { insertMessages: false }"
+            >
+                <input type="text" placeholder="IP or DNS name" ko.value="ntpServer" />
+                <svg-icon class="spin push-prev-half"
+                    data-bind="visible: ntpServer.isValidating"
+                    params="name: 'in-progress'"></svg-icon>
+            </div>
+            <span class="val-msg" data-bind="validationMessage: ntpServer"></span>
         </editor>
     </div>
 

@@ -25,14 +25,18 @@
                 <input type="text" disabled ko.value="ipAddress" />
             </editor>
 
-            <editor params="label: 'DNS Name'" ko.visible="usingDNS">
-                <div class="input-wrapper push-next align-start">
-                    <input type="text" ko.textInput="dnsName" />
-
-                    <svg-icon class="validating-indicator spin"
-                        ko.visible="dnsName.isValidating"
-                        params="name: 'in-progress'"></svg-icon>
+            <editor ko.visible="usingDNS" params="
+                label: 'DNS Name',
+            ">
+                <div class="row content-middle"
+                    data-bind="validationOptions: { insertMessages: false }"
+                >
+                        <input type="text" ko.textInput="dnsName" />
+                        <svg-icon class="spin push-prev-half"
+                            ko.visible="dnsName.isValidating"
+                            params="name: 'in-progress'"></svg-icon>
                 </div>
+                <span class="val-msg" data-bind="validationMessage: dnsName"></span>
                 <p class="highlight push-both">
                     Before clicking the update button follow the following procedure:
                 </p>

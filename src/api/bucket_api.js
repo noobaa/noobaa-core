@@ -85,7 +85,11 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '#/definitions/bucket_namespaces_info'
+                anyOf: [{
+                    $ref: '#/definitions/bucket_namespaces_info'
+                }, {
+                    $ref: '#/definitions/bucket_info'
+                }]
             },
             auth: {
                 system: 'admin'

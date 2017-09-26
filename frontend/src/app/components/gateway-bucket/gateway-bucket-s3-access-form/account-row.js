@@ -3,6 +3,7 @@
 import ko from 'knockout';
 import { action$ } from 'state';
 import { openS3AccessDetailsModal } from 'action-creators';
+import { realizeUri } from 'utils/browser-utils';
 
 export default class AccountRowViewModel {
     constructor() {
@@ -13,8 +14,13 @@ export default class AccountRowViewModel {
         };
     }
 
-    onAccount(account) {
-        this.name(account.name);
+    onAccount(account, accountRoute) {
+        const name = {
+            text: account.name,
+            href: realizeUri(accountRoute, { account: account.name })
+        };
+
+        this.name(name);
     }
 
     onView() {

@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { getCloudServiceMeta } from 'utils/ui-utils';
+import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { stringifyAmount } from 'utils/string-utils';
 
 export default class ConnectionRowViewModel {
@@ -23,13 +23,13 @@ export default class ConnectionRowViewModel {
     onConnection(connection) {
         const { name, service, endpoint, identity, usage } = connection;
         const hasExternalConnections = Boolean(usage.length);
-        const serviceMeta = getCloudServiceMeta(service);
+        const { icon, displayName, subject } = getCloudServiceMeta(service);
         const serviceInfo = {
-            name: serviceMeta.icon,
-            tooltip: service
+            name: icon,
+            tooltip: displayName
         };
         const externalTargetsInfo = {
-            text: stringifyAmount(serviceMeta.subject, usage.length, 'No'),
+            text: stringifyAmount(subject, usage.length, 'No'),
             tooltip: hasExternalConnections ? {
                 text: usage.map(entity => entity.externalEntity),
                 breakWords: true

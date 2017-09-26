@@ -2,16 +2,19 @@ import { deepFreeze } from './core-utils';
 
 const serviceToMeta = deepFreeze({
     AWS: {
+        displayName: 'AWS S3 service',
         subject: 'Bucket',
         icon: 'aws-s3-resource-dark',
         selectedIcon: 'aws-s3-resource-colored'
     },
     AZURE: {
+        displayName: 'AZURE Blob Service',
         subject: 'Container',
         icon: 'azure-resource-dark',
         selectedIcon: 'azure-resource-colored'
     },
     S3_COMPATIBLE: {
+        displayName: 'S3 Compatible service',
         subject: 'Bucket',
         icon: 'cloud-resource-dark',
         selectedIcon: 'cloud-resource-colored'

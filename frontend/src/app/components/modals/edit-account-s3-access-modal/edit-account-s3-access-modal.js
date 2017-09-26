@@ -7,7 +7,7 @@ import { state$, action$ } from 'state';
 import { updateAccountS3Access } from 'action-creators';
 import { flatMap, deepFreeze } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
-import { getCloudServiceMeta } from 'utils/ui-utils';
+import { getCloudServiceMeta } from 'utils/cloud-utils';
 import ko from 'knockout';
 
 const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
@@ -124,7 +124,10 @@ class EditAccountS3AccessModalViewModel extends Observer {
     }
 
     onSelectAllBuckets() {
-        this.form.allowedBuckets(this.bucketOptions());
+        const allowedBuckets = this.bucketOptions()
+            .map(opt => opt.value);
+
+        this.form.allowedBuckets(allowedBuckets);
     }
 
     onClearSelectedBuckets() {

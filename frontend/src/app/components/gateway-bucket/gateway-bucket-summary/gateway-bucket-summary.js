@@ -8,6 +8,7 @@ import moment from 'moment';
 import { timeShortFormat } from 'config';
 import { getGatewayBucketStateIcon } from 'utils/bucket-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import numeral from 'numeral';
 
 class GatewayBucketSummaryViewModel extends Observer {
     constructor({ bucket }) {
@@ -17,6 +18,8 @@ class GatewayBucketSummaryViewModel extends Observer {
         this.bucketLoaded = ko.observable();
         this.writePolicy = ko.observable();
         this.readPolicy = ko.observable();
+        this.readCount = ko.observable();
+        this.writeCount = ko.observable();
         this.lastRead = ko.observable();
         this.lastWrite = ko.observable();
 
@@ -37,15 +40,17 @@ class GatewayBucketSummaryViewModel extends Observer {
         const state = getGatewayBucketStateIcon(bucket);
         const readPolicyText = readFrom.length === 1 ?
             readFrom[0] :
-            stringifyAmount('namespace resource', readFrom.length);
+            stringifyAmount('resource', readFrom.length);
 
-        const { lastRead ,lastWrite } = bucket.io;
+        const { lastRead ,lastWrite, readCount, writeCount } = bucket.io;
         const lastReadText = lastRead >= 0 ? moment(lastRead).format(timeShortFormat) : 'Never Read';
         const lastWriteText = lastRead >= 0 ? moment(lastWrite).format(timeShortFormat) : 'Never Written';
 
         this.state(state);
         this.writePolicy(writeTo);
         this.readPolicy(readPolicyText);
+        this.readCount(numeral(readCount).format('0,0'));
+        this.writeCount(numeral(writeCount).format('0,0'));
         this.lastRead(lastReadText);
         this.lastWrite(lastWriteText);
         this.bucketLoaded(true);

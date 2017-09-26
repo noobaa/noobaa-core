@@ -5,13 +5,16 @@ import Observer from 'observer';
 import AccountRowViewModel from './account-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { state$, action$ } from 'state';
 import { openBucketS3AccessModal } from 'action-creators';
+import numeral from 'numeral';
+import * as routes from 'routes';
 
 const columns = deepFreeze([
     {
         name: 'name',
-        type: 'text',
+        type: 'newLink',
     },
     {
         name: 'credentialsDetails',
@@ -30,10 +33,13 @@ class GatewayBucketS3AccessFormViewModel extends Observer {
         this.accountCount = ko.observable();
         this.rows = ko.observableArray();
 
-        this.observe(state$.get('accounts'), this.onAccounts);
+        this.observe(
+            state$.getMany('accounts', 'location'),
+            this.onAccounts
+        );
     }
 
-    onAccounts(accounts) {
+    onAccounts([accounts, location]) {
         if (!accounts) {
             this.accountsLoaded(false);
             return;
@@ -42,14 +48,20 @@ class GatewayBucketS3AccessFormViewModel extends Observer {
         const filteredAccounts = Object.values(accounts)
             .filter(account => account.allowedBuckets.includes(this.bucketName));
 
+        const { system } = location.params;
+        const accountRoute = realizeUri(routes.account, { system }, {}, true);
+
         const rows = filteredAccounts
             .map((account, i) => {
                 const row = this.rows()[i] || new AccountRowViewModel();
-                row.onAccount(account);
+                row.onAccount(account, accountRoute);
                 return row;
             });
 
-        this.accountCount(filteredAccounts.length);
+        const accountCount = numeral(filteredAccounts.length)
+            .format('0,0');
+
+        this.accountCount(accountCount);
         this.rows(rows);
         this.accountsLoaded(true);
     }

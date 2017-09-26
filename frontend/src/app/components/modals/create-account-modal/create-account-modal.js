@@ -8,7 +8,7 @@ import ko from 'knockout';
 import { deepFreeze, flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { randomString } from 'utils/string-utils';
-import { getCloudServiceMeta } from 'utils/ui-utils';
+import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { isEmail } from 'validations';
 import { createAccount } from 'action-creators';
 
@@ -174,7 +174,10 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     onSelectAllBuckets() {
-        this.form.allowedBuckets(this.bucketOptions());
+        const allowedBuckets = this.bucketOptions()
+            .map(opt => opt.value);
+
+        this.form.allowedBuckets(allowedBuckets);
     }
 
     onClearSelectedBuckets() {

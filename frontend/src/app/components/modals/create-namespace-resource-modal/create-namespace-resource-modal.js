@@ -75,10 +75,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
             .map(target => ({
                 value: target.name,
                 disabled: Boolean(target.usedBy),
-                tooltip: {
-                    text: getCloudTargetTooltip(target),
-                    position: 'after'
-                }
+                tooltip: getCloudTargetTooltip(target)
             }));
 
         const { connection, resourceName, target } = form.fields;

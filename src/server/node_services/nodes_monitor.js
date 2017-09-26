@@ -539,32 +539,72 @@ class NodesMonitor extends EventEmitter {
         if (services && nodes) throw new Error('Request cannot specify both services and nodes');
         if (!services && !nodes) throw new Error('Request must specify services or nodes');
 
+        const host_nodes = this._get_host_nodes_by_name(name);
+
         let updates;
         if (services) {
             const { s3: s3_enabled, storage: storage_enabled } = services;
-            updates = this._get_host_nodes_by_name(name)
-                .map(item => ({
+            updates = host_nodes.map(item => ({
                     item: item,
                     enabled: item.node.node_type === 'ENDPOINT_S3' ? s3_enabled : storage_enabled
                 }))
                 .filter(item => !_.isUndefined(item.enabled));
+
+            if (!_.isUndefined(storage_enabled)) {
+                this._dispatch_node_event(
+                    host_nodes[0],
+                    storage_enabled ? 'storage_enabled' : 'storage_disabled',
+                    `Storage service was ${storage_enabled ? 'enabled' : 'disabled'} on node ${this._item_hostname(host_nodes[0])} by ${req.account && req.account.email}`,
+                    req.account && req.account._id
+                );
+            }
+            if (!_.isUndefined(s3_enabled)) {
+                this._dispatch_node_event(
+                    host_nodes[0],
+                    s3_enabled ? 'endpoint_enabled' : 'endpoint_disabled',
+                    `S3 Endpoint service was ${storage_enabled ? 'enabled' : 'disabled'} on node ${this._item_hostname(host_nodes[0])} by ${req.account && req.account.email}`,
+                    req.account && req.account._id
+                );
+            }
         } else {
             updates = nodes.map(update => ({
                 item: this._map_node_name.get(update.name),
                 enabled: update.enabled
             }));
         }
+
+        const activated = [];
+        const deactivated = [];
         updates.forEach(update => {
             const { decommissioned, decommissioning } = update.item.node;
             if (update.enabled) {
                 if (!decommissioned && !decommissioning) return;
                 this._clear_decommission(update.item);
-
+                activated.push(update.item);
             } else {
                 if (decommissioned || decommissioning) return;
                 this._set_decommission(update.item);
+                deactivated.push(update.item);
             }
         });
+
+        if (!services && (activated.length || deactivated.length)) {
+            // if updating specific drives generate an event
+            const num_updates = activated.length + deactivated.length;
+            const activated_desc = activated.length ?
+                'Activated Drives:\n' + activated.map(item => this._item_drive_description(item)).join('\n') + '\n' : '';
+            const deactivated_desc = deactivated.length ?
+                'Deactivated Drives:\n' + deactivated.map(item => this._item_drive_description(item)).join('\n') : '';
+            const description = `${num_updates} ${num_updates > 1 ? 'drives were' : 'drive was'} edited by ${req.account && req.account.email}\n` +
+                activated_desc + deactivated_desc;
+
+            this._dispatch_node_event(
+                host_nodes[0],
+                'edit_drives',
+                description,
+                req.account && req.account._id
+            );
+        }
 
         return this._update_nodes_store('force');
     }
@@ -3076,18 +3116,21 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-    test_node_network(self_test_params) {
-        dbg.log0('test_node_network:', self_test_params);
+    test_node_network(req) {
+        const { rpc_params } = req;
+        dbg.log0('test_node_network:', rpc_params);
         this._throw_if_not_started_and_loaded();
         const item = this._get_node({
-            rpc_address: self_test_params.source
+            rpc_address: rpc_params.source
         });
-        return this.client.agent.test_network_perf_to_peer(self_test_params, {
+        return this.client.agent.test_network_perf_to_peer(rpc_params, {
                 connection: item.connection
             })
             .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(res => {
-                dbg.log2('test_node_network', self_test_params, 'returned', res);
+                dbg.log2('test_node_network', rpc_params, 'returned', res);
+                this._dispatch_node_event(item, 'test_node',
+                    `Node ${this._item_hostname(item)} was tested by ${req.account && req.account.email}`, req.account && req.account._id);
                 return res;
             });
     }

@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, setCloudSyncPolicy } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
-import { getCloudServiceMeta } from 'utils/ui-utils';
+import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { openAddCloudConnectionModal } from 'action-creators';
 import { action$ } from 'state';
 

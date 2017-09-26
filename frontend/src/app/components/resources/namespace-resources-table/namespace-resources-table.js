@@ -19,25 +19,28 @@ const columns = deepFreeze([
         name: 'state',
         type: 'icon',
         sortable: true,
-        compareKey: res => res.state
+        compareKey: resource => resource.state
     },
     {
         name: 'type',
         type: 'icon',
         sortable: true,
-        compareKey: res => res.type
+        compareKey: resource => resource.type
     },
     {
         name: 'name',
         label: 'Resource name',
         sortable: true,
-        compareKey: res => res.name
+        compareKey: resource => resource.name
     },
     {
         name: 'connectedBuckets',
         label: 'Gateway Buckets Using Resource',
         sortable: true,
-        compareKey: () => 1
+        compareKey: (resource, connectedBucketsMap) => {
+            const { name } = resource;
+            return (connectedBucketsMap[name] || []).length;
+        }
     },
     {
         name: 'deleteButton',
@@ -73,13 +76,13 @@ class NamespaceResourceTableViewModel extends Observer {
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
-            state$.getMany('namespaceResources', 'location'),
+            state$.getMany('namespaceResources', 'gatewayBuckets', 'location'),
             this.onResources
         );
     }
 
-    onResources([ resources, location ]) {
-        if (!resources || location.params.tab !== 'namespace') {
+    onResources([ resources, buckets, location ]) {
+        if (!resources || !buckets || location.params.tab !== 'namespace') {
             this.resourcesLoaded(Boolean(resources));
             return;
         }
@@ -88,15 +91,29 @@ class NamespaceResourceTableViewModel extends Observer {
         const pageStart = Number(page) * this.pageSize;
         const { compareKey } = columns.find(column => column.name == sortBy);
 
+        const connectedBucketsMap = Object.values(buckets)
+            .reduce((connectedBucketsMap, bucket) => {
+                const { name, placement } = bucket;
+                placement.readFrom
+                    .map(resource => {
+                        let bucketList = connectedBucketsMap[resource];
+                        if (!bucketList) bucketList = connectedBucketsMap[resource] = [];
+                        bucketList.push(name);
+                    });
+
+                return connectedBucketsMap;
+            }, {});
+
         const filteredRows = Object.values(resources)
             .filter(resource => !filter || resource.name.includes(filter.toLowerCase()));
 
         const rows = filteredRows
-            .sort(createCompareFunc(compareKey, order))
+            .sort(createCompareFunc(compareKey, order, connectedBucketsMap))
             .slice(pageStart, pageStart + this.pageSize)
             .map((resource, i) => {
                 const row = this.rows()[i] || new ResourceRowViewModel(this.rowParams);
-                row.onResource(resource, [] /* Connected Buckets */);
+                const connectedBuckets = connectedBucketsMap[resource.name] || [];
+                row.onResource(resource, connectedBuckets);
                 return row;
             });
 

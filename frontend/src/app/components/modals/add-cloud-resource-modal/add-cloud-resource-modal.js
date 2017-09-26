@@ -7,7 +7,7 @@ import { systemInfo, sessionInfo, cloudBucketList } from 'model';
 import { loadCloudBucketList, createCloudResource } from 'actions';
 import nameValidationRules from 'name-validation-rules';
 import { deepFreeze } from 'utils/core-utils';
-import { getCloudServiceMeta } from 'utils/ui-utils';
+import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { action$ } from 'state';
 import { openAddCloudConnectionModal } from 'action-creators';
 

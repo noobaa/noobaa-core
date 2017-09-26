@@ -6,11 +6,11 @@ import FormViewModel from 'components/form-view-model';
 import HostRowViewModel from './host-row';
 import { state$, action$ } from 'state';
 import { fetchHosts, createHostsPool } from 'action-creators';
-import { deepFreeze, union, equalItems, inputThrottle, mapValues, sumBy } from 'utils/core-utils';
+import { deepFreeze, union, equalItems, mapValues, sumBy } from 'utils/core-utils';
 import { formatSize, sumSize } from 'utils/size-utils';
 import { getHostModeListForState} from 'utils/host-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { paginationPageSize } from 'config';
+import { paginationPageSize, inputThrottle } from 'config';
 import ko from 'knockout';
 
 const steps = deepFreeze([
@@ -190,6 +190,10 @@ class CreatePoolModalViewModel extends Observer {
             onValidate: this.onValidate.bind(this),
             onSubmit: this.onSubmit.bind(this)
         });
+
+        // Throttle the input on the pool name field.
+        this.throttledPoolName = this.form.poolName
+            .throttle(inputThrottle);
 
         // Throttle the input on the name filter field.
         this.throttledNameFilter = this.form.nameFilter

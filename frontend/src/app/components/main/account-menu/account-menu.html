@@ -1,42 +1,35 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div data-bind="
-    childEvent: { click: () => handleLocalClick() },
-    globalEvent: { click: () => handleGlobalClick() },
-    css: { open: isOpen  }
+<div ko.childEvent.click="onLocalClick.bind($component)"
+    ko.globalEvent.click="onGlobalClick.bind($component)"
+    ko.css.open="isOpen"
 ">
     <div class="menu-header row hpad content-middle no-outline text-left cursor-pointer">
-        <span class="push-next user-email no-wrap" data-bind="
-            text: userEmail
-        "></span>
+        <span class="push-next user-email no-wrap" ko.text="userEmail"></span>
         <svg-icon params="name: 'account'"></svg-icon>
     </div>
 
     <ul class="menu-items list-no-style">
         <hr />
         <li>
-            <a class="menu-item highlight" data-bind="href: profileHref">
-                My Profile
+            <a class="menu-item highlight" ko.href="profileHref">
+                My Account
             </a>
         </li>
         <li>
-            <a class="menu-item highlight" data-bind="
-                attr: { href: supportEmailUri }
-            ">
+            <a class="menu-item highlight" ko.attr.href="supportEmailUri">
                 Contact Us
             </a>
         </li>
         <li>
-            <a class="menu-item highlight" target="_blank" data-bind="
-                attr: { href: helpDeskUri }
-            ">
+            <a class="menu-item highlight" target="_blank" ko.attr.href="helpDeskUri">
                 Support Center
             </a>
         </li>
         <hr>
         <li>
             <!-- workaround using target black to allow the link to resolve even so the upper div loses the focus -->
-            <a class="menu-item highlight" href="javascript:void(0)" data-bind="click: signOut">
+            <a class="menu-item highlight" href="javascript:void(0)" ko.click="onSignOut">
                 Sign Out
             </a>
         </li>

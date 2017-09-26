@@ -220,18 +220,23 @@ function get_bucket_namespaces(req) {
     var bucket = find_bucket(req);
     const system = req.system;
 
-    if (!bucket.namespace) throw new RpcError('NOT_NAMESPACE_BUCKET');
-
-    return P.resolve({
-        name: bucket.name,
-        namespace: {
-            write_resource: pool_server.get_namespace_resource_extended_info(
-                system.namespace_resources_by_name[bucket.namespace.write_resource.name]
-            ),
-            read_resources: _.map(bucket.namespace.read_resources, rs =>
-                pool_server.get_namespace_resource_extended_info(rs))
-        }
-    });
+    return P.resolve()
+        .then(() => {
+            if (bucket.namespace) {
+                return {
+                    name: bucket.name,
+                    namespace: {
+                        write_resource: pool_server.get_namespace_resource_extended_info(
+                            system.namespace_resources_by_name[bucket.namespace.write_resource.name]
+                        ),
+                        read_resources: _.map(bucket.namespace.read_resources, rs =>
+                            pool_server.get_namespace_resource_extended_info(rs))
+                    }
+                };
+            } else {
+                return read_bucket(req);
+            }
+        });
 }
 
 /**

@@ -25,7 +25,8 @@ function _mapResource(resource) {
         mode: 'OPTIMAL',
         name: resource.name,
         service: resource.endpoint_type,
-        target: resource.target_bucket
+        target: resource.target_bucket,
+        undeletable: resource.undeletable
     };
 }
 

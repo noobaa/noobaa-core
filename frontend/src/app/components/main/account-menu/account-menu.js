@@ -1,17 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-menu.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { sessionInfo } from 'model';
 import { support } from 'config';
 import { action$ } from 'state';
 import { signOut } from 'action-creators';
 
-class AccountMenuViewModel extends BaseViewModel {
-    constructor() {
-        super();
+const supportEmailUri = `mailto:${support.email}`;
 
+class AccountMenuViewModel {
+    constructor() {
         this.isOpen = ko.observable(false);
         this.isLocalClick = ko.observable(false);
 
@@ -23,22 +22,19 @@ class AccountMenuViewModel extends BaseViewModel {
 
         this.profileHref = {
             route: 'account',
-            params: {
-                account: this.userEmail,
-                tab: 'details'
-            }
+            params: { account: this.userEmail }
         };
 
-        this.supportEmailUri = `mailto:${support.email}`;
+        this.supportEmailUri = supportEmailUri;
         this.helpDeskUri = support.helpDesk;
     }
 
-    handleLocalClick() {
+    onLocalClick() {
         this.isOpen.toggle();
         this.isLocalClick(true);
     }
 
-    handleGlobalClick() {
+    onGlobalClick() {
         if (!this.isLocalClick()) {
             this.isOpen(false);
         }
@@ -46,7 +42,7 @@ class AccountMenuViewModel extends BaseViewModel {
         this.isLocalClick(false);
     }
 
-    signOut() {
+    onSignOut() {
         action$.onNext(signOut());
     }
 }

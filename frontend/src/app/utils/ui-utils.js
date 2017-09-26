@@ -142,28 +142,6 @@ export function getSystemStorageIcon(storage) {
     }
 }
 
-const serviceMapping = deepFreeze({
-    AWS: {
-        subject: 'Bucket',
-        icon: 'aws-s3-resource-dark',
-        selectedIcon: 'aws-s3-resource-colored'
-    },
-    AZURE: {
-        subject: 'Container',
-        icon: 'azure-resource-dark',
-        selectedIcon: 'azure-resource-colored'
-    },
-    S3_COMPATIBLE: {
-        subject: 'Bucket',
-        icon: 'cloud-resource-dark',
-        selectedIcon: 'cloud-resource-colored'
-    }
-});
-
-export function getCloudServiceMeta(service) {
-    return serviceMapping[service];
-}
-
 export function getNodeCapacityBarValues(node) {
     const { storage = {} } = node;
     const { total, used, used_other, reserved } = storage;

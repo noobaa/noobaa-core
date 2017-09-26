@@ -9,6 +9,7 @@ import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { navigateTo } from 'actions';
 import { action$ } from 'state';
 import { openBucketS3AccessModal } from 'action-creators';
+import numeral from 'numeral';
 
 const columns = deepFreeze([
     {
@@ -52,6 +53,12 @@ class BucketS3AccessListViewModel extends BaseViewModel {
                     })
                     .sort(compareOp);
             }
+        );
+
+        this.accountCount = ko.pureComputed(
+            () => this.accounts ?
+                numeral(this.accounts().length).format('0,0') :
+                ''
         );
 
         const query = ko.pureComputed(

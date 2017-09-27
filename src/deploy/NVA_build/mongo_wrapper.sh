@@ -38,7 +38,7 @@ function kill_services_on_mongo_ports {
 #Testing mongo for sanity every 10 seconds
 #TODO: Maybe change the time?!
 function mongo_sanity_check {
-  while check_mongo_status $1
+  while check_mongo_status $1 ${MONGO_PORT}
   do
     echo 1 > ${BACKOFF_FILE}
     sleep 10

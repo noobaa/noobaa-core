@@ -7,6 +7,8 @@ import { realizeUri } from 'utils/browser-utils';
 
 export default class AccountRowViewModel {
     constructor() {
+
+        this.accountName = '';
         this.name = ko.observable();
         this.credentialsDetails = {
             text: 'view',
@@ -20,10 +22,11 @@ export default class AccountRowViewModel {
             href: realizeUri(accountRoute, { account: account.name })
         };
 
+        this.accountName = account.name;
         this.name(name);
     }
 
     onView() {
-        action$.onNext(openS3AccessDetailsModal(this.name));
+        action$.onNext(openS3AccessDetailsModal(this.accountName));
     }
 }

@@ -55,8 +55,6 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
         stats: {
             reads: 0,
             writes: 0,
-            last_read: now,
-            last_write: now,
         }
     };
 }

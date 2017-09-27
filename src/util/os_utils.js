@@ -530,25 +530,59 @@ function get_dns_servers() {
     throw new Error('DNS not supported on non-Linux platforms');
 }
 
+function get_dns_servers_for_static() {
+    let dns_config = {
+        dns_servers: [],
+        search_domains: []
+    };
+
+    if (os.type() === 'Linux') {
+        return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DNS1')
+            .then(line => {
+                if (line) dns_config.dns_servers[0] = line.trim.slice(5); // DNS1=
+                return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DNS2');
+            })
+            .then(line => {
+                if (line) dns_config.dns_servers[1] = line.trim.slice(5); // DNS2=
+                return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DOMAIN');
+            })
+            .then(line => {
+                if (line) dns_config.search_domains = line.trim.slice(7, line.trim.length - 1).split(' '); // DOMAIN=""
+                return dns_config;
+            });
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return P.resolve(dns_config);
+    }
+    throw new Error('DNS not supported on non-Linux platforms');
+}
+
 function set_dns_server(servers, search_domains) {
     if (os.type() === 'Linux') {
         var commands_to_exec = [];
         if (servers[0] && servers[1]) {
             commands_to_exec.push("echo 'prepend domain-name-servers " + servers[0] + "," + servers[1] + " ; #NooBaa Configured DNS Servers' > /etc/dhclient.conf");
+            commands_to_exec.push("echo 'DNS1=" + servers[0] + "' > /etc/sysconfig/network");
+            commands_to_exec.push("echo 'DNS2=" + servers[1] + "' >> /etc/sysconfig/network");
         } else if (servers[0]) {
             commands_to_exec.push("echo 'prepend domain-name-servers " + servers[0] + " ; #NooBaa Configured DNS Servers' > /etc/dhclient.conf");
+            commands_to_exec.push("echo 'DNS1=" + servers[0] + "' > /etc/sysconfig/network");
         }
 
         if (search_domains && search_domains.length) {
             let command = "echo 'prepend domain-search \"" + search_domains[0] + "\"";
+            let command2 = "echo 'DOMAIN=\"" + search_domains[0];
             for (let i = 1; i < search_domains.length; ++i) {
                 command += ",\"" + search_domains[i] + "\"";
+                command2 += " " + search_domains[i];
             }
             command += " ; #NooBaa Configured Search' >> /etc/dhclient.conf";
+            command2 += "\"' >> /etc/sysconfig/network";
             commands_to_exec.push(command);
+            commands_to_exec.push(command2);
         }
 
         if (commands_to_exec.length) {
+            commands_to_exec.push("rm -rf /etc/resolv.conf");
             commands_to_exec.push("service network restart");
         }
 
@@ -1057,6 +1091,7 @@ exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
 exports.set_dns_server = set_dns_server;
 exports.get_dns_servers = get_dns_servers;
+exports.get_dns_servers_for_static = get_dns_servers_for_static;
 exports.restart_services = restart_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;

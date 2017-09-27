@@ -24,6 +24,7 @@ function clean_ifcfg() {
     for int in ${interfaces//:/}; do
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done
+    sudo rm /etc/sysconfig/network
 }
 
 function install_platform {

@@ -156,9 +156,12 @@ function configure_dns_dialog {
 
     sudo sed -i "s/.*NooBaa Configured DNS Servers//" /etc/dhclient.conf
 
-    sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
+    # sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
+    sudo bash -c "rm -rf /etc/resolv.conf"
+    sudo bash -c "echo 'DNS1=${dns1}' > /etc/sysconfig/network"
     if [ "${dns2}" != "" ]; then
       sudo bash -c "echo 'prepend domain-name-servers ${dns1},${dns2} ; #NooBaa Configured DNS Servers' >> /etc/dhclient.conf"
+      sudo bash -c "echo 'DNS2=${dns2}' >> /etc/sysconfig/network"
     else
       sudo bash -c "echo 'prepend domain-name-servers ${dns1} ; #NooBaa Configured DNS Servers' >> /etc/dhclient.conf"
     fi

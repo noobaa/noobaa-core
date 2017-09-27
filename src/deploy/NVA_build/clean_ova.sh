@@ -7,6 +7,7 @@ function clean_ifcfg() {
     for int in ${interfaces//:/}; do
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done
+    sudo rm /etc/sysconfig/network
 }
 
 OPTIONS=$( getopt -o 'h,e,a' --long "help,esx,azure" -- "$@" )

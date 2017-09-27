@@ -8,7 +8,7 @@ const serviceToMeta = deepFreeze({
         selectedIcon: 'aws-s3-resource-colored'
     },
     AZURE: {
-        displayName: 'AZURE Blob Service',
+        displayName: 'Azure Blob Service',
         subject: 'Container',
         icon: 'azure-resource-dark',
         selectedIcon: 'azure-resource-colored'

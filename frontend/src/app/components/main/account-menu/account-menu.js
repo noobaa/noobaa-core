@@ -22,7 +22,7 @@ class AccountMenuViewModel {
 
         this.profileHref = {
             route: 'account',
-            params: { account: this.userEmail }
+            params: { account: this.userEmail, tab: null }
         };
 
         this.supportEmailUri = supportEmailUri;

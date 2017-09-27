@@ -46,7 +46,14 @@
         </editor>
     </section>
 
-    <div class="row align-end">
+    <div class="row">
+        <div class="row greedy remark align-middle push-next">
+            <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+            <p>
+                To add a new connection go to current account &gt;
+                <a class="link" ko.attr.href="myConnectionsHref">My Connections</a>
+            </p>
+        </div>
         <button class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>

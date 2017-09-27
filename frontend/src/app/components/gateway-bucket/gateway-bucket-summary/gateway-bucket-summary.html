@@ -5,7 +5,7 @@
 </div>
 
 <div class="summary row greedy" ko.css.visible="bucketLoaded">
-    <section class="c3 column pad borders">
+    <section class="c4 column pad borders">
         <div class="greedy row content-middle vpad">
             <svg-icon class="push-next" params="name: state().name" ko.css="state().css">
             </svg-icon>
@@ -23,21 +23,21 @@
         </div>
     </section>
 
-    <section class="c6 column pad push-both content-middle">
-        <h2 class="heading3 push-next">Bucket I/O Counters</h2>
-        <div class="row content-middle">
-            <div class="pad push-next text-center borders">
-                <p class="heading1" ko.text="readCount"></p>
-                <p>Total Reads</p>
-            </div>
-            <div class="pad push-prev text-center borders">
-                <p class="heading1" ko.text="writeCount"></p>
-                <p>Total Writes</p>
-            </div>
+    <section class="c4 column pad borders push-both">
+        <h2 class="heading3 greedy row vpad content-middle">Bucket I/O Counters</h2>
+        <hr />
+        <div class="greedy row content-middle vpad">
+            <span class="c5 highlight push-next">Total Reads:</span>
+            <span class="c7 text-right" ko.text="readCount"></span>
+        </div>
+        <hr />
+        <div class="greedy row content-middle vpad">
+            <span class="c5 highlight push-next">Total Writes:</span>
+            <span class="c7 text-right" ko.text="writeCount"></span>
         </div>
     </section>
 
-    <section class="c3 column pad borders">
+    <section class="c4 column pad borders">
         <div class="greedy row content-middle vpad">
             <span class="c5 highlight push-next">Bucket Type:</span>
             <span class="c7 text-right">Namespace Bucket</span>

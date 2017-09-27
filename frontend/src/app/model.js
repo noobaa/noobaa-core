@@ -30,15 +30,6 @@ export const cloudBucketList = ko.observableArray();
 export const isCloudConnectionValid = ko.observable(true)
     .extend({ notify: 'always' });
 
-// Hold a list of all the nodes in the system.
-export const nodeList = ko.observableArray(null);
-
-// Hold the current pool node list.
-export const poolNodeList = ko.observable();
-
-// Hold the current node info.
-export const nodeInfo = ko.observable();
-
 // Hold the parts that are stored on the curr node.
 export const nodeStoredPartList = ko.observableArray();
 
@@ -59,9 +50,6 @@ export const nodeTestInfo = ko.observable();
 
 // hold system upgrade status.
 export const upgradeStatus = ko.observable();
-
-// Hold debug collection info.
-export const debugCollectionInfo = ko.observable();
 
 // hold system upload ssl certificate status.
 export const sslCertificateUploadStatus = ko.observable();
@@ -85,8 +73,6 @@ export const collectDiagnosticsState = ko.observable({});
 export const resetPasswordState = ko.observable();
 
 export const regenerateCredentialState = ko.observable();
-
-export const createAccountState = ko.observable();
 
 // Hold funcs information
 export const funcInfo = ko.observable();

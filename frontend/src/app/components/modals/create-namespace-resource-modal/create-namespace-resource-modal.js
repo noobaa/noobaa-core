@@ -8,6 +8,8 @@ import ko from 'knockout';
 import { getCloudServiceMeta, getCloudTargetTooltip } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
 import { inputThrottle } from 'config';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
 import {
     fetchCloudTargets,
     updateForm,
@@ -27,6 +29,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
         this.targetOptions = ko.observableArray();
         this.existingNames = null;
         this.nameRestrictionList = ko.observableArray();
+        this.myConnectionsHref = ko.observable();
         this.form = new FormViewModel({
             name: formName,
             fields: {
@@ -49,12 +52,23 @@ class CreateNamespaceResourceModalViewModel extends Observer {
                 'hostPools',
                 ['forms', formName],
                 'cloudTargets',
+                ['location', 'params', 'system'],
+                ['session', 'user']
             ),
             this.onState
         );
     }
 
-    onState([ accounts, session, namespaceResources, hostPools, form, cloudTargets ]) {
+    onState([
+        accounts,
+        session,
+        namespaceResources,
+        hostPools,
+        form,
+        cloudTargets,
+        system,
+        user
+    ]) {
         if (!accounts || !namespaceResources || !hostPools || !form) return;
 
         const { externalConnections } = accounts[session.user];
@@ -107,11 +121,17 @@ class CreateNamespaceResourceModalViewModel extends Observer {
             action$.onNext(updateForm(formName, { resourceName: target.value }, false));
         }
 
+        const myConnectionsHref = realizeUri(
+            routes.account,
+            { system, account: user, tab: 'connections' }
+        );
+
         this.connectionOptions(connectionOptions);
         this.fetchingTargets(fetchingTargets);
         this.targetOptions(targetOptions);
         this.existingNames = existingNames;
         this.nameRestrictionList(nameRestrictionList);
+        this.myConnectionsHref(myConnectionsHref);
     }
 
     onValidate(values) {

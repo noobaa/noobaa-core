@@ -158,19 +158,6 @@ function complete_object_upload(req) {
                 actor: req.account && req.account._id,
                 desc: `${obj.key} was uploaded by ${req.account && req.account.email} into bucket ${bucket.name}`,
             });
-            system_store.make_changes_in_background({
-                update: {
-                    buckets: [{
-                        _id: obj.bucket,
-                        $inc: {
-                            'stats.writes': 1
-                        },
-                        $set: {
-                            'stats.last_write': new Date()
-                        }
-                    }]
-                }
-            });
             return {
                 etag: set_updates.etag
             };
@@ -180,6 +167,49 @@ function complete_object_upload(req) {
             throw err;
         });
 }
+
+
+
+function update_bucket_write_counters(req) {
+    const bucket = req.system.buckets_by_name[req.rpc_params.bucket];
+    if (!bucket) {
+        return;
+    }
+    system_store.make_changes_in_background({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $inc: {
+                    'stats.writes': 1
+                },
+                $set: {
+                    'stats.last_write': new Date()
+                }
+            }]
+        }
+    });
+}
+
+function update_bucket_read_counters(req) {
+    const bucket = req.system.buckets_by_name[req.rpc_params.bucket];
+    if (!bucket) {
+        return;
+    }
+    system_store.make_changes_in_background({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $inc: {
+                    'stats.reads': 1
+                },
+                $set: {
+                    'stats.last_read': new Date()
+                }
+            }]
+        }
+    });
+}
+
 
 
 /**
@@ -374,19 +404,6 @@ function read_object_mappings(req) {
             // so that viewing the mapping in the ui will not increase read count
             if (req.rpc_params.adminfo) return;
             const date = new Date();
-            system_store.make_changes_in_background({
-                update: {
-                    buckets: [{
-                        _id: obj.bucket,
-                        $inc: {
-                            'stats.reads': 1
-                        },
-                        $set: {
-                            'stats.last_read': date
-                        }
-                    }]
-                }
-            });
             MDStore.instance().update_object_by_id(obj._id, {
                 'stats.last_read': date
             }, undefined, {
@@ -1028,3 +1045,5 @@ exports.read_endpoint_usage_report = read_endpoint_usage_report;
 exports.add_endpoint_usage_report = add_endpoint_usage_report;
 exports.remove_endpoint_usage_reports = remove_endpoint_usage_reports;
 exports.check_quota = check_quota;
+exports.update_bucket_read_counters = update_bucket_read_counters;
+exports.update_bucket_write_counters = update_bucket_write_counters;

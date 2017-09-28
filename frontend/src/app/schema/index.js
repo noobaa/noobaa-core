@@ -3,9 +3,11 @@ import { strictify } from 'utils/schema-utils';
 import * as common from './common';
 import location from './location';
 import session from './session';
-import objectUploads from './object-uploads';
 import internalResources from './internal-resources';
+import namespaceResources from './namespace-resources';
 import buckets from './buckets';
+import gatewayBuckets from './gateway-buckets';
+import objectUploads from './object-uploads';
 import cloudTargets from './cloud-targets';
 import state from './state.js';
 
@@ -13,9 +15,11 @@ const schemas = {
     common,
     location,
     session,
-    objectUploads,
     internalResources,
+    namespaceResources,
     buckets,
+    objectUploads,
+    gatewayBuckets,
     cloudTargets,
     state
 };

@@ -154,7 +154,7 @@ function create_bucket(req) {
         const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
 
         bucket.namespace = {
-            ordered_read_resources,
+            read_resources: ordered_read_resources,
             write_resource
         };
     }
@@ -273,17 +273,21 @@ function update_bucket(req) {
         if (!read_resources.length || (read_resources.length !== req.rpc_params.namespace.read_resources.length)) {
             throw new RpcError('INVALID_READ_RESOURCES');
         }
-        _.set(bucket_updates, 'namespace.read_resources', read_resources);
         const wr_obj = req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource];
         const write_resource = wr_obj && wr_obj._id;
         if (!write_resource) {
             throw new RpcError('INVALID_WRITE_RESOURCES');
         }
-        _.set(bucket_updates, 'namespace.write_resource', write_resource);
-
         if (!_.includes(req.rpc_params.namespace.read_resources, req.rpc_params.namespace.write_resource)) {
             throw new RpcError('INVALID_NAMESPACE_CONFIGURATION');
         }
+
+
+        // reorder read resources so that the write resource is the first in the list
+        const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
+
+        _.set(bucket_updates, 'namespace.read_resources', ordered_read_resources);
+        _.set(bucket_updates, 'namespace.write_resource', write_resource);
     }
 
     if (req.rpc_params.new_name) {

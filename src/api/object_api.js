@@ -962,9 +962,40 @@ module.exports = {
                 system: 'admin'
             }
         },
+
+        update_bucket_read_counters: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_bucket_write_counters: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
+
     },
-
-
 
     definitions: {
 

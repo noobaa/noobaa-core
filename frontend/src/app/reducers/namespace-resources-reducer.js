@@ -22,7 +22,7 @@ function onCompleteFetchSystemInfo(_ , { payload }) {
 // ------------------------------
 function _mapResource(resource) {
     return {
-        mode: 'OPTIMAL',
+        mode: resource.mode,
         name: resource.name,
         service: resource.endpoint_type,
         target: resource.target_bucket,

@@ -59,7 +59,6 @@ class DropdownViewModel extends BaseViewModel {
                     });
 
                 if (selected.peek() && !selectedFound) {
-                    console.warn('sdsdsdsd');
                     selected(null);
                 }
 

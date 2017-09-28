@@ -44,7 +44,7 @@ class GatewayBucketSummaryViewModel extends Observer {
 
         const { lastRead ,lastWrite, readCount, writeCount } = bucket.io;
         const lastReadText = lastRead >= 0 ? moment(lastRead).format(timeShortFormat) : 'Never Read';
-        const lastWriteText = lastRead >= 0 ? moment(lastWrite).format(timeShortFormat) : 'Never Written';
+        const lastWriteText = lastWrite >= 0 ? moment(lastWrite).format(timeShortFormat) : 'Never Written';
 
         this.state(state);
         this.writePolicy(writeTo);

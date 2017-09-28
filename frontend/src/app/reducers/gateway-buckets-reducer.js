@@ -26,7 +26,6 @@ function _mapBucket(bucket) {
     return {
         name: bucket.name,
         mode: bucket.mode,
-        storage: bucket.storage,
         placement: _mapPlacement(bucket.namespace),
         io: _mapIO(bucket.stats)
     };
@@ -45,7 +44,7 @@ function _mapIO(stats = {}) {
         readCount: reads ,
         lastRead: last_read,
         writeCount: writes,
-        lastWrites: last_write
+        lastWrite: last_write
     };
 }
 

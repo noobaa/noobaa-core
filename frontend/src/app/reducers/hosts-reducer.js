@@ -202,7 +202,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
 
     const activities = (storage_nodes_info.data_activities || [])
         .map(activity => ({
-            type: activity.reason,
+            kind: activity.reason,
             nodeCount: activity.count,
             progress: activity.progress,
             eta: activity.time.end
@@ -258,7 +258,7 @@ function _mapStorageService({ mode, enabled, nodes }, reasonByMount) {
             const { name, mode, drive, latency_of_disk_read, storage,
                 latency_of_disk_write, data_activity } = node;
             const activity = data_activity && {
-                type: data_activity.reason,
+                kind: data_activity.reason,
                 progress: data_activity.progress,
                 stage: data_activity.stage.name
             };

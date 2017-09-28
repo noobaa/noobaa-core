@@ -46,6 +46,12 @@ export default {
         },
         modals: {
             $ref: '#/def/modals'
+        },
+        hostParts: {
+            $ref: '#/def/hostParts'
+        },
+        hostPools: {
+            $ref: '#/def/hostPools'
         }
     }
 };

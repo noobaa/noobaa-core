@@ -34,7 +34,7 @@ export default class HostRowViewModel {
 
         const [ firstActivity = { } ] = activities;
         const dataActivity = {
-            text: getActivityName(firstActivity.type) || 'No Activity',
+            text: getActivityName(firstActivity.kind) || 'No Activity',
             tooltip: formatActivityListTooltipHtml(activities)
         };
 

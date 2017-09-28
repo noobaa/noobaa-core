@@ -112,12 +112,12 @@ export function getResourceTypeIcon({ resource_type, cloud_info }) {
 
 export function getPoolCapacityBarValues(resource) {
     const { storage = {} } = resource;
-    const { total, used, used_other, reserved } = storage;
+    const { total, used, usedOther, reserved } = storage;
 
     const usage = {
         HOSTS: [
             { value: used, label: 'Used (Noobaa)' },
-            { value: used_other, label: 'Used (other)' },
+            { value: usedOther, label: 'Used (other)' },
             { value: reserved, label: 'Reserved' }
         ],
         CLOUD: used

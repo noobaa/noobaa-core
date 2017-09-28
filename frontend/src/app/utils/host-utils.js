@@ -549,7 +549,7 @@ export function getActivityStageName(stage) {
 
 export function formatActivityListTooltipHtml(activityList) {
     return activityList.map(act => {
-        const name = activityTypeToName[act.type];
+        const name = activityTypeToName[act.kind];
         const driveCount = stringifyAmount('drive', act.nodeCount);
         const progress = numeral(act.progress).format('%');
         const eta = isNumber(act.eta) ? moment(act.eta).fromNow() : 'calculating...';

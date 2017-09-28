@@ -673,6 +673,9 @@ module.exports = {
                 HAS_ISSUES: {
                     type: 'integer'
                 },
+                HTTP_SRV_ERRORS: {
+                    type: 'integer'
+                },
                 MEMORY_PRESSURE: {
                     type: 'integer'
                 },

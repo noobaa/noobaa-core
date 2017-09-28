@@ -75,7 +75,7 @@ function start_all() {
         promise_utils.pwhile(() => waiting,
             () => P.resolve()
             .then(() => {
-                process.send({ code: 'STARTED' });
+                process.send({ code: 'WAITING_FOR_CERTS' });
                 dbg.log0(`waiting for ssl certificates`);
             })
             .delay(30 * 1000));
@@ -126,10 +126,28 @@ function run_server(options) {
         .then(() => listen_http(params.port, http.createServer(endpoint_request_handler)))
         .then(() => dbg.log0('Starting HTTPS', params.ssl_port))
         .then(() => listen_http(params.ssl_port, https.createServer(params.certificate, endpoint_request_handler)))
-        .catch(err => {
-            dbg.log0('ENDPOINT FAILED TO START', err.stack || err);
-            process.exit();
+        .then(() => {
+            dbg.log0('S3 server started successfully');
+            if (process.send) {
+                process.send({ code: 'STARTED_SUCCESSFULLY' });
+            }
+        })
+        .catch(handle_server_error);
+}
+
+
+function handle_server_error(err) {
+    dbg.error('ENDPOINT FAILED TO START on error:', err.code, err.message, err.stack || err);
+    // on error send message to parent process (agent) when running as endpoint agent
+    if (process.send) {
+        process.send({
+            code: 'SRV_ERROR',
+            err_code: err.code,
+            err_msg: err.message
         });
+    } else {
+        process.exit(1);
+    }
 }
 
 function create_endpoint_handler(rpc, options) {
@@ -245,6 +263,8 @@ function setup_http_server(server) {
         // in any case we destroy the socket
         socket.destroy();
     });
+
+    server.on('error', handle_server_error);
 
     // This was an attempt to read from the socket in large chunks,
     // but it seems like it has no effect and we still get small chunks

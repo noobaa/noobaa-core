@@ -1061,6 +1061,7 @@ class NodesMonitor extends EventEmitter {
                 updates.heartbeat = Date.now();
                 if (info.endpoint_info) {
                     updates.endpoint_stats = this._accumulate_endpoint_stats(item, info.endpoint_info.stats);
+                    updates.srv_error = info.endpoint_info.srv_error;
                 }
                 return P.resolve()
                     .then(() => {
@@ -1933,6 +1934,7 @@ class NodesMonitor extends EventEmitter {
             (item.node.deleting && 'DELETING') ||
             (item.node.deleted && 'DELETED') ||
             (item.storage_not_exist && 'STORAGE_NOT_EXIST') ||
+            ((item.node.node_type === 'ENDPOINT_S3' && item.node.srv_error) && 'HTTP_SRV_ERRORS') ||
             (item.auth_failed && 'AUTH_FAILED') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
             (item.n2n_errors && 'N2N_ERRORS') ||

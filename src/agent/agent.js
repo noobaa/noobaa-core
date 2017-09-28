@@ -622,7 +622,8 @@ class Agent {
         if (this.endpoint_info) {
             try {
                 if (this.endpoint_info.s3rver_process) {
-                    throw new Error('S3 server already started. process:', this.endpoint_info.s3rver_process);
+                    dbg.warn('S3 server already started. process:', this.endpoint_info.s3rver_process);
+                    return;
                 }
 
 
@@ -636,11 +637,15 @@ class Agent {
                         this.endpoint_info.error_event = err;
                     })
                     .once('exit', (code, signal) => {
-                        dbg.warn(`s3rver process exited with code=${code} signal=${signal}`);
+                        const RETRY_PERIOD = 30000;
+                        dbg.warn(`s3rver process exited with code=${code} signal=${signal}. retry in ${RETRY_PERIOD / 1000} seconds`);
                         this.endpoint_info.s3rver_process = null;
-                        if (this.enabled) {
-                            this._enable_service();
-                        }
+                        P.delay(RETRY_PERIOD)
+                            .then(() => {
+                                if (this.enabled) {
+                                    this._enable_service();
+                                }
+                            });
                     });
             } catch (err) {
                 dbg.error('got error when spawning s3rver:', err);
@@ -654,7 +659,7 @@ class Agent {
         const dbg = this.dbg;
         dbg.log0(`got message from endpoint process:`, message);
         switch (message.code) {
-            case 'STARTED':
+            case 'WAITING_FOR_CERTS':
                 this.endpoint_info.s3rver_process.send({
                     certs: this._ssl_certs,
                     host_id: this._host_id,
@@ -670,6 +675,20 @@ class Agent {
                     write_count: sum.write_count + val.write_count,
                     write_bytes: sum.write_bytes + val.write_bytes,
                 }), this.endpoint_info.stats);
+                break;
+            case 'SRV_ERROR':
+                dbg.error('got error from endpoint process: ', message);
+                this.endpoint_info.srv_error = {
+                    code: message.err_code,
+                    message: message.err_msg
+                };
+                // kill s3rver process on error
+                dbg.error('killing s3rver process', this.endpoint_info.s3rver_process.pid);
+                this.endpoint_info.s3rver_process.kill();
+                break;
+            case 'STARTED_SUCCESSFULLY':
+                dbg.log0('S3 server started successfully. clearing srv_error');
+                this.endpoint_info.srv_error = undefined;
                 break;
             default:
                 dbg.error('got unknown message from endpoint - ', message);
@@ -706,7 +725,8 @@ class Agent {
         }
 
         if (this.endpoint_info) {
-            reply.endpoint_info = _.pick(this.endpoint_info, 'stats');
+            reply.endpoint_info = _.pick(this.endpoint_info, ['stats', 'srv_error']);
+            dbg.log0(`DZDZ: reply.endpoint_info =`, reply.endpoint_info);
             this.endpoint_info.stats = this._get_zeroed_stats_object();
         }
 

@@ -126,6 +126,17 @@ module.exports = {
                                     },
                                 }
                             },
+                            srv_error: {
+                                type: 'object',
+                                properties: {
+                                    code: {
+                                        type: 'string',
+                                    },
+                                    message: {
+                                        type: 'string',
+                                    }
+                                }
+                            }
                         }
                     },
                 }

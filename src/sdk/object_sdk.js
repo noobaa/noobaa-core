@@ -201,7 +201,8 @@ class ObjectSDK {
 
     read_object_stream(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.read_object_stream(params, this));
+            .then(ns => ns.read_object_stream(params, this))
+            .then(this.rpc_client.object.update_bucket_read_counters({ bucket: params.bucket }));
     }
 
     ///////////////////
@@ -210,7 +211,8 @@ class ObjectSDK {
 
     upload_object(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.upload_object(params, this));
+            .then(ns => ns.upload_object(params, this))
+            .then(this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket }));
     }
 
     /////////////////////////////
@@ -234,7 +236,9 @@ class ObjectSDK {
 
     complete_object_upload(params) {
         return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.complete_object_upload(params, this));
+            .then(ns => ns.complete_object_upload(params, this))
+            .then(this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket }));
+
     }
 
     abort_object_upload(params) {

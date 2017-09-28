@@ -10,8 +10,8 @@ import {
 function _getActivityString(activity) {
     if (!activity) return 'No activity';
 
-    const { type, progress, stage } = activity;
-    const name = getActivityName(type);
+    const { kind, progress, stage } = activity;
+    const name = getActivityName(kind);
     const percentage = numeral(progress).format('%');
     const stageName = getActivityStageName(stage);
     return `${name} (${percentage}) | ${stageName}`;

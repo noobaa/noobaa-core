@@ -183,9 +183,9 @@ function _getChartOptions(selectedDatasets, samples, durationSettings, start, en
                 title: items => moment.tz(items[0].xLabel, timezone).format('D MMM HH:mm'),
                 label: item => `  ${
                     selectedDatasets[item.datasetIndex].label
-                }  ${
+                    }  ${
                     formatSize(item.yLabel)
-                }`,
+                    }`,
                 labelColor: item => ({
                     backgroundColor: selectedDatasets[item.datasetIndex].color,
                     borderColor: 'transparent'

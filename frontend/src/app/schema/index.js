@@ -16,6 +16,8 @@ import notifications from './notifications';
 import alerts from './alerts';
 import drawer from './drawer';
 import modals from './modals';
+import hostParts from './host-parts';
+import hostPools from './host-pools';
 import state from './state.js';
 
 const schemas = {
@@ -35,6 +37,8 @@ const schemas = {
     alerts,
     drawer,
     modals,
+    hostParts,
+    hostPools,
     state
 };
 

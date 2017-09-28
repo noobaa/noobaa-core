@@ -52,7 +52,7 @@ function _mapPoolsToBuckets(buckets, tiers) {
 function _mapPool(pool, bucketMapping) {
     const activityList = (pool.data_activities.activities || [])
         .map(activity => ({
-            type: activity.reason,
+            kind: activity.reason,
             nodeCount: activity.count,
             progress: activity.progress,
             eta: activity.time.end

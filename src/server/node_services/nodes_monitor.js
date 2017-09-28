@@ -3151,7 +3151,15 @@ class NodesMonitor extends EventEmitter {
         // TODO: Currently returning diag only for the first agent,
         // need to support multi agent diagnostics with shared part and
         // specific parts.
-        const firstItem = this._get_host_nodes_by_name(name)[0];
+        const firstItem = this._get_host_nodes_by_name(name).find(item => {
+            this._update_status(item);
+            return item.online;
+        });
+
+        if (!firstItem) {
+            throw new RpcError('Host Offline');
+        }
+
         const { connection } = firstItem;
         return server_rpc.client.agent.collect_diagnostics(undefined, { connection })
             .then(result => result.data);
@@ -3164,10 +3172,7 @@ class NodesMonitor extends EventEmitter {
         if (!host_nodes || !host_nodes.length) throw new RpcError('BAD_REQUEST', `No such host ${name}`);
         return P.map(host_nodes, item => this._set_agent_debug_level(item, level))
             .then(() => {
-                // TODO: generte event here
                 dbg.log1('set_debug_node was successful for host', name, 'level', level);
-            })
-            .then(() => {
                 Dispatcher.instance().activity({
                     system: req.system._id,
                     level: 'info',

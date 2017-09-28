@@ -122,8 +122,9 @@ class NamespaceS3 {
             .promise()
             .then(res => {
                 dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
+                const etag = s3_utils.parse_etag(res.ETag);
                 return {
-                    etag: res.ETag,
+                    etag,
                 };
             });
     }
@@ -163,8 +164,9 @@ class NamespaceS3 {
             .promise()
             .then(res => {
                 dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
+                const etag = s3_utils.parse_etag(res.ETag);
                 return {
-                    etag: res.ETag,
+                    etag,
                 };
             });
     }
@@ -186,7 +188,7 @@ class NamespaceS3 {
                     multiparts: _.map(res.Parts, p => ({
                         num: p.PartNumber,
                         size: p.Size,
-                        etag: p.ETag,
+                        etag: s3_utils.parse_etag(p.ETag),
                         last_modified: p.LastModified,
                     }))
                 };
@@ -208,8 +210,9 @@ class NamespaceS3 {
             .promise()
             .then(res => {
                 dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+                const etag = s3_utils.parse_etag(res.ETag);
                 return {
-                    etag: res.ETag,
+                    etag,
                 };
             });
     }

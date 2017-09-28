@@ -150,8 +150,11 @@ function create_bucket(req) {
             throw new RpcError('INVALID_WRITE_RESOURCES');
         }
 
+        // reorder read resources so that the write resource is the first in the list
+        const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
+
         bucket.namespace = {
-            read_resources,
+            ordered_read_resources,
             write_resource
         };
     }

@@ -7,8 +7,8 @@ import style from 'style';
 
 const radius = 84;
 const lineWidth = 20;
-const seperator = (2 * Math.PI) / 1000;
-const threshold = 2 * seperator;
+const separator = (2 * Math.PI) / 1000;
+const threshold = 2 * separator;
 const silhouetteColor = style['color1'];
 const changeResilience = 3;
 
@@ -126,9 +126,10 @@ class PieChartViewModel {
         this.drawArc(ctx, 0, 1, silhouetteColor);
 
         const colors = this.colors();
+        const hasSeparator = this.values.filter(value => value() > 0).length > 1;
         this.values.reduce(
             (offset, ratio, i) => {
-                const len = Math.max(ratio() - seperator, 0);
+                const len = hasSeparator ? Math.max(ratio() - separator, 0): ratio();
                 if (len > 0) {
                     this.drawArc(ctx, offset, offset + len, colors[i]);
                 }

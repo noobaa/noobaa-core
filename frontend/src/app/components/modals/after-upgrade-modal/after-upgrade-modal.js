@@ -1,22 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './after-upgrade-modal.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 
-class AfterUpgradeModalViewModel extends BaseViewModel {
+class AfterUpgradeModalViewModel {
     constructor({ onClose }) {
-        super();
-
-        this.onClose = onClose;
+        this.close = onClose;
         this.version = ko.pureComputed(
             () => systemInfo() && systemInfo().version
         );
     }
 
-    close() {
-        this.onClose();
+    onClose() {
+        this.close();
     }
 }
 

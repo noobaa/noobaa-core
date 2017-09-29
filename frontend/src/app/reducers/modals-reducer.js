@@ -93,14 +93,16 @@ function onUpgradeSystem(modals) {
 
 function onChangeLocation(modals, { payload: location }) {
     const { afterupgrade, welcome } = location.query;
+
     if (afterupgrade) {
         return _openModal(modals, {
             component: 'after-upgrade-modal',
             options: {
-                size: 'xsmall'
+                size: 'xsmall',
+                severity: 'success',
+                title: 'Upgrade was successful',
             }
         });
-
     } else if (welcome) {
         return _openModal(modals, {
             component: 'welcome-modal',
@@ -112,7 +114,6 @@ function onChangeLocation(modals, { payload: location }) {
                 closeButton: 'hidden'
             }
         });
-
     } else {
         return initialState;
     }

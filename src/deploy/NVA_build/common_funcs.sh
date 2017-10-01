@@ -27,7 +27,7 @@ function set_mongo_cluster_mode {
 
 function update_noobaa_net {
     > ${NOOBAANET}
-    interfaces=$(ifconfig -a | grep ^en | awk '{print $1}')
+    interfaces=$(ifconfig -a | grep ^eth | awk '{print $1}')
     for int in ${interfaces//:/}; do
         echo "${int}" >> ${NOOBAANET}
     done

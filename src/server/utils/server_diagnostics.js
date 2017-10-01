@@ -26,7 +26,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected supervisor logs successfully'))
                 .catch(err => diag_log('collect_supervisor_logs failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR, {
+                () => promise_utils.exec('cp -fp /var/log/noobaa_deploy* ' + TMP_WORK_DIR, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -34,7 +34,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected noobaa_deploy logs successfully'))
                 .catch(err => diag_log('collecting noobaa_deploy.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR, {
+                () => promise_utils.exec('cp -fp /var/log/noobaa.log* ' + TMP_WORK_DIR, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -42,7 +42,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected noobaa.log files successfully'))
                 .catch(err => diag_log('collecting noobaa.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/client_noobaa.log* ' + TMP_WORK_DIR, {
+                () => promise_utils.exec('cp -fp /var/log/client_noobaa.log* ' + TMP_WORK_DIR, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -50,7 +50,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected client_noobaa.log files successfully'))
                 .catch(err => diag_log('collecting client_noobaa.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', {
+                () => promise_utils.exec('cp -fp ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -62,8 +62,11 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected top.out successfully'))
                 .catch(err => diag_log('collecting top.out failed with error: ' + err)),
 
+                () => os_utils.slabtop(TMP_WORK_DIR + '/slabtop.out')
+                .then(() => diag_log('collected slabtop.out successfully'))
+                .catch(err => diag_log('collecting slabtop.out failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /etc/noobaa* ' + TMP_WORK_DIR, {
+                () => promise_utils.exec('cp -fp /etc/noobaa* ' + TMP_WORK_DIR, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -89,7 +92,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected chkconfig.out successfully'))
                 .catch(err => diag_log('collecting chkconfig.out failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /var/log/messages* ' + TMP_WORK_DIR, {
+                () => promise_utils.exec('cp -fp /var/log/messages* ' + TMP_WORK_DIR, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -117,7 +120,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected df.out successfully'))
                 .catch(err => diag_log('collecting df.out failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -f /tmp/noobaa_wizard.log ' + TMP_WORK_DIR + '/noobaa_wizard.log', {
+                () => promise_utils.exec('cp -fp /tmp/noobaa_wizard.log ' + TMP_WORK_DIR + '/noobaa_wizard.log', {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT

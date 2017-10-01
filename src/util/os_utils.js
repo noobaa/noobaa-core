@@ -403,11 +403,18 @@ function top_single(dst) {
     if (os.type() === 'Darwin') {
         return promise_utils.exec('top -c -l 1' + file_redirect);
     } else if (os.type() === 'Linux') {
-        return promise_utils.exec('top -c -b -n 1' + file_redirect);
+        return promise_utils.exec('COLUMNS=512 top -c -b -n 1' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
         return P.resolve();
     } else {
         throw new Error('top_single ' + os.type + ' not supported');
+    }
+}
+
+function slabtop(dst) {
+    const file_redirect = dst ? ' &> ' + dst : '';
+    if (os.type() === 'Linux') {
+        return promise_utils.exec('slabtop -o' + file_redirect);
     }
 }
 
@@ -1108,6 +1115,7 @@ exports.get_main_drive_name = get_main_drive_name;
 exports.get_mount_of_path = get_mount_of_path;
 exports.get_drive_of_path = get_drive_of_path;
 exports.top_single = top_single;
+exports.slabtop = slabtop;
 exports.netstat_single = netstat_single;
 exports.ss_single = ss_single;
 exports.set_manual_time = set_manual_time;

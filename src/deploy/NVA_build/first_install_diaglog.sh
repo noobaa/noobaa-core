@@ -106,7 +106,7 @@ function configure_interface_ip() {
 }
 
 function configure_ips_dialog {
-    local interfaces=$(ifconfig -a | grep ^en | awk '{print $1}')
+    local interfaces=$(ifconfig -a | grep ^eth | awk '{print $1}')
     interfaces=${interfaces//:/}
     local str=""
     IFS=$'\n'
@@ -324,7 +324,7 @@ function update_ips_etc_issue {
 
 function update_noobaa_net {
   sudo bash -c "> ${NOOBAANET}"
-  interfaces=$(ifconfig -a | grep ^en | awk '{print $1}')
+  interfaces=$(ifconfig -a | grep ^eth | awk '{print $1}')
   interfaces=${interfaces//:/}
   for int in ${interfaces}; do
       sudo bash -c "echo ${int} >> ${NOOBAANET}"

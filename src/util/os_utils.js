@@ -536,16 +536,27 @@ function get_dns_servers() {
     };
 
     if (os.type() === 'Linux') {
-        return promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured DNS Servers'  | awk '{print $3}'", {
+        return promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured DNS Servers'", {
                 ignore_rc: true,
                 return_stdout: true,
             })
-            .then(cmd_res => {
-                dns_config.dns_servers = cmd_res.trim().split(',');
+            .then(res => {
+                let regex_res = (/prepend domain-name-servers (.*) ; #NooBaa Configured DNS Servers/).exec(res);
+                return regex_res ? regex_res[1] : "";
             })
-            .then(() => promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured Search' | awk '{print $3}'", true, true))
-            .then(cmd_res => {
-                const search = cmd_res.trim().split(',');
+            .then(regex_res => {
+                dns_config.dns_servers = _.isEmpty(regex_res) ? [] : regex_res.trim().split(',');
+            })
+            .then(() => promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured Search'", {
+                ignore_rc: true,
+                return_stdout: true,
+            }))
+            .then(res => {
+                let regex_res = (/prepend domain-search (.*) ; #NooBaa Configured Search/).exec(res);
+                return regex_res ? regex_res[1] : "";
+            })
+            .then(regex_res => {
+                const search = _.isEmpty(regex_res) ? [] : regex_res.trim().split(',');
                 dns_config.search_domains = search.map(domain => domain.replace(/"/g, ''));
                 return dns_config;
             });
@@ -564,15 +575,18 @@ function get_dns_servers_for_static() {
     if (os.type() === 'Linux') {
         return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DNS1')
             .then(line => {
-                if (line) dns_config.dns_servers[0] = line.trim.slice(5); // DNS1=
+                if (line) dns_config.dns_servers[0] = line.trim().slice(5); // DNS1=
                 return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DNS2');
             })
             .then(line => {
-                if (line) dns_config.dns_servers[1] = line.trim.slice(5); // DNS2=
+                if (line) dns_config.dns_servers[1] = line.trim().slice(5); // DNS2=
                 return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DOMAIN');
             })
             .then(line => {
-                if (line) dns_config.search_domains = line.trim.slice(7, line.trim.length - 1).split(' '); // DOMAIN=""
+                if (line) {
+                    dns_config.search_domains = line.trim().slice(8, line.trim.length - 1)
+                        .split(' '); // DOMAIN=""
+                }
                 return dns_config;
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
@@ -585,25 +599,34 @@ function set_dns_server(servers, search_domains) {
     if (os.type() === 'Linux') {
         var commands_to_exec = [];
         if (servers[0] && servers[1]) {
-            commands_to_exec.push("echo 'prepend domain-name-servers " + servers[0] + "," + servers[1] + " ; #NooBaa Configured DNS Servers' > /etc/dhclient.conf");
+            commands_to_exec.push("sed -i 's/.*#NooBaa Configured DNS Servers.*/prepend domain-name-servers " +
+                servers[0] + "," + servers[1] + " ; #NooBaa Configured DNS Servers/' /etc/dhclient.conf");
             commands_to_exec.push("echo 'DNS1=" + servers[0] + "' > /etc/sysconfig/network");
             commands_to_exec.push("echo 'DNS2=" + servers[1] + "' >> /etc/sysconfig/network");
         } else if (servers[0]) {
-            commands_to_exec.push("echo 'prepend domain-name-servers " + servers[0] + " ; #NooBaa Configured DNS Servers' > /etc/dhclient.conf");
+            commands_to_exec.push("sed -i 's/.*#NooBaa Configured DNS Servers.*/prepend domain-name-servers " +
+                servers[0] + " ; #NooBaa Configured DNS Servers/' /etc/dhclient.conf");
             commands_to_exec.push("echo 'DNS1=" + servers[0] + "' > /etc/sysconfig/network");
+        } else {
+            commands_to_exec.push("sed -i 's/.*#NooBaa Configured DNS Servers.*/#NooBaa Configured DNS Servers/' /etc/dhclient.conf");
+            commands_to_exec.push("sed -i '/.*DNS1=.*/d' /etc/sysconfig/network");
+            commands_to_exec.push("sed -i '/.*DNS2=.*/d' /etc/sysconfig/network");
         }
 
         if (search_domains && search_domains.length) {
-            let command = "echo 'prepend domain-search \"" + search_domains[0] + "\"";
+            let command = "sed -i 's/.*#NooBaa Configured Search.*/prepend domain-search \"" + search_domains[0] + "\"";
             let command2 = "echo 'DOMAIN=\"" + search_domains[0];
             for (let i = 1; i < search_domains.length; ++i) {
                 command += ",\"" + search_domains[i] + "\"";
                 command2 += " " + search_domains[i];
             }
-            command += " ; #NooBaa Configured Search' >> /etc/dhclient.conf";
+            command += " ; #NooBaa Configured Search/' /etc/dhclient.conf";
             command2 += "\"' >> /etc/sysconfig/network";
             commands_to_exec.push(command);
             commands_to_exec.push(command2);
+        } else {
+            commands_to_exec.push("sed -i 's/.*#NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/dhclient.conf");
+            commands_to_exec.push("sed -i '/.*DOMAIN=.*/d' /etc/sysconfig/network");
         }
 
         if (commands_to_exec.length) {
@@ -698,7 +721,7 @@ function get_networking_info() {
 }
 
 function get_all_network_interfaces() {
-    return promise_utils.exec('ifconfig -a | grep ^en | awk -F":" \'{print $1}\'', {
+    return promise_utils.exec('ifconfig -a | grep ^eth | awk -F":" \'{print $1}\'', {
             ignore_rc: false,
             return_stdout: true,
         })
@@ -909,7 +932,11 @@ function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
 function _check_ports_on_windows(dest_ips, start_port, end_port) {
     let allowed_by_default = true;
     // get the current profile, and check if it's enabled:
-    return promise_utils.exec('netsh advfirewall show currentprofile', false, true, 60000)
+    return promise_utils.exec('netsh advfirewall show currentprofile', {
+            ignore_rc: false,
+            return_stdout: true,
+            timeout: 60000
+        })
         .then(curr_profile_out => {
             const lines = curr_profile_out.trim().split('\r\n');
             // check if firewall is on for this profile. the on\off indication is in the 3rd line:
@@ -956,7 +983,11 @@ function _check_ports_on_windows(dest_ips, start_port, end_port) {
 function _get_win_fw_rules() {
     const fields_to_use = ['RemoteIP', 'Protocol', 'LocalPort', 'Rule Name', 'Action'];
     // return fs.readFileAsync('/Users/dannyzaken/Downloads/monitor.txt', 'utf8')
-    return promise_utils.exec('netsh advfirewall monitor show firewall rule name=all dir=in profile=active', false, true, 60000)
+    return promise_utils.exec('netsh advfirewall monitor show firewall rule name=all dir=in profile=active', {
+            ignore_rc: false,
+            return_stdout: true,
+            timeout: 60000
+        })
         .then(rules_output => {
             const rules = rules_output.toString().trim()
                 // split by empty line separator between different rules
@@ -1043,7 +1074,11 @@ function get_iptables_rules() {
         return P.resolve([]);
     }
     const iptables_command = 'iptables -L INPUT -nv';
-    return promise_utils.exec(iptables_command, false, true, 10000)
+    return promise_utils.exec(iptables_command, {
+            ignore_rc: false,
+            return_stdout: true,
+            timeout: 10000
+        })
         .then(output => {
             // split output to lines, and remove first two lines (title lines) and empty lines
             let raw_rules = output.split('\n')

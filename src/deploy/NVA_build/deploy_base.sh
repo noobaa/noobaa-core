@@ -20,7 +20,7 @@ function deploy_log {
 }
 
 function clean_ifcfg() {
-    interfaces=$(ifconfig | grep ^en | awk '{print $1}')
+    interfaces=$(ifconfig | grep ^eth | awk '{print $1}')
     for int in ${interfaces//:/}; do
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done

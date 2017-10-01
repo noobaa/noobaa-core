@@ -726,7 +726,6 @@ class Agent {
 
         if (this.endpoint_info) {
             reply.endpoint_info = _.pick(this.endpoint_info, ['stats', 'srv_error']);
-            dbg.log0(`DZDZ: reply.endpoint_info =`, reply.endpoint_info);
             this.endpoint_info.stats = this._get_zeroed_stats_object();
         }
 

@@ -5,8 +5,8 @@ import PlacementRowViewModel from './placement-row';
 import SpilloverRowViewModel from './spillover-row';
 import { state$, action$ } from 'state';
 import { getPlacementTypeDisplayName } from 'utils/bucket-utils';
-import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
+import ko from 'knockout';
 import {
     openEditBucketQuotaModal,
     openEditBucketPlacementModal,
@@ -91,7 +91,7 @@ class BucketDataPlacementFormViewModel extends Observer {
             this.placementType('');
             this.hostPoolCount('');
             this.cloudResourceCount('');
-            this .spilloverToggleText('Enable Spillover');
+            this.spilloverToggleText('Enable Spillover');
             return;
         }
 
@@ -114,7 +114,7 @@ class BucketDataPlacementFormViewModel extends Observer {
             .map((item, i) => {
                 const { type, name, usage } = item;
                 const resource = resources[type][name];
-                const row =  this.placementRows.get(i) || new PlacementRowViewModel();
+                const row = this.placementRows.get(i) || new PlacementRowViewModel();
                 row.onResource(type, resource, usage, system);
                 return row;
             });

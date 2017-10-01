@@ -7,10 +7,10 @@ import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { navigateTo } from 'actions';
 import { keyByProperty } from 'utils/core-utils';
+import { getResourceTypeIcon } from 'utils/ui-utils';
 import { action$ } from 'state';
 import { openObjectPreviewModal } from 'action-creators';
 import { systemInfo, sessionInfo } from 'model';
-import { getResourceTypeIcon } from 'utils/ui-utils';
 
 class ObjectPartsListViewModel extends BaseViewModel {
     constructor({ obj, parts }) {

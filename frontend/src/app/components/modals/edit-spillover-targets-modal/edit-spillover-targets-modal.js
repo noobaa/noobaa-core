@@ -81,10 +81,6 @@ class EditSpilloverTargetsModalViewModel extends Observer {
         const bucketList = Object.values(buckets);
         const bucketCount = bucketList.length;
 
-        // const bucketWithSpillover = bucketList
-        //         .filter(bucket => bucket.spillover)
-        //         .map(bucket => bucket.name);
-
         const {
             page = 0,
             sorting = { sortBy: 'name', order: 1 },
@@ -94,7 +90,6 @@ class EditSpilloverTargetsModalViewModel extends Observer {
         const selectedCount = Object.values(selection)
             .filter(echo)
             .length;
-
 
         const { compareKey } = columns.find(column => column.name === sorting.sortBy);
         const pageStart = page * this.pageSize;

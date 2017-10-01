@@ -382,15 +382,22 @@ class NodesMonitor extends EventEmitter {
 
     delete_host(req) {
         this._throw_if_not_started_and_loaded();
-        const is_force = req.rpc_params.force;
         const host_nodes = this._get_host_nodes_by_name(req.rpc_params.name);
         const host_item = this._consolidate_host(host_nodes);
-        if (!this._is_host_deletable(host_item) && !is_force) {
-            throw new RpcError('HOST_NO_ACCESS');
-        }
-        return P.map(host_nodes, node => this._delete_node(node, is_force))
+        return P.map(host_nodes, node => this._delete_node(node))
             .then(() => this._dispatch_node_event(host_item, 'deleted',
                 `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was deleted by ${req.account && req.account.email}`,
+                req.account && req.account._id));
+    }
+
+    hide_host(req) {
+        this._throw_if_not_started_and_loaded();
+        const host_nodes = this._get_host_nodes_by_name(req.rpc_params.name);
+        if (!this._is_host_hideable(host_nodes)) throw new RpcError('BAD_REQUEST', 'Host can\'t be hidden' + req.rpc_params.name);
+        const host_item = this._consolidate_host(host_nodes);
+        return P.map(host_nodes, node => this._hide_node(node))
+            .then(() => this._dispatch_node_event(host_item, 'force_deleted',
+                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was force deleted by ${req.account && req.account.email}`,
                 req.account && req.account._id));
     }
 
@@ -1018,15 +1025,23 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-    _delete_node(item, force) {
+    _delete_node(item) {
         return P.resolve()
             .then(() => {
-                if (force) {
-                    item.node.force_hide = Date.now();
-                }
                 if (!item.node.deleting) {
                     item.node.deleting = Date.now();
                 }
+                this._set_need_update.add(item);
+                this._update_status(item);
+            })
+            .then(() => this._update_nodes_store('force'))
+            .return();
+    }
+
+    _hide_node(item) {
+        return P.resolve()
+            .then(() => {
+                item.node.force_hide = Date.now();
                 this._set_need_update.add(item);
                 this._update_status(item);
             })
@@ -1184,6 +1199,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _uninstall_deleting_node(item) {
+        dbg.log0('_uninstall_deleting_node: start running', item.node.host_id);
         if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true; // S3 won't WIPE so will go directly to uninstall
         if (item.node.is_cloud_node && item.ready_to_uninstall) item.ready_to_be_deleted = true; // No need to uninstall - skipping...
         if (!item.ready_to_uninstall) return;
@@ -2374,6 +2390,7 @@ class NodesMonitor extends EventEmitter {
         host_item.node.storage = host_aggragate.storage;
         host_item.storage_nodes.data_activities = host_aggragate.data_activities;
         host_item.node.drives = _.flatMap(host_nodes, item => item.node.drives);
+        host_item.hideable = this._is_host_hideable(host_nodes);
 
         this._calculate_host_mode(host_item);
 
@@ -2941,6 +2958,7 @@ class NodesMonitor extends EventEmitter {
         info.version_install_time = host_item.node.version_install_time;
         info.last_communication = host_item.node.heartbeat;
         info.trusted = host_item.trusted;
+        info.hideable = host_item.hideable;
         info.connectivity = host_item.connectivity;
         info.storage = host_item.node.storage;
         info.os_info = _.defaults({}, host_item.node.os_info);
@@ -2984,10 +3002,11 @@ class NodesMonitor extends EventEmitter {
         return info;
     }
 
-    _is_host_deletable(host_item) {
-        return (host_item.storage_nodes_mode !== 'OFFLINE' &&
-            host_item.storage_nodes_mode !== 'UNTRUSTED' &&
-            host_item.storage_nodes_mode !== 'DETENTION');
+    _is_host_hideable(host_nodes) {
+        if (!_.every(host_nodes, item => item.node.deleting)) return false;
+        const nodes_activity_stage = _.flatMap(host_nodes, node => node.data_activity && node.data_activity.stage.name);
+        if (_.some(nodes_activity_stage, node_stage => (node_stage === STAGE_OFFLINE_GRACE) || (node_stage === STAGE_REBUILDING))) return false;
+        return true;
     }
 
     _get_node_info(item, fields) {

@@ -229,8 +229,21 @@ module.exports = {
                     name: {
                         type: 'string'
                     },
-                    force: {
-                        type: 'boolean'
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        hide_host: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
                     },
                 },
             },
@@ -314,6 +327,9 @@ module.exports = {
                     format: 'idate'
                 },
                 trusted: {
+                    type: 'boolean',
+                },
+                hideable: {
                     type: 'boolean',
                 },
                 connectivity: {

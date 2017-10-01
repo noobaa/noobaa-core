@@ -59,6 +59,11 @@ export default {
                 entityId: ({ node }) => node && node.name
             },
 
+            force_deleted: {
+                message: 'Node Force Deleted',
+                entityId: ({ node }) => node && node.name
+            },
+
             untrusted: {
                 message: 'Node Untrusted',
                 entityId: ({ node }) => node && node.name

@@ -44,6 +44,10 @@ function delete_host(req) {
     return nodes_server.get_local_monitor().delete_host(req);
 }
 
+function hide_host(req) {
+    return nodes_server.get_local_monitor().hide_host(req);
+}
+
 function get_test_hosts(req) {
     const list_res = nodes_server.get_local_monitor().list_hosts({
         system: String(req.system._id),
@@ -115,6 +119,7 @@ function _prepare_hosts_query(req) {
 exports.read_host = read_host;
 exports.retrust_host = retrust_host;
 exports.delete_host = delete_host;
+exports.hide_host = hide_host;
 exports.get_test_hosts = get_test_hosts;
 exports.test_host_network = test_host_network;
 exports.set_debug_host = set_debug_host;

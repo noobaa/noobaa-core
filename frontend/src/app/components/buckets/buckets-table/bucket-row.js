@@ -19,7 +19,7 @@ const undeletableReasons = deepFreeze({
 const resourceGroupMetadata = deepFreeze({
     HOSTS: {
         icon: 'nodes-pool',
-        tooltipTitle: 'Node pool resources',
+        tooltipTitle: 'Nodes pool resources',
     },
     CLOUD: {
         icon: 'cloud-resource',
@@ -31,15 +31,14 @@ function _mapResourceGroup(resources, type) {
     const { icon, tooltipTitle } = resourceGroupMetadata[type];
     const group = resources.filter(res => res.type === type);
     const hasResources = group.length > 0;
+    const tooltipText = hasResources ?
+        { title: tooltipTitle, list: group.map(res => res.name) } :
+        `No ${tooltipTitle.toLowerCase()}`;
+
     return {
         icon: icon,
         lighted: hasResources > 0,
-        tooltip: hasResources && {
-            text: {
-                title: tooltipTitle,
-                list: group.map(res => res.name)
-            }
-        }
+        tooltip: { text: tooltipText }
     };
 }
 

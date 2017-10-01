@@ -63,33 +63,28 @@ class BucketSummrayViewModel extends Observer {
 
         this.availablity = [
             {
-                key: 'used',
                 label: 'Used Data',
                 color: style['color8'],
                 value: ko.observable()
             },
             {
-                key: 'overused',
                 label: 'Overused',
                 color: style['color10'],
                 value: ko.observable(),
                 visible: ko.observable()
             },
             {
-                key: 'availableForUpload',
                 label: 'Available',
-                color: style['color7'],
+                color: style['color5'],
                 value: ko.observable()
             },
             {
-                key: 'availableForSpillover',
-                label: 'Available for spillover',
-                color: style['color6'],
+                label: 'Available on spillover',
+                color: style['color18'],
                 value: ko.observable(),
                 visible: ko.observable()
             },
             {
-                key: 'overallocated',
                 label: 'Overallocated',
                 color: style['color11'],
                 value: ko.observable(),
@@ -118,7 +113,7 @@ class BucketSummrayViewModel extends Observer {
             },
             {
                 label: 'Available Spillover',
-                color: style['color6'],
+                color: style['color18'],
                 value: ko.observable()
             },
             {
@@ -127,7 +122,7 @@ class BucketSummrayViewModel extends Observer {
                 value: ko.observable()
             },
             {
-                label: 'Shared Used',
+                label: 'Shared Usage',
                 color: style['color14'],
                 value: ko.observable()
             }
@@ -171,13 +166,7 @@ class BucketSummrayViewModel extends Observer {
             moment(lastAccess).format(timeShortFormat) :
             'Never accessed';
 
-        const breakdown = getDataBreakdown(data, quota);
-        this.availablity.forEach(part => {
-            const value = breakdown[part.key];
-            part.value(toBytes(value));
-            part.visible && part.visible(!isSizeZero(value));
-        });
-
+        const availablity = getDataBreakdown(data, quota);
         const availablityMarkers = [];
         if (quota) {
             const value = getQuotaValue(quota);
@@ -203,14 +192,23 @@ class BucketSummrayViewModel extends Observer {
         this.cloudSyncStatus(cloudSync);
         this.selectedView(view);
         this.bucketQuota(quotaText);
+
+        this.availablity[0].value(toBytes(availablity.used));
+        this.availablity[1].value(toBytes(availablity.overused));
+        this.availablity[1].visible(!isSizeZero(availablity.overused));
+        this.availablity[2].value(toBytes(availablity.availableForUpload));
+        this.availablity[3].value(toBytes(availablity.availableForSpillover));
+        this.availablity[3].visible(Boolean(bucket.spillover));
+        this.availablity[4].value(toBytes(availablity.overallocated));
+        this.availablity[4].visible(!isSizeZero(availablity.overallocated));
         this.availablityMarkers(availablityMarkers);
-        this.dataUsage[0].value(data.size);
-        this.dataUsage[1].value(data.sizeReduced);
+        this.dataUsage[0].value(toBytes(data.size));
+        this.dataUsage[1].value(toBytes(data.sizeReduced));
         this.lastRawUsageTime(lastRawUsageTime);
-        this.rawUsage[0].value(storage.free);
-        this.rawUsage[1].value(storage.spilloverFree);
-        this.rawUsage[2].value(storage.used);
-        this.rawUsage[3].value(storage.usedOther);
+        this.rawUsage[0].value(toBytes(storage.free));
+        this.rawUsage[1].value(toBytes(storage.spilloverFree));
+        this.rawUsage[2].value(toBytes(storage.used));
+        this.rawUsage[3].value(toBytes(storage.usedOther));
         this.lastDataUsageTime(lastDataUsageTime);
         this.totalCapacity(formatSize(storage.total));
         this.lastAccess(lastAccessText);

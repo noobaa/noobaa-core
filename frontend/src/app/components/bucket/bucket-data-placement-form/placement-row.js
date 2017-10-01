@@ -3,12 +3,18 @@
 import ko from 'knockout';
 import numeral from 'numeral';
 import * as routes from 'routes';
+import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import {
     getHostsPoolStateIcon,
     getCloudResourceStateIcon,
     getCloudResourceTypeIcon
 } from 'utils/resource-utils';
+
+const nodesPoolType = deepFreeze({
+    name: 'nodes-pool',
+    tooltip: 'Nodes Pool'
+});
 
 export default class PlacementRowViewModel {
     constructor() {
@@ -45,7 +51,7 @@ export default class PlacementRowViewModel {
         });
 
         this.state(getHostsPoolStateIcon(pool));
-        this.type('nodes-pool');
+        this.type(nodesPoolType);
         this.onlineHostCount(onlineHostCount);
         this.bucketUsage({
             total: pool.storage.total,

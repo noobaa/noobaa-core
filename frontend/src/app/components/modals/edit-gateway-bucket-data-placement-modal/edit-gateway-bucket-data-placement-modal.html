@@ -27,16 +27,10 @@
             "></dropdown>
             <validation-message params="field: form.writePolicy"></validation-message>
         </editor>
-<!--             <dropdown params="
-                options: writePolicyOptions,
-                selected: form.writePolicy,
-                disabled: isWritePolicyDisabled,
-                invalid: form.writePolicy.isInvalidTouched
-            "></dropdown>      -->
     </div>
 
     <div class="row content-middle align-end">
-        <button class="link alt-colors push-next" ko.click="onCancel">
+        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>
 

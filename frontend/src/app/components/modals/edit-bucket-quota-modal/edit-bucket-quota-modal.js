@@ -5,11 +5,12 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import { deepFreeze, mapValues } from 'utils/core-utils';
 import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
+import { formatSize, toBytes, toBigInteger, unitsInBytes, isSizeZero, sumSize } from 'utils/size-utils';
 import style from 'style';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { updateBucketQuota, closeModal } from 'action-creators';
-import { formatSize, toBytes, toBigInteger, unitsInBytes, isSizeZero } from 'utils/size-utils';
+
 
 
 const formName = 'editBucketQuota';
@@ -70,47 +71,34 @@ class EditBucketQuotaModalViewModel extends Observer {
         this.markers = ko.observableArray();
         this.barValues = [
             {
-                key: 'used',
                 label: 'Used Data',
                 color: style['color8'],
                 value: ko.observable()
             },
             {
-                key: 'overused',
                 label: 'Overused',
                 color: style['color10'],
                 value: ko.observable(),
                 visible: ko.observable()
             },
             {
-                key: 'availableForUpload',
                 label: 'Available',
-                color: style['color7'],
+                color: style['color5'],
                 value: ko.observable()
             },
             {
-                key: 'potentialForUpload',
-                label: 'Potential for upload',
-                color: style['color15'],
+                label: 'Available on spillover',
+                color: style['color18'],
                 value: ko.observable(),
                 visible: ko.observable()
             },
             {
-                key: 'availableForSpillover',
-                label: 'Available for spillover',
-                color: style['color6'],
+                label: 'Potential',
+                color: style['color1'],
                 value: ko.observable(),
-                visible: ko.observable()
+                visible: false
             },
             {
-                key: 'potentialForSpillover',
-                label: 'Potential for spillover',
-                color: style['color16'],
-                value: ko.observable(),
-                visible: ko.observable()
-            },
-            {
-                key: 'overallocated',
                 label: 'Overallocated',
                 color: style['color11'],
                 value: ko.observable(),
@@ -140,11 +128,16 @@ class EditBucketQuotaModalViewModel extends Observer {
             (bucket.quota || _findMaxQuotaPossible(bucket.data));
 
         const breakdown = getDataBreakdown(bucket.data, enabled ? quota : undefined);
-        this.barValues.forEach(part => {
-            const value = breakdown[part.key];
-            part.value(toBytes(value));
-            part.visible && part.visible(!isSizeZero(value));
-        });
+        const potential = sumSize(breakdown.potentialForUpload, breakdown.potentialForSpillover);
+        this.barValues[0].value(toBytes(breakdown.used));
+        this.barValues[1].value(toBytes(breakdown.overused));
+        this.barValues[1].visible(!isSizeZero(breakdown.overused));
+        this.barValues[2].value(toBytes(breakdown.availableForUpload));
+        this.barValues[3].value(toBytes(breakdown.availableForSpillover));
+        this.barValues[3].visible(!isSizeZero(breakdown.availableForSpillover));
+        this.barValues[4].value(toBytes(potential));
+        this.barValues[5].value(toBytes(breakdown.overallocated));
+        this.barValues[5].visible(!isSizeZero(breakdown.overallocated));
 
         const markers = [];
         if (enabled) {
@@ -195,20 +188,6 @@ class EditBucketQuotaModalViewModel extends Observer {
     onCancel() {
         action$.onNext(closeModal());
     }
-
-    // onSave() {
-    //     if (this.errors().length > 0) {
-    //         this.errors.showAllMessages();
-
-    //     } else {
-    //         const quota = this.isUsingQuota() ?
-    //             { unit: this.quotaUnit(), size: Number(this.quotaSize()) } :
-    //             null;
-
-    //         action$.onNext(updateBucketQuota(this.bucketName, quota));
-    //         action$.onNext(closeModal());
-    //     }
-    // }
 
     dispose() {
         this.form && this.form.dispose();

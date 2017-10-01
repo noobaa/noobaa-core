@@ -61,7 +61,7 @@ export default class TestResultRowViewModel extends BaseViewModel {
         );
 
         this.address = ko.pureComputed(
-            () => server() && server().address
+            () => server() && server().addresses[0]
         );
     }
 }

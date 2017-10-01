@@ -213,19 +213,6 @@ function setNTPConfig(serverIndex) {
     rpc.disable_validation();
     console.log('Secret is ', servers[serverIndex].secret, 'for server ip ', servers[serverIndex].ip);
     return P.fcall(() => {
-<<<<<<< HEAD
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    })
-        .then(() => {
-            console.log('Setting ntp config');
-            return client.cluster_server.update_time_config({
-                target_secret: servers[serverIndex].secret,
-=======
             let auth_params = {
                 email: 'demo@noobaa.com',
                 password: 'DeMo1',
@@ -233,22 +220,10 @@ function setNTPConfig(serverIndex) {
             };
             return client.create_auth_token(auth_params);
         })
-        .then(() => client.system.read_system({}))
-        .then(result => {
-            secretVm = result.cluster.master_secret;
-            console.log('Secret is ', secretVm, 'for server ip ', serverIp);
-        })
-        .then(() => { // time configuration - ntp
-            console.log('Checking connection before setup ntp', configured_ntp);
-            return client.system.attempt_server_resolve({
-                server_name: configured_ntp
-            });
-        })
         .then(() => {
             console.log('Setting ntp config');
             return client.cluster_server.update_time_config({
-                target_secret: secretVm,
->>>>>>> a8d0d92fb...  This is a combination of 2 commits.
+                target_secret: servers[serverIndex].secret,
                 timezone: configured_timezone,
                 ntp_server: configured_ntp
             });

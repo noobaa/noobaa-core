@@ -191,7 +191,7 @@ function file_copy(src, dst) {
             src.replace(/\//g, '\\') + '" "' +
             dst.replace(/\//g, '\\') + '"';
     } else {
-        cmd = 'cp -f ' + src + ' ' + dst;
+        cmd = 'cp -fp ' + src + ' ' + dst;
     }
     console.log('file_copy:', cmd);
     return promise_utils.exec(cmd);

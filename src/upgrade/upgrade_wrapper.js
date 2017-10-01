@@ -113,31 +113,29 @@ function pre_upgrade() {
         .then(() => {
             dbg.log0(`pre_upgrade: Moved node dir from /tmp to /.nvm`);
         })
-        .then(() => {
-            return promise_utils.exec(`rm -f /usr/local/bin/node`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                })
-                .then(() => {
-                    dbg.log0(`pre_upgrade: Removed /usr/local/bin/node`);
-                })
-                .then(() => promise_utils.exec(`ln -s ~/.nvm/versions/node/v${nodever}/bin/node /usr/local/bin/node`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                }))
-                .then(() => promise_utils.exec(`. ${NVM_DIR}/nvm.sh;nvm alias default ${nodever}`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                }))
-                .then(() => promise_utils.exec(`. ${NVM_DIR}/nvm.sh;nvm use ${nodever}`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                }));
-        })
+        .then(() => promise_utils.exec(`rm -f /usr/local/bin/node`, {
+                ignore_rc: false,
+                return_stdout: true,
+                trim_stdout: true
+            })
+            .then(() => {
+                dbg.log0(`pre_upgrade: Removed /usr/local/bin/node`);
+            })
+            .then(() => promise_utils.exec(`ln -s ~/.nvm/versions/node/v${nodever}/bin/node /usr/local/bin/node`, {
+                ignore_rc: false,
+                return_stdout: true,
+                trim_stdout: true
+            }))
+            .then(() => promise_utils.exec(`. ${NVM_DIR}/nvm.sh;nvm alias default ${nodever}`, {
+                ignore_rc: false,
+                return_stdout: true,
+                trim_stdout: true
+            }))
+            .then(() => promise_utils.exec(`. ${NVM_DIR}/nvm.sh;nvm use ${nodever}`, {
+                ignore_rc: false,
+                return_stdout: true,
+                trim_stdout: true
+            })))
         .then(() => {
             dbg.log0('pre_upgrade: Succeess');
         })
@@ -220,7 +218,7 @@ function post_upgrade() {
         })
         .then(function() {
             return promise_utils.exec(`grep "DEV_MODE=true" /backup/.env`, {
-                    ignore_rc: false,
+                    ignore_rc: true,
                     return_stdout: true,
                     trim_stdout: true
                 })
@@ -236,7 +234,7 @@ function post_upgrade() {
         })
         .then(function() {
             return promise_utils.exec(`grep MONGO_RS_URL /backup/.env`, {
-                    ignore_rc: false,
+                    ignore_rc: true,
                     return_stdout: true,
                     trim_stdout: true
                 })
@@ -252,7 +250,7 @@ function post_upgrade() {
         })
         .then(function() {
             return promise_utils.exec(`grep MONGO_SSL_USER /backup/.env`, {
-                    ignore_rc: false,
+                    ignore_rc: true,
                     return_stdout: true,
                     trim_stdout: true
                 })
@@ -268,7 +266,7 @@ function post_upgrade() {
         })
         .then(function() {
             return promise_utils.exec(`grep AGENT_VERSION /backup/.env`, {
-                    ignore_rc: false,
+                    ignore_rc: true,
                     return_stdout: true,
                     trim_stdout: true
                 })

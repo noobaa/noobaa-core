@@ -91,7 +91,7 @@ export default class ServerRowViewModel extends BaseViewModel {
         );
 
         this.address = ko.pureComputed(
-            () => server() ? server().address : ''
+            () => server() ? (server().addresses || [])[0] : ''
         );
 
         this.diskUsage = ko.pureComputed(

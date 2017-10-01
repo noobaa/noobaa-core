@@ -2,8 +2,8 @@
 
 import ko from 'knockout';
 import numeral from 'numeral';
-import { realizeUri } from 'utils/browser-utils';
 import * as routes from 'routes';
+import { realizeUri } from 'utils/browser-utils';
 import {
     getHostsPoolStateIcon,
     getCloudResourceStateIcon,

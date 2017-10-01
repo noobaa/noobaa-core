@@ -1,15 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
 
-// const availableForWriteTooltip = `This number is calculated according to the
-//     bucket\'s available storage and the number of replicas defined in its placement
-//     policy. <br><br> Note: This number is limited by quota if set.`;
-
-const quotaUnitMapping = deepFreeze({
-    GIGABYTE: 'GB',
-    TERABYTE: 'TB',
-    PETABYTE: 'PB'
-});
-
 import template from './bucket-summary.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
@@ -44,7 +34,13 @@ const viewOptions = deepFreeze([
     }
 ]);
 
-class BucketSummrayViewModel2 extends Observer {
+const quotaUnitMapping = deepFreeze({
+    GIGABYTE: 'GB',
+    TERABYTE: 'TB',
+    PETABYTE: 'PB'
+});
+
+class BucketSummrayViewModel extends Observer {
     constructor({ bucketName }) {
         super();
 
@@ -229,78 +225,7 @@ class BucketSummrayViewModel2 extends Observer {
     }
 }
 
-// class BucketSummrayViewModel extends BaseViewModel {
-//     constructor({ bucketName }) {
-//         super();
-
-
-//         this.totalStorage = ko.pureComputed(
-//             () => storage().total
-//         ).extend({
-//             formatSize: true
-//         });
-
-//         this.storageValues = [
-//             {
-//                 label: 'Available',
-//                 color: style['color5'],
-//                 value: ko.pureComputed(
-//                     () => toBytes(storage().free)
-//                 )
-//             },
-//             {
-//                 label: 'Used (this bucket)',
-//                 color: style['color13'],
-//                 value: ko.pureComputed(
-//                     () => toBytes(storage().used)
-//                 )
-//             },
-//             {
-//                 label: 'Used (other buckets)',
-//                 color: style['color14'],
-//                 value: ko.pureComputed(
-//                     () => toBytes(storage().used_other)
-//                 )
-//             }
-//         ];
-
-//         this.dataValues = [
-//             {
-//                 label: 'Total Original Size',
-//                 value: ko.pureComputed(
-//                     () => toBytes(data().size)
-//                 ),
-//                 color: style['color7']
-//             },
-//             {
-//                 label: 'Compressed & Deduped',
-//                 value: ko.pureComputed(
-//                     () => toBytes(data().size_reduced)
-//                 ),
-//                 color: style['color13']
-//             }
-//         ];
-
-
-//         this.legend = ko.pureComputed(
-//             () => this.viewType() === 'storage' ?
-//                 this.storageValues :
-//                 this.dataValues
-//         );
-
-//         this.availableForWrite = ko.pureComputed(
-//             () => data().available_for_upload
-//         ).extend({
-//             formatSize: true
-//         });
-
-//         this.availableForWriteTootlip = availableForWriteTooltip;
-
-
-//     }
-// }
-
 export default {
-    viewModel: BucketSummrayViewModel2,
+    viewModel: BucketSummrayViewModel,
     template: template
 };

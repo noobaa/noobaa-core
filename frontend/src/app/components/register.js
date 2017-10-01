@@ -45,7 +45,7 @@ export default function register(ko) {
     ko.components.register('maintenance-sticky',                require('./stickies/maintenance-sticky/maintenance-sticky').default);
     ko.components.register('license-sticky',                    require('./stickies/license-sticky/license-sticky').default);
     ko.components.register('phone-home-connectivity-sticky',    require('./stickies/phone-home-connectivity-sticky/phone-home-connectivity-sticky').default);
-    ko.components.register('cluster-availability-sticky', require('./stickies/cluster-availability-sticky/cluster-availability-sticky').default);
+    ko.components.register('cluster-availability-sticky',       require('./stickies/cluster-availability-sticky/cluster-availability-sticky').default);
     /** INJECT:stickies **/
 
     // -------------------------------
@@ -88,7 +88,7 @@ export default function register(ko) {
     ko.components.register('edit-gateway-bucket-data-placement-modal',  require('./modals/edit-gateway-bucket-data-placement-modal/edit-gateway-bucket-data-placement-modal').default);
     ko.components.register('edit-bucket-placement-modal',               require('./modals/edit-bucket-placement-modal/edit-bucket-placement-modal').default);
     ko.components.register('empty-bucket-placement-warning-modal',      require('./modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal').default);
-    ko.components.register('edit-spillover-targets-modal', require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
+    ko.components.register('edit-spillover-targets-modal',              require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------

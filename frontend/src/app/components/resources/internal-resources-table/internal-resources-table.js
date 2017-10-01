@@ -18,10 +18,12 @@ const columns = deepFreeze([
     },
     {
         name: 'name',
+        label: ' Resource Name',
         sortable: true
     },
     {
         name: 'connectedBuckets',
+        label: 'Buckets Using Resource',
         sortable: true
     },
     {

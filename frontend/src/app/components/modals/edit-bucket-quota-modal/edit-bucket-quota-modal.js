@@ -9,8 +9,7 @@ import style from 'style';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { updateBucketQuota, closeModal } from 'action-creators';
-import { formatSize, toBytes, toBigInteger,
-    unitsInBytes, isSizeZero } from 'utils/size-utils';
+import { formatSize, toBytes, toBigInteger, unitsInBytes, isSizeZero } from 'utils/size-utils';
 
 
 const formName = 'editBucketQuota';

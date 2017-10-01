@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { keyByProperty } from 'utils/core-utils';
+import { keyByProperty, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
-import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 import { mapApiStorage } from 'utils/state-utils';
-import { groupBy } from 'utils/core-utils';
+import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
 // ------------------------------
 // Initial State

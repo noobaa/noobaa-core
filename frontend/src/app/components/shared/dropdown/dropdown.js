@@ -2,8 +2,8 @@
 
 import template from './dropdown.html';
 import { randomString } from 'utils/string-utils';
-import ko from 'knockout';
 import { isDefined, isString, clamp } from 'utils/core-utils';
+import ko from 'knockout';
 
 const inputThrottle = 1000;
 

@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
 import numeral from 'numeral';
+import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { formatSize } from 'utils/size-utils';
 import {

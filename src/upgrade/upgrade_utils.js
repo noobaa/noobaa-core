@@ -63,9 +63,9 @@ function test_major_version_change(upgrade_file) {
             return_stdout: true
         })
         .then(ver => {
-            if (ver.charAt(1) === '2') {
-                dbg.error('Unsupported upgrade, 1.X to 2.X');
-                throw new Error('Unsupported upgrade path 1.X -> 2.X');
+            if (ver.charAt(1) === '1') {
+                dbg.error('Unsupported upgrade, 2.X to 1.X');
+                throw new Error('Unsupported upgrade path 2.X -> 1.X');
             }
         });
 }

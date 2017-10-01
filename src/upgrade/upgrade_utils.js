@@ -4,8 +4,8 @@
 const fs = require('fs');
 const dbg = require('../util/debug_module')(__filename);
 const spawn = require('child_process').spawn;
-const fs_utils = require('./fs_utils');
-const promise_utils = require('./promise_utils');
+const fs_utils = require('../util/fs_utils');
+const promise_utils = require('../util/promise_utils');
 
 function pre_upgrade(upgrade_file) {
     dbg.log0('UPGRADE:', 'pre_upgrade called with upgrade_file =', upgrade_file);

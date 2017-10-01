@@ -107,7 +107,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 if (this._try_change_region(err)) {
                     return this._read_block(block_md);
                 }
-                dbg.error('_read_block failed:', err, this.cloud_info);
+                dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
                 if (err.code === 'NoSuchBucket') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
                 } else if (err.code === 'AccessDenied') {
@@ -155,7 +155,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 return this._update_usage(usage);
             })
             .catch(err => {
-                dbg.error('_read_block failed:', err, this.cloud_info);
+                dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
                 if (err.code === 'NoSuchBucket') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
                 } else if (err.code === 'AccessDenied') {
@@ -183,7 +183,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 if (this._try_change_region(err)) {
                     return this._put_object(params);
                 }
-                dbg.error('_write_block failed:', err, this.cloud_info);
+                dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
                 throw err;
             });
     }
@@ -210,7 +210,7 @@ class BlockStoreS3 extends BlockStoreBase {
                         if (this._try_change_region(err)) {
                             return this._delete_blocks(block_ids);
                         }
-                        dbg.error('_delete_blocks failed:', err, this.cloud_info);
+                        dbg.error('_delete_blocks failed:', err, _.omit(this.cloud_info, 'secret_key'));
                         throw err;
                     });
             })

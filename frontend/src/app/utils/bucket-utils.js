@@ -22,6 +22,21 @@ const bucketStateToIcon = deepFreeze({
         css: 'error',
         name: 'problem'
     },
+    SPILLOVER_NO_RESOURCES: {
+        tooltip: 'No available resources - using spillover',
+        css: 'warning',
+        name: 'problem'
+    },
+    SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES: {
+        tooltip: 'Not enough healthy storage resources - using spillover',
+        css: 'warning',
+        name: 'problem'
+    },
+    SPILLOVER_NO_CAPACITY: {
+        tooltip: 'No potential available storage - using spillover',
+        css: 'warning',
+        name: 'problem'
+    },
     LOW_CAPACITY: {
         tooltip: 'Storage is low',
         css: 'warning',

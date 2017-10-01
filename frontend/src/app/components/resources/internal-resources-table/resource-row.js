@@ -1,6 +1,10 @@
 import ko from 'knockout';
-import { getInternalResourceStateIcon } from 'utils/resource-utils';
 import numeral from 'numeral';
+import {
+    getInternalResourceStateIcon,
+    getInternalResourceDisplayName
+} from 'utils/resource-utils';
+
 
 export default class ResourceRowViewModel {
     constructor() {
@@ -14,19 +18,21 @@ export default class ResourceRowViewModel {
     }
 
     onResources(resource, bucketCount, connectedBuckets) {
-        const { name, storage } = resource;
+        const { storage } = resource;
         const connectedBucketsText = `${
             numeral(connectedBuckets.length).format('0,0')
         } of ${
             numeral(bucketCount).format('0,0')
         } buckets`;
 
-        this.state(getInternalResourceStateIcon(resource));
-        this.name({ text: name, tooltip: name });
-        this.connectedBuckets({
+        const connectedBucketsValue = {
             text: connectedBucketsText,
             tooltip: connectedBuckets
-        });
+        };
+
+        this.state(getInternalResourceStateIcon(resource));
+        this.name(getInternalResourceDisplayName(resource));
+        this.connectedBuckets(connectedBucketsValue);
         this.capacity.total(storage.total);
         this.capacity.used(storage.used);
     }

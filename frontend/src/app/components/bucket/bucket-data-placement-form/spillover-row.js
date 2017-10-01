@@ -1,12 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { getInternalResourceStateIcon } from 'utils/resource-utils';
+import { deepFreeze } from 'utils/core-utils';
+import {
+    getInternalResourceStateIcon,
+    getInternalResourceDisplayName
+} from 'utils/resource-utils';
 
-export default class PlacementRowViewModel {
+const spilloverResourceType = deepFreeze({
+    name: 'internal-storage',
+    tooltip: 'Internal Storage Resource'
+});
+
+export default class SpilloverRowViewModel {
     constructor() {
         this.state = ko.observable();
-        this.type = { name: 'internal-storage' };
+        this.type = spilloverResourceType;
         this.resourceName = ko.observable();
         this.bucketUsage = ko.observable();
         this.css = ko.observable();
@@ -14,7 +23,7 @@ export default class PlacementRowViewModel {
 
     onResource(resource, bucketUsage, disabled) {
         this.css(disabled ? 'disabled' : '');
-        this.resourceName(resource.name);
+        this.resourceName(getInternalResourceDisplayName(resource));
         this.state(getInternalResourceStateIcon(resource));
         this.bucketUsage({
             total: resource.storage.total,

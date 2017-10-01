@@ -166,6 +166,11 @@ export function getInternalResourceStateIcon(resource) {
     return internalResourceModeToStateIcon[mode];
 }
 
+export function getInternalResourceDisplayName(resource) {
+    return resource.name
+        .replace(/-pool.*/, '');
+}
+
 export function getNamespaceResourceStateIcon(resource) {
     const { mode } = resource;
     return namespaceResourceModeToStateIcon[mode];

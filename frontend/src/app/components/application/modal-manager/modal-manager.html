@@ -2,10 +2,14 @@
 
 <!-- ko if: hasModals -->
 <div class="modals-backdrop fixed fade-in"
-    ko.click="(_, evt) => (evt.target === $element && onBackdrop(), true)
-">
+    ko.click="(_, evt) => (evt.target === $element && onBackdrop(), true)"
+>
     <!-- ko foreach: modals -->
-    <div class="modal column text-left pop-centered" ko.css="css">
+    <div class="modal column text-left pop-centered"
+        tabindex="-1"
+        ko.css="css"
+        ko.hasFocus="true"
+    >
         <!-- ko if: titleText -->
         <h1 class="row heading2 modal-heading content-middle" ko.css="titleCss">
             <svg-icon class="severity-icon"

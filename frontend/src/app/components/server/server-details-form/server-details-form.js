@@ -175,7 +175,14 @@ class ServerDetailsFormViewModel extends BaseViewModel {
 
     getInfoSheet(minRequirements) {
         const address = ko.pureComputed(
-            () => this.server().address
+            () => (this.server().addresses || [])[0]
+        );
+
+        const additionalAddresses = ko.pureComputed(
+            () => {
+                const { addresses = [] } = this.server();
+                return addresses.length > 1 ? addresses.slice(1) : 'None';
+            }
         );
 
         const hostname = ko.pureComputed(
@@ -226,8 +233,12 @@ class ServerDetailsFormViewModel extends BaseViewModel {
 
         return [
             {
-                label: 'IP Address',
+                label: 'Cluster Connectivity IP',
                 value: address
+            },
+            {
+                label: 'Additional IPs',
+                value: additionalAddresses
             },
             {
                 label: 'Server Name',

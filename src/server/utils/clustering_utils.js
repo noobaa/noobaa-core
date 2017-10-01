@@ -181,7 +181,7 @@ function get_cluster_info(rs_status) {
             version: version,
             hostname: hostname,
             secret: cinfo.owner_secret,
-            address: cinfo.owner_address === '127.0.0.1' ? os_utils.get_local_ipv4_ips()[0] : cinfo.owner_address,
+            addresses: cinfo.owner_address === '127.0.0.1' ? os_utils.get_local_ipv4_ips() : [cinfo.owner_address].concat(os_utils.get_local_ipv4_ips()),
             status: is_connected,
             memory: memory,
             storage: storage,

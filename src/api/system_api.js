@@ -767,8 +767,11 @@ module.exports = {
                 hostname: {
                     type: 'string'
                 },
-                address: {
-                    type: 'string'
+                addresses: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
                 },
                 memory: {
                     type: 'object',

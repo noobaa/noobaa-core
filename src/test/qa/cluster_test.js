@@ -33,16 +33,16 @@ let agentConf;
 //defining the required parameters
 const {
     location = 'westus2',
-        configured_ntp = 'pool.ntp.org',
-        configured_timezone = 'US/Pacific',
-        prefix = 'Server',
-        timeout = 10,
-        breakonerror = false,
-        resource,
-        storage,
-        vnet,
-        upgrade_pack,
-        clean = false
+    configured_ntp = 'pool.ntp.org',
+    configured_timezone = 'US/Pacific',
+    prefix = 'Server',
+    timeout = 10,
+    breakonerror = false,
+    resource,
+    storage,
+    vnet,
+    upgrade_pack,
+    clean = false
 } = argv;
 
 const oses = [
@@ -159,7 +159,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
             console.log('Master index is ', masterIndex, 'Master ip is ', servers[masterIndex].ip);
             if (connectedServers.length > 0) {
                 return promise_utils.exec('curl http://' + servers[masterIndex].ip + ':8080 2> /dev/null ' +
-                        '| grep -o \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'', false, true)
+                    '| grep -o \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'', false, true)
                     .catch(() => azf.getIpAddress(servers[masterIndex].name + '_pip')
                         .then(res => {
                             master_ip = res;
@@ -213,13 +213,13 @@ function setNTPConfig(serverIndex) {
     rpc.disable_validation();
     console.log('Secret is ', servers[serverIndex].secret, 'for server ip ', servers[serverIndex].ip);
     return P.fcall(() => {
-            let auth_params = {
-                email: 'demo@noobaa.com',
-                password: 'DeMo1',
-                system: 'demo'
-            };
-            return client.create_auth_token(auth_params);
-        })
+        let auth_params = {
+            email: 'demo@noobaa.com',
+            password: 'DeMo1',
+            system: 'demo'
+        };
+        return client.create_auth_token(auth_params);
+    })
         .then(() => {
             console.log('Setting ntp config');
             return client.cluster_server.update_time_config({
@@ -305,17 +305,17 @@ function getAgentConf() {
     client = rpc.new_client({});
     rpc.disable_validation();
     return P.fcall(() => {
-            let auth_params = {
-                email: 'demo@noobaa.com',
-                password: 'DeMo1',
-                system: 'demo'
-            };
-            return client.create_auth_token(auth_params);
-        })
+        let auth_params = {
+            email: 'demo@noobaa.com',
+            password: 'DeMo1',
+            system: 'demo'
+        };
+        return client.create_auth_token(auth_params);
+    })
         .then(() => client.system.get_node_installation_string({
-                pool: "first.pool",
-                exclude_drives: []
-            })
+            pool: "first.pool",
+            exclude_drives: []
+        })
             .then(installationString => {
                 agentConf = installationString.LINUX;
                 const index = agentConf.indexOf('config');
@@ -387,14 +387,14 @@ function createAgents() {
         .then(getTestNodes)
         .then(res => test_nodes_names)
         .then(() => P.map(oses, osname => azf.createAgent(
-                    osname, storage, vnet,
-                    azf.getImagesfromOSname(osname), master_ip, agentConf)
-                .then(() => {
-                    //get IP
-                    let ip;
-                    hostExternalIP[osname] = ip;
-                })
-            )
+            osname, storage, vnet,
+            azf.getImagesfromOSname(osname), master_ip, agentConf)
+            .then(() => {
+                //get IP
+                let ip;
+                hostExternalIP[osname] = ip;
+            })
+        )
             .catch(saveErrorAndResume))
         .tap(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
         .delay(120000)
@@ -447,8 +447,9 @@ function verifyS3Server() {
 
 function cleanEnv() {
     return P.map(servers, server => azf.deleteVirtualMachine(server.name)
-            .catch(err => console.log('Can\'t delete old server', err.message)))
-        .then(() => deleteAgents());
+        .catch(err => console.log(`Can't delete old server ${err.message}`)))
+        .then(() => deleteAgents())
+        .then(() => clean && process.exit(0));
 }
 
 //const timeInMin = timeout * 1000 * 60;
@@ -498,7 +499,7 @@ function runSecondFlow() {
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
             return s3ops.create_bucket(master_ip, bucket)
-                .catch(err => console.log('Couldn\'t create bucket with 2 disconnected clusters - as should ', err.message));
+                .catch(err => console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`));
         })
         .then(() => azf.startVirtualMachine(servers[1].name))
         .then(() => delayInSec(180))
@@ -517,7 +518,7 @@ function runThirdFlow() {
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
             return s3ops.create_bucket(master_ip, bucket)
-                .catch(err => console.log('Couldn\'t create bucket with 2 disconnected clusters - as should ', err.message));
+                .catch(err => console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`));
         })
         .then(() => azf.stopVirtualMachine(servers[0].name))
         .then(() => azf.startVirtualMachine(servers[1].name))
@@ -554,7 +555,7 @@ return azf.authenticate()
             });
         }
     })
-    .then(() => cleanEnv())
+    .then(cleanEnv)
     .then(() => prepareServers(servers))
     .then(() => checkAddClusterRules())
     .then(() => setNTPConfig(1))
@@ -571,6 +572,7 @@ return azf.authenticate()
     .then(() => runSecondFlow())
     .then(() => runThirdFlow())
     .then(() => runForthFlow())
+    .then(cleanEnv)
 
     /*
       .then(() => {
@@ -607,5 +609,7 @@ return azf.authenticate()
             process.exit(1);
         }
         console.log(':) :) :) cluster test were successful! (: (: (:');
-        return clean ? cleanEnv() : console.log('Clean env is ', clean);
+
+        process.exit(0);
+        // return clean ? cleanEnv() : console.log('Clean env is ', clean);
     });

@@ -14,5 +14,8 @@ if [ ! -f ${NOOBAASEC} ]; then
       jwt=$(cat /etc/noobaa_sec | openssl sha512 -hmac | cut -c10-44)
       echo "JWT_SECRET=${jwt}"  >> /root/node_modules/noobaa-core/.env
   fi
+
+  #Reload services so they would read the newly created JWT
+  supervisorctl restart bg_workers hosted_agents s3rver webserver || true
 fi
 

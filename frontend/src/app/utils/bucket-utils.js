@@ -99,8 +99,8 @@ export function getBucketStateIcon(bucket) {
 }
 
 export function getCloudSyncState(bucket) {
-    const cloudSyncState = bucket.cloudSync ? bucket.cloudSync.status : 'NOTSET';
-    return cloudSyncStateToText[cloudSyncState];
+    const state = bucket.cloudSync ? bucket.cloudSync.state : 'NOTSET';
+    return cloudSyncStateToText[state];
 }
 
 export function getPlacementTypeDisplayName(type) {

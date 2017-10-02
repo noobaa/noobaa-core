@@ -174,9 +174,7 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     onSelectAllBuckets() {
-        const allowedBuckets = this.bucketOptions()
-            .map(opt => opt.value);
-
+        const allowedBuckets = this.bucketOptions();
         this.form.allowedBuckets(allowedBuckets);
     }
 

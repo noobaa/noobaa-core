@@ -128,7 +128,7 @@ class addCloudConnectionModalViewModel extends Observer {
     }
 
     async onValidateAsync({ service, endpoint, identity, secret }) {
-        const { status } = await api.account.check_external_connection({
+        const { status, error } = await api.account.check_external_connection({
             endpoint_type: service,
             endpoint: endpoint,
             identity: identity,
@@ -148,11 +148,14 @@ class addCloudConnectionModalViewModel extends Observer {
 
         } else if (status === 'NOT_SUPPORTED') {
             errors.identity = 'Account type is not supported';
+
         } else if (status === 'TIME_SKEW') {
             errors.endpoint = 'Time difference with the server is too large';
         }
         else if (status === 'UNKNOWN_FAILURE') {
-            errors.endpoint = 'Something went wrong';
+            // Using empty message to mark the fields as invalid.
+            errors.identity = errors.endpoint = errors.secret = '';
+            errors.global = error.message
         }
 
         return errors;

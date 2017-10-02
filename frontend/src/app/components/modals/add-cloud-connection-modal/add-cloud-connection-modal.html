@@ -59,7 +59,16 @@
         <validation-message params="field: form.secret"></validation-message>
     </editor>
 
-    <div class="row content-middle align-end push-prev">
+    <div class="row greedy content-middle push-prev">
+        <div class="greedy">
+            <p class="row content-middle error" ko.visible="form.errors().global">
+                Somthing went wrong
+                <svg-icon class="icon-small push-prev-half"
+                    ko.tooltip="form.errors().global"
+                    params="name: 'notif-info'"
+                ></svg-icon>
+            </p>
+        </div>
         <button type="button" class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>

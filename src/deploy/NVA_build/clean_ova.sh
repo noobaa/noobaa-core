@@ -1,7 +1,9 @@
 set -e
 # TODO copied from first_install_diaglog.sh
 isAzure=false
-isesx=false
+isEsx=false
+isAlyun=false
+platftom=on_prem
 function clean_ifcfg() {
     interfaces=$(ifconfig | grep ^eth | awk '{print $1}')
     for int in ${interfaces//:/}; do
@@ -10,13 +12,14 @@ function clean_ifcfg() {
     sudo rm /etc/sysconfig/network
 }
 
-OPTIONS=$( getopt -o 'h,e,a' --long "help,esx,azure" -- "$@" )
+OPTIONS=$( getopt -o 'h,e,a,l' --long "help,esx,azure,alyun" -- "$@" )
 eval set -- "${OPTIONS}"
 
 function usage(){
     echo "$0 [options]"
     echo "-e --esx run this script on esx"
     echo "-a --azure run this script on azure"
+    echo "-l --alyun run this script on alyun"
     echo "-h --help will show this help"
     exit 0
 }
@@ -25,8 +28,13 @@ while true
 do
     case ${1} in
 		-a|--azure)     isAzure=true
+                        platform=azure
                         shift 1 ;;
-        -e|--esx)       isesx=true
+        -e|--esx)       isEsx=true
+                        platform=esx
+                        shift 1;;
+        -l|--alyun)     isAlyun=true
+                        platform=alyun
                         shift 1;;
 		-h|--help)	    usage;;
 		--)			    shift 1;
@@ -34,7 +42,7 @@ do
     esac
 done
 
-if ! ${isAzure} && ! ${isesx}
+if ! ${isAzure} && ! ${isEsx} && ! ${isAlyun}
 then
     usage
 fi
@@ -73,6 +81,7 @@ sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc
 #Clean supervisors
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/node_modules/noobaa-core/.env
+echo "PLATFORM=${platform}" >> /root/node_modules/noobaa-core/.env
 supervisorctl reread
 supervisorctl reload
 if [ -d /root/node_modules/noobaa-core/agent_storage/ ]; then

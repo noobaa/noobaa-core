@@ -1020,7 +1020,12 @@ function _get_win_fw_rules() {
 
 function _check_ports_on_linux(dest_ips, start_port, end_port) {
     // get iptables rules and check port range against it.
-    return get_iptables_rules()
+    return get_distro()
+        .then(distro => {
+            // for now skip centos 7 since it is not using iptables
+            if (distro.startsWith('Centos 7')) return [];
+            return get_iptables_rules();
+        })
         .then(rules => {
             const filtered_rules = rules.filter(rule => {
                 if (

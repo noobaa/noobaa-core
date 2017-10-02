@@ -155,7 +155,7 @@ class addCloudConnectionModalViewModel extends Observer {
         else if (status === 'UNKNOWN_FAILURE') {
             // Using empty message to mark the fields as invalid.
             errors.identity = errors.endpoint = errors.secret = '';
-            errors.global = error.message
+            errors.global = error.message;
         }
 
         return errors;

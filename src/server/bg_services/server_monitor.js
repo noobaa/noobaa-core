@@ -20,9 +20,15 @@ const promise_utils = require('../../util/promise_utils');
 const phone_home_utils = require('../../util/phone_home');
 const config_file_store = require('../system_services/config_file_store').instance();
 const Dispatcher = require('../notifications/dispatcher');
+const dotenv = require('../../util/dotenv');
 
 let server_conf = {};
 let monitoring_status = {};
+
+if (!process.env.PLATFORM) {
+    console.log('loading .env file...');
+    dotenv.load();
+}
 
 function run() {
     dbg.log0('SERVER_MONITOR: BEGIN');
@@ -292,6 +298,7 @@ function _check_dns_and_phonehome() {
 function _check_network_configuration() {
     dbg.log2('check_network_configuration');
     if (os.type() === 'Darwin') return;
+    if (process.env.PLATFORM === 'azure') return; // no first_install_wizard - can't control network configuration
     if (!server_conf.heartbeat) return;
     let ips = os_utils.get_local_ipv4_ips();
     if (server_conf.is_clusterized && !_.find(ips, ip => ip === server_conf.owner_address)) {

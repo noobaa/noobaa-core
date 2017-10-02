@@ -217,6 +217,22 @@ function post_upgrade() {
                 });
         })
         .then(function() {
+            return promise_utils.exec(`grep PLATFORM /backup/.env`, {
+                    ignore_rc: false,
+                    return_stdout: true,
+                    trim_stdout: true
+                })
+                .then(plat => {
+                    if (plat === '') return P.resolve();
+                    dbg.log0(`post_upgrade: Assigned old PLATFORM=${plat}`);
+                    return promise_utils.exec(`echo "${plat}" >> ${CORE_DIR}/.env`, {
+                        ignore_rc: false,
+                        return_stdout: true,
+                        trim_stdout: true
+                    });
+                });
+        })
+        .then(function() {
             return promise_utils.exec(`grep "DEV_MODE=true" /backup/.env`, {
                     ignore_rc: true,
                     return_stdout: true,

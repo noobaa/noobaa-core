@@ -15,6 +15,7 @@ export default class ResourceRowViewModel {
         this.type = ko.observable();
         this.name = ko.observable();
         this.connectedBuckets = ko.observable();
+        this.target = ko.observable();
         this.deleteButton = {
             subject: 'resource',
             id: ko.observable(),
@@ -26,7 +27,7 @@ export default class ResourceRowViewModel {
     }
 
     onResource(resource, connectedBuckets) {
-        const { name, undeletable } = resource;
+        const { name, target, undeletable } = resource;
         const conenctedBucketsInfo = {
             text: stringifyAmount('bucket', connectedBuckets.length),
             tooltip: connectedBuckets
@@ -37,6 +38,7 @@ export default class ResourceRowViewModel {
         this.type(getNamespaceResourceTypeIcon(resource));
         this.name(name);
         this.connectedBuckets(conenctedBucketsInfo);
+        this.target({ text: target, tooltip: target });
         this.deleteButton.id(name);
         this.deleteButton.disabled(Boolean(undeletable));
         this.deleteButton.tooltip(deleteTooltip);

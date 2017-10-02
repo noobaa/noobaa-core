@@ -43,6 +43,12 @@ const columns = deepFreeze([
         }
     },
     {
+        name: 'target',
+        label: 'Cloud Target Bucket',
+        sortable: true,
+        compareKey: resource => resource.target
+    },
+    {
         name: 'deleteButton',
         label: '',
         css: 'delete-col',

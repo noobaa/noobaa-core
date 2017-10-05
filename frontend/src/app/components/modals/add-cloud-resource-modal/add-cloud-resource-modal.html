@@ -20,6 +20,7 @@
             placeholder: targetBucketPlaceholder,
             disabled: !targetBucketsOptions(),
             options: targetBucketsOptions,
+            loading: fetchingTargetBucketsOptions,
             selected: targetBucket
         "></dropdown>
         <div class="val-msg" ko.validationMessage="targetBucket"></div>

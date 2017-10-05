@@ -40,13 +40,24 @@ class AuditPaneViewModel extends BaseViewModel {
 
         this.columns = columns;
         this.entries = auditLog;
+        this.isLoading = false;
+        this.entries.subscribe(
+            () => {
+                this.scroll(1 - pageSize/this.entries().length);
+                this.isLoading = false;
+            }
+        );
 
         let _scroll = ko.observable(0);
         this.scroll = ko.pureComputed({
             read: _scroll,
             write: pos => {
                 _scroll(pos);
-                if (pos > .9) loadMoreAuditEntries(pageSize);
+                const maxPos = 1 - 1/this.entries().length;
+                if (!this.isLoading && (pos > maxPos)){
+                    this.isLoading = true;
+                    loadMoreAuditEntries(pageSize);
+                }
             }
         });
 

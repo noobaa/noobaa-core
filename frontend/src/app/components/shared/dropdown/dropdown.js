@@ -21,6 +21,7 @@ class DropdownViewModel {
         hasFocus = false,
         loading = false,
         invalid,
+        emptyMessage = 'Empty'
     }) {
         this.name = randomString(5);
 
@@ -78,6 +79,18 @@ class DropdownViewModel {
 
                 return selectedOpt ? selectedOpt.label : ko.unwrap(placeholder);
             }
+        );
+        this.emptyMessage = ko.pureComputed(
+            () => {
+                if (ko.unwrap(loading) || this.options().length !== 0) {
+                    return null;
+                }
+
+                return ko.unwrap(emptyMessage);
+            }
+        );
+        this.isOptionsVisible = ko.pureComputed(
+            () => this.options().length && !ko.unwrap(loading)
         );
 
         this.invalid = isDefined(invalid) ? invalid : ko.pureComputed(

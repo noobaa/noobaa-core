@@ -19,7 +19,8 @@
             placeholder: 'Choose Bucket',
             disabled: !targetBucketsOptions(),
             options: targetBucketsOptions,
-            selected: targetBucket
+            loading: fetchingTargetBucketsOptions,
+            selected: targetBucket,
         "></dropdown>
         <div class="val-msg" ko.validationMessage="targetBucket"></div>
     </editor>

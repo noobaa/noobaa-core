@@ -71,6 +71,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
         this.allowedServices = allowedServices;
         this.onClose = onClose;
         this.bucketName = bucketName;
+        this.fetchingTargetBucketsOptions = ko.observable(false);
 
         const cloudConnections = ko.pureComputed(
             () => {
@@ -152,6 +153,10 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
             )
         );
 
+        this.targetBucketsOptions.subscribe(
+            options => this.fetchingTargetBucketsOptions(!options.length)
+        );
+
         this.targetBucket = ko.observable()
             .extend({
                 required: {
@@ -201,6 +206,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
     }
 
     loadBucketsList() {
+        this.fetchingTargetBucketsOptions(true);
         loadCloudBucketList(this.connection().name);
     }
 

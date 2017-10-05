@@ -11,7 +11,8 @@
                 options: connectionOptions,
                 selected: form.connection,
                 placeholder: 'Choose Connection',
-                invalid: form.connection.isInvalidTouched
+                invalid: form.connection.isInvalidTouched,
+                emptyMessage: 'No connections'
             "></dropdown>
             <validation-message params="field: form.connection"></validation-message>
         </editor>

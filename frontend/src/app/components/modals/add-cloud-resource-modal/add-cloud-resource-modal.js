@@ -27,6 +27,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
         super();
         this.onClose = onClose;
         this.wasValidated = ko.observable(false);
+        this.fetchingTargetBucketsOptions = ko.observable(false);
 
         const cloudConnections = ko.pureComputed(
             () => {
@@ -109,13 +110,15 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
                             disabled: true,
                             tooltip: usedTargetTooltip[usage_type](name)
                         };
-
                     } else {
                         return { value: targetName };
                     }
                 }
             )
+        );
 
+        this.targetBucketsOptions.subscribe(
+            options => this.fetchingTargetBucketsOptions(!options.length)
         );
 
         this.targetBucket = ko.observable()
@@ -164,6 +167,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
     }
 
     loadBucketsList() {
+        this.fetchingTargetBucketsOptions(true);
         loadCloudBucketList(this.connection().name);
     }
 

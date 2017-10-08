@@ -221,11 +221,11 @@ function configure_ntp_dialog {
       err_ntp_msg="\Z1NTP Server must be set.\Zn"
     fi
 
-    sudo unlink /etc/localtime
     if [ -z ${tz} ]; then #TZ was not supplied
       err_tz=0
       err_tz_msg=""
     elif [ -f "/usr/share/zoneinfo/${tz}" ]; then
+      sudo unlink /etc/localtime
       err_tz=0
       err_tz_msg=""
       sudo ln -sf "/usr/share/zoneinfo/${tz}" /etc/localtime

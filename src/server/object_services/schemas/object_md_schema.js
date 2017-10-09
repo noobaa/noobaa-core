@@ -61,7 +61,7 @@ module.exports = {
         },
 
         upload_started: {
-            format: 'date'
+            format: 'objectid'
         },
 
         create_time: {

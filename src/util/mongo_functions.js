@@ -42,9 +42,9 @@ function map_common_prefixes_and_objects() {
     var suffix = this.key.slice(prefix.length);
     var pos = suffix.indexOf(delimiter);
     if (pos >= 0) {
-        emit(suffix.slice(0, pos + 1), 1);
+        emit([suffix.slice(0, pos + 1)], 1);
     } else {
-        emit(suffix, this);
+        emit([suffix, this._id], this);
     }
 }
 

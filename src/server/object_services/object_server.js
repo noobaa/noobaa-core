@@ -40,8 +40,9 @@ function create_object_upload(req) {
 
     check_quota(req.bucket);
 
+    const obj_id = MDStore.instance().make_md_id();
     var info = {
-        _id: MDStore.instance().make_md_id(),
+        _id: obj_id,
         system: req.system._id,
         bucket: req.bucket._id,
         key: req.rpc_params.key,
@@ -49,7 +50,7 @@ function create_object_upload(req) {
             mime.lookup(req.rpc_params.key) ||
             'application/octet-stream',
         cloud_synced: false,
-        upload_started: new Date(),
+        upload_started: obj_id,
         upload_size: 0,
     };
     if (req.rpc_params.xattr) info.xattr = req.rpc_params.xattr;
@@ -625,6 +626,9 @@ function list_objects_s3(req) {
     // Last object's key that was received from list-objects last call (when truncated)
     // This is used in order to continue from a certain key when the response is truncated
     var marker = req.rpc_params.key_marker ? (prefix + req.rpc_params.key_marker) : '';
+    var upload_id_marker = !_.isUndefined(req.rpc_params.key_marker) &&
+        !_.isUndefined(req.rpc_params.upload_id_marker) ?
+        req.rpc_params.upload_id_marker : undefined;
 
     const received_limit = _.isUndefined(req.rpc_params.limit) ? 1000 : req.rpc_params.limit;
 
@@ -664,7 +668,8 @@ function list_objects_s3(req) {
                 delimiter,
                 prefix,
                 marker,
-                limit
+                limit,
+                upload_id_marker
             })
             .then(res => {
                 results = _.concat(results, res);
@@ -682,11 +687,17 @@ function list_objects_s3(req) {
                     reply.is_truncated = true;
                     // Marking the object/prefix that we've stopped on
                     // Notice: THIS IS THE LAST OBJECT AFTER THE POP
-                    reply.next_marker = results[results.length - 1].key;
+                    const last = results[results.length - 1];
+                    reply.next_marker = last.key;
+                    reply.next_upload_id_marker = (last.obj &&
+                        String(last.obj._id)) || undefined;
                     done = true;
                 } else {
                     // In this case we did not reach the end yet
-                    marker = res[res.length - 1].key;
+                    const last = res[res.length - 1];
+                    marker = last.key;
+                    upload_id_marker = (last.obj &&
+                        String(last.obj._id)) || undefined;
                 }
             })
         )
@@ -827,7 +838,7 @@ function get_object_info(md) {
         sha256_b64: md.sha256_b64 || undefined,
         content_type: md.content_type || 'application/octet-stream',
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
-        upload_started: md.upload_started ? md.upload_started.getTime() : undefined,
+        upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         xattr: md.xattr,
         cloud_synced: md.cloud_synced,

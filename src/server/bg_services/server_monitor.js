@@ -171,16 +171,16 @@ function _verify_server_certificate() {
 
 function _verify_remote_syslog_cluster_config() {
     dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
-
-    let cluster_conf = _.clone(server_conf.remote_syslog_config);
+    let system = system_store.data.systems[0];
+    let syslog_conf = _.clone(system.remote_syslog_config);
     return os_utils.get_syslog_server_configuration()
         .then(platform_syslog_server => {
-            if (!_are_platform_and_cluster_conf_equal(platform_syslog_server, cluster_conf)) {
-                dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', cluster_conf);
-                if (cluster_conf) {
-                    cluster_conf.enabled = true;
+            if (!_are_platform_and_cluster_conf_equal(platform_syslog_server, syslog_conf)) {
+                dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', syslog_conf);
+                if (syslog_conf) {
+                    syslog_conf.enabled = true;
                 }
-                return os_utils.reload_syslog_configuration(cluster_conf);
+                return os_utils.reload_syslog_configuration(syslog_conf);
             }
         })
         .catch(err => dbg.error('failed to reconfigure remote syslog cluster config on the server. reason:', (err && err.code) || err));

@@ -23,6 +23,9 @@ function get_bucket_uploads(req) {
     }
     if ('key-marker' in req.query) {
         params.key_marker = req.query['key-marker'];
+        if ('upload-id-marker' in req.query) {
+            params.upload_id_marker = req.query['upload-id-marker'];
+        }
     }
 
     let max_keys_received = Number(req.query['max-uploads'] || 1000);
@@ -43,6 +46,7 @@ function get_bucket_uploads(req) {
                     'UploadIdMarker': req.query['upload-id-marker'],
                     'IsTruncated': reply.is_truncated,
                     'NextKeyMarker': reply.next_marker,
+                    'NextUploadIdMarker': reply.next_upload_id_marker,
                     'Encoding-Type': req.query['encoding-type'],
                 },
                 _.map(reply.objects, obj => ({

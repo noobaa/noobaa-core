@@ -726,6 +726,9 @@ module.exports = {
                     key_marker: {
                         type: 'string',
                     },
+                    upload_id_marker: {
+                        type: 'string',
+                    },
                     limit: {
                         type: 'integer'
                     },
@@ -754,6 +757,9 @@ module.exports = {
                         type: 'boolean'
                     },
                     next_marker: {
+                        type: 'string'
+                    },
+                    next_upload_id_marker: {
                         type: 'string'
                     }
                 }

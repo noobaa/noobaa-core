@@ -176,7 +176,18 @@ class MDStore {
             }));
     }
 
-    find_objects_by_prefix_and_delimiter({ bucket_id, upload_mode, delimiter, prefix, marker, limit }) {
+    find_objects_by_prefix_and_delimiter({ bucket_id, upload_mode, delimiter, prefix, marker, limit, upload_id_marker }) {
+        // This sort order is crucial for the query to work optimized
+        // Pay attention prior to any changes and analyze query results
+        // Basically we are interested in primary sort by key and secondary by _id
+        // Both the bucket and deleted will be the same, this is needed for index optimization
+        const sort = {
+            bucket: 1,
+            key: 1,
+            deleted: 1,
+            // This is used instead of _id since they are the same values
+            upload_started: 1
+        };
         // filter keys starting with prefix, *not* followed by marker
         let regexp_text = '^' + _.escapeRegExp(prefix);
         if (marker) {
@@ -184,30 +195,47 @@ class MDStore {
                 throw new Error('BAD MARKER ' + marker + ' FOR PREFIX ' + prefix);
             }
             const marker_suffix = marker.slice(prefix.length);
-            if (marker_suffix) {
+            // This is an optimization for filtering out any keys which are under
+            // The common prefix in case it ends with a delimiter (directory)
+            if (delimiter && marker_suffix.endsWith(delimiter)) {
                 regexp_text += '(?!' + _.escapeRegExp(marker_suffix) + ')';
             }
         }
-        const regexp = new RegExp(regexp_text);
-        const query = {
+        // We are not interested in triggering empty Regex.
+        // This had a bad affect on the performance of the query.
+        // Same goes for the $gt/$gte marker when wasn't provided.
+        const regexp = (regexp_text === '^') ? undefined : new RegExp(regexp_text);
+        const key_cond = compact({
+            $regex: regexp,
+            $gt: marker || undefined
+        });
+        const query = compact({
             bucket: bucket_id,
-            key: {
-                $regex: regexp,
-                $gt: marker
-            },
+            key: _.isEmpty(key_cond) ? undefined : key_cond,
             deleted: null,
-            upload_started: {
-                $exists: Boolean(upload_mode)
-            }
-        };
+            // $exists is less optimized than comparing to null
+            upload_started: upload_mode ? { $exists: true } : null
+        });
+
+        if (marker && upload_id_marker) {
+            const key_cond2 = compact({
+                $regex: regexp,
+                $gte: marker || undefined
+            });
+            // This case is not optimized, guess is because of the $or statement
+            // We should investigate it further and optimize it
+            query.$or = [
+                { key: query.key },
+                compact({
+                    key: _.isEmpty(key_cond2) ? undefined : key_cond2,
+                    _id: { $gt: this.make_md_id(upload_id_marker) }
+                })
+            ];
+            delete query.key;
+        }
 
         if (!delimiter) {
-            return this._objects.col().find(query, {
-                    limit: limit,
-                    sort: {
-                        key: 1
-                    }
-                })
+            return this._objects.col().find(query, { limit, sort })
                 .toArray()
                 .then(res => _.map(res, obj => ({
                     key: obj.key,
@@ -218,18 +246,11 @@ class MDStore {
         return this._objects.col().mapReduce(
                 mongo_functions.map_common_prefixes_and_objects,
                 mongo_functions.reduce_common_prefixes_occurrence_and_objects, {
-                    query: query,
-                    limit: limit,
-                    sort: {
-                        key: 1
-                    },
-                    scope: {
-                        prefix: prefix,
-                        delimiter: delimiter,
-                    },
-                    out: {
-                        inline: 1
-                    }
+                    query,
+                    limit,
+                    sort,
+                    scope: { prefix, delimiter },
+                    out: { inline: 1 }
                 }
             )
             .then(res => _.map(res, obj => (

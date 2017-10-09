@@ -137,8 +137,8 @@ function configure_ips_dialog {
 }
 
 function configure_dns_dialog {
-    local cur_dns1=$(grep "nameserver.*#NooBaa Configured Primary DNS Server" /etc/resolv.conf | sed 's:nameserver.*\(.*\)#.*:\1:')
-    local cur_dns2=$(grep "nameserver.*#NooBaa Configured Secondary DNS Server" /etc/resolv.conf | sed 's:nameserver.*\(.*\)#.*:\1:')
+    local cur_dns1=$(grep "prepend.*#NooBaa Configured DNS Servers" /etc/dhclient.conf | sed 's:prepend domain-name-servers \(.*\) ; #.*:\1:' | awk -F',' '{print $1}')
+    local cur_dns2=$(grep "prepend.*#NooBaa Configured DNS Servers" /etc/dhclient.conf | sed 's:prepend domain-name-servers \(.*\) ; #.*:\1:' | awk -F',' '{print $2}')
     dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 80 4 "Primary DNS:" 1 1 "${cur_dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${cur_dns2}" 2 25 25 30 2> answer_dns
 
     if test $? -eq 1 ; then #cancel pressed
@@ -154,16 +154,14 @@ function configure_dns_dialog {
       dns2=$(tail -1 answer_dns)
     done
 
-    sudo sed -i "s/.*NooBaa Configured DNS Servers//" /etc/dhclient.conf
-
     # sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
     sudo bash -c "rm -rf /etc/resolv.conf"
     sudo bash -c "echo 'DNS1=${dns1}' > /etc/sysconfig/network"
     if [ "${dns2}" != "" ]; then
-      sudo bash -c "echo 'prepend domain-name-servers ${dns1},${dns2} ; #NooBaa Configured DNS Servers' >> /etc/dhclient.conf"
+      sudo sed -i "s/.*NooBaa Configured DNS Servers/prepend domain-name-servers ${dns1},${dns2} ; #NooBaa Configured DNS Servers/" /etc/dhclient.conf
       sudo bash -c "echo 'DNS2=${dns2}' >> /etc/sysconfig/network"
     else
-      sudo bash -c "echo 'prepend domain-name-servers ${dns1} ; #NooBaa Configured DNS Servers' >> /etc/dhclient.conf"
+      sudo sed -i "s/.*NooBaa Configured DNS Servers/prepend domain-name-servers ${dns1} ; #NooBaa Configured DNS Servers/" /etc/dhclient.conf
     fi
     sudo dmesg -n 1 # need to restart network to update /etc/resolv.conf - supressing too much logs
     sudo service network restart &> /dev/null

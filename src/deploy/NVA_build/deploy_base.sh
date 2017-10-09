@@ -24,7 +24,7 @@ function clean_ifcfg() {
     for int in ${interfaces//:/}; do
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done
-    sudo rm /etc/sysconfig/network
+    sudo echo -n > /etc/sysconfig/network
 }
 
 function install_platform {
@@ -63,6 +63,10 @@ function install_platform {
     # make iptables run on boot instead of firewalld
     systemctl disable firewalld
     systemctl enable iptables
+
+    # make network run on boot instead of NetworkManager
+    systemctl disable NetworkManager
+    systemctl enable network
 
 	# make crontab start on boot
 	chkconfig crond on

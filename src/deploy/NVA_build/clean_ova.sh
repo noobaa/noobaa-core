@@ -9,7 +9,7 @@ function clean_ifcfg() {
     for int in ${interfaces//:/}; do
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done
-    sudo rm /etc/sysconfig/network
+    sudo echo -n > /etc/sysconfig/network
 }
 
 OPTIONS=$( getopt -o 'h,e,a,l' --long "help,esx,azure,alyun" -- "$@" )

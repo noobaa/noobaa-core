@@ -36,10 +36,10 @@
             "/>
         </editor>
 
-        <editor params="label: 'Server port', disabled: !enabled()">
+        <editor params="label: 'Server port', disabled: !isPortEnabled()">
             <input type="number" min="1" max="65535" placeholder="Port" data-bind="
                 value: port,
-                enable: enabled
+                enable: isPortEnabled
             "/>
        </editor>
 

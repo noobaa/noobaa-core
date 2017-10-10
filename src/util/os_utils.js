@@ -109,7 +109,17 @@ function get_raw_storage() {
     if (os.type() === 'Linux') {
         return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
             .then(res => _.find(res, function(disk) {
-                const expected_name = process.env.PLATFORM === 'alyun' ? 'vda' : 'sda';
+                let expected_name = 'sda';
+                switch (process.env.PLATFORM) {
+                    case 'alyun':
+                        expected_name = 'vda';
+                        break;
+                    case 'aws':
+                        expected_name = 'xvda';
+                        break;
+                    default:
+                        expected_name = 'sda';
+                }
                 return disk.NAME === expected_name;
             }))
             .then(disk => parseInt(disk.SIZE, 10));

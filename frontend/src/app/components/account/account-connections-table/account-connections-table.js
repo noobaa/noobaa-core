@@ -75,19 +75,22 @@ class AccountConnectionsTableViewModel extends Observer {
         this.observe(
             state$.getMany(
                 ['accounts', ko.unwrap(accountName), 'externalConnections'],
+                'buckets',
+                'gatewayBuckets',
                 'location'
             ),
             this.onConnections
         );
     }
 
-    onConnections([connections, location]) {
-        if(!connections) {
+    onConnections([connections, buckets, gatewayBuckets, location]) {
+        if(!connections || !buckets || !gatewayBuckets) {
             this.connectionsLoading(true);
             return;
         }
+
         const { params, query, pathname } = location;
-        const { tab = 'connections' } = params;
+        const { tab = 'connections', system } = params;
         if (tab !== 'connections') return;
 
         const { filter, sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
@@ -106,7 +109,7 @@ class AccountConnectionsTableViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((connection, i) => {
                 const row = this.rows.get(i) || new ConnectionRowViewModel(rowParams);
-                row.onConnection(connection);
+                row.onConnection(connection, buckets, gatewayBuckets, system);
                 return row;
             });
 

@@ -20,8 +20,19 @@
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
     loading: connectionsLoading,
-    emptyMessage: emptyMessage
-"></data-table>
+    emptyMessage: emptyMessage,
+    subRow: 'connectionUsage'
+">
+    <template name="connectionUsage">
+        <div class="pad">
+            <data-table class="column greedy usage-table" params="
+                columns: usageColumns,
+                data: rows,
+                emptyMessage: emptyMessage
+            "></data-table>
+        </div>
+    </template>
+</data-table>
 
 <paginator params="
     itemCount: connectionCount,

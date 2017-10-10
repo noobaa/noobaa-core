@@ -364,7 +364,7 @@ function _delete_resource_pool(req, pool, account) {
                     // with a new resource pool name
                     let db_update = {
                         _id: pool._id,
-                        name: pool.name + '-' + pool._id
+                        name: pool.name + '#' + pool._id
                     };
                     const pending_del_property = pool.resource_type === 'INTERNAL' ?
                         'mongo_pool_info.pending_delete' : 'cloud_pool_info.pending_delete';

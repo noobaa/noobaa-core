@@ -559,7 +559,7 @@ export function testNode(source, testSet) {
                                     ({ session }) => {
                                         const [,protocol, ip, port] = session.match(regexp);
                                         result.protocol = protocol;
-                                        result.targetIp = ip;
+                                        result.targetIp = ip.replace('::ffff:','');
                                         result.targetPort = port;
                                         result.time = Date.now() - start;
                                         result.position = result.position + stepSize;

@@ -210,6 +210,7 @@ class Dispatcher {
             .then(pool => {
                 if (pool) {
                     l.pool = _.pick(pool.record, 'name');
+                    l.pool.name = l.pool.name.split('#')[0];
                     l.pool.linkable = pool.linkable;
                 }
                 return P.resolve(log_item.account && system_store.data.get_by_id_include_deleted(log_item.account, 'accounts'));

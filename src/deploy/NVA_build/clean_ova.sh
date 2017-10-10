@@ -3,6 +3,7 @@ set -e
 isAzure=false
 isEsx=false
 isAlyun=false
+isAws=false
 platftom=on_prem
 function clean_ifcfg() {
     interfaces=$(ifconfig | grep ^eth | awk '{print $1}')
@@ -12,7 +13,7 @@ function clean_ifcfg() {
     sudo echo -n > /etc/sysconfig/network
 }
 
-OPTIONS=$( getopt -o 'h,e,a,l' --long "help,esx,azure,alyun" -- "$@" )
+OPTIONS=$( getopt -o 'h,e,a,l,w' --long "help,esx,azure,alyun,aws" -- "$@" )
 eval set -- "${OPTIONS}"
 
 function usage(){
@@ -20,6 +21,7 @@ function usage(){
     echo "-e --esx run this script on esx"
     echo "-a --azure run this script on azure"
     echo "-l --alyun run this script on alyun"
+    echo "-w --aws run this script on aws"
     echo "-h --help will show this help"
     exit 0
 }
@@ -36,13 +38,16 @@ do
         -l|--alyun)     isAlyun=true
                         platform=alyun
                         shift 1;;
+        -w|--aws)       isAws=true
+                        platform=aws
+                        shift 1;;
 		-h|--help)	    usage;;
 		--)			    shift 1;
 					    break ;;
     esac
 done
 
-if ! ${isAzure} && ! ${isEsx} && ! ${isAlyun}
+if ! ${isAzure} && ! ${isEsx} && ! ${isAlyun} && ! ${isAws}
 then
     usage
 fi

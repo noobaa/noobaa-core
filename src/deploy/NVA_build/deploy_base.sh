@@ -76,7 +76,7 @@ function install_platform {
     sed -i 's:GRUB_HIDDEN_TIMEOUT_QUIET.*::' /etc/default/grub
     sed -i 's:GRUB_HIDDEN_TIMEOUT.*::' /etc/default/grub
     sed -i 's:GRUB_FORCE_HIDDEN_MENU.*::' /etc/default/grub
-    echo "GRUB_HIDDEN_TIMEOUT_QUIET=false" >> /etc/default/grub
+    echo "GRUB_HIDDEN_TIMEOUT_QUIET=true" >> /etc/default/grub
     echo "GRUB_HIDDEN_TIMEOUT=0" >> /etc/default/grub
     echo "GRUB_FORCE_HIDDEN_MENU=true" >> /etc/default/grub
     grub2-mkconfig --output=/boot/grub2/grub.cfg

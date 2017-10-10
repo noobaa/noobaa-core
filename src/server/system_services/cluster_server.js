@@ -36,6 +36,7 @@ const phone_home_utils = require('../../util/phone_home');
 // TODO: maybe we need to change it to use upgrade status in DB.
 // currently use this memory only flag to indicate if upgrade is still in process
 let upgrade_in_process = false;
+let add_member_in_process = false;
 
 
 function _init() {
@@ -86,11 +87,19 @@ function add_member_to_cluster(req) {
 
     return pre_add_member_to_cluster(req)
         .then(my_address => {
-            add_member_to_cluster_invoke(req, my_address);
+            add_member_to_cluster_invoke(req, my_address)
+                .finally(() => {
+                    add_member_in_process = false;
+                });
         });
 }
 
 function pre_add_member_to_cluster(req) {
+    if (add_member_in_process) {
+        throw new Error('Aleady in process of adding a member to the cluster');
+    }
+    add_member_in_process = true;
+
     const topology = cutil.get_topology();
     const is_clusterized = topology.is_clusterized;
     let my_address;

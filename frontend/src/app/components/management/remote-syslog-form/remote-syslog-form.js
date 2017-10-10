@@ -9,7 +9,7 @@ import { deepFreeze } from 'utils/core-utils';
 
 const protocols = deepFreeze({
     UDP: { defaultPort: 5014 },
-    TCP: { defaultPort: 601 }
+    TCP: { defaultPort: 514 }
 });
 
 const defaultProtocol = 'UDP';
@@ -29,8 +29,15 @@ class RemoteSyslogFormViewModel extends BaseViewModel {
             () => !!config()
         );
 
+        this.isPortEnabled = ko.pureComputed(
+            () => this.enabled() && this.protocol() !== 'TCP'
+        );
+
         this.protocol = ko.observableWithDefault(
             () => config() ? config().protocol : defaultProtocol
+        );
+        this.protocol.subscribe(
+            () => this.port(config() ? config().port : protocols[this.protocol()].defaultPort)
         );
 
         this.address = ko.observableWithDefault(

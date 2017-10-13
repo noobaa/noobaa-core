@@ -13,7 +13,10 @@ import { clearCompletedObjectUploads } from 'action-creators';
 import style from 'style';
 
 const columns = deepFreeze([
-    'fileName',
+    {
+        name: 'fileName',
+        type: 'newLink'
+    },
     'bucketName',
     'size',
     'progress'
@@ -43,10 +46,16 @@ class FileUploadsModalViewModel extends Observer {
             }
         ];
 
-        this.observe(state$.get('objectUploads'), this.onUploads);
+        this.observe(
+            state$.getMany(
+                'objectUploads',
+                ['location', 'params', 'system']
+            ),
+            this.onUploads
+        );
     }
 
-    onUploads(objectUploads) {
+    onUploads([objectUploads, system]) {
         const { stats, objects } = objectUploads;
         const progressText = this._getCurrentUploadProgressText(stats);
 
@@ -60,7 +69,7 @@ class FileUploadsModalViewModel extends Observer {
             .reverse()
             .map((obj, i) => {
                 const row = this.rows()[i] || new UploadRowViewModel();
-                row.update(obj);
+                row.update(obj, system);
                 return row;
             })
         );

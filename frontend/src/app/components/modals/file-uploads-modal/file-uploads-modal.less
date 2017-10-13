@@ -6,13 +6,29 @@
         width: 180px;
     }
 
-    data-table {
+    .uploads-table {
         height: 100%;
+
+        .link() {
+            a {
+                display: inline-block;
+                white-space:nowrap;
+                max-width: 370px;
+
+                color: @color7;
+
+                &[href] {
+                    color: @color9;
+                }
+            }
+        }
 
         .file-name-col {
             text-align: left;
             width: 100%;
             max-width: 360px;
+
+            .link();
         }
 
         .bucket-name-col {

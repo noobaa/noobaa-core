@@ -74,7 +74,7 @@ class AttachServerModalViewModel extends BaseViewModel {
                             const { address, result } = serverVerificationState() || {};
                             return newAddress !== address || result !== 'NO_NTP_SET';
                         },
-                        message: 'Server should be configured with NTP before attaching'
+                        message: 'Target attached server should be configured with NTP before attaching'
                     }
                 ]
             });

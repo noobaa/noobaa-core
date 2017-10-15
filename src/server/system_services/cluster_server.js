@@ -1014,7 +1014,7 @@ function diagnose_system(req) {
                 });
         }))
         .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
-        .then(() => diag.pack_diagnostics(WORKING_PATH))
+        .then(() => diag.pack_diagnostics(WORKING_PATH, TMP_WORK_DIR))
         .then(() => (OUT_PATH));
 }
 

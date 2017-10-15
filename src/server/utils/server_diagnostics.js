@@ -145,8 +145,8 @@ function collect_server_diagnostics(req) {
         });
 }
 
-function pack_diagnostics(dst) {
-    return base_diagnostics.pack_diagnostics(dst);
+function pack_diagnostics(dst, work_dir) {
+    return base_diagnostics.pack_diagnostics(dst, work_dir);
 }
 
 function write_agent_diag_file(data) {

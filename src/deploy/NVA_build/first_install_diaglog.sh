@@ -164,7 +164,7 @@ function configure_dns_dialog {
       #sudo echo "First Install adding dns ${dns}" >> /var/log/noobaa_deploy.log
       dns2=$(tail -1 answer_dns)
     done
-
+    
     sudo sed -i "s/.*NooBaa Configured Primary DNS Server//" /etc/resolv.conf
     sudo sed -i "s/.*NooBaa Configured Secondary DNS Server//" /etc/resolv.conf
 
@@ -172,7 +172,10 @@ function configure_dns_dialog {
     sudo bash -c "echo 'nameserver ${dns1} #NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"
     if [ "${dns2}" != "" ]; then
       sudo bash -c "echo 'nameserver ${dns2} #NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
+    else
+      sudo bash -c "echo '#NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
     fi
+    sudo bash -c "echo '#NooBaa Configured Search' >> /etc/resolv.conf"
     sudo supervisorctl restart all > /dev/null 2>&1
 }
 
@@ -207,6 +210,7 @@ function configure_ntp_dialog {
   local err_ntp_msg=""
   local err_tz=1
   local err_ntp=1
+
   while [ ${err_tz} -eq 1 ] || [ ${err_ntp} -eq 1 ]; do
     dialog --colors --backtitle "NooBaa First Install" --title "NTP Configuration" --form "\nPlease supply an NTP server address and Time Zone (TZ format https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)\nYou can configure NTP later in the management console\n${err_ntp_msg}\n${err_tz_msg}\n(Use \Z4\ZbUp/Down\Zn to navigate)" 15 80 2 "NTP Server:" 1 1 "${ntp_server}" 1 25 25 30  "Time Zone:" 2 1 "${tz}" 2 25 25 30 2> answer_ntp
     ntp_server="$(head -1 answer_ntp)"

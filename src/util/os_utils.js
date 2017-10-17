@@ -901,7 +901,8 @@ function set_hostname(hostname) {
         return P.resolve();
     }
 
-    return promise_utils.exec(`hostname ${hostname}`);
+    return promise_utils.exec(`hostname ${hostname}`)
+        .then(() => promise_utils.exec(`sed -i "s/^HOSTNAME=.*/HOSTNAME=${hostname}/g" /etc/sysconfig/network`)); // keep it permanent
 }
 
 function is_valid_hostname(hostname_string) {

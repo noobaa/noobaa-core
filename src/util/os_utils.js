@@ -522,11 +522,11 @@ function get_dns_servers() {
                     })
                     .filter(regex_group => !_.isEmpty(regex_group));
 
-                dns_config.search_domains = conf_lines.map(line => {
-                        let regex_res = (/search (.*) #NooBaa/).exec(line);
-                        return regex_res && regex_res[1];
-                    })
-                    .filter(regex_group => !_.isEmpty(regex_group));
+                conf_lines.forEach(line => {
+                    let regex_res = (/search (.*) #NooBaa/).exec(line);
+                    let splitted_result = regex_res && regex_res[1].split(' ');
+                    if (splitted_result) dns_config.search_domains.push(...splitted_result);
+                });
                 return dns_config;
             });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
@@ -554,7 +554,7 @@ function set_dns_server(servers, search_domains) {
 
         if (search_domains && search_domains.length) {
             commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/search " +
-                search_domains + " #NooBaa Configured Search/' /etc/resolv.conf");
+                search_domains.toString().replace(/,/g, ' ') + " #NooBaa Configured Search/' /etc/resolv.conf");
         } else {
             commands_to_exec.push("sed -i 's/.*NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/resolv.conf");
         }
@@ -795,7 +795,8 @@ function set_hostname(hostname) {
         return P.resolve();
     }
 
-    return promise_utils.exec(`hostname ${hostname}`);
+    return promise_utils.exec(`hostname ${hostname}`)
+        .then(() => promise_utils.exec(`sed -i "s/^HOSTNAME=.*/HOSTNAME=${hostname}/g" /etc/sysconfig/network`)); // keep it permanent
 }
 
 function is_valid_hostname(hostname_string) {

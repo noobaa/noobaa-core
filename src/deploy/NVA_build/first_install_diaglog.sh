@@ -169,7 +169,7 @@ function configure_dns_dialog {
       dns1=$(head -1 answer_dns)
       dns2=$(tail -1 answer_dns)
     done
-
+    
     sudo sed -i "s/.*NooBaa Configured Primary DNS Server//" /etc/resolv.conf
     sudo sed -i "s/.*NooBaa Configured Secondary DNS Server//" /etc/resolv.conf
 
@@ -177,7 +177,10 @@ function configure_dns_dialog {
     sudo bash -c "echo 'nameserver ${dns1} #NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"
     if [ "${dns2}" != "" ]; then
       sudo bash -c "echo 'nameserver ${dns2} #NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
+    else
+      sudo bash -c "echo '#NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"
     fi
+    sudo bash -c "echo '#NooBaa Configured Search' >> /etc/resolv.conf"
     sudo supervisorctl restart all > /dev/null 2>&1
 }
 

@@ -87,6 +87,12 @@ module.exports = {
                     node_type: {
                         $ref: 'node_api#/definitions/node_type'
                     },
+                    cpu_usage: {
+                        type: 'number'
+                    },
+                    mem_usage: {
+                        type: 'integer'
+                    },
                     debug_level: {
                         type: 'integer',
                     },

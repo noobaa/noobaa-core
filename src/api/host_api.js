@@ -341,6 +341,12 @@ module.exports = {
                 os_info: {
                     $ref: 'common_api#/definitions/os_info'
                 },
+                process_cpu_usage: {
+                    type: 'number'
+                },
+                process_mem_usage: {
+                    type: 'integer'
+                },
                 latency_to_server: {
                     $ref: 'node_api#/definitions/latency_array'
                 },

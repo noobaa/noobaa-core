@@ -55,7 +55,7 @@ function AgentCLI(params) {
 
 AgentCLI.prototype.monitor_stats = function() {
     promise_utils.pwhile(() => true, () => {
-        const cpu_usage = process.cpuUsage(this.cpu_usage); //usage since last sample
+        const cpu_usage = process.cpuUsage(this.cpu_usage); //usage since init
         const mem_usage = process.memoryUsage();
         dbg.log0(`agent_stats_titles - process: cpu_usage_user, cpu_usage_sys, mem_usage_rss`);
         dbg.log0(`agent_stats_values - process: ${cpu_usage.user}, ${cpu_usage.system}, ${mem_usage.rss}`);

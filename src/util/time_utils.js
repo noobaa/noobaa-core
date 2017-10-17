@@ -11,6 +11,10 @@ function nanostamp() {
     return perf_now() * 1e6;
 }
 
+function microstamp() {
+    return perf_now() * 1e3;
+}
+
 function secstamp() {
     return perf_now() / 1000;
 }
@@ -62,6 +66,7 @@ function parse_amz_date(str) {
 
 
 exports.millistamp = millistamp;
+exports.microstamp = microstamp;
 exports.nanostamp = nanostamp;
 exports.secstamp = secstamp;
 exports.millitook = millitook;

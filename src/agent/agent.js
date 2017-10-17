@@ -56,6 +56,9 @@ class Agent {
             address: params.address
         }];
 
+        this.cpu_usage = process.cpuUsage();
+        this.cpu_usage.time_stamp = time_utils.microstamp();
+
         this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
         this.proxy = params.proxy;
         dbg.log0(`this.base_address=${this.base_address}`);
@@ -708,6 +711,11 @@ class Agent {
         const extended_hb = true;
         const ip = ip_module.address();
         dbg.log0('Recieved potential servers list', req.rpc_params.addresses);
+        const prev_cpu_usage = this.cpu_usage;
+        this.cpu_usage = process.cpuUsage();
+        this.cpu_usage.time_stamp = time_utils.microstamp();
+        const cpu_percent = (this.cpu_usage.user + this.cpu_usage.system - prev_cpu_usage.user - prev_cpu_usage.system) /
+            (this.cpu_usage.time_stamp - prev_cpu_usage.time_stamp);
         const reply = {
             version: pkg.version || '',
             name: this.node_name || '',
@@ -722,6 +730,8 @@ class Agent {
             geolocation: this.geolocation,
             debug_level: dbg.get_module_level('core'),
             node_type: this.node_type,
+            mem_usage: process.memoryUsage().rss,
+            cpu_usage: cpu_percent
         };
         if (this.cloud_info && this.cloud_info.pool_name) {
             reply.pool_name = this.cloud_info.pool_name;

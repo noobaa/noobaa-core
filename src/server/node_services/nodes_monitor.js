@@ -63,7 +63,9 @@ const AGENT_INFO_FIELDS = [
     'node_type',
     'host_name',
     'ports_allowed',
-    'permission_tempering'
+    'permission_tempering',
+    'mem_usage',
+    'cpu_usage',
 ];
 const MONITOR_INFO_FIELDS = [
     'has_issues',
@@ -2969,6 +2971,8 @@ class NodesMonitor extends EventEmitter {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
         info.os_info.cpu_usage = host_item.cpu_usage;
+        info.process_cpu_usage = host_item.node.cpu_usage;
+        info.process_mem_usage = host_item.node.mem_usage;
         info.rpc_address = host_item.node.rpc_address;
         info.latency_to_server = host_item.node.latency_to_server;
         const debug_time = host_item.node.debug_mode ?

@@ -113,12 +113,12 @@ function _verify_dns_cluster_config() {
         dns_servers: _.compact(server_conf.dns_servers),
         search_domains: _.compact(server_conf.search_domains)
     };
-    return os_utils.get_dns_servers()
-        .then(platform_dns_config => {
+    return P.all([os_utils.get_dns_servers(), fs_utils.find_line_in_file('/etc/sysconfig/network-scripts/ifcfg-eth0', 'BOOTPROTO="dhcp"')])
+        .spread((platform_dns_config, dhcp) => {
             if (!_are_platform_and_cluster_conf_equal(platform_dns_config, cluster_conf)) {
                 dbg.warn(`platform dns settings not synced to cluster. Platform conf: `, platform_dns_config, 'cluster_conf:', cluster_conf);
                 return os_utils.set_dns_server(cluster_conf)
-                    .then(() => os_utils.restart_services());
+                    .then(() => dhcp && os_utils.restart_services());
             }
         })
         .catch(err => dbg.error('failed to reconfigure dns cluster config on the server. reason:', err));

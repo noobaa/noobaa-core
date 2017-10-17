@@ -2,7 +2,7 @@
     "inputThrottle": 300,
     "paginationPageSize": 25,
     "infinitScrollPageSize": 25,
-    "timeShortFormat": "DD MMM YYYY hh:mm:ss",
+    "timeShortFormat": "DD MMM YYYY HH:mm:ss",
     "timeLongFormat": "DD MMM YYYY HH:mm:ss ([GMT]Z)",
     "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",

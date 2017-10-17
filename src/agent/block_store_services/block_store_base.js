@@ -9,6 +9,23 @@ const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
 const LRUCache = require('../../util/lru_cache');
 const RpcError = require('../../rpc/rpc_error');
+const time_utils = require('../../util/time_utils');
+
+
+function _new_stats() {
+    return {
+        inflight_reads: 0,
+        max_inflight_reads: 0,
+        inflight_writes: 0,
+        max_inflight_writes: 0,
+        read_count: 0,
+        total_read_latency: 0,
+        write_count: 0,
+        total_write_latency: 0
+    };
+}
+
+
 
 class BlockStoreBase {
 
@@ -28,6 +45,8 @@ class BlockStoreBase {
                 })
         });
 
+        this.stats = _new_stats();
+
         // BLOCK STORE API methods - bind to self
         // (rpc registration requires bound functions)
         js_utils.self_bind(this, [
@@ -43,8 +62,16 @@ class BlockStoreBase {
         dbg.log1('read_block', block_md.id, 'node', this.node_name);
         // must clone before returning to rpc encoding
         // since it mutates the object for encoding buffers
+        this.stats.inflight_reads += 1;
+        this.stats.max_inflight_reads = Math.max(this.stats.inflight_reads, this.stats.max_inflight_reads);
+        const start = time_utils.millistamp();
         return this.block_cache.get_with_cache(block_md)
-            .then(block => _.clone(block));
+            .then(block => _.clone(block))
+            .finally(() => {
+                this.stats.read_count += 1;
+                this.stats.total_read_latency += time_utils.millistamp() - start;
+                this.stats.inflight_reads -= 1;
+            });
     }
 
     write_block(req) {
@@ -61,13 +88,31 @@ class BlockStoreBase {
         }
         this._verify_block(block_md, data);
         this.block_cache.invalidate(block_md);
+        this.stats.inflight_writes += 1;
+        this.stats.max_inflight_writes = Math.max(this.stats.inflight_writes, this.stats.max_inflight_writes);
+        const start = time_utils.millistamp();
         return P.resolve(this._write_block(block_md, data))
             .then(() => {
                 this.block_cache.put_in_cache(block_md, {
                     block_md: block_md,
                     data: data
                 });
+            })
+            .finally(() => {
+                this.stats.write_count += 1;
+                this.stats.total_write_latency += time_utils.millistamp() - start;
+                this.stats.inflight_writes -= 1;
             });
+
+    }
+
+    sample_stats() {
+        const old_stats = this.stats;
+        // zero all but the inflight
+        this.stats = _.defaults(_.pick(old_stats, ['inflight_reads', 'inflight_writes']), _new_stats());
+        old_stats.avg_read_latency = old_stats.total_read_latency / old_stats.read_count;
+        old_stats.avg_write_latency = old_stats.total_write_latency / old_stats.write_count;
+        return old_stats;
     }
 
     replicate_block(req) {

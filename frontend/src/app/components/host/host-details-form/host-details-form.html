@@ -2,7 +2,15 @@
 
 <div class="column">
     <section class="column push-next">
-        <h3 class="heading3 pad alt-bg">Daemon Information</h3>
+        <div class="row pad alt-bg content-middle">
+            <h3 class="heading3 greedy">Daemon Information</h3>
+            <button class="btn"
+                ko.click="onRetrust"
+                ko.disable="isTrusted"
+                ko.tooltip="retrustTooltip">
+                Retrust
+            </button>
+        </div>
         <property-sheet class="pad" params="
             properties: daemonInfo,
             loading: !hostLoaded()

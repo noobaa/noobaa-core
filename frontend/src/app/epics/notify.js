@@ -49,7 +49,9 @@ import {
     COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT,
     FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT,
     COMPLETE_DELETE_GATEWAY_BUCKET,
-    FAIL_DELETE_GATEWAY_BUCKET
+    FAIL_DELETE_GATEWAY_BUCKET,
+    COMPLETE_RETRUST_HOST,
+    FAIL_RETRUST_HOST
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -313,6 +315,16 @@ const actionToNotification = deepFreeze({
 
     [FAIL_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
         message: `Gateway bucket ${name} deletion failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_RETRUST_HOST]: ({ host }) => ({
+        message: `Host ${host} is trusted again`,
+        severity: 'success'
+    }),
+
+    [FAIL_RETRUST_HOST]: ({ host }) => ({
+        message: `Host ${host} re-trust action is failed`,
         severity: 'error'
     })
 });

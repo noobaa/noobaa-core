@@ -38,6 +38,9 @@
         "chrome",
         "firefox"
     ],
+    "preferdBrowsers": [
+        "chrome"
+    ],
     "support":  {
         "email": "support@noobaa.com",
         "helpDesk": "https://noobaa.desk.com",

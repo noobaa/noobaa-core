@@ -46,6 +46,7 @@ import deleteNamespaceResource from './delete-namespace-resource';
 import createGatewayBucket from './create-gateway-bucket';
 import updateGatewayBucketPlacement from './update-gateway-bucket-placement';
 import deleteGatewayBucket from './delete-gateway-bucket';
+import retrustHost from './retrust-host';
 
 const generalEpics = [
     handleLocationRequests,
@@ -114,7 +115,8 @@ const hostRelatedEpics = [
     collectHostDiagnostics,
     setHostDebugMode,
     toggleHostServices,
-    toggleHostNodes
+    toggleHostNodes,
+    retrustHost
 ];
 
 const namespaceRelatedEpics = [

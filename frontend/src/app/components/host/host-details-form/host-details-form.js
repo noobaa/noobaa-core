@@ -2,14 +2,16 @@
 
 import template from './host-details-form.html';
 import Observer from 'observer';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
 import { deepFreeze, mapValues } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { getHostDisplayName } from 'utils/host-utils';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
+import { retrustHost } from 'action-creators';
 
+const retrustTooltip = 'Retrust';
 const protocolMapping = deepFreeze({
     UNKNOWN: 'Unknown',
     TCP: 'TCP',
@@ -64,6 +66,7 @@ class HostDetailsFormViewModel extends Observer {
     constructor({ name }) {
         super();
 
+        this.retrustTooltip = retrustTooltip;
         this.hostLoaded = ko.observable(false);
         this.name = ko.observable();
         this.version = ko.observable();
@@ -118,6 +121,7 @@ class HostDetailsFormViewModel extends Observer {
         this.os = ko.observable();
         this.cpus = ko.observable();
         this.memory = ko.observable();
+        this.isTrusted = ko.observable();
         this.systemInfo = [
             {
                 label: 'Host Name',
@@ -147,7 +151,10 @@ class HostDetailsFormViewModel extends Observer {
     }
 
     onHost(host) {
-        if (!host) return;
+        if (!host) {
+            this.isTrusted(true);
+            return;
+        }
 
         const { name, version, lastCommunication, ip, protocol,
             endpoint, rtt, hostname, upTime, os, cpus } = host;
@@ -156,7 +163,7 @@ class HostDetailsFormViewModel extends Observer {
             count: cpus.units.length,
             utilization: `${numeral(cpus.usage).format('%')} utilization`
         };
-
+        this.host = name;
         this.hostLoaded(true);
         this.name(getHostDisplayName(name));
         this.version(version);
@@ -172,6 +179,11 @@ class HostDetailsFormViewModel extends Observer {
         this.os(os);
         this.cpus(cpusInfo);
         this.memory(_getMemoryInfo(host));
+        this.isTrusted(host.trusted);
+    }
+
+    onRetrust() {
+        action$.onNext(retrustHost(this.host));
     }
 }
 

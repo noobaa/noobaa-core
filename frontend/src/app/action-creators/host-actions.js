@@ -19,7 +19,10 @@ import {
     FAIL_TOGGLE_HOST_NODES,
     FETCH_HOST_OBJECTS,
     COMPLETE_FETCH_HOST_OBJECTS,
-    FAIL_FETCH_HOST_OBJECTS
+    FAIL_FETCH_HOST_OBJECTS,
+    RETRUST_HOST,
+    COMPLETE_RETRUST_HOST,
+    FAIL_RETRUST_HOST
 } from 'action-types';
 
 
@@ -162,5 +165,26 @@ export function failFetchHostObjects(host, skip, limit, error) {
             query: { host, skip, limit },
             error
         }
+    };
+}
+
+export function retrustHost(host) {
+    return {
+        type: RETRUST_HOST,
+        payload: { host }
+    };
+}
+
+export function completeRetrustHost(host) {
+    return {
+        type: COMPLETE_RETRUST_HOST,
+        payload: { host }
+    };
+}
+
+export function failRetrustHost(host, error) {
+    return {
+        type: FAIL_RETRUST_HOST,
+        payload: { host, error }
     };
 }

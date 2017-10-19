@@ -1,0 +1,74 @@
+/* Copyright (C) 2016 NooBaa */
+
+help-viewer {
+    position: relative;
+    display: block;
+    z-index: 1001;
+
+    .visible {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 400px;
+        min-height: 50px;
+        background-color: @white;
+    }
+
+    .viewer-heading {
+        padding: 0 @gutter;
+        line-height: 3 * @gutter;
+        border-bottom: 1px solid @color8;
+
+        &.heading3 {
+            font-weight: 500;
+            color: @black;
+        }
+    }
+
+    .viewer-body {
+        height: 450px;
+        transition: all 250ms ease-in-out;
+
+        &.minimized {
+            height: 0;
+            padding: 0;
+        }
+
+        .heading2 {
+            font-weight: 500;
+            color: @black;
+            line-height: 1;
+        }
+    }
+
+    .scrollable-container {
+        overflow: auto;
+        color: @black;
+
+        img {
+            width: 100%;
+            height: auto;
+        }
+
+        .article-uri {
+            color: @color7;
+
+            svg-icon {
+                margin-bottom: @gutter/2;
+            }
+        }
+    }
+
+    .close-btn, .resize-btn {
+        padding: 0;
+
+        > svg-icon {
+            color: @black;
+            fill: @black;
+        }
+    }
+
+    ::-webkit-scrollbar-thumb  {
+        border-color: @color6;
+    }
+}

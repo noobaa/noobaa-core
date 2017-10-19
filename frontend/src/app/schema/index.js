@@ -9,6 +9,8 @@ import buckets from './buckets';
 import gatewayBuckets from './gateway-buckets';
 import objectUploads from './object-uploads';
 import cloudTargets from './cloud-targets';
+import interactiveHelp from './interactive-help';
+import * as helpMetadata from './help-metadata';
 import state from './state.js';
 
 const schemas = {
@@ -21,6 +23,8 @@ const schemas = {
     objectUploads,
     gatewayBuckets,
     cloudTargets,
+    interactiveHelp,
+    helpMetadata,
     state
 };
 
@@ -32,4 +36,11 @@ export default deepFreeze(
         $ref: '#/def/state'
     })
 );
+
+export const externalDataSchema = deepFreeze({
+    helpMetadata: {
+        def: schemas,
+        $ref: '#/def/helpMetadata/helpMetadata'
+    }
+});
 

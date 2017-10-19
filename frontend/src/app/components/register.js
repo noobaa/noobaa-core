@@ -89,6 +89,8 @@ export default function register(ko) {
     ko.components.register('edit-bucket-placement-modal',               require('./modals/edit-bucket-placement-modal/edit-bucket-placement-modal').default);
     ko.components.register('empty-bucket-placement-warning-modal',      require('./modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal').default);
     ko.components.register('edit-spillover-targets-modal',              require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
+    ko.components.register('select-help-topic-modal',                   require('./modals/select-help-topic-modal/select-help-topic-modal').default);
+    ko.components.register('show-video-modal',                          require('./modals/show-video-modal/show-video-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -288,5 +290,6 @@ export default function register(ko) {
     ko.components.register('validation-rules-list',     require('./shared/validation-rules-list/validation-rules-list').default);
     ko.components.register('validation-indicator',      require('./shared/validation-indicator/validation-indicator').default);
     ko.components.register('loading-indicator',         require('./shared/loading-indicator/loading-indicator').default);
+    ko.components.register('help-viewer',               require('./shared/help-viewer/help-viewer').default);
     /** INJECT:shared **/
 }

@@ -527,6 +527,19 @@ export function openCreateNamespaceResourceModal() {
     };
 }
 
+export function openSelectHelpTopicModal() {
+    return {
+        type: 'OPEN_MODAL',
+        payload: {
+            component: 'select-help-topic-modal',
+            options: {
+                size: 'medium',
+                title: 'Need Some Help?'
+            }
+        }
+    };
+}
+
 export function openCreateGatewayBucketModal() {
     return {
         type: OPEN_MODAL,
@@ -564,6 +577,22 @@ export function openEditSpilloverTargetsModal() {
             options: {
                 title: 'Edit Spillover Targets',
                 size: 'medium'
+            }
+        }
+    };
+}
+
+export function openShowVideoModal(title, url) {
+    return {
+        type: 'OPEN_MODAL',
+        payload: {
+            component: {
+                name: 'show-video-modal',
+                params: { url },
+            },
+            options: {
+                size: 'large',
+                title
             }
         }
     };

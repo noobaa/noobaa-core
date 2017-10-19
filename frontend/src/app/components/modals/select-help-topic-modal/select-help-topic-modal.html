@@ -1,0 +1,45 @@
+<!-- Copyright (C) 2017 NooBaa -->
+
+<form class="column greedy" ko.if="isFormInitialized">
+    <p class="push-next-half">
+        Hi <span ko.text="user"></span>, let's find you an answer
+    </p>
+    <div class="row content-middle push-next">
+        <div class="greedy push-next">
+            <input type="search"
+                placeholder="Search"
+                ko.textInput="throttledFilter"
+            />
+        </div>
+        <dropdown class="align-end" params="
+            options: categoryOptions,
+            selected: form.selectedCategory
+        "></dropdown>
+    </div>
+
+    <div class="column greedy push-next results-container">
+        <ul class="list-no-style legend-items" ko.foreach="rows">
+            <li class="separator">
+                <a class="row content-middle no-outline topics-list cursor-pointer" ko.click="onSelect">
+                    <svg-icon class="highlight icon-col"
+                        params="name: icon"
+                    ></svg-icon>
+                    <div class="column greedy topic-col">
+                        <h3 class="heading3 push-prev-half no-wrap">{{title}}</h3>
+                        <span ko.text="subtitle" class="no-wrap"></span>
+                    </div>
+                    <div class="column alt-bg push-both category-col">
+                        {{category}}
+                    </div>
+                </a>
+            </li>
+        </ul>
+        <span class="pad empty-list-message" ko.visible="hasNoResults">No results for this topic</span>
+    </div>
+
+    <span class="align-middle">
+        Can't find what you are looking for? Check out our
+        <a class="link" target="_blank" ko.attr.href="deskUrl">support center</a>
+    </span>
+</form>
+

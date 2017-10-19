@@ -873,13 +873,15 @@ function set_debug_level(req) {
             });
         })
         .then(() => {
-            Dispatcher.instance().activity(_.defaults(audit_activity, {
-                event: 'dbg.set_debug_level',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: `Debug level was set to ${debug_params.level ? 'high' : 'low'}`
-            }));
+            if (!debug_params.target_secret && req.system.debug_level !== debug_params.level) {
+                Dispatcher.instance().activity(_.defaults(audit_activity, {
+                    event: 'dbg.set_debug_level',
+                    level: 'info',
+                    system: req.system._id,
+                    actor: req.account && req.account._id,
+                    desc: `Debug level was set to ${debug_params.level ? 'high' : 'low'}`
+                }));
+            }
         })
         .return();
 }

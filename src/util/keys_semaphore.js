@@ -27,8 +27,8 @@ class KeysSemaphore {
             });
     }
 
-    get_semaphore(key) {
-        return this._keys_map.get(key);
+    has_semaphore(key) {
+        return Boolean(this._keys_map.get(key));
     }
 }
 

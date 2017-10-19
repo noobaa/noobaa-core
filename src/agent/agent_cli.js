@@ -53,6 +53,24 @@ function AgentCLI(params) {
     this.agent_conf = new json_utils.JsonFileWrapper(agent_conf_name);
 }
 
+AgentCLI.prototype.monitor_stats = function() {
+    promise_utils.pwhile(() => true, () => {
+        const cpu_usage = process.cpuUsage(this.cpu_usage); //usage since last sample
+        const mem_usage = process.memoryUsage();
+        dbg.log0(`agent_stats_titles - process: cpu_usage_user, cpu_usage_sys, mem_usage_rss`);
+        dbg.log0(`agent_stats_values - process: ${cpu_usage.user}, ${cpu_usage.system}, ${mem_usage.rss}`);
+        for (const agent of Object.keys(this.agents)) {
+            const agent_stats = this.agents[agent].sample_stats();
+            if (agent_stats) {
+                const agent_stats_keys = Object.keys(agent_stats);
+                dbg.log0(`agent_stats_titles - ${agent}: ` + agent_stats_keys.join(', '));
+                dbg.log0(`agent_stats_values - ${agent}: ` + agent_stats_keys.map(key => agent_stats[key]).join(', '));
+            }
+        }
+        return P.delay(60000);
+    });
+};
+
 /**
  *
  * INIT
@@ -69,6 +87,11 @@ AgentCLI.prototype.init = function() {
     if (self.params.secret_key) {
         self.params.secret_key = self.params.secret_key.toString();
     }
+
+    self.cpu_usage = process.cpuUsage();
+
+    self.monitor_stats();
+
 
     return self.agent_conf.read()
         .then(function(agent_conf) {

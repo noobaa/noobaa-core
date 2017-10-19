@@ -14,6 +14,7 @@ const RpcError = require('../rpc/rpc_error');
 const Pipeline = require('../util/pipeline');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
+const KeysSemaphore = require('../util/keys_semaphore');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
 const range_utils = require('../util/range_utils');
@@ -80,9 +81,14 @@ class ObjectIO {
         this._last_io_bottleneck_report = 0;
         if (node_id) this._node_id = node_id;
         if (host_id) this._host_id = host_id;
-        this._block_write_sem = new Semaphore(config.IO_WRITE_CONCURRENCY);
-        this._block_replicate_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
-        this._block_read_sem = new Semaphore(config.IO_READ_CONCURRENCY);
+        // global semaphores shared by all agents
+        this._block_write_sem_global = new Semaphore(config.IO_WRITE_CONCURRENCY_GLOBAL);
+        this._block_replicate_sem_global = new Semaphore(config.IO_REPLICATE_CONCURRENCY_GLOBAL);
+        this._block_read_sem_global = new Semaphore(config.IO_READ_CONCURRENCY_GLOBAL);
+        // semphores specific to an agent
+        this._block_write_sem_agent = new KeysSemaphore(config.IO_WRITE_CONCURRENCY_AGENT);
+        this._block_replicate_sem_agent = new KeysSemaphore(config.IO_REPLICATE_CONCURRENCY_AGENT);
+        this._block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT);
         dbg.log0(`ObjectIO Configurations:: node_id:${node_id}, host_id:${host_id},
             totalmem:${os.totalmem()}, ENDPOINT_FORKS_COUNT:${config.ENDPOINT_FORKS_COUNT}, 
             IO_SEMAPHORE_CAP:${config.IO_SEMAPHORE_CAP}`);
@@ -646,23 +652,25 @@ class ObjectIO {
      *
      */
     _write_block(params, buffer, block_md, desc) {
-        // IO semaphore to limit concurrency
-        return this._block_write_sem.surround(() => {
+        // limit writes per agent
+        return this._block_write_sem_agent.surround_key(String(block_md.node), () =>
+            // global IO semaphore to limit concurrency
+            this._block_write_sem_global.surround(() => {
 
-            dbg.log1('UPLOAD:', desc,
-                'write block', block_md.id, block_md.address,
-                size_utils.human_size(buffer.length));
+                dbg.log1('UPLOAD:', desc,
+                    'write block', block_md.id, block_md.address,
+                    size_utils.human_size(buffer.length));
 
-            this._error_injection_on_write();
+                this._error_injection_on_write();
 
-            return params.client.block_store.write_block({
-                block_md: block_md,
-                data: buffer,
-            }, {
-                address: block_md.address,
-                timeout: config.IO_WRITE_BLOCK_TIMEOUT,
-            });
-        }).catch(err => {
+                return params.client.block_store.write_block({
+                    block_md: block_md,
+                    data: buffer,
+                }, {
+                    address: block_md.address,
+                    timeout: config.IO_WRITE_BLOCK_TIMEOUT,
+                });
+            })).catch(err => {
             dbg.warn('UPLOAD:', desc,
                 'write block', block_md.id, block_md.address,
                 'ERROR', err);
@@ -672,23 +680,25 @@ class ObjectIO {
 
 
     _replicate_block(params, source_md, target_md, desc) {
-        // IO semaphore to limit concurrency
-        return this._block_replicate_sem.surround(() => {
+        // limit replicates per agent
+        return this._block_replicate_sem_agent.surround_key(String(target_md.node), () =>
+            // Global IO semaphore to limit concurrency
+            this._block_replicate_sem_global.surround(() => {
 
-            dbg.log1('UPLOAD:', desc,
-                'replicate block', source_md.id, source_md.address,
-                'to', target_md.id, target_md.address);
+                dbg.log1('UPLOAD:', desc,
+                    'replicate block', source_md.id, source_md.address,
+                    'to', target_md.id, target_md.address);
 
-            this._error_injection_on_write();
+                this._error_injection_on_write();
 
-            return params.client.block_store.replicate_block({
-                target: target_md,
-                source: source_md,
-            }, {
-                address: target_md.address,
-                timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
-            });
-        }).catch(err => {
+                return params.client.block_store.replicate_block({
+                    target: target_md,
+                    source: source_md,
+                }, {
+                    address: target_md.address,
+                    timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
+                });
+            })).catch(err => {
             dbg.warn('UPLOAD:', desc,
                 'replicate block', source_md.id, source_md.address,
                 'to', target_md.id, target_md.address,
@@ -1079,20 +1089,21 @@ class ObjectIO {
      */
     _read_block(params, block_md) {
         // use semaphore to surround the IO
-        return this._block_read_sem.surround(() => {
+        return this._block_read_sem_agent.surround_key(String(block_md.node), () =>
+                this._block_read_sem_global.surround(() => {
 
-                dbg.log0('_read_block:', block_md.id, 'from', block_md.address);
+                    dbg.log0('_read_block:', block_md.id, 'from', block_md.address);
 
-                this._error_injection_on_read();
+                    this._error_injection_on_read();
 
-                return params.client.block_store.read_block({
-                    block_md: block_md
-                }, {
-                    address: block_md.address,
-                    timeout: config.IO_READ_BLOCK_TIMEOUT,
-                    auth_token: null // ignore the client options when talking to agents
-                });
-            })
+                    return params.client.block_store.read_block({
+                        block_md: block_md
+                    }, {
+                        address: block_md.address,
+                        timeout: config.IO_READ_BLOCK_TIMEOUT,
+                        auth_token: null // ignore the client options when talking to agents
+                    });
+                }))
             .then(res => {
                 if (this._verification_mode) {
                     let digest_b64 = crypto.createHash(block_md.digest_type)

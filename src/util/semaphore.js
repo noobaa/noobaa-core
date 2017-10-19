@@ -16,7 +16,8 @@ class Semaphore {
      * verbose - Flag which will perform additional debugging prints
      */
     constructor(initial, params) {
-        this._value = to_sem_count(initial);
+        this._initial = to_sem_count(initial);
+        this._value = this._initial;
         this._waiting_value = 0;
         this._wq = new WaitQueue();
         if (params) {
@@ -54,6 +55,10 @@ class Semaphore {
                 // Then we should not release it because it will just increase our semaphore value
                 P.try(func).finally(() => this.release(count))
             );
+    }
+
+    is_empty() {
+        return this._value === this._initial && !this._wq.length;
     }
 
     // read-only properties

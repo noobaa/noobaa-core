@@ -17,7 +17,7 @@ const node_allocator = require('../node_services/node_allocator');
 const KeysLock = require('../../util/keys_lock');
 
 
-const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
+const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY_GLOBAL);
 const builder_lock = new KeysLock();
 
 

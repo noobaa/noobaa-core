@@ -238,6 +238,12 @@ class Agent {
         // });
     }
 
+    sample_stats() {
+        if (this.block_store) {
+            return this.block_store.sample_stats();
+        }
+    }
+
     _update_servers_list(new_list) {
         // check if base_address appears in new_list. if not add it.
         if (_.isUndefined(new_list.find(srv => srv.address.toLowerCase() === this.base_address.toLowerCase()))) {

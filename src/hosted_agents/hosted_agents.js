@@ -14,6 +14,7 @@ const fs_utils = require('../util/fs_utils');
 const Agent = require('../agent/agent');
 const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
+const promise_utils = require('../util/promise_utils');
 const config = require('../../config');
 
 class HostedAgents {
@@ -39,6 +40,7 @@ class HostedAgents {
                     return this.reload()
                         .then(() => {
                             dbg.log0('Started hosted_agents');
+                            this._monitor_stats();
                         });
                 }
                 dbg.log1(`What is started may never start`);
@@ -73,6 +75,24 @@ class HostedAgents {
         _.each(this._started_agents, (agent, node_name) => this._stop_agent(node_name));
     }
 
+
+    _monitor_stats() {
+        promise_utils.pwhile(() => true, () => {
+            const cpu_usage = process.cpuUsage(this.cpu_usage); //usage since last sample
+            const mem_usage = process.memoryUsage();
+            dbg.log0(`hosted_agent_stats_titles - process: cpu_usage_user, cpu_usage_sys, mem_usage_rss`);
+            dbg.log0(`hosted_agent_stats_values - process: ${cpu_usage.user}, ${cpu_usage.system}, ${mem_usage.rss}`);
+            for (const agent of Object.keys(this._started_agents)) {
+                const agent_stats = this._started_agents[agent].agent.sample_stats();
+                if (agent_stats) {
+                    const agent_stats_keys = Object.keys(agent_stats);
+                    dbg.log0(`hosted_agent_stats_titles - ${agent}: ` + agent_stats_keys.join(', '));
+                    dbg.log0(`hosted_agent_stats_values - ${agent}: ` + agent_stats_keys.map(key => agent_stats[key]).join(', '));
+                }
+            }
+            return P.delay(60000);
+        });
+    }
 
     _start_pool_agent(pool) {
         if (!this._started) return;

@@ -197,6 +197,14 @@ function mongo_upgrade() {
         .then(() => {
             dbg.log0('mongo_upgrade: Ran SUPERD');
         })
+        .then(() => promise_utils.exec(`${SUPERCTL} start mongo_wrapper`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        }))
+        .then(() => {
+            dbg.log0('mongo_upgrade: Ran MONGO_WRAPPER');
+        })
         .then(() => wait_for_mongo())
         .then(function() {
             return promise_utils.exec(`cat /etc/noobaa_sec`, {

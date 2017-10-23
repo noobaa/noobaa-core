@@ -78,8 +78,8 @@ function disable_supervisord() {
             return_stdout: true,
         })
         .then(res => {
-            dbg.log0('disable_supervisord services status:', res);
             services = res.split('\n');
+            dbg.log0('disable_supervisord services pgids:', services);
         })
         .then(() => promise_utils.exec(`${SUPERCTL} shutdown`, {
             ignore_rc: false,
@@ -90,12 +90,15 @@ function disable_supervisord() {
             dbg.log0('disable_supervisord shutdown');
         })
         .then(() => P.map(services, service => {
-            dbg.log0(`Killing ${service}`);
-            return promise_utils.exec(`kill -9 ${service}`, {
-                ignore_rc: true,
-                return_stdout: true,
-                trim_stdout: true
-            });
+            if (service) {
+                dbg.log0(`Killing pgid:${service}`);
+
+                return promise_utils.exec(`kill -9 -${service}`, {
+                    ignore_rc: true,
+                    return_stdout: true,
+                    trim_stdout: true
+                });
+            }
         }))
         .then(() => promise_utils.exec(`ps -ef | grep mongod`, {
             ignore_rc: false,
@@ -479,8 +482,10 @@ function run_upgrade() {
                             upgrade_proc.on('exit', (code, signal) => {
                                 // upgrade.js is supposed to kill this node process, so it should not exit while
                                 // this node process is still running. treat exit as error.
-                                const err_msg = `upgrade.js process was closed with code ${code} and signal ${signal}`;
-                                dbg.error(err_msg);
+                                if (code) {
+                                    const err_msg = `upgrade.js process was closed with code ${code} and signal ${signal}`;
+                                    dbg.error(err_msg);
+                                }
                             });
                             upgrade_proc.on('error', dbg.error);
                         });

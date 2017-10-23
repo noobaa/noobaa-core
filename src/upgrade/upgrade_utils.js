@@ -50,8 +50,10 @@ function do_upgrade(upgrade_file, is_clusterized, err_handler) {
     upgrade_proc.on('exit', (code, signal) => {
         // upgrade.js is supposed to kill this node process, so it should not exit while
         // this node process is still running. treat exit as error.
-        const err_msg = `upgrade.js process was closed with code ${code} and signal ${signal}`;
-        err_handler(err_msg);
+        if (code) {
+            const err_msg = `upgrade.js process was closed with code ${code} and signal ${signal}`;
+            err_handler(err_msg);
+        }
     });
     upgrade_proc.on('error', err_handler);
 }

@@ -76,7 +76,7 @@ function select_prefered_mirrors(tier, tiering_status) {
 function select_pool_type(tier, spread_pools, tiering_status) {
     const spread_pools_length = (spread_pools && spread_pools.length) || 0;
     if (!spread_pools_length) {
-        console.warn('select_pool_type:: There are no pools in current mirror');
+        dbg.log1('select_pool_type:: There are no pools in current mirror');
     }
 
     let mirror_status = {
@@ -147,14 +147,14 @@ function _handle_under_policy_threshold(decision_params) {
             spill_status.allocations = _.concat(spill_status.allocations,
                 decision_params.mirror_status.mongo_or_cloud_pools);
         } else {
-            console.warn('_handle_under_policy_threshold:: Cannot allocate without valid pools');
+            dbg.log1('_handle_under_policy_threshold:: Cannot allocate without valid pools');
             spill_status.allocations = _.concat(spill_status.allocations, ['']);
         }
     } else if (_.get(decision_params, 'mirror_status.picked_pools.length', 0)) {
         spill_status.allocations = _.concat(spill_status.allocations,
             decision_params.mirror_status.picked_pools);
     } else {
-        console.warn('_handle_under_policy_threshold:: Cannot allocate without valid pools');
+        dbg.log1('_handle_under_policy_threshold:: Cannot allocate without valid pools');
         spill_status.allocations = _.concat(spill_status.allocations, ['']);
     }
 

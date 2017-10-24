@@ -994,7 +994,7 @@ class Agent {
         const inner_path = is_windows ? process.env.ProgramData + '/agent_diag.tgz' : '/tmp/agent_diag.tgz';
 
         return P.resolve()
-            .then(() => diag.collect_agent_diagnostics())
+            .then(() => diag.collect_agent_diagnostics(this.storage_path))
             .then(() => diag.pack_diagnostics(inner_path))
             .catch(err => {
                 dbg.error('DIAGNOSTICS COLLECTION FAILED', err.stack || err);

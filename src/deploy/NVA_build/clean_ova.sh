@@ -82,6 +82,11 @@ sed -i "s:.*#NooBaa Configured DNS Servers.*:#NooBaa Configured DNS Servers:" /e
 sed -i "s:.*#NooBaa Configured Search.*:#NooBaa Configured Search:" /etc/dhclient.conf
 sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc/ntp.conf
 
+#Clean /tmp old files
+rm -f /tmp/nb_upgrade*
+rm -f /tmp/node*
+rm -f /tmp/*.log
+rm -rf /tmp/npm-*
 
 #Clean supervisors
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf

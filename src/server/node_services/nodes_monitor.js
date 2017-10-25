@@ -1087,7 +1087,9 @@ class NodesMonitor extends EventEmitter {
                         // to prevent collisions.
                         if (item.node_from_store) {
                             // calculate nodes cpu usage
-                            item.cpu_usage = os_utils.calc_cpu_usage(info.os_info.cpus, item.node.os_info.cpus);
+                            const new_cpus = _.get(info, 'os_info.cpus');
+                            const prev_cpus = _.get(item, 'node.os_info.cpus');
+                            item.cpu_usage = os_utils.calc_cpu_usage(new_cpus, prev_cpus);
                             if (info.host_id !== item.node.host_id) {
                                 dbg.warn(`agent sent different host_id than the one stored in DB. updating from ${item.node.host_id} to ${info.host_id}`);
                                 // if host id changed then we should change it for all agents of this host for consistnecy

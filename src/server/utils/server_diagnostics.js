@@ -2,6 +2,8 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
+
 const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
 const promise_utils = require('../../util/promise_utils');
@@ -131,6 +133,11 @@ function collect_server_diagnostics(req) {
                 () => collect_statistics(req)
                 .then(() => diag_log('collected statistics successfully'))
                 .catch(err => diag_log('collect_statistics failed with error: ' + err)),
+
+                () => system_store.get_system_collections_dump()
+                .then(dump => fs.writeFileAsync(path.join(TMP_WORK_DIR, 'mongo_db_system_collections_dump.json'), JSON.stringify(dump, null, 2)))
+                .then(() => diag_log('finished get_system_collections_dump successfully'))
+                .catch(err => diag_log('get_system_collections_dump failed with error: ' + err)),
 
             ];
 

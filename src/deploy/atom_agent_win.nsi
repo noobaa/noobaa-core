@@ -69,24 +69,13 @@ Function .onInit
 	Var /global UPGRADE
 	Var /global AUTO_UPGRADE
 
-	;check first if there is an old installation on program files (x86)
-	;if so, just upgrade with x64 binaries
-
-	StrCpy $InstDir "$PROGRAMFILES\${NB}"
-	IfFileExists $INSTDIR\agent_conf.json IgnoreError SetRunningFolder
-		SetRunningFolder:
-			${If} ${RunningX64}
-				# 64 bit code
-				StrCpy $InstDir "$PROGRAMFILES64\${NB}"
-			${Else}
-				# 32 bit code
-				StrCpy $InstDir "$PROGRAMFILES\${NB}"
-			${EndIf}
-		IgnoreError:
-			ClearErrors
-
-
-
+	${If} ${RunningX64}
+		# 64 bit code
+		StrCpy $InstDir "$PROGRAMFILES64\${NB}"
+	${Else}
+		MessageBox MB_OK "Windows 32-bit architecture is not supported, please use Windows 64-bit."
+		Abort
+	${EndIf}
 
 	;Install or upgrade?
 	StrCpy $UPGRADE "false"
@@ -223,54 +212,34 @@ Section "Noobaa Local Service"
 	${EndIf}
 
 	WriteUninstaller "$INSTDIR\uninstall-noobaa.exe"
+
+	RMDir /r "$INSTDIR\build"
+	Delete "$INSTDIR\ver.txt"
+
 	File "${ICON}"
-	File "NooBaa_Agent_wd.exe"
 	File "7za.exe"
+	File "wget.exe"
+	File "node.exe"
+	File "NooBaa_Agent_wd.exe"
 
-	${If} ${RunningX64}
-    # 64 bit code
-		File ".\64\openssl.exe"
-		File ".\64\libeay32.dll"
-		File ".\64\ssleay32.dll"
-		File ".\64\node.exe"
-		RMDir /r "$INSTDIR\build"
-		File /r  "build"
-		RMDir /r "$INSTDIR\build\Release-32"
-		Rename $INSTDIR\build\Release-64 $INSTDIR\build\Release
-		WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
-			 "DisplayName" "NooBaa Local Service"
-		WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
-            "QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\" /S"
-		WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
-	        "UninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\""
-
-	${Else}
-    # 32 bit code
-		File ".\32\openssl.exe"
-		File ".\32\libeay32.dll"
-		File ".\32\ssleay32.dll"
-		File ".\32\node.exe"
-		RMDir /r "$INSTDIR\build"
-		File /r  "build"
-		RMDir /r "$INSTDIR\build\Release-64"
-		Rename $INSTDIR\build\Release-32 $INSTDIR\build\Release
-		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
-			 "DisplayName" "NooBaa Local Service"
-		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
-            "QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\" /S"
-		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
-			"UninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\""
-
-	${EndIf}
+	File "openssl.exe"
+	File "libeay32.dll"
+	File "ssleay32.dll"
 
 	File "package.json"
-	File "wget.exe"
 	File "config.js"
-	File /r "ssl"
-	File /r "src"
-	File /r "node_modules"
 
-	Delete "$INSTDIR\ver.txt"
+	File /r "ssl\"
+	File /r "src\"
+	File /r "build\"
+	File /r "node_modules\"
+
+	WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+		"DisplayName" "NooBaa Local Service"
+	WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+		"QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\" /S"
+	WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+		"UninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\""
 
 	${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
 

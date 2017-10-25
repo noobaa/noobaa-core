@@ -68,25 +68,7 @@ echo "Cleaning previous build"
 rd /q/s .\build\Release
 rd /q/s %USERPROFILE%\.node-gyp
 
-echo "Build 32 bit"
-nvm install "%NODEJS_VERSION%" 32 || exit 1
-nvm use "%NODEJS_VERSION%" 32 || exit 1
-sleep 5
-nvm list
-nvm arch
-node -p process.arch
-cmd /c npm config set msvs_version=2015 --global
-cmd /c npm install --production || exit 1
-
-echo "Copy 32 bit build results"
-if not exist ".\build\Release" exit 1
-xcopy /Y/I/E .\build\Release .\build\Release-32
-
-echo "Cleaning previous build"
-rd /q/s .\build\Release
-rd /q/s %USERPROFILE%\.node-gyp
-
-echo "Build 64 bit"
+echo "Build"
 nvm install "%NODEJS_VERSION%" 64 || exit 1
 nvm use "%NODEJS_VERSION%" 64 || exit 1
 sleep 5
@@ -95,46 +77,16 @@ nvm arch
 node -p process.arch
 cmd /c npm config set msvs_version=2015 --global
 cmd /c npm install --production || exit 1
-
-echo "Copy 64 bit build results"
 if not exist ".\build\Release" exit 1
-xcopy /Y/I/E .\build\Release .\build\Release-64
-
-curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x86/node.exe > node-32.exe || exit 1
-curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x64/node.exe > node-64.exe || exit 1
-curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-i386-win32.zip > openssl_32.zip || exit 1
-curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-x64_86-win64.zip > openssl_64.zip || exit 1
-
-mkdir .\32
-mkdir .\64
-
-rd /q/s .\build\Release
 rd /q/s .\build\src
 rd /q/s .\build\Windows
 del /q .\build\*.*
 
-7za.exe e openssl_32.zip -y -x!*.txt || exit 1
-del /Q openssl_32.zip
+curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x64/node.exe > node.exe || exit 1
 
-copy /y *.dll .\32\
-copy /y node-32.exe .\32\node.exe
-copy /y openssl.exe .\32\openssl.exe
-
-del /Q *.dll
-del /Q node-32.exe
-del /Q openssl.exe
-
-7za.exe e openssl_64.zip -y -x!*.txt || exit 1
-del /Q openssl_64.zip
-
-copy /y *.dll .\64\
-copy /y node-64.exe .\64\node.exe
-copy /y openssl.exe .\64\openssl.exe
-
-del /Q *.dll
-del /Q node-64.exe
-del /Q openssl.exe
-
+curl -L https://indy.fulgan.com/SSL/openssl-1.0.2l-x64_86-win64.zip > openssl.zip || exit 1
+7za.exe e openssl.zip -y -x!*.txt || exit 1
+del /Q openssl.zip
 del /s *.pdb
 
 cd ..\..

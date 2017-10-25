@@ -649,6 +649,26 @@ function is_bucket_exist(ip, bucket) {
         });
 }
 
+function get_object(ip, bucket, key) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    let params = {
+        Bucket: bucket,
+        Key: key
+    };
+    console.log('Reading object ', key);
+    return P.ninvoke(s3bucket, 'getObject', params)
+        .catch(err => {
+            console.error(`get_object:: getObject ${params} failed!`, err);
+        });
+}
+
 exports.get_list_multipart_uploads = get_list_multipart_uploads;
 exports.delete_bucket = delete_bucket;
 exports.get_object_uploadId = get_object_uploadId;
@@ -670,3 +690,4 @@ exports.delete_folder = delete_folder;
 exports.get_file_size = get_file_size;
 exports.set_file_attribute = set_file_attribute;
 exports.set_file_attribute_with_copy = set_file_attribute_with_copy;
+exports.get_object = get_object;

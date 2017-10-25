@@ -158,6 +158,11 @@ class MDStore {
             } : undefined,
         });
 
+        const completed_query = _.omit(query, 'upload_started');
+        completed_query.upload_started = { $exists: false };
+        const uploading_query = _.omit(query, 'upload_started');
+        uploading_query.upload_started = { $exists: true };
+
         dbg.log0('list_objects:', query);
         return P.join(
                 this._objects.col().find(query, {
@@ -168,11 +173,23 @@ class MDStore {
                     } : undefined
                 })
                 .toArray(),
-                pagination ? this._objects.col().count(query) : undefined
+                pagination ? this._objects.col().count(query) : undefined,
+
+                // completed uploads count
+                this._objects.col().count(completed_query),
+
+                // uploading count
+                this._objects.col().count(uploading_query)
             )
-            .spread((objects, total_count) => ({
+            .spread((objects, total_count, completed, uploading) => ({
                 objects,
-                total_count
+                counters: {
+                    non_paginated: total_count,
+                    by_mode: {
+                        completed,
+                        uploading
+                    }
+                }
             }));
     }
 

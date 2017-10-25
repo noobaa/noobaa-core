@@ -94,7 +94,7 @@ class BucketObjectsTableViewModel extends BaseViewModel {
         );
 
         this.filteredObjectCount = ko.pureComputed(
-            () => objectList() && objectList().total_count
+            () => objectList() && objectList().counters.non_paginated
         );
 
         let query = ko.pureComputed(

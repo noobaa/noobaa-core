@@ -815,8 +815,24 @@ module.exports = {
                 type: 'object',
                 required: ['objects'],
                 properties: {
-                    total_count: {
-                        type: 'integer'
+                    counters: {
+                        type: 'object',
+                        properties: {
+                            by_mode: {
+                                type: 'object',
+                                properties: {
+                                    completed: {
+                                        type: 'integer'
+                                    },
+                                    uploading: {
+                                        type: 'integer'
+                                    },
+                                }
+                            },
+                            non_paginated: {
+                                type: 'integer'
+                            },
+                        }
                     },
                     objects: {
                         type: 'array',

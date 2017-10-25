@@ -491,6 +491,21 @@ class SystemStore extends EventEmitter {
         return String(obj1._id) === String(obj2._id);
     }
 
+    get_system_collections_dump() {
+        const dump = {};
+        return mongo_client.instance().connect()
+            .then(() => P.map(COLLECTIONS,
+                col =>
+                mongo_client.instance().collection(col.name)
+                .find()
+                .toArray()
+                .then(docs => {
+                    dump[col.name] = docs;
+                })
+            ))
+            .then(() => dump);
+    }
+
     /**
      *
      * make_changes

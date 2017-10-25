@@ -50,7 +50,7 @@ function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
             return md5;
         })
         .catch(err => {
-            console.error('Put failed!', err);
+            console.error(`Put failed ${file_name}!`, err);
             throw err;
         });
 }
@@ -79,7 +79,7 @@ function copy_file_with_md5(ip, bucket, source, destination) {
             console.log('Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
         })
         .catch(err => {
-            console.error('Copy failed!', err);
+            console.error(`Copy failed from ${source} to ${destination}!`, err);
             throw err;
         });
 }
@@ -125,7 +125,7 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multi
             return md5;
         })
         .catch(err => {
-            console.error('Put failed!', err);
+            console.error(`Put failed ${file_name}!`, err);
             throw err;
         });
 }
@@ -154,16 +154,16 @@ function get_file_check_md5(ip, bucket, file_name) {
                 .digest('hex');
             let file_md5 = res.Metadata.md5;
             if (md5 === file_md5) {
-                console.log(`uploaded MD5: ${file_md5} and downloaded MD5: ${
+                console.log(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5: ${
                     md5} - they are same, size: ${res.ContentLength}`);
             } else {
-                console.error(`uploaded MD5: ${file_md5} and downloaded MD5: ${
+                console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5: ${
                     md5} - they are different, size: ${res.ContentLength}`);
                 throw new Error('Bad MD5 from download');
             }
         })
         .catch(err => {
-            console.error('Download failed!', err);
+            console.error(`Download failed for ${file_name}!`, err);
             throw err;
         });
 }
@@ -224,7 +224,7 @@ function get_a_random_file(ip, bucket, prefix) {
             return list[rand];
         })
         .catch(err => {
-            console.error('Get random file failed!', err);
+            console.error(`get_a_random_file:: listObjects ${params} failed!`, err);
             throw err;
         });
 }
@@ -251,14 +251,14 @@ function get_list_files(ip, bucket, prefix) {
                 console.warn('No files with prefix in bucket');
             } else {
                 list.forEach(function(file) {
-                    listFiles.push({Key: file.Key});
+                    listFiles.push({ Key: file.Key });
                     console.log('files key is: ' + file.Key);
                 });
             }
             return listFiles;
         })
         .catch(err => {
-            console.error('Get files list failed!', err);
+            console.error(`get_list_files:: listObjects ${params} failed!`, err);
             throw err;
         });
 }
@@ -284,14 +284,14 @@ function get_list_multipart_uploads(ip, bucket) {
                 console.warn('No objects in bucket');
             } else {
                 list.forEach(function(file) {
-                    listFiles.push({Key: file.Key});
+                    listFiles.push({ Key: file.Key });
                     console.log('files key is: ' + file.Key);
                 });
             }
             return listFiles;
         })
         .catch(err => {
-            console.error('Getting multipart uploads list failed!', err);
+            console.error(`get_list_multipart_uploads:: listMultipartUploads ${params} failed!`, err);
             throw err;
         });
 }
@@ -325,7 +325,7 @@ function get_list_prefixes(ip, bucket) {
             return listPrefixes;
         })
         .catch(err => {
-            console.error('Get files list failed!', err);
+            console.error(`get_list_prefixes:: listObjects ${params} failed!`, err);
             throw err;
         });
 }
@@ -350,7 +350,7 @@ function get_file_number(ip, bucket, prefix) {
             return list.length;
         })
         .catch(err => {
-            console.error('Get number of files failed!', err);
+            console.error(`get_file_number:: listObjects ${params} failed!`, err);
             throw err;
         });
 }
@@ -378,7 +378,7 @@ function delete_file(ip, bucket, file_name) {
             console.log('file ' + file_name + ' successfully deleted');
         })
         .catch(err => {
-            console.error('Delete file failed!', err);
+            console.error(`Delete file ${file_name} failed!`, err);
             throw err;
         });
 }
@@ -394,10 +394,10 @@ function delete_folder(ip, bucket, ...list) {
     });
     let params = {
         Bucket: bucket,
-        Delete: {Objects: list},
+        Delete: { Objects: list },
     };
     return P.ninvoke(s3bucket, 'deleteObjects', params)
-        .catch(err => console.error('deleting objects with error' + err));
+        .catch(err => console.error(`deleting objects ${params} with error ` + err));
 }
 
 function get_file_size(ip, bucket, file_name) {
@@ -418,7 +418,7 @@ function get_file_size(ip, bucket, file_name) {
     return P.ninvoke(s3bucket, 'headObject', params)
         .then(res => res.ContentLength / 1024 / 1024)
         .catch(err => {
-            console.error('get file size failed!', err);
+            console.error(`get file size ${file_name} failed!`, err);
             throw err;
         });
 }
@@ -448,7 +448,7 @@ function set_file_attribute(ip, bucket, file_name) {
 
     return P.ninvoke(s3bucket, 'putObjectTagging', params)
         .catch(err => {
-            console.error('set file attribute failed!', err);
+            console.error(`set file attribute failed! ${file_name}`, err);
             throw err;
         });
 }
@@ -484,7 +484,7 @@ function set_file_attribute_with_copy(ip, bucket, file_name) {
         })
         .then(() => P.ninvoke(s3bucket, 'copyObject', params))
         .catch(err => {
-            console.error('set file attribute failed!', err);
+            console.error(`set file attribute failed ${file_name}!`, err);
             throw err;
         });
 }
@@ -537,7 +537,7 @@ function create_bucket(ip, bucket_name) {
     return P.ninvoke(s3bucket, 'createBucket', params)
         .then(res => console.log("Created bucket ", res))
         .catch(err => {
-            console.error('creating bucket is failed!', err);
+            console.error(`creating bucket ${bucket_name} is failed!`, err);
             throw err;
         });
 }
@@ -557,7 +557,7 @@ function delete_bucket(ip, bucket_name) {
     return P.ninvoke(s3bucket, 'deleteBucket', params)
         .then(res => console.log("Deleted bucket ", res))
         .catch(err => {
-            console.error('Deleting bucket is failed!', err);
+            console.error(`Deleting bucket ${bucket_name} is failed!`, err);
             throw err;
         });
 }
@@ -583,14 +583,15 @@ function get_object_uploadId(ip, bucket, object_name) {
             if (list.length === 0) {
                 console.warn('No objects in bucket ', bucket);
             } else {
+                //TODO:: What happends if find does not find anything
                 dataObject = list.find(content => content.Key === object_name);
                 console.log('Object has data: ', JSON.stringify(dataObject));
                 uploadObjectId = dataObject.Owner.ID;
-                }
+            }
             return uploadObjectId;
         })
         .catch(err => {
-            console.error('Getting object uploadId failed!', err);
+            console.error('get_object_uploadId:: listObjects failed!', err);
             throw err;
         });
 }
@@ -614,6 +615,7 @@ function get_bucket_uploadId(ip, bucket) {
             if (list.length === 0) {
                 console.warn('No buckets ');
             } else {
+                //TODO:: What happends if find does not find anything
                 dataBucket = list.find(buckets => buckets.Name === bucket);
                 console.log('Bucket data info is ', JSON.stringify(dataBucket));
                 uploadBucketId = dataBucket.Owner.ID;
@@ -621,7 +623,7 @@ function get_bucket_uploadId(ip, bucket) {
             return uploadBucketId;
         })
         .catch(err => {
-            console.error('Getting buckets uploadId failed!', err);
+            console.error('get_bucket_uploadId:: listBuckets failed!', err);
             throw err;
         });
 }

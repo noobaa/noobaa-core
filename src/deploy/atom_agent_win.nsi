@@ -226,8 +226,9 @@ Section "Noobaa Local Service"
 	File "libeay32.dll"
 	File "ssleay32.dll"
 
-	File "package.json"
+	File "LICENSE"
 	File "config.js"
+	File "package.json"
 
 	File /r "ssl"
 	File /r "src"

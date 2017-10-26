@@ -10,6 +10,7 @@ ContinuationIndentWidth: 4
 BinPackArguments: false
 BinPackParameters: false
 AccessModifierOffset: -4
+IndentPPDirectives: AfterHash
 
 AlignOperands: false
 AlignTrailingComments: false

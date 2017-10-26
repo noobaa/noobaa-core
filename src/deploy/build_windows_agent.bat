@@ -29,9 +29,10 @@ copy ..\..\src\deploy\7za.exe .
 copy ..\..\src\deploy\openssl.cnf  .\ssl\
 copy ..\..\src\deploy\wget.exe  .
 copy ..\..\src\deploy\NooBaa_Agent_wd.exe .
-copy ..\..\package.json .
-copy ..\..\binding.gyp .
+copy ..\..\LICENSE .
 copy ..\..\config.js .
+copy ..\..\binding.gyp .
+copy ..\..\package.json .
 mkdir .\src\
 xcopy /Y/I/E ..\..\src\agent .\src\agent
 xcopy /Y/I/E ..\..\src\s3 .\src\s3

@@ -215,11 +215,11 @@ function install_mongo {
 
     # install the needed RPM
     yum install -y \
-		mongodb-org-3.4.4 \
-		mongodb-org-server-3.4.4 \
-		mongodb-org-shell-3.4.4 \
-		mongodb-org-mongos-3.4.4 \
-		mongodb-org-tools-3.4.4
+		mongodb-org-3.4.10 \
+		mongodb-org-server-3.4.10 \
+		mongodb-org-shell-3.4.10 \
+		mongodb-org-mongos-3.4.10 \
+		mongodb-org-tools-3.4.10
 
     # pin mongo version in yum, so it won't auto update
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf

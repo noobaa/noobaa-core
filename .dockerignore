@@ -1,14 +1,9 @@
 .git
-noobaa_storage
-attic
-bower_components
 build
 coverage
-frontend/dist
-frontend/node_modules
-frontend/src/lib
+frontend
 images
 logs
 metadata_storage
 node_modules
-vendor
+noobaa_storage

@@ -22,11 +22,32 @@ bucket-objects-table {
         }
     }
 
-    data-table {
-        .name-col {
+    .objects-table {
+        .link() {
+            a {
+                display: block;
+                white-space:nowrap;
+                text-overflow: ellipsis;
+                overflow: hidden;
+                max-width: 600px;
+                color: @color7;
+
+                &[href] {
+                    color: @color9;
+                }
+            }
+        }
+
+        .state-col {
+            min-width: 40px;
+        }
+
+        .key-col {
             text-align: left;
             min-width: 5em;
             width: 100%;
+
+            .link()
         }
 
         .creation-time-col {
@@ -35,6 +56,10 @@ bucket-objects-table {
 
         .size-col {
             min-width: 100px;
+        }
+
+        .delete-col {
+            min-width: 40px;
         }
     }
 }

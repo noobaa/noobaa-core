@@ -3,9 +3,15 @@
 import template from './bucket-panel.html';
 import Observer from 'observer';
 import ko from 'knockout';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
-import { loadBucketObjectList } from 'actions';
+import { deepFreeze } from 'utils/core-utils';
+import { fetchBucketObjects } from 'action-creators';
+
+const statusMapping = deepFreeze({
+    COMPLETED: false,
+    UPLOADING: true
+});
 
 class BucketPanelViewModel extends Observer {
     constructor() {
@@ -27,8 +33,11 @@ class BucketPanelViewModel extends Observer {
         this.bucket(bucket);
 
         if (tab === 'objects') {
-            const { filter, sortBy = 'key', order = 1, page = 0 } = query;
-            loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));
+            const { filter, sortBy = 'key', order = 1, page = 0, state = 'ALL' } = query;
+
+            action$.onNext(
+                fetchBucketObjects(bucket, filter, sortBy, parseInt(order), parseInt(page), statusMapping[state])
+            );
         }
     }
 

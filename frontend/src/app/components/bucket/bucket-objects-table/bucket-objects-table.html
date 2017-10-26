@@ -7,9 +7,17 @@
             <span ko.text="objectCount"></span>
         </h3>
 
-        <div class="greedy push-next">
-            <input type="search" placeholder="Filter by file name"
-                ko.textInput="filter" />
+        <div class="push-next">
+            <input type="search"
+                placeholder="Filter by file name"
+                ko.textInput="ko.pc(filter, onFilterThrottled)"
+            />
+        </div>
+        <div class="column content-start greedy push-next">
+            <toggle-filter class="state-filter" params="
+            options: stateFilterOptions,
+            selected: ko.pc(stateFilter, onFilterByState, $component)
+        "></toggle-filter>
         </div>
 
         <div ko.tooltip="uploadTooltip">
@@ -29,17 +37,17 @@
     </div>
 </div>
 
-<data-table class="greedy" params="
+<data-table class="objects-table greedy" params="
     columns: columns,
-    data: objects,
-    rowFactory: obj => createObjectRow(obj),
-    sorting: sorting,
-    emptyMessage: 'No files in bucket'
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !objectsLoaded(),
+    emptyMessage: 'The current filter does not match any files in bucket'
 "></data-table>
 
 <paginator params="
     pageSize: pageSize,
-    itemCount: filteredObjectCount,
-    page: page
+    itemCount: objectCount,
+    page: ko.pc(page, onPage, $component)
 "></paginator>
 

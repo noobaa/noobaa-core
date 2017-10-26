@@ -47,7 +47,7 @@ node('jenkins-slave1-centos') {
         // sh script: """
         //       export NVM_DIR=/usr/local/nvm
         //       . /opt/nvm/nvm.sh
-        //       nvm install 6.11.2
+        //       nvm install 6.11.5
         //       nvm alias default 6
         //       nvm use default
         //       cd $WORKSPACE

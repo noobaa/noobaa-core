@@ -5,7 +5,7 @@
     "license": "UNLICENSED",
     "description": "noobaa-core ===========",
     "engines": {
-        "node": "6.11.2"
+        "node": "6.11.5"
     },
     "main": "index.js",
     "scripts": {

@@ -154,7 +154,7 @@ function package_build_task() {
             gutil.log('before downloading nvm and node package');
             return promise_utils.exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
         })
-        .then(() => promise_utils.exec('curl -o- https://nodejs.org/dist/v6.11.2/node-v6.11.2-linux-x64.tar.xz >build/public/node-v6.11.2-linux-x64.tar.xz', [], process.cwd()))
+        .then(() => promise_utils.exec('curl -o- https://nodejs.org/dist/v6.11.5/node-v6.11.5-linux-x64.tar.xz >build/public/node-v6.11.5-linux-x64.tar.xz', [], process.cwd()))
         .then(() => {
             //call for packing
             gutil.log('Packing ' + DEST + ' to ' + NAME + "-" + current_pkg_version + '.tar');

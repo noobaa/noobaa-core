@@ -51,7 +51,12 @@ import {
     COMPLETE_DELETE_GATEWAY_BUCKET,
     FAIL_DELETE_GATEWAY_BUCKET,
     COMPLETE_RETRUST_HOST,
-    FAIL_RETRUST_HOST
+    FAIL_RETRUST_HOST,
+    COMPLETE_DELETE_BUCKET_OBJECT,
+    FAIL_DELETE_BUCKET_OBJECT,
+    COMPLETE_ABORT_OBJECT_UPLOAD,
+    FAIL_ABORT_OBJECT_UPLOAD
+
 } from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -325,6 +330,26 @@ const actionToNotification = deepFreeze({
 
     [FAIL_RETRUST_HOST]: ({ host }) => ({
         message: `Host ${host} re-trust action is failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_DELETE_BUCKET_OBJECT]: ({ object }) => ({
+        message: `File ${object} deleted successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_DELETE_BUCKET_OBJECT]: ({ object }) => ({
+        message: `File ${object} deletion failed`,
+        severity: 'error'
+    }),
+
+    [COMPLETE_ABORT_OBJECT_UPLOAD]: ({ object }) => ({
+        message: `File ${object} deleted successfully`,
+        severity: 'success'
+    }),
+
+    [FAIL_ABORT_OBJECT_UPLOAD]: ({ object }) => ({
+        message: `File ${object} deletion failed`,
         severity: 'error'
     })
 });

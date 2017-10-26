@@ -10,7 +10,12 @@ import ObjectRowViewModel from './object-row';
 import { state$, action$ } from 'state';
 import * as routes from 'routes';
 import numeral from 'numeral';
-import { uploadObjects, requestLocation, deleteBucketObject } from 'action-creators';
+import {
+    uploadObjects,
+    requestLocation,
+    deleteBucketObject,
+    abortObjectUpload
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -98,6 +103,7 @@ class BucketObjectsTableViewModel extends Observer {
         this.sorting = ko.observable();
         this.page = ko.observable();
         this.selectedForDelete = ko.observable();
+        this.bucketObjects = {};
         this.deleteGroup = ko.pureComputed({
             read: this.selectedForDelete,
             write: val => this.onSelectForDelete(val)
@@ -136,6 +142,7 @@ class BucketObjectsTableViewModel extends Observer {
         };
         const { nonPaginated, completed, uploading } = bucketObjects.counters;
 
+        this.objects = bucketObjects.objects;
         this.accessKeys = hasS3Access && accessKeys;
         this.stateFilterOptions(_getStateFilterOptions(completed + uploading, completed, uploading));
         this.fileSelectorExpanded(false);
@@ -223,9 +230,14 @@ class BucketObjectsTableViewModel extends Observer {
         this._query({ selectedForDelete });
     }
 
-    onDeleteBucketObject(object) {
+    onDeleteBucketObject(key) {
         const { accessKey, secretKey } = this.accessKeys;
-        action$.onNext(deleteBucketObject(ko.unwrap(this.bucketName), object, accessKey, secretKey));
+        const bucket = ko.unwrap(this.bucketName);
+        const { objId, size } = this.objects[key];
+        const action = size ?
+            deleteBucketObject(bucket, key, accessKey, secretKey):
+            abortObjectUpload(bucket, key, objId, accessKey, secretKey);
+        action$.onNext(action);
     }
 
     uploadFiles(files) {

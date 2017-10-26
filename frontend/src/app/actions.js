@@ -252,22 +252,6 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
     }
 }
 
-export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
-    logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });
-
-    api.object.list_objects({
-        bucket: bucketName,
-        key_query: filter,
-        sort: sortBy,
-        order: order,
-        skip: config.paginationPageSize * page,
-        limit: config.paginationPageSize,
-        pagination: true
-    })
-        .then(model.bucketObjectList)
-        .done();
-}
-
 export function loadObjectMetadata(bucketName, objectName) {
     logAction('loadObjectMetadata', { bucketName, objectName });
 

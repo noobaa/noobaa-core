@@ -47,6 +47,8 @@ import createGatewayBucket from './create-gateway-bucket';
 import updateGatewayBucketPlacement from './update-gateway-bucket-placement';
 import deleteGatewayBucket from './delete-gateway-bucket';
 import retrustHost from './retrust-host';
+import fetchBucketObjects from './fetch-bucket-objects';
+import deleteBucketObject from './delete-bucket-object';
 
 const generalEpics = [
     handleLocationRequests,
@@ -100,7 +102,9 @@ const bucketRelatedEpics = [
 ];
 
 const objectRelatedEpics = [
-    uploadObjects
+    uploadObjects,
+    fetchBucketObjects,
+    deleteBucketObject
 ];
 
 const resourceRelatedEpics = [

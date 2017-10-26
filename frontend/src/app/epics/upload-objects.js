@@ -2,8 +2,9 @@
 
 import Rx from 'rx';
 import { UPLOAD_OBJECTS } from 'action-types';
-import { updateObjectUpload, completeObjectUpload, failObjectUpload } from 'action-creators';
 import { deepFreeze } from 'utils/core-utils';
+import { createS3Client } from 'utils/s3-utils';
+import { updateObjectUpload, completeObjectUpload, failObjectUpload } from 'action-creators';
 
 const endpoint = global.location.hostname;
 const s3UploadOptions = deepFreeze({
@@ -16,7 +17,7 @@ export default function(action$, { S3 }) {
         .ofType(UPLOAD_OBJECTS)
         .flatMap(action => {
             const { objects, accessKey, secretKey } = action.payload;
-            const s3 = _createS3Client(S3, endpoint, accessKey, secretKey);
+            const s3 = createS3Client(S3, endpoint, accessKey, secretKey);
             const uploadEvent$ = new Rx.Subject();
 
             let uploading = objects.length;
@@ -47,16 +48,4 @@ export default function(action$, { S3 }) {
 
             return uploadEvent$;
         });
-}
-
-function _createS3Client(S3, endpoint, accessKey, secretKey) {
-    return new S3({
-        endpoint: endpoint,
-        credentials: {
-            accessKeyId: accessKey,
-            secretAccessKey: secretKey
-        },
-        s3ForcePathStyle: true,
-        sslEnabled: false
-    });
 }

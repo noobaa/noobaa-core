@@ -1,5 +1,5 @@
 import { createReducer } from 'utils/reducer-utils';
-import { TOGGLE_PREVIEW_CONTENT } from 'action-types';
+import { TOGGLE_PREVIEW_CONTENT, COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -18,9 +18,17 @@ function onTogglePreviewContent(env) {
     };
 }
 
+function onCompleteFetchSystemInfo(env, { payload }) {
+    return {
+        ...env,
+        hasSslCert: payload.has_ssl_cert
+    };
+}
+
 // ------------------------------
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [TOGGLE_PREVIEW_CONTENT]: onTogglePreviewContent
+    [TOGGLE_PREVIEW_CONTENT]: onTogglePreviewContent,
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
 });

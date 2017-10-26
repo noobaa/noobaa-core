@@ -148,6 +148,9 @@ export default {
             undeletable: {
                 type: 'string',
                 enum: ['LAST_BUCKET', 'NOT_EMPTY'],
+            },
+            writable: {
+                type: 'boolean'
             }
         }
     }

@@ -540,10 +540,14 @@ function update_object_md(req) {
 function delete_object(req) {
     throw_if_maintenance(req);
     let obj;
-    return find_object_md(req)
+    return find_object_md(req, true)
         .then(obj_arg => {
             obj = obj_arg;
             check_md_conditions(req, req.rpc_params.md_conditions, obj);
+            if (obj.upload_started) {
+                req.rpc_params.obj_id = obj._id;
+                return abort_object_upload(req);
+            }
             return map_deleter.delete_object(obj);
         })
         .then(() => {
@@ -874,7 +878,7 @@ const object_md_cache = new LRUCache({
     }
 });
 
-function find_object_md(req) {
+function find_object_md(req, include_uncompleted) {
     return P.resolve()
         .then(() => {
             load_bucket(req);
@@ -884,7 +888,7 @@ function find_object_md(req) {
                 const obj_id = get_obj_id(req, 'BAD_OBJECT_ID');
                 return MDStore.instance().find_object_by_id(obj_id);
             }
-            return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key);
+            return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key, include_uncompleted);
         })
         .then(obj => check_object_mode(req, obj, 'NO_SUCH_OBJECT'));
 }

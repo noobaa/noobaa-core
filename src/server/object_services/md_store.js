@@ -131,12 +131,12 @@ class MDStore {
         });
     }
 
-    find_object_by_key(bucket_id, key) {
+    find_object_by_key(bucket_id, key, include_uncompleted) {
         return this._objects.col().findOne(compact({
             bucket: bucket_id,
             key: key,
             deleted: null,
-            upload_started: null,
+            upload_started: include_uncompleted ? undefined : null,
         }));
     }
 

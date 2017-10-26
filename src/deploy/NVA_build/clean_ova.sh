@@ -10,7 +10,7 @@ function clean_ifcfg() {
     for int in ${interfaces//:/}; do
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done
-    sudo echo -n > /etc/sysconfig/network
+    sudo echo "HOSTNAME=noobaa" > /etc/sysconfig/network
 }
 
 OPTIONS=$( getopt -o 'h,e,a,l,w' --long "help,esx,azure,alyun,aws" -- "$@" )

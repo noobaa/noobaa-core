@@ -14,8 +14,7 @@ export default function(action$, { S3 }) {
             const { bucket, object, accessKey, secretKey } = action.payload;
             const s3 = createS3Client(S3, endpoint, accessKey, secretKey);
             const deleteEvent$ = new Rx.Subject();
-
-            var params = {
+            const params = {
                 Bucket: bucket,
                 Key: object
             };

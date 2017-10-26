@@ -174,6 +174,15 @@ function configure_hostname_dialog {
 
     local host=$(tail -1 answer_host)
     rc=$(sudo sysctl kernel.hostname=${host})
+    if [ -f /etc/sysconfig/network ]; then
+      if ! grep -q HOSTNAME /etc/sysconfig/network; then
+        sudo echo "HOSTNAME=${host}" >> /etc/sysconfig/network
+      else
+        sudo sed -i "s:HOSTNAME=.*:HOSTNAME=${host}:" /etc/sysconfig/network
+      fi
+    else
+        sudo echo "HOSTNAME=${host}" >> /etc/sysconfig/network
+    fi
 }
 
 function configure_networking_dialog {

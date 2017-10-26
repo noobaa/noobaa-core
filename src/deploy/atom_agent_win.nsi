@@ -229,10 +229,10 @@ Section "Noobaa Local Service"
 	File "package.json"
 	File "config.js"
 
-	File /r "ssl\"
-	File /r "src\"
-	File /r "build\"
-	File /r "node_modules\"
+	File /r "ssl"
+	File /r "src"
+	File /r "build"
+	File /r "node_modules"
 
 	WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
 		"DisplayName" "NooBaa Local Service"

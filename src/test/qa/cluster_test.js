@@ -42,12 +42,28 @@ const {
     storage,
     vnet,
     upgrade_pack,
+    agents_number = 3,
     clean = false
 } = argv;
 
-const oses = [
-    'ubuntu12', 'ubuntu14', 'ubuntu16'
+
+let osesSet = [
+    'ubuntu12', 'ubuntu14', 'ubuntu16',
+    'centos6', 'centos7',
+    'redhat6', 'redhat7',
+    'win2008', 'win2012', 'win2016'
 ];
+
+let oses = [];
+
+function getRandomAgentsOses() {
+    for (let i = 0; i < agents_number; i++) {
+        let rand = Math.floor(Math.random() * osesSet.length);
+        oses.push(osesSet[rand]);
+        osesSet.splice(rand, 1);
+    }
+    console.log('Random oses for creating agents ', oses);
+}
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -564,6 +580,7 @@ return azf.authenticate()
     .then(() => createCluster(servers, masterIndex, 2))
     .then(() => delayInSec(90))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
+    .then(() => getRandomAgentsOses())
     .then(() => getAgentConf())
     .then(() => runCreateAgents())
     .then(() => verifyS3Server())

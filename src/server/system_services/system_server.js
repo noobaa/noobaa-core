@@ -811,7 +811,7 @@ function get_node_installation_string(req) {
                     };
                     const base64_configuration = Buffer.from(JSON.stringify(agent_conf)).toString('base64');
                     return {
-                        LINUX: `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} /S /config ${base64_configuration}`,
+                        LINUX: `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} ${base64_configuration}`,
                         WINDOWS: `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`
                     };
                 });

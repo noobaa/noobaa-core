@@ -8,11 +8,11 @@ if [ $? -ne 0 ]; then
 fi
 
 if [ ! -d "/usr/local/noobaa" ]; then
-    if [[ $# -lt 2 ]]; then
-        echo "usage: noobaa-setup /S /Config <configuration string>"
+    if [[ $# -lt 1 ]]; then
+        echo "usage: noobaa-setup <configuration string>"
         exit 1
     else
-        CONFIG=$2
+        CONFIG=$1
         mkdir /usr/local/noobaa
         echo "config is:" ${CONFIG}
         openssl enc -base64 -d -A <<<${CONFIG} >/usr/local/noobaa/agent_conf.json

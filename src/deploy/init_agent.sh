@@ -13,5 +13,5 @@ else
 	curl --insecure -L https://$env_name:8443/public/noobaa-setup >noobaa-setup
 	chmod +x ./noobaa-setup
 	sleep 30s
-	./noobaa-setup /S /config $agent_conf
+	./noobaa-setup $agent_conf
 fi

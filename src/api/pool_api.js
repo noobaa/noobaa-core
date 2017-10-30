@@ -352,9 +352,12 @@ module.exports = {
                 },
                 endpoint_type: {
                     type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA']
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA', 'NET_STORAGE']
                 },
                 target_bucket: {
+                    type: 'string'
+                },
+                cp_code: {
                     type: 'string'
                 },
                 identity: {
@@ -383,12 +386,15 @@ module.exports = {
                 },
                 endpoint_type: {
                     type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA']
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA', 'NET_STORAGE']
                 },
                 target_bucket: {
                     type: 'string'
                 },
                 access_key: {
+                    type: 'string'
+                },
+                cp_code: {
                     type: 'string'
                 },
                 secret_key: {

@@ -33,7 +33,7 @@ module.exports = {
             properties: {
                 endpoint_type: {
                     type: 'string',
-                    enum: ['NOOBAA', 'AWS', 'AZURE', 'S3_COMPATIBLE']
+                    enum: ['NOOBAA', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
                 },
                 endpoint: {
                     type: 'string'
@@ -47,6 +47,9 @@ module.exports = {
                 secret_key: {
                     type: 'string'
                 },
+                cp_code: {
+                    type: 'string'
+                }
             }
         },
     }

@@ -1,18 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// const _ = require('lodash');
 const P = require('../util/promise');
 const _ = require('lodash');
 
-// const EXCEPT_REASONS = [
-//     'NO_SUCH_OBJECT'
-// ];
+const EXCEPT_REASONS = [
+    'NO_SUCH_OBJECT'
+];
+class NamespaceMultipart {
 
-class NamespaceMerge {
-
-    constructor(namespaces) {
-        this.namespaces = namespaces;
+    constructor(write_ns, multipart_ns) {
+        this.write_ns = write_ns;
+        this.multipart_ns = multipart_ns;
+        // TODO: Should the multipart be in first priority or not?
+        // Currently I assume that the multipart is the highest priority
+        // Since we are interested in writing to NooBaa (multipart files obviously)
+        this.total_resources = [this.multipart_ns, this.write_ns];
     }
 
     /////////////////
@@ -79,7 +82,7 @@ class NamespaceMerge {
         return this._ns_map(ns => P.resolve(ns.read_object_md(params, object_sdk))
                 .then(res => {
                     // save the ns in the response for optimizing read_object_stream
-                    res.ns = res.ns || ns;
+                    res.ns = ns;
                     return res;
                 }))
             .then(reply => {
@@ -94,7 +97,8 @@ class NamespaceMerge {
     read_object_stream(params, object_sdk) {
         // use the saved ns from read_object_md
         if (params.object_md && params.object_md.ns) return params.object_md.ns.read_object_stream(params, object_sdk);
-        return this._ns_get(ns => ns.read_object_stream(params, object_sdk));
+        throw new Error('NO OBJECT_MD NAMESPACE PASSED');
+        //return this._ns_get(ns => ns.read_object_stream(params, object_sdk));
     }
 
     ///////////////////
@@ -102,7 +106,7 @@ class NamespaceMerge {
     ///////////////////
 
     upload_object(params, object_sdk) {
-        return this._ns_put(ns => ns.upload_object(params, object_sdk));
+        return this.write_ns.upload_object(params, object_sdk);
     }
 
     /////////////////////////////
@@ -110,63 +114,47 @@ class NamespaceMerge {
     /////////////////////////////
 
     create_object_upload(params, object_sdk) {
-        return this._ns_put(ns => ns.create_object_upload(params, object_sdk));
+        return this.multipart_ns.create_object_upload(params, object_sdk);
     }
 
     upload_multipart(params, object_sdk) {
-        return this._ns_put(ns => ns.upload_multipart(params, object_sdk));
+        return this.multipart_ns.upload_multipart(params, object_sdk);
     }
 
     list_multiparts(params, object_sdk) {
-        return this._ns_put(ns => ns.list_multiparts(params, object_sdk));
+        return this.multipart_ns.list_multiparts(params, object_sdk);
     }
 
     complete_object_upload(params, object_sdk) {
-        return this._ns_put(ns => ns.complete_object_upload(params, object_sdk));
+        return this.multipart_ns.complete_object_upload(params, object_sdk);
     }
 
     abort_object_upload(params, object_sdk) {
-        return this._ns_put(ns => ns.abort_object_upload(params, object_sdk));
+        return this.multipart_ns.abort_object_upload(params, object_sdk);
     }
 
     ///////////////////
     // OBJECT DELETE //
     ///////////////////
 
-    // TODO should we: (1) delete from all ns ? (2) delete from writable ns ? (3) create a "delete marker" on writable ns
-
     delete_object(params, object_sdk) {
-        return this._ns_put(ns => ns.delete_object(params, object_sdk));
+        return this._ns_map(ns => ns.delete_object(params, object_sdk))
+            .then(reply => {
+                const succeeded = this._throw_if_any_failed_or_get_succeeded(reply, EXCEPT_REASONS);
+                return _.first(succeeded);
+            });
     }
 
     delete_multiple_objects(params, object_sdk) {
-        return this._ns_put(ns => ns.delete_multiple_objects(params, object_sdk));
-    }
-
-    //////////////
-    // INTERNAL //
-    //////////////
-
-    _ns_get(func) {
-        var i = -1;
-        const try_next = err => {
-            i += 1;
-            if (i >= this.namespaces.read_resources.length) {
-                return P.reject(err || new Error('NamespaceMerge._ns_get exhausted'));
-            }
-            const ns = this.namespaces.read_resources[i];
-            return P.try(() => func(ns)).catch(try_next);
-        };
-        return try_next();
-    }
-
-    _ns_put(func) {
-        const ns = this.namespaces.write_resource;
-        return P.try(() => func(ns));
+        return this._ns_map(ns => ns.delete_multiple_objects(params, object_sdk))
+            .then(reply => {
+                const succeeded = this._throw_if_any_failed_or_get_succeeded(reply, EXCEPT_REASONS);
+                return _.first(succeeded);
+            });
     }
 
     _ns_map(func) {
-        return P.map(this.namespaces.read_resources, ns =>
+        return P.map(this.total_resources, ns =>
             P.try(() => func(ns))
             .then(reply => ({
                 reply,
@@ -177,6 +165,19 @@ class NamespaceMerge {
                 success: false
             }))
         );
+    }
+
+    _ns_get(func) {
+        var i = -1;
+        const try_next = err => {
+            i += 1;
+            if (i >= this.total_resources.length) {
+                return P.reject(err || new Error('NamespaceMultipart._ns_get exhausted'));
+            }
+            const ns = this.total_resources[i];
+            return P.try(() => func(ns)).catch(try_next);
+        };
+        return try_next();
     }
 
     _get_succeeded_responses(reply_array) {
@@ -207,7 +208,8 @@ class NamespaceMerge {
             throw _.first(failed);
         }
     }
+
 }
 
 
-module.exports = NamespaceMerge;
+module.exports = NamespaceMultipart;

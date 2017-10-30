@@ -29,6 +29,7 @@ const system_utils = require('../utils/system_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const fs_utils = require('../../util/fs_utils');
+const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -1084,6 +1085,29 @@ function get_cloud_buckets(req) {
                     .timeout(EXTERNAL_BUCKET_LIST_TO)
                     .then(data => data.entries.map(entry =>
                         _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
+            } else if (connection.endpoint_type === 'NET_STORAGE') {
+                let used_cloud_buckets = cloud_utils.get_used_cloud_targets('NET_STORAGE',
+                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
+
+                const ns = new NetStorage({
+                    hostname: connection.endpoint,
+                    keyName: connection.access_key,
+                    key: connection.secret_key,
+                    cpCode: connection.cp_code,
+                    // Just used that in order to not handle certificate mess
+                    // TODO: Should I use SSL with HTTPS instead of HTTP?
+                    ssl: false
+                });
+
+                // TODO: JENIA Shall I use any other method istead of listing the root cpCode dir?
+                return P.fromCallback(callback => ns.dir(connection.cp_code, callback))
+                    .timeout(EXTERNAL_BUCKET_LIST_TO)
+                    .then(data => {
+                        const files = data.body.stat.file;
+                        const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
+                        return buckets.map(bucket =>
+                            _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
+                    });
             } //else if AWS
             let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AWS',
                 system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);

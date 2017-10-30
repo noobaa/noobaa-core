@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const util = require('util');
+require('../util/dotenv').load();
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -12,6 +13,10 @@ const NamespaceNB = require('./namespace_nb');
 const NamespaceS3 = require('./namespace_s3');
 const NamespaceBlob = require('./namespace_blob');
 const NamespaceMerge = require('./namespace_merge');
+const NamespaceMultipart = require('./namespace_multipart');
+const NamespaceNetStorage = require('./namespace_net_storage');
+const AccountSpaceNetStorage = require('./accountspace_net_storage');
+const AccountSpaceNB = require('./accountspace_nb');
 
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
@@ -24,12 +29,41 @@ const bucket_namespace_cache = new LRUCache({
 
 const NAMESPACE_CACHE_EXPIRY = 60000;
 
+const MULTIPART_NAMESPACES = [
+    'NET_STORAGE'
+];
+
 class ObjectSDK {
 
     constructor(rpc_client, object_io) {
         this.rpc_client = rpc_client;
         this.object_io = object_io;
-        this.nb = new NamespaceNB();
+        this.namespace_nb = new NamespaceNB();
+        this.accountspace_nb = new AccountSpaceNB({
+            rpc_client
+        });
+    }
+
+    _get_account_namespace() {
+        return P.resolve()
+            .then(() => {
+                if (process.env.AKAMAI_ACCOUNT_NS === 'true') {
+                    return new AccountSpaceNetStorage({
+                        // This is the endpoint
+                        hostname: process.env.AKAMAI_HOSTNAME,
+                        // This is the access key
+                        keyName: process.env.AKAMAI_KEYNAME,
+                        // This is the secret key
+                        key: process.env.AKAMAI_KEY,
+                        // Should be the target bucket regarding the S3 storage
+                        cpCode: process.env.AKAMAI_CPCODE,
+                        // Not sure if relevant since we always talk using HTTP
+                        ssl: false
+                    });
+                }
+
+                return this.accountspace_nb;
+            });
     }
 
     _get_bucket_namespace(name) {
@@ -79,18 +113,32 @@ class ObjectSDK {
             dbg.error('Failed to setup bucket namespace (fallback to no namespace)', err);
         }
         return {
-            ns: this.nb,
+            ns: this.namespace_nb,
             bucket,
             valid_until: time + NAMESPACE_CACHE_EXPIRY,
         };
     }
 
     _setup_merge_namespace(bucket) {
+        let rr = _.cloneDeep(bucket.namespace.read_resources);
+        let wr = this._setup_single_namespace(bucket.namespace.write_resource);
+        if (MULTIPART_NAMESPACES.includes(bucket.namespace.write_resource.endpoint_type)) {
+            const wr_index = rr.findIndex(r => _.isEqual(r, bucket.namespace.write_resource));
+            wr = new NamespaceMultipart(
+                this._setup_single_namespace(bucket.namespace.write_resource),
+                this.namespace_nb);
+            rr.splice(wr_index, 1, {
+                endpoint_type: 'MULTIPART',
+                ns: wr
+            });
+        }
+
         return new NamespaceMerge({
-            write_resource: this._setup_single_namespace(bucket.namespace.write_resource),
-            read_resources: _.map(bucket.namespace.read_resources,
-                ns_info => this._setup_single_namespace(ns_info)
-            )
+            write_resource: wr,
+            read_resources: _.map(rr, ns_info => (
+                ns_info.endpoint_type === 'MULTIPART' ? ns_info.ns :
+                this._setup_single_namespace(ns_info)
+            ))
         });
     }
 
@@ -99,7 +147,7 @@ class ObjectSDK {
             if (ns_info.target_bucket) {
                 return new NamespaceNB(ns_info.target_bucket);
             } else {
-                return this.nb;
+                return this.namespace_nb;
             }
         }
         if (ns_info.endpoint_type === 'AWS' ||
@@ -122,11 +170,29 @@ class ObjectSDK {
                 connection_string: cloud_utils.get_azure_connection_string(ns_info),
             });
         }
+        // TODO: Should convert to cp_code and target_bucket as folder inside
+        // Did not do that yet because we do not understand how deep listing works
+        if (ns_info.endpoint_type === 'NET_STORAGE') {
+            return new NamespaceNetStorage({
+                // This is the endpoint
+                hostname: ns_info.endpoint,
+                // This is the access key
+                keyName: ns_info.access_key,
+                // This is the secret key
+                key: ns_info.secret_key,
+                // Should be the target bucket regarding the S3 storage
+                cpCode: ns_info.target_bucket,
+                // Just used that in order to not handle certificate mess
+                // TODO: Should I use SSL with HTTPS instead of HTTP?
+                ssl: false
+            });
+        }
         throw new Error('Unrecognized namespace endpoint type ' + ns_info.endpoint_type);
     }
 
     set_auth_token(auth_token) {
         this.rpc_client.options.auth_token = auth_token;
+        this.accountspace_nb.set_auth_token(auth_token);
     }
 
     get_auth_token() {
@@ -138,19 +204,23 @@ class ObjectSDK {
     ////////////
 
     list_buckets() {
-        return this.rpc_client.bucket.list_buckets();
+        return this._get_account_namespace()
+            .then(ns => ns.list_buckets());
     }
 
     read_bucket(params) {
-        return this.rpc_client.bucket.read_bucket(params);
+        return this._get_account_namespace()
+            .then(ns => ns.read_bucket(params));
     }
 
     create_bucket(params) {
-        return this.rpc_client.bucket.create_bucket(params);
+        return this._get_account_namespace()
+            .then(ns => ns.create_bucket(params));
     }
 
     delete_bucket(params) {
-        return this.rpc_client.bucket.delete_bucket(params);
+        return this._get_account_namespace()
+            .then(ns => ns.delete_bucket(params));
     }
 
     //////////////////////
@@ -158,15 +228,18 @@ class ObjectSDK {
     //////////////////////
 
     get_bucket_lifecycle_configuration_rules(params) {
-        return this.rpc_client.bucket.get_bucket_lifecycle_configuration_rules(params);
+        return this._get_account_namespace()
+            .then(ns => ns.get_bucket_lifecycle_configuration_rules(params));
     }
 
     set_bucket_lifecycle_configuration_rules(params) {
-        return this.rpc_client.bucket.set_bucket_lifecycle_configuration_rules(params);
+        return this._get_account_namespace()
+            .then(ns => ns.set_bucket_lifecycle_configuration_rules(params));
     }
 
     delete_bucket_lifecycle(params) {
-        return this.rpc_client.bucket.delete_bucket_lifecycle(params);
+        return this._get_account_namespace()
+            .then(ns => ns.delete_bucket_lifecycle(params));
     }
 
     ////////////////////////
@@ -174,11 +247,13 @@ class ObjectSDK {
     ////////////////////////
 
     set_bucket_replication(params) {
-        return this.rpc_client.bucket.set_cloud_sync(params);
+        return this._get_account_namespace()
+            .then(ns => ns.set_cloud_sync(params));
     }
 
     delete_bucket_replication(params) {
-        return this.rpc_client.bucket.delete_cloud_sync(params);
+        return this._get_account_namespace()
+            .then(ns => ns.delete_cloud_sync(params));
     }
 
     /////////////////

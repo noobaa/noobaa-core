@@ -23,7 +23,8 @@ export default {
                 enum: [
                     'AWS',
                     'AZURE',
-                    'S3_COMPATIBLE'
+                    'S3_COMPATIBLE',
+                    'NET_STORAGE'                    
                 ]
             },
             target: {

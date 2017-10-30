@@ -82,6 +82,11 @@ function init_cluster() {
 
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
+    if (add_member_in_process) {
+        throw new Error('Already in process of adding a member to the cluster');
+    }
+    add_member_in_process = true;
+
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
 
@@ -91,15 +96,15 @@ function add_member_to_cluster(req) {
                 .finally(() => {
                     add_member_in_process = false;
                 });
+        })
+        .catch(err => {
+            dbg.error(`got error on pre_add_member_to_cluster:`, err);
+            add_member_in_process = false;
+            throw err;
         });
 }
 
 function pre_add_member_to_cluster(req) {
-    if (add_member_in_process) {
-        throw new Error('Aleady in process of adding a member to the cluster');
-    }
-    add_member_in_process = true;
-
     const topology = cutil.get_topology();
     const is_clusterized = topology.is_clusterized;
     let my_address;

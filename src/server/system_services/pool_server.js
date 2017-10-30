@@ -124,13 +124,14 @@ function create_hosts_pool(req) {
 function create_namespace_resource(req) {
     const name = req.rpc_params.name;
     const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
-    const namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, {
+    const namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
         endpoint: connection.endpoint,
         target_bucket: req.rpc_params.target_bucket,
         access_key: connection.access_key,
+        cp_code: connection.cp_code || undefined,
         secret_key: connection.secret_key,
         endpoint_type: connection.endpoint_type || 'AWS'
-    });
+    }, _.isUndefined));
 
     const already_used_by = cloud_utils.get_used_cloud_targets(namespace_resource.connection.endpoint_type,
             system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
@@ -445,7 +446,7 @@ function get_pool_history(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-// TODO: JEN notice that does not include pools in disabled tiers
+// TODO: Notice that does not include pools in disabled tiers
 // What should we do in that case? Shall we delete the pool or not?
 function get_associated_buckets_int(pool) {
     var associated_buckets = _.filter(pool.system.buckets_by_name, function(bucket) {
@@ -531,28 +532,30 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
 }
 
 function get_namespace_resource_info(namespace_resource) {
-    const info = {
+    const info = _.omitBy({
         name: namespace_resource.name,
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,
+        cp_code: namespace_resource.connection.cp_code || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         identity: namespace_resource.connection.access_key,
         mode: 'OPTIMAL',
         undeletable: check_namespace_resource_deletion(namespace_resource)
-    };
+    }, _.isUndefined);
 
     return info;
 }
 
 function get_namespace_resource_extended_info(namespace_resource) {
-    const info = {
+    const info = _.omitBy({
         name: namespace_resource.name,
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,
+        cp_code: namespace_resource.connection.cp_code || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         access_key: namespace_resource.connection.access_key,
         secret_key: namespace_resource.connection.secret_key
-    };
+    }, _.isUndefined);
 
     return info;
 }

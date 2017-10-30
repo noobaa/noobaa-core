@@ -282,9 +282,12 @@ module.exports = {
                     secret: {
                         type: 'string'
                     },
+                    cp_code: {
+                        type: 'string'
+                    },
                     endpoint_type: {
                         type: 'string',
-                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
                     }
 
                 }
@@ -311,9 +314,13 @@ module.exports = {
                         type: 'string'
                     },
 
+                    cp_code: {
+                        type: 'string'
+                    },
+
                     endpoint_type: {
                         type: 'string',
-                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
                     }
                 }
             },
@@ -444,9 +451,12 @@ module.exports = {
                                     identity: {
                                         type: 'string'
                                     },
+                                    cp_code: {
+                                        type: 'string'
+                                    },
                                     endpoint_type: {
                                         type: 'string',
-                                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
                                     },
                                     usage: {
                                         type: 'array',

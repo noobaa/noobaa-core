@@ -18,6 +18,12 @@ const serviceToMeta = deepFreeze({
         subject: 'Bucket',
         icon: 'cloud-resource-dark',
         selectedIcon: 'cloud-resource-colored'
+    },
+    NET_STORAGE: {
+        displayName: 'Net Storage service',
+        subject: 'Bucket',
+        icon: 'cloud-resource-dark',
+        selectedIcon: 'cloud-resource-colored'
     }
 });
 

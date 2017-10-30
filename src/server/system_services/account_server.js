@@ -24,6 +24,7 @@ const mongo_utils = require('../../util/mongo_utils');
 const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const azure_storage = require('../../util/azure_storage_wrap');
+const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 
 
 const demo_access_keys = Object.freeze({
@@ -580,7 +581,10 @@ function add_external_connection(req) {
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
     info.secret_key = req.rpc_params.secret;
+    info.cp_code = req.rpc_params.cp_code || undefined;
+    info = _.omitBy(info, _.isUndefined);
 
+    // TODO: Maybe we should check differently regarding NET_STORAGE connections
     //Verify the exact connection does not exist
     let conn = _.find(req.account.sync_credentials_cache, function(cred) {
         return cred.endpoint === req.rpc_params.endpoint &&
@@ -647,6 +651,11 @@ function check_external_connection(req) {
                 case 'S3_COMPATIBLE':
                     {
                         return check_aws_connection(params);
+                    }
+
+                case 'NET_STORAGE':
+                    {
+                        return check_net_storage_connection(params);
                     }
 
                 default:
@@ -723,6 +732,17 @@ const aws_error_mapping = Object.freeze({
     RequestTimeTooSkewed: 'TIME_SKEW'
 });
 
+const net_storage_error_mapping = Object.freeze({
+    OperationTimeout: 'TIMEOUT',
+    UnknownEndpoint: 'INVALID_ENDPOINT',
+    NetworkingError: 'INVALID_ENDPOINT',
+    XMLParserError: 'INVALID_ENDPOINT',
+    InvalidAccessKeyId: 'INVALID_CREDENTIALS',
+    SignatureDoesNotMatch: 'INVALID_CREDENTIALS',
+    RequestTimeTooSkewed: 'TIME_SKEW'
+});
+
+
 function check_aws_connection(params) {
     const s3 = new AWS.S3({
         endpoint: params.endpoint,
@@ -755,9 +775,44 @@ function check_aws_connection(params) {
         );
 }
 
+function check_net_storage_connection(params) {
+    const ns = new NetStorage({
+        hostname: params.endpoint,
+        keyName: params.identity,
+        key: params.secret,
+        cpCode: params.cp_code,
+        // Just used that in order to not handle certificate mess
+        // TODO: Should I use SSL with HTTPS instead of HTTP?
+        ssl: false
+    });
+
+    const timeoutError = Object.assign(
+        new Error('Operation timeout'), { code: 'OperationTimeout' }
+    );
+
+    // TODO: Shall I use any other method istead of listing the root cpCode dir?
+    return P.fromCallback(callback => ns.dir(params.cp_code, callback))
+        .timeout(check_connection_timeout, timeoutError)
+        .then(
+            ret => ({ status: 'SUCCESS' }),
+            err => {
+                dbg.warn(`got error on dir with params`, params, ` error: ${err}`, err.message);
+                const status = net_storage_error_mapping[err.code] || 'UNKNOWN_FAILURE';
+                return {
+                    status,
+                    error: {
+                        code: err.code,
+                        message: err.message
+                    }
+                };
+            }
+        );
+}
+
 function delete_external_connection(req) {
     var params = _.pick(req.rpc_params, 'connection_name');
     let account = req.account;
+
     let connection_to_delete = cloud_utils.find_cloud_connection(account, params.connection_name);
 
     if (_.find(system_store.data.buckets, bucket => (
@@ -863,13 +918,14 @@ function get_account_info(account, include_connection_cache) {
     };
 
     if (!_.isUndefined(include_connection_cache) && include_connection_cache) {
-        external_connections.connections = credentials_cache.map(credentials => ({
+        external_connections.connections = credentials_cache.map(credentials => (_.omitBy({
             name: credentials.name,
             endpoint: credentials.endpoint,
             identity: credentials.access_key,
+            cp_code: credentials.cp_code || undefined,
             endpoint_type: credentials.endpoint_type,
             usage: _list_connection_usage(account, credentials)
-        }));
+        }, _.isUndefined)));
     } else {
         external_connections.connections = [];
     }

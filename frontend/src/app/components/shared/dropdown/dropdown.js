@@ -21,7 +21,7 @@ class DropdownViewModel {
         hasFocus = false,
         loading = false,
         invalid,
-        emptyMessage = 'Empty'
+        emptyMessage
     }) {
         this.name = randomString(5);
 
@@ -82,13 +82,17 @@ class DropdownViewModel {
         );
         this.emptyMessage = ko.pureComputed(
             () => {
-                if (ko.unwrap(loading) || this.options().length !== 0) {
-                    return null;
-                }
+                const naked = ko.deepUnwrap(emptyMessage) || {};
+                const { text = naked, isError = false } = naked;
 
-                return ko.unwrap(emptyMessage);
+                return {
+                    visible: !ko.unwrap(loading) && text && this.options().length === 0,
+                    text: text,
+                    css: isError ? 'error' : ''
+                };
             }
         );
+
         this.isOptionsVisible = ko.pureComputed(
             () => this.options().length && !ko.unwrap(loading)
         );

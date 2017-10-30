@@ -15,7 +15,7 @@ import style from 'style';
 const columns = deepFreeze([
     {
         name: 'fileName',
-        type: 'newLink'
+        type: 'fileName'
     },
     'bucketName',
     'size',

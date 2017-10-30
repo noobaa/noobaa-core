@@ -23,7 +23,8 @@ import {
     COMPLETE_DELETE_BUCKET,
     COMPLETE_CREATE_GATEWAY_BUCKET,
     COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT,
-    COMPLETE_DELETE_GATEWAY_BUCKET
+    COMPLETE_DELETE_GATEWAY_BUCKET,
+    COMPLETE_RETRUST_HOST
 } from 'action-types';
 
 export default function(action$) {
@@ -50,7 +51,8 @@ export default function(action$) {
             COMPLETE_DELETE_BUCKET,
             COMPLETE_CREATE_GATEWAY_BUCKET,
             COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT,
-            COMPLETE_DELETE_GATEWAY_BUCKET
+            COMPLETE_DELETE_GATEWAY_BUCKET,
+            COMPLETE_RETRUST_HOST
         )
         .map(() => refreshLocation());
 }

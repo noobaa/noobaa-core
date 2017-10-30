@@ -59,8 +59,11 @@
                 </label>
             </li>
         </ul>
-        <div class="empty-message" ko.visible="emptyMessage">
-            {{emptyMessage}}
+        <div class="empty-dropdown"
+            ko.css="emptyMessage().css"
+            ko.visible="emptyMessage().visible"
+        >
+            {{emptyMessage().text}}
         </div>
     </div>
 </div>

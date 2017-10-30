@@ -24,6 +24,7 @@
                 disabled: !form.connection(),
                 loading: fetchingTargets,
                 placeholder: 'Choose Bucket',
+                emptyMessage: loadTargetsEmptyMessage,
                 invalid: form.target.isInvalidTouched
             "></dropdown>
             <validation-message params="field: form.target"></validation-message>

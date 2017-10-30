@@ -13,12 +13,13 @@ import page from 'page';
 import configureRouter from 'routing';
 import { action$, state$ } from 'state';
 import { api, AWS } from 'services';
-import { restoreSession } from 'action-creators';
+import { restoreSession, setupEnv } from 'action-creators';
 import devCLI from 'dev-cli';
 import actionsModelBridge from 'actions-model-bridge';
 import rootEpic from 'epics';
 import installStateSideEffects from 'state-side-effects';
 import { downloadFile } from 'utils/browser-utils';
+import { recognizeBrowser } from 'utils/browser-utils';
 
 function configureKnockout(ko) {
     // Enable knockout 3.4 deferred updates.
@@ -77,6 +78,7 @@ global.nb = devCLI;
 // Bind the ui to the
 ko.applyBindings(null);
 
+action$.onNext(setupEnv(recognizeBrowser()));
 action$.onNext(restoreSession());
 
 

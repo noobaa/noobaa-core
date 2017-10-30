@@ -96,9 +96,14 @@ dropdown {
         border-color: @color6;
     }
 
-    .empty-message {
-        padding-left: @gutter/2;
+    .empty-dropdown {
+        text-align: center;
         position: relative;
+        font-size: @font-size1;
         color: @color7;
+
+        &.error {
+            .error()
+        }
     }
 }

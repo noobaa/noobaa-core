@@ -6,9 +6,9 @@
             <h3 class="heading3 greedy">Daemon Information</h3>
             <button class="btn"
                 ko.click="onRetrust"
-                ko.disable="isTrusted"
-                ko.tooltip="retrustTooltip">
-                Retrust
+                ko.visible="isRetrustButtonVisible"
+            >
+                Set As Trusted
             </button>
         </div>
         <property-sheet class="pad" params="

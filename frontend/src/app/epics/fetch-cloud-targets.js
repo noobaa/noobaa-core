@@ -10,7 +10,6 @@ export default  function(action$, { api }) {
             try {
                 const response = await api.bucket.get_cloud_buckets({ connection });
                 return completeFetchCloudTargets(connection, response);
-
             } catch (error) {
                 return failFetchCloudTargets(connection,  error);
             }

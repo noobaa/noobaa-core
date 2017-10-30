@@ -30,6 +30,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
         this.existingNames = null;
         this.nameRestrictionList = ko.observableArray();
         this.myConnectionsHref = ko.observable();
+        this.loadTargetsEmptyMessage = ko.observable();
         this.form = new FormViewModel({
             name: formName,
             fields: {
@@ -126,6 +127,13 @@ class CreateNamespaceResourceModalViewModel extends Observer {
             { system, account: user, tab: 'connections' }
         );
 
+        const selectedConnection = externalConnections.find(con => con.name === connection.value);
+        const connectionSubject = selectedConnection ? getCloudServiceMeta(selectedConnection.service).subject : '';
+        const loadTargetsEmptyMessage = cloudTargets.error ?
+            { text: 'Loading failed', isError: true } :
+            { text: `No ${connectionSubject.toLowerCase()}s found`, isError: false };
+
+        this.loadTargetsEmptyMessage(loadTargetsEmptyMessage);
         this.connectionOptions(connectionOptions);
         this.fetchingTargets(fetchingTargets);
         this.targetOptions(targetOptions);

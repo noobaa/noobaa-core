@@ -11,7 +11,6 @@ import moment from 'moment';
 import numeral from 'numeral';
 import { retrustHost } from 'action-creators';
 
-const retrustTooltip = 'Retrust';
 const protocolMapping = deepFreeze({
     UNKNOWN: 'Unknown',
     TCP: 'TCP',
@@ -66,7 +65,6 @@ class HostDetailsFormViewModel extends Observer {
     constructor({ name }) {
         super();
 
-        this.retrustTooltip = retrustTooltip;
         this.hostLoaded = ko.observable(false);
         this.name = ko.observable();
         this.version = ko.observable();
@@ -121,7 +119,7 @@ class HostDetailsFormViewModel extends Observer {
         this.os = ko.observable();
         this.cpus = ko.observable();
         this.memory = ko.observable();
-        this.isTrusted = ko.observable();
+        this.isRetrustButtonVisible = ko.observable();
         this.systemInfo = [
             {
                 label: 'Host Name',
@@ -152,7 +150,7 @@ class HostDetailsFormViewModel extends Observer {
 
     onHost(host) {
         if (!host) {
-            this.isTrusted(true);
+            this.isRetrustButtonVisible(false);
             return;
         }
 
@@ -179,7 +177,7 @@ class HostDetailsFormViewModel extends Observer {
         this.os(os);
         this.cpus(cpusInfo);
         this.memory(_getMemoryInfo(host));
-        this.isTrusted(host.trusted);
+        this.isRetrustButtonVisible(!host.trusted);
     }
 
     onRetrust() {

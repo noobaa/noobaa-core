@@ -1,20 +1,34 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './prefered-browsers-sticky.html';
+import Observer from 'observer';
 import ko from 'knockout';
-import { recognizeBrowser } from 'utils/browser-utils';
+import { state$, action$ } from 'state';
 import { preferdBrowsers } from 'config';
+import {
+    dismissBrowserSticky
+} from 'action-creators';
 
-class PreferedBrowsersStickyViewModel {
+class PreferedBrowsersStickyViewModel extends Observer {
     constructor() {
-        this.isHidden = ko.observable();
-        this.isActive = ko.pureComputed(
-            () => Boolean(!preferdBrowsers.includes(recognizeBrowser()) && !this.isHidden())
-        );
+        super();
+
+        this.isActive = ko.observable();
+
+        this.observe(state$.get('env'), this.onEnv);
+    }
+
+    onEnv(env) {
+        if(!env) return;
+
+        const { browser, isBrowserStickyDismissed } = env;
+        const isActive = !preferdBrowsers.includes(browser) && !isBrowserStickyDismissed;
+
+        this.isActive(isActive);
     }
 
     onClose() {
-        this.isHidden(true);
+        action$.onNext(dismissBrowserSticky());
     }
 }
 

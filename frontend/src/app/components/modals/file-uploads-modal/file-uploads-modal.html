@@ -23,7 +23,23 @@
     columns: columns,
     data: rows,
     emptyMessage: 'No upload transactions'
-"></data-table>
+">
+    <template name="fileName">
+        <!-- ko ifnot: $data().href  -->
+        <span class="remark"
+           ko.text="$data().text"
+           ko.tooltip="$data().tooltip"
+        ></span>
+        <!-- /ko -->
+        <!-- ko if: $data().href -->
+        <a class="link"
+           ko.attr.href="$data().href"
+           ko.text="$data().text"
+           ko.tooltip="$data().tooltip"
+        ></a>
+        <!-- /ko -->
+    </template>
+</data-table>
 
 <section class="alt-bg summary row push-next content-middle">
     <span class="row success push-next content-middle">
@@ -43,7 +59,6 @@
         <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
         <span>Uploading {{uploading}}</span>
     </span>
-
 
     <span class="file-counter content-middle" ko.text="countText">
     </span>

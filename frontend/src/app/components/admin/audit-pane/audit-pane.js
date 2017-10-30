@@ -41,11 +41,13 @@ class AuditPaneViewModel extends BaseViewModel {
         this.columns = columns;
         this.entries = auditLog;
         this.isLoading = false;
-        this.entries.subscribe(
-            () => {
-                this.scroll(1 - pageSize/this.entries().length);
-                this.isLoading = false;
-            }
+        this.addToDisposeList(
+            this.entries.subscribe(
+                () => {
+                    this.scroll(1 - pageSize/this.entries().length);
+                    this.isLoading = false;
+                }
+            )
         );
 
         let _scroll = ko.observable(0);

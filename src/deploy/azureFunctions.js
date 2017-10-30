@@ -22,7 +22,7 @@ const DEV_ACTIVATION_KEY = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +
     "3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd";
 
-const NOOBAA_IMAGE = 'https://jenkinsnoobaastorage.blob.core.windows.net/staging-vhds/noobaa2-test3.vhd';
+const NOOBAA_IMAGE = 'https://jenkinsnoobaastorage.blob.core.windows.net/staging-vhds/noobaa2-test4.vhd';
 
 const system = {
     name: 'demo',

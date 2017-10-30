@@ -15,11 +15,13 @@ const base_diagnostics = require('../util/base_diagnostics');
 const TMP_WORK_DIR = base_diagnostics.get_tmp_workdir();
 
 function collect_agent_diagnostics(storage_path) {
-    const diag_log = fs.createWriteStream(path.join(TMP_WORK_DIR, 'agent_diagnostics.log'));
+    let diag_log;
 
     //mkdir c:\tmp ?
     return base_diagnostics.prepare_diag_dir()
         .then(function() {
+            diag_log = fs.createWriteStream(path.join(TMP_WORK_DIR, 'agent_diagnostics.log'))
+                .on('error', err => console.error('ERROR in agent_diagnostics.log', err));
             return base_diagnostics.collect_basic_diagnostics()
                 .catch(err => {
                     diag_log.write(`failed collecting basic diagnostics. ${err.message}`);

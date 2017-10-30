@@ -152,6 +152,18 @@ config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
 config.CHUNK_CODER_EC_PARITY_TYPE = 'isa-c1';
 
 //////////////////////
+// DEDUP INDEXER CONFIG //
+//////////////////////
+config.DEDUP_INDEXER_ENABLED = true;
+config.DEDUP_INDEXER_BATCH_SIZE = 200;
+config.DEDUP_INDEXER_BATCH_DELAY = 50;
+config.DEDUP_INDEXER_ERROR_DELAY = 3000;
+config.DEDUP_INDEXER_RESTART_DELAY = 30000;
+config.DEDUP_INDEXER_IGNORE_BACK_TIME = 7 * 24 * 60 * 60 * 1000; // dedup indexer will ignore dedup keys from the last week
+config.DEDUP_INDEXER_LOW_KEYS_NUMBER = 8 * 1000000; // 8M keys max in index ~ 1.5GB
+config.DEDUP_INDEXER_CHECK_INDEX_CYCLE = 60000;
+
+//////////////////////
 // LIFECYCLE CONFIG //
 //////////////////////
 

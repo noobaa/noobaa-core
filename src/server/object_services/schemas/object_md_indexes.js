@@ -51,7 +51,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                create_time: { $exists: true }
+            }
         }
     },
     {
@@ -61,7 +63,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                deleted: { $exists: true }
+            }
         }
     }
 ];

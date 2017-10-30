@@ -7,7 +7,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                dedup_key: { $exists: true }
+            }
         }
     },
     {
@@ -17,7 +19,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                deleted: { $exists: true }
+            }
         }
     }
 ];

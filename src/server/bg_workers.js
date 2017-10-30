@@ -38,13 +38,15 @@ var usage_aggregator = require('./bg_services/usage_aggregator');
 var md_aggregator = require('./bg_services/md_aggregator');
 var background_scheduler = require('../util/background_scheduler').get_instance();
 var stats_collector = require('./bg_services/stats_collector');
+var dedup_indexer = require('./bg_services/dedup_indexer');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
     'cloud_sync_refresher',
     'system_server_stats_aggregator',
     'md_aggregator',
-    'usage_aggregator'
+    'usage_aggregator',
+    'dedup_indexer'
 ];
 
 dbg.set_process_name('BGWorkers');
@@ -114,6 +116,14 @@ function run_master_workers() {
         }, scrubber.background_worker);
     } else {
         dbg.warn('SCRUBBER NOT ENABLED');
+    }
+
+    if (config.DEDUP_INDEXER_ENABLED) {
+        register_bg_worker({
+            name: 'dedup_indexer',
+        }, dedup_indexer.background_worker);
+    } else {
+        dbg.warn('DEDUP INDEXER NOT ENABLED');
     }
 
     if (config.LIFECYCLE_DISABLED !== 'true') {

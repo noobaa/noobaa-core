@@ -589,6 +589,18 @@ class MDStore {
             });
     }
 
+    find_parts_chunks_references(chunk_ids) {
+        return this._parts.col().find({
+                chunk: { $in: chunk_ids },
+                deleted: null,
+            })
+            .toArray()
+            .then(parts => {
+                const parts_by_chunk_id = _.groupBy(parts, 'chunk');
+                return parts_by_chunk_id;
+            });
+    }
+
     load_parts_objects_for_chunks(chunks) {
         let parts;
         let objects;
@@ -811,6 +823,50 @@ class MDStore {
                 cloud_synced: false
             },
         });
+    }
+
+    get_dedup_index_size() {
+        return this._chunks.col().stats()
+            .then(res => res.indexSizes.dedup_key_1);
+    }
+
+    get_aprox_dedup_keys_number() {
+        // This function estimates the number of items in the dedup index - it does it by sample 10K chunks - and check how much of them are deduped
+        // and then calculates the aproximate number of the total indexed dedup chunks - this was the fastest soultion we found
+        // both iterating over the chunks and running a query over all the chunks was too lengthy operations.
+        const sample_size = 10000;
+        return P.join(
+                this._chunks.col().count(),
+                this._chunks.col().aggregate([
+                    { $sample: { size: sample_size } },
+                    { $match: { dedup_key: { $exists: true } } },
+                    { $count: "count" }
+                ]).toArray()
+            )
+            .then(([total_count, sample_items]) => {
+                if (!sample_items.length) return total_count;
+                return Math.floor(sample_items[0].count * total_count / sample_size);
+            });
+    }
+
+    iterate_indexed_chunks(limit, marker) {
+        return this._chunks.col().find({
+                dedup_key: marker ? { $lt: marker } : { $exists: true }
+            }, {
+                fields: {
+                    _id: 1,
+                    dedup_key: 1
+                },
+                sort: {
+                    dedup_key: -1
+                },
+                limit: limit,
+            })
+            .toArray()
+            .then(chunks => ({
+                chunk_ids: mongo_utils.uniq_ids(chunks, '_id'),
+                marker: chunks.length ? chunks[chunks.length - 1].dedup_key : null,
+            }));
     }
 
     ////////////

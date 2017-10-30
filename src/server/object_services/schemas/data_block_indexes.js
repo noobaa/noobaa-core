@@ -10,7 +10,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                chunk: { $exists: true }
+            }
         }
     },
     {
@@ -22,7 +24,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                node: { $exists: true }
+            }
         }
     },
     {
@@ -31,7 +35,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                deleted: { $exists: true }
+            }
         }
     }
 ];

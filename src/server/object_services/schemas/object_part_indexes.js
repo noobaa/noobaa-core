@@ -13,7 +13,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                obj: { $exists: true },
+            }
         }
     },
     {
@@ -22,7 +24,9 @@ module.exports = [{
         },
         options: {
             unique: false,
-            sparse: true,
+            partialFilterExpression: {
+                chunk: { $exists: true },
+            }
         }
     },
 ];

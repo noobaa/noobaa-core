@@ -213,6 +213,11 @@ mocha.describe('md_store', function() {
             return md_store.find_parts_unreferenced_chunk_ids(chunk_ids);
         });
 
+        mocha.it('find_parts_chunks_references()', function() {
+            const chunk_ids = _.map(parts, 'chunk');
+            return md_store.find_parts_chunks_references(chunk_ids);
+        });
+
         mocha.it('load_parts_objects_for_chunks()', function() {
             const chunks = _.map(parts, part => ({
                 _id: part.chunk
@@ -312,6 +317,22 @@ mocha.describe('md_store', function() {
 
 
     });
+
+    mocha.describe('dedup-index', function() {
+        mocha.it('get_dedup_index_size()', function() {
+            return md_store.get_dedup_index_size();
+        });
+
+        mocha.it('get_aprox_dedup_keys_number()', function() {
+            return md_store.get_aprox_dedup_keys_number();
+        });
+
+        mocha.it('iterate_indexed_chunks()', function() {
+            return md_store.iterate_indexed_chunks(5);
+        });
+    });
+
+
 
 
 });

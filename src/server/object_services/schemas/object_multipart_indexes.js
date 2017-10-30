@@ -8,6 +8,8 @@ module.exports = [{
     },
     options: {
         unique: false,
-        sparse: true,
+        partialFilterExpression: {
+            obj: { $exists: true },
+        }
     }
 }];

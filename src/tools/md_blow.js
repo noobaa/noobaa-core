@@ -59,7 +59,8 @@ function blow_object(index) {
             return blow_parts(params);
         })
         .then(() => {
-            let complete_params = _.pick(params, 'bucket', 'key', 'obj_id');
+            let complete_params = _.pick(params, 'bucket', 'key', 'size', 'obj_id');
+            complete_params.etag = 'bla';
             dbg.log0('complete_object_upload', params.key);
             return client.object.complete_object_upload(complete_params);
         });
@@ -80,7 +81,7 @@ function blow_parts(params) {
                     compress_size: argv.chunk_size,
                     data_frags: 1,
                     lrc_frags: 0,
-                    digest_type: '',
+                    digest_type: 'sha384',
                     digest_b64: crypto.randomBytes(16).toString('base64'),
                     cipher_type: '',
                     cipher_key_b64: '',
@@ -88,7 +89,7 @@ function blow_parts(params) {
                         size: argv.chunk_size,
                         layer: 'D',
                         frag: 0,
-                        digest_type: '',
+                        digest_type: 'sha384',
                         digest_b64: crypto.randomBytes(16).toString('base64'),
                     }]
                 }

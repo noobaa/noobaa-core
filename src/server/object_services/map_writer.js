@@ -69,6 +69,7 @@ function finalize_object_parts(bucket, obj, parts) {
                 _id: chunk_id,
                 system: obj.system,
                 bucket: bucket._id,
+                dedup_key: part.chunk.digest_b64,
             }, _.pick(part.chunk,
                 'size',
                 'digest_type',

@@ -124,12 +124,12 @@ class PoolSummaryViewModel extends Observer {
         }
 
         { // Update pool stroage and usage
-            const { total, free, unavailable_free, used, used_other, reserved } = storage;
+            const { total, free, unavailableFree, used, usedOther, reserved } = storage;
             this.totalCapacity(formatSize(total));
             this.availableCapacity(toBytes(free));
-            this.unavailableCapacity(toBytes(unavailable_free));
+            this.unavailableCapacity(toBytes(unavailableFree));
             this.usedByNoobaaCapacity(toBytes(used));
-            this.usedByOthersCapacity(toBytes(used_other));
+            this.usedByOthersCapacity(toBytes(usedOther));
             this.reservedCapacity(toBytes(reserved));
         }
 

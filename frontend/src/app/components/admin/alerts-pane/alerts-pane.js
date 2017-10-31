@@ -42,7 +42,7 @@ class AlertsPaneViewModel extends Observer {
         this.unreadOnlyFilter = ko.observable();
         this.scroll = ko.observable();
         this.unreadCheckboxLabel = ko.observable();
-        
+
         ko.group(this.severityFilter, this.unreadOnlyFilter)
             .subscribe(() => this.onFilter());
 

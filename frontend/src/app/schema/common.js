@@ -46,3 +46,8 @@ export const storage = {
         }
     }
 };
+
+export const serviceCheckResult = {
+    type: 'string',
+    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+};

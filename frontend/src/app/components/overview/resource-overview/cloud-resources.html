@@ -1,0 +1,25 @@
+<p class="row contnet-middle push-next">
+    <span class="highlight push-next-half">Cloud Storage:</span>
+    {{cloudResourceCount}}
+
+    <vr class="push-both"></vr>
+
+    <span class="highlight push-next-half">Services:</span>
+    {{cloudServiceCount}}
+</p>
+
+<chart-legend params="items: cloudCounters"></chart-legend>
+
+<pie-chart class="align-middle push-both-half" params="
+    values: cloudCounters,
+    primaryText: cloudResourceCount,
+    secondaryText: 'cloud resources'
+"></pie-chart>
+
+<p class="greedy push-next align-middle highlight">
+    Estimated Cloud Storage: {{cloudCapacity}}
+    </p>
+
+<button class="btn overview-btn" ko.click="onAddCloudResource">
+    Add Cloud Resource
+</button>

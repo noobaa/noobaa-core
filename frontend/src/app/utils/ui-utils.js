@@ -1,9 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { deepFreeze, isFunction, isUndefined } from './core-utils';
-import { toBytes, formatSize } from './size-utils';
 import { getHostsPoolStateIcon } from './resource-utils';
-import numeral from 'numeral';
 
 const resourceStateIconMapping = deepFreeze({
     OPTIMAL: {
@@ -112,54 +110,6 @@ export function getResourceTypeIcon({ resource_type, cloud_info }) {
     return resourceTypeIconMapping[type()];
 }
 
-export function getSystemStorageIcon(storage) {
-    const total = toBytes(storage.total);
-    const free = toBytes(storage.free);
-
-    if (total === 0) {
-        return {
-            name: 'problem',
-            css: 'disabled',
-            tooltip: 'No system storage - add nodes or cloud resources'
-        };
-
-    } else if (free < Math.pow(1024, 2)) { // 1MB
-        return {
-            name: 'problem',
-            css: 'error',
-            tooltip: 'No free storage left'
-        };
-
-    } else {
-        const ratio = free / total;
-        const tooltip = `${
-                numeral(free / total).format('%')
-            } free storage left (${
-                formatSize(free)
-            } of ${
-                formatSize(total)
-            })`;
-
-        return {
-            name: ratio <= .2 ? 'problem' : 'healthy',
-            css: ratio <= .2 ? 'warning' : 'success',
-            tooltip: tooltip
-        };
-    }
-}
-
-export function getNodeCapacityBarValues(node) {
-    const { storage = {} } = node;
-    const { total, used, used_other, reserved } = storage;
-    const usage = [
-        { value: used, label: 'Used (Noobaa)' },
-        { value: used_other, label: 'Used (other)' },
-        { value: reserved, label: 'Reserved' }
-    ];
-
-    return { total, used: usage };
-}
-
 export function getPoolCapacityBarValues(resource) {
     const { storage = {} } = resource;
     const { total, used, used_other, reserved } = storage;
@@ -178,20 +128,4 @@ export function getPoolCapacityBarValues(resource) {
     }
 
     return { total, used: usage };
-}
-
-export function countNodesByState(modeCoutners) {
-    return Object.entries(modeCoutners).reduce(
-        (counters, [key, value]) => {
-            counters.all += value;
-            if (key === 'OPTIMAL') {
-                counters.healthy += value;
-            } else if (key === 'OFFLINE') {
-                counters.offline += value;
-            } else {
-                counters.hasIssues += value;
-            }
-            return counters;
-        }, { all: 0, healthy: 0, offline: 0, hasIssues: 0 }
-    );
 }

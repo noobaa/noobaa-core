@@ -160,7 +160,3 @@ export function getQuotaValue(qouta) {
     const qoutaBigInt = toBigInteger(size).multiply(unitsInBytes[unit]);
     return fromBigInteger(qoutaBigInt);
 }
-
-export function get() {
-
-}

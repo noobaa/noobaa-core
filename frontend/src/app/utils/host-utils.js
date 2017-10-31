@@ -494,10 +494,10 @@ export function getHostAccessibilityIcon(host) {
 }
 
 export function getNodeOrHostCapacityBarValues({ storage }) {
-    const { total, used, used_other, reserved } = storage;
+    const { total, used, usedOther, reserved } = storage;
     const usage = [
         { value: used, label: 'Used (Noobaa)' },
-        { value: used_other, label: 'Used (other)' },
+        { value: usedOther, label: 'Used (other)' },
         { value: reserved, label: 'Reserved' }
     ];
     return { total, used: usage };

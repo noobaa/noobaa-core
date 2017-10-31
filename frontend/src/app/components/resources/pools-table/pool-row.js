@@ -81,10 +81,10 @@ export default class PoolRowViewModel {
         this.issuesCount(numeral(hasIssues).format('0,0'));
         this.offlineCount(numeral(offline).format('0,0'));
 
-        const { total, used, used_other, reserved } = storage;
+        const { total, used, usedOther, reserved } = storage;
         this.totalCapacity(total);
         this.usedByNoobaaCapacity(used);
-        this.usedByOthersCapacity(used_other);
+        this.usedByOthersCapacity(usedOther);
         this.reservedCapacity(reserved);
 
         this.deleteButton.id(name);

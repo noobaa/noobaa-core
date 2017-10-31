@@ -117,12 +117,12 @@ class HostSummaryViewModel extends Observer {
         }
 
         { // Update host stroage and usage
-            const { free, unavailable_free, used, used_other, reserved, total } = host.storage;
+            const { free, unavailableFree, used, usedOther, reserved, total } = host.storage;
 
             this.availableCapacity(toBytes(free));
-            this.unavailableCapacity(toBytes(unavailable_free));
+            this.unavailableCapacity(toBytes(unavailableFree));
             this.usedByNoobaaCapacity(toBytes(used));
-            this.usedByOthersCapacity(toBytes(used_other));
+            this.usedByOthersCapacity(toBytes(usedOther));
             this.reservedCapacity(toBytes(reserved));
             this.totalCapacity(formatSize(total));
         }

@@ -22,6 +22,8 @@ import topologyReducer from './topology-reducer';
 import hostPartsReducer from './host-parts-reducer';
 import cloudTargetsReducer from './cloud-targets-reducer';
 import bucketObjectsReducer from './bucket-objects-reducer';
+import storageHistoryReducer from './storage-history-reducer';
+import systemReducer from './system-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -44,5 +46,7 @@ export default combineReducers({
     objectUploads: objectUploadsReducer,
     topology: topologyReducer,
     cloudTargets: cloudTargetsReducer,
-    bucketObjects: bucketObjectsReducer
+    bucketObjects: bucketObjectsReducer,
+    storageHistory: storageHistoryReducer,
+    system: systemReducer
 });

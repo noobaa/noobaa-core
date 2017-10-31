@@ -331,3 +331,16 @@ export function hashCode(value) {
 export function omitUndefined(obj) {
     return mapValues(obj, echo, true);
 }
+
+export function normalizeValues(values, newSum = 1, minValue = 0) {
+    if (minValue * values.length > newSum) {
+        throw new Error('Invalid arguments, sum of min values is greater then new total');
+    }
+
+    const minRatio = minValue / newSum;
+    const threshold = sumBy(values) * minRatio;
+    const belowCount = sumBy(values, value => Number(0 < value && value <= threshold));
+    const aboveSum = sumBy(values, value => value > threshold ? value : 0);
+    const factor = (1 - belowCount * minRatio) / aboveSum;
+    return values.map(value => (value <= threshold ? minRatio : value * factor) * newSum);
+}

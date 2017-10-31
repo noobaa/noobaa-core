@@ -88,6 +88,9 @@ rm -f /tmp/node*
 rm -f /tmp/*.log
 rm -rf /tmp/npm-*
 
+#Clean /backup
+rm -rf /backup
+
 #Clean supervisors
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/node_modules/noobaa-core/.env

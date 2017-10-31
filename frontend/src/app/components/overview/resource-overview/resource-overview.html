@@ -1,84 +1,40 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="column greedy pad borders alt-bg">
-    <h2 class="row heading3 content-end">
+     <h2 class="row heading3 content-end">
         <span class="greedy">Storage Resources</span>
-        <a class="link" data-bind="
-            text: resourcesLinkText,
-            href: { route: 'resources', params: { tab: 'pools' } }
-        "></a>
+        <a class="link"
+            ko.text="resourcesLinkText"
+            ko.attr.href="resourcesLinkHref"
+        ></a>
+
     </h2>
     <hr>
-    <div class="row push-both">
-        <a class="column content-middle greedy" data-bind="
-                href: { route: 'resources', params: { tab: 'pools' } }
-            ">
-            <svg-icon class="resource-icon nodes-pool-icon"
-                params="name: 'nodes-pool'"
-                data-bind="tooltip: 'Nodes pool resources'"
-            ></svg-icon>
-            <span class="remark highlight" data-bind="text: nodePoolsCount"></span>
-        </a>
 
-        <a class="column content-middle greedy" data-bind="
-                href: {
-                    route: 'resources',
-                    params: { tab: 'cloud' },
-                    query: { resourceType: 'AWS' }
-                }
-            ">
-            <svg-icon class="resource-icon"
-                params="name: awsResourceIcon"
-                data-bind="tooltip: 'AWS S3 resources'"
-            ></svg-icon>
-            <span class="remark highlight" data-bind="text: awsResourceCount"></span>
-        </a>
+    <!-- ko ifnot: resourcesLoaded -->
+    <loading-indicator class="align-middle push-prev"></loading-indicator>
+    <!-- /ko -->
 
-        <a class="column content-middle greedy" data-bind="
-                href: {
-                    route: 'resources',
-                    params: { tab: 'cloud' },
-                    query: { resourceType: 'AZURE' }
-                }
-            ">
-            <svg-icon class="resource-icon"
-                params="name: azureResourceIcon"
-                data-bind="tooltip: 'Azure resources'"
-            ></svg-icon>
-            <span class="remark highlight" data-bind="text: azureResourceCount"></span>
-        </a>
-
-        <a class="column content-middle greedy" data-bind="
-                href: {
-                    route: 'resources',
-                    params: { tab: 'cloud' },
-                    query: { resourceType: 'S3_COMPATIBLE' }
-                }
-            ">
-            <svg-icon class="resource-icon"
-                params="name: genericResourceIcon"
-                data-bind="tooltip: 'S3 compatible resources'"
-            ></svg-icon>
-            <span class="remark highlight" data-bind="text: genericResourceCount"></span>
-        </a>
+    <!-- ko if: resourcesLoaded -->
+    <div class="row push-next content-middle">
+        <span class="greedy push-next">Types</span>
+        <toggle-filter params="
+            options: resourceTypes,
+            selected: ko.pc(selectedResourceType, onSelectResourceType, $component)
+        "></toggle-filter>
     </div>
-    <chart-legend class="nodes-legend" params="
-        items: chartValues,
-        caption: 'Nodes in Node Pools'
-    "></chart-legend>
-    <div class="nodes-chart column content-middle">
-        <pie-chart class="push-next" params="
-            values: chartValues,
-            primaryText: nodeCountText,
-            secondaryText: 'Total'
-        "></pie-chart>
 
-        <p class="remark highlight">
-            Total Nodes Capacity:
-            <span data-bind="text: systemCapacity"></span>
-        </p>
-    </div>
-    <button class="btn overview-btn" data-bind="click: onInstallNodes">
-        Install Nodes
-    </button>
+    <!-- ko if: selectedResourceType.eq('HOST_POOLS') -->
+    <section class="column greedy" ko.template.html="templates.HOST_POOLS"></section>
+    <!-- /ko -->
+
+    <!-- ko if: selectedResourceType.eq('CLOUD_RESOURCES') -->
+    <section class="column greedy" ko.template.html="templates.CLOUD_RESOURCES"></section>
+    <!-- /ko -->
+
+    <!-- ko if: selectedResourceType.eq('INTERNAL_RESOURCES') -->
+    <section class="column greedy" ko.template.html="templates.INTERNAL_RESOURCES"></section>
+    <!-- /ko -->
+
+    <!-- /ko -->
 </section>

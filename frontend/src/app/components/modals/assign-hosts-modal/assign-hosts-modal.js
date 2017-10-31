@@ -56,8 +56,8 @@ const allPoolsOption = deepFreeze({
 });
 
 function _getPoolOption({ name, hostCount, storage }) {
-    const { total, free: available_free, unavailable_free } = storage;
-    const free = sumSize(available_free, unavailable_free);
+    const { total, free: availableFree, unavailableFree } = storage;
+    const free = sumSize(availableFree, unavailableFree);
     const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
     const tooltip = hostCount > 0 ?
         `${stringifyAmount('node', hostCount)} in pool` :

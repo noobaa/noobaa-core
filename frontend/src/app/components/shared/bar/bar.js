@@ -3,7 +3,7 @@
 import template from './bar.html';
 import ko from 'knockout';
 import style from 'style';
-import { deepFreeze, isString, isFunction, echo, clamp } from 'utils/core-utils';
+import { deepFreeze, isString, isFunction, echo, clamp, normalizeValues } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 
 const defaultEmptyColor = style['color15'];
@@ -99,9 +99,12 @@ class BarViewModel {
 
     _drawBar(ctx, width ) {
         const teeth = ko.unwrap(this.teeth);
-        const values = ko.deepUnwrap(this.values);
-        const total = this.total();
-        const minRatio = ko.unwrap(this.minRatio);
+        const items = ko.deepUnwrap(this.values);
+        const values = normalizeValues(
+            items.map(item => item.value),
+            1,
+            ko.unwrap(this.minRatio)
+        );
         const barOffset = this.barOffset();
         const barHeight = ko.unwrap(this.barHeight);
 
@@ -109,15 +112,14 @@ class BarViewModel {
         ctx.fillRect(0, barOffset + teeth, width, barHeight);
 
         let offset = 0;
-        for (const { value, color } of values) {
-            if (value === 0) continue;
-            const ratio = Math.max(value / total, minRatio);
+        values.forEach((value, i) => {
+            if (value === 0) return;
 
-            ctx.fillStyle = color;
+            ctx.fillStyle = items[i].color;
             ctx.fillRect(
                 Math.round(offset),
                 barOffset + teeth,
-                Math.round(ratio * width),
+                Math.round(value * width),
                 barHeight
             );
 
@@ -126,10 +128,10 @@ class BarViewModel {
                 ctx.fillRect(Math.round(offset), barOffset, 1, barHeight + 2 * teeth);
             }
 
-            offset += ratio * width;
-        }
+            offset += value * width;
+        });
 
-        if (values.length && teeth) {
+        if (items.length && teeth) {
             ctx.fillStyle = teethColor;
             ctx.fillRect(Math.round(offset) - 1 , barOffset, 1, barHeight + 2 * teeth);
         }

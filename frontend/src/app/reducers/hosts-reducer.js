@@ -2,6 +2,7 @@
 
 import { createReducer } from 'utils/reducer-utils';
 import { echo, mapValues, keyByProperty, createCompareFunc, hashCode, averageBy, flatMap } from 'utils/core-utils';
+import { mapApiStorage } from 'utils/state-utils';
 import { paginationPageSize } from 'config';
 import {
     FETCH_HOSTS,
@@ -208,7 +209,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         rpcAddress: data.rpc_address,
         lastCommunication: data.last_communication,
         rtt: averageBy(data.latency_to_server),
-        storage: data.storage,
+        storage: mapApiStorage(data.storage),
         trusted: data.trusted,
         activities: activities,
         services: {
@@ -250,7 +251,7 @@ function _mapStorageService({ mode, enabled, nodes }) {
             return {
                 name,
                 mode,
-                storage,
+                storage: mapApiStorage(storage),
                 drive: drive.drive_id,
                 mount: drive.mount,
                 readLatency: averageBy(latency_of_disk_read),

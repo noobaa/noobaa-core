@@ -3,128 +3,176 @@
 import template from './system-health.html';
 import Observer from 'observer';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import style from 'style';
+import { state$, action$ } from 'state';
+import { openAlertsDrawer } from 'action-creators';
+import { aggregateStorage } from 'utils/storage-utils';
+import { toBytes, formatSize, fromBigInteger, toBigInteger, unitsInBytes } from 'utils/size-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { getClusterStatus } from 'utils/cluster-utils';
-import { getSystemStorageIcon } from 'utils/ui-utils';
-import { systemInfo } from 'model';
-import { state$ } from 'state';
+import { getClusterStateIcon, getClsuterHAState } from 'utils/cluster-utils';
+import numeral from 'numeral';
+import * as routes from 'routes';
 
-const statusMapping = deepFreeze({
-    HEALTHY: {
-        text: 'Healthy',
-        icon: {
-            name: 'healthy',
-            css: 'success'
-        }
-    },
-    WITH_ISSUES: {
-        text: 'Has Issues',
-        icon: {
+function _getSystemStorageIcon(total = 0, free = 0) {
+    const totalBytes = toBytes(total);
+    const freeBytes = toBytes(free);
+    const ratio = freeBytes / totalBytes;
+
+    if (totalBytes === 0) {
+        return {
             name: 'problem',
-            css: 'warning',
+            css: 'disabled',
+            tooltip: 'No system storage - add nodes or cloud resources'
+        };
+
+    } else if (freeBytes < unitsInBytes.MB) {
+        return {
+            name: 'problem',
+            css: 'error',
+            tooltip: 'No free storage left'
+        };
+
+    } else {
+        return {
+            name: ratio <= .2 ? 'problem' : 'healthy',
+            css: ratio <= .2 ? 'warning' : 'success',
             tooltip: {
-                text: 'Cluster has a high number of issues',
-                position: 'above'
+                text: `${numeral(ratio).format('%')} free storage left`,
+                align: 'start'
             }
-        }
-    },
-    UNHEALTHY: {
-        text: 'HA Problems',
-        icon:  {
+        };
+    }
+}
+
+function _getAlertsIcon(unreadCounters) {
+    if (unreadCounters.crit) {
+        return {
             name: 'problem',
             css: 'error'
-        },
-        tooltip: {
-            text: 'Not enough connected servers',
-            position: 'above'
-        }
+        };
+    } else {
+        return {
+            name: 'healthy',
+            css: 'success'
+        };
     }
-});
 
-const highAvailabiltyMapping = deepFreeze({
-    NO_ENOUGH_SERVERS: 'HA never configured',
-    ENABLED: 'HA configured',
-    DISABLED: 'Not highly available'
-});
-
-const alertStatusMapping = deepFreeze({
-    HAS_CRIT_ALERTS: {
-        name: 'problem',
-        css: 'error'
-    },
-    NO_CRIT_ALERTS: {
-        name: 'healthy',
-        css: 'success'
-    }
-});
-
-const storageTooltip = `An estimated aggregation of all nodes' and cloud resources' raw
-    storage that can be used via buckets (Any cloud resource is defined as 1PB of raw storage)`;
+}
 
 class SystemHealthViewModel extends Observer {
     constructor() {
         super();
 
-        const serverCount = ko.pureComputed(
-            () => systemInfo() ? systemInfo().cluster.shards[0].servers.length : 0
-        );
+        this.dataLoaded = ko.observable();
 
-        this.serverCountText = ko.pureComputed(
-            () => stringifyAmount('Server', serverCount())
-        );
-
-        const clusterStatus = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return 'UNHEALTHY';
-                }
-
-                const { version, cluster } = systemInfo();
-                return getClusterStatus(cluster, version);
+        // Storage observables.
+        this.storageIcon = ko.observable();
+        this.storageTotal = ko.observable();
+        this.storagePools = ko.observable();
+        this.storageCloud = ko.observable();
+        this.storageInternal = ko.observable();
+        this.storageBarValues = [
+            {
+                label: 'Used',
+                value: ko.observable(),
+                color: style['color8']
+            },
+            {
+                label: 'Unavailable',
+                value: ko.observable(),
+                color: style['color17']
+            },
+            {
+                label: 'Available',
+                value: ko.observable(),
+                color: style['color15']
             }
+        ];
+
+        // Cluster observables.
+        this.clusterServerCount = ko.observable();
+        this.clusterIcon = ko.observable();
+        this.clusterHref = ko.observable();
+        this.clusterState = ko.observable();
+        this.clusterHA = ko.observable();
+
+
+        // Alerts observables.
+        this.alertsIcon = ko.observable();
+        this.alertsSummary = ko.observable();
+
+
+        this.observe(
+            state$.getMany(
+                'location',
+                'hostPools',
+                'cloudResources',
+                'internalResources',
+                ['topology'],
+                ['system', 'version'],
+                ['alerts', 'unreadCounts'],
+            ),
+            this.onState
         );
-
-        this.clusterStatusText = ko.pureComputed(
-            () => statusMapping[clusterStatus()].text
-        );
-
-        this.clusterStatusIcon = ko.pureComputed(
-            () => statusMapping[clusterStatus()].icon
-        );
-
-        const clusterHAMode = ko.pureComputed(
-            () => {
-                const isHighlyAvailable = systemInfo() ?
-                    systemInfo().cluster.shards[0].high_availabilty :
-                    false;
-
-                return serverCount() >= 3 ?
-                    (isHighlyAvailable ? 'ENABLED' : 'DISABLED') :
-                    'NO_ENOUGH_SERVERS';
-            }
-        );
-
-        this.clusterHAText = ko.pureComputed(
-            () => highAvailabiltyMapping[clusterHAMode()]
-        );
-
-        this.storageStatus = ko.pureComputed(
-            () => getSystemStorageIcon(
-                systemInfo() ? systemInfo().storage : { total: 0, free: 0 }
-            )
-        );
-
-        this.storageToolTip = storageTooltip;
-        this.unreadAlertsMessage = ko.observable('');
-        this.alertStatusIcon = ko.observable({});
-        this.observe(state$.get('alerts'), this.onAlerts);
     }
 
-    onAlerts(alerts) {
-        const { crit: count } = alerts.unreadCounts;
-        this.unreadAlertsMessage(stringifyAmount('unread critical alert', count, 'No'));
-        this.alertStatusIcon(alertStatusMapping[count ? 'HAS_CRIT_ALERTS' : 'NO_CRIT_ALERTS']);
+    onState([
+        location,
+        hostPools,
+        cloudResources,
+        internalResources,
+        topology,
+        systemVersion,
+        unreadAlertsCounters
+    ]) {
+        if (!hostPools || !cloudResources || !internalResources || !systemVersion) {
+            this.dataLoaded(false);
+            return;
+        }
+
+        const poolsStorage = aggregateStorage(
+            ...Object.values(hostPools).map(pool => pool.storage)
+        );
+        const cloudStorage = aggregateStorage(
+            ...Object.values(cloudResources).map(resource => resource.storage)
+        );
+        const internalStorage = aggregateStorage(
+            ...Object.values(internalResources).map(resource => resource.storage)
+        );
+        const systemStorage = aggregateStorage(poolsStorage, cloudStorage, internalStorage);
+        const systemUnavailable = fromBigInteger(
+            toBigInteger(systemStorage.unavailableFree || 0).add(systemStorage.reserved || 0)
+        );
+        this.storageIcon(_getSystemStorageIcon(systemStorage.total, systemStorage.free));
+        this.storageTotal(formatSize(systemStorage.total || 0));
+        this.storagePools(formatSize(poolsStorage.total || 0));
+        this.storageCloud(formatSize(cloudStorage.total || 0));
+        this.storageInternal(formatSize(internalStorage.total || 0));
+        this.storageBarValues[0].value(toBytes(systemStorage.used));
+        this.storageBarValues[1].value(toBytes(systemUnavailable));
+        this.storageBarValues[2].value(toBytes(systemStorage.free));
+
+        const { servers } = topology;
+        const { tooltip: clusterState, ...clsuterIcon } = getClusterStateIcon(topology, systemVersion);
+        const clusterHA = getClsuterHAState(topology);
+        const serverCount = servers ? `Contains ${stringifyAmount('server', Object.keys(servers).length)}` : '';
+        const clusterHref = realizeUri(routes.cluster, { system: location.params.system });
+        this.clusterServerCount(serverCount);
+        this.clusterIcon(clsuterIcon);
+        this.clusterState(clusterState);
+        this.clusterHA(clusterHA);
+        this.clusterHref(clusterHref);
+
+        const alertSummary = stringifyAmount('unread critical alert', unreadAlertsCounters.crit, 'No');
+        this.alertsIcon(_getAlertsIcon(unreadAlertsCounters));
+        this.alertsSummary(alertSummary);
+
+        this.dataLoaded(true);
+    }
+
+    onViewAlerts() {
+        action$.onNext(openAlertsDrawer('CRIT', true));
     }
 }
 

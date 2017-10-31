@@ -2,6 +2,7 @@
 
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { mapApiStorage } from 'utils/state-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
 // ------------------------------
@@ -56,7 +57,7 @@ function _mapPool(pool, bucketMapping) {
     return {
         name: pool.name,
         mode: pool.mode,
-        storage: pool.storage,
+        storage: mapApiStorage(pool.storage),
         associatedAccounts: pool.associated_accounts,
         connectedBuckets: bucketMapping[pool.name] || [],
         hostCount: pool.hosts.count,

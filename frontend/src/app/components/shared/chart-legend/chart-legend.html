@@ -2,8 +2,13 @@
 
 <h3 class="legend-caption heading3" ko.visible="caption" ko.text="caption"></h3>
 <ul class="list-no-style legend-items " ko.foreach="items">
-    <li class="legend-item" ko.visible="visible" ko.style="style">
-        <span class="highlight legend-label" ko.text="label"></span>
+    <li class="legend-item"
+        ko.visible="visible"
+        ko.style="style"
+        ko.css="css"
+        ko.click="onToggle"
+    >
+        <span class="legend-label" ko.text="label"></span>
         <span class="legend-value" ko.text="formattedValue"></span>
     </li>
 </ul>

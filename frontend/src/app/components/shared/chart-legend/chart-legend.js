@@ -25,10 +25,14 @@ class ChartLegendViewModel {
         );
     }
 
-    normalizeItem({ label, color, value, visible = true }) {
+    normalizeItem({ label, color, value, visible = true, disabled = false }) {
         const formattedValue = this.formatter(ko.unwrap(value) || 0);
         const style = { 'border-color': color };
-        return { label, style, formattedValue, visible };
+        const toggable = ko.isWriteableObservable(disabled);
+        const css = { disabled, toggable };
+        const onToggle =  toggable ? () => disabled(!disabled()) : echo;
+
+        return { label, style, formattedValue, visible, css, onToggle };
     }
 }
 

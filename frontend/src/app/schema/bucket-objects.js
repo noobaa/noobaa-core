@@ -53,7 +53,7 @@ export default {
                         type: 'string',
                     },
                     createTime: {
-                        format: 'idate'
+                        format: 'number'
                     }
                 }
             }

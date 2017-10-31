@@ -5,8 +5,7 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 import JSZip from 'jszip';
-import { last, makeArray, groupBy } from 'utils/core-utils';
-import { aggregateStorage } from 'utils/storage-utils';
+import { last, makeArray } from 'utils/core-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
 import { realizeUri, downloadFile, httpRequest, httpWaitForResponse, toFormData } from 'utils/browser-utils';
 import { Buffer } from 'buffer';
@@ -897,16 +896,6 @@ export function checkCloudConnection(endpointType, endpoint, identity, secret) {
         .done();
 }
 
-export function loadBucketS3ACL(bucketName) {
-    logAction('loadBucketS3ACL', { bucketName });
-
-    api.bucket.list_bucket_s3_acl({
-        name: bucketName
-    })
-        .then(model.bucketS3ACL)
-        .done();
-}
-
 export function updateBucketS3Access(bucketName, allowedAccounts) {
     logAction('updateBucketS3Access', { bucketName, allowedAccounts });
 
@@ -1178,29 +1167,6 @@ export function regenerateAccountCredentials(email, verificationPassword) {
             }
         )
         .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
-export function loadSystemUsageHistory() {
-    logAction('loadSystemUsageHistory');
-
-    api.pool.get_pool_history({})
-        .then(history => history.map(
-            ({ timestamp, pool_list }) => {
-                const { HOSTS: nodes = [], CLOUD: cloud = [] } = groupBy(
-                    pool_list,
-                    pool => pool.resource_type,
-                    pool => pool.storage
-                );
-
-                return {
-                    timestamp: timestamp,
-                    nodes: aggregateStorage(...nodes),
-                    cloud: aggregateStorage(...cloud)
-                };
-            }
-        ))
-        .then(model.systemUsageHistory)
         .done();
 }
 

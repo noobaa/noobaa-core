@@ -22,16 +22,10 @@ export const serverInfo = ko.observable();
 // Hold current system information.
 export const systemInfo = ko.observable();
 
-// Hold the current bucket object list.
-export const bucketObjectList = ko.observable();
-
 // Hold the current cloud sync information.
 export const cloudBucketList = ko.observableArray();
 export const isCloudConnectionValid = ko.observable(true)
     .extend({ notify: 'always' });
-
-// Hold the parts that are stored on the curr node.
-export const nodeStoredPartList = ko.observableArray();
 
 // Hold the current node info.
 export const objectInfo = ko.observable();
@@ -57,6 +51,10 @@ export const sslCertificateUploadStatus = ko.observable();
 // Used to replay read server time events.
 export const serverTime = ko.observable();
 
+// Hold funcs information
+export const funcInfo = ko.observable();
+export const funcList = ko.observableArray();
+
 // Hold system activation information.
 export const activationState = ko.observable();
 
@@ -73,13 +71,6 @@ export const collectDiagnosticsState = ko.observable({});
 export const resetPasswordState = ko.observable();
 
 export const regenerateCredentialState = ko.observable();
-
-// Hold funcs information
-export const funcInfo = ko.observable();
-export const funcList = ko.observableArray();
-
-// Hold system usage history
-export const systemUsageHistory = ko.observable();
 
 // Hold verification state for attach server oprtations.
 export const serverVerificationState = ko.observable();

@@ -1,0 +1,15 @@
+<p class="row contnet-middle push-next">
+    <span class="highlight push-next-half">Internal Storage:</span>
+    {{internalResourceUsage}}
+</p>
+
+<chart-legend params="
+    items: internalCounters,
+    format: 'size'
+"></chart-legend>
+
+<pie-chart class="align-middle push-prev" params="
+    values: internalCounters,
+    primaryText: internalCapacity,
+    secondaryText: 'Total'
+"></pie-chart>

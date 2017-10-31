@@ -25,6 +25,15 @@ export default {
         },
         cloudTargets: {
             $ref: '#/def/cloudTargets'
+        },
+        storageHistory: {
+            $ref: '#/def/storageHistory'
+        },
+        topology: {
+            $ref: '#/def/topology'
+        },
+        system: {
+            $ref: '#/def/system'
         }
     },
 };

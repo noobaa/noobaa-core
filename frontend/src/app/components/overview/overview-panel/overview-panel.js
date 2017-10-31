@@ -1,11 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './overview-panel.html';
-import BaseViewModel from 'components/base-view-model';
 
-class OverviewPanelViewModel extends BaseViewModel {
+class OverviewPanelViewModel {
     constructor() {
-        super();
     }
 }
 

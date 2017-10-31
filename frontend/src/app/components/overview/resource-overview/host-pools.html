@@ -1,0 +1,23 @@
+<p class="row contnet-middle push-next">
+    <span class="highlight push-next-half">Pools:</span>
+    {{poolCount}}
+
+    <vr class="push-both"></vr>
+
+    <span class="highlight push-next-half">Nodes in pools:</span>
+    {{hostCount}}
+</p>
+
+<chart-legend params="items: hostCounters"></chart-legend>
+
+<pie-chart class="align-middle push-both-half" params="
+    values: hostCounters,
+    primaryText: hostPiePrimaryText,
+    secondaryText: 'Total'
+"></pie-chart>
+
+<p class="greedy push-next align-middle highlight">Node Storage: {{poolsCapacity}}</p>
+
+<button class="btn overview-btn" ko.click="onInstallNodes">
+    Install Nodes
+</button>

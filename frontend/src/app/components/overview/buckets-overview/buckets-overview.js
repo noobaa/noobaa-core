@@ -1,91 +1,91 @@
 /* Copyright (C) 2016 NooBaa */
 
+import Observer from 'observer';
 import template from './buckets-overview.html';
-import BaseViewModel from 'components/base-view-model';
-import ko from 'knockout';
-import { loadSystemUsageHistory } from 'actions';
-import { openConnectAppModal } from 'action-creators';
-import style from 'style';
-import moment from 'moment';
-import { systemInfo, systemUsageHistory } from 'model';
-import { hexToRgb } from 'utils/color-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { toBytes, formatSize, sumSize } from 'utils/size-utils';
-import { aggregateStorage, interpolateStorage } from 'utils/storage-utils';
-import { deepFreeze, groupBy, isFunction } from 'utils/core-utils';
-import { action$ } from 'state';
+import { deepFreeze, mapValues } from 'utils/core-utils';
+import { sumSize, interpolateSizes, toBytes, formatSize } from 'utils/size-utils';
+import { hexToRgb } from 'utils/color-utils';
+import { state$, action$ } from 'state';
+import * as routes from 'routes';
+import ko from 'knockout';
+import moment from 'moment';
+import style from 'style';
+import {
+    requestLocation,
+    fetchSystemStorageHistory,
+    openConnectAppModal
+} from 'action-creators';
 
-const durationOptions = deepFreeze([
-    {
+const durations = deepFreeze({
+    DAY: {
         label: 'Day',
-        value: {
-            duration: 24,
-            stepSize: 4,
-            stepUnit: 'hour',
-            tickFormat: 'HH:mm',
-            pointRadius: 1
-        }
+        timespan: 24,
+        stepSize: 4,
+        stepUnit: 'hour',
+        tickFormat: 'HH:mm',
+        points: true
     },
-    {
+    WEEK: {
         label: 'Week',
-        value: {
-            duration: 7,
-            stepSize: 1,
-            stepUnit: 'day',
-            tickFormat: 'D MMM',
-            pointRadius: 0
-        }
+        timespan: 7,
+        stepSize: 1,
+        stepUnit: 'day',
+        tickFormat: 'D MMM',
+        points: false
     },
-    {
-        label : 'Month',
-        value: {
-            duration: 30,
-            stepSize: 6,
-            stepUnit: 'day',
-            tickFormat: 'D MMM',
-            pointRadius: 0
-        }
+    MONTH: {
+        label: 'Month',
+        timespan: 30,
+        stepSize: 6,
+        stepUnit: 'day',
+        tickFormat: 'D MMM',
+        points: false
     }
-]);
+});
 
 const chartDatasets = deepFreeze([
     {
-        key: 'used',
-        label: 'Used',
+        key: 'hosts',
+        label: 'Used on nodes',
         labelPadding: 10,
-        color: hexToRgb(style['color8']),
-        fill: hexToRgb(style['color8'], .3)
+        color: style['color8'],
     },
     {
-        key: 'unavailable_free',
-        label: 'Unavailable',
+        key: 'cloud',
+        label: 'Used on cloud',
         labelPadding: 10,
-        color: hexToRgb(style['color6']),
-        fill: hexToRgb(style['color6'], .3)
+        color: style['color6'],
     },
     {
-        key: 'free',
-        label: 'Free',
+        key: 'internal',
+        label: 'Used on internal',
         labelPadding: 10,
-        color: hexToRgb(style['color16']),
-        fill: hexToRgb(style['color16'], .3)
+        color: style['color16'],
     }
 ]);
 
-function interpolateSamples(sample0, sample1, time) {
-    const t = (time - sample0.timestamp) / (sample1.timestamp - sample0.timestamp);
-    return interpolateStorage(sample0.storage, sample1.storage, t);
+function _getTimespanBounds(unit, timespan, now) {
+    const t = moment(now).add(1, unit).startOf(unit);
+    const end = t.valueOf();
+    const start = t.subtract(timespan, unit).startOf(unit).valueOf();
+    return { end, start };
 }
 
-function filterSamples(samples, start, end, includeCloudStorage) {
-    // We clone the array before sorting because Array.sort changes the
-    // array and will not work if the array is immutable.
-    const sorted = Array.from(samples).sort(
-        (a, b) => a.timestamp - b.timestamp
+function _interpolateSamples(sample0, sample1, timestamp) {
+    const dt = (timestamp - sample0.timestamp) / (sample1.timestamp - sample0.timestamp);
+    return mapValues(
+        sample0,
+        (value, key) => key !== 'timestamp' ?
+            interpolateSizes(value, sample1[key], dt) :
+            timestamp
     );
+}
 
+function _filterSamples(samples, start, end) {
     const filtered = [];
-    for (const sample of sorted) {
+    for (const sample of samples) {
         if (sample.timestamp <= start) {
             filtered[0] = sample;
         } else {
@@ -94,50 +94,29 @@ function filterSamples(samples, start, end, includeCloudStorage) {
         }
     }
 
-    const aggregated = filtered.map(
-        ({ timestamp, cloud, nodes }) => {
-            const storage = includeCloudStorage ? aggregateStorage(nodes, cloud) : nodes;
-            return { timestamp,  storage };
+    if (filtered.length > 1) {
+        const [first, second] = filtered;
+        if (first.timestamp < start) {
+            filtered[0] = _interpolateSamples(first, second, start);
         }
-    );
 
-    const [ first, second ] = aggregated;
-    if (first && second && first.timestamp < start) {
-        aggregated[0] = {
-            timestamp: start,
-            storage: interpolateSamples(first, second, start)
-        };
+        const [secondToLast, last] = filtered;
+        if (last.timestamp > end) {
+            filtered[filtered.length - 1] = _interpolateSamples(secondToLast, last, end);
+        }
     }
 
-    const [ secondToLast, last ] = aggregated.slice(-2);
-    if (secondToLast && last && end < last.timestamp) {
-        aggregated[aggregated.length - 1] = {
-            timestamp: end,
-            storage: interpolateSamples(secondToLast, last, end)
-        };
-    }
-
-    return aggregated;
+    return filtered;
 }
 
-function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
+function _getChartOptions(selectedDatasets, samples, durationSettings, start, end, timezone) {
     const gutter = parseInt(style['gutter']);
-
-    const useFixedMax = samples.every(
-        ({ storage }) => toBytes(storage.free || 0) === 0  &&
-            toBytes(storage.unavailable_free || 0) === 0 &&
-            toBytes(storage.used || 0) === 0
-    );
-
-    const cluster = systemInfo().cluster;
-    const { timezone } = cluster.shards[0].servers.find(
-        ({ secret }) => secret === cluster.master_secret
-    );
-
-    const formatFunc = isFunction(tickFormat) ? tickFormat : () => tickFormat;
-    const tickFormatter = t => moment.tz(t, timezone).format(formatFunc(t).toString());
+    const { stepSize, stepUnit, tickFormat } = durationSettings;
+    const datasetKeys = Object.values(selectedDatasets).map(set => set.key);
+    const useFixedMax = samples.every(sample => datasetKeys.every(key => sample[key] === 0));
 
     return {
+        // animation: false
         responsive: true,
         padding: 0,
         maintainAspectRatio: false,
@@ -153,7 +132,7 @@ function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
                         color: style['color15']
                     },
                     ticks: {
-                        callback: tickFormatter,
+                        callback: t => moment.tz(t, timezone).format(tickFormat),
                         maxTicksLimit: 10000,
                         min: start,
                         max: end,
@@ -167,7 +146,6 @@ function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
             ],
             yAxes: [
                 {
-                    stacked: true,
                     gridLines: {
                         color: style['color15']
                     },
@@ -204,13 +182,13 @@ function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
             bodySpacing: gutter / 2,
             callbacks: {
                 title: items => moment.tz(items[0].xLabel, timezone).format('D MMM HH:mm'),
-                label: item => {
-                    const { label } = chartDatasets[item.datasetIndex];
-                    const value = formatSize(item.yLabel);
-                    return `  ${label}  ${value}`;
-                },
+                label: item => `  ${
+                    selectedDatasets[item.datasetIndex].label
+                }  ${
+                    formatSize(item.yLabel)
+                }`,
                 labelColor: item => ({
-                    backgroundColor: chartDatasets[item.datasetIndex].color,
+                    backgroundColor: selectedDatasets[item.datasetIndex].color,
                     borderColor: 'transparent'
                 })
             }
@@ -218,116 +196,198 @@ function getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat) {
     };
 }
 
-function getChartData(samples, pointRadius) {
-    const datasets = chartDatasets.map(
-        ({ key, color, fill }) => ({
+function _getChartParams(selectedDatasets, used, storageHistory, selectedDuration, now, timezone) {
+    const durationSettings = durations[selectedDuration];
+    const { stepUnit, timespan, points } = durationSettings;
+    const { start, end } = _getTimespanBounds(stepUnit, timespan, now);
+    const currSample = {
+        timestamp: now,
+        hosts: used.hostPools,
+        cloud: used.cloudResources,
+        internal: used.internalResources
+    };
+    const historySamples = storageHistory
+        .map(record => ({
+            timestamp: record.timestamp,
+            hosts: record.hosts.used || 0,
+            cloud: record.cloud.used || 0,
+            internal: record.internal.used || 0
+        }));
+    const filteredSamples = _filterSamples([...historySamples, currSample], start, end);
+    const options = _getChartOptions(selectedDatasets, filteredSamples, durationSettings, start, end, timezone);
+    const datasets = selectedDatasets
+        .map(({ key, color }) => ({
             lineTension: 0,
-            borderWidth: 1,
+            borderWidth: 2,
             borderColor: color,
-            backgroundColor: fill,
-            pointRadius: pointRadius,
+            backgroundColor: 'transparent',
+            pointRadius: points ? 2 : 0,
+            pointBorderWidth: 4,
             pointHitRadius: 10,
-            data: samples.map(
-                ({ timestamp, storage }) => ({
-                    x: timestamp,
-                    y: toBytes(storage[key]),
-                    radius: 10
-                })
-            )
+            pointBackgroundColor: style['color6'],
+            pointBorderColor: hexToRgb(style['color6'], 0.2),
+            pointHoverBorderColor: 'transparent',
+            data: filteredSamples
+                .map(sample => ({
+                    x: sample.timestamp,
+                    y: toBytes(sample[key]),
+                    // radius: 10
+                }))
         })
     );
 
-    return { datasets };
+    return {
+        options,
+        data: { datasets }
+    };
 }
 
-
-class BucketsOverviewViewModel extends BaseViewModel {
+class BucketsOverviewViewModel extends Observer{
     constructor() {
         super();
 
-        // This cannot be declered as constant because the value need to be updated
-        // to the time the component is instantize so it will not be too stale.
-        this.now = Date.now();
+        this.pathname = '';
+        this.durationOptions = Object.entries(durations)
+            .map(pair => ({
+                value: pair[0],
+                label: pair[1].label
+            }));
 
-        this.bucketCount = ko.pureComputed(
-            () => {
-                const count = (systemInfo() ? systemInfo().buckets : [])
-                    .filter(bucket => bucket.bucket_type === 'REGULAR')
-                    .length;
-                return stringifyAmount('Bucket', count, 'No');
+        this.location = null;
+        this.dataLoaded = ko.observable();
+        this.bucketsLinkText = ko.observable();
+        this.bucketsLinkHref = ko.observable();
+        this.selectedDuration = ko.observable();
+        this.chartParams = ko.observable();
+        this.hideHosts = ko.observable();
+        this.hideCloud = ko.observable();
+        this.hideInternal = ko.observable();
+
+        this.usedValues = [
+            {
+                label: 'Used on nodes',
+                value: ko.observable(),
+                disabled: ko.pc(
+                    this.hideHosts,
+                    val => this.onToggleDataset('hosts', val)
+                ),
+                color : style['color8']
+            },
+            {
+                label: 'Used on cloud',
+                value: ko.observable(),
+                disabled: ko.pc(
+                    this.hideCloud,
+                    val => this.onToggleDataset('cloud', val)
+                ),
+                color : style['color6']
+            },
+            {
+                label: 'Used on internal',
+                value: ko.observable(),
+                disabled: ko.pc(
+                    this.hideInternal,
+                    val => this.onToggleDataset('internal', val)
+                ),
+                color : style['color16']
             }
+        ];
+
+        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.getMany(
+                'buckets',
+                'hostPools',
+                'cloudResources',
+                'internalResources',
+                ['topology', 'servers'],
+                'storageHistory'
+            ),
+            this.onState
         );
-
-        this.durationOptions = durationOptions;
-        this.selectedDuration = ko.observable(durationOptions[0].value);
-        this.includeCloudStorage = ko.observable(false);
-
-        const currentUsage = ko.pureComputed(
-            () => {
-                const { HOSTS: nodes = [], CLOUD: cloud = [] } = groupBy(
-                    systemInfo() ? systemInfo().pools : [],
-                    pool => pool.resource_type,
-                    pool => pool.storage
-                );
-
-                return {
-                    timestamp: this.now,
-                    nodes: aggregateStorage(...nodes),
-                    cloud: aggregateStorage(...cloud)
-                };
-            }
-        );
-
-        this.legendItems = chartDatasets.map(
-            ({ label, color, key }) => {
-                const value = ko.pureComputed(
-                    () => {
-                        const { nodes, cloud } = currentUsage();
-                        return this.includeCloudStorage() ?
-                            sumSize(nodes[key] || 0, cloud[key] || 0) :
-                            nodes[key] || 0;
-                    }
-                ).extend({
-                    formatSize: true
-                });
-
-                return { color, label, value };
-            }
-        );
-
-        this.chart = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return { options: {}, data: {} };
-                }
-
-                const { duration, stepSize, stepUnit, tickFormat,
-                    pointRadius } = this.selectedDuration();
-
-                const t = moment(this.now).add(1, stepUnit).startOf(stepUnit);
-                const end = t.valueOf();
-                const start = t.subtract(duration, stepUnit).startOf(stepUnit).valueOf();
-                const samples = filterSamples(
-                    (systemUsageHistory() || []).concat(currentUsage()),
-                    start,
-                    end,
-                    this.includeCloudStorage()
-                );
-
-                return {
-                    options: getChartOptions(samples, start, end, stepSize, stepUnit, tickFormat),
-                    data: getChartData(samples, pointRadius)
-                };
-            }
-        );
-
-        loadSystemUsageHistory();
     }
 
-    onConnectApplication () {
+    onLocation(location) {
+        this.location = location;
+        // TODO move into onState
+        action$.onNext(fetchSystemStorageHistory());
+    }
+
+    onState(state) {
+        if (!state.every(Boolean)) {
+            this.bucketsLinkText('');
+            this.dataLoaded(false);
+            return;
+        }
+
+        const [
+            buckets,
+            hostPools,
+            cloudResources,
+            internalResources,
+            servers,
+            storageHistory
+        ] = state;
+
+        const {
+            selectedDuration = this.durationOptions[0].value,
+            visibleDatasets = 'hosts,cloud,internal'
+        } = this.location.query;
+
+        const { system } = this.location.params;
+        const bucketList = Object.values(buckets);
+        const bucketsLinkText = stringifyAmount('bucket', bucketList.length);
+        const bucketsLinkHref = realizeUri(routes.buckets, { system });
+        const used = mapValues(
+            { hostPools, cloudResources, internalResources },
+            group => {
+                const usedList = Object.values(group).map(res => res.storage.used || 0);
+                return sumSize(...usedList);
+            }
+        );
+        const now = Date.now();
+        const { timezone } = Object.values(servers).find(server => server.isMaster);
+
+        const datasets = chartDatasets.filter(({ key }) => visibleDatasets.split(',').includes(key));
+        const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
+
+        this.bucketsLinkText(bucketsLinkText);
+        this.bucketsLinkHref(bucketsLinkHref);
+        this.selectedDuration(selectedDuration);
+        this.hideHosts(false);
+        this.hideCloud(false);
+        this.hideInternal(false);
+        this.usedValues[0].value(used.hostPools);
+        this.usedValues[1].value(used.cloudResources);
+        this.usedValues[2].value(used.internalResources);
+        this.chartParams(chartParams);
+        this.dataLoaded(true);
+    }
+
+    onSelectDuration(duration) {
+        const query = {
+            ...this.location.query,
+            selectedDuration: duration
+        };
+
+        const url = realizeUri(this.location.pathname, {}, query);
+        action$.onNext(requestLocation(url, true));
+    }
+
+    onConnectApplication() {
         action$.onNext(openConnectAppModal());
     }
+
+    onToggleDataset(key, value) {
+        const query = {
+            ...this.location.query,
+            [`hide-${key}`]: value
+        };
+        const url = realizeUri(this.location.pathname, {}, query);
+        action$.onNext(requestLocation(url, true));
+    }
 }
+
 
 export default {
     viewModel: BucketsOverviewViewModel,

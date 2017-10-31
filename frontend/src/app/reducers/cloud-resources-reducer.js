@@ -2,6 +2,7 @@
 
 import { keyBy, keyByProperty, flatMap, groupBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { mapApiStorage } from 'utils/state-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
 // ------------------------------
@@ -36,7 +37,7 @@ function _mapResource(resource, bucketsByPools) {
         type: cloud_info.endpoint_type,
         state: 'HEALTHY',
         target: cloud_info.target_bucket,
-        storage: storage,
+        storage: mapApiStorage(storage),
         usedBy: bucketsByPools[name] || [],
         undeletable
     };

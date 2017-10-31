@@ -50,6 +50,7 @@ import retrustHost from './retrust-host';
 import fetchBucketObjects from './fetch-bucket-objects';
 import deleteBucketObject from './delete-bucket-object';
 import abortObjectUpload from './abort-object-upload';
+import fetchSystemStorageHistory from './fetch-system-storage-history';
 
 const generalEpics = [
     handleLocationRequests,
@@ -68,7 +69,8 @@ const systemRelatedEpics = [
     fetchSystemInfo,
     refresh,
     fetchNodeInstallationCommands,
-    updateInstallNodesFormCommandsField
+    updateInstallNodesFormCommandsField,
+    fetchSystemStorageHistory
 ];
 
 const alertsRelatedEpics = [

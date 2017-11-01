@@ -287,9 +287,8 @@ function getAgentConf(exclude_drives) {
         exclude_drives
     })
         .then(installationString => {
-            agentConf = installationString.LINUX;
-            const index = agentConf.indexOf('config');
-            agentConf = agentConf.substring(index + 7);
+            const agentConfArr = installationString.LINUX.split(" ");
+            agentConf = agentConfArr[agentConfArr.length - 1];
             console.log(agentConf);
         });
 }

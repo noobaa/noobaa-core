@@ -6,6 +6,7 @@ import ColumnViewModel from './column';
 import * as cellTemplates from './cell-templates';
 import ko from 'knockout';
 import { isFunction } from 'utils/core-utils';
+import { isString, echo } from 'utils/core-utils';
 
 const scrollThrottle = 750;
 
@@ -30,7 +31,8 @@ class DataTableViewModel {
             subRow,
             emptyMessage,
             loading = false,
-            disabled = false
+            disabled = false,
+            expandColumn = false
         } = params;
 
         const templates = Object.assign({}, cellTemplates, inlineTemplates);
@@ -51,6 +53,7 @@ class DataTableViewModel {
 
         // Hold table sorting infromation (sortBy and order).
         this.sorting = sorting;
+        this.expandColumn = expandColumn;
 
         // Create view model for columns.
         this.columns = ko.pureComputed(
@@ -58,7 +61,7 @@ class DataTableViewModel {
                 let descriptors = ko.unwrap(columns);
 
                 // Add a descriptor for the sub row expand/collapse button.
-                if (this.subRowTemplate) {
+                if (this.subRowTemplate && this.expandColumn) {
                     descriptors = descriptors.concat(expandColumnDescriptor);
                 }
 
@@ -135,12 +138,25 @@ class DataTableViewModel {
     }
 
     newRowMetaData(rowVM) {
+        let isExpanded = true;
+        if (isString(this.expandColumn)) {
+            const columnProp = rowVM[this.expandColumn];
+            isExpanded = ko.isWritableObservable(columnProp) ?
+                columnProp :
+                ko.pureComputed({
+                    read: () => ko.unwrap(columnProp),
+                    write: echo
+                });
+        } else if(this.expandColumn) {
+            isExpanded = ko.observable(false);
+        }
+
         return {
             template: this.rowTemplate,
             subRowTemplate: this.subRowTemplate,
             columnCount: this.columnCount,
             css: ko.pureComputed(() => ko.unwrap(rowVM[this.rowCssProp])),
-            isExpanded: ko.observable(false),
+            isExpanded,
             clickHandler: this.rowClick && (() => this.rowClick(rowVM))
         };
     }

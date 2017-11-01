@@ -299,7 +299,9 @@ class AzureFunctions {
             this.resourceGroupName, vmName, vmParameters, callback));
     }
 
-    createVirtualMachineFromImage(vmName, image, vnet, storageAccountName, osType, plan, ipType = 'Dynamic') {
+    createVirtualMachineFromImage(params) {
+        console.log(params);
+        const { vmName, image, vnet, storageAccountName, osType, plan, ipType = 'Dynamic' } = params;
         var vmParameters = {
             location: this.location,
             plan: plan,
@@ -655,7 +657,14 @@ class AzureFunctions {
                         })
                         .delay(10000)
                 )))
-            .then(() => this.createVirtualMachineFromImage(serverName, 'https://' + storage + '.blob.core.windows.net/staging-vhds/image.vhd', vnet, storage, 'Linux', ipType))
+            .then(() => this.createVirtualMachineFromImage({
+                vmName: serverName,
+                image: 'https://' + storage + '.blob.core.windows.net/staging-vhds/image.vhd',
+                vnet,
+                storageAccountName: storage,
+                osType: 'Linux',
+                ipType
+            }))
             .delay(20000)
             .then(() => this.getIpAddress(serverName + '_pip'))
             .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
@@ -674,7 +683,11 @@ class AzureFunctions {
                 console.log('Server ', serverName, 'was successfuly created');
                 return secret;
             })
-            .finally(() => rpc.disconnect_all());
+            .then(() => rpc.disconnect_all())
+            .catch(err => {
+                if (rpc) rpc.disconnect_all();
+                throw err;
+            });
     }
 
     addServerToCluster(master_ip, slave_ip, slave_secret, slave_name) {

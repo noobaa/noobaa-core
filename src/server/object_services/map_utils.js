@@ -581,6 +581,11 @@ function get_block_md(block) {
     b.id = String(block._id);
     b.address = block.node.rpc_address;
     b.node = String(block.node._id);
+    if (block.node.node_type === 'BLOCK_STORE_S3') {
+        b.delegator = 'DELEGATOR_S3';
+    } else if (block.node.node_type === 'BLOCK_STORE_AZURE') {
+        b.delegator = 'DELEGATOR_AZURE';
+    }
     b.pool = String(block.pool);
     return b;
 }

@@ -22,6 +22,8 @@ const promise_utils = require('../util/promise_utils');
 const dedup_options = require('./dedup_options');
 const KeysSemaphore = require('../util/keys_semaphore');
 const { RpcError, RPC_BUFFERS } = require('../rpc');
+const block_store_client = require('../agent/block_store_services/block_store_client').instance();
+
 
 // dbg.set_level(5, 'core');
 
@@ -664,7 +666,7 @@ class ObjectIO {
 
                 this._error_injection_on_write();
 
-                return params.client.block_store.write_block({
+                return block_store_client.write_block(params.client, {
                         [RPC_BUFFERS]: { data: buffer },
                         block_md,
                 }, {
@@ -1099,7 +1101,7 @@ class ObjectIO {
 
                     this._error_injection_on_read();
 
-                    return params.client.block_store.read_block({
+                    return block_store_client.read_block(params.client, {
                         block_md
                     }, {
                         address: block_md.address,

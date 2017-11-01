@@ -251,6 +251,10 @@ module.exports = {
                 size: { type: 'integer' },
                 digest_type: { $ref: '#/definitions/digest_type' },
                 digest_b64: { type: 'string' },
+                delegator: {
+                    type: 'string',
+                    enum: ['DELEGATOR_AZURE', 'DELEGATOR_S3']
+                },
             }
         },
 

@@ -93,6 +93,44 @@ class BlockStoreS3 extends BlockStoreBase {
         };
     }
 
+    _delegate_read_block(block_md) {
+        const params = {
+            Bucket: this.cloud_info.target_bucket,
+            Key: this._block_key(block_md.id),
+        };
+        return {
+            signed_url: this.s3cloud.getSignedUrl('getObject', params),
+            proxy: this.proxy
+        };
+    }
+
+    _delegate_write_block(block_md, data_length) {
+        dbg.log0(`DZDZ: got bolck_md=${block_md}, data_length=${data_length}`);
+        const encoded_md = this._encode_block_md(block_md);
+        const block_key = this._block_key(block_md.id);
+        const metadata = {
+            noobaa_block_md: encoded_md
+        };
+
+        const usage = data_length ? {
+            size: data_length + encoded_md.length,
+            count: 1
+        } : { size: 0, count: 0 };
+        if (data_length) {
+            this._update_usage(usage);
+        }
+
+        return {
+            usage,
+            signed_url: this.s3cloud.getSignedUrl('putObject', {
+                Bucket: this.cloud_info.target_bucket,
+                Key: block_key,
+                Metadata: metadata
+            }),
+            proxy: this.proxy
+        };
+    }
+
 
     _read_block(block_md) {
         return P.ninvoke(this.s3cloud, 'getObject', {
@@ -117,45 +155,31 @@ class BlockStoreS3 extends BlockStoreBase {
             });
     }
 
-    _write_block(block_md, data) {
-        let overwrite_size = 0;
-        let overwrite_count = 0;
+    _write_block(block_md, data, options) {
         let encoded_md;
         let params = {
             Bucket: this.cloud_info.target_bucket,
             Key: this._block_key(block_md.id),
         };
-        // check to see if the object already exists
-        return P.ninvoke(this.s3cloud, 'headObject', params)
-            .then(head => {
-                overwrite_size = Number(head.ContentLength);
-                let md_size = head.Metadata.noobaa_block_md ? head.Metadata.noobaa_block_md.length : 0;
-                overwrite_size += md_size;
-                dbg.warn('block already found in cloud, will overwrite. id =', block_md.id);
-                overwrite_count = 1;
-            }, err => {
-                dbg.log1('_write_block: will write block', err.message);
-            })
+        dbg.log3('writing block id to cloud: ', params.Key);
+        //  write block + md to cloud
+        encoded_md = this._encode_block_md(block_md);
+        params.Metadata = {
+            noobaa_block_md: encoded_md
+        };
+        params.Body = data;
+        return this._put_object(params)
             .then(() => {
-                dbg.log3('writing block id to cloud: ', params.Key);
-                //  write block + md to cloud
-                encoded_md = this._encode_block_md(block_md);
-                params.Metadata = {
-                    noobaa_block_md: encoded_md
-                };
-                params.Body = data;
-                return this._put_object(params);
-            })
-            .then(() => {
+                if (options && options.ignore_usage) return;
                 // return usage count for the object
                 let usage = {
-                    size: data.length + encoded_md.length - overwrite_size,
-                    count: 1 - overwrite_count
+                    size: data.length + encoded_md.length,
+                    count: 1
                 };
                 return this._update_usage(usage);
             })
             .catch(err => {
-                dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
+                dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
                 if (err.code === 'NoSuchBucket') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
                 } else if (err.code === 'AccessDenied') {
@@ -163,7 +187,20 @@ class BlockStoreS3 extends BlockStoreBase {
                 }
                 throw err;
             });
+    }
 
+    _handle_delegator_error(err, usage) {
+        if (usage) {
+            this._update_usage({ size: -usage.size, count: -usage.count });
+        }
+        this._try_change_region(err);
+        dbg.error('BlockStoreS3 operation failed:', err, this.cloud_info);
+        if (err.code === 'NoSuchBucket') {
+            throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+        } else if (err.code === 'AccessDenied') {
+            throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
+        }
+        throw err;
     }
 
     _write_usage_internal() {

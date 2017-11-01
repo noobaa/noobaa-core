@@ -153,7 +153,7 @@ class AzureFunctions {
             )
             .then(([subnetInfo, ipinfo]) => this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip'))
             .then(nic => {
-                console.log('Created Network Interface!');
+                console.log(`Network Interface ${vmName}_nic was created`);
                 var image = {
                     publisher: os.publisher,
                     offer: os.offer,
@@ -166,6 +166,8 @@ class AzureFunctions {
                 }
                 return this.createVirtualMachine(vmName, nic.id, image, storage, diskSizeGB);
             })
+            .then(() => this.getIpAddress(vmName + '_pip'))
+            .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
             .then(() => {
                 console.log('Started the Virtual Machine!');
                 var extension = {
@@ -223,9 +225,10 @@ class AzureFunctions {
         };
         if (publicIPInfo) {
             nicParameters.ipConfigurations[0].publicIPAddress = publicIPInfo;
-            console.log('Using public IP');
+            console.log(`Creating Network Interface: ${networkInterfaceName}, Using public IP`);
+        } else {
+            console.log(`Creating Network Interface: ${networkInterfaceName}`);
         }
-        console.log('Creating Network Interface: ' + networkInterfaceName);
         return P.fromCallback(callback => this.networkClient.networkInterfaces.createOrUpdate(this.resourceGroupName, networkInterfaceName,
             nicParameters, callback));
     }
@@ -238,7 +241,8 @@ class AzureFunctions {
             //     domainNameLabel: domainNameLabel
             // }
         };
-        console.log('Creating public IP: ' + publicIPName);
+
+        console.log(`Creating ${ipType} public IP: ${publicIPName}`);
         return P.fromCallback(callback => this.networkClient.publicIPAddresses.createOrUpdate(this.resourceGroupName, publicIPName,
             publicIPParameters, callback));
     }
@@ -672,18 +676,18 @@ class AzureFunctions {
                 rpc = api.new_rpc('wss://' + ip + ':8443');
                 client = rpc.new_client({});
                 rpc.disable_validation();
-                return P.resolve(client.system.create_system(system));
+                return client.system.create_system(system);
             })
             .then(res => {
                 client.options.auth_token = res.token;
+                return client.system.read_system({});
             })
-            .then(() => P.resolve(client.system.read_system({})))
             .then(res => {
                 var secret = res.cluster.master_secret;
                 console.log('Server ', serverName, 'was successfuly created');
+                rpc.disconnect_all();
                 return secret;
             })
-            .then(() => rpc.disconnect_all())
             .catch(err => {
                 if (rpc) rpc.disconnect_all();
                 throw err;
@@ -701,13 +705,13 @@ class AzureFunctions {
             };
             return client.create_auth_token(auth_params);
         })
-            .then(() => P.resolve(client.cluster_server.add_member_to_cluster({
+            .then(() => client.cluster_server.add_member_to_cluster({
                 address: slave_ip,
                 secret: slave_secret,
                 role: 'REPLICA',
                 shard: 'shard1',
                 new_hostname: slave_name
-            })))
+            }))
             .tap(() => {
                 console.log(`the master ip is: ${master_ip}`);
                 console.log(`sleeping for 5 min then adding ${slave_ip} to the cluster`);
@@ -720,7 +724,6 @@ class AzureFunctions {
                 return promise_utils.pwhile(
                     () => should_run,
                     () => client.system.read_system({})
-                        .tap(res => console.log(`cluster members: ${JSON.stringify(res.cluster.shards[0].servers)}`))
                         .then(res => {
                             const { servers } = res.cluster.shards[0];
                             should_run = servers.every(srv => srv.address !== slave_ip) && Date.now() < limit;

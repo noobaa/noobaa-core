@@ -8,9 +8,12 @@ const api = require('../../api');
 const promise_utils = require('../../util/promise_utils');
 const ops = require('../system_tests/basic_server_ops');
 const s3ops = require('../qa/s3ops');
+const af = require('../qa/agent_functions.js');
 const _ = require('lodash');
 
 require('../../util/dotenv').load();
+const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('cluster_test');
 
 //define colors
 const YELLOW = "\x1b[33;1m";
@@ -24,11 +27,9 @@ const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 let master_ip;
 let rpc;
 let client;
-let hostExternalIP = {};
 const serversincluster = argv.servers || 3;
 let failures_in_test = false;
 let errors = [];
-let agentConf;
 
 //defining the required parameters
 const {
@@ -141,7 +142,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
     let masterIndex = oldMasterNumber;
     let connectedServers = [];
     console.log(servers);
-    return P.resolve(azf.getMachineStatus(servers[oldMasterNumber].name))
+    return azf.getMachineStatus(servers[oldMasterNumber].name)
         .then(res => {
             if (oldMasterNumber > -1) {
                 oldSecret = servers[oldMasterNumber].secret;
@@ -157,7 +158,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
         .then(() => {
             console.log('Is master changed: ', isMasterDown);
             if (isMasterDown === true) {
-                return P.resolve(azf.listVirtualMachines('Server', 'VM running'))
+                return azf.listVirtualMachines('Server', 'VM running')
                     .then(res => {
                         connectedServers = res;
                         const connectedMaster = res[0];
@@ -197,7 +198,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
                     })
                     .then(() => {
                         console.log(`Waiting on read system`);
-                        return P.resolve(client.system.read_system({}));
+                        return client.system.read_system({});
                     })
                     .then(res => {
                         let masterSecret = res.cluster.master_secret;
@@ -211,9 +212,13 @@ function checkClusterStatus(servers, oldMasterNumber) {
                     })
                     .then(() => {
                         master_ip = servers[masterIndex].ip;
+                        rpc.disconnect_all();
                         return master_ip;
                     })
-                    .finally(() => rpc.disconnect_all());
+                    .catch(err => {
+                        if (rpc) rpc.disconnect_all();
+                        throw err;
+                    });
             } else {
                 console.log('Most of the servers are down - Can\'t check cluster status');
                 return -1;
@@ -256,18 +261,20 @@ function setNTPConfig(serverIndex) {
                 saveErrorAndResume('The defined ntp is', ntp, '- failure!!!');
                 failures_in_test = true;
             }
-        })
-        .then(() => rpc.disconnect_all());
+            rpc.disconnect_all();
+        });
 }
+
 //this function is getting servers array creating and upgrading them.
 function prepareServers(requestedServers) {
     return P.map(requestedServers, server => azf.createServer(server.name, vnet, storage, 'Static')
         .then(new_secret => {
+            console.log(`server.secret: ${new_secret}`);
             server.secret = new_secret;
             return azf.getIpAddress(server.name + '_pip');
         })
         .then(ip => {
-            console.log(`${YELLOW}${server.name} ip is: ${ip}${NC}`);
+            console.log(`${YELLOW}${server.name} and ip is: ${ip}${NC}`);
             server.ip = ip;
             if (!_.isUndefined(upgrade_pack)) {
                 return ops.upload_and_upgrade(ip, upgrade_pack);
@@ -295,142 +302,14 @@ function createCluster(requestedServes, masterIndex, clusterIndex) {
         .then(() => delayInSec(90));
 }
 
-function getTestNodes() {
-    let test_nodes_names = [];
-    return P.resolve(list_nodes())
-        .then(res => _.map(res, node => {
-            if (_.includes(oses, node.name.split('-')[0])) {
-                test_nodes_names.push(node.name);
-            }
-        }))
-        .then(() => {
-            console.log(`Relevent nodes: ${test_nodes_names}`);
-            return test_nodes_names;
-        });
-}
-
-function activeAgents(deactivated_nodes_list) {
-    return P.each(deactivated_nodes_list, name => {
-        console.log('calling recommission_node on', name);
-        return client.node.recommission_node({ name });
-    });
-}
-
-function getAgentConf() {
-    rpc = api.new_rpc('wss://' + master_ip + ':8443');
-    client = rpc.new_client({});
-    rpc.disable_validation();
-    return P.fcall(() => {
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    })
-        .then(() => client.system.get_node_installation_string({
-            pool: "first.pool",
-            exclude_drives: []
-        })
-            .then(installationString => {
-                agentConf = installationString.LINUX;
-                const index = agentConf.indexOf('config');
-                agentConf = agentConf.substring(index + 7);
-                console.log(agentConf);
-            }))
-        .then(() => rpc.disconnect_all());
-}
-
-function getTestOptimalNodes() {
-    let test_optimal_nodes_names = [];
-    return P.resolve(list_nodes())
-        .then(res => _.map(res, node => {
-            if (node.mode === 'OPTIMAL') {
-                if (_.includes(oses, node.name.split('-')[0])) {
-                    test_optimal_nodes_names.push(node.name);
-                }
-            }
-        }))
-        .then(() => {
-            console.log(`Relevent nodes: ${test_optimal_nodes_names}`);
-            return test_optimal_nodes_names;
-        });
-}
-
-function isIncluded(previous_agent_number, additional_agents = oses.length, print = 'include') {
-    let excpected_count;
-    return P.resolve(list_nodes())
-        .then(res => {
-            const decommisioned_nodes = res.filter(node => node.mode === 'DECOMMISSIONED');
-            console.warn(`${YELLOW}Number of Excluded agents: ${decommisioned_nodes.length}${NC}`);
-            console.warn(`Node names are ${res.map(node => node.name)}`);
-            excpected_count = previous_agent_number + additional_agents;
-            return getTestOptimalNodes();
-        })
-        .then(test_nodes => {
-            const actual_count = test_nodes.length;
-            if (actual_count === excpected_count) {
-                console.warn(`${YELLOW}Num nodes after ${print} are ${actual_count}${NC}`);
-            } else {
-                const error = `Num nodes after ${print} are ${
-                    actual_count
-                    } - something went wrong... expected ${
-                    excpected_count
-                    }`;
-                console.error(`${YELLOW}${error}${NC}`);
-                throw new Error(error);
-            }
-        });
-}
-
-function createAgents() {
-    let test_nodes_names = [];
-    console.log(`starting the create agents stage`);
-    return P.resolve(list_nodes())
-        .then(res => {
-            const decommissioned_nodes = res.filter(node => node.mode === 'DECOMMISSIONED');
-            console.log(`${YELLOW}Number of deactivated agents: ${decommissioned_nodes.length}${NC}`);
-            const Online_node_number = res.length - decommissioned_nodes.length;
-            console.warn(`${YELLOW}Num nodes before the test is: ${
-                res.length}, ${Online_node_number} Online and ${
-                decommissioned_nodes.length} deactivated.${NC}`);
-            if (decommissioned_nodes.length !== 0) {
-                const deactivated_nodes = decommissioned_nodes.map(node => node.name);
-                console.log(`${YELLOW}activating all the deactivated agents:${NC} ${deactivated_nodes}`);
-                activeAgents(deactivated_nodes);
-            }
-        })
-        .then(getTestNodes)
-        .then(res => test_nodes_names)
-        .then(() => P.map(oses, osname => azf.createAgent(
-            osname, storage, vnet,
-            azf.getImagesfromOSname(osname), master_ip, agentConf)
-            .then(() => {
-                //get IP
-                let ip;
-                hostExternalIP[osname] = ip;
-            })
-        )
-            .catch(saveErrorAndResume))
-        .tap(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
-        .delay(120000)
-        .then(() => isIncluded(test_nodes_names.length, oses.length, 'create agent'));
-}
-
 function runCreateAgents() {
-    return createAgents()
-        .then(() => P.resolve(list_nodes())
+    return af.createAgents(azf, master_ip, storage, vnet, 'undefined', ...oses)
+        .then(() => af.list_nodes(master_ip)
             .then(res => {
                 let node_number_after_create = res.length;
                 console.log(`${YELLOW}Num nodes after create is: ${node_number_after_create}${NC}`);
                 console.warn(`Node names are ${res.map(node => node.name)}`);
             }));
-}
-
-function list_nodes() {
-    return P.resolve(client.host.list_hosts({}))
-        .then(res => _.flatMap(res.hosts, host => host.storage_nodes_info.nodes)
-            .filter(node => node.online));
 }
 
 function deleteAgents() {
@@ -469,7 +348,7 @@ function cleanEnv() {
 }
 
 //const timeInMin = timeout * 1000 * 60;
-console.log(`${YELLOW}Timeout in min is: ${timeout}${NC}`);
+console.log(`${YELLOW}Timeout: ${timeout} min${NC}`);
 let masterIndex = 0;
 console.log('Breaking on error?', breakonerror);
 
@@ -497,10 +376,10 @@ function runFirstFlow() {
     console.log(`${RED}<======= Starting first flow =======>${NC}`);
     return azf.stopVirtualMachine(servers[1].name)
         .then(() => delayInSec(90))
-        .then(() => verifyS3Server())
+        .then(verifyS3Server)
         .then(() => azf.startVirtualMachine(servers[1].name))
         .then(() => delayInSec(180))
-        .then(() => verifyS3Server())
+        .then(verifyS3Server)
         .then(() => checkClusterStatus(servers, masterIndex));
 }
 
@@ -509,7 +388,7 @@ function runSecondFlow() {
     return azf.stopVirtualMachine(servers[1].name)
         .then(() => delayInSec(90))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(() => verifyS3Server())
+        .then(verifyS3Server)
         .then(() => azf.stopVirtualMachine(servers[2].name))
         .then(() => delayInSec(90))
         .then(() => {
@@ -519,11 +398,11 @@ function runSecondFlow() {
         })
         .then(() => azf.startVirtualMachine(servers[1].name))
         .then(() => delayInSec(180))
-        .then(() => verifyS3Server())
+        .then(verifyS3Server)
         .then(() => azf.startVirtualMachine(servers[2].name))
         .then(() => delayInSec(180))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(() => verifyS3Server());
+        .then(verifyS3Server);
 }
 
 function runThirdFlow() {
@@ -541,11 +420,11 @@ function runThirdFlow() {
         .then(() => azf.startVirtualMachine(servers[2].name))
         .then(() => delayInSec(180))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(() => verifyS3Server())
+        .then(verifyS3Server)
         .then(() => azf.startVirtualMachine(servers[0].name))
         .then(() => delayInSec(180))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(() => verifyS3Server());
+        .then(verifyS3Server);
 }
 
 function runForthFlow() {
@@ -553,11 +432,11 @@ function runForthFlow() {
     return azf.stopVirtualMachine(servers[masterIndex].name)
         .then(() => delayInSec(180))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(() => verifyS3Server())
+        .then(verifyS3Server)
         .then(() => azf.startVirtualMachine(servers[masterIndex].name))
         .then(() => delayInSec(180))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(() => verifyS3Server());
+        .then(verifyS3Server);
 }
 
 return azf.authenticate()
@@ -573,22 +452,22 @@ return azf.authenticate()
     })
     .then(cleanEnv)
     .then(() => prepareServers(servers))
-    .then(() => checkAddClusterRules())
+    .then(checkAddClusterRules)
     .then(() => setNTPConfig(1))
     .then(() => createCluster(servers, masterIndex, 1))
     .then(() => setNTPConfig(2))
     .then(() => createCluster(servers, masterIndex, 2))
     .then(() => delayInSec(90))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
-    .then(() => getRandomAgentsOses())
-    .then(() => getAgentConf())
-    .then(() => runCreateAgents())
-    .then(() => verifyS3Server())
+    .then(getRandomAgentsOses)
+    .then(() => af.getAgentConf(master_ip))
+    .then(runCreateAgents)
+    .then(verifyS3Server)
     .then(() => checkClusterStatus(servers, masterIndex))
-    .then(() => runFirstFlow())
-    .then(() => runSecondFlow())
-    .then(() => runThirdFlow())
-    .then(() => runForthFlow())
+    .then(runFirstFlow)
+    .then(runSecondFlow)
+    .then(runThirdFlow)
+    .then(runForthFlow)
     .then(cleanEnv)
 
     /*
@@ -617,16 +496,15 @@ return azf.authenticate()
       })
       */
     .catch(err => {
-        console.error('something went wrong :(' + err + errors);
+        console.error(`something went wrong ${err} ${errors}`);
         failures_in_test = true;
     })
     .then(() => {
         if (failures_in_test) {
-            console.error(':( :( Errors during cluster test ): ):' + errors);
+            console.error(`Errors during cluster test ${errors}`);
             process.exit(1);
         }
-        console.log(':) :) :) cluster test were successful! (: (: (:');
-
+        console.log(`Cluster test were successful!`);
         process.exit(0);
         // return clean ? cleanEnv() : console.log('Clean env is ', clean);
     });

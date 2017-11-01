@@ -15,7 +15,6 @@ const Yellow = "\x1b[33;1m";
 const NC = "\x1b[0m";
 const pool = 'first.pool';
 const api = require('../../api');
-let agentConf;
 
 function list_nodes(server_ip) {
     let online_agents;
@@ -27,10 +26,10 @@ function list_nodes(server_ip) {
         system: 'demo'
     };
     return client.create_auth_token(auth_params)
-    .then(() => P.resolve(client.host.list_hosts({}))
-        .then(res => {
-            online_agents = _.flatMap(res.hosts, host => host.storage_nodes_info.nodes).filter(node => node.online);
-        }))
+        .then(() => client.host.list_hosts({})
+            .then(res => {
+                online_agents = _.flatMap(res.hosts, host => host.storage_nodes_info.nodes).filter(node => node.online);
+            }))
         .then(() => online_agents);
 }
 
@@ -44,10 +43,10 @@ function number_offline_nodes(server_ip) {
         system: 'demo'
     };
     return client.create_auth_token(auth_params)
-    .then(() => P.resolve(client.host.list_hosts({}))
-        .then(res => {
-           offline_agents = res.counters.by_mode.OFFLINE;
-        }))
+        .then(() => client.host.list_hosts({})
+            .then(res => {
+                offline_agents = res.counters.by_mode.OFFLINE;
+            }))
         .then(() => offline_agents);
 }
 
@@ -60,7 +59,11 @@ function getTestNodes(server_ip, ...oses) {
             }
         }))
         .then(() => {
-            console.log(`Relevant nodes: ${test_nodes_names}`);
+            if (test_nodes_names.length === 0) {
+                console.log(`There are no relevant nodes.`);
+            } else {
+                console.log(`Relevant nodes: ${test_nodes_names}`);
+            }
             return test_nodes_names;
         });
 }
@@ -76,14 +79,20 @@ function list_optimal_agents(server_ip, ...oses) {
             }
         }))
         .then(() => {
-            console.log(`Relevant nodes: ${test_optimal_nodes_names}`);
+            if (test_optimal_nodes_names.length === 0) {
+                console.log(`There are no relevant nodes.`);
+            } else {
+                console.log(`Relevant nodes: ${test_optimal_nodes_names}`);
+            }
             return test_optimal_nodes_names;
         });
 }
 
-function createAgents(azf, server_ip, storage, resource_vnet, ...oses) {
-    let hostExternalIP = {};
+//TODO: the if inside this function and the isInclude is for the use of agent_metrix test, need to make it work.
+// function createAgents(azf, server_ip, storage, resource_vnet, isInclude, exclude_drives = [], ...oses) {
+function createAgents(azf, server_ip, storage, resource_vnet, exclude_drives = [], ...oses) {
     let test_nodes_names = [];
+    let agentConf;
     console.log(`starting the create agents stage`);
     return list_nodes(server_ip)
         .then(res => {
@@ -99,26 +108,35 @@ function createAgents(azf, server_ip, storage, resource_vnet, ...oses) {
                 activeAgents(server_ip, deactivated_nodes);
             }
         })
-        .then(getTestNodes(server_ip, ...oses))
-        .then(res => test_nodes_names)
-        .then(() => P.map(oses, osname => azf.createAgent(
-            osname, storage, resource_vnet,
-            azf.getImagesfromOSname(osname), server_ip, agentConf)
-                .then(() => {
-                    //get IP
-                    let ip;
-                    hostExternalIP[osname] = ip;
-                })
+        .then(() => getAgentConf(server_ip, exclude_drives))
+        .then(res => {
+            agentConf = res;
+            return getTestNodes(server_ip, ...oses);
+        })
+        .then(res => {
+            test_nodes_names = res;
+            // if (isInclude) {
+            return P.map(oses, osname => azf.createAgent(
+                osname, storage, resource_vnet,
+                azf.getImagesfromOSname(osname), server_ip, agentConf)
             )
-            .catch(err => {
-                console.error(`Creating vm extension is FAILED `, err);
-            }))
+                .catch(err => {
+                    console.error(`Creating vm extension is FAILED `, err);
+                });
+            // });
+            //     } else {
+            //         return runExtensions('init_agent', `${server_ip} ${agentConf}`)
+            //             .catch(err => {
+            //                 console.error(`Creating vm extension is FAILED `, err);
+            //             });
+            //     }
+        })
         .tap(() => console.warn(`Waiting for a 2 min for agents to come up...`))
         .delay(120000)
         .then(() => isIncluded(server_ip, test_nodes_names.length, oses.length, 'create agent', ...oses));
 }
 
-function getAgentConf(server_ip) {
+function getAgentConf(server_ip, exclude_drives = []) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     let auth_params = {
@@ -128,19 +146,18 @@ function getAgentConf(server_ip) {
     };
     return client.create_auth_token(auth_params)
         .then(() => client.system.get_node_installation_string({
-        pool: pool,
-        exclude_drives: []
-    }))
+            pool: pool,
+            exclude_drives
+        }))
         .then(installationString => {
-            agentConf = installationString.LINUX;
-            const index = agentConf.indexOf('config');
-            agentConf = agentConf.substring(index + 7);
-            console.log(agentConf);
+            const agentConfArr = installationString.LINUX.split(" ");
+            console.log(agentConfArr[agentConfArr.length - 1]);
+            return agentConfArr[agentConfArr.length - 1];
         });
 }
 
 function create_agents(azf, server_ip, storage, resource_vnet, ...oses) {
-        return getAgentConf(server_ip)
+    return getAgentConf(server_ip)
         .then(() => createAgents(azf, server_ip, storage, resource_vnet, ...oses))
         .then(() => list_nodes(server_ip)
             .then(res => {
@@ -160,9 +177,24 @@ function activeAgents(server_ip, deactivated_nodes_list) {
     };
     return client.create_auth_token(auth_params)
         .then(() => P.each(deactivated_nodes_list, name => {
-        console.log('calling recommission_node on', name);
-        return client.node.recommission_node({ name });
-    }));
+            console.log('calling recommission_node on', name);
+            return client.node.recommission_node({ name });
+        }));
+}
+
+function deactiveAgents(server_ip, activated_nodes_list) {
+    const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+    const client = rpc.new_client({});
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params)
+        .then(() => P.each(activated_nodes_list, name => {
+            console.log('calling decommission_node on', name);
+            return client.node.decommission_node({ name });
+        }));
 }
 
 //check how many agents there are now, expecting agent to be included.
@@ -189,8 +221,13 @@ function isIncluded(server_ip, previous_agent_number, additional_agents, print =
                 console.error(`${Yellow}${error}${NC}`);
                 throw new Error(error);
             }
+        })
+        .catch(err => {
+            console.log('isIncluded Caught ERR', err);
+            throw err;
         });
 }
+
 function stop_agent(azf, agent) {
     console.log('Stopping agents VM ', agent);
     return azf.stopVirtualMachine(agent)
@@ -219,10 +256,19 @@ function clean_agents(azf, ...oses) {
                 console.log(`Blob ${osname} not found - skipping...`, err);
             })));
 }
+
+exports.list_nodes = list_nodes;
+exports.getTestNodes = getTestNodes;
+exports.getAgentConf = getAgentConf;
+exports.activeAgents = activeAgents;
+exports.deactiveAgents = deactiveAgents;
 exports.create_agents = create_agents;
 exports.clean_agents = clean_agents;
-exports.list_nodes = list_nodes;
 exports.number_offline_agents = number_offline_nodes;
 exports.list_optimal_agents = list_optimal_agents;
 exports.stop_agent = stop_agent;
 exports.start_agent = start_agent;
+exports.createAgents = createAgents;
+exports.isIncluded = isIncluded;
+
+

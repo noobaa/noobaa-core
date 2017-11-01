@@ -6,6 +6,7 @@ const _ = require('lodash');
 var AzureFunctions = require('../../deploy/azureFunctions');
 var crypto = require('crypto');
 const s3ops = require('../qa/s3ops');
+const af = require('../qa/agent_functions.js');
 const ops = require('../system_tests/basic_server_ops');
 
 // Environment Setup
@@ -16,6 +17,9 @@ var secret = process.env.APPLICATION_SECRET;
 var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 var shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
+
+const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('agents_matrix');
 
 // Sample Config
 var argv = require('minimist')(process.argv);
@@ -57,15 +61,16 @@ const oses = [
 const size = 16; //size in GB
 let nodes = [];
 let errors = [];
-let hostExternalIP = {};
-let agentConf;
-// let node_number_after_create;
 let initial_node_number;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-function saveErrorAndResume(err) {
-    errors.push(err.message);
+function saveErrorAndResume(err_to_log) {
+    const stack = new Error().stack;
+    const func_name = stack.split('\n')[1].trim().split(' ')[1];
+    errors.push(`${func_name}:: ${err_to_log.message}\n${stack}`);
+    console.error(errors);
+    process.exit(1);
 }
 
 function runClean() {
@@ -79,51 +84,11 @@ function runClean() {
         .then(() => clean && process.exit(0));
 }
 
-function list_nodes() {
-    return P.resolve(client.host.list_hosts({}))
-        .then(res => _.flatMap(res.hosts, host => host.storage_nodes_info.nodes)
-            .filter(node => node.online));
-}
-
-// function list_hosts_with_status(status) {
-//     return P.resolve(client.host.list_hosts({}))
-//         .then(res => res.filter(host => host.mode === status));
-// }
-
-function getTestNodes() {
-    let test_nodes_names = [];
-    return P.resolve(list_nodes())
-        .then(res => _.map(res, node => {
-            if (_.includes(oses, node.name.split('-')[0])) {
-                test_nodes_names.push(node.name);
-            }
-        }))
-        .then(() => {
-            console.log(`Relevent nodes: ${test_nodes_names}`);
-            return test_nodes_names;
-        });
-}
-
-function getTestOptimalNodes() {
-    let test_optimal_nodes_names = [];
-    return P.resolve(list_nodes())
-        .then(res => _.map(res, node => {
-            if (node.mode === 'OPTIMAL') {
-                if (_.includes(oses, node.name.split('-')[0])) {
-                    test_optimal_nodes_names.push(node.name);
-                }
-            }
-        }))
-        .then(() => {
-            console.log(`Relevent nodes: ${test_optimal_nodes_names}`);
-            return test_optimal_nodes_names;
-        });
-}
-
-function createAgents(isInclude) {
+function createAgents(isInclude, excludeList) {
+    let agentConf;
     let test_nodes_names = [];
     console.log(`starting the create agents stage`);
-    return P.resolve(list_nodes())
+    return af.list_nodes(server_ip)
         .then(res => {
             initial_node_number = res.length;
             const decommissioned_nodes = res.filter(node => node.mode === 'DECOMMISSIONED');
@@ -135,21 +100,22 @@ function createAgents(isInclude) {
             if (decommissioned_nodes.length !== 0) {
                 const deactivated_nodes = decommissioned_nodes.map(node => node.name);
                 console.log(`${Yellow}activating all the deactivated agents:${NC} ${deactivated_nodes}`);
-                activeAgents(deactivated_nodes);
+                af.activeAgents(server_ip, deactivated_nodes);
             }
         })
-        .then(getTestNodes)
-        .then(res => test_nodes_names)
+        .then(() => af.getAgentConf(server_ip, excludeList))
+        .then(res => {
+            agentConf = res;
+        })
+        .then(() => af.getTestNodes(server_ip, ...oses))
+        .then(res => {
+            test_nodes_names = res;
+        })
         .then(() => {
             if (isInclude) {
                 return P.map(oses, osname => azf.createAgent(
                     osname, storage, vnet,
                     azf.getImagesfromOSname(osname), server_ip, agentConf)
-                    .then(() => {
-                        //get IP
-                        let ip;
-                        hostExternalIP[osname] = ip;
-                    })
                 )
                     .catch(saveErrorAndResume);
             } else {
@@ -159,14 +125,14 @@ function createAgents(isInclude) {
         })
         .tap(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
         .delay(120000)
-        .then(() => isIncluded(test_nodes_names.length, oses.length, 'create agent'));
+        .then(() => af.isIncluded(server_ip, test_nodes_names.length, oses.length, 'create agent', ...oses));
 }
 
-function runCreateAgents(isInclude) {
+function runCreateAgents(isInclude, excludeList) {
     if (!skipsetup) {
-        return createAgents(isInclude);
+        return createAgents(isInclude, excludeList);
     }
-    return P.resolve(list_nodes())
+    return af.list_nodes(server_ip)
         .then(res => {
             let node_number_after_create = res.length;
             console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
@@ -253,7 +219,7 @@ function deleteAgent() {
     console.log(`starting the delete agents stage`);
     return runExtensions('remove_agent')
         .delay(60000)
-        .then(() => P.resolve(list_nodes()))
+        .then(() => af.list_nodes(server_ip))
         .then(res => {
             nodes = [];
             console.warn(`Node names are ${res.map(node => node.name)}`);
@@ -278,32 +244,6 @@ function addDisksToMachine(diskSize) {
     return P.map(oses, osname => {
         console.log(`adding data disk to vm ${osname} of size ${diskSize}`);
         return azf.addDataDiskToVM(osname, diskSize, storage);
-    });
-}
-
-function getAgentConf(exclude_drives) {
-    return client.system.get_node_installation_string({
-        pool: "first.pool",
-        exclude_drives
-    })
-        .then(installationString => {
-            const agentConfArr = installationString.LINUX.split(" ");
-            agentConf = agentConfArr[agentConfArr.length - 1];
-            console.log(agentConf);
-        });
-}
-
-function activeAgents(deactivated_nodes_list) {
-    return P.each(deactivated_nodes_list, name => {
-        console.log('calling recommission_node on', name);
-        return client.node.recommission_node({ name });
-    });
-}
-
-function deactiveAgents(activated_nodes_list) {
-    return P.each(activated_nodes_list, name => {
-        console.log('calling decommission_node on', name);
-        return client.node.decommission_node({ name });
     });
 }
 
@@ -336,14 +276,14 @@ function deactiveAgents(activated_nodes_list) {
 // }
 
 function checkIncludeDisk() {
-    return getTestNodes()
+    return af.getTestNodes(server_ip, ...oses)
         .then(number_befor_adding_disks => {
             console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`);
             return addDisksToMachine(size)
                 //map the disks
                 .then(() => runExtensions('map_new_disk'))
                 .delay(120000)
-                .then(() => isIncluded(number_befor_adding_disks.length));
+                .then(() => af.isIncluded(server_ip, number_befor_adding_disks.length, oses.length, 'undefined', ...oses));
         });
 }
 
@@ -359,13 +299,13 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
         .then(() => addDisksToMachine(15))
         .then(() => runExtensions('map_new_disk'))
         .delay(120000)
-        .then(() => isIncluded(number_befor_adding_disks, 0, 'exluding small disks'))
+        .then(() => af.isIncluded(server_ip, number_befor_adding_disks, 0, 'exluding small disks', ...oses))
         //adding disk to check that it is not getting exclude
         .then(() => addDisksToMachine(size))
         .then(() => runExtensions('map_new_disk'))
         .delay(120000)
         .then(() => {
-            isIncluded(number_befor_adding_disks, oses.length, 'exlude');
+            af.isIncluded(server_ip, number_befor_adding_disks, oses.length, 'exlude', ...oses);
             const number_of_disks = number_befor_adding_disks + oses.length;
             return number_of_disks;
         });
@@ -373,19 +313,19 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
 
 function checkExcludeDisk(excludeList) {
     let number_befor_adding_disks;
-    return getTestNodes()
+    return af.getTestNodes(server_ip, ...oses)
         .then(nodes_befor_adding_disks => addExcludeDisks(excludeList, nodes_befor_adding_disks.length))
         .then(res => number_befor_adding_disks)
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //activate a deactivated node
-        .then(() => getTestNodes()
+        .then(() => af.getTestNodes(server_ip, ...oses)
             .then(test_nodes_names => {
                 const includesE = test_nodes_names.filter(node => node.name.includes('-E-'));
                 const includes_exclude1 = test_nodes_names.filter(node => node.name.includes('exclude1'));
                 return includesE.concat(includes_exclude1);
             })
-            .then(activeAgents))
+            .then(res => af.activeAgents(server_ip, res)))
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //disabling the entire host
@@ -398,50 +338,23 @@ function checkExcludeDisk(excludeList) {
         .then(() => addDisksToMachine(size))
         .then(() => runExtensions('map_new_disk'))
         .delay(120000)
-        .then(() => isIncluded(number_befor_adding_disks, oses.length, 'disable and enable entire host'))
+        .then(() => af.isIncluded(server_ip, number_befor_adding_disks, oses.length, 'disable and enable entire host', ...oses))
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //deactivate agents (mounts)
-        .then(() => getTestNodes()
+        .then(() => af.getTestNodes(server_ip, ...oses)
             .then(test_nodes_names => {
                 const excludeE = test_nodes_names.filter(node => node.name.includes('-E-'));
                 const excludeF = test_nodes_names.filter(node => node.name.includes('-F-'));
                 const excludes_exclude = test_nodes_names.filter(node => node.name.includes('exclude'));
                 return excludeE.concat(excludeF).concat(excludes_exclude);
             })
-            .then(deactiveAgents));
-}
-
-//check how many agents there are now, expecting agent to be included.
-function isIncluded(previous_agent_number, additional_agents = oses.length, print = 'include') {
-    let excpected_count;
-    return P.resolve(list_nodes())
-        .then(res => {
-            const decommisioned_nodes = res.filter(node => node.mode === 'DECOMMISSIONED');
-            console.warn(`${Yellow}Number of Excluded agents: ${decommisioned_nodes.length}${NC}`);
-            console.warn(`Node names are ${res.map(node => node.name)}`);
-            excpected_count = previous_agent_number + additional_agents;
-            return getTestOptimalNodes();
-        })
-        .then(test_nodes => {
-            const actual_count = test_nodes.length;
-            if (actual_count === excpected_count) {
-                console.warn(`${Yellow}Num nodes after ${print} are ${actual_count}${NC}`);
-            } else {
-                const error = `Num nodes after ${print} are ${
-                    actual_count
-                    } - something went wrong... expected ${
-                    excpected_count
-                    }`;
-                console.error(`${Yellow}${error}${NC}`);
-                throw new Error(error);
-            }
-        });
+            .then(activated_nodes_list => af.deactiveAgents(server_ip, activated_nodes_list)));
 }
 
 //check how many agents there are now, expecting agent not to be included.
 function isExcluded(excludeList) {
-    return P.resolve(list_nodes())
+    return af.list_nodes(server_ip)
         .then(countExclude => {
             console.warn(`Node names are ${countExclude.map(node => node.name)}`);
             const excludedCount = countExclude.map(node => node.drive.mount)
@@ -469,16 +382,18 @@ function isExcluded(excludeList) {
 }
 
 function includeExcludeCycle(isInclude) {
-    const excludeList = ['E:\\', 'F:\\', '/exclude1', '/exclude2'];
+    let excludeList;
     if (isInclude) {
+        excludeList = [];
         console.warn(`${Red}starting include cycle${NC}`);
     } else {
+        excludeList = ['E:\\', 'F:\\', '/exclude1', '/exclude2'];
         console.warn(`${Red}starting exclude cycle${NC}`);
     }
-    return getAgentConf(isInclude ? [] : excludeList)
+    return (isInclude ? af.getAgentConf(server_ip) : af.getAgentConf(server_ip, excludeList))
         .then(() => isInclude || runExtensions('map_new_disk', '-r'))
         // creating agents on the VM - diffrent oses.
-        .then(() => runCreateAgents(isInclude))
+        .then(() => runCreateAgents(isInclude, excludeList))
         // verifying write, read, diag and debug level.
         .then(verifyAgent)
         // Deploy on an already deployed agent //need to find a way to run quit on win.
@@ -529,7 +444,7 @@ function main() {
             } else {
                 console.log('Got the following errors in test:');
                 _.each(errors, error => {
-                    console.error(error);
+                    console.error('Error:: ', error);
                 });
                 console.log('Failures in test :( - exiting...');
                 process.exit(1);

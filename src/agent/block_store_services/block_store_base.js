@@ -52,9 +52,31 @@ class BlockStoreBase {
         js_utils.self_bind(this, [
             'write_block',
             'read_block',
+            'delegate_write_block',
+            'delegate_read_block',
             'replicate_block',
             'delete_blocks',
+            'handle_delegator_error'
         ]);
+    }
+
+    delegate_read_block(req) {
+        const { block_md } = req.rpc_params;
+        const cached_data = this.block_cache.peek_cache(block_md);
+        if (cached_data) return { cached_data };
+        return this._delegate_read_block(block_md);
+    }
+
+    delegate_write_block(req) {
+        return this._delegate_write_block(req.rpc_params.block_md, req.rpc_params.data_length);
+    }
+
+    _delegate_read_block() {
+        throw new Error('this block store does not delegate');
+    }
+
+    _delegate_write_block() {
+        throw new Error('this block store does not delegate');
     }
 
     read_block(req) {
@@ -169,6 +191,15 @@ class BlockStoreBase {
             block_id.substring(block_id.length - 3) + '.blocks' :
             'other.blocks';
         return internal_dir;
+    }
+
+    _handle_delegator_error() {
+        throw new Error('this block store does not delegate');
+    }
+
+
+    handle_delegator_error(req) {
+        return this._handle_delegator_error(req.rpc_params.error, req.rpc_params.usage);
     }
 
     _update_usage(usage) {

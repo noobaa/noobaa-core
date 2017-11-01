@@ -40,6 +40,34 @@ class BlockStoreAzure extends BlockStoreBase {
             }));
     }
 
+    _get_shared_access_signature(block_key, permission) {
+        // set start and expiry dates to -10 minutes till 10 minutes from now
+        const start_date = new Date();
+        const expiry_date = new Date(start_date);
+        expiry_date.setMinutes(start_date.getMinutes() + 10);
+        start_date.setMinutes(start_date.getMinutes() - 10);
+        const shared_access_policy = {
+            AccessPolicy: {
+                Permissions: permission,
+                Start: start_date,
+                Expiry: expiry_date
+            },
+        };
+        return this.blob.generateSharedAccessSignature(this.container_name, block_key, shared_access_policy);
+    }
+
+    _delegate_read_block(block_md) {
+        const block_key = this._block_key(block_md.id);
+
+        return {
+            host: this.blob.host,
+            container: this.container_name,
+            block_key,
+            blob_sas: this._get_shared_access_signature(block_key, azure_storage.BlobUtilities.SharedAccessPermissions.READ),
+            proxy: this.proxy
+        };
+    }
+
     _read_block(block_md) {
         const block_key = this._block_key(block_md.id);
         const writable = buffer_utils.write_stream();
@@ -67,46 +95,51 @@ class BlockStoreAzure extends BlockStoreBase {
             });
     }
 
-    _write_block(block_md, data) {
-        let overwrite_size = 0;
-        let overwrite_count = 0;
+    _delegate_write_block(block_md, data_length) {
+        const encoded_md = this._encode_block_md(block_md);
+        const block_key = this._block_key(block_md.id);
+        // update usage optimistically. if delegator will fail it should rollback the change
+        // only increment usage if we got data_length
+        const usage = data_length ? {
+            size: data_length + encoded_md.length,
+            count: 1
+        } : { size: 0, count: 0 };
+        if (data_length) {
+            this._update_usage(usage);
+        }
+        return {
+            host: this.blob.host,
+            container: this.container_name,
+            block_key,
+            blob_sas: this._get_shared_access_signature(block_key, azure_storage.BlobUtilities.SharedAccessPermissions.WRITE),
+            metadata: {
+                noobaa_block_md: encoded_md
+            },
+            usage,
+            proxy: this.proxy
+        };
+    }
+
+    _write_block(block_md, data, options) {
         const encoded_md = this._encode_block_md(block_md);
         const block_key = this._block_key(block_md.id);
         // check to see if the object already exists
-        return P.fromCallback(callback =>
-                this.blob.getBlobProperties(
-                    this.container_name,
-                    block_key,
-                    callback)
-            )
-            .then(info => {
-                overwrite_size = Number(info.contentLength);
-                const md_size = info.metadata.noobaa_block_md ?
-                    info.metadata.noobaa_block_md.length : 0;
-                overwrite_size += md_size;
-                dbg.warn('block already found in cloud, will overwrite. id =', block_md.id);
-                overwrite_count = 1;
-            }, err => {
-                // TODO check if the error code is indeed "not found"
-                dbg.log1('_write_block: will write block', err.message);
-            })
-            .then(() => dbg.log3('writing block id to cloud: ', block_key))
-            .then(() => P.fromCallback(callback =>
-                this.blob.createBlockBlobFromText(
-                    this.container_name,
-                    block_key,
-                    data, {
-                        metadata: {
-                            noobaa_block_md: encoded_md
-                        }
-                    },
-                    callback)
-            ))
+
+        return P.fromCallback(callback => this.blob.createBlockBlobFromText(
+                this.container_name,
+                block_key,
+                data, {
+                    metadata: {
+                        noobaa_block_md: encoded_md
+                    }
+                },
+                callback))
             .then(() => {
+                if (options && options.ignore_usage) return;
                 // return usage count for the object
                 const usage = {
-                    size: data.length + encoded_md.length - overwrite_size,
-                    count: 1 - overwrite_count
+                    size: data.length + encoded_md.length,
+                    count: 1
                 };
                 return this._update_usage(usage);
             })
@@ -164,6 +197,20 @@ class BlockStoreAzure extends BlockStoreBase {
                 concurrency: 10
             })
             .then(() => this._update_usage(deleted_storage));
+    }
+
+    _handle_delegator_error(err, usage) {
+        if (usage) {
+            this._update_usage({ size: -usage.size, count: -usage.count });
+        }
+        dbg.error('BlockStoreAzure operation failed:',
+            this.container_name, err.code, err);
+        if (err.code === 'ContainerNotFound') {
+            throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
+        } else if (err.code === 'AuthenticationFailed') {
+            throw new RpcError('AUTH_FAILED', `access denied to the azure container ${this.container_name}. got error ${err}`);
+        }
+        throw err;
     }
 
     _get_usage() {

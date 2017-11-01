@@ -253,6 +253,10 @@ module.exports = {
                 node: {
                     type: 'string'
                 },
+                delegator: {
+                    type: 'string',
+                    enum: ['DELEGATOR_AZURE', 'DELEGATOR_S3']
+                },
                 pool: {
                     type: 'string'
                 },

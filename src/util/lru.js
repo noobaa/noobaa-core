@@ -33,6 +33,18 @@ class LRU {
 
     // return the item from the LRU cache, create it if missing.
     find_or_add_item(id) {
+        let item = this.find_item(id);
+        if (!item) {
+            // miss - insert new item on front
+            let now = this.params.expiry_ms ? Date.now() : 0;
+            item = new LRUItem(this, id, now);
+            this._add_item(item);
+        }
+        return item;
+    }
+
+    // return the item from the LRU cache, create it if missing.
+    find_item(id) {
         let item = this.map[id];
         let now = this.params.expiry_ms ? Date.now() : 0;
         if (item) {
@@ -49,10 +61,6 @@ class LRU {
             // item expired
             this._remove_item(item);
         }
-        // miss - insert new item on front
-        item = new LRUItem(this, id, now);
-        this._add_item(item);
-        return item;
     }
 
     remove_item(id) {

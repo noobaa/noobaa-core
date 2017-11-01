@@ -21,6 +21,8 @@ const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
 const promise_utils = require('../util/promise_utils');
 const dedup_options = require('./dedup_options');
+const block_store_client = require('../agent/block_store_services/block_store_client').instance();
+
 
 // dbg.set_level(5, 'core');
 
@@ -663,7 +665,7 @@ class ObjectIO {
 
                 this._error_injection_on_write();
 
-                return params.client.block_store.write_block({
+                return block_store_client.write_block(params.client, {
                     block_md: block_md,
                     data: buffer,
                 }, {
@@ -1096,7 +1098,7 @@ class ObjectIO {
 
                     this._error_injection_on_read();
 
-                    return params.client.block_store.read_block({
+                    return block_store_client.read_block(params.client, {
                         block_md: block_md
                     }, {
                         address: block_md.address,

@@ -230,10 +230,10 @@ class AzureFunctions {
             nicParameters, callback));
     }
 
-    createPublicIp(publicIPName) {
+    createPublicIp(publicIPName, ipType = 'Dynamic') {
         var publicIPParameters = {
             location: this.location,
-            publicIPAllocationMethod: 'Static',
+            publicIPAllocationMethod: ipType,
             // dnsSettings: {
             //     domainNameLabel: domainNameLabel
             // }
@@ -299,7 +299,7 @@ class AzureFunctions {
             this.resourceGroupName, vmName, vmParameters, callback));
     }
 
-    createVirtualMachineFromImage(vmName, image, vnet, storageAccountName, osType, plan) {
+    createVirtualMachineFromImage(vmName, image, vnet, storageAccountName, osType, plan, ipType = 'Dynamic') {
         var vmParameters = {
             location: this.location,
             plan: plan,
@@ -342,7 +342,7 @@ class AzureFunctions {
         return this.getSubnetInfo(vnet)
             .then(result => {
                 subnetInfo = result;
-                return this.createPublicIp(vmName + '_pip');
+                return this.createPublicIp(vmName + '_pip', ipType);
             })
             .then(ipinfo => this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip'))
             .then(nic => {
@@ -631,7 +631,7 @@ class AzureFunctions {
     }
 
 
-    createServer(serverName, vnet, storage) { // creates new noobaa server and returns it's secret
+    createServer(serverName, vnet, storage, ipType = 'Dynamic') { // creates new noobaa server and returns it's secret
         const CONTAINER_NAME = 'staging-vhds';
         var rpc;
         var client;
@@ -655,7 +655,7 @@ class AzureFunctions {
                         })
                         .delay(10000)
                 )))
-            .then(() => this.createVirtualMachineFromImage(serverName, 'https://' + storage + '.blob.core.windows.net/staging-vhds/image.vhd', vnet, storage, 'Linux'))
+            .then(() => this.createVirtualMachineFromImage(serverName, 'https://' + storage + '.blob.core.windows.net/staging-vhds/image.vhd', vnet, storage, 'Linux', ipType))
             .delay(20000)
             .then(() => this.getIpAddress(serverName + '_pip'))
             .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))

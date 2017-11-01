@@ -28,6 +28,86 @@ module.exports = {
             },
         },
 
+
+        handle_delegator_error: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                additionalProperties: true,
+                properties: {
+                    error: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    },
+                    usage: { // the usage that was counted for failed operation - need to undo
+                        type: 'object',
+                        required: ['size', 'count'],
+                        properties: {
+                            size: {
+                                type: 'integer'
+                            },
+                            count: {
+                                type: 'integer'
+                            },
+                        }
+                    }
+                }
+            }
+        },
+
+        delegate_write_block: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['block_md', 'data_length'],
+                properties: {
+                    block_md: {
+                        $ref: 'common_api#/definitions/block_md'
+                    },
+                    data_length: {
+                        type: 'integer'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                additionalProperties: true,
+                properties: {}
+            }
+        },
+
+        delegate_read_block: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['block_md'],
+                properties: {
+                    block_md: {
+                        $ref: 'common_api#/definitions/block_md'
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                additionalProperties: true,
+                properties: {
+                    cached_data: {
+                        type: 'object',
+                        required: ['block_md', 'data'],
+                        properties: {
+                            block_md: {
+                                $ref: 'common_api#/definitions/block_md'
+                            },
+                            data: {
+                                buffer: true
+                            },
+                        },
+                    }
+                }
+            }
+        },
+
         read_block: {
             method: 'GET',
             params: {

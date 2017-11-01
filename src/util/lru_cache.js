@@ -4,6 +4,9 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var LRU = require('./lru');
+let assert = require('assert');
+
+
 // var dbg = require('../util/debug_module')(__filename);
 
 class LRUCache {
@@ -18,6 +21,7 @@ class LRUCache {
         options = options || {};
         this.name = options.name;
         this.load = options.load;
+        this.has_validator = Boolean(options.validate);
         this.validate = options.validate || ((data, params) => true);
         this.make_key = options.make_key || (params => params);
         this.make_val = options.make_val || ((data, params) => data);
@@ -54,6 +58,16 @@ class LRUCache {
                 return this._load_item(item, params);
             })
             .then(item => this.make_val(item.d, params));
+    }
+
+    peek_cache(params) {
+        let key = this.make_key(params);
+        let item = this.lru.find_item(key);
+        if (item && item.d) {
+            // for now we don't use peek cache with validator. just make sure
+            assert(!this.has_validator);
+            return this.make_val(item.d, params);
+        }
     }
 
     put_in_cache(params, data) {

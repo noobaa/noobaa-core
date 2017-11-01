@@ -903,7 +903,7 @@ class Agent {
             digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
         };
         return test_average_latency(count, delay_ms, () =>
-                this.block_store._write_block(block_md, data))
+                this.block_store._write_block(block_md, data, { ignore_usage: true }))
             .then(write_latencies => {
                 reply.write = write_latencies;
             })

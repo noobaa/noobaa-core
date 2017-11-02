@@ -4,11 +4,15 @@
 const _ = require('lodash');
 const mongodb = require('mongodb');
 const mongo_client = require('../../util/mongo_client');
+
 const P = require('../../util/promise');
-// const RpcError = require('../../rpc/rpc_error');
 const dbg = require('../../util/debug_module')(__filename);
+const os_utils = require('../../util/os_utils');
+const size_utils = require('../../util/size_utils');
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
+
+const { SERVER_MIN_REQUIREMENTS } = require('../../config');
 const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
 const GRID_FS_BUCKET_NAME_FILES = 'mongo_internal_agent.files';
 const GRID_FS_BUCKET_NAME_CHUNKS = 'mongo_internal_agent.chunks';
@@ -22,6 +26,7 @@ class BlockStoreMongo extends BlockStoreBase {
         super(options);
         this.base_path = options.mongo_path;
         this.blocks_path = this.base_path + '/blocks_tree';
+        this._STORE_LIMIT = 5 * size_utils.GIGABYTE;
     }
 
     _gridfs() {
@@ -57,6 +62,18 @@ class BlockStoreMongo extends BlockStoreBase {
             });
     }
 
+    set_mongo_store_limit() {
+        return os_utils.get_raw_storage()
+            .then(total => {
+                dbg.log0(`total disk size ${total}, current used ${this._usage}`);
+                if (total < SERVER_MIN_REQUIREMENTS.STORAGE_GB * size_utils.GIGABYTE) {
+                    this._STORE_LIMIT = 5 * size_utils.GIGABYTE;
+                } else {
+                    this._STORE_LIMIT = 30 * size_utils.GIGABYTE;
+                }
+        });
+    }
+
     init() {
         return mongo_client.instance().connect()
             .then(() => this._gridfs())
@@ -66,18 +83,19 @@ class BlockStoreMongo extends BlockStoreBase {
                     this._usage = usage_metadata;
                     dbg.log0('found usage data usage_data = ', this._usage);
                 }
-            }, err => {
+            })
+            .then(() => this.set_mongo_store_limit())
+            .catch(err => {
                 dbg.error('got error on init:', err);
+                throw err;
             });
     }
 
     get_storage_info() {
-        // Actually will be used 30GB since we have 10GB reserve
-        const GIGABYTE_30 = 30 * 1024 * 1024 * 1024;
         return P.resolve(this._get_usage())
             .then(usage => ({
-                total: Math.max(GIGABYTE_30, usage.size),
-                free: Math.max(GIGABYTE_30 - usage.size, 0),
+                total: Math.max(this._STORE_LIMIT, usage.size),
+                free: Math.max(this._STORE_LIMIT - usage.size, 0),
                 used: usage.size
             }));
     }

@@ -279,9 +279,48 @@ function get_list_multipart_uploads(ip, bucket) {
     let listFiles = [];
     return P.ninvoke(s3bucket, 'listMultipartUploads', params)
         .then(res => {
-            list = res.data.Uploads;
+            list = res.Uploads;
             if (list.length === 0) {
                 console.warn('No objects in bucket');
+            } else {
+                list.forEach(function(file) {
+                    listFiles.push({ Key: file.Key });
+                    console.log('files key is: ' + file.Key);
+                });
+            }
+            return listFiles;
+        })
+        .catch(err => {
+            console.error(`get_list_multipart_uploads:: listMultipartUploads ${params} failed!`, err);
+            throw err;
+        });
+}
+
+function get_list_multipart_uploads_filters(ip, bucket, delimiter, key_marker, max_uploads, prefix, uploadIdMarker) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    let params = {
+        Bucket: bucket,
+        Delimiter: delimiter,
+        KeyMarker: key_marker,
+        MaxUploads: max_uploads,
+        Prefix: prefix,
+        UploadIdMarker: uploadIdMarker
+    };
+    let list = [];
+    let listFiles = [];
+    return P.ninvoke(s3bucket, 'listMultipartUploads', params)
+        .then(res => {
+            console.log(JSON.stringify(res));
+            list = res.Uploads;
+            if (list.length === 0) {
+                console.warn('No objects in bucket with filters: ' + JSON.stringify(params));
             } else {
                 list.forEach(function(file) {
                     listFiles.push({ Key: file.Key });
@@ -670,6 +709,7 @@ function get_object(ip, bucket, key) {
 }
 
 exports.get_list_multipart_uploads = get_list_multipart_uploads;
+exports.get_list_multipart_uploads_filters = get_list_multipart_uploads_filters;
 exports.delete_bucket = delete_bucket;
 exports.get_object_uploadId = get_object_uploadId;
 exports.get_bucket_uploadId = get_bucket_uploadId;

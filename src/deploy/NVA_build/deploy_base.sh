@@ -225,10 +225,11 @@ function install_mongo {
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
     rm -f /etc/init.d/mongod
 
+    deploy_log "adding mongo ssl user"
+    add_mongo_ssl_user
+    
     deploy_log "install_mongo done"
 }
-
-
 
 function general_settings {
 	deploy_log "general_settings start"
@@ -403,6 +404,11 @@ function setup_mongodb {
     chkconfig mongod off
 
 	deploy_log "setup_mongodb done"
+}
+
+function add_mongo_ssl_user {
+    local client_subject=$(openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}')
+    /usr/bin/mongo --eval "var param_client_subject='${client_subject}'" ${CORE_DIR}/src/deploy/NVA_build/add_mongo_ssl_user.js
 }
 
 function runinstall {

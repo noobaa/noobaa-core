@@ -23,4 +23,5 @@ function add_ssl_user() {
     }
 }
 
+setVerboseShell(true);
 add_ssl_user();

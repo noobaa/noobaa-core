@@ -571,3 +571,19 @@ export function openEditSpilloverTargetsModal() {
         }
     };
 }
+
+export function openSetNodeAsTrustedModal(host, untrustedReasons) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'set-node-as-trusted-modal',
+                params: { host, untrustedReasons }
+            },
+            options: {
+                title: 'Set Node as Trusted',
+                size: 'small'
+            }
+        }
+    };
+}

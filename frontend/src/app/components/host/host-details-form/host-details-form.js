@@ -3,13 +3,13 @@
 import template from './host-details-form.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { deepFreeze, mapValues } from 'utils/core-utils';
+import { deepFreeze, mapValues, flatMap } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { getHostDisplayName } from 'utils/host-utils';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
-import { retrustHost } from 'action-creators';
+import { openSetNodeAsTrustedModal } from 'action-creators';
 
 const protocolMapping = deepFreeze({
     UNKNOWN: 'Unknown',
@@ -155,12 +155,20 @@ class HostDetailsFormViewModel extends Observer {
         }
 
         const { name, version, lastCommunication, ip, protocol,
-            endpoint, rtt, hostname, upTime, os, cpus } = host;
+            endpoint, rtt, hostname, upTime, os, cpus, services } = host;
 
         const cpusInfo = {
             count: cpus.units.length,
             utilization: `${numeral(cpus.usage).format('%')} utilization`
         };
+
+        if(!host.trusted) {
+            this.untrustedReasons = flatMap(
+                services.storage.nodes,
+                node => node.untrusted.map(events => ({ events, drive: node.mount}))
+            );
+        }
+
         this.host = name;
         this.hostLoaded(true);
         this.name(getHostDisplayName(name));
@@ -181,7 +189,7 @@ class HostDetailsFormViewModel extends Observer {
     }
 
     onRetrust() {
-        action$.onNext(retrustHost(this.host));
+        action$.onNext(openSetNodeAsTrustedModal(this.host, this.untrustedReasons));
     }
 }
 

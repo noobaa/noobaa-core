@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { echo, mapValues, keyByProperty, createCompareFunc, hashCode, averageBy, flatMap } from 'utils/core-utils';
+import { echo, mapValues, keyByProperty, createCompareFunc, hashCode, averageBy,
+    flatMap, deepFreeze, groupBy } from 'utils/core-utils';
 import { mapApiStorage } from 'utils/state-utils';
 import { paginationPageSize } from 'config';
 import {
@@ -18,6 +19,10 @@ import {
 const inMemoryQueryLimit = 10;
 const inMemoryHostLimit = paginationPageSize * inMemoryQueryLimit;
 const gatewayUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseconds */
+const eventToReasonCode = deepFreeze({
+    permission_event: 'TEMPERING',
+    data_event: 'CORRUPTION'
+});
 
 // ------------------------------
 // Initial State
@@ -184,6 +189,17 @@ function _mapDataToHost(host = {}, data, fetchTime) {
     const { storage_nodes_info, s3_nodes_info, os_info, ports, debug } = data;
     const { diagnostics = initialHostDiagnosticsState } = host;
 
+    const reasonByMount = groupBy(
+        data.untrusted_reasons || [],
+        reason => reason.drive.drive_id,
+        reason => Object.entries(reason.events)
+            .map(pair => {
+                const [event, time] = pair;
+                const reason = eventToReasonCode[event];
+                return { reason, time };
+            })
+    );
+
     const activities = (storage_nodes_info.data_activities || [])
         .map(activity => ({
             type: activity.reason,
@@ -213,7 +229,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         trusted: data.trusted,
         activities: activities,
         services: {
-            storage: _mapStorageService(storage_nodes_info),
+            storage: _mapStorageService(storage_nodes_info, reasonByMount),
             gateway: _mapGatewayService(s3_nodes_info, fetchTime)
         },
         upTime: os_info.uptime,
@@ -234,14 +250,13 @@ function _mapDataToHost(host = {}, data, fetchTime) {
     };
 }
 
-function _mapStorageService({ mode, enabled, nodes }) {
+function _mapStorageService({ mode, enabled, nodes }, reasonByMount) {
     return {
         mode,
         enabled: Boolean(enabled),
         nodes: nodes.map(node => {
             const { name, mode, drive, latency_of_disk_read, storage,
                 latency_of_disk_write, data_activity } = node;
-
             const activity = data_activity && {
                 type: data_activity.reason,
                 progress: data_activity.progress,
@@ -256,7 +271,8 @@ function _mapStorageService({ mode, enabled, nodes }) {
                 mount: drive.mount,
                 readLatency: averageBy(latency_of_disk_read),
                 writeLatency: averageBy(latency_of_disk_write),
-                activity
+                activity,
+                untrusted: reasonByMount[drive.drive_id] || []
             };
         })
     };

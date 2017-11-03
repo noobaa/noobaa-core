@@ -21,7 +21,8 @@
     sorting: ko.pc(sorting, onSort, $component),
     loading: connectionsLoading,
     emptyMessage: emptyMessage,
-    subRow: 'connectionUsage'
+    subRow: 'connectionUsage',
+    expandColumn: 'isExpanded'
 ">
     <template name="connectionUsage">
         <div class="pad">
@@ -29,7 +30,23 @@
                 columns: usageColumns,
                 data: rows,
                 emptyMessage: emptyMessage
-            "></data-table>
+            ">
+                <template name="noobaaBuckets">
+                    <!-- ko ifnot: $data().href  -->
+                    <span class="remark cell-tooltip"
+                          ko.text="$data().text"
+                          ko.tooltip="$data().tooltip"
+                    ></span>
+                    <!-- /ko -->
+                    <!-- ko if: $data().href -->
+                    <a class="link cell-tooltip"
+                       ko.attr.href="$data().href"
+                       ko.text="$data().text"
+                       ko.tooltip="$data().tooltip"
+                    ></a>
+                    <!-- /ko -->
+                </template>
+            </data-table>
         </div>
     </template>
 </data-table>

@@ -11,21 +11,24 @@ const usageTypeMapping = deepFreeze({
 
 export default class UsageRowViewModel {
     constructor() {
-        this.entity = ko.observable();
+        this.noobaaBuckets = ko.observable();
         this.externalEntity = ko.observable();
         this.usageType = ko.observable();
     }
 
     onUsage(usage, system) {
-        const { entity, externalEntity, usageType } = usage;
+        const { entity, buckets, externalEntity, usageType } = usage;
         const route = usageType === 'NAMESPACE_RESOURCE' ? routes.gatewayBucket : routes.bucket;
+        const noobaaBuckets = {
+            text: entity,
+            tooltip: { text: buckets, breakWords: true },
+            href: usageType === 'CLOUD_SYNC' ?
+                realizeUri(route, { system, bucket: entity }) :
+                undefined
+        };
 
         this.externalEntity = ko.observable(externalEntity);
         this.usageType = ko.observable(usageTypeMapping[usageType]);
-        this.entity({
-            text: entity,
-            tooltip: { text: entity, breakWords: true },
-            href: realizeUri(route, { system, bucket: entity })
-        });
+        this.noobaaBuckets(noobaaBuckets);
     }
 }

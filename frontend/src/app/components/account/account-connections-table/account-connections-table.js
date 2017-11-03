@@ -93,12 +93,13 @@ class AccountConnectionsTableViewModel extends Observer {
         const { tab = 'connections', system } = params;
         if (tab !== 'connections') return;
 
-        const { filter, sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
+        const { filter, sortBy = 'name', order = 1, page = 0, selectedForDelete, expandedRow } = query;
         const { compareKey } = columns.find(column => column.name === sortBy);
         const pageStart = Number(page) * this.pageSize;
         const rowParams = {
             deleteGroup: this.deleteGroup,
-            onDelete: this.onDeleteConnection.bind(this)
+            onDelete: this.onDeleteConnection.bind(this),
+            onExpand: this.onExpand.bind(this)
         };
 
         const filteredConnections = connections
@@ -109,7 +110,8 @@ class AccountConnectionsTableViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((connection, i) => {
                 const row = this.rows.get(i) || new ConnectionRowViewModel(rowParams);
-                row.onConnection(connection, buckets, gatewayBuckets, system);
+                const isExpanded = expandedRow === connection.name;
+                row.onConnection(connection, buckets, gatewayBuckets, system, isExpanded);
                 return row;
             });
 
@@ -118,6 +120,7 @@ class AccountConnectionsTableViewModel extends Observer {
             'The account has no external connections';
 
         this.pathname = pathname;
+        this.expandedRow = expandedRow;
         this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
@@ -144,9 +147,16 @@ class AccountConnectionsTableViewModel extends Observer {
         });
     }
 
+    onExpand(connection) {
+        this._query({
+            expandedRow: connection
+        });
+    }
+
     onPage(page) {
         this._query({
             page: page,
+            expandedRow: null,
             selectedForDelete: null
         });
     }
@@ -160,13 +170,15 @@ class AccountConnectionsTableViewModel extends Observer {
         filter = this.filter(),
         sorting = this.sorting(),
         page = this.page(),
-        selectedForDelete = this.selectedForDelete()
+        selectedForDelete = this.selectedForDelete(),
+        expandedRow = this.expandedRow
     }) {
         const query = {
             filter: filter || undefined,
             sortBy: sorting.sortBy,
             order: sorting.order,
-            page: page,
+            page,
+            expandedRow: expandedRow || undefined,
             selectedForDelete: selectedForDelete || undefined
         };
 

@@ -5,73 +5,75 @@ import { stringifyAmount } from 'utils/string-utils';
 import { deepFreeze } from 'utils/core-utils';
 
 const emptyMessage = 'Connection is not used by any resource';
-const titleMapping = deepFreeze({
-    AZURE: 'Azure Containers Under Connection',
-    AWS: 'AWS S3 Buckets Under Connection',
-    S3_COMPATIBLE: 'S3 Buckets Under Connection'
+
+const columns = deepFreeze([
+    {
+        name: 'externalEntity',
+        label: 'Azure Containers Under Connection',
+        remark: 'AZURE'
+
+    },
+    {
+        name: 'externalEntity',
+        label: 'AWS S3 Buckets Under Connection',
+        remark: 'AWS'
+    },
+    {
+        name: 'externalEntity',
+        label: 'S3 Buckets Under Connection',
+        remark: 'S3_COMPATIBLE'
+    },
+    {
+        name: 'usageType',
+        label: 'usage'
+    },
+    {
+        name: 'noobaaBuckets',
+        label: 'NooBaa Bucket',
+        type: 'noobaaBuckets'
+    }
+]);
+
+const resourceToBuckets = deepFreeze({
+    CLOUD_SYNC: (resource) => resource,
+    CLOUD_RESOURCE: (resource, buckets) =>
+        _filterBucketsList(resource, buckets, _filterBucketsUsedByCloudResource),
+    NAMESPACE_RESOURCE: (resource, buckets) =>
+        _filterBucketsList(resource, buckets, _getBucketsUsedByGatewayResource)
 });
 
-function _getCloudResourceBucketUsage(usage, buckets) {
-    return [].concat(...usage
-        .filter(item => item.usageType === 'CLOUD_RESOURCE')
-        .map(item => buckets.map(bucket => {
-            const isBucketUseCloudResource = bucket.placement.resources
-                .filter(resource => resource.type ===  'CLOUD')
-                .some(resource => resource.name === item.entity);
-
-            if (isBucketUseCloudResource) {
-                return {
-                    ...item,
-                    entity: bucket.name
-                };
-            }
-        }).filter(Boolean))
-    );
+function _filterBucketsUsedByCloudResource(cloudResource, bucket) {
+    return bucket.placement.resources
+        .some(resource => resource.type === 'CLOUD' && resource.name === cloudResource);
 }
 
-function _getGatewayResourceBucketUsage(usage, buckets) {
-    return [].concat(...usage
-        .filter(item => item.usageType === 'NAMESPACE_RESOURCE')
-        .map(item => buckets.map(bucket => {
-            const isBucketReadFromUseResource = bucket.placement.readFrom
-                .some(entity => entity === item.entity);
-            const isBucketWriteToUseResource = bucket.placement.readFrom === item.entity;
+function _getBucketsUsedByGatewayResource(gatewayResource, bucket) {
+    const usedForWriting = bucket.placement.readFrom === gatewayResource;
+    const usedForReading = bucket.placement.readFrom
+        .some(entity => entity === gatewayResource);
 
-            if (isBucketReadFromUseResource || isBucketWriteToUseResource) {
-                return {
-                    ...item,
-                    entity: bucket.name
-                };
-            }
-        }).filter(Boolean))
-    );
+    return usedForReading || usedForWriting;
+}
+
+function _filterBucketsList(resource, buckets, filterFunc) {
+    return buckets
+        .filter(bucket => filterFunc(resource, bucket))
+        .map(bucket => bucket.name);
 }
 
 export default class ConnectionRowViewModel {
-    constructor({ deleteGroup, onDelete }) {
+    constructor({ deleteGroup, onDelete, onExpand }) {
+        this.usageColumns = ko.observableArray();
+        this.expand = onExpand;
         this.emptyMessage = emptyMessage;
-        this.usageColumns = [
-            {
-                name: 'externalEntity',
-                label: ko.observable()
-            },
-            {
-                name: 'usageType',
-                label: 'usage'
-            },
-            {
-                name: 'entity',
-                label: 'NooBaa Bucket',
-                type: 'newLink'
-            }
-        ];
         this.service = ko.observable();
         this.name = ko.observable();
         this.endpoint = ko.observable();
         this.identity = ko.observable();
         this.externalTargets = ko.observable();
         this.rows = ko.observableArray();
-
+        this._isExpanded = ko.observable();
+        this.isExpanded = ko.pc(this._isExpanded, this.onToggleExpand, this);
         this.deleteButton = {
             subject: 'connection',
             id: ko.observable(),
@@ -82,7 +84,7 @@ export default class ConnectionRowViewModel {
         };
     }
 
-    onConnection(connection, buckets, gatewayBuckets, system) {
+    onConnection(connection, buckets, gatewayBuckets, system, isExpanded) {
         const { name, service, endpoint, identity, usage } = connection;
         const bucketsList = Object.values(buckets);
         const gatewayBucketsList = Object.values(gatewayBuckets);
@@ -103,20 +105,23 @@ export default class ConnectionRowViewModel {
             'Cannot delete currently used connection' :
             'Delete Connection';
 
-        const cloudResourceUsage = _getCloudResourceBucketUsage(usage, bucketsList);
-        const gatewayUsage = _getGatewayResourceBucketUsage(usage, gatewayBucketsList);
-        const connectionUsage = [
-            ...usage.filter(item => item.usageType === 'CLOUD_SYNC'),
-            ...cloudResourceUsage,
-            ...gatewayUsage
-        ];
+        const connectionUsage = usage.map(item => ({
+            ...item,
+            buckets: resourceToBuckets[item.usageType](
+                item.entity,
+                item.usageType === 'CLOUD_RESOURCE'? bucketsList : gatewayBucketsList
+            )
+        }));
+
         const rows = connectionUsage.map((item, i) => {
             const row = this.rows.get(i) || new UsageRowViewModel();
             row.onUsage(item, system);
             return row;
         });
+        const usageColumns = columns
+            .filter(col => !col.marker || col.marker === service);
 
-        this.usageColumns[0].label(titleMapping[service]);
+        this.usageColumns(usageColumns);
         this.rows(rows);
         this.name(name);
         this.service(serviceInfo);
@@ -126,5 +131,10 @@ export default class ConnectionRowViewModel {
         this.deleteButton.id(name);
         this.deleteButton.disabled(hasExternalConnections);
         this.deleteButton.tooltip(deleteToolTip);
+        this._isExpanded(isExpanded);
+    }
+
+    onToggleExpand(val) {
+        this.expand(val ? this.name() : null);
     }
 }

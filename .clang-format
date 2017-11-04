@@ -3,23 +3,26 @@ BasedOnStyle: LLVM
 UseTab: Never
 TabWidth: 4
 IndentWidth: 4
-ColumnLimit: 120
-SortIncludes: true
-BreakBeforeBraces: Linux
 ContinuationIndentWidth: 4
+ColumnLimit: 0
+SortIncludes: true
 BinPackArguments: false
 BinPackParameters: false
 AccessModifierOffset: -4
-IndentPPDirectives: AfterHash
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+BreakBeforeBraces: Linux
+BreakConstructorInitializers: BeforeComma
+FixNamespaceComments: true
+NamespaceIndentation: Inner
 
 AlignOperands: false
 AlignTrailingComments: false
-AlignAfterOpenBracket: DontAlign
+AlignAfterOpenBracket: AlwaysBreak
 AlignEscapedNewlinesLeft: true
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
 
-AlwaysBreakAfterReturnType: AllDefinitions
+AlwaysBreakAfterReturnType: TopLevelDefinitions
 AlwaysBreakTemplateDeclarations: true
 AlwaysBreakBeforeMultilineStrings: false
 
@@ -27,3 +30,4 @@ AllowShortLoopsOnASingleLine: true
 AllowShortBlocksOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
+

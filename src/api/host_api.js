@@ -321,10 +321,10 @@ module.exports = {
                     type: 'string'
                 },
                 version_install_time: {
-                    format: 'idate'
+                    idate: true
                 },
                 last_communication: {
-                    format: 'idate'
+                    idate: true
                 },
                 trusted: {
                     type: 'boolean',
@@ -421,10 +421,10 @@ module.exports = {
                             type: 'object',
                             properties: {
                                 last_read: {
-                                    format: 'idate'
+                                    idate: true
                                 },
                                 last_write: {
-                                    format: 'idate'
+                                    idate: true
                                 },
                                 daily_stats: {
                                     type: 'array',
@@ -432,7 +432,7 @@ module.exports = {
                                         type: 'object',
                                         properties: {
                                             time: {
-                                                format: 'idate'
+                                                idate: true
                                             },
                                             read_count: {
                                                 type: 'integer'

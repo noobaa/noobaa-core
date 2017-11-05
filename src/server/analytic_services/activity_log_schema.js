@@ -13,13 +13,13 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         time: {
-            format: 'date',
+            date: true,
         },
         level: {
             type: 'string',
@@ -32,22 +32,22 @@ module.exports = {
             type: 'string',
         },
         tier: {
-            format: 'objectid'
+            objectid: true
         },
         node: {
-            format: 'objectid'
+            objectid: true
         },
         bucket: {
-            format: 'objectid'
+            objectid: true
         },
         obj: {
-            format: 'objectid'
+            objectid: true
         },
         account: {
-            format: 'objectid'
+            objectid: true
         },
         pool: {
-            format: 'objectid'
+            objectid: true
         },
         server: {
             type: 'object',
@@ -62,7 +62,7 @@ module.exports = {
         },
         // The User that performed the action
         actor: {
-            format: 'objectid'
+            objectid: true
         }
     }
 };

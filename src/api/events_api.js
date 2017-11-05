@@ -21,10 +21,10 @@ module.exports = {
                         type: 'string',
                     },
                     till: {
-                        format: 'idate'
+                        idate: true
                     },
                     since: {
-                        format: 'idate'
+                        idate: true
                     },
                     skip: {
                         type: 'integer',
@@ -48,7 +48,7 @@ module.exports = {
                                     type: 'string',
                                 },
                                 time: {
-                                    format: 'idate'
+                                    idate: true
                                 },
                                 level: {
                                     type: 'string',
@@ -174,10 +174,10 @@ module.exports = {
                         }
                     },
                     till: {
-                        format: 'idate'
+                        idate: true
                     },
                     since: {
-                        format: 'idate'
+                        idate: true
                     }
                 }
             },
@@ -255,7 +255,7 @@ module.exports = {
                             type: 'string',
                         },
                         time: {
-                            format: 'idate'
+                            idate: true
                         },
                         severity: {
                             $ref: '#/definitions/alert_severity_enum'

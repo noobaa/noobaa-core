@@ -10,7 +10,7 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         is_clusterized: {
             type: 'boolean'
@@ -127,7 +127,7 @@ module.exports = {
                     type: 'string'
                 },
                 time: {
-                    format: 'idate'
+                    idate: true
                 },
                 health: {
                     type: 'object',
@@ -154,7 +154,7 @@ module.exports = {
                                     type: 'string'
                                 },
                                 uptime: {
-                                    format: 'idate'
+                                    idate: true
                                 },
                                 loadavg: {
                                     type: 'array',

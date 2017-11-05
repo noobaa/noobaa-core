@@ -208,10 +208,10 @@ module.exports = {
                         type: 'string',
                     },
                     since: {
-                        format: 'idate'
+                        idate: true
                     },
                     till: {
-                        format: 'idate'
+                        idate: true
                     },
                 }
             },
@@ -404,7 +404,7 @@ module.exports = {
                                             type: 'integer'
                                         },
                                         date: {
-                                            format: 'idate'
+                                            idate: true
                                         },
                                         expired_object_delete_marker: {
                                             type: 'boolean'
@@ -424,7 +424,7 @@ module.exports = {
                                     type: 'object',
                                     properties: {
                                         date: {
-                                            format: 'idate'
+                                            idate: true
                                         },
                                         storage_class: {
                                             $ref: '#/definitions/storage_class_enum'
@@ -485,7 +485,7 @@ module.exports = {
                             type: 'string'
                         },
                         last_sync: {
-                            format: 'idate'
+                            idate: true
                         },
                         expiration: {
                             type: 'object',
@@ -494,7 +494,7 @@ module.exports = {
                                     type: 'integer'
                                 },
                                 date: {
-                                    format: 'idate'
+                                    idate: true
                                 },
                                 expired_object_delete_marker: {
                                     type: 'boolean'
@@ -514,7 +514,7 @@ module.exports = {
                             type: 'object',
                             properties: {
                                 date: {
-                                    format: 'idate'
+                                    idate: true
                                 },
                                 storage_class: {
                                     $ref: '#/definitions/storage_class_enum'
@@ -579,7 +579,7 @@ module.exports = {
                             $ref: 'common_api#/definitions/storage_info'
                         },
                         last_update: {
-                            format: 'idate'
+                            idate: true
                         }
                     }
                 },
@@ -621,7 +621,7 @@ module.exports = {
                             $ref: 'common_api#/definitions/bigint'
                         },
                         last_update: {
-                            format: 'idate'
+                            idate: true
                         }
                     }
                 },
@@ -630,7 +630,7 @@ module.exports = {
                     required: ['last_update', 'pools'],
                     properties: {
                         last_update: {
-                            format: 'idate'
+                            idate: true
                         },
                         pools: {
                             type: 'array',
@@ -677,10 +677,10 @@ module.exports = {
                             type: 'integer'
                         },
                         last_read: {
-                            format: 'idate'
+                            idate: true
                         },
                         last_write: {
-                            format: 'idate'
+                            idate: true
                         },
                     },
                 },
@@ -722,7 +722,7 @@ module.exports = {
                     $ref: '#/definitions/api_cloud_sync_status'
                 },
                 last_sync: {
-                    format: 'idate'
+                    idate: true
                 },
             }
         },

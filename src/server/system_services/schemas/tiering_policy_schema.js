@@ -11,36 +11,23 @@ module.exports = {
         'tiers',
     ],
     properties: {
-        _id: {
-            format: 'objectid'
-        },
-        deleted: {
-            format: 'date'
-        },
-        system: {
-            format: 'objectid'
-        },
-        name: {
-            type: 'string',
-        },
+
+        // identifiers
+        _id: { objectid: true },
+        name: { type: 'string' },
+        system: { objectid: true },
+        deleted: { date: true },
+
         tiers: {
             type: 'array',
             items: {
                 type: 'object',
                 required: ['order', 'tier'],
                 properties: {
-                    order: {
-                        type: 'integer',
-                    },
-                    tier: {
-                        format: 'objectid'
-                    },
-                    spillover: {
-                        type: 'boolean',
-                    },
-                    disabled: {
-                        type: 'boolean',
-                    }
+                    order: { type: 'integer' },
+                    tier: { objectid: true },
+                    spillover: { type: 'boolean' },
+                    disabled: { type: 'boolean' }
                 }
             }
         },

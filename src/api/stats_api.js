@@ -391,7 +391,7 @@ module.exports = {
                         type: 'string',
                     },
                     time: {
-                        format: 'idate',
+                        idate: true,
                     },
                     s3_usage_info: {
                         $ref: 'object_api#/definitions/s3_usage_info',

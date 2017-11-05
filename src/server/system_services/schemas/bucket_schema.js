@@ -31,13 +31,13 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         deleted: {
-            format: 'date'
+            date: true
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         name: {
             type: 'string'
@@ -52,16 +52,16 @@ module.exports = {
                 read_resources: {
                     type: 'array',
                     items: {
-                        format: 'objectid' // namespace resource id
+                        objectid: true // namespace resource id
                     }
                 },
                 write_resource: {
-                    format: 'objectid' // namespace resource id
+                    objectid: true // namespace resource id
                 }
             }
         },
         tiering: {
-            format: 'objectid' // tiering policy id
+            objectid: true // tiering policy id
         },
         quota: {
             type: 'object',
@@ -104,7 +104,7 @@ module.exports = {
                             type: 'string'
                         },
                         account_id: {
-                            format: 'objectid'
+                            objectid: true
                         }
                     }
                 },
@@ -118,7 +118,7 @@ module.exports = {
                 },
                 // Last finished sync
                 last_sync: {
-                    format: 'idate'
+                    idate: true
                 },
                 // Enable cloud to NooBaa bucket sync
                 c2n_enabled: {
@@ -170,7 +170,7 @@ module.exports = {
                     }
                 },
                 last_update: {
-                    format: 'idate'
+                    idate: true
                 }
             }
         },
@@ -197,7 +197,7 @@ module.exports = {
                                 type: 'integer'
                             },
                             date: {
-                                format: 'idate'
+                                idate: true
                             },
                             expired_object_delete_marker: {
                                 type: 'boolean'
@@ -217,7 +217,7 @@ module.exports = {
                         type: 'object',
                         properties: {
                             date: {
-                                format: 'idate'
+                                idate: true
                             },
                             storage_class: {
                                 type: 'string',
@@ -246,7 +246,7 @@ module.exports = {
                         }
                     },
                     last_sync: {
-                        format: 'idate'
+                        idate: true
                     }
                 }
             }
@@ -262,10 +262,10 @@ module.exports = {
                     type: 'integer',
                 },
                 last_read: {
-                    format: 'idate'
+                    idate: true
                 },
                 last_write: {
-                    format: 'idate'
+                    idate: true
                 }
             }
         },

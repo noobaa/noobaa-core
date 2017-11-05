@@ -15,18 +15,6 @@ module.exports = {
         'mirrors',
     ],
     properties: {
-        _id: {
-            format: 'objectid'
-        },
-        deleted: {
-            format: 'date'
-        },
-        system: {
-            format: 'objectid'
-        },
-        name: {
-            type: 'string'
-        },
         replicas: {
             type: 'integer'
         },
@@ -37,6 +25,13 @@ module.exports = {
         parity_fragments: {
             type: 'integer'
         },
+
+        // identifiers
+        _id: { objectid: true },
+        name: { type: 'string' },
+        system: { objectid: true },
+        deleted: { date: true },
+
         data_placement: {
             type: 'string',
             enum: ['MIRROR', 'SPREAD']
@@ -52,9 +47,7 @@ module.exports = {
                 properties: {
                     spread_pools: {
                         type: 'array',
-                        items: {
-                            format: 'objectid' // pool id
-                        }
+                        items: { objectid: true } // pool id
                     }
                 }
             }

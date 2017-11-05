@@ -13,16 +13,16 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         func: {
-            format: 'objectid'
+            objectid: true
         },
         time: {
-            format: 'date'
+            date: true
         },
         took: {
             type: 'number'

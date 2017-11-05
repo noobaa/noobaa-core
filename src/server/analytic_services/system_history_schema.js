@@ -7,10 +7,10 @@ module.exports = {
     required: ['_id', 'time_stamp', 'system_snapshot'],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         time_stamp: {
-            format: 'date'
+            date: true
         },
         system_snapshot: { // Future proofing system snapshots. Old snapshots not conforming to upgrades is expected and fine so the data here is not validated
             type: 'object',

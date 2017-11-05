@@ -50,9 +50,7 @@ module.exports = {
                 type: 'object',
                 required: ['obj_id'],
                 properties: {
-                    obj_id: {
-                        type: 'string'
-                    }
+                    obj_id: { objectid: true },
                 }
             },
             auth: {
@@ -71,7 +69,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true,
                     },
                     bucket: {
                         type: 'string',
@@ -139,7 +137,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true,
                     },
                     bucket: {
                         type: 'string',
@@ -166,7 +164,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true,
                     },
                     bucket: {
                         type: 'string',
@@ -192,9 +190,7 @@ module.exports = {
                 type: 'object',
                 required: ['multipart_id'],
                 properties: {
-                    multipart_id: {
-                        type: 'string'
-                    }
+                    multipart_id: { objectid: true },
                 }
             },
             auth: {
@@ -218,7 +214,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true
                     },
                     bucket: {
                         type: 'string',
@@ -230,7 +226,7 @@ module.exports = {
                         type: 'integer',
                     },
                     multipart_id: {
-                        type: 'string',
+                        objectid: true
                     },
                     size: {
                         type: 'integer',
@@ -254,7 +250,7 @@ module.exports = {
                         type: 'string'
                     },
                     create_time: {
-                        format: 'idate'
+                        idate: true
                     },
                 }
             },
@@ -274,7 +270,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true
                     },
                     bucket: {
                         type: 'string',
@@ -324,7 +320,7 @@ module.exports = {
                                     type: 'string'
                                 },
                                 last_modified: {
-                                    format: 'idate'
+                                    idate: true
                                 },
                             }
                         }
@@ -348,7 +344,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true
                     },
                     bucket: {
                         type: 'string',
@@ -393,7 +389,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true
                     },
                     bucket: {
                         type: 'string',
@@ -425,7 +421,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string'
+                        objectid: true
                     },
                     bucket: {
                         type: 'string',
@@ -595,7 +591,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true
                     },
                     bucket: {
                         type: 'string',
@@ -634,7 +630,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true
                     },
                     bucket: {
                         type: 'string',
@@ -665,7 +661,7 @@ module.exports = {
                 ],
                 properties: {
                     obj_id: {
-                        type: 'string',
+                        objectid: true
                     },
                     bucket: {
                         type: 'string',
@@ -862,7 +858,7 @@ module.exports = {
                         enum: ['read', 'upload']
                     },
                     obj_id: {
-                        type: 'string'
+                        objectid: true
                     },
                     bucket: {
                         type: 'string'
@@ -899,7 +895,7 @@ module.exports = {
                         type: 'string'
                     },
                     node_id: {
-                        type: 'string'
+                        objectid: true
                     },
                     host_id: {
                         type: 'string'
@@ -917,10 +913,10 @@ module.exports = {
                 type: 'object',
                 properties: {
                     start_time: {
-                        format: 'idate',
+                        idate: true,
                     },
                     end_time: {
-                        format: 'idate',
+                        idate: true,
                     },
                     s3_usage_info: {
                         $ref: '#/definitions/s3_usage_info',
@@ -976,7 +972,7 @@ module.exports = {
                         type: 'string',
                     },
                     create_time: {
-                        format: 'idate',
+                        idate: true,
                     }
                 }
             },
@@ -1021,32 +1017,6 @@ module.exports = {
 
     definitions: {
 
-        // metadata if's - conditions to use metadata
-        md_conditions: {
-            type: 'object',
-            properties: {
-                if_modified_since: {
-                    format: 'idate'
-                },
-                if_unmodified_since: {
-                    format: 'idate'
-                },
-                if_match_etag: {
-                    type: 'string'
-                },
-                if_none_match_etag: {
-                    type: 'string'
-                },
-            }
-        },
-
-        // free form object
-        xattr: {
-            type: 'object',
-            additionalProperties: true,
-            properties: {}
-        },
-
         object_info: {
             type: 'object',
             required: [
@@ -1058,7 +1028,7 @@ module.exports = {
             ],
             properties: {
                 obj_id: {
-                    type: 'string'
+                    objectid: true
                 },
                 bucket: {
                     type: 'string'
@@ -1073,10 +1043,10 @@ module.exports = {
                     type: 'string',
                 },
                 create_time: {
-                    format: 'idate'
+                    idate: true
                 },
                 upload_started: {
-                    format: 'idate'
+                    idate: true
                 },
                 upload_size: {
                     type: 'integer',
@@ -1103,7 +1073,7 @@ module.exports = {
                             type: 'integer',
                         },
                         last_read: {
-                            format: 'idate',
+                            idate: true,
                         }
                     }
                 },
@@ -1138,7 +1108,7 @@ module.exports = {
                     type: 'integer',
                 },
                 multipart_id: {
-                    type: 'string',
+                    objectid: true
                 },
                 chunk_offset: {
                     type: 'integer',
@@ -1147,7 +1117,7 @@ module.exports = {
                     $ref: '#/definitions/chunk_info',
                 },
                 chunk_id: {
-                    type: 'string',
+                    objectid: true
                 },
             }
         },
@@ -1291,6 +1261,32 @@ module.exports = {
             }
         },
 
+        // metadata if's - conditions to use metadata
+        md_conditions: {
+            type: 'object',
+            properties: {
+                if_modified_since: {
+                    idate: true
+                },
+                if_unmodified_since: {
+                    idate: true
+                },
+                if_match_etag: {
+                    type: 'string'
+                },
+                if_none_match_etag: {
+                    type: 'string'
+                },
+            }
+        },
+
+        // free form object
+        xattr: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {}
+        },
+
         s3_usage_info: {
             type: 'object',
             patternProperties: {
@@ -1308,6 +1304,7 @@ module.exports = {
                 }
             }
         },
+
         bandwidth_usage_info: {
             type: 'array',
             items: {

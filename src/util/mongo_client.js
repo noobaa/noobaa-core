@@ -2,16 +2,17 @@
 'use strict';
 
 const _ = require('lodash');
+const fs = require('fs');
 const Ajv = require('ajv');
 const util = require('util');
 const mongodb = require('mongodb');
-const fs = require('fs');
-
 const EventEmitter = require('events').EventEmitter;
+
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
 const js_utils = require('./js_utils');
+const common_api = require('../api/common_api');
 const mongo_utils = require('./mongo_utils');
 const schema_utils = require('./schema_utils');
 
@@ -34,6 +35,11 @@ class MongoClient extends EventEmitter {
             'mongodb://127.0.0.1:' + config.MONGO_DEFAULTS.CFG_PORT + '/config0';
         this.config = {
             promiseLibrary: P,
+            // promoteBuffers makes the driver directly expose node.js Buffer's for bson binary fields
+            // instead of mongodb.Binary, which is just a skinny buffer wrapper class.
+            // I opened this issue: https://jira.mongodb.org/browse/NODE-1168
+            // And suggested this PR: https://github.com/mongodb/node-mongodb-native/pull/1555
+            // promoteBuffers: true, // Promotes Binary BSON values to native Node Buffers
             server: {
                 // setup infinit retries to connect
                 reconnectTries: -1,
@@ -61,10 +67,13 @@ class MongoClient extends EventEmitter {
                 //authSource: 'admin',
             },
         };
-        this._json_validator = new Ajv({
-            verbose: true,
-            formats: mongo_utils.mongo_ajv_formats,
-        });
+
+        this._ajv = new Ajv({ verbose: true });
+        this._ajv.addKeyword('date', schema_utils.KEYWORDS.date);
+        this._ajv.addKeyword('idate', schema_utils.KEYWORDS.idate);
+        this._ajv.addKeyword('objectid', schema_utils.KEYWORDS.objectid);
+        this._ajv.addKeyword('binary', schema_utils.KEYWORDS.binary);
+        this._ajv.addSchema(common_api);
 
         if (process.env.MONGO_RS_URL) {
             this._update_config_for_replset();
@@ -91,15 +100,15 @@ class MongoClient extends EventEmitter {
      * mongodb_url is optional and by default takes from env or local db.
      * connect to the "real" mongodb and not the config mongo
      */
-    connect() {
+    connect(skip_init_db) {
         dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
-        this.promise = P.resolve().then(() => this._connect());
+        this.promise = P.resolve().then(() => this._connect(skip_init_db));
         return this.promise;
     }
 
-    _connect() {
+    _connect(skip_init_db) {
         if (this._disconnected_state) return;
         if (this.db) return this.db;
         let db;
@@ -109,7 +118,7 @@ class MongoClient extends EventEmitter {
             .then(db_arg => {
                 db = db_arg;
             })
-            .then(() => this._init_collections(db))
+            .then(() => skip_init_db === 'skip_init_db' || this._init_collections(db))
             .then(() => {
                 dbg.log0('_connect: connected', this.url);
                 this._reset_connect_timeout();
@@ -140,7 +149,7 @@ class MongoClient extends EventEmitter {
                     db = null;
                 }
                 return P.delay(config.MONGO_DEFAULTS.CONNECT_RETRY_INTERVAL)
-                    .then(() => this._connect());
+                    .then(() => this._connect(skip_init_db));
             });
     }
 
@@ -204,7 +213,7 @@ class MongoClient extends EventEmitter {
         }
         if (col.schema) {
             schema_utils.strictify(col.schema);
-            this._json_validator.addSchema(col.schema, col.name);
+            this._ajv.addSchema(col.schema, col.name);
             col.validate = (doc, warn) => this.validate(col.name, doc, warn);
         }
         col.col = () => this.collection(col.name);
@@ -222,13 +231,17 @@ class MongoClient extends EventEmitter {
     }
 
     validate(col_name, doc, warn) {
-        const validator = this._json_validator.getSchema(col_name);
+        const validator = this._ajv.getSchema(col_name);
         if (!validator(doc)) {
             const msg = `BAD COLLECTION SCHEMA ${col_name}`;
             if (warn === 'warn') {
-                dbg.warn(msg, doc, 'ERRORS', validator.errors);
+                dbg.warn(msg,
+                    'DOC', util.inspect(doc, true, null, true),
+                    'ERRORS', util.inspect(validator.errors, true, null, true));
             } else {
-                dbg.error(msg, doc, 'ERRORS', validator.errors);
+                dbg.error(msg,
+                    'DOC', util.inspect(doc, true, null, true),
+                    'ERRORS', util.inspect(validator.errors, true, null, true));
                 throw new Error(msg);
             }
         }
@@ -446,7 +459,7 @@ class MongoClient extends EventEmitter {
                 dbg.error('Connection closed for more ', config.MONGO_DEFAULTS.CONNECT_MAX_WAIT,
                     ', quitting');
                 process.exit(1);
-            }, config.MONGO_DEFAULTS.CONNECT_MAX_WAIT);
+            }, config.MONGO_DEFAULTS.CONNECT_MAX_WAIT).unref();
         }
     }
 

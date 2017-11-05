@@ -140,7 +140,7 @@ module.exports = {
                 },
             },
             reply: {
-                format: 'idate',
+                idate: true,
             },
             auth: {
                 system: 'admin',

@@ -58,7 +58,7 @@ module.exports = {
                         type: 'string'
                     },
                     permission_tempering: {
-                        format: 'idate'
+                        idate: true
                     },
                     n2n_config: {
                         $ref: 'common_api#/definitions/n2n_config'

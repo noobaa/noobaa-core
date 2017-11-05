@@ -11,16 +11,16 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         deleted: {
-            format: 'date'
+            date: true
         },
         name: {
             type: 'string'
         },
         owner: {
-            format: 'objectid' // account id
+            objectid: true // account id
         },
         // links to system resources used for storing install packages
         resources: {
@@ -49,10 +49,10 @@ module.exports = {
             properties: {}
         },
         last_stats_report: {
-            format: 'idate'
+            idate: true
         },
         maintenance_mode: {
-            format: 'idate'
+            idate: true
         },
         // the DNS name or IP address used for the server
         base_address: {
@@ -126,7 +126,7 @@ module.exports = {
 
         //Last upgrade date
         upgrade_date: {
-            format: 'idate'
+            idate: true
         }
 
     }

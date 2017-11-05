@@ -6,11 +6,37 @@ const stream = require('stream');
 
 const EMPTY_BUFFER = Buffer.allocUnsafeSlow(0);
 
+function eq(buf1, buf2) {
+    return buf1 ? buf1.equals(buf2) : !buf2;
+}
+
+function neq(buf1, buf2) {
+    return !eq(buf1, buf2);
+}
+
+/**
+ * join() improves Buffer.concat() for a common pathological case
+ * where the list has just 1 buffer.
+ * In that case we simply return that buffer and avoid a memory copy
+ * that concat will always make.
+ * 
+ * @param {[Buffer]} buffers list of buffers to join
+ * @param {Number} total_length number of bytes to pass to concat
+ * @returns {Buffer} concatenated buffer
+ */
 function join(buffers, total_length) {
     if (buffers.length > 1) return Buffer.concat(buffers, total_length);
     return buffers[0] || EMPTY_BUFFER;
 }
 
+/**
+ * extract() is like Buffer.slice() but for array of buffers
+ * Removes len bytes from the beginning of the array, or less if not available
+ * 
+ * @param {[Buffer]} buffers array of buffers to update
+ * @param {Number} len number of bytes to extract
+ * @returns {[Buffer]} array of buffers with total length of len or less
+ */
 function extract(buffers, len) {
     const res = [];
     var pos = 0;
@@ -75,6 +101,8 @@ function count_length(buffers) {
     return l;
 }
 
+exports.eq = eq;
+exports.neq = neq;
 exports.join = join;
 exports.extract = extract;
 exports.extract_join = extract_join;

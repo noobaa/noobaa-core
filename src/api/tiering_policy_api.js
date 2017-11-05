@@ -12,6 +12,7 @@ module.exports = {
     id: 'tiering_policy_api',
 
     methods: {
+
         create_policy: {
             doc: 'Create Tiering Policy',
             method: 'POST',

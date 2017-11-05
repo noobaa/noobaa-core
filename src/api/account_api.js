@@ -389,7 +389,7 @@ module.exports = {
                     type: 'boolean',
                 },
                 next_password_change: {
-                    format: 'idate',
+                    idate: true,
                 },
                 access_keys: {
                     type: 'array',

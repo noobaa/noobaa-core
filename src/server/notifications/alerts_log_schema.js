@@ -14,13 +14,13 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         time: {
-            format: 'date',
+            date: true,
         },
         severity: {
             type: 'string',

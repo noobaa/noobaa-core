@@ -24,50 +24,31 @@ class HistoryDataStore {
         return HistoryDataStore._instance;
     }
 
-    get_pool_history(pool_list) {
-        return this._history.col().find()
-            .toArray()
-            .then(history_records => history_records.map(history_record => {
-                const pools = history_record.system_snapshot.pools
-                    .filter(pool => (!pool.mongo_info) && (!pool_list || pool_list.includes(pool.name)))
-                    .map(pool => {
-                        const { name, storage, cloud_info, mongo_info } = pool;
-                        let resource_type = 'HOSTS';
-                        if (cloud_info) {
-                            resource_type = 'CLOUD';
-                        } else if (mongo_info) {
-                            resource_type = 'INTERNAL';
-                        }
-                        return {
-                            name,
-                            storage,
-                            resource_type
-                        };
-                    });
-
-                return {
-                    timestamp: history_record.time_stamp,
-                    pool_list: pools
-                };
-            }));
-    }
-
     insert(item) {
-        const record_expiration_date = Date.now() - config.STATISTICS_COLLECTOR_EXPIRATION;
+        const time_stamp = new Date();
+        const record_expiration_date = new Date(time_stamp.getTime() - config.STATISTICS_COLLECTOR_EXPIRATION);
         const record = {
             _id: new mongodb.ObjectId(),
-            time_stamp: Date.now(),
+            time_stamp,
             system_snapshot: item
         };
         return P.resolve()
             .then(() => this._history.validate(record))
             .then(() => this._history.col().insertOne(record))
             .then(() => this._history.col().removeMany({
-                time_stamp: { // Will remove old snapshots
-                    $lt: record_expiration_date
-                }
+                // remove old snapshots
+                time_stamp: { $lt: record_expiration_date }
             }));
     }
+
+    get_pool_history() {
+        return this._history.col().find({}, {
+                timestamp: 1,
+                'system_snapshot.pools': 1,
+            })
+            .toArray();
+    }
+
 }
 
 // EXPORTS

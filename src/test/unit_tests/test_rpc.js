@@ -1,23 +1,72 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+process.env.DEBUG_MODE = true;
+
 const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
 
 const P = require('../../util/promise');
-const RPC = require('../../rpc/rpc');
-const RpcError = require('../../rpc/rpc_error');
-const RpcSchema = require('../../rpc/rpc_schema');
 const native_core = require('../../util/native_core');
+const { RPC, RpcError, RpcSchema, RPC_BUFFERS } = require('../../rpc');
 
 mocha.describe('RPC', function() {
 
-    // init the test api
-    var test_api = {
+    const test_api = {
+
         id: 'test_api',
+
+        methods: {
+            get: {
+                method: 'GET',
+                params: {
+                    $ref: '#/definitions/params'
+                },
+                reply: {
+                    $ref: '#/definitions/reply'
+                },
+                doc: 'get doc',
+                auth: false,
+            },
+            post: {
+                method: 'POST',
+                params: {
+                    $ref: '#/definitions/params'
+                },
+                reply: {
+                    $ref: '#/definitions/reply'
+                },
+                doc: 'post doc',
+                auth: false,
+            },
+            put: {
+                method: 'PUT',
+                params: {
+                    $ref: '#/definitions/params'
+                },
+                reply: {
+                    $ref: '#/definitions/reply'
+                },
+                doc: 'put doc',
+                auth: false,
+            },
+            delete: {
+                method: 'DELETE',
+                params: {
+                    $ref: '#/definitions/params'
+                },
+                reply: {
+                    $ref: '#/definitions/reply'
+                },
+                doc: 'del doc',
+                auth: false,
+            },
+        },
+
         definitions: {
-            params_schema: {
+
+            params: {
                 type: 'object',
                 required: ['param1', 'param2', 'param3', 'param4'],
                 properties: {
@@ -31,7 +80,7 @@ mocha.describe('RPC', function() {
                         type: 'boolean',
                     },
                     param4: {
-                        format: 'idate'
+                        idate: true
                     },
                     param5: {
                         type: 'array',
@@ -39,9 +88,21 @@ mocha.describe('RPC', function() {
                             type: 'integer'
                         }
                     },
+                    // test arrays of objects with buffers inside
+                    param6: {
+                        $ref: 'common_test_api#/definitions/params6'
+                    },
+                    // test array of buffers
+                    param7: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_test_api#/definitions/params7'
+                        }
+                    },
                 }
             },
-            reply_schema: {
+
+            reply: {
                 type: 'object',
                 required: ['rest'],
                 properties: {
@@ -62,53 +123,51 @@ mocha.describe('RPC', function() {
                     }
                 }
             },
+
         },
-        methods: {
-            get: {
-                method: 'GET',
-                params: {
-                    $ref: '#/definitions/params_schema'
-                },
-                reply: {
-                    $ref: '#/definitions/reply_schema'
-                },
-                doc: 'get doc',
-                auth: false,
+    };
+
+    const common_test_api = {
+
+        id: 'common_test_api',
+
+        definitions: {
+
+            params6: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        subarray: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    stam: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                }
             },
-            post: {
-                method: 'POST',
-                params: {
-                    $ref: '#/definitions/params_schema'
-                },
-                reply: {
-                    $ref: '#/definitions/reply_schema'
-                },
-                doc: 'post doc',
-                auth: false,
+
+            params7: {
+                type: 'object',
+                properties: {
+                    sub: {
+                        $ref: '#/definitions/sub',
+                    },
+                }
             },
-            put: {
-                method: 'PUT',
-                params: {
-                    $ref: '#/definitions/params_schema'
-                },
-                reply: {
-                    $ref: '#/definitions/reply_schema'
-                },
-                doc: 'put doc',
-                auth: false,
+
+            sub: {
+                type: 'object',
+                properties: {
+                    substam: { type: 'string' }
+                }
             },
-            delete: {
-                method: 'DELETE',
-                params: {
-                    $ref: '#/definitions/params_schema'
-                },
-                reply: {
-                    $ref: '#/definitions/reply_schema'
-                },
-                doc: 'del doc',
-                auth: false,
-            },
-        }
+
+        },
     };
 
     // test data
@@ -118,6 +177,22 @@ mocha.describe('RPC', function() {
         param3: true,
         param4: Date.now(),
         param5: [1, 2, 3],
+        param6: [{
+            subarray: ['g', 'u', 'y'].map(ch => ({
+                stam: Buffer.alloc(ch.charCodeAt(0), ch).toString('hex')
+            })),
+        }, {
+            subarray: ['m', 'a', 'r'].map(ch => ({
+                stam: Buffer.alloc(ch.charCodeAt(0) * 10, ch).toString('base64')
+            })),
+        }, {
+            subarray: []
+        }],
+        param7: ['a', 'b', 'z'].map(ch => ({
+            sub: {
+                substam: Buffer.alloc(ch.charCodeAt(0), ch).toString('hex')
+            }
+        })),
     };
     var REPLY = {
         rest: ['IS', {
@@ -128,12 +203,41 @@ mocha.describe('RPC', function() {
     var ERROR_CODE = 'TEST_CODE';
     var schema = new RpcSchema();
     schema.register_api(test_api);
+    schema.register_api(common_test_api);
     schema.compile();
 
     var rpc;
     var client;
 
-    mocha.beforeEach('test_rpc.afterEach', function() {
+    function make_server() {
+        const server = {
+            throw: false,
+            common(req) {
+                assert.deepStrictEqual(Object.keys(PARAMS), Object.keys(req.rpc_params));
+                _.each(PARAMS, function(param, name) {
+                    assert.deepEqual(param, req.rpc_params[name]);
+                });
+                assert.deepStrictEqual(PARAMS, req.rpc_params);
+                if (server.throw) throw new RpcError(ERROR_CODE, ERROR_MESSAGE);
+                return _.cloneDeep(REPLY);
+            },
+            get(req) {
+                return server.common(req);
+            },
+            post(req) {
+                return server.common(req);
+            },
+            put(req) {
+                return server.common(req);
+            },
+            delete(req) {
+                return server.common(req);
+            },
+        };
+        return server;
+    }
+
+    mocha.beforeEach('test_rpc.beforeEach', function() {
         rpc = new RPC({
             schema: schema,
             router: {
@@ -213,67 +317,80 @@ mocha.describe('RPC', function() {
     });
 
 
-    mocha.describe('test_api round trip', function() {
+    mocha.describe('calling RPC methods', function() {
 
         // create a test for every api function
-        _.each(test_api.methods, function(method_api, method_name) {
-
-            mocha.describe(method_name, function() {
-
-                // init a server for the currently tested func.
-                // we use a dedicated server per func so that all the other funcs
-                // of the server return error in order to detect calling confusions.
-                var reply_error = false;
-                var methods = {};
-                methods[method_name] = function(req) {
-                    // console.log('TEST SERVER REQUEST');
-                    _.each(PARAMS, function(param, name) {
-                        assert.deepEqual(param, req.rpc_params[name]);
-                    });
-                    if (reply_error) {
-                        throw new RpcError(ERROR_CODE, ERROR_MESSAGE);
-                    } else {
-                        return P.resolve(REPLY);
-                    }
-                };
-
-                mocha.beforeEach(function() {
-                    rpc.register_service(test_api, methods, {
-                        allow_missing_methods: true
-                    });
-                });
+        _.forEach(test_api.methods,
+            (xx, method_name) => mocha.describe(method_name, function() {
 
                 mocha.it('should call and get reply', function() {
-                    reply_error = false;
-                    return client.test[method_name](PARAMS).then(function(res) {
-                        assert.deepEqual(res, REPLY);
-                    }, function(err) {
-                        console.log('UNEXPECTED ERROR', err, err.stack);
-                        throw new Error('UNEXPECTED ERROR');
-                    });
+                    const server = make_server();
+                    server.throw = false;
+                    rpc.register_service(test_api, server);
+                    return client.test[method_name](_.cloneDeep(PARAMS))
+                        .then(res => {
+                            assert.deepEqual(res, REPLY);
+                        }, err => {
+                            console.log('UNEXPECTED ERROR', err, err.stack);
+                            throw new Error('UNEXPECTED ERROR');
+                        });
                 });
 
                 mocha.it('should call and get error', function() {
-                    reply_error = true;
-                    return client.test[method_name](PARAMS).then(function(res) {
-                        console.log('UNEXPECTED REPLY', res);
-                        throw new Error('UNEXPECTED REPLY');
-                    }, function(err) {
-                        assert.deepEqual(err.rpc_code, ERROR_CODE);
-                        assert.deepEqual(err.message, ERROR_MESSAGE);
-                    });
+                    const server = make_server();
+                    server.throw = true;
+                    rpc.register_service(test_api, server);
+                    return client.test[method_name](_.cloneDeep(PARAMS))
+                        .then(res => {
+                            console.log('UNEXPECTED REPLY', res);
+                            throw new Error('UNEXPECTED REPLY');
+                        }, err => {
+                            assert.deepEqual(err.rpc_code, ERROR_CODE);
+                            assert.deepEqual(err.message, ERROR_MESSAGE);
+                        });
                 });
 
-            });
+            }));
+    });
+
+    mocha.describe('attachments', function() {
+
+        mocha.it('should send/receive attachments in params/reply', function() {
+            const server = make_server();
+            const params = _.cloneDeep(PARAMS);
+            const params_attachments = {
+                buffer1: Buffer.alloc(1024, 'testing params attachments!\n'),
+                another_buffer: Buffer.alloc(1024, 'I am just another buffer!\n'),
+            };
+            const reply_attachments = {
+                buffer2: Buffer.alloc(1024, 'testing reply attachments!\n'),
+                different_buffer: Buffer.alloc(1024, 'I am just a different buffer!\n'),
+            };
+            params[RPC_BUFFERS] = params_attachments;
+            let received = false;
+            server.put = req => {
+                const reply = server.common(req);
+                const received_params_attachments = req.rpc_params[RPC_BUFFERS];
+                console.log('received_params_attachments', received_params_attachments);
+                assert(_.isEqual(params_attachments, received_params_attachments));
+                reply[RPC_BUFFERS] = reply_attachments;
+                received = true;
+                return reply;
+            };
+            rpc.register_service(test_api, server);
+            return client.test.put(params)
+                .then(reply => {
+                    assert(received);
+                    const received_reply_attachments = reply[RPC_BUFFERS];
+                    console.log('received_reply_attachments', received_reply_attachments);
+                    assert(_.isEqual(reply_attachments, received_reply_attachments));
+                });
         });
+
     });
 
     mocha.it('HTTP/WS', function() {
-        rpc.register_service(test_api, {
-            get: req => REPLY
-        }, {
-            allow_missing_methods: true
-        });
+        rpc.register_service(test_api, make_server());
         let http_server;
         let http_client;
         let ws_client;
@@ -291,17 +408,13 @@ mocha.describe('RPC', function() {
                     address: 'ws://127.0.0.1:' + http_server.address().port
                 });
             })
-            .then(() => http_client.test.get(PARAMS))
-            .then(() => ws_client.test.get(PARAMS))
+            .then(() => http_client.test.get(_.cloneDeep(PARAMS)))
+            .then(() => ws_client.test.get(_.cloneDeep(PARAMS)))
             .then(() => http_server.close());
     });
 
     mocha.it('HTTPS/WSS', function() {
-        rpc.register_service(test_api, {
-            get: req => REPLY
-        }, {
-            allow_missing_methods: true
-        });
+        rpc.register_service(test_api, make_server());
         let https_server;
         let https_client;
         let wss_client;
@@ -319,17 +432,13 @@ mocha.describe('RPC', function() {
                     address: 'wss://127.0.0.1:' + https_server.address().port
                 });
             })
-            .then(() => https_client.test.get(PARAMS))
-            .then(() => wss_client.test.get(PARAMS))
+            .then(() => https_client.test.get(_.cloneDeep(PARAMS)))
+            .then(() => wss_client.test.get(_.cloneDeep(PARAMS)))
             .then(() => https_server.close());
     });
 
     mocha.it('TCP', function() {
-        rpc.register_service(test_api, {
-            get: req => REPLY
-        }, {
-            allow_missing_methods: true
-        });
+        rpc.register_service(test_api, make_server());
         let tcp_server;
         return rpc.register_tcp_transport(0)
             .then(tcp_server_arg => {
@@ -337,7 +446,7 @@ mocha.describe('RPC', function() {
                 var tcp_client = rpc.new_client({
                     address: 'tcp://127.0.0.1:' + tcp_server.port
                 });
-                return tcp_client.test.get(PARAMS);
+                return tcp_client.test.get(_.cloneDeep(PARAMS));
             })
             .finally(() => {
                 if (tcp_server) tcp_server.close();
@@ -345,11 +454,7 @@ mocha.describe('RPC', function() {
     });
 
     mocha.it('TLS', function() {
-        rpc.register_service(test_api, {
-            get: req => REPLY
-        }, {
-            allow_missing_methods: true
-        });
+        rpc.register_service(test_api, make_server());
         let tls_server;
         return P.resolve()
             .then(() => rpc.register_tcp_transport(0, native_core().x509()))
@@ -358,7 +463,7 @@ mocha.describe('RPC', function() {
                 var tls_client = rpc.new_client({
                     address: 'tls://127.0.0.1:' + tls_server.port
                 });
-                return tls_client.test.get(PARAMS);
+                return tls_client.test.get(_.cloneDeep(PARAMS));
             })
             .finally(() => {
                 if (tls_server) tls_server.close();
@@ -394,11 +499,7 @@ mocha.describe('RPC', function() {
 
     function n2n_tester(n2n_config) {
         return function() {
-            rpc.register_service(test_api, {
-                get: req => REPLY
-            }, {
-                allow_missing_methods: true
-            });
+            rpc.register_service(test_api, make_server());
             let tcp_server;
             const ADDR = 'n2n://testrpc';
             let n2n_agent = rpc.register_n2n_agent(
@@ -412,7 +513,7 @@ mocha.describe('RPC', function() {
                     var n2n_client = rpc.new_client({
                         address: ADDR
                     });
-                    return n2n_client.test.get(PARAMS);
+                    return n2n_client.test.get(_.cloneDeep(PARAMS));
                 })
                 .finally(() => {
                     if (tcp_server) tcp_server.close();

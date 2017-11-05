@@ -226,7 +226,7 @@ module.exports = {
                 required: ['last_stats_report'],
                 properties: {
                     last_stats_report: {
-                        format: 'idate',
+                        idate: true,
                     },
                 }
             },
@@ -505,7 +505,7 @@ module.exports = {
                     $ref: 'account_api#/definitions/account_info'
                 },
                 last_stats_report: {
-                    format: 'idate',
+                    idate: true,
                 },
                 tiers: {
                     type: 'array',
@@ -582,7 +582,7 @@ module.exports = {
                             type: 'boolean',
                         },
                         till: {
-                            format: 'idate',
+                            idate: true,
                         },
                     }
                 },
@@ -654,7 +654,7 @@ module.exports = {
                             type: 'string',
                         },
                         last_upgrade: {
-                            format: 'idate'
+                            idate: true
                         },
                         unavailable: {
                             type: 'string',
@@ -803,7 +803,7 @@ module.exports = {
                     type: 'string'
                 },
                 time_epoch: {
-                    format: 'idate'
+                    idate: true
                 },
                 timezone: {
                     type: 'string'
@@ -889,7 +889,7 @@ module.exports = {
                     $ref: '#/definitions/service_status_enum'
                 },
                 test_time: {
-                    format: 'idate'
+                    idate: true
                 },
             }
         }

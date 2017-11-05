@@ -16,32 +16,32 @@ module.exports = {
     properties: {
 
         _id: {
-            format: 'objectid'
+            objectid: true
         },
 
         deleted: {
-            format: 'date'
+            date: true
         },
 
         system: {
-            format: 'objectid'
+            objectid: true
         },
 
         bucket: {
-            format: 'objectid'
+            objectid: true
         },
 
         // link to the data chunk
         // chunk can be shared by several parts even by different objects for dedup.
         // NOTE: on deletion rename the chunk field to chunk_del to remove from sparse index
         chunk: {
-            format: 'objectid'
+            objectid: true
         },
 
         // the object that this part belong to.
         // NOTE: on deletion rename the obj field to obj_del to remove from sparse index
         obj: {
-            format: 'objectid'
+            objectid: true
         },
 
         // the range [start,end) in the object
@@ -65,7 +65,7 @@ module.exports = {
         // for multipart upload we reference a multipart item
         // NOTE: on deletion rename the multipart field to multipart_del to remove from sparse index
         multipart: {
-            format: 'objectid'
+            objectid: true
         },
 
         // sequential number for the parts in the object

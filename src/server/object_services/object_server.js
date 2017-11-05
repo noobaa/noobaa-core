@@ -829,7 +829,7 @@ function report_endpoint_problems(req) {
 function get_object_info(md) {
     var bucket = system_store.data.get_by_id(md.bucket);
     return {
-        obj_id: String(md._id),
+        obj_id: md._id,
         bucket: bucket.name,
         key: md.key,
         size: md.size || 0,

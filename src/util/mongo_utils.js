@@ -6,8 +6,7 @@ const util = require('util');
 const mongodb = require('mongodb');
 
 const P = require('./promise');
-const RpcError = require('../rpc/rpc_error');
-const schema_utils = require('./schema_utils');
+const { RpcError } = require('../rpc');
 
 /* exported constants */
 const mongo_operators = new Set([
@@ -197,13 +196,6 @@ function make_object_diff(current, prev) {
     return diff;
 }
 
-const mongo_ajv_formats = Object.freeze({
-    date: schema_utils.date_format,
-    idate: schema_utils.idate_format,
-    objectid: val => is_object_id(val)
-});
-
-
 // EXPORTS
 exports.mongo_operators = mongo_operators;
 exports.obj_ids_difference = obj_ids_difference;
@@ -221,4 +213,3 @@ exports.check_entity_not_found = check_entity_not_found;
 exports.check_entity_not_deleted = check_entity_not_deleted;
 exports.check_update_one = check_update_one;
 exports.make_object_diff = make_object_diff;
-exports.mongo_ajv_formats = mongo_ajv_formats;

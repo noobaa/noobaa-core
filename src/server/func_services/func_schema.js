@@ -19,18 +19,18 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         deleted: {
-            format: 'date'
+            date: true
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         pools: {
             type: 'array',
             items: {
-                format: 'objectid'
+                objectid: true
             }
         },
         name: {
@@ -65,7 +65,7 @@ module.exports = {
             type: 'integer'
         },
         last_modified: {
-            format: 'date'
+            date: true
         },
         code_size: {
             type: 'integer'
@@ -74,7 +74,7 @@ module.exports = {
             type: 'string'
         },
         code_gridfs_id: {
-            format: 'objectid'
+            objectid: true
         },
     }
 };

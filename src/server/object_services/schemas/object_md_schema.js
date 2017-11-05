@@ -14,22 +14,22 @@ module.exports = {
     properties: {
 
         _id: {
-            format: 'objectid'
+            objectid: true
         },
 
         // on delete set deletion time
         // see relation to cloud_synced, if deleted will ever be actually
         // remove from the DB, need to wait until its cloud_synced === true
         deleted: {
-            format: 'date'
+            date: true
         },
 
         system: {
-            format: 'objectid'
+            objectid: true
         },
 
         bucket: {
-            format: 'objectid'
+            objectid: true
         },
 
         // the object key is sort of a path in the bucket namespace
@@ -61,11 +61,11 @@ module.exports = {
         },
 
         upload_started: {
-            format: 'objectid'
+            objectid: true
         },
 
         create_time: {
-            format: 'date'
+            date: true
         },
 
         // etag is the object md5 hex for objects uploaded in single action.
@@ -103,7 +103,7 @@ module.exports = {
                     type: 'integer'
                 },
                 last_read: {
-                    format: 'date'
+                    date: true
                 },
             }
         },

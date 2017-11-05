@@ -12,6 +12,11 @@ const usage_report_schema = require('./usage_report_schema');
 
 class UsageReportStore {
 
+    static instance(system) {
+        UsageReportStore._instance = UsageReportStore._instance || new UsageReportStore();
+        return UsageReportStore._instance;
+    }
+
     constructor() {
         this._s3_usage = mongo_client.instance().define_collection({
             name: 'objectstats',
@@ -145,19 +150,22 @@ class UsageReportStore {
         let update = {
             $inc: {}
         };
-        _add_to_inc(update, usage_info, 's3_usage_info');
-        _add_to_inc(update, errors_info, 's3_errors_info');
-        if (!_.isEmpty(update.$inc)) {
-            return P.resolve()
-                .then(() => this._s3_usage.col().findOneAndUpdate({
-                    system: system._id
-                }, update, {
-                    upsert: true,
-                    returnNewDocument: true
-                }))
-                .then(res => this._s3_usage.validate(res.value, 'warn'))
-                .return();
-        }
+        _.forEach(usage_info, (count, key) => {
+            update.$inc[`s3_usage_info.${key}`] = count;
+        });
+        _.forEach(errors_info, (count, key) => {
+            update.$inc[`s3_errors_info.${key}`] = count;
+        });
+        if (_.isEmpty(update.$inc)) return;
+        return P.resolve()
+            .then(() => this._s3_usage.col().findOneAndUpdate({
+                system: system._id
+            }, update, {
+                upsert: true,
+                returnNewDocument: true
+            }))
+            .then(res => this._s3_usage.validate(res.value, 'warn'))
+            .return();
     }
 
     reset_usage(system) {
@@ -178,28 +186,11 @@ class UsageReportStore {
                 system: system._id
             }))
             .then(res => this._s3_usage.validate(res, 'warn'))
-            .then(res => _.pick(res, ['s3_usage_info', 's3_errors_info']));
+            .then(res => _.pick(res, 's3_usage_info', 's3_errors_info'));
     }
 
-
-
-
-
-
-
-    static instance(system) {
-        UsageReportStore._instance = UsageReportStore._instance || new UsageReportStore();
-        return UsageReportStore._instance;
-    }
 }
 
-function _add_to_inc(update, update_array, field_name) {
-    Object.keys(update_array).forEach(key => {
-        if (update_array[key]) {
-            update.$inc[`${field_name}.${key}`] = update_array[key];
-        }
-    });
-}
 
 // EXPORTS
 exports.UsageReportStore = UsageReportStore;

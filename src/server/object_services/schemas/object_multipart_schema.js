@@ -14,23 +14,23 @@ module.exports = {
     properties: {
 
         _id: {
-            format: 'objectid'
+            objectid: true
         },
 
         deleted: {
-            format: 'date'
+            date: true
         },
 
         system: {
-            format: 'objectid'
+            objectid: true
         },
 
         bucket: {
-            format: 'objectid'
+            objectid: true
         },
 
         obj: {
-            format: 'objectid'
+            objectid: true
         },
 
         // the multipart number in range 1 - 10000

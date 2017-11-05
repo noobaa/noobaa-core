@@ -83,7 +83,7 @@ module.exports = {
             // required: [],
             properties: {
                 last_update: {
-                    format: 'idate'
+                    idate: true
                 },
                 hostname: {
                     type: 'string'
@@ -101,7 +101,7 @@ module.exports = {
                     type: 'string'
                 },
                 uptime: {
-                    format: 'idate'
+                    idate: true
                 },
                 loadavg: {
                     type: 'array',
@@ -244,27 +244,13 @@ module.exports = {
             type: 'object',
             required: ['id'],
             properties: {
-                id: {
-                    type: 'string'
-                },
-                address: {
-                    type: 'string'
-                },
-                node: {
-                    type: 'string'
-                },
-                pool: {
-                    type: 'string'
-                },
-                size: {
-                    type: 'integer'
-                },
-                digest_type: {
-                    type: 'string'
-                },
-                digest_b64: {
-                    type: 'string'
-                },
+                id: { objectid: true },
+                address: { type: 'string' },
+                node: { objectid: true },
+                pool: { objectid: true },
+                size: { type: 'integer' },
+                digest_type: { $ref: '#/definitions/digest_type' },
+                digest_b64: { type: 'string' },
             }
         },
 
@@ -365,9 +351,57 @@ module.exports = {
                 }
             }
         },
+
         agent_roles_enum: {
             type: 'string',
             enum: ['STORAGE', 'S3']
-        }
+        },
+
+        digest_type: {
+            type: 'string',
+            enum: ['sha1', 'sha256', 'sha384', 'sha512']
+        },
+
+        compress_type: {
+            type: 'string',
+            enum: ['snappy', 'zlib']
+        },
+
+        cipher_type: {
+            type: 'string',
+            enum: ['aes-256-gcm']
+        },
+
+        parity_type: {
+            type: 'string',
+            enum: ['isa-c1', 'isa-rs', 'cm256']
+        },
+
+        chunk_split_config: {
+            type: 'object',
+            properties: {
+                avg_chunk: { type: 'integer' },
+                delta_chunk: { type: 'integer' },
+            }
+        },
+
+        chunk_coder_config: {
+            type: 'object',
+            properties: {
+                digest_type: { $ref: '#/definitions/digest_type' },
+                frag_digest_type: { $ref: '#/definitions/digest_type' },
+                compress_type: { $ref: '#/definitions/compress_type' },
+                cipher_type: { $ref: '#/definitions/cipher_type' },
+                data_frags: { type: 'integer' },
+                // Erasure Coding:
+                parity_type: { $ref: '#/definitions/parity_type' },
+                parity_frags: { type: 'integer' },
+                // LRC:
+                lrc_type: { $ref: '#/definitions/parity_type' },
+                lrc_group: { type: 'integer' },
+                lrc_frags: { type: 'integer' },
+            }
+        },
+
     }
 };

@@ -293,7 +293,7 @@ module.exports = {
                     required: ['timestamp', 'pool_list'],
                     properties: {
                         timestamp: {
-                            format: 'idate'
+                            idate: true
                         },
                         pool_list: {
                             type: 'array',

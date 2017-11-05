@@ -11,7 +11,7 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         encoding: {
             type: 'string',

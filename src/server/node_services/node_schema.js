@@ -37,23 +37,23 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         name: {
             type: 'string'
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         pool: {
-            format: 'objectid'
+            objectid: true
         },
         agent_config: {
-            format: 'objectid'
+            objectid: true
         },
         peer_id: {
             // the identifier used for p2p signaling
-            format: 'objectid'
+            objectid: true
         },
 
         // a uuid to identify the host machine of the node (one host can hold several nodes, one for each drive)
@@ -84,7 +84,7 @@ module.exports = {
         },
         heartbeat: {
             // the last time the agent sent heartbeat
-            format: 'idate',
+            idate: true,
         },
         version: {
             // the last agent version acknoledged
@@ -92,22 +92,22 @@ module.exports = {
         },
 
         migrating_to_pool: {
-            format: 'idate'
+            idate: true
         },
         decommissioning: {
-            format: 'idate'
+            idate: true
         },
         decommissioned: {
-            format: 'idate'
+            idate: true
         },
         deleting: {
-            format: 'idate'
+            idate: true
         },
         deleted: {
-            format: 'idate'
+            idate: true
         },
         force_hide: {
-            format: 'idate'
+            idate: true
         },
 
         // node storage stats - sum of drives
@@ -153,7 +153,7 @@ module.exports = {
                     type: 'string'
                 },
                 uptime: {
-                    format: 'idate'
+                    idate: true
                 },
                 loadavg: {
                     type: 'array',
@@ -235,7 +235,7 @@ module.exports = {
                 type: 'object',
                 properties: {
                     time: {
-                        format: 'idate'
+                        idate: true
                     },
                     action: {
                         type: 'string'
@@ -244,7 +244,7 @@ module.exports = {
                         type: 'string'
                     },
                     count_since: {
-                        format: 'idate'
+                        idate: true
                     },
                     count: {
                         type: 'integer'
@@ -269,7 +269,7 @@ module.exports = {
                 type: 'object',
                 properties: {
                     time: {
-                        format: 'idate'
+                        idate: true
                     },
                     read_count: {
                         type: 'integer'
@@ -284,10 +284,10 @@ module.exports = {
                         type: 'integer'
                     },
                     last_read: {
-                        format: 'idate'
+                        idate: true
                     },
                     last_write: {
-                        format: 'idate'
+                        idate: true
                     },
                 }
             }

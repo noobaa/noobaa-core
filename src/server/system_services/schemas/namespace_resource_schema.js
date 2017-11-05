@@ -13,16 +13,16 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         deleted: {
-            format: 'date'
+            date: true
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         account: {
-            format: 'objectid'
+            objectid: true
         },
         name: {
             type: 'string'

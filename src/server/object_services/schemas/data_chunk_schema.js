@@ -17,23 +17,15 @@ module.exports = {
     ],
     properties: {
 
-        _id: {
-            format: 'objectid'
-        },
+        // identification
+        _id: { objectid: true },
+        system: { objectid: true },
+        deleted: { date: true },
 
-        deleted: {
-            format: 'date'
-        },
-
-        system: {
-            format: 'objectid'
-        },
 
         // every chunk belongs exclusively to a single bucket in order to specify its data placement
         // TODO consider changing chunks to refer to tier/tieringpolicy instead so multiple buckets could share dedup
-        bucket: {
-            format: 'objectid'
-        },
+        bucket: { objectid: true },
 
         // size in bytes
         size: {

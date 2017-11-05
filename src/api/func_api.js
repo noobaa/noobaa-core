@@ -273,7 +273,7 @@ module.exports = {
                     type: 'string'
                 },
                 last_modified: {
-                    format: 'idate'
+                    idate: true
                 },
                 resource_name: {
                     type: 'string'
@@ -381,7 +381,7 @@ module.exports = {
                         type: 'object',
                         properties: {
                             time: {
-                                format: 'idate'
+                                idate: true
                             },
                             requests: {
                                 type: 'integer'

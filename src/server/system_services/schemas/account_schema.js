@@ -12,10 +12,10 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         deleted: {
-            format: 'date'
+            date: true
         },
         name: {
             type: 'string'
@@ -27,7 +27,7 @@ module.exports = {
             type: 'string' // bcrypted password
         },
         next_password_change: {
-            format: 'date'
+            date: true
         },
         is_support: {
             type: 'boolean'
@@ -60,7 +60,7 @@ module.exports = {
                 permission_list: {
                     type: 'array',
                     items: {
-                        format: 'objectid'
+                        objectid: true
                     }
                 }
             }
@@ -81,7 +81,7 @@ module.exports = {
             }
         },
         default_pool: {
-            format: 'objectid'
+            objectid: true
         },
         sync_credentials_cache: {
             type: 'array',

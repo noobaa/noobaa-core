@@ -11,16 +11,16 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         name: {
             type: 'string'
         },
         pool: {
-            format: 'objectid'
+            objectid: true
         },
         exclude_drive: {
             type: 'array',

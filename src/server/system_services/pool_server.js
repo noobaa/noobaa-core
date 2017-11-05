@@ -420,7 +420,27 @@ function get_associated_buckets(req) {
 
 function get_pool_history(req) {
     let pool_list = req.rpc_params.pool_list;
-    return HistoryDataStore.instance().get_pool_history(pool_list);
+    return HistoryDataStore.instance().get_pool_history()
+        .then(history_records => history_records.map(history_record => ({
+            timestamp: history_record.time_stamp.getTime(),
+            pool_list: history_record.system_snapshot.pools
+                .filter(pool => (!pool.mongo_info) && (!pool_list || pool_list.includes(pool.name)))
+                .map(pool => {
+                    const { name, storage, cloud_info, mongo_info } = pool;
+                    let resource_type = 'HOSTS';
+                    if (cloud_info) {
+                        resource_type = 'CLOUD';
+                    } else if (mongo_info) {
+                        resource_type = 'INTERNAL';
+                    }
+                    return {
+                        name,
+                        storage,
+                        resource_type
+                    };
+                })
+        })));
+
 }
 
 // UTILS //////////////////////////////////////////////////////////

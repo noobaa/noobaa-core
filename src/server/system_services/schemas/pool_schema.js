@@ -30,13 +30,13 @@ module.exports = {
     ],
     properties: {
         _id: {
-            format: 'objectid'
+            objectid: true
         },
         deleted: {
-            format: 'date'
+            date: true
         },
         system: {
-            format: 'objectid'
+            objectid: true
         },
         name: {
             type: 'string'
@@ -74,7 +74,7 @@ module.exports = {
             properties: {
                 blocks_size: bigint,
                 last_update: {
-                    format: 'idate'
+                    idate: true
                 }
             }
         },
@@ -101,7 +101,7 @@ module.exports = {
                             type: 'string'
                         },
                         account_id: {
-                            format: 'objectid'
+                            objectid: true
                         }
                     }
                 },

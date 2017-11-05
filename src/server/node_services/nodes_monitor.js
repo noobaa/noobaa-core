@@ -2812,7 +2812,7 @@ class NodesMonitor extends EventEmitter {
             },
             storage: storage,
             data_activities: _.map(data_activities, a => {
-                if (!_.isFinite(a.time.end)) delete a.time.end;
+                if (!Number.isFinite(a.time.end)) delete a.time.end;
                 a.progress = progress_by_time(a.time, now);
                 return a;
             })
@@ -2886,7 +2886,7 @@ class NodesMonitor extends EventEmitter {
             },
             storage: storage,
             data_activities: _.map(data_activities, a => {
-                if (!_.isFinite(a.time.end)) delete a.time.end;
+                if (!Number.isFinite(a.time.end)) delete a.time.end;
                 a.progress = progress_by_time(a.time, now);
                 return a;
             })
@@ -3042,6 +3042,12 @@ class NodesMonitor extends EventEmitter {
                 'time',
                 'size',
                 'wait_reason');
+            if (info.data_activity.time && !Number.isFinite(info.data_activity.time.end)) {
+                delete info.data_activity.time.end;
+            }
+            if (info.data_activity.stage.time && !Number.isFinite(info.data_activity.stage.time.end)) {
+                delete info.data_activity.stage.time.end;
+            }
         }
         info.storage = this._node_storage_info(item);
         info.drive = {

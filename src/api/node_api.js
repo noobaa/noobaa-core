@@ -494,10 +494,10 @@ module.exports = {
                     type: 'string'
                 },
                 version_install_time: {
-                    format: 'idate'
+                    idate: true
                 },
                 heartbeat: {
-                    format: 'idate'
+                    idate: true
                 },
                 has_issues: {
                     type: 'boolean',
@@ -518,19 +518,19 @@ module.exports = {
                     type: 'boolean',
                 },
                 migrating_to_pool: {
-                    format: 'idate'
+                    idate: true
                 },
                 decommissioning: {
-                    format: 'idate'
+                    idate: true
                 },
                 decommissioned: {
-                    format: 'idate'
+                    idate: true
                 },
                 deleting: {
-                    format: 'idate'
+                    idate: true
                 },
                 deleted: {
-                    format: 'idate'
+                    idate: true
                 },
                 accessibility: {
                     $ref: '#/definitions/accessibility_type'
@@ -894,10 +894,10 @@ module.exports = {
             type: 'object',
             properties: {
                 start: {
-                    format: 'idate',
+                    idate: true,
                 },
                 end: {
-                    format: 'idate',
+                    idate: true,
                 },
             }
         },

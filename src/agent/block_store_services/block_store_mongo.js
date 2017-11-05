@@ -11,7 +11,7 @@ const size_utils = require('../../util/size_utils');
 const mongo_client = require('../../util/mongo_client');
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-const { SERVER_MIN_REQUIREMENTS } = require('../../config');
+const { SERVER_MIN_REQUIREMENTS } = require('../../../config');
 
 const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
 const GRID_FS_BUCKET_NAME_FILES = `${GRID_FS_BUCKET_NAME}.files`;

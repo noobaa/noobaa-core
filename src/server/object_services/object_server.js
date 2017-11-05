@@ -275,7 +275,7 @@ function create_multipart(req) {
         })
         .then(() => MDStore.instance().insert_multipart(multipart))
         .return({
-            multipart_id: String(multipart._id)
+            multipart_id: multipart._id
         });
 }
 

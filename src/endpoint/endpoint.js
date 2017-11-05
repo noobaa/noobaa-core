@@ -66,7 +66,8 @@ function start_all() {
                     lambda: true,
                     certs: params.certs,
                     node_id: params.node_id,
-                    host_id: params.host_id
+                    host_id: params.host_id,
+                    n2n_agent: true,
                 });
             }
         });
@@ -83,7 +84,8 @@ function start_all() {
         run_server({
             s3: true,
             blob: true,
-            lambda: true
+            lambda: true,
+            n2n_agent: true,
         });
     }
 }
@@ -155,10 +157,11 @@ function create_endpoint_handler(rpc, options) {
     const blob_rest_handler = options.blob ? blob_rest : unavailable_handler;
     const lambda_rest_handler = options.lambda ? lambda_rest : unavailable_handler;
 
-    // setting up rpc
-    const signal_client = rpc.new_client();
-    const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
-    n2n_agent.set_any_rpc_address();
+    if (options.n2n_agent) {
+        const signal_client = rpc.new_client();
+        const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
+        n2n_agent.set_any_rpc_address();
+    }
     const object_io = new ObjectIO(options.node_id, options.host_id);
     return endpoint_request_handler;
 

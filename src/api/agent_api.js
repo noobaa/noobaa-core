@@ -278,7 +278,7 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    // data buffer in attachments                    
+                    // data buffer in attachments
                 },
             },
             auth: {

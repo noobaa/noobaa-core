@@ -84,7 +84,7 @@ function setup({ incomplete_rpc_coverage } = {}) {
         s3: true,
         blob: true,
         lambda: true,
-        n2n_agent: false, // we use n2n_proxy        
+        n2n_agent: false, // we use n2n_proxy
     });
 
     mocha.before('coretest-before', function() {

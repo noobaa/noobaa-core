@@ -9,7 +9,7 @@ const ip_module = require('ip');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const RpcError = require('../../rpc/rpc_error');
+const { RpcError } = require('../../rpc');
 const net_utils = require('../../util/net_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const signature_utils = require('../../util/signature_utils');

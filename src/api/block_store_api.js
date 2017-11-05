@@ -18,13 +18,11 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['block_md', 'data'],
+                required: ['block_md'],
                 properties: {
+                    // data buffer in attachments
                     block_md: {
                         $ref: 'common_api#/definitions/block_md'
-                    },
-                    data: {
-                        buffer: true
                     },
                 },
             },
@@ -43,13 +41,11 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['block_md', 'data'],
+                required: ['block_md'],
                 properties: {
+                    // data buffer in attachments
                     block_md: {
                         $ref: 'common_api#/definitions/block_md'
-                    },
-                    data: {
-                        buffer: true
                     },
                 },
             },

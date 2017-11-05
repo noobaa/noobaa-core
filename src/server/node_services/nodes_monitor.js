@@ -17,7 +17,6 @@ const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
-const RpcError = require('../../rpc/rpc_error');
 const MDStore = require('../object_services/md_store').MDStore;
 const Semaphore = require('../../util/semaphore');
 const NodesStore = require('./nodes_store').NodesStore;
@@ -35,8 +34,7 @@ const cluster_server = require('../system_services/cluster_server');
 const clustering_utils = require('../utils/clustering_utils');
 const system_utils = require('../utils/system_utils');
 const net_utils = require('../../util/net_utils');
-
-
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
@@ -1417,7 +1415,6 @@ class NodesMonitor extends EventEmitter {
         return this.n2n_client.agent.test_network_perf({
                 source: this.n2n_agent.rpc_address,
                 target: item.node.rpc_address,
-                data: Buffer.alloc(1),
                 response_length: 1,
             }, {
                 address: item.node.rpc_address,
@@ -3122,25 +3119,20 @@ class NodesMonitor extends EventEmitter {
         });
         const server_api = proxy_params.method_api.slice(0, -4); //Remove _api suffix
         const method_name = proxy_params.method_name;
-        const method = server_rpc.rpc.schema[proxy_params.method_api].methods[method_name];
-        if (method.params_import_buffers) {
-            // dbg.log5('n2n_proxy: params_import_buffers', proxy_params);
-            method.params_import_buffers(proxy_params.request_params, proxy_params.proxy_buffer);
+
+        if (proxy_params.request_params) {
+            proxy_params.request_params[RPC_BUFFERS] = proxy_params[RPC_BUFFERS];
         }
 
-        return this.client[server_api][method_name](proxy_params.request_params, {
-                connection: item.connection,
-            })
-            .then(reply => {
-                const res = {
-                    proxy_reply: reply
-                };
-                if (method.reply_export_buffers) {
-                    res.proxy_buffer = buffer_utils.join(method.reply_export_buffers(reply));
-                    // dbg.log5('n2n_proxy: reply_export_buffers', reply);
+        return this.client[server_api][method_name](
+                proxy_params.request_params, {
+                    connection: item.connection
                 }
-                return res;
-            });
+            )
+            .then(reply => ({
+                proxy_reply: reply,
+                [RPC_BUFFERS]: reply && reply[RPC_BUFFERS],
+            }));
     }
 
     test_node_network(req) {
@@ -3187,7 +3179,7 @@ class NodesMonitor extends EventEmitter {
 
         const { connection } = firstItem;
         return server_rpc.client.agent.collect_diagnostics(undefined, { connection })
-            .then(result => result.data);
+            .then(res => res[RPC_BUFFERS].data);
     }
 
     set_debug_host(req) {

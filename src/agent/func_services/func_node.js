@@ -9,7 +9,7 @@ const child_process = require('child_process');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const RpcError = require('../../rpc/rpc_error');
+const { RpcError } = require('../../rpc');
 const fs_utils = require('../../util/fs_utils');
 const Semaphore = require('../../util/semaphore');
 const zip_utils = require('../../util/zip_utils');
@@ -97,7 +97,7 @@ class FuncNode {
                                 `Function code does not match for ${func.name} version ${func.version} code_size ${func.config.code_size} code_sha256 ${func.config.code_sha256} requested code_size ${req.params.code_size} code_sha256 ${req.params.code_sha256}`);
                         }
                     })
-                    .then(() => zip_utils.unzip_from_buffer(func.code.zipfile))
+                    .then(() => zip_utils.unzip_from_buffer(Buffer.from(func.code.zipfile_b64, 'base64')))
                     .then(zipfile => zip_utils.unzip_to_dir(zipfile, loading_dir))
                     .then(() => fs_utils.create_fresh_path(version_dir))
                     .then(() => fs_utils.folder_delete(code_dir))

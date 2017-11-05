@@ -92,9 +92,6 @@ module.exports = {
                     additionalProperties: true,
                     properties: {}
                 },
-                redirect_buffer: {
-                    buffer: true
-                },
             },
         },
 
@@ -105,9 +102,6 @@ module.exports = {
                     type: 'object',
                     additionalProperties: true,
                     properties: {}
-                },
-                redirect_buffer: {
-                    buffer: true
                 },
             }
         },

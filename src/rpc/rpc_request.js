@@ -2,21 +2,22 @@
 'use strict';
 
 const _ = require('lodash');
+const RpcError = require('./rpc_error');
 const time_utils = require('../util/time_utils');
-const RpcError = require('../rpc/rpc_error');
 const buffer_utils = require('../util/buffer_utils');
 
-/*
-// TODO zlib in browserify doesn't work?
-// const zlib = require('zlib');
-const ZLIB_OPTIONS = {
-    level: zlib.Z_BEST_SPEED,
-    // setup memLevel and windowBits to reduce memory overhead to 32K
-    // see https://nodejs.org/api/zlib.html#zlib_memory_usage_tuning
-    memLevel: 5,
-    windowBits: 12,
-};
-*/
+const RPC_VERSION_MAGIC = 0xba;
+const RPC_VERSION_MAJOR = 0;
+const RPC_VERSION_MINOR = 0;
+const RPC_VERSION_FLAGS = 0;
+const RPC_VERSION_NUMBER = Buffer.from([
+    RPC_VERSION_MAGIC,
+    RPC_VERSION_MAJOR,
+    RPC_VERSION_MINOR,
+    RPC_VERSION_FLAGS,
+]).readUInt32BE(0);
+
+const RPC_BUFFERS = Symbol('RPC_BUFFERS');
 
 /**
  *
@@ -47,27 +48,40 @@ class RpcRequest {
     }
 
     static encode_message(header, buffers) {
-        const length_buffer = Buffer.allocUnsafe(4);
+        const meta_buffer = Buffer.allocUnsafe(8);
         const header_buffer = Buffer.from(JSON.stringify(header));
-        length_buffer.writeUInt32BE(header_buffer.length, 0);
+        meta_buffer.writeUInt32BE(RPC_VERSION_NUMBER, 0);
+        meta_buffer.writeUInt32BE(header_buffer.length, 4);
         const msg_buffers = buffers ? [
-            length_buffer,
+            meta_buffer,
             header_buffer,
             ...buffers
         ] : [
-            length_buffer,
+            meta_buffer,
             header_buffer
         ];
         return msg_buffers;
     }
 
     static decode_message(msg_buffers) {
-        const header_length = buffer_utils.extract_join(msg_buffers, 4).readUInt32BE(0);
+        const meta_buffer = buffer_utils.extract_join(msg_buffers, 8);
+        const version = meta_buffer.readUInt32BE(0);
+        if (version !== RPC_VERSION_NUMBER) {
+            const magic = meta_buffer.readUInt8(0);
+            const major = meta_buffer.readUInt8(1);
+            const minor = meta_buffer.readUInt8(2);
+            const flags = meta_buffer.readUInt8(3);
+            if (magic !== RPC_VERSION_MAGIC) throw new Error('RPC VERSION MAGIC MISMATCH');
+            if (major !== RPC_VERSION_MAJOR) throw new Error('RPC VERSION MAJOR MISMATCH');
+            if (minor !== RPC_VERSION_MINOR) throw new Error('RPC VERSION MINOR MISMATCH');
+            if (flags !== RPC_VERSION_FLAGS) throw new Error('RPC VERSION FLAGS MISMATCH');
+            throw new Error('RPC VERSION MISMATCH');
+        }
+        const header_length = meta_buffer.readUInt32BE(4);
         const header = JSON.parse(buffer_utils.extract_join(msg_buffers, header_length));
-        const buffer = buffer_utils.join(msg_buffers);
         return {
-            header: header,
-            buffer: buffer
+            header,
+            buffers: msg_buffers
         };
     }
 
@@ -78,13 +92,16 @@ class RpcRequest {
             api: this.api.id,
             method: this.method_api.name,
             params: this.params,
+            auth_token: this.auth_token || undefined,
+            buffers: (this.params && this.params[RPC_BUFFERS]) || undefined,
         };
-        if (this.auth_token) {
-            header.auth_token = this.auth_token;
-        }
         let buffers;
-        if (this.method_api.params_export_buffers) {
-            buffers = this.method_api.params_export_buffers(this.params);
+        if (header.buffers) {
+            buffers = [];
+            header.buffers = _.map(header.buffers, (buf, name) => {
+                buffers.push(buf);
+                return { name, len: buf.length };
+            });
         }
         return RpcRequest.encode_message(header, buffers);
     }
@@ -97,8 +114,12 @@ class RpcRequest {
         this.auth_token = msg.header.auth_token;
         this.srv = (api ? api.id : '?') +
             '.' + (method_api ? method_api.name : '?');
-        if (method_api && method_api.params_import_buffers) {
-            method_api.params_import_buffers(this.params, msg.buffer);
+        if (msg.header.buffers) {
+            const buffers = {};
+            _.forEach(msg.header.buffers, a => {
+                buffers[a.name] = buffer_utils.extract_join(msg.buffers, a.len);
+            });
+            this.params[RPC_BUFFERS] = buffers;
         }
     }
 
@@ -115,8 +136,13 @@ class RpcRequest {
             header.error = _.pick(this.error, 'message', 'rpc_code', 'rpc_data');
         } else {
             header.reply = this.reply;
-            if (this.method_api.reply_export_buffers) {
-                buffers = this.method_api.reply_export_buffers(this.reply);
+            header.buffers = this.reply && this.reply[RPC_BUFFERS];
+            if (header.buffers) {
+                buffers = [];
+                header.buffers = _.map(header.buffers, (buf, name) => {
+                    buffers.push(buf);
+                    return { name, len: buf.length };
+                });
             }
         }
         return RpcRequest.encode_message(header, buffers);
@@ -134,8 +160,12 @@ class RpcRequest {
             this._response_defer.reject(this.error);
         } else {
             this.reply = msg.header.reply;
-            if (this.method_api.reply_import_buffers) {
-                this.method_api.reply_import_buffers(this.reply, msg.buffer);
+            if (msg.header.buffers) {
+                const buffers = {};
+                _.forEach(msg.header.buffers, a => {
+                    buffers[a.name] = buffer_utils.extract_join(msg.buffers, a.len);
+                });
+                this.reply[RPC_BUFFERS] = buffers;
             }
             this._response_defer.resolve(this.reply);
         }
@@ -149,5 +179,7 @@ class RpcRequest {
     }
 
 }
+
+RpcRequest.RPC_BUFFERS = RPC_BUFFERS;
 
 module.exports = RpcRequest;

@@ -3,22 +3,20 @@
 
 const _ = require('lodash');
 const mongodb = require('mongodb');
-const mongo_client = require('../../util/mongo_client');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const os_utils = require('../../util/os_utils');
 const size_utils = require('../../util/size_utils');
+const mongo_client = require('../../util/mongo_client');
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-
 const { SERVER_MIN_REQUIREMENTS } = require('../../config');
-const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
-const GRID_FS_BUCKET_NAME_FILES = 'mongo_internal_agent.files';
-const GRID_FS_BUCKET_NAME_CHUNKS = 'mongo_internal_agent.chunks';
-// TODO: Should decide the chunk size, currently using 8 MB
-const GRID_FS_CHUNK_SIZE = 8 * 1024 * 1024;
 
+const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
+const GRID_FS_BUCKET_NAME_FILES = `${GRID_FS_BUCKET_NAME}.files`;
+const GRID_FS_BUCKET_NAME_CHUNKS = `${GRID_FS_BUCKET_NAME}.chunks`;
+const GRID_FS_CHUNK_SIZE = 8 * 1024 * 1024;
 
 class BlockStoreMongo extends BlockStoreBase {
 
@@ -42,16 +40,16 @@ class BlockStoreMongo extends BlockStoreBase {
     read_usage_gridfs() {
         // Notice that I do not worry about PETABYTES because this is for local use only
         // We should not write PETABYTES to mongo so there should be no problems
-        const files_collection = mongo_client.instance().collection(GRID_FS_BUCKET_NAME_FILES);
-        const chunks_collection = mongo_client.instance().collection(GRID_FS_BUCKET_NAME_CHUNKS);
-        return P.join(files_collection.stats(), chunks_collection.stats())
-            .spread((files_res, chunks_res) => (
-                // Notice that storageSize includes actual storage size and not only block sizes
-                {
-                    size: ((files_res && files_res.storageSize) || 0) + ((chunks_res && chunks_res.storageSize) || 0),
-                    count: (files_res && files_res.count) || 0
-                }
+        return P.resolve()
+            .then(() => P.join(
+                mongo_client.instance().collection(GRID_FS_BUCKET_NAME_FILES).stats(),
+                mongo_client.instance().collection(GRID_FS_BUCKET_NAME_CHUNKS).stats()
             ))
+            .spread((files_res, chunks_res) => ({
+                // Notice that storageSize includes actual storage size and not only block sizes
+                size: ((files_res && files_res.storageSize) || 0) + ((chunks_res && chunks_res.storageSize) || 0),
+                count: (files_res && files_res.count) || 0
+            }))
             // You will always see errors on initialization when there was no GridFS collection prior
             .catch(err => {
                 console.error('read_usage_gridfs had error: ', err);
@@ -114,13 +112,9 @@ class BlockStoreMongo extends BlockStoreBase {
                 buffer_utils.read_stream_join(this._gridfs().openDownloadStreamByName(block_name)),
                 this.head_block(block_name)
             )
-            .spread((block_buffer, block_metadata) => ({
-                block_data: block_buffer,
-                block_metadata: block_metadata.metadata
-            }))
-            .then(reply => ({
-                data: reply.block_data,
-                block_md: this._decode_block_md(reply.block_metadata)
+            .then(([data, head]) => ({
+                data,
+                block_md: this._decode_block_md(head.metadata)
             }))
             .catch(err => {
                 dbg.error('_read_block failed:', err, this.base_path);
@@ -131,7 +125,7 @@ class BlockStoreMongo extends BlockStoreBase {
     _write_block(block_md, data) {
         const block_name = this._block_key(block_md.id);
         const block_metadata = this._encode_block_md(block_md);
-        const block_data = data;
+        const block_data = data || Buffer.alloc(0);
         // check to see if the object already exists
         return this.head_block(block_name)
             .then(head => {

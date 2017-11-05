@@ -21,7 +21,7 @@ function create_func(req, res) {
                 pools: fn.VpcConfig && fn.VpcConfig.SubnetIds,
             }, _.isUndefined),
             code: _.omitBy({
-                zipfile: Buffer.from(fn.Code.ZipFile, 'base64'),
+                zipfile_b64: fn.Code.ZipFile,
                 s3_bucket: fn.Code.S3Bucket,
                 s3_key: fn.Code.S3Key,
                 s3_obj_version: fn.Code.S3ObjectVersion,

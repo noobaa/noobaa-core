@@ -347,13 +347,6 @@ module.exports = {
             }
         },
 
-        update_system_certificate: {
-            method: 'POST',
-            auth: {
-                system: 'admin',
-            }
-        },
-
         phone_home_capacity_notified: {
             method: 'POST',
             auth: {

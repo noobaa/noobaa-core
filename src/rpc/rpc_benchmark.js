@@ -13,7 +13,8 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const RPC = require('./rpc');
 const RpcSchema = require('./rpc_schema');
-const native_core = require('../util/native_core');
+const ssl_utils = require('../util/ssl_utils');
+const { RPC_BUFFERS } = require('.');
 
 const MB = 1024 * 1024;
 
@@ -75,27 +76,18 @@ schema.register_api({
             method: 'POST',
             params: {
                 type: 'object',
+                required: ['wsize', 'rsize'],
                 properties: {
-                    kushkush: {
-                        type: 'object',
-                        required: ['data', 'rsize'],
-                        properties: {
-                            data: {
-                                buffer: true
-                            },
-                            rsize: {
-                                type: 'integer'
-                            }
-                        }
-                    }
+                    wsize: { type: 'integer' },
+                    rsize: { type: 'integer' },
                 }
             },
             reply: {
                 type: 'object',
+                required: ['wsize', 'rsize'],
                 properties: {
-                    data: {
-                        buffer: true
-                    }
+                    wsize: { type: 'integer' },
+                    rsize: { type: 'integer' },
                 }
             }
         },
@@ -158,13 +150,13 @@ function start() {
 
             if (proto === 'tcp:' || proto === 'tls:') {
                 return rpc.register_tcp_transport(argv.addr.port,
-                    proto === 'tls:' && native_core().x509()
+                    proto === 'tls:' && ssl_utils.generate_ssl_certificate()
                 );
             }
 
             if (proto === 'ntcp:' || proto === 'ntls:') {
                 return rpc.register_ntcp_transport(argv.addr.port,
-                    proto === 'ntls:' && native_core().x509()
+                    proto === 'ntls:' && ssl_utils.generate_ssl_certificate()
                 );
             }
 
@@ -225,10 +217,9 @@ function call_next_io(req) {
     }
     const data = Buffer.alloc(argv.wsize, 0xFA);
     let promise = client.rpcbench.io({
-        kushkush: {
-            data: data,
-            rsize: argv.rsize
-        }
+        [RPC_BUFFERS]: { data },
+        wsize: argv.wsize,
+        rsize: argv.rsize,
     }, {
         address: chance.pick(target_addresses),
         return_rpc_req: true
@@ -241,12 +232,15 @@ function call_next_io(req) {
 
 function io_service(req) {
     dbg.log1('IO SERVICE');
+    const data_in = req.params[RPC_BUFFERS].data;
+    const data = Buffer.alloc(req.params.rsize, 0x99);
     io_count += 1;
-    io_rbytes += req.params.kushkush.data.length;
-    io_wbytes += req.params.kushkush.rsize;
-    const data = Buffer.alloc(req.params.kushkush.rsize, 0x99);
+    io_rbytes += data_in.length;
+    io_wbytes += data.length;
     return {
-        data: data
+        [RPC_BUFFERS]: { data },
+        wsize: req.params.wsize,
+        rsize: req.params.rsize,
     };
 }
 

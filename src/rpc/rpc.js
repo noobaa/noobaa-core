@@ -11,7 +11,6 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const RpcError = require('./rpc_error');
 const url_utils = require('../util/url_utils');
-const buffer_utils = require('../util/buffer_utils');
 const RpcRequest = require('./rpc_request');
 const RpcWsServer = require('./rpc_ws_server');
 const RpcN2NAgent = require('./rpc_n2n_agent');
@@ -25,6 +24,7 @@ const RpcHttpConnection = require('./rpc_http');
 const RpcNudpConnection = require('./rpc_nudp');
 const RpcNtcpConnection = require('./rpc_ntcp');
 const RpcFcallConnection = require('./rpc_fcall');
+const RPC_BUFFERS = RpcRequest.RPC_BUFFERS;
 
 const RPC_PING_INTERVAL_MS = 20000;
 const RECONN_BACKOFF_BASE = 250;
@@ -614,7 +614,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
                 dbg.warn('RPC RECONNECT FAILED', addr_url.href,
                     'reconn_backoff', reconn_backoff.toFixed(0), err.message);
             });
-    }, reconn_backoff);
+    }, reconn_backoff).unref();
 };
 
 
@@ -737,21 +737,15 @@ RPC.prototype._proxy = function(api, method, params, options) {
         method_api: api.id,
         method_name: method.name,
         target: options.address,
-        request_params: params
+        request_params: params,
+        [RPC_BUFFERS]: params[RPC_BUFFERS],
     };
-
-    // if we have buffer, add it as raw data.
-    if (method.params_export_buffers) {
-        req.proxy_buffer = buffer_utils.join(method.params_export_buffers(params));
-        // dbg.log5('_proxy: params_export_buffers', req);
-    }
 
     return P.resolve()
         .then(() => this.n2n_proxy(req))
         .then(res => {
-            if (method.reply_import_buffers) {
-                // dbg.log5('_proxy: reply_import_buffers', res);
-                method.reply_import_buffers(res.proxy_reply, res.proxy_buffer);
+            if (res.proxy_reply) {
+                res.proxy_reply[RPC_BUFFERS] = res[RPC_BUFFERS];
             }
             return res.proxy_reply;
         });

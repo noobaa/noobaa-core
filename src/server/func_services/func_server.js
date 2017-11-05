@@ -61,10 +61,10 @@ function create_func(req) {
 
     return P.resolve()
         .then(() => {
-            if (!func_code.zipfile) throw new Error('Unsupported code');
+            if (!func_code.zipfile_b64) throw new Error('Unsupported code');
             return new stream.Readable({
                 read(size) {
-                    this.push(func_code.zipfile);
+                    this.push(Buffer.from(func_code.zipfile_b64, 'base64'));
                     this.push(null);
                 }
             });
@@ -100,10 +100,10 @@ function update_func(req) {
             return P.resolve()
                 .then(() => func_store.instance().delete_code_gridfs(func.code_gridfs_id))
                 .then(() => {
-                    if (!func_code.zipfile) throw new Error('Unsupported code');
+                    if (!func_code.zipfile_b64) throw new Error('Unsupported code');
                     return new stream.Readable({
                         read(size) {
-                            this.push(func_code.zipfile);
+                            this.push(Buffer.from(func_code.zipfile_b64, 'base64'));
                             this.push(null);
                         }
                     });
@@ -142,7 +142,7 @@ function read_func(req) {
             return func_store.instance().read_code_gridfs(req.func.code_gridfs_id)
                 .then(buffer => {
                     reply.code = {
-                        zipfile: buffer
+                        zipfile_b64: buffer.toString('base64')
                     };
                     return reply;
                 });

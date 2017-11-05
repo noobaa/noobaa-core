@@ -284,8 +284,8 @@ module.exports = {
         func_code: {
             type: 'object',
             properties: {
-                zipfile: {
-                    buffer: true
+                zipfile_b64: {
+                    type: 'string'
                 },
                 s3_bucket: {
                     type: 'string'

@@ -8,9 +8,8 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
 const LRUCache = require('../../util/lru_cache');
-const RpcError = require('../../rpc/rpc_error');
 const time_utils = require('../../util/time_utils');
-
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 
 function _new_stats() {
     return {
@@ -24,8 +23,6 @@ function _new_stats() {
         total_write_latency: 0
     };
 }
-
-
 
 class BlockStoreBase {
 
@@ -66,7 +63,10 @@ class BlockStoreBase {
         this.stats.max_inflight_reads = Math.max(this.stats.inflight_reads, this.stats.max_inflight_reads);
         const start = time_utils.millistamp();
         return this.block_cache.get_with_cache(block_md)
-            .then(block => _.clone(block))
+            .then(block => ({
+                block_md,
+                [RPC_BUFFERS]: { data: block.data }
+            }))
             .finally(() => {
                 this.stats.read_count += 1;
                 this.stats.total_read_latency += time_utils.millistamp() - start;
@@ -76,7 +76,7 @@ class BlockStoreBase {
 
     write_block(req) {
         const block_md = req.rpc_params.block_md;
-        const data = req.rpc_params.data;
+        const data = req.rpc_params[RPC_BUFFERS].data || Buffer.alloc(0);
         dbg.log1('write_block', block_md.id, data.length, 'node', this.node_name);
         if (this.storage_limit) {
             const free_space = this.storage_limit - this._usage.size;
@@ -93,10 +93,7 @@ class BlockStoreBase {
         const start = time_utils.millistamp();
         return P.resolve(this._write_block(block_md, data))
             .then(() => {
-                this.block_cache.put_in_cache(block_md, {
-                    block_md: block_md,
-                    data: data
-                });
+                this.block_cache.put_in_cache(block_md, { block_md, data });
             })
             .finally(() => {
                 this.stats.write_count += 1;
@@ -126,7 +123,7 @@ class BlockStoreBase {
             }, {
                 address: source_md.address,
             })
-            .then(res => this._write_block(target_md, res.data))
+            .then(res => this._write_block(target_md, res[RPC_BUFFERS].data))
             .return();
     }
 
@@ -154,9 +151,7 @@ class BlockStoreBase {
 
         // verify data digest
         if (block_md.digest_type) {
-            const digest_b64 = crypto.createHash(block_md.digest_type)
-                .update(data)
-                .digest('base64');
+            const digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
             if (digest_b64 !== block_md.digest_b64) {
                 throw new RpcError('TAMPERING', 'Block digest mismatch ' + block_md.id);
             }

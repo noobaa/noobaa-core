@@ -20,7 +20,6 @@ const diag = require('./agent_diagnostics');
 const config = require('../../config');
 const os_utils = require('../util/os_utils');
 const js_utils = require('../util/js_utils');
-const RpcError = require('../rpc/rpc_error');
 const url_utils = require('../util/url_utils');
 const time_utils = require('../util/time_utils');
 const native_core = require('../util/native_core');
@@ -33,6 +32,7 @@ const BlockStoreAzure = require('./block_store_services/block_store_azure').Bloc
 const promise_utils = require('../util/promise_utils');
 const cloud_utils = require('../util/cloud_utils');
 const json_utils = require('../util/json_utils');
+const { RpcError, RPC_BUFFERS } = require('../rpc');
 
 const TEST_CONNECTION_TIMEOUT_DELAY = 2 * 60 * 1000; // test connection 2 ninutes after nodes_monitor stopped communicating
 const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
@@ -916,7 +916,8 @@ class Agent {
 
     test_network_perf(req) {
         const dbg = this.dbg;
-        const data = req.rpc_params.data;
+        const data = req.rpc_params[RPC_BUFFERS] &&
+            req.rpc_params[RPC_BUFFERS].data;
         const req_len = data ? data.length : 0;
         const res_len = req.rpc_params.response_length;
 
@@ -932,7 +933,7 @@ class Agent {
         }
 
         return {
-            data: Buffer.alloc(res_len)
+            [RPC_BUFFERS]: { data: Buffer.alloc(res_len) }
         };
     }
 
@@ -966,14 +967,14 @@ class Agent {
             return this.client.agent.test_network_perf({
                     source: source,
                     target: target,
-                    data: Buffer.alloc(req_len),
                     response_length: res_len,
+                    [RPC_BUFFERS]: { data: Buffer.alloc(req_len) }
                 }, {
                     address: target,
                     return_rpc_req: true // we want to check req.connection
                 })
                 .then(io_req => {
-                    const data = io_req.reply.data;
+                    const data = io_req.reply[RPC_BUFFERS].data;
                     if (((!data || !data.length) && res_len > 0) ||
                         (data && data.length && data.length !== res_len)) {
                         throw new Error('test_network_perf_to_peer: response_length mismatch');
@@ -1003,7 +1004,10 @@ class Agent {
             .then(() => {
                 dbg.log1('Reading packed file');
                 return fs.readFileAsync(inner_path)
-                    .then(data => ({ data }))
+                    .then(data => ({
+                        // data buffer in attachments
+                        [RPC_BUFFERS]: { data }
+                    }))
                     .catch(err => {
                         dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
                         throw new Error('Agent Collect Diag Error on reading packges diag file');

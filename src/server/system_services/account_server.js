@@ -15,7 +15,7 @@ const bcrypt = require('bcrypt');
 const { StorageError } = require('azure-storage/lib/common/errors/errors');
 
 const dbg = require('../../util/debug_module')(__filename);
-const RpcError = require('../../rpc/rpc_error');
+const { RpcError } = require('../../rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const http_utils = require('../../util/http_utils');
 const cloud_utils = require('../../util/cloud_utils');

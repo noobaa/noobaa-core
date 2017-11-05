@@ -2,7 +2,7 @@
 'use strict';
 
 const dbg = require('./debug_module')(__filename);
-const RpcError = require('../rpc/rpc_error');
+const { RpcError } = require('../rpc');
 const http_utils = require('./http_utils');
 const AWS = require('aws-sdk');
 const url = require('url');

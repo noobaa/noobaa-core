@@ -12,7 +12,7 @@ const os_utils = require('../../util/os_utils');
 const string_utils = require('../../util/string_utils');
 const promise_utils = require('../../util/promise_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-const RpcError = require('../../rpc/rpc_error');
+const { RpcError } = require('../../rpc');
 
 class BlockStoreFs extends BlockStoreBase {
 

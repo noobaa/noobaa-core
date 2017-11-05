@@ -1,148 +1,176 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let argv = require('minimist')(process.argv);
-let http = require('http');
-let https = require('https');
-let cluster = require('cluster');
-let crypto = require('crypto');
-let Speedometer = require('../util/speedometer');
-let native_core = require('../util/native_core');
+const argv = require('minimist')(process.argv);
+const http = require('http');
+const https = require('https');
+const crypto = require('crypto');
+const cluster = require('cluster');
+const ssl_utils = require('../util/ssl_utils');
+const Speedometer = require('../util/speedometer');
 
-argv.size = argv.size || 16;
+require('../util/console_wrapper').original_console();
+
+// common
 argv.port = Number(argv.port) || 50505;
-argv.concur = argv.concur || 16;
+argv.ssl = Boolean(argv.ssl);
 argv.forks = argv.forks || 1;
+// client
+argv.client = argv.client === true ? '127.0.0.1' : argv.client;
+argv.size = argv.size || 1024; // in MB
+argv.buf = argv.buf || 64 * 1024; // in Bytes
+argv.concur = argv.concur || 1;
+// server
+argv.server = Boolean(argv.server);
+argv.hash = argv.hash ? String(argv.hash) : '';
 
-if (argv.forks > 1 && cluster.isMaster) {
-    let master_speedometer = new Speedometer('Total Speed');
-    master_speedometer.enable_cluster();
-    for (let i = 0; i < argv.forks; i++) {
-        console.warn('Forking', i + 1);
-        cluster.fork();
-    }
-    cluster.on('exit', function(worker, code, signal) {
-        console.warn('Fork pid ' + worker.process.pid + ' died');
-    });
-} else {
-    main();
-}
 
 http.globalAgent.keepAlive = true;
 
-let http_agent = new http.Agent({
+const http_agent = new http.Agent({
     keepAlive: true
 });
+
+const send_speedometer = new Speedometer('Send Speed');
+const recv_speedometer = new Speedometer('Receive Speed');
+const master_speedometer = new Speedometer('Total Speed');
+
+if (cluster.isMaster) {
+    delete argv._;
+    console.log('ARGV', JSON.stringify(argv));
+}
+
+if (argv.forks > 1 && cluster.isMaster) {
+    master_speedometer.fork(argv.forks);
+} else {
+    main();
+}
 
 function main() {
     if (argv.help) {
         return usage();
     }
     if (argv.server) {
-        run_server(argv.port, argv.ssl);
-    } else if (argv.client) {
-        argv.client = typeof(argv.client) === 'string' && argv.client || '127.0.0.1';
-        run_client(argv.port, argv.client, argv.ssl);
-    } else {
-        return usage();
+        return run_server();
+    }
+    if (argv.client) {
+        return run_client();
+    }
+    return usage();
+}
+
+function usage() {
+    console.log(`
+    Client Usage: --client <host> [--port X] [--ssl] [--forks X] [--size X (MB)] [--buf X (Bytes)] [--concur X]
+
+    Server Usage: --server        [--port X] [--ssl] [--forks X] [--hash sha256]
+    `);
+}
+
+function run_server() {
+    const server = argv.ssl ?
+        https.createServer(ssl_utils.generate_ssl_certificate()) :
+        http.createServer();
+
+    server.on('error', err => {
+            console.error('HTTP server error', err.message);
+            process.exit();
+        })
+        .on('close', () => {
+            console.error('HTTP server closed');
+            process.exit();
+        })
+        .on('listening', () => {
+            console.log('HTTP server listening on port', argv.port, '...');
+        })
+        .on('connection', conn => {
+            const fd = conn._handle.fd;
+            console.log(`HTTP connection accepted (fd ${fd})`);
+            conn.once('close', () => {
+                console.log(`HTTP connection closed (fd ${fd})`);
+            });
+        })
+        .on('request', run_server_request)
+        .listen(argv.port);
+}
+
+function run_server_request(req, res) {
+    req.on('error', err => {
+        console.error('HTTP server request error', err.message);
+        process.exit();
+    });
+    res.on('error', err => {
+        console.error('HTTP server response error', err.message);
+        process.exit();
+    });
+    req.once('end', () => res.end());
+    run_receiver(req);
+}
+
+function run_client() {
+    for (let i = 0; i < argv.concur; ++i) {
+        setImmediate(run_client_request);
     }
 }
 
-
-function usage() {
-    console.log('\nUsage: --server [--port X] [--ssl] [--forks X] [--hash sha256]\n');
-    console.log('\nUsage: --client <host> [--port X] [--ssl] [--concur X] [--size X (MB)]  [--forks X]\n');
-}
-
-
-function run_server(port, ssl) {
-    console.log('SERVER', port, 'size', argv.size, 'MB');
-    let server = ssl ? https.createServer(native_core.x509()) : http.createServer();
-    server.on('listening', () => console.log('listening on port', argv.port, '...'));
-    server.on('error', err => {
-        console.error('server error', err.message);
-        process.exit();
-    });
-    server.on('close', () => {
-        console.error('server closed');
-        process.exit();
-    });
-    run_receiver(server);
-    server.listen(port);
-}
-
-
-function run_client(port, host, ssl) {
-    console.log('CLIENT', host + ':' + port, 'size', argv.size, 'MB', 'concur', argv.concur);
-    run_sender(port, host, ssl);
-}
-
-
-function run_sender(port, host, ssl) {
-    let send_speedometer = new Speedometer('Send Speed');
-    send_speedometer.enable_cluster();
-
-    function send() {
-        let buf = Buffer.allocUnsafe(argv.size * 1024 * 1024);
-        let req = (ssl ? https : http).request({
+function run_client_request() {
+    const req = (argv.ssl ? https : http)
+        .request({
             agent: http_agent,
-            port: port,
-            hostname: host,
+            port: argv.port,
+            hostname: argv.client,
             path: '/upload',
             method: 'PUT',
             headers: {
                 'content-type': 'application/octet-stream',
-                'content-length': buf.length
             },
             // we allow self generated certificates to avoid public CA signing:
             rejectUnauthorized: false,
-        }, res => {
+        })
+        .once('error', err => {
+            console.error('HTTP client request error', err.message);
+            process.exit();
+        })
+        .once('response', res => {
             if (res.statusCode !== 200) {
-                console.error('http status', res.statusCode);
+                console.error('HTTP client response status', res.statusCode);
                 process.exit();
             }
-            send_speedometer.update(buf.length);
-            res.on('data', () => { /* Empty Func */ });
-            res.on('end', send);
+            res.once('error', err => {
+                    console.error('HTTP client response error', err.message);
+                    process.exit();
+                })
+                .once('end', run_client_request)
+                .on('data', data => { /* noop */ });
+            // setImmediate(run_client_request);
         });
-        req.on('error', err => {
-            console.log('http error', err.message);
-            process.exit();
-        });
-        req.end(buf);
-    }
 
-    for (let i = 0; i < argv.concur; ++i) {
-        setImmediate(send);
+    run_sender(req);
+}
+
+function run_sender(writable) {
+    const buf = Buffer.allocUnsafe(argv.buf);
+    const size = argv.size * 1024 * 1024;
+    var n = 0;
+
+    writable.on('drain', send);
+    send();
+
+    function send() {
+        var ok = true;
+        while (ok && n < size) {
+            ok = writable.write(buf);
+            n += buf.length;
+            send_speedometer.update(buf.length);
+        }
+        if (n >= size) writable.end();
     }
 }
 
-
-function run_receiver(server) {
-    let recv_speedometer = new Speedometer('Receive Speed');
-    recv_speedometer.enable_cluster();
-    server.on('connection', conn => {
-        console.log('Accepted HTTP Connection (fd ' + conn._handle.fd + ')');
-    });
-    server.on('request', (req, res) => {
-        let hasher = argv.hash && crypto.createHash(argv.hash);
-        req.on('data', data => {
-            if (hasher) {
-                hasher.update(data);
-            }
-            recv_speedometer.update(data.length);
-        });
-        req.on('error', err => {
-            console.log('http server error', err.message);
-            process.exit();
-        });
-        req.on('end', () => {
-            res.statusCode = 200;
-            if (hasher) {
-                res.end(hasher.digest('hex'));
-            } else {
-                res.end();
-            }
-        });
+function run_receiver(readable) {
+    const hasher = argv.hash && crypto.createHash(argv.hash);
+    readable.on('data', data => {
+        if (hasher) hasher.update(data);
+        recv_speedometer.update(data.length);
     });
 }

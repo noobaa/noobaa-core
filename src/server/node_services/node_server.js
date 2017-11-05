@@ -13,10 +13,12 @@ const nodes_aggregator = require('./nodes_aggregator');
 const dbg = require('../../util/debug_module')(__filename);
 
 let monitor;
+let original_monitor;
 
 // called on rpc server init
 function _init() {
-    monitor = new nodes_monitor.NodesMonitor();
+    original_monitor = new nodes_monitor.NodesMonitor();
+    monitor = original_monitor;
     // start nodes_monitor if this is master, or this is not part of a rplica set
     if (system_store.is_cluster_master || !process.env.MONGO_RS_URL) {
         dbg.log0('this is master. starting nodes_monitor');
@@ -31,8 +33,18 @@ function get_local_monitor() {
     return monitor;
 }
 
-function stop_monitor() {
-    return monitor.stop();
+function set_external_monitor(external_monitor) {
+    monitor = external_monitor;
+    return monitor;
+}
+
+function reset_original_monitor() {
+    monitor = original_monitor;
+    return monitor;
+}
+
+function stop_monitor(force_close_n2n) {
+    return monitor.stop(force_close_n2n);
 }
 
 function start_monitor() {
@@ -128,6 +140,8 @@ function allocate_nodes(req) {
 // EXPORTS
 exports._init = _init;
 exports.get_local_monitor = get_local_monitor;
+exports.set_external_monitor = set_external_monitor;
+exports.reset_original_monitor = reset_original_monitor;
 exports.stop_monitor = stop_monitor;
 exports.start_monitor = start_monitor;
 exports.test_node_id = req => monitor.test_node_id(req);

@@ -132,7 +132,7 @@ function stop_agent(node_name) {
         .then(() => {
             ent = get_agent_entry(node_name);
             if (ent.started) {
-                return ent.agent.stop();
+                return ent.agent.stop('force_close_n2n');
             }
         })
         .then(() => {

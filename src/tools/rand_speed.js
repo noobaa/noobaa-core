@@ -1,41 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
-let _ = require('lodash');
-let zlib = require('zlib');
-let cluster = require('cluster');
-let RandStream = require('../util/rand_stream');
-let Speedometer = require('../util/speedometer');
-let argv = require('minimist')(process.argv);
+
+const zlib = require('zlib');
+const cluster = require('cluster');
+const RandStream = require('../util/rand_stream');
+const Speedometer = require('../util/speedometer');
+const argv = require('minimist')(process.argv);
+
 argv.forks = argv.forks || 1;
 
 if (argv.forks > 1 && cluster.isMaster) {
-    let master_speedometer = new Speedometer('Total Speed');
-    master_speedometer.enable_cluster();
-    for (let i = 0; i < argv.forks; i++) {
-        let worker = cluster.fork();
-        console.warn('Worker start', worker.process.pid);
-    }
-    cluster.on('exit', function(worker, code, signal) {
-        console.warn('Worker exit', worker.process.pid);
-        if (_.isEmpty(cluster.workers)) {
-            process.exit();
-        }
-    });
+    const master_speedometer = new Speedometer('Total Speed');
+    master_speedometer.fork(argv.forks);
 } else {
     main();
 }
 
 function main() {
-    let speedometer = new Speedometer('Rand Speed');
-    speedometer.enable_cluster();
-    let len = (argv.len * 1024 * 1024) || Infinity;
-    let input = new RandStream(len, {
+    const speedometer = new Speedometer('Rand Speed');
+    const len = (argv.len * 1024 * 1024) || Infinity;
+    const input = new RandStream(len, {
         highWaterMark: 1024 * 1024,
-        random_mode: argv.random_mode,
+        generator: argv.generator,
     });
     input.on('data', data => speedometer.update(data.length));
+
     if (argv.gzip) {
-        let gzip = zlib.createGzip();
+        const gzip = zlib.createGzip();
         let plain_size = 0;
         let compressed_size = 0;
         input.on('data', data => {

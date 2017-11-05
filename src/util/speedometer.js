@@ -11,11 +11,29 @@ class Speedometer {
         this.last_bytes = 0;
         this.start_time = Date.now();
         this.last_time = this.start_time;
-        this.set_interval();
+        this.worker_mode = cluster.isWorker;
+        if (cluster.isMaster) {
+            cluster.on('message', (worker, bytes) => this.update(bytes));
+            cluster.on('exit', worker => {
+                if (!Object.keys(cluster.workers).length) {
+                    this.clear_interval();
+                    this.report();
+                    // process.exit();
+                }
+            });
+        }
+    }
+
+    fork(count) {
+        for (var i = 0; i < count; ++i) {
+            const worker = cluster.fork();
+            console.warn('Worker start', worker.process.pid);
+        }
     }
 
     update(bytes) {
         this.num_bytes += bytes;
+        if (!this.interval) this.set_interval();
     }
 
     set_interval(delay_ms) {
@@ -49,20 +67,6 @@ class Speedometer {
         }
         this.last_bytes = this.num_bytes;
         this.last_time = now;
-    }
-
-    enable_cluster() {
-        if (cluster.isMaster) {
-            cluster.on('message', (worker, bytes) => this.update(bytes));
-            cluster.on('exit', worker => {
-                const worker_ids = Object.keys(cluster.workers);
-                if (!worker_ids.length) {
-                    this.clear_interval();
-                }
-            });
-        } else {
-            this.worker_mode = true;
-        }
     }
 }
 

@@ -24,7 +24,6 @@ module.exports = {
     rules: {
 
         // verify every file contains our copyright header
-        // TODO eslint-plugin-header copyright should be error
         'header/header': ['error', 'block', [
             ' Copyright (C) 2016 NooBaa '
         ]],
@@ -86,6 +85,9 @@ module.exports = {
             allowArrowFunctions: true
         }],
 
+        // not forcing a consistent policy on line breaks inside func parentheses
+        'function-paren-newline': 'off',
+
         // match generator-star-spacing to the beautifier preference
         'generator-star-spacing': ['error', { before: false, after: true }],
 
@@ -119,7 +121,7 @@ module.exports = {
         'max-depth': ['error', 5],
 
         // max line length is 80 by default, allow some slack
-        // TODO eslint max-len for code lines should be errir and reduced to ~100 instead of 140
+        // TODO eslint max-len for code lines should be error and reduced to ~100 instead of 140
         'max-len': ['warn', {
             code: 140,
             tabWidth: 4,
@@ -129,8 +131,7 @@ module.exports = {
         }],
 
         // max file length is 300 by default, we accept longer files
-        // TODO eslint max-lines per file should be reduced to ~1000 instead
-        'max-lines': ['error', 1700],
+        'max-lines': ['error', 1500],
 
         // prefer small number of params to functions, otherwise send object
         // TODO eslint max-params per function should be reduced to ~4 instead of 6
@@ -147,7 +148,9 @@ module.exports = {
         // newlines to separate vars and return are not productive
         'newline-after-var': 'off',
         'newline-before-return': 'off',
-        'newline-per-chained-call': 'error',
+        'newline-per-chained-call': ['error', {
+            ignoreChainWithDepth: 4,
+        }],
 
         // use only x|0 for int casting, but avoid other bitwise operators
         'no-bitwise': ['warn', {
@@ -177,7 +180,7 @@ module.exports = {
         'no-else-return': 'off',
 
         // for empty functions we expect at least a comment why it's there
-        'no-empty-function': 'error',
+        'no-empty-function': 'warn',
 
         'no-extra-parens': ['off', 'all', {
             nestedBinaryExpressions: false

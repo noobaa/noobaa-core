@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint max-lines: ['error', 1520] */
 'use strict';
 
 module.exports = Ice;

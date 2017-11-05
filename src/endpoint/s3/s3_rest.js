@@ -198,7 +198,9 @@ function check_headers(req, res) {
 function authenticate_request(req, res) {
     try {
         const auth_token = signature_utils.authenticate_request(req);
-        auth_token.client_ip = http_utils.parse_client_ip(req);
+        if (auth_token) {
+            auth_token.client_ip = http_utils.parse_client_ip(req);
+        }
         req.object_sdk.set_auth_token(auth_token);
         signature_utils.check_expiry(req);
     } catch (err) {

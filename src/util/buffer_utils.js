@@ -19,7 +19,7 @@ function neq(buf1, buf2) {
  * where the list has just 1 buffer.
  * In that case we simply return that buffer and avoid a memory copy
  * that concat will always make.
- * 
+ *
  * @param {[Buffer]} buffers list of buffers to join
  * @param {Number} total_length number of bytes to pass to concat
  * @returns {Buffer} concatenated buffer
@@ -32,7 +32,7 @@ function join(buffers, total_length) {
 /**
  * extract() is like Buffer.slice() but for array of buffers
  * Removes len bytes from the beginning of the array, or less if not available
- * 
+ *
  * @param {[Buffer]} buffers array of buffers to update
  * @param {Number} len number of bytes to extract
  * @returns {[Buffer]} array of buffers with total length of len or less

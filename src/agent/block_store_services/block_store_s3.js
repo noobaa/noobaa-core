@@ -33,6 +33,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 endpoint: this.cloud_info.endpoint,
                 accessKeyId: this.cloud_info.access_keys.access_key,
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
+                s3ForcePathStyle: true,
                 httpOptions,
                 region: 'us-east-1'
             });
@@ -105,7 +106,6 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     _delegate_write_block(block_md, data_length) {
-        dbg.log0(`DZDZ: got bolck_md=${block_md}, data_length=${data_length}`);
         const encoded_md = this._encode_block_md(block_md);
         const block_key = this._block_key(block_md.id);
         const metadata = {

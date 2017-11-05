@@ -10,17 +10,17 @@ const crypto = require('crypto');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
-const RpcError = require('../rpc/rpc_error');
 const Pipeline = require('../util/pipeline');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
-const KeysSemaphore = require('../util/keys_semaphore');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
 const promise_utils = require('../util/promise_utils');
 const dedup_options = require('./dedup_options');
+const KeysSemaphore = require('../util/keys_semaphore');
+const { RpcError, RPC_BUFFERS } = require('../rpc');
 
 // dbg.set_level(5, 'core');
 
@@ -664,13 +664,15 @@ class ObjectIO {
                 this._error_injection_on_write();
 
                 return params.client.block_store.write_block({
-                    block_md: block_md,
-                    data: buffer,
+                        [RPC_BUFFERS]: { data: buffer },
+                        block_md,
                 }, {
                     address: block_md.address,
                     timeout: config.IO_WRITE_BLOCK_TIMEOUT,
                 });
-            })).catch(err => {
+                })
+            )
+            .catch(err => {
             dbg.warn('UPLOAD:', desc,
                 'write block', block_md.id, block_md.address,
                 'ERROR', err);
@@ -1097,7 +1099,7 @@ class ObjectIO {
                     this._error_injection_on_read();
 
                     return params.client.block_store.read_block({
-                        block_md: block_md
+                        block_md
                     }, {
                         address: block_md.address,
                         timeout: config.IO_READ_BLOCK_TIMEOUT,
@@ -1105,16 +1107,15 @@ class ObjectIO {
                     });
                 }))
             .then(res => {
+                const data = res[RPC_BUFFERS].data;
                 if (this._verification_mode) {
-                    let digest_b64 = crypto.createHash(block_md.digest_type)
-                        .update(res.data)
-                        .digest('base64');
+                    const digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
                     if (digest_b64 !== block_md.digest_b64) {
                         throw new RpcError('TAMPERING',
                             'Block digest varification failed ' + block_md.id);
                     }
                 }
-                return res.data;
+                return data;
             })
             .catch(err => {
                 dbg.error('_read_block: FAILED', block_md.id, 'from', block_md.address, err);

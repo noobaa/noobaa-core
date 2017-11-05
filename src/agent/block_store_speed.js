@@ -4,9 +4,12 @@
 const _ = require('lodash');
 const argv = require('minimist')(process.argv);
 const crypto = require('crypto');
+
 const P = require('../util/promise');
 const api = require('../api');
 const dotenv = require('../util/dotenv');
+const { RPC_BUFFERS } = require('../rpc');
+
 dotenv.load();
 
 argv.email = argv.email || 'demo@noobaa.com';
@@ -53,15 +56,13 @@ function write_block(index) {
     console.log('write_block: START', block_id);
     return P.resolve()
         .then(() => client.block_store.write_block({
+            [RPC_BUFFERS]: { data: Buffer.allocUnsafe(argv.size) },
             block_md: {
                 id: block_id,
                 address: argv.address,
                 // node: '',
                 size: argv.size,
-                // digest_type: '',
-                // digest_b64: '',
             },
-            data: Buffer.allocUnsafe(argv.size),
         }, {
             address: argv.address,
             timeout: argv.timeout,

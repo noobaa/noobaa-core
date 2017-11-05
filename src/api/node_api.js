@@ -254,11 +254,8 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['data'],
                 properties: {
-                    data: {
-                        buffer: true
-                    },
+                    // data buffer in attachments
                 },
             },
             auth: {

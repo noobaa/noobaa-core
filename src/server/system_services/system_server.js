@@ -23,7 +23,7 @@ const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
-const RpcError = require('../../rpc/rpc_error');
+const { RpcError } = require('../../rpc');
 const net_utils = require('../../util/net_utils');
 const zip_utils = require('../../util/zip_utils');
 const Dispatcher = require('../notifications/dispatcher');
@@ -1182,12 +1182,6 @@ function attempt_server_resolve(req) {
 }
 
 
-function update_system_certificate(req) {
-    throw new RpcError('TODO', 'update_system_certificate');
-}
-
-
-
 function validate_activation(req) {
     return P.fcall(function() {
             var params = _.defaults(req.rpc_params, {
@@ -1381,7 +1375,6 @@ exports.attempt_server_resolve = attempt_server_resolve;
 exports.update_phone_home_config = update_phone_home_config;
 exports.phone_home_capacity_notified = phone_home_capacity_notified;
 exports.update_hostname = update_hostname;
-exports.update_system_certificate = update_system_certificate;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;

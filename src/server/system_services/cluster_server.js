@@ -21,7 +21,6 @@ const dotenv = require('../../util/dotenv');
 const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
-const RpcError = require('../../rpc/rpc_error');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const server_rpc = require('../server_rpc');
 const cluster_hb = require('../bg_services/cluster_hb');
@@ -31,6 +30,7 @@ const promise_utils = require('../../util/promise_utils');
 const net_utils = require('../../util/net_utils');
 const upgrade_utils = require('../../upgrade/upgrade_utils');
 const phone_home_utils = require('../../util/phone_home');
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 
 
 // TODO: maybe we need to change it to use upgrade status in DB.
@@ -180,12 +180,12 @@ function add_member_to_cluster_invoke(req, my_address) {
         .then(() => {
             dbg.log0(`read mongo certs from /etc/mongo_ssl/`);
             return P.join(
-                fs.readFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH),
-                fs.readFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH),
-                fs.readFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH)
+                fs.readFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH, 'utf8'),
+                fs.readFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH, 'utf8'),
+                fs.readFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, 'utf8')
             );
         })
-        .spread((root_ca_buff, server_cert_buff, client_cert_buff) => {
+        .spread((root_ca, server_cert, client_cert) => {
             // after a cluster was initiated, join the new member
             dbg.log0('Sending join_to_cluster to', req.rpc_params.address, cutil.get_topology());
             //Send a join_to_cluster command to the new joining server
@@ -200,11 +200,7 @@ function add_member_to_cluster_invoke(req, my_address) {
                 location: req.rpc_params.location,
                 jwt_secret: process.env.JWT_SECRET,
                 new_hostname: req.rpc_params.new_hostname,
-                ssl_certs: {
-                    root_ca: root_ca_buff,
-                    server_cert: server_cert_buff,
-                    client_cert: client_cert_buff
-                }
+                ssl_certs: { root_ca, server_cert, client_cert }
             }, {
                 address: server_rpc.get_base_address(req.rpc_params.address),
                 timeout: 60000 //60s
@@ -1013,11 +1009,15 @@ function diagnose_system(req) {
                     auth_token: req.auth_token
                 })
                 .then(res_data => {
-                    var server_hostname = (server.heartbeat && server.heartbeat.health.os_info.hostname) || 'unknown';
+                    const data = (res_data[RPC_BUFFERS] && res_data[RPC_BUFFERS].data) || '';
+                    if (!data) dbg.warn('diagnose_system: no diagnostics data from ', server.owner_address);
+                    const server_hostname = (server.heartbeat && server.heartbeat.health.os_info.hostname) || 'unknown';
                     // Should never exist since above we delete the root folder
                     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
-                        .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`,
-                            res_data.data));
+                        .then(() => fs.writeFileAsync(
+                            `${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`,
+                            data
+                        ));
                 });
         }))
         .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
@@ -1042,7 +1042,9 @@ function collect_server_diagnostics(req) {
         .then(out_path => {
             dbg.log1('Reading packed file');
             return fs.readFileAsync(`${INNER_PATH}${out_path}`)
-                .then(data => ({ data }))
+                .then(data => ({
+                    [RPC_BUFFERS]: { data }
+                }))
                 .catch(err => {
                     dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
                     throw new Error('Server Collect Diag Error on reading packges diag file');
@@ -1060,9 +1062,7 @@ function collect_server_diagnostics(req) {
         })
         .catch(err => {
             dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
-            return {
-                data: Buffer.alloc(0),
-            };
+            return {};
         });
 }
 

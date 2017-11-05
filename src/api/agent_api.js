@@ -272,18 +272,13 @@ module.exports = {
                     response_length: {
                         type: 'integer'
                     },
-                    data: {
-                        buffer: true
-                    }
+                    // data buffer in attachments
                 },
             },
             reply: {
                 type: 'object',
-                required: ['data'],
                 properties: {
-                    data: {
-                        buffer: true
-                    },
+                    // data buffer in attachments                    
                 },
             },
             auth: {
@@ -305,11 +300,8 @@ module.exports = {
             method: 'GET',
             reply: {
                 type: 'object',
-                required: ['data'],
                 properties: {
-                    data: {
-                        buffer: true
-                    },
+                    // data buffer in attachments
                 },
             },
         },

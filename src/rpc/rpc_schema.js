@@ -4,6 +4,7 @@
 
 const _ = require('lodash');
 const Ajv = require('ajv');
+const util = require('util');
 const assert = require('assert');
 
 const dbg = require('../util/debug_module')(__filename);
@@ -27,22 +28,6 @@ class RpcSchema {
             formats: {
                 idate: schema_utils.idate_format,
             },
-        });
-
-        // we setup the 'buffer' keyword which used to mark
-        // binary buffers in the schema, which will be exported/imported
-        // in order to avoid converting them to json.
-        // to do that, we collect the buffers paths in the schema here.
-        this._ajv.addKeyword('buffer', {
-            type: 'object',
-            inline: (it, keyword, schema, parent) => {
-                if (this._buffer_paths) {
-                    const buf_path = it.dataPathArr
-                        .slice(1, it.dataLevel + 1);
-                    this._buffer_paths.add(buf_path);
-                }
-                return '"readInt32BE" in (data' + (it.dataLevel || '') + ')';
-            }
         });
     }
 
@@ -88,36 +73,12 @@ class RpcSchema {
                     method_api.method + ' for ' + method_api.fullname);
 
                 try {
-                    if (method_api.params) {
-                        this._buffer_paths = new Set();
-                        method_api.params_validator = this._ajv.compile({
-                            $ref: method_api.fullname + '/params'
-                        });
-                        if (this._buffer_paths.size) {
-                            method_api.params_export_buffers =
-                                schema_utils.generate_schema_export_buffers(this._buffer_paths);
-                            method_api.params_import_buffers =
-                                schema_utils.generate_schema_import_buffers(this._buffer_paths);
-                        }
-                        this._buffer_paths = null;
-                    } else {
-                        method_api.params_validator = schema_utils.empty_schema_validator;
-                    }
-                    if (method_api.reply) {
-                        this._buffer_paths = new Set();
-                        method_api.reply_validator = this._ajv.compile({
-                            $ref: method_api.fullname + '/reply'
-                        });
-                        if (this._buffer_paths.size) {
-                            method_api.reply_export_buffers =
-                                schema_utils.generate_schema_export_buffers(this._buffer_paths);
-                            method_api.reply_import_buffers =
-                                schema_utils.generate_schema_import_buffers(this._buffer_paths);
-                        }
-                        this._buffer_paths = null;
-                    } else {
-                        method_api.reply_validator = schema_utils.empty_schema_validator;
-                    }
+                    method_api.params_validator = method_api.params ?
+                        this._ajv.compile({ $ref: method_api.fullname + '/params' }) :
+                        schema_utils.empty_schema_validator;
+                    method_api.reply_validator = method_api.reply ?
+                        this._ajv.compile({ $ref: method_api.fullname + '/reply' }) :
+                        schema_utils.empty_schema_validator;
                 } catch (err) {
                     dbg.error('register_api: failed compile method params/reply refs',
                         method_api, err.stack || err);
@@ -129,7 +90,7 @@ class RpcSchema {
                     if (!result) {
                         dbg.error('INVALID_SCHEMA_PARAMS', desc, method_api.fullname,
                             'ERRORS:', method_api.params_validator.errors,
-                            'PARAMS:', params);
+                            'PARAMS:', util.inspect(params, true, null, true));
                         throw new RpcError('INVALID_SCHEMA_PARAMS', `INVALID_SCHEMA_PARAMS ${desc} ${method_api.fullname}`);
                     }
                 };
@@ -139,7 +100,7 @@ class RpcSchema {
                     if (!result) {
                         dbg.error('INVALID_SCHEMA_REPLY', desc, method_api.fullname,
                             'ERRORS:', method_api.reply_validator.errors,
-                            'REPLY:', reply);
+                            'REPLY:', util.inspect(reply, true, null, true));
                         throw new RpcError('INVALID_SCHEMA_REPLY', `INVALID_SCHEMA_REPLY ${desc} ${method_api.fullname}`);
                     }
                 };

@@ -57,13 +57,13 @@ module.exports = {
                         required: ['root_ca', 'server_cert', 'client_cert'],
                         properties: {
                             root_ca: {
-                                buffer: true
+                                type: 'string'
                             },
                             server_cert: {
-                                buffer: true
+                                type: 'string'
                             },
                             client_cert: {
-                                buffer: true
+                                type: 'string'
                             },
                         }
                     }
@@ -231,11 +231,8 @@ module.exports = {
             method: 'POST',
             reply: {
                 type: 'object',
-                required: ['data'],
                 properties: {
-                    data: {
-                        buffer: true
-                    },
+                    // data buffer in attachments
                 },
             },
             auth: {

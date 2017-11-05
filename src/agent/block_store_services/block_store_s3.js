@@ -8,7 +8,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const http_utils = require('../../util/http_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-const RpcError = require('../../rpc/rpc_error');
+const { RpcError } = require('../../rpc');
 
 class BlockStoreS3 extends BlockStoreBase {
 

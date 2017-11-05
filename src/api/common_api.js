@@ -326,9 +326,6 @@ module.exports = {
                     additionalProperties: true,
                     properties: {}
                 },
-                proxy_buffer: {
-                    buffer: true
-                },
             },
         },
 
@@ -339,9 +336,6 @@ module.exports = {
                     type: 'object',
                     additionalProperties: true,
                     properties: {}
-                },
-                proxy_buffer: {
-                    buffer: true
                 },
             }
         },

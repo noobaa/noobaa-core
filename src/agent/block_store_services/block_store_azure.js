@@ -8,7 +8,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-const RpcError = require('../../rpc/rpc_error');
+const { RpcError } = require('../../rpc');
 const url = require('url');
 
 class BlockStoreAzure extends BlockStoreBase {

@@ -1,6 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
-"use strict";
+'use strict';
 
+const _ = require('lodash');
+const fs = require('fs');
+const AWS = require('aws-sdk');
+const util = require('util');
+const crypto = require('crypto');
 
 const P = require('../../util/promise');
 const api = require('../../api');
@@ -10,15 +15,9 @@ const dotenv = require('../../util/dotenv');
 const ObjectIO = require('../../sdk/object_io');
 const test_utils = require('./test_utils');
 const promise_utils = require('../../util/promise_utils');
-
-const _ = require('lodash');
-const fs = require('fs');
-const AWS = require('aws-sdk');
-const util = require('util');
-const crypto = require('crypto');
+const { RPC_BUFFERS } = require('../../rpc');
 
 dotenv.load();
-
 
 let TEST_CTX = {
     ip: '127.0.0.1',
@@ -286,12 +285,10 @@ function corrupt_a_block(object_mapping, num_blocks) {
     return P.map(block_mds, block_md => {
         console.log(`corrupt_a_block: corrupted block_md:`, block_md);
         block_md.digest_type = 'sha1';
-        block_md.digest_b64 = crypto.createHash(block_md.digest_type)
-            .update(data)
-            .digest('base64');
+        block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
         return client.block_store.write_block({
-            block_md: block_md,
-            data: data
+            [RPC_BUFFERS]: { data },
+            block_md,
         }, {
             address: block_md.address
         });

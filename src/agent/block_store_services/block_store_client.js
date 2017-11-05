@@ -22,7 +22,6 @@ class BlockStoreClient {
 
     write_block(rpc_client, params, options) {
         const { block_md } = params;
-        dbg.log0(`DZDZ: block_md =`, block_md);
         switch (block_md.delegator) {
             case 'DELEGATOR_S3':
                 return this._delegate_write_block_s3(rpc_client, params, options);
@@ -35,7 +34,6 @@ class BlockStoreClient {
 
     read_block(rpc_client, params, options) {
         const { block_md } = params;
-        dbg.log0(`DZDZ: block_md = `, block_md);
         switch (block_md.delegator) {
             case 'DELEGATOR_S3':
                 return this._delegate_read_block_s3(rpc_client, params, options);
@@ -57,7 +55,6 @@ class BlockStoreClient {
             })
             .then(delegation_info => {
                 const { host, container, block_key, blob_sas, metadata, usage, proxy } = delegation_info;
-                dbg.log0(`DZDZ: _delegate_write_block_azure.`, delegation_info);
 
                 // create a shared blob service using the blob_sas (shared access signature)
                 const shared_blob_svc = azure_storage.createBlobServiceWithSas(host, blob_sas);
@@ -81,7 +78,6 @@ class BlockStoreClient {
         // get signed access signature from the agent
         return rpc_client.block_store.delegate_read_block({ block_md: params.block_md }, options)
             .then(delegation_info => {
-                dbg.log0(`DZDZ: _delegate_read_block_azure`, delegation_info);
                 if (delegation_info.cached_data) {
                     return delegation_info.cached_data;
                 }
@@ -108,10 +104,8 @@ class BlockStoreClient {
     _delegate_write_block_s3(rpc_client, params, options) {
         const { timeout = config.IO_WRITE_BLOCK_TIMEOUT } = options;
         const { block_md, data } = params;
-        dbg.log0(`DZDZ: data_length = `, data.length);
         return rpc_client.block_store.delegate_write_block({ block_md, data_length: data.length }, options)
             .then(delegation_info => {
-                dbg.log0(`DZDZ: _delegate_write_block_s3.`, delegation_info);
                 const { usage, signed_url } = delegation_info;
                 const req_options = {
                     url: signed_url,
@@ -138,7 +132,6 @@ class BlockStoreClient {
         const { timeout = config.IO_READ_BLOCK_TIMEOUT } = options;
         return rpc_client.block_store.delegate_read_block({ block_md: params.block_md }, options)
             .then(delegation_info => {
-                dbg.log0(`DZDZ: _delegate_read_block_s3; delegation_info = `, delegation_info);
                 if (delegation_info.cached_data) return delegation_info.cached_data;
                 const req_options = {
                     url: delegation_info.signed_url,
@@ -161,7 +154,6 @@ class BlockStoreClient {
                             block_md: JSON.parse(Buffer.from(response.headers['x-amz-meta-noobaa_block_md'], 'base64'))
                         };
 
-                        dbg.log0(`DZDZ: returning info`, ret);
                         return ret;
                     });
 

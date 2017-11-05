@@ -570,6 +570,17 @@ module.exports = {
                 },
                 mode: {
                     $ref: '#/definitions/node_mode'
+                },
+                untrusted_reasons: {
+                    type: 'object',
+                    properties: {
+                        permission_event: {
+                            idate: true,
+                        },
+                        data_event: {
+                            idate: true,
+                        },
+                    }
                 }
             }
         },

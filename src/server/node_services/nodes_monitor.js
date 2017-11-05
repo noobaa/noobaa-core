@@ -97,6 +97,10 @@ const NODE_INFO_FIELDS = [
     'deleting',
     'deleted',
 ];
+const UNTRUTED_REASONS_FIELD = [
+    'permission_event',
+    'data_event',
+];
 const NODE_INFO_DEFAULTS = {
     ip: '0.0.0.0',
     version: '',
@@ -1807,7 +1811,6 @@ class NodesMonitor extends EventEmitter {
         // to decide the node trusted status we check the reported issues
         item.trusted = true;
         let io_detention_recent_issues = 0;
-
         if (item.node.permission_tempering) {
             item.trusted = false;
         }
@@ -2380,7 +2383,18 @@ class NodesMonitor extends EventEmitter {
 
         host_item.node.ports_allowed = host_nodes.every(item => item.node.ports_allowed);
 
+        //trusted, and untrusted reasons if exist
         host_item.trusted = host_nodes.every(item => item.trusted);
+        if (!host_item.trusted) {
+            host_item.untrusted_reasons = _.map(
+                _.filter(host_nodes, item => (!item.trusted && item.node.node_type !== 'ENDPOINT_S3')),
+                untrusted_item => {
+                    let reason = _.pick(untrusted_item, UNTRUTED_REASONS_FIELD);
+                    reason.drive = untrusted_item.node.drives[0];
+                    return reason;
+                });
+        }
+
         host_item.migrating_to_pool = host_nodes.some(item => item.node.migrating_to_pool);
         host_item.n2n_errors = host_nodes.some(item => item.n2n_errors);
         host_item.gateway_errors = host_nodes.some(item => item.gateway_errors);
@@ -2966,6 +2980,7 @@ class NodesMonitor extends EventEmitter {
         info.version_install_time = host_item.node.version_install_time;
         info.last_communication = host_item.node.heartbeat;
         info.trusted = host_item.trusted;
+        info.untrusted_reasons = host_item.untrusted_reasons;
         info.hideable = host_item.hideable;
         info.connectivity = host_item.connectivity;
         info.storage = host_item.node.storage;
@@ -3069,6 +3084,10 @@ class NodesMonitor extends EventEmitter {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
         info.host_seq = String(item.node.host_sequence);
+
+        if (!node.trusted) {
+            info.untrusted_reasons = _.pick(node, UNTRUTED_REASONS_FIELD);
+        }
 
         return fields ? _.pick(info, '_id', fields) : info;
     }

@@ -105,6 +105,13 @@ config.IO_SEMAPHORE_CAP = Math.floor(
         os.totalmem() / config.IO_MEM_SEMAPHORE / config.ENDPOINT_FORKS_COUNT)
 );
 
+/////////////////////
+//NODES MONITORING //
+/////////////////////
+
+config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
+
+
 ////////////////////
 // REBUILD CONFIG //
 ////////////////////

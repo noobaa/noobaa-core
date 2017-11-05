@@ -47,6 +47,7 @@ const cluster_server = require('./cluster_server');
 const node_allocator = require('../node_services/node_allocator');
 const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
+const chunk_config_utils = require('../utils/chunk_config_utils');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL1 = 'LOG_LOCAL1';
@@ -167,17 +168,25 @@ function new_system_changes(name, owner_account) {
     const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
     const system = new_system_defaults(name, owner_account._id);
     const pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
-    const chunk_config = {
+    const default_chunk_config = {
         _id: system_store.generate_id(),
         system: system._id,
-        chunk_coder_config: tier_server.new_chunk_code_config_defaults(),
+        chunk_coder_config: chunk_config_utils.new_chunk_code_config_defaults(),
     };
-    system.default_chunk_config = chunk_config._id;
+    const ec_chunk_config = {
+        _id: system_store.generate_id(),
+        system: system._id,
+        chunk_coder_config: chunk_config_utils.new_chunk_code_config_defaults({
+            data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
+            parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
+        }),
+    };
+    system.default_chunk_config = default_chunk_config._id;
     const tier_mirrors = [{ spread_pools: [pool._id] }];
     const tier = tier_server.new_tier_defaults(
         bucket_with_suffix,
         system._id,
-        chunk_config._id,
+        default_chunk_config._id,
         tier_mirrors
     );
     const policy = tier_server.new_policy_defaults(
@@ -196,7 +205,7 @@ function new_system_changes(name, owner_account) {
             buckets: [bucket],
             tieringpolicies: [policy],
             tiers: [tier],
-            chunk_configs: [chunk_config],
+            chunk_configs: [default_chunk_config, ec_chunk_config],
             pools: [pool],
         }
     };
@@ -276,7 +285,6 @@ function create_system(req) {
                 }
                 changes.insert.clusters = [cluster_info];
             }
-
             Dispatcher.instance().activity({
                 event: 'conf.create_system',
                 level: 'info',
@@ -284,7 +292,6 @@ function create_system(req) {
                 actor: account._id,
                 desc: `${account.name} was created by ${account.email}`,
             });
-
             return system_store.make_changes(changes);
         })
         .then(() => server_rpc.client.account.create_account({
@@ -317,10 +324,7 @@ function create_system(req) {
         })
         .then(() => {
             //DNS servers, if supplied
-            if (_.isEmpty(req.rpc_params.dns_servers)) {
-                return;
-            }
-
+            if (_.isEmpty(req.rpc_params.dns_servers)) return;
             return server_rpc.client.cluster_server.update_dns_servers({
                 target_secret: owner_secret,
                 dns_servers: req.rpc_params.dns_servers
@@ -330,9 +334,7 @@ function create_system(req) {
         })
         .then(() => {
             //DNS name, if supplied
-            if (!req.rpc_params.dns_name) {
-                return;
-            }
+            if (!req.rpc_params.dns_name) return;
             return server_rpc.client.system.update_hostname({
                 hostname: req.rpc_params.dns_name
             }, {
@@ -340,10 +342,7 @@ function create_system(req) {
             });
         })
         .then(() => {
-            if (!process.env.PH_PROXY) {
-                return;
-            }
-
+            if (!process.env.PH_PROXY) return;
             return server_rpc.client.system.update_phone_home_config({
                 proxy_address: process.env.PH_PROXY
             }, {

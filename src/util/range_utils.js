@@ -2,8 +2,6 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var size_utils = require('./size_utils');
-
 module.exports = {
     intersection: intersection,
     align_down: align_down,
@@ -54,6 +52,5 @@ function truncate_range_end_to_boundary(start, end, boundary) {
 }
 
 function human_range(range) {
-    return '[ ' + size_utils.human_offset(range.start) +
-        ' .. ' + size_utils.human_offset(range.end) + ' ]';
+    return `[ ${range.start} .. ${range.end} ]`;
 }

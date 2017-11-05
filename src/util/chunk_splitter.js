@@ -34,6 +34,7 @@ class ChunkSplitter extends stream.Transform {
         this.pending_encode = [];
         this.total_size = 0;
         this.num_parts = 0;
+        this.pos = 0;
     }
 
     _transform(buf, encoding, callback) {
@@ -95,14 +96,18 @@ class ChunkSplitter extends stream.Transform {
                             this.pending_encode[index] = buf.slice(needed);
                         }
                     }
-                    this.push({ data, size });
+                    this.push({ data, size, pos: this.pos });
+                    this.pos += size;
                 });
                 this.pending_encode = this.pending_encode.slice(index);
                 if (!input_buf) {
                     const data = this.pending_encode;
                     const size = _.sumBy(data, 'length');
                     this.pending_encode = null;
-                    if (size) this.push({ data, size });
+                    if (size) {
+                        this.push({ data, size, pos: this.pos });
+                        this.pos += size;
+                    }
                 }
                 return callback();
             }

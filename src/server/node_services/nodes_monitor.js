@@ -727,6 +727,9 @@ class NodesMonitor extends EventEmitter {
         if (pool.system !== system) {
             throw new Error('Node pool must belong to system');
         }
+        const now = Date.now();
+        const hrtime = process.hrtime();
+        const name = NO_NAME_PREFIX + now.toString(36) + ((hrtime[0] * 1e9) + hrtime[1]).toString(36);
         const item = {
             connection: null,
             node_from_store: null,
@@ -736,8 +739,8 @@ class NodesMonitor extends EventEmitter {
                 system: system._id,
                 pool: pool._id,
                 agent_config: agent_config._id,
-                heartbeat: Date.now(),
-                name: NO_NAME_PREFIX + Date.now().toString(36),
+                heartbeat: now,
+                name,
             },
         };
 
@@ -2009,7 +2012,8 @@ class NodesMonitor extends EventEmitter {
         }
         dbg.log1('_update_data_activity: reason', reason, item.node.name);
         const now = Date.now();
-        const act = item.data_activity = item.data_activity || {};
+        const act = item.data_activity || {};
+        item.data_activity = act;
         act.reason = reason;
         this._update_data_activity_stage(item, now);
         this._update_data_activity_progress(item, now);
@@ -2168,25 +2172,35 @@ class NodesMonitor extends EventEmitter {
         }
 
         if (act.stage.name === STAGE_REBUILDING) {
-            if (!act.running) {
-                setTimeout(() => {
-                    this._set_need_rebuild.add(item);
-                    this._wakeup_rebuild();
-                }, config.REBUILD_NODE_BATCH_DELAY).unref();
-            }
+            this._schedule_rebuild(item);
         }
 
         if (act.stage.name === STAGE_WIPING) {
-            if (!item.online) {
+            if (item.online) {
+                this._schedule_rebuild(item);
+            } else {
                 act.stage.wait_reason = WAIT_NODE_OFFLINE;
                 this._set_need_rebuild.delete(item);
-            } else if (!act.running) {
-                setTimeout(() => {
-                    this._set_need_rebuild.add(item);
-                    this._wakeup_rebuild();
-                }, config.REBUILD_NODE_BATCH_DELAY).unref();
             }
         }
+    }
+
+    _schedule_rebuild(item) {
+        const act = item.data_activity;
+
+        if (!act || act.running) return;
+
+        const now = Date.now();
+        let delay = config.REBUILD_NODE_BATCH_DELAY;
+        if (act.stage.rebuild_error) {
+            delay = Math.max(act.stage.rebuild_error - now + 10000, config.REBUILD_NODE_BATCH_DELAY);
+            dbg.warn('_schedule_rebuild: delay', delay, 'for node', item.node.name);
+        }
+
+        setTimeout(() => {
+            this._set_need_rebuild.add(item);
+            this._wakeup_rebuild();
+        }, delay).unref();
     }
 
     _wakeup_rebuild() {
@@ -2247,29 +2261,32 @@ class NodesMonitor extends EventEmitter {
                 act.running = false;
                 // increase the completed size only if succeeded
                 act.stage.size.completed += blocks_size;
-                if (!act.stage.marker) {
-                    if (act.stage.rebuild_error) {
-                        dbg.log0('_rebuild_node: HAD ERRORS. RESTART', item.node.name, act);
-                        act.stage.marker = act.stage.error_marker;
-                        act.stage.size.completed = act.stage.error_marker_completed || 0;
-                        act.stage.rebuild_error = 0;
-                        act.stage.error_marker = null;
-                        act.stage.error_marker_completed = 0;
-                    } else {
-                        act.stage.done = true;
-                        dbg.log0('_rebuild_node: DONE', item.node.name, act);
-                    }
+                if (act.stage.marker) {
+                    this._update_data_activity(item);
+                    return;
                 }
+                if (act.stage.rebuild_error) {
+                    act.stage.marker = act.stage.error_marker;
+                    act.stage.size.completed = act.stage.error_marker_completed || 0;
+                    dbg.log0('_rebuild_node: HAD ERRORS. RESTART', item.node.name, act);
+                    this._update_data_activity(item);
+                    act.stage.rebuild_error = 0;
+                    act.stage.error_marker = null;
+                    act.stage.error_marker_completed = 0;
+                    return;
+                }
+                act.stage.done = true;
+                dbg.log0('_rebuild_node: DONE', item.node.name, act);
                 this._update_data_activity(item);
             })
             .catch(err => {
                 act.running = false;
                 dbg.warn('_rebuild_node: ERROR', item.node.name, err.stack || err);
                 if (!act.stage.rebuild_error) {
-                    act.stage.rebuild_error = Date.now();
                     act.stage.error_marker = start_marker;
                     act.stage.error_marker_completed = act.stage.size.completed || 0;
                 }
+                act.stage.rebuild_error = Date.now();
                 this._update_data_activity(item);
             });
     }
@@ -2523,7 +2540,8 @@ class NodesMonitor extends EventEmitter {
             }
         });
 
-        const s3_mode = host_item.s3_nodes_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
+        const s3_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
+        host_item.s3_nodes_mode = s3_mode;
         const storage_priority = mode_priority[storage_mode];
         const s3_priority = mode_priority[s3_mode];
 
@@ -2837,20 +2855,19 @@ class NodesMonitor extends EventEmitter {
 
             if (item.data_activity && !item.data_activity.done) {
                 const act = item.data_activity;
-                const a =
-                    data_activities[act.reason] =
-                    data_activities[act.reason] || {
-                        reason: act.reason,
-                        count: 0,
-                        progress: 0,
-                        time: {
-                            start: act.time.start,
-                            end: act.time.end,
-                        }
-                    };
+                const a = data_activities[act.reason] || {
+                    reason: act.reason,
+                    count: 0,
+                    progress: 0,
+                    time: {
+                        start: act.time.start,
+                        end: act.time.end,
+                    }
+                };
                 a.count += 1;
                 a.time.start = Math.min(a.time.start, act.time.start);
                 a.time.end = Math.max(a.time.end, act.time.end || Infinity);
+                data_activities[act.reason] = a;
             }
 
             const node_storage = this._node_storage_info(item);
@@ -2904,20 +2921,19 @@ class NodesMonitor extends EventEmitter {
                 if (storage_item.data_activity && !storage_item.data_activity.done) {
                     has_activity = true;
                     const act = storage_item.data_activity;
-                    const a =
-                        data_activities[act.reason] =
-                        data_activities[act.reason] || {
-                            reason: act.reason,
-                            count: 0,
-                            progress: 0,
-                            time: {
-                                start: act.time.start,
-                                end: act.time.end,
-                            }
-                        };
+                    const a = data_activities[act.reason] || {
+                        reason: act.reason,
+                        count: 0,
+                        progress: 0,
+                        time: {
+                            start: act.time.start,
+                            end: act.time.end,
+                        }
+                    };
                     a.count += 1;
                     a.time.start = Math.min(a.time.start, act.time.start);
                     a.time.end = Math.max(a.time.end, act.time.end || Infinity);
+                    data_activities[act.reason] = a;
                 }
             }
             if (has_activity) {
@@ -3066,7 +3082,12 @@ class NodesMonitor extends EventEmitter {
         if (!_.every(host_nodes, item => item.node.deleting)) return false;
         if (_.some(host_nodes, item => item.online)) return false; // node is online
         const nodes_activity_stage = _.flatMap(host_nodes, node => node.data_activity && node.data_activity.stage.name);
-        if (_.some(nodes_activity_stage, node_stage => (node_stage === STAGE_OFFLINE_GRACE) || (node_stage === STAGE_REBUILDING))) return false;
+        if (_.some(nodes_activity_stage, node_stage => (
+                node_stage === STAGE_OFFLINE_GRACE ||
+                node_stage === STAGE_REBUILDING
+            ))) {
+            return false;
+        }
         return true;
     }
 

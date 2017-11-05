@@ -8,7 +8,7 @@ const mongodb = require('mongodb');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const map_utils = require('./map_utils');
+const mapper = require('./mapper');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
 const nodes_client = require('../node_services/nodes_client');
@@ -622,7 +622,7 @@ class MDStore {
             })
             .then(res_objects => {
                 objects = res_objects;
-                return map_utils.analyze_special_chunks(chunks, parts, objects);
+                return mapper.analyze_special_chunks(chunks, parts, objects);
             })
             .then(() => ({
                 parts,
@@ -710,13 +710,13 @@ class MDStore {
         return mongo_utils.populate(parts, 'chunk', this._chunks.col());
     }
 
-    find_chunks_by_digest(bucket, digest_list) {
+    find_chunks_by_dedup_key(bucket, dedup_keys) {
         let chunks;
         return this._chunks.col().find({
                 system: bucket.system._id,
                 bucket: bucket._id,
-                digest_b64: {
-                    $in: digest_list
+                dedup_key: {
+                    $in: dedup_keys
                 },
                 deleted: null,
             }, {
@@ -729,10 +729,7 @@ class MDStore {
                 chunks = res;
                 return this.load_blocks_for_chunks(chunks);
             })
-            .then(blocks => {
-                let chunks_by_digest = _.groupBy(chunks, chunk => chunk.digest_b64);
-                return chunks_by_digest;
-            });
+            .then(() => chunks);
     }
 
     iterate_all_chunks(marker, limit) {
@@ -915,15 +912,12 @@ class MDStore {
             .then(blocks => {
                 // remove from the list blocks that their node is not found
                 // and consider these blocks just like deleted blocks
-                let orphan_blocks = _.remove(blocks,
-                    block => !block.node || !block.node._id);
-                if (orphan_blocks.length) {
-                    console.log('ORPHAN BLOCKS (ignoring)', orphan_blocks);
+                const orphan_blocks = _.remove(blocks, block => !block.node || !block.node._id);
+                if (orphan_blocks.length) console.log('ORPHAN BLOCKS (ignoring)', orphan_blocks);
+                const blocks_by_chunk = _.groupBy(blocks, 'chunk');
+                for (let i = 0; i < chunks.length; ++i) {
+                    chunks[i].blocks = blocks_by_chunk[chunks[i]._id];
                 }
-                let blocks_by_chunk = _.groupBy(blocks, 'chunk');
-                _.each(chunks, chunk => {
-                    chunk.blocks = blocks_by_chunk[chunk._id];
-                });
             });
     }
 

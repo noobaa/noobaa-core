@@ -24,8 +24,9 @@ typedef char NB_Coder_Short_String[32];
 struct NB_Coder_Frag {
     struct NB_Bufs block;
     struct NB_Buf digest;
-    int index;
-    int lrc;
+    int data_index;
+    int parity_index;
+    int lrc_index;
 };
 
 struct NB_Coder_Chunk {

@@ -20,15 +20,11 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    tiering: {
-                        type: 'string',
-                    },
-                    tag: {
-                        type: 'string',
-                    },
+                    name: { type: 'string' },
+                    // only one of tiering / chunk_coder_config should be provided
+                    tiering: { type: 'string' },
+                    chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
+                    tag: { type: 'string' },
                     namespace: {
                         type: 'object',
                         required: ['write_resource', 'read_resources'],

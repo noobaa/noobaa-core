@@ -49,6 +49,9 @@ class RpcN2NAgent extends EventEmitter {
         super();
         options = options || {};
 
+        // we expect all n2n connections to register on the agent n2n_reset event
+        this.setMaxListeners(100);
+
         // send_signal is function(info) that sends over a signal channel
         // and delivers the info to info.target,
         // and returns back the info that was returned by the peer.

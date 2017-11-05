@@ -78,20 +78,14 @@ function blow_parts(params) {
                 seq: i,
                 chunk: {
                     size: argv.chunk_size,
+                    frag_size: argv.chunk_size,
                     compress_size: argv.chunk_size,
-                    data_frags: 1,
-                    lrc_frags: 0,
-                    digest_type: 'sha384',
-                    digest_b64: crypto.randomBytes(16).toString('base64'),
-                    cipher_type: '',
-                    cipher_key_b64: '',
-                    frags: [{
-                        size: argv.chunk_size,
-                        layer: 'D',
-                        frag: 0,
-                        digest_type: 'sha384',
-                        digest_b64: crypto.randomBytes(16).toString('base64'),
-                    }]
+                    digest_b64: crypto.randomBytes(32).toString('base64'),
+                    cipher_key_b64: crypto.randomBytes(32).toString('base64'),
+                    frags: _.times(6, data_index => ({
+                        data_index,
+                        digest_b64: crypto.randomBytes(32).toString('base64'),
+                    }))
                 }
             }))
         })

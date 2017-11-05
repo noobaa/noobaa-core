@@ -96,6 +96,7 @@ function delete_object(obj) {
  * delete multiple bjects mappings and MD
  */
 function delete_multiple_objects(objects) {
+    if (!objects) return P.resolve();
     return P.map(objects, obj => P.resolve(obj && delete_object(obj)).reflect(), { concurrency: 10 });
 }
 

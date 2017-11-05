@@ -8,9 +8,130 @@ const crypto = require('crypto');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
+const mapper = require('./mapper');
 const MDStore = require('./md_store').MDStore;
-const mongo_utils = require('../../util/mongo_utils');
 const time_utils = require('../../util/time_utils');
+const range_utils = require('../../util/range_utils');
+const mongo_utils = require('../../util/mongo_utils');
+const system_store = require('../system_services/system_store').get_instance();
+const node_allocator = require('../node_services/node_allocator');
+
+// dbg.set_level(5);
+
+
+/**
+ *
+ * The mapping allocation flow
+ *
+ */
+class MapAllocator {
+
+    constructor(bucket, obj, parts) {
+        this.bucket = bucket;
+        this.obj = obj;
+        this.parts = parts;
+    }
+
+    run() {
+        const millistamp = time_utils.millistamp();
+        dbg.log1('MapAllocator: start');
+        return P.resolve()
+            .then(() => this.prepare_tiering_for_alloc())
+            .then(() => this.check_parts())
+            .then(() => this.find_dups())
+            .then(() => this.allocate_blocks())
+            .then(() => {
+                dbg.log0('MapAllocator: DONE. parts', this.parts.length,
+                    'took', time_utils.millitook(millistamp));
+                return {
+                    parts: this.parts
+                };
+            })
+            .catch(err => {
+                dbg.error('MapAllocator: ERROR', err.stack || err);
+                throw err;
+            });
+    }
+
+    prepare_tiering_for_alloc() {
+        const tiering = this.bucket.tiering;
+        return P.resolve()
+            .then(() => node_allocator.refresh_tiering_alloc(tiering))
+            .then(() => {
+                this.tiering_status = node_allocator.get_tiering_status(tiering);
+            });
+    }
+
+    check_parts() {
+        for (let i = 0; i < this.parts.length; ++i) {
+            const part = this.parts[i];
+
+            // checking that parts size does not exceed the max
+            // which allows the read path to limit range scanning - see map_reader.js
+            if (part.end - part.start > config.MAX_OBJECT_PART_SIZE) {
+                throw new Error('MapAllocator: PART TOO BIG ' + range_utils.human_range(part));
+            }
+        }
+    }
+
+    find_dups() {
+        if (!config.DEDUP_ENABLED) return;
+        const dedup_keys = _.map(this.parts, part => Buffer.from(part.chunk.digest_b64, 'base64'));
+        dbg.log3('MapAllocator.find_dups', dedup_keys.length);
+        return MDStore.instance().find_chunks_by_dedup_key(this.bucket, dedup_keys)
+            .then(dup_chunks => {
+                for (let i = 0; i < dup_chunks.length; ++i) {
+                    const dup_chunk = dup_chunks[i];
+                    dup_chunk.chunk_coder_config = system_store.data.get_by_id(dup_chunk.chunk_config).chunk_coder_config;
+                    const is_good_for_dedup = mapper.is_chunk_good_for_dedup(
+                        dup_chunk, this.bucket.tiering, this.tiering_status
+                    );
+                    if (is_good_for_dedup) {
+                        for (let j = 0; j < this.parts.length; ++j) {
+                            const part = this.parts[j];
+                            if (part.chunk &&
+                                part.chunk.size === dup_chunk.size &&
+                                part.chunk.digest_b64 === dup_chunk.digest.toString('base64')) {
+                                part.chunk_id = dup_chunk._id;
+                                delete part.chunk;
+                            }
+                        }
+                    }
+                }
+            });
+    }
+
+    allocate_blocks() {
+        for (let i = 0; i < this.parts.length; ++i) {
+            const part = this.parts[i];
+
+            // skip parts that we found dup
+            if (part.chunk_id) continue;
+
+            const chunk = part.chunk;
+            const avoid_nodes = [];
+            const allocated_hosts = [];
+
+            const mapping = mapper.map_chunk(chunk, this.bucket.tiering, this.tiering_status);
+
+            _.forEach(mapping.allocations, ({ frag, pools }) => {
+                const node = node_allocator.allocate_node(pools, avoid_nodes, allocated_hosts);
+                if (!node) {
+                    throw new Error(`MapAllocator: no nodes for allocation (avoid_nodes: ${avoid_nodes.join(',')})`);
+                }
+                const block = {
+                    _id: MDStore.instance().make_md_id(),
+                };
+                mapper.assign_node_to_block(block, node, this.bucket.system._id);
+                frag.blocks = frag.blocks || [];
+                frag.blocks.push(mapper.get_block_info(chunk, frag, block));
+                avoid_nodes.push(String(node._id));
+                allocated_hosts.push(node.host_id);
+            });
+        }
+    }
+
+}
 
 
 /**
@@ -28,7 +149,9 @@ function finalize_object_parts(bucket, obj, parts) {
     const new_chunks = [];
     const new_blocks = [];
     let upload_size = obj.upload_size || 0;
-    _.each(parts, part => {
+
+    for (let i = 0; i < parts.length; ++i) {
+        const part = parts[i];
         if (upload_size < part.end) {
             upload_size = part.end;
         }
@@ -37,51 +160,56 @@ function finalize_object_parts(bucket, obj, parts) {
             chunk_id = MDStore.instance().make_md_id(part.chunk_id);
         } else {
             chunk_id = MDStore.instance().make_md_id();
-            _.each(part.chunk.frags, f => {
-                _.each(f.blocks, block => {
-                    const block_id = MDStore.instance().make_md_id(block.block_md.id);
-                    const block_id_time = block_id.getTimestamp().getTime();
-                    if (block_id_time < now.getTime() - (config.MD_GRACE_IN_MILLISECONDS - config.MD_AGGREGATOR_INTERVAL)) {
-                        dbg.error('finalize_object_parts: A big gap was found between id creation and addition to DB:',
-                            block, bucket.name, obj.key, block_id_time, now.getTime());
-                    }
-                    if (block_id_time < bucket.storage_stats.last_update + config.MD_AGGREGATOR_INTERVAL) {
-                        dbg.error('finalize_object_parts: A big gap was found between id creation and bucket last update:',
-                            block, bucket.name, obj.key, block_id_time, bucket.storage_stats.last_update);
-                    }
-                    new_blocks.push(_.extend({
-                        _id: block_id,
-                        system: obj.system,
-                        bucket: bucket._id,
-                        chunk: chunk_id,
-                        node: mongo_utils.make_object_id(block.block_md.node),
-                        pool: mongo_utils.make_object_id(block.block_md.pool)
-                    }, _.pick(f,
-                        'size',
-                        'layer',
-                        'layer_n',
-                        'frag',
-                        'digest_type',
-                        'digest_b64')));
-                });
-            });
-            new_chunks.push(_.extend({
+            const chunk = part.chunk;
+            const digest = chunk.digest_b64 && Buffer.from(chunk.digest_b64, 'base64');
+            const chunk_config = _.find(bucket.system.chunk_configs_by_id,
+                c => _.isEqual(c.chunk_coder_config, chunk.chunk_coder_config))._id;
+            new_chunks.push(_.omitBy({
                 _id: chunk_id,
                 system: obj.system,
                 bucket: bucket._id,
-                dedup_key: part.chunk.digest_b64,
-            }, _.pick(part.chunk,
-                'size',
-                'digest_type',
-                'digest_b64',
-                'compress_type',
-                'compress_size',
-                'cipher_type',
-                'cipher_key_b64',
-                'cipher_iv_b64',
-                'cipher_auth_tag_b64',
-                'data_frags',
-                'lrc_frags')));
+                chunk_config,
+                size: chunk.size,
+                compress_size: chunk.compress_size,
+                frag_size: chunk.frag_size,
+                dedup_key: digest,
+                digest,
+                cipher_key: chunk.cipher_key_b64 && Buffer.from(chunk.cipher_key_b64, 'base64'),
+                cipher_iv: chunk.cipher_iv_b64 && Buffer.from(chunk.cipher_iv_b64, 'base64'),
+                cipher_auth_tag: chunk.cipher_auth_tag_b64 && Buffer.from(chunk.cipher_auth_tag_b64, 'base64'),
+                frags: _.map(part.chunk.frags, frag => {
+                    const frag_id = MDStore.instance().make_md_id();
+                    _.each(frag.blocks, block => {
+                        const block_id = MDStore.instance().make_md_id(block.block_md.id);
+                        const block_id_time = block_id.getTimestamp().getTime();
+                        if (block_id_time < now.getTime() - (config.MD_GRACE_IN_MILLISECONDS - config.MD_AGGREGATOR_INTERVAL)) {
+                            dbg.error('finalize_object_parts: A big gap was found between id creation and addition to DB:',
+                                block, bucket.name, obj.key, block_id_time, now.getTime());
+                        }
+                        if (block_id_time < bucket.storage_stats.last_update + config.MD_AGGREGATOR_INTERVAL) {
+                            dbg.error('finalize_object_parts: A big gap was found between id creation and bucket last update:',
+                                block, bucket.name, obj.key, block_id_time, bucket.storage_stats.last_update);
+                        }
+                        new_blocks.push({
+                            _id: block_id,
+                            system: obj.system,
+                            bucket: bucket._id,
+                            chunk: chunk_id,
+                            frag: frag_id,
+                            node: mongo_utils.make_object_id(block.block_md.node),
+                            pool: mongo_utils.make_object_id(block.block_md.pool),
+                            size: chunk.frag_size,
+                        });
+                    });
+                    return _.omitBy({
+                        _id: frag_id,
+                        data_index: frag.data_index,
+                        parity_index: frag.parity_index,
+                        lrc_index: frag.lrc_index,
+                        digest: frag.digest_b64 && Buffer.from(frag.digest_b64, 'base64')
+                    }, _.isUndefined);
+                })
+            }, _.isUndefined));
         }
         const new_part = {
             _id: MDStore.instance().make_md_id(),
@@ -97,7 +225,7 @@ function finalize_object_parts(bucket, obj, parts) {
             new_part.multipart = MDStore.instance().make_md_id(part.multipart_id);
         }
         new_parts.push(new_part);
-    });
+    }
 
     return P.join(
             MDStore.instance().insert_blocks(new_blocks),
@@ -177,5 +305,6 @@ function complete_object_parts(obj, multiparts_req) {
 
 
 // EXPORTS
+exports.MapAllocator = MapAllocator;
 exports.finalize_object_parts = finalize_object_parts;
 exports.complete_object_parts = complete_object_parts;

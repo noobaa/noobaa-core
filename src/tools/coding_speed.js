@@ -1,11 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
+// const _ = require('lodash');
 const argv = require('minimist')(process.argv);
 const stream = require('stream');
 const assert = require('assert');
-const Chance = require('chance');
 const cluster = require('cluster');
 
 // const P = require('../util/promise');
@@ -14,6 +13,7 @@ const Pipeline = require('../util/pipeline');
 const ChunkCoder = require('../util/chunk_coder');
 const RandStream = require('../util/rand_stream');
 const Speedometer = require('../util/speedometer');
+const ChunkEraser = require('../util/chunk_eraser');
 const ChunkSplitter = require('../util/chunk_splitter');
 const FlattenStream = require('../util/flatten_stream');
 // const CoalesceStream = require('../util/coalesce_stream');
@@ -82,25 +82,10 @@ function main() {
         coder: 'dec',
     });
 
-    const chance = new Chance();
-    const eraser = new stream.Transform({
-        objectMode: true,
-        allowHalfOpen: false,
-        highWaterMark: 50,
-        transform(chunk, encoding, callback) {
-            if (argv.compare) {
-                chunk.data_to_compare = Buffer.concat(chunk.data);
-            }
-            chunk.data = null;
-            const parity_frags = (chunk.chunk_coder_config && chunk.chunk_coder_config.parity_frags) || 0;
-            const erasures = chance.integer({ min: 0, max: parity_frags });
-            for (var i = 0; i < erasures; ++i) {
-                const frag = chance.pick(chunk.frags);
-                _.pull(chunk.frags, frag);
-            }
-            if (argv.verbose) console.log(erasures, chunk);
-            return callback(null, chunk);
-        }
+    const eraser = new ChunkEraser({
+        watermark: 50,
+        save_data: 'original_data',
+        verbose: argv.verbose,
     });
 
     var total_size = 0;
@@ -111,7 +96,7 @@ function main() {
         highWaterMark: 50,
         transform(chunk, encoding, callback) {
             if (argv.verbose) console.log(chunk);
-            if (argv.compare) assert(chunk.data_to_compare.equals(chunk.data));
+            if (argv.compare) assert(Buffer.concat(chunk.original_data).equals(chunk.data));
             total_size += chunk.size;
             num_parts += 1;
             speedometer.update(chunk.size);

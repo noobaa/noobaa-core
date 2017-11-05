@@ -205,10 +205,9 @@ function calculate_expected_storage_stats_for_buckets(buckets_array, storage_rea
                         adminfo: true
                     })
                     .then(res => {
-                        current_bucket_storage.blocks_size += _.reduce(res.parts, (sum_capacity, part) => {
-                            let frag = part.chunk.frags[0];
-                            return sum_capacity + (frag.size * frag.blocks.length);
-                        }, 0);
+                        _.forEach(res.parts, part => _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
+                            current_bucket_storage.blocks_size += block.block_md.size;
+                        })));
                         current_bucket_storage.objects_size += res.object_md.size;
                         current_bucket_storage.chunks_capacity +=
                             _.sum(_.map(res.parts, part => part.chunk.compress_size || 0));

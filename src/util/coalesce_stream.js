@@ -30,9 +30,9 @@ class CoalesceStream extends stream.Transform {
             this.total_length += data.length;
         }
         if (this.total_length >= this.max_length) {
-            this.flush();
+            this._flush();
         } else if (!this.timeout) {
-            this.timeout = setTimeout(() => this.flush(), this.max_wait_ms);
+            this.timeout = setTimeout(() => this._flush(), this.max_wait_ms);
         }
         return callback();
     }

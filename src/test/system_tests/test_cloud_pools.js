@@ -187,14 +187,14 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
                             if (replicas_in_tier + 1 !== part.chunk.frags[0].blocks.length) {
                                 blocks_correct = false;
                             }
-                            _.forEach(part.chunk.frags[0].blocks, block => {
+                            _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
                                 if (String(cloud_pool) === String(block.adminfo.pool_name)) {
                                     if (TEST_CTX.cloud_pool_id === '') {
                                         TEST_CTX.cloud_pool_id = block.adminfo.node_name.split('-')[3];
                                     }
                                     blocks_by_cloud_pool_name.blocks.push(block);
                                 }
-                            });
+                            }));
                         });
 
                         if (blocks_correct && blocks_by_cloud_pool_name.blocks.length === obj_mapping_arg.parts.length) {

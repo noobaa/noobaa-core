@@ -24,8 +24,9 @@ class RandStream extends stream.Readable {
     constructor(max_length, options) {
         super(options);
         this.max_length = max_length;
-        this.chunk_size = options && options.highWaterMark || 1024 * 1024;
+        this.chunk_size = (options && options.highWaterMark) || 1024 * 1024;
         this.generator = this[`generate_${options.generator || 'cipher'}`];
+        this.cipher_seed = options && options.cipher_seed;
         this.pos = 0;
         this.ticks = 0;
     }
@@ -49,14 +50,22 @@ class RandStream extends stream.Readable {
      */
     generate_cipher(size) {
         if (!this.cipher || this.cipher_bytes > this.cipher_limit) {
-            this.cipher_bytes = 0;
-            this.cipher_limit = 1024 * 1024 * 1024;
-            // aes-128-gcm requires 96 bits IV (12 bytes) and 128 bits key (16 bytes)
-            this.cipher = crypto.createCipheriv('aes-128-gcm',
-                crypto.randomBytes(16), crypto.randomBytes(12));
             if (!this.zero_buffer) {
                 this.zero_buffer = Buffer.alloc(this.chunk_size);
             }
+            this.cipher_bytes = 0;
+            this.cipher_limit = 1024 * 1024 * 1024;
+            // aes-128-gcm requires 96 bits IV (12 bytes) and 128 bits key (16 bytes)
+            const key_len = 16;
+            const iv_len = 12;
+            if (this.cipher) {
+                this.cipher_seed = this.cipher.update(this.zero_buffer.slice(0, key_len + iv_len));
+            } else if (!this.cipher_seed) {
+                this.cipher_seed = crypto.randomBytes(key_len + iv_len);
+            }
+            const key = this.cipher_seed.slice(0, key_len);
+            const iv = this.cipher_seed.slice(key_len, key_len + iv_len);
+            this.cipher = crypto.createCipheriv('aes-128-gcm', key, iv);
         }
         const zero_bytes = size >= this.zero_buffer.length ?
             this.zero_buffer :

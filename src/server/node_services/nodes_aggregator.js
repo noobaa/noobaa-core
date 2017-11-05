@@ -2,14 +2,16 @@
 'use strict';
 
 const _ = require('lodash');
+
 const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
+const mapper = require('../object_services/mapper');
+const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const size_utils = require('../../util/size_utils');
 const system_store = require('../system_services/system_store').get_instance();
-const BigInteger = size_utils.BigInteger;
 
+const { BigInteger } = size_utils;
 
 function aggregate_data_free_by_tier(req) {
     let available_by_tiers = [];
@@ -29,11 +31,12 @@ function aggregate_data_free_by_tier(req) {
 
 
 function _aggregate_data_free_for_tier(tier_id, system) {
-    let mirror_available_storage = [];
-    let tier = system_store.data.get_by_id(tier_id);
+    const mirror_available_storage = [];
+    const tier = system_store.data.get_by_id(tier_id);
+    const num_blocks_per_chunk = mapper.get_num_blocks_per_chunk(tier);
 
     if (!tier) {
-        let err = new Error(`Tier ${tier_id} was not found`);
+        const err = new Error(`Tier ${tier_id} was not found`);
         console.error(err);
         return P.reject(err);
     }
@@ -59,7 +62,7 @@ function _aggregate_data_free_for_tier(tier_id, system) {
                 mirror_available_storage.push({
                     free: size_utils.reduce_sum('free', _.concat(
                         on_mongo_or_cloud_storage.map(storage => (storage.free || 0)),
-                        calculate_total_spread_storage(on_prem_storage, tier.chunk_config.chunk_coder_config.replicas, 'free')
+                        calculate_total_spread_storage(on_prem_storage, num_blocks_per_chunk, 'free')
                     ))
                 });
             }))
@@ -74,10 +77,10 @@ function compare_bigint(bigint_a, bigint_b) {
 
 /**
  * storage_arr - array of storage records
- * replicas - the number of replicas in the tier policy
+ * num_blocks_per_chunk - the number of blocks including replicas and parity in the tier policy
  * key_to_sort - key of storage record that is required to work on
  */
-function calculate_total_spread_storage(storage_arr, replicas, key_to_sort) {
+function calculate_total_spread_storage(storage_arr, num_blocks_per_chunk, key_to_sort) {
     let key_storage_array = storage_arr.map(storage_obj =>
             size_utils.json_to_bigint(storage_obj[key_to_sort] || 0))
         .filter(big_int_size => big_int_size.greater(BigInteger.zero));
@@ -86,11 +89,11 @@ function calculate_total_spread_storage(storage_arr, replicas, key_to_sort) {
 
     let requested_key_total = BigInteger.zero;
 
-    while (key_storage_array.length >= replicas) {
+    while (key_storage_array.length >= num_blocks_per_chunk) {
         const smallest = key_storage_array.shift();
         requested_key_total = requested_key_total.plus(smallest);
 
-        for (let i = 0; i < replicas - 1; ++i) {
+        for (let i = 0; i < num_blocks_per_chunk - 1; ++i) {
             key_storage_array[i] = key_storage_array[i].minus(smallest);
         }
     }

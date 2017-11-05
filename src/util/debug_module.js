@@ -25,12 +25,12 @@ const nb_native = require('./nb_native');
 var config = {
     dbg_log_level: 0,
 };
+
 try {
     config = require('../../config.js');
 } catch (err) {
     // ignore
 }
-
 
 //Detect our context, node/atom/browser
 //Different context requires different handling, for example winston usage or console wrapping
@@ -44,7 +44,10 @@ if (typeof process !== 'undefined' &&
     winston = require('winston');
     processType = "atom";
     console_wrapper = require('./console_wrapper');
-} else if (!global.document) {
+} else if (global.document) {
+    //browser
+    processType = "browser";
+} else {
     // node
 
     // check if we run on md_server <=> /etc/rsyslog.d/noobaa_syslog.conf exists
@@ -66,9 +69,6 @@ if (typeof process !== 'undefined' &&
 
     processType = "node";
     console_wrapper = require('./console_wrapper');
-} else {
-    //browser
-    processType = "browser";
 }
 
 const int_dbg = new InternalDebugLogger();
@@ -189,7 +189,7 @@ function InternalDebugLogger() {
     self._log = new(winston.Logger)({
         levels: self._levels,
         transports: [
-            new(winston.transports.File)({
+            new winston.transports.File({
                 name: 'file_transp',
                 level: 'ERROR',
                 showLevel: false,
@@ -211,15 +211,14 @@ function InternalDebugLogger() {
                         '\x1B[35m ' + proc +
                         formatted_level +
                         options.level + ']\x1B[39m ';
-                    //message - one liner for file transport
-                    var message = (options.message !== undefined ? (options.message.replace(/(\r\n|\n|\r)/gm, "")) : '');
-
-                    var postfix = (options.meta && Object.keys(options.meta).length ?
-                        JSON.stringify(options.meta) : '');
+                    var message = options.message || '';
+                    var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
+                    // remove newlines from message
+                    message = message.replace(/(\r\n|\n|\r)/gm, '');
                     return prefix + message + postfix;
                 }
             }),
-            new(winston.transports.Console)({
+            new winston.transports.Console({
                 name: 'console_transp',
                 level: 'ERROR',
                 showLevel: false,
@@ -229,13 +228,16 @@ function InternalDebugLogger() {
                     if (self._levels[options.level]) {
                         formatted_level = self._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
                     }
+                    var message = options.message || '';
+                    var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
+                    // remove newlines from message?
+                    // message = message.replace(/(\r\n|\n|\r)/gm, '');
                     return '\x1B[32m' + formatted_time() +
                         '\x1B[35m ' + proc +
                         formatted_level +
                         options.level + ']\x1B[39m ' +
-                        (undefined !== options.message ? options.message : '') +
-                        (options.meta && Object.keys(options.meta).length ?
-                            JSON.stringify(options.meta) : '');
+                        message +
+                        postfix;
                 }
             })
         ]
@@ -370,10 +372,10 @@ InternalDebugLogger.prototype.log_internal = function(level) {
         if (!winston_log) {
             let winston = require('winston'); // eslint-disable-line no-shadow
             //Define Transports
-            winston_log = new(winston.Logger)({
+            winston_log = new winston.Logger({
                 levels: self._levels,
                 transports: [
-                    new(winston.transports.File)({
+                    new winston.transports.File({
                         name: 'file_transport',
                         level: 'ERROR',
                         showLevel: false,
@@ -395,11 +397,12 @@ InternalDebugLogger.prototype.log_internal = function(level) {
                                 '\x1B[35m ' + proc +
                                 formatted_level +
                                 options.level + ']\x1B[39m ';
-                            //message - one liner for file transport
-                            var message = (options.message !== undefined ? (options.message.replace(/(\r\n|\n|\r)/gm, "")) : '');
+                            var message = options.message || '';
+                            var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
 
-                            var postfix = (options.meta && Object.keys(options.meta).length ?
-                                JSON.stringify(options.meta) : '');
+                            // remove newlines from message
+                            message = message.replace(/(\r\n|\n|\r)/gm, '');
+
                             return prefix + message + postfix;
                         }
                     })
@@ -557,10 +560,10 @@ if (console_wrapper) {
 }
 
 DebugLogger.prototype.set_level = function(level, mod) {
-    if (typeof mod !== 'undefined') {
-        int_dbg.set_level(extract_module(mod, true), level);
-    } else {
+    if (typeof mod === 'undefined') {
         int_dbg.set_level(this._name, level);
+    } else {
+        int_dbg.set_level(extract_module(mod, true), level);
     }
 };
 

@@ -31,12 +31,12 @@ const OPT_CODES = {
     [BASE + 7]: TURBOFAN_OPTIMIZED,
 };
 
-function get_opt_status(func, target, args) {
+function get_opt_status(func, caller) {
     // 2 calls are needed to go from uninitialized -> pre-monomorphic -> monomorphic
-    func.apply(target, typeof args === 'function' ? args() : args);
-    func.apply(target, typeof args === 'function' ? args() : args);
+    caller = caller || func;
+    for (let i = 0; i < 10; ++i) caller();
     eval('%OptimizeFunctionOnNextCall(func)'); // eslint-disable-line no-eval
-    func.apply(target, typeof args === 'function' ? args() : args);
+    for (let i = 0; i < 10; ++i) caller();
     const code = eval('%GetOptimizationStatus(func)'); // eslint-disable-line no-eval
     return OPT_CODES[code];
 }
@@ -45,43 +45,41 @@ function is_optimized(status) {
     return status === OPTIMIZED || status === ALWAYS_OPTIMIZED || status === TURBOFAN_OPTIMIZED;
 }
 
-function assert_optimized(func, target, args) {
-    const status = get_opt_status(func, target, args);
+function assert_optimized(func, caller) {
+    const status = get_opt_status(func, caller);
     assert.ok(is_optimized(status), `${func.name} expected to be optimized but is ${status} instead`);
 }
 
-// function assert_not_optimized(func, target, args) {
-//     const status = get_opt_status(func, target, args);
+// function assert_not_optimized(func, caller) {
+//     const status = get_opt_status(func, caller);
 //     assert.ok(!is_optimized(status), `${func.name} expected to be not-optimized but is ${status} instead`);
 // }
 
 mocha.describe('v8 optimizations', function() {
 
     mocha.it('should optimize buffer_utils.join', function() {
-        assert_optimized(buffer_utils.join, null, [
-            []
-        ]);
-        assert_optimized(buffer_utils.join, null, [
-            [
+        assert_optimized(buffer_utils.join,
+            () => buffer_utils.join([])
+        );
+        assert_optimized(buffer_utils.join,
+            () => buffer_utils.join([
                 Buffer.alloc(10, 'a'),
                 Buffer.alloc(10, 'b'),
                 Buffer.alloc(10, 'c'),
                 Buffer.alloc(10, 'd'),
-            ],
-            40
-        ]);
+            ])
+        );
     });
 
     mocha.it('should optimize buffer_utils.extract', function() {
-        assert_optimized(buffer_utils.extract, null, [
-            [
+        assert_optimized(buffer_utils.extract,
+            () => buffer_utils.extract([
                 Buffer.alloc(10, 'a'),
                 Buffer.alloc(10, 'b'),
                 Buffer.alloc(10, 'c'),
                 Buffer.alloc(10, 'd'),
-            ],
-            23
-        ]);
+            ], 23)
+        );
     });
 
     mocha.it('should optimize P.defer', function() {
@@ -93,11 +91,15 @@ mocha.describe('v8 optimizations', function() {
     });
 
     mocha.it('should optimize P.then', function() {
-        assert_optimized(P.prototype.then, P.resolve(), [_.noop]);
+        assert_optimized(P.prototype.then,
+            () => P.resolve().then(_.noop)
+        );
     });
 
     mocha.it('should optimize P.catch', function() {
-        assert_optimized(P.prototype.catch, P.resolve(), [_.noop]);
+        assert_optimized(P.prototype.catch,
+            () => P.resolve().catch(_.noop)
+        );
     });
 
     mocha.it('should optimize frame_stream', function() {
@@ -105,10 +107,19 @@ mocha.describe('v8 optimizations', function() {
             read: () => { /* noop */ },
             write: () => { /* noop */ }
         }));
-        assert_optimized(FrameStream.prototype._send_message, s, [
-            [Buffer.from('abcd'), Buffer.from('efg')]
-        ]);
-        assert_optimized(FrameStream.prototype._on_data, s, [Buffer.from('lala')]);
+        assert_optimized(FrameStream.prototype._send_message,
+            () => s._send_message([Buffer.from('abcd'), Buffer.from('efg')])
+        );
+        let seq = s._recv_seq || 0;
+        assert_optimized(FrameStream.prototype._on_data,
+            () => {
+                const buf = Buffer.alloc(s._header_len);
+                buf.write(s._magic);
+                buf.writeUInt16BE(seq, s._magic_len);
+                s._on_data(buf);
+                seq += 1;
+            }
+        );
     });
 
 });

@@ -17,15 +17,14 @@ let alloc_group_by_tiering = {};
 
 
 function refresh_tiering_alloc(tiering) {
-    let pools = _.flatten(_.map(tiering.tiers,
-        tier_and_order => {
-            let tier_pools = [];
-            // Inside the Tier, pools are unique and we don't need to filter afterwards
-            _.forEach(tier_and_order.tier.mirrors, mirror_object => {
-                tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
-            });
-            return tier_pools;
-        }));
+    const pools = _.flatMap(tiering.tiers, ({ tier }) => {
+        let tier_pools = [];
+        // Inside the Tier, pools are unique and we don't need to filter afterwards
+        _.forEach(tier.mirrors, mirror_object => {
+            tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
+        });
+        return tier_pools;
+    });
     return P.join(
         P.map(pools, refresh_pool_alloc),
         refresh_tiers_alloc(tiering)
@@ -33,12 +32,15 @@ function refresh_tiering_alloc(tiering) {
 }
 
 function refresh_pool_alloc(pool) {
-    var group =
-        alloc_group_by_pool[pool._id] =
-        alloc_group_by_pool[pool._id] || {
+
+    let group = alloc_group_by_pool[pool._id];
+    if (!group) {
+        group = {
             last_refresh: 0,
             nodes: [],
         };
+        alloc_group_by_pool[pool._id] = group;
+    }
 
     dbg.log2('refresh_pool_alloc: checking pool', pool._id, 'group', group);
 
@@ -74,12 +76,15 @@ function refresh_pool_alloc(pool) {
 
 
 function refresh_tiers_alloc(tiering) {
-    var group =
-        alloc_group_by_tiering[tiering._id] =
-        alloc_group_by_tiering[tiering._id] || {
+
+    let group = alloc_group_by_tiering[tiering._id];
+    if (!group) {
+        group = {
             last_refresh: 0,
             mirrors_storage_by_tier_id: {}
         };
+        alloc_group_by_tiering[tiering._id] = group;
+    }
 
     dbg.log1('refresh_tier_alloc: checking tiering', tiering._id, 'group', group);
 
@@ -110,17 +115,16 @@ function refresh_tiers_alloc(tiering) {
 
 function get_tiering_status(tiering) {
     let tiering_status_by_tier = {};
-    _.each(tiering.tiers, tier_and_order => {
+    _.each(tiering.tiers, ({ tier }) => {
         let tier_pools = [];
         // Inside the Tier, pools are unique and we don't need to filter afterwards
-        _.each(tier_and_order.tier.mirrors, mirror_object => {
+        _.each(tier.mirrors, mirror_object => {
             tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
         });
 
-        tiering_status_by_tier[tier_and_order.tier._id] = {
+        tiering_status_by_tier[tier._id] = {
             pools: _get_tier_pools_status(tier_pools),
-            mirrors_storage: _.get(alloc_group_by_tiering,
-                `${String(tiering._id)}.mirrors_storage_by_tier_id.${String(tier_and_order.tier._id)}`)
+            mirrors_storage: _.get(alloc_group_by_tiering, `${tiering._id}.mirrors_storage_by_tier_id.${tier._id}`),
         };
     });
     return tiering_status_by_tier;
@@ -164,17 +168,18 @@ function _get_tier_pools_status(pools) {
  *
  */
 function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_params) {
-    let pool_set = _.map(pools, pool => String(pool._id))
-        .sort()
-        .join(',');
-    let alloc_group =
-        alloc_group_by_pool_set[pool_set] =
-        alloc_group_by_pool_set[pool_set] || {
-            nodes: chance.shuffle(_.flatten(_.map(pools, pool => {
+    let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
+    let alloc_group = alloc_group_by_pool_set[pool_set];
+
+    if (!alloc_group) {
+        alloc_group = {
+            nodes: chance.shuffle(_.flatMap(pools, pool => {
                 let group = alloc_group_by_pool[pool._id];
                 return group && group.nodes;
-            })))
+            }))
         };
+        alloc_group_by_pool_set[pool_set] = alloc_group;
+    }
 
     // If we are allocating a node for content tiering special replicas,
     // we should run an additional sort, in order to get the best read latency nodes
@@ -191,9 +196,8 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
     dbg.log1('allocate_node: pool_set', pool_set,
         'num_nodes', num_nodes,
         'alloc_group', alloc_group);
-    if ((!pools[0].cloud_pool_info && !pools[0].mongo_pool_info) &&
-        num_nodes < config.NODES_MIN_COUNT) { //Not cloud and mongo requires NODES_MIN_COUNT
-        dbg.error('allocate_node: not enough online nodes in pool set',
+    if (num_nodes < 1) {
+        dbg.error('allocate_node: no nodes for allocation in pool set',
             pools, avoid_nodes, allocated_hosts, content_tiering_params);
         return;
     }

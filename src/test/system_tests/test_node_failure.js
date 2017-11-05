@@ -44,16 +44,6 @@ function authenticate() {
     });
 }
 
-
-// function create_system() {
-//     return P.resolve(coretest({
-//         activation_code: 'bla',
-//         email: 'demo@noobaa.com',
-//         password: 'DeMo1',
-//         name: 'demo',
-//     }));
-// }
-
 function create_agents() {
     console.log('creating agents');
     const names = _.times(TEST_CTX.num_of_agents, i => TEST_CTX.nodes_name + (i + 1));

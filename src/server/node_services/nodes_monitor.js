@@ -1417,6 +1417,9 @@ class NodesMonitor extends EventEmitter {
                     delete item.auth_failed;
                 }
             })
+            .then(() => {
+                item.num_io_test_errors = 0;
+            })
             .catch(err => {
                 if (err.rpc_code === 'STORAGE_NOT_EXIST' && !item.storage_not_exist) {
                     dbg.error('got STORAGE_NOT_EXIST error from node', item.node.name, err.message);
@@ -1424,6 +1427,11 @@ class NodesMonitor extends EventEmitter {
                 } else if (err.rpc_code === 'AUTH_FAILED' && !item.auth_failed) {
                     dbg.error('got AUTH_FAILED error from node', item.node.name, err.message);
                     item.auth_failed = Date.now();
+                } else if ((item.node.node_type === 'BLOCK_STORE_S3' || item.node.node_type === 'BLOCK_STORE_AZURE') &&
+                    // for cloud nodes allow some errors before putting to detention
+                    item.num_io_test_errors < config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS) {
+                    item.num_io_test_errors += 1;
+                    return;
                 }
                 if (!item.io_test_errors) {
                     dbg.log0('_test_store_perf:: node has io_test_errors', item.node.name);

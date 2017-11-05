@@ -29,7 +29,10 @@ export default function(action$) {
             types.COMPLETE_UPDATE_NAMESPACE_BUCKET_PLACEMENT,
             types.COMPLETE_DELETE_NAMESPACE_BUCKET,
             types.COMPLETE_RETRUST_HOST,
-            types.COMPLETE_DELETE_HOST
+            types.COMPLETE_DELETE_HOST,
+            types.COMPLETE_DELETE_BUCKET_OBJECT,
+            types.UPLOAD_OBJECTS,
+            types.COMPLETE_OBJECT_UPLOAD
         )
         .map(() => refreshLocation());
 }

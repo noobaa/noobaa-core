@@ -2,29 +2,52 @@
 
 import Rx from 'rx';
 import { DELETE_BUCKET_OBJECT } from 'action-types';
-import { createS3Client } from 'utils/s3-utils';
 import { completeDeleteBucketObject, failDeleteBucketObject } from 'action-creators';
-
-const endpoint = global.location.hostname;
 
 export default function(action$, { S3 }) {
     return action$
         .ofType(DELETE_BUCKET_OBJECT)
         .flatMap(action => {
-            const { bucket, object, accessKey, secretKey } = action.payload;
-            const s3 = createS3Client(S3, endpoint, accessKey, secretKey);
-            const deleteEvent$ = new Rx.Subject();
-            const params = {
-                Bucket: bucket,
-                Key: object
-            };
-
-            s3.deleteObject(params, error => {
-                deleteEvent$.onNext(error ?
-                    failDeleteBucketObject(bucket, object, error) :
-                    completeDeleteBucketObject(bucket, object)
-                );
+            const { bucket, key, uploadId, accessData } = action.payload;
+            const { endpoint, accessKey, secretKey } = accessData;
+            const s3 = new S3({
+                endpoint: endpoint,
+                credentials: {
+                    accessKeyId: accessKey,
+                    secretAccessKey: secretKey
+                },
+                s3ForcePathStyle: true,
+                sslEnabled: false
             });
+            const deleteEvent$ = new Rx.Subject();
+
+
+            if(uploadId) {
+                const params = {
+                    Bucket: bucket,
+                    Key: key,
+                    UploadId: uploadId
+                };
+
+                s3.abortMultipartUpload(params, error => {
+                    deleteEvent$.onNext(error ?
+                        failDeleteBucketObject(bucket, key, uploadId, error) :
+                        completeDeleteBucketObject(bucket, key, uploadId)
+                    );
+                });
+            } else {
+                const params = {
+                    Bucket: bucket,
+                    Key: key
+                };
+
+                s3.deleteObject(params, error => {
+                    deleteEvent$.onNext(error ?
+                        failDeleteBucketObject(bucket, key, uploadId, error) :
+                        completeDeleteBucketObject(bucket, key, uploadId)
+                    );
+                });
+            }
 
             return deleteEvent$;
         });

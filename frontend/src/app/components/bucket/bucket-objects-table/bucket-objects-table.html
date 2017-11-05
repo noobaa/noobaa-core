@@ -3,7 +3,7 @@
 <div class="column pad alt-bg">
     <div class="row content-middle">
         <h3 class="heading3 push-next">
-            Files in this bucket:
+            Files:
             <span ko.text="objectCount"></span>
         </h3>
 
@@ -20,9 +20,9 @@
         "></toggle-filter>
         </div>
 
-        <div ko.tooltip="uploadTooltip">
+        <div ko.tooltip="uploadButton().tooltip">
             <button class="upload-btn btn"
-                ko.disable="uploadDisabled"
+                ko.disable="uploadButton().disabled"
                 ko.click="() => fileSelectorExpanded.toggle()">
                 Upload Files
             </button>
@@ -42,8 +42,9 @@
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
     loading: !objectsLoaded(),
-    emptyMessage: 'The current filter does not match any files in bucket'
-"></data-table>
+    emptyMessage: emptyMessage
+">
+</data-table>
 
 <paginator params="
     pageSize: pageSize,

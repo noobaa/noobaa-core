@@ -12,8 +12,10 @@ const initialState = undefined;
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(_, { payload }) {
+    const sslCert = payload.has_ssl_cert ? {} : undefined;
     return {
-        version: payload.version
+        version: payload.version,
+        sslCert
     };
 }
 

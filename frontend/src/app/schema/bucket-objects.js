@@ -1,26 +1,59 @@
 export default {
     type: 'object',
     required: [
-        'counters',
+        'queries',
         'objects'
     ],
     properties: {
-        counters: {
+        queries: {
             type: 'object',
-            required: [
-                'nonPaginated',
-                'completed',
-                'uploading'
-            ],
-            properties: {
-                nonPaginated: {
-                    type: 'number'
-                },
-                completed: {
-                    type: 'number'
-                },
-                uploading: {
-                    type: 'number'
+            additionalProperties: {
+                type: 'object',
+                required: [
+                    'fetching',
+                    'timestamp',
+                    'result'
+                ],
+                properties: {
+                    fetching: {
+                        type: 'boolean'
+                    },
+                    timestamp: {
+                        instanceof: 'Date'
+                    },
+                    result: {
+                        type: 'object',
+                        required: [
+                            'counters',
+                            'objects'
+                        ],
+                        properties: {
+                            counters: {
+                                type: 'object',
+                                required: [
+                                    'completed',
+                                    'uploading'
+                                ],
+                                properties: {
+                                    nonPaginated: {
+                                        type: 'number'
+                                    },
+                                    completed: {
+                                        type: 'number'
+                                    },
+                                    uploading: {
+                                        type: 'number'
+                                    }
+                                }
+                            },
+                            objects: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -29,31 +62,26 @@ export default {
             additionalProperties: {
                 type: 'object',
                 required: [
-                    'objId',
                     'bucket',
                     'key',
-                    'size',
-                    'contentType',
-                    'createTime'
+                    'mode'
                 ],
                 properties: {
-                    objId: {
+                    key: {
                         type: 'string'
                     },
                     bucket: {
                         type: 'string'
                     },
-                    key: {
+                    mode: {
+                        type: 'string',
+                        enum: ['COMPLETED', 'UPLOADING']
+                    },
+                    uploadId: {
                         type: 'string'
                     },
                     size: {
                         type: 'integer'
-                    },
-                    contentType: {
-                        type: 'string'
-                    },
-                    createTime: {
-                        format: 'number'
                     }
                 }
             }

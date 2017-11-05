@@ -4,8 +4,9 @@ import template from './bucket-objects-table.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, throttle, hashCode } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { isBucketWritable } from 'utils/bucket-utils';
 import ObjectRowViewModel from './object-row';
 import { state$, action$ } from 'state';
 import * as routes from 'routes';
@@ -14,32 +15,28 @@ import {
     uploadObjects,
     requestLocation,
     deleteBucketObject,
-    abortObjectUpload
+    fetchBucketObjects
 } from 'action-creators';
 
 const columns = deepFreeze([
     {
         name: 'state',
         type: 'icon',
-        sortable: true,
-        compareKey: object => Boolean(object.size)
+        sortable: true
     },
     {
         name: 'key',
         label: 'File Name',
         type: 'newLink',
-        sortable: true,
-        compareKey: object => object.key
+        sortable: true
     },
     {
         name: 'creationTime',
-        sortable: true,
-        compareKey: object => object.createTime
+        sortable: 'create_time'
     },
     {
         name: 'size',
-        sortable: true,
-        compareKey: object => object.size
+        sortable: true
     },
     {
         name: 'deleteButton',
@@ -49,29 +46,68 @@ const columns = deepFreeze([
     }
 ]);
 
-function _getStateFilterOptions(all, completed, uploading) {
+function _getItemsCountByState(counters, state) {
+    const { optimal, uploading } = counters;
+
+    switch (state) {
+        case 'ALL':
+            return optimal + uploading;
+        case 'OPTIMAL':
+            return optimal;
+        case 'UPLOADING':
+            return uploading;
+    }
+}
+
+function _getStateFilterOptions(counters) {
     return [
         {
             value: 'ALL',
-            label: `All Files (${numeral(all).format('0,0')})`
+            label: `All Files (${
+                numeral(_getItemsCountByState(counters, 'ALL')).format('0,0')
+            })`
         },
         {
-            value: 'COMPLETED',
-            label: `Completed (${numeral(completed).format('0,0')})`
+            value: 'OPTIMAL',
+            label: `Completed (${
+                numeral(_getItemsCountByState(counters, 'OPTIMAL')).format('0,0')
+            })`
         },
         {
             value: 'UPLOADING',
-            label: `Uploading (${numeral(uploading).format('0,0')})`
+            label: `Uploading (${
+                numeral(_getItemsCountByState(counters, 'UPLOADING')).format('0,0')
+            })`
         }
     ];
 }
 
-function _getUploadTooltip(isOwner, isBucketWritable, httpsNoCert) {
+function _getObjectQuery(bucket, query) {
+    const {
+        stateFilter = 'ALL',
+        filter = '',
+        sortBy = 'key',
+        order = 1,
+        page = 0
+    } = query || {};
+
+    return {
+        bucket: bucket,
+        filter,
+        sortBy: sortBy,
+        order: Number(order),
+        skip: Number(page) * paginationPageSize,
+        limit: paginationPageSize,
+        stateFilter
+    };
+}
+
+function _getUploadTooltip(isOwner, isReadOnly, httpsNoCert) {
     if (!isOwner) {
         return 'This operation is only available for the system owner';
     }
 
-    if (!isBucketWritable) {
+    if (isReadOnly) {
         return 'Cannot upload, not enough healthy storage resources';
     }
 
@@ -88,11 +124,12 @@ class BucketObjectsTableViewModel extends Observer {
 
         this.columns = columns;
         this.bucketName = bucketName;
+        this.currQuery = null;
+        this.currBucket = null;
         this.bucket = ko.observable();
         this.objectsLoaded = ko.observable();
         this.rows = ko.observableArray();
-        this.uploadDisabled = ko.observable();
-        this.uploadTooltip = ko.observable();
+        this.uploadButton = ko.observable();
         this.fileSelectorExpanded = ko.observable();
         this.objectCount = ko.observable();
         this.stateFilterOptions = ko.observableArray();
@@ -102,6 +139,7 @@ class BucketObjectsTableViewModel extends Observer {
         this.filter = ko.observable();
         this.sorting = ko.observable();
         this.page = ko.observable();
+        this.emptyMessage = ko.observable();
         this.selectedForDelete = ko.observable();
         this.bucketObjects = {};
         this.deleteGroup = ko.pureComputed({
@@ -116,57 +154,90 @@ class BucketObjectsTableViewModel extends Observer {
                 ['session', 'user'],
                 ['accounts'],
                 'location',
-                ['env', 'hasSslCert']
+                ['system', 'sslCert']
             ),
-            this.onBucketObjects
+            this.onState
         );
     }
 
-    onBucketObjects([bucket, bucketObjects, user, accounts, location, hasSslCert]) {
-        if(!bucket || !bucketObjects || !accounts || !accounts[user]) {
-            this.stateFilterOptions(_getStateFilterOptions(0, 0, 0));
-            this.uploadDisabled(true);
+    onState([bucket, bucketObjects, user, accounts, location, sslCert]) {
+        if (location.params.tab != 'objects') {
+            this.uploadButton({});
             this.objectsLoaded(false);
             return;
         }
 
-        const { isOwner, hasS3Access, accessKeys } = accounts[user];
-        const bucketObjectsList = Object.values(bucketObjects.objects);
-        const { system } = location.params;
-        const { state='ALL', filter = '', sortBy = 'key', order = 1, page = 0, selectedForDelete } = location.query;
-        const { compareKey } = columns.find(column => column.name === sortBy);
-        const rowParams = {
-            baseRoute: realizeUri(routes.object, { system, bucket: bucket.name }, {}, true),
-            deleteGroup: this.deleteGroup,
-            onDelete: this.onDeleteBucketObject.bind(this)
-        };
-        const { nonPaginated, completed, uploading } = bucketObjects.counters;
+        const query = _getObjectQuery(location.params.bucket, location.query);
+        const queryKey = hashCode(query);
+        const bucketObjectsQuery = bucketObjects.queries[queryKey];
 
-        this.objects = bucketObjects.objects;
-        this.accessKeys = hasS3Access && accessKeys;
-        this.stateFilterOptions(_getStateFilterOptions(completed + uploading, completed, uploading));
-        this.fileSelectorExpanded(false);
-        const httpsNoCert = location.protocol === 'https' && !hasSslCert;
-        this.uploadDisabled(!isOwner || !bucket.writable || httpsNoCert);
-        this.uploadTooltip(_getUploadTooltip(isOwner, bucket.writable, httpsNoCert));
+        if (!bucket || !bucketObjects || !user || !accounts || !bucketObjectsQuery || !bucketObjectsQuery.result) {
+            this.uploadButton({});
+            this.objectsLoaded(false);
+        } else {
+            const account = accounts[user];
+            const { system } = location.params;
+            const { stateFilter = 'ALL', filter = '', sortBy = 'key' } = location.query;
+            const page = Number(location.query.page || 0);
+            const order = Number(location.query.order || 0);
+            const { counters, objects: queryObjects } = bucketObjectsQuery.result;
+            const s3Connection = account.hasS3Access ? {
+                accessKey: account.accessKeys.accessKey,
+                secretKey: account.accessKeys.secretKey,
+                endpoint: location.hostname
+            } :
+            null;
+            const rowParams = {
+                baseRoute: realizeUri(routes.object, { system, bucket: bucket.name }, {}, true),
+                deleteGroup: this.deleteGroup,
+                onDelete: this.onDeleteBucketObject.bind(this)
+            };
+            const modeFilterOptions = _getStateFilterOptions(counters);
+            const httpsNoCert = location.protocol === 'https' && !sslCert;
+            const isReadOnly = !isBucketWritable(bucket);
+            const uploadButton = {
+                disabled: !account.isOwner || isReadOnly || httpsNoCert,
+                tooltip: _getUploadTooltip(account.isOwner, isReadOnly, httpsNoCert)
+            };
+            const emptyMessage = (!filter && stateFilter === 'ALL') ?
+                'No files in bucket' :
+                'The current filter does not match any files in bucket';
 
-        const rows = bucketObjectsList
-            .sort(createCompareFunc(compareKey, order))
-            .map((bucketObject, i) => {
-                const row = this.rows.get(i) || new ObjectRowViewModel(rowParams);
-                row.onBucketObject(bucketObject, isOwner, bucket.writable);
-                return row;
-            });
 
-        this.pathname = location.pathname;
-        this.stateFilter(state);
-        this.filter(filter);
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
-        this.selectedForDelete(selectedForDelete);
-        this.objectCount(nonPaginated);
-        this.rows(rows);
-        this.objectsLoaded(true);
+            const rows = queryObjects
+                .map((bucketObjectKey, i) => {
+                    const row = this.rows.get(i) || new ObjectRowViewModel(rowParams);
+                    const { bucket, key, uploadId } = bucketObjects.items[bucketObjectKey];
+                    row.onState(
+                        bucketObjects.items[bucketObjectKey],
+                        bucketObjectKey,
+                        !account.isOwner,
+                        [bucket, key, uploadId]
+                    );
+                    return row;
+                });
+
+            this.s3Connection = s3Connection;
+            this.stateFilterOptions(modeFilterOptions);
+            this.fileSelectorExpanded(false);
+            this.uploadButton(uploadButton);
+            this.pathname = location.pathname;
+            this.stateFilter(stateFilter);
+            this.filter(filter);
+            this.sorting({ sortBy, order: Number(order) });
+            this.page(page);
+            this.selectedForDelete(location.query.selectedForDelete);
+            this.objectCount(_getItemsCountByState(counters, stateFilter));
+            this.rows(rows);
+            this.objectsLoaded(true);
+            this.emptyMessage(emptyMessage);
+        }
+
+        if (this.currBucket !== bucket ||this.currQuery !== queryKey) {
+            this.currBucket = bucket;
+            this.currQuery = queryKey;
+            action$.onNext(fetchBucketObjects(query));
+        }
     }
 
     onFilter(filter) {
@@ -194,7 +265,7 @@ class BucketObjectsTableViewModel extends Observer {
 
     onFilterByState(state) {
         this._query({
-            state: state,
+            stateFilter: state,
             page: 0,
             selectedForDelete: null
         });
@@ -206,7 +277,7 @@ class BucketObjectsTableViewModel extends Observer {
             sorting = this.sorting(),
             page = this.page(),
             selectedForDelete = this.selectedForDelete(),
-            state = this.stateFilter()
+            stateFilter = this.stateFilter()
         } = params;
 
         const { sortBy, order } = sorting;
@@ -214,9 +285,9 @@ class BucketObjectsTableViewModel extends Observer {
             filter: filter || undefined,
             sortBy: sortBy,
             order: order,
-            page: page,
+            page: page || undefined,
             selectedForDelete: selectedForDelete || undefined,
-            state: state
+            stateFilter: stateFilter
         };
 
         action$.onNext(requestLocation(
@@ -229,19 +300,12 @@ class BucketObjectsTableViewModel extends Observer {
         this._query({ selectedForDelete });
     }
 
-    onDeleteBucketObject(key) {
-        const { accessKey, secretKey } = this.accessKeys;
-        const bucket = ko.unwrap(this.bucketName);
-        const { objId, size } = this.objects[key];
-        const action = size ?
-            deleteBucketObject(bucket, key, accessKey, secretKey):
-            abortObjectUpload(bucket, key, objId, accessKey, secretKey);
-        action$.onNext(action);
+    onDeleteBucketObject(bucket, key, uploadId) {
+        action$.onNext(deleteBucketObject(bucket, key, uploadId, this.s3Connection));
     }
 
     uploadFiles(files) {
-        const { accessKey, secretKey } = this.accessKeys;
-        action$.onNext(uploadObjects(ko.unwrap(this.bucketName), files, accessKey, secretKey));
+        action$.onNext(uploadObjects(ko.unwrap(this.bucketName), files, this.s3Connection));
         this.fileSelectorExpanded(false);
     }
 }

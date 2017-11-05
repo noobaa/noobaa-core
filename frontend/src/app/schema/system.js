@@ -6,6 +6,9 @@ export default {
     properties: {
         version: {
             type: 'string'
+        },
+        sslCert: {
+            type: 'object'
         }
     }
 };

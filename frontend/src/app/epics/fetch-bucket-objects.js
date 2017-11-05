@@ -1,28 +1,31 @@
 import { FETCH_BUCKET_OBJECTS } from 'action-types';
 import { completeFetchBucketObjects, failFetchBucketObjects } from 'action-creators';
-import config from 'config';
 
 export default  function(action$, { api }) {
     return action$
         .ofType(FETCH_BUCKET_OBJECTS)
         .flatMap(async action => {
-            const { bucketName, filter, sortBy, order, page, uploadMode } = action.payload;
+            const { bucket, filter, sortBy, order, skip, limit, stateFilter } = action.payload.query;
 
             try {
+                let uploadMode;
+                if (stateFilter !== 'ALL') uploadMode = false;
+                if (stateFilter === 'UPLOADING') uploadMode = true;
+
                 const response = await api.object.list_objects({
-                    bucket: bucketName,
+                    bucket,
                     key_query: filter,
                     sort: sortBy,
-                    order: order,
-                    skip: config.paginationPageSize * page,
-                    limit: config.paginationPageSize,
+                    order,
+                    skip,
+                    limit,
                     pagination: true,
                     upload_mode: uploadMode
                 });
-                return completeFetchBucketObjects(bucketName, filter, sortBy, order, page, uploadMode, response);
 
+                return completeFetchBucketObjects(action.payload.query, response);
             } catch (error) {
-                return failFetchBucketObjects(bucketName, filter, sortBy, order, page, uploadMode, error);
+                return failFetchBucketObjects(action.payload.query, error);
             }
         });
 }

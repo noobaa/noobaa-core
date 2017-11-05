@@ -94,6 +94,12 @@ const namespaceBucketToStateIcon = deepFreeze({
     }
 });
 
+const writableStates = deepFreeze([
+    'LOW_CAPACITY',
+    'APPROUCHING_QOUTA',
+    'OPTIMAL'
+]);
+
 export function getBucketStateIcon(bucket) {
     return bucketStateToIcon[bucket.mode];
 }
@@ -160,3 +166,8 @@ export function getQuotaValue(qouta) {
     const qoutaBigInt = toBigInteger(size).multiply(unitsInBytes[unit]);
     return fromBigInteger(qoutaBigInt);
 }
+
+export function isBucketWritable(bucket) {
+    return writableStates.includes(bucket.mode);
+}
+

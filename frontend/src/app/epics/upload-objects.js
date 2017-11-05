@@ -6,7 +6,6 @@ import { deepFreeze } from 'utils/core-utils';
 import { createS3Client } from 'utils/s3-utils';
 import { updateObjectUpload, completeObjectUpload, failObjectUpload } from 'action-creators';
 
-const endpoint = global.location.hostname;
 const s3UploadOptions = deepFreeze({
     partSize: 64 * 1024 * 1024,
     queueSize: 4
@@ -16,7 +15,8 @@ export default function(action$, { S3 }) {
     return action$
         .ofType(UPLOAD_OBJECTS)
         .flatMap(action => {
-            const { objects, accessKey, secretKey } = action.payload;
+            const { objects, connection } = action.payload;
+            const { endpoint, accessKey, secretKey } = connection;
             const s3 = createS3Client(S3, endpoint, accessKey, secretKey);
             const uploadEvent$ = new Rx.Subject();
 

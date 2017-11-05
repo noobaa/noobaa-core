@@ -8,11 +8,11 @@ import moment from 'moment';
 import ko from 'knockout';
 
 const statusMapping = deepFreeze({
-    COMPLETED: {
+    OPTIMAL: {
         css: 'success',
         name: 'healthy'
     },
-    PROGRESS: {
+    UPLOADING: {
         css: 'warning',
         name: 'working'
     }
@@ -21,41 +21,44 @@ const statusMapping = deepFreeze({
 export default class ObjectRowViewModel {
     constructor({ baseRoute, deleteGroup, onDelete }) {
         this.baseRoute = baseRoute;
+        this.onObjectDelete = null;
         this.state = ko.observable();
         this.key = ko.observable();
         this.creationTime = ko.observable();
         this.size = ko.observable();
+        this.deleteArgs = ko.observable();
 
         this.deleteButton = {
             subject: 'object',
-            id: ko.observable(),
             tooltip: ko.observable(),
             disabled: ko.observable(),
+            id: ko.observable(),
             group: deleteGroup,
-            onDelete: onDelete
+            onDelete: () => onDelete(...this.deleteArgs())
         };
     }
 
-    onBucketObject(obj, isOwner) {
-        const isUploaded = Boolean(obj.size);
-        this.state(isUploaded ? statusMapping.COMPLETED : statusMapping.PROGRESS);
-        let key = {
+    onState(obj, id, isNotOwner, onDeleteArgs) {
+        const deleteTooltip = isNotOwner ? 'This operation is only available for the system owner' : '';
+        const size = obj.uploadId ? '...' : formatSize(obj.size);
+        const creationTime = moment(obj.createTime).format(timeShortFormat);
+        const href = !obj.uploadId ? realizeUri(this.baseRoute, { object: obj.key }) : undefined;
+        const key = {
             text: obj.key,
+            href,
             tooltip: {
                 text: obj.key,
                 breakWords: true
             }
         };
 
-        if(isUploaded) {
-            key.href = realizeUri(this.baseRoute, { object: obj.key });
-        }
-
+        this.state(statusMapping[obj.mode]);
+        this.deleteArgs(onDeleteArgs);
         this.key(key);
-        this.creationTime(moment(obj.createTime).format(timeShortFormat));
-        this.size(obj.size ? formatSize(obj.size) : '...');
-        this.deleteButton.id(obj.key);
-        this.deleteButton.disabled(!isOwner);
-        this.deleteButton.tooltip(!isOwner ? 'This operation is only available for the system owner' : '');
+        this.creationTime(creationTime);
+        this.size(size);
+        this.deleteButton.id(id);
+        this.deleteButton.disabled(isNotOwner);
+        this.deleteButton.tooltip(deleteTooltip);
     }
 }

@@ -278,23 +278,13 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_DELETE_BUCKET_OBJECT]: ({ object }) => ({
-        message: `File ${object} deleted successfully`,
+    [types.COMPLETE_DELETE_BUCKET_OBJECT]: ({ key }) => ({
+        message: `File ${key} deleted successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_DELETE_BUCKET_OBJECT]: ({ object }) => ({
-        message: `File ${object} deletion failed`,
-        severity: 'error'
-    }),
-
-    [types.COMPLETE_ABORT_OBJECT_UPLOAD]: ({ object }) => ({
-        message: `File ${object} deleted successfully`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_ABORT_OBJECT_UPLOAD]: ({ object }) => ({
-        message: `File ${object} deletion failed`,
+    [types.FAIL_DELETE_BUCKET_OBJECT]: ({ key }) => ({
+        message: `File ${key} deletion failed`,
         severity: 'error'
     }),
 

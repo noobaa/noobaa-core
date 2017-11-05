@@ -9,7 +9,7 @@ import {
     CLEAR_COMPLETED_OBJECT_UPLOADES
 } from 'action-types';
 
-export function uploadObjects(bucket, files, accessKey, secretKey) {
+export function uploadObjects(bucket, files, connection) {
     const time = Date.now();
     const objects = Array.from(files).map(file => ({
         id: randomString(),
@@ -19,7 +19,7 @@ export function uploadObjects(bucket, files, accessKey, secretKey) {
 
     return {
         type: UPLOAD_OBJECTS,
-        payload: { objects, time, accessKey, secretKey }
+        payload: { objects, time, connection }
     };
 }
 

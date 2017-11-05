@@ -2,8 +2,7 @@ import { createReducer } from 'utils/reducer-utils';
 import {
     TOGGLE_PREVIEW_CONTENT,
     SETUP_ENV,
-    DISSMISS_BROWSER_STICKY,
-    COMPLETE_FETCH_SYSTEM_INFO
+    DISSMISS_BROWSER_STICKY
 } from 'action-types';
 
 // ------------------------------
@@ -37,19 +36,11 @@ function onDismissBrowserSticky(env) {
     };
 }
 
-function onCompleteFetchSystemInfo(env, { payload }) {
-    return {
-        ...env,
-        hasSslCert: payload.has_ssl_cert
-    };
-}
-
 // ------------------------------
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
     [TOGGLE_PREVIEW_CONTENT]: onTogglePreviewContent,
     [SETUP_ENV]: onSetupEnv,
-    [DISSMISS_BROWSER_STICKY]: onDismissBrowserSticky,
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
+    [DISSMISS_BROWSER_STICKY]: onDismissBrowserSticky
 });

@@ -48,7 +48,6 @@ import deleteNamespaceBucket from './delete-namespace-bucket';
 import retrustHost from './retrust-host';
 import fetchBucketObjects from './fetch-bucket-objects';
 import deleteBucketObject from './delete-bucket-object';
-import abortObjectUpload from './abort-object-upload';
 import fetchSystemStorageHistory from './fetch-system-storage-history';
 import deleteHost from './delete-host';
 
@@ -106,8 +105,7 @@ const bucketRelatedEpics = [
 const objectRelatedEpics = [
     uploadObjects,
     fetchBucketObjects,
-    deleteBucketObject,
-    abortObjectUpload
+    deleteBucketObject
 ];
 
 const resourceRelatedEpics = [

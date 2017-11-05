@@ -3,176 +3,191 @@
 
 const net = require('net');
 const tls = require('tls');
-const cluster = require('cluster');
-const Speedometer = require('../util/speedometer');
-const native_core = require('../util/native_core');
-
 const argv = require('minimist')(process.argv);
-argv.size = argv.size || 10;
-argv.concur = argv.concur || 16;
+const crypto = require('crypto');
+const cluster = require('cluster');
+const ssl_utils = require('../util/ssl_utils');
+const Speedometer = require('../util/speedometer');
+
+require('../util/console_wrapper').original_console();
+
+// common
 argv.port = Number(argv.port) || 50505;
-argv.noframe = argv.noframe || false;
+argv.ssl = Boolean(argv.ssl);
 argv.forks = argv.forks || 1;
+argv.framing = Boolean(argv.framing);
+// client
+argv.buf = argv.buf || 64 * 1024; // in Bytes
+argv.concur = argv.concur || 1;
+// server
+argv.hash = argv.hash ? String(argv.hash) : '';
+
+const send_speedometer = new Speedometer('Send Speed');
+const recv_speedometer = new Speedometer('Receive Speed');
+const master_speedometer = new Speedometer('Total Speed');
+
+if (cluster.isMaster) {
+    delete argv._;
+    console.log('ARGV', JSON.stringify(argv));
+}
 
 if (argv.forks > 1 && cluster.isMaster) {
-    const master_speedometer = new Speedometer('Total Speed');
-    master_speedometer.enable_cluster();
-    for (let i = 0; i < argv.forks; i++) {
-        console.warn('Forking', i + 1);
-        cluster.fork();
-    }
-    cluster.on('exit', function(worker, code, signal) {
-        console.warn('Fork pid ' + worker.process.pid + ' died');
-    });
+    master_speedometer.fork(argv.forks);
 } else {
     main();
 }
-
 
 function main() {
     if (argv.help) {
         return usage();
     }
     if (argv.server) {
-        run_server(argv.port, argv.ssl);
-    } else if (argv.client) {
-        argv.client = (typeof(argv.client) === 'string' && argv.client) || '127.0.0.1';
-        run_client(argv.port, argv.client, argv.ssl);
-    } else {
-        return usage();
+        return run_server();
     }
+    if (argv.client) {
+        argv.client = (typeof(argv.client) === 'string' && argv.client) || '127.0.0.1';
+        return run_client();
+    }
+    return usage();
 }
-
 
 function usage() {
-    console.log('\nUsage: --server [--port X] [--ssl] [--noframe] [--size X (MB)]\n');
-    console.log('\nUsage: --client <host> [--port X] [--ssl] [--noframe] [--size X (MB)]\n');
+    console.log(`
+    Client Usage: --client <host> [--port X] [--ssl] [--forks X] [--framing] [--buf X (Bytes)] [--concur X]
+
+    Server Usage: --server        [--port X] [--ssl] [--forks X] [--framing] [--hash sha256]
+    `);
 }
 
+function run_server() {
+    const server = argv.ssl ?
+        tls.createServer(ssl_utils.generate_ssl_certificate()) :
+        net.createServer();
 
-function run_server(port, ssl) {
-    console.log('SERVER', port, 'size', argv.size);
-    const recv_speedometer = new Speedometer('Receive Speed');
-    recv_speedometer.enable_cluster();
-
-    let server;
-    if (ssl) {
-        server = tls.createServer(native_core.x509(), handle_conn);
-    } else {
-        server = net.createServer(handle_conn);
-    }
-    server.on('listening', () => console.log('listening for connections ...'));
-    server.on('error', err => console.error('server error', err.message));
-    server.listen(port);
-
-    function handle_conn(conn) {
-        console.log('Accepted connection from', conn.remoteAddress + ':' + conn.remotePort);
-        setup_conn(conn);
-        run_receiver(conn, recv_speedometer);
-    }
+    server.on('error', err => {
+            console.error('TCP server error', err.message);
+            process.exit();
+        })
+        .on('close', () => {
+            console.error('TCP server closed');
+            process.exit();
+        })
+        .on('listening', () => {
+            console.log('TCP server listening on port', argv.port, '...');
+        })
+        .on('connection', conn => {
+            const fd = conn._handle.fd;
+            console.log(`TCP connection accepted from ${conn.remoteAddress}:${conn.remotePort} (fd ${fd})`);
+            conn.once('close', () => {
+                console.log(`TCP connection closed from ${conn.remoteAddress}:${conn.remotePort} (fd ${fd})`);
+            });
+            if (argv.framing) {
+                run_receiver_framing(conn);
+            } else {
+                run_receiver(conn);
+            }
+        })
+        .listen(argv.port);
 }
 
-
-function run_client(port, host, ssl) {
-    console.log('CLIENT', host + ':' + port, 'size', argv.size, 'MB', 'concur', argv.concur);
-    const send_speedometer = new Speedometer('Send Speed');
-    send_speedometer.enable_cluster();
-
+function run_client() {
     for (let i = 0; i < argv.concur; ++i) {
-        const conn = (ssl ? tls : net).connect({
-            port: port,
-            host: host,
+        setImmediate(run_client_conn);
+    }
+}
+
+function run_client_conn() {
+    const conn = (argv.ssl ? tls : net).connect({
+            port: argv.port,
+            host: argv.client,
             // we allow self generated certificates to avoid public CA signing:
             rejectUnauthorized: false,
+        })
+        .once('error', err => {
+            console.error('TCP client connection error', err.message);
+            process.exit();
+        })
+        .once('close', () => {
+            console.error('TCP client connection closed');
+            process.exit();
+        })
+        .once('connect', () => {
+            if (argv.framing) {
+                run_sender_framing(conn);
+            } else {
+                run_sender(conn);
+            }
         });
-        setup_conn(conn);
-        setup_sender(conn);
-    }
 
-    function setup_sender(conn) {
-        conn.on('connect', () => run_sender(conn, send_speedometer));
-    }
+    return conn;
 }
 
-
-function setup_conn(conn) {
-    conn.on('error', function(err) {
-        console.log('connection error', err.message);
+function run_sender(conn) {
+    const buf = Buffer.allocUnsafe(argv.buf);
+    conn.on('drain', () => {
+        var ok = true;
+        while (ok) {
+            ok = conn.write(buf);
+            send_speedometer.update(buf.length);
+        }
     });
-    conn.on('close', function() {
-        console.log('done.');
-        process.exit();
+    conn.emit('drain');
+}
+
+function run_sender_framing(conn) {
+    const buf = Buffer.allocUnsafe(argv.buf);
+    const hdr = Buffer.allocUnsafe(4);
+    conn.on('drain', () => {
+        var ok = true;
+        while (ok) {
+            hdr.writeUInt32BE(buf.length, 0);
+            const w1 = conn.write(hdr);
+            const w2 = conn.write(buf);
+            ok = w1 && w2;
+            send_speedometer.update(buf.length);
+        }
     });
+    conn.emit('drain');
 }
 
-
-function run_sender(conn, send_speedometer) {
-    let send;
-    if (argv.noframe) {
-        send = () => {
-            var write_more;
-            do {
-                const buf = Buffer.allocUnsafe(argv.size * 1024 * 1024);
-                write_more = conn.write(buf);
-                send_speedometer.update(buf.length);
-            } while (write_more);
-        };
-    } else {
-        send = () => {
-            var write_more;
-            do {
-                const hdr = Buffer.allocUnsafe(4);
-                const buf = Buffer.allocUnsafe(argv.size * 1024 * 1024);
-                hdr.writeUInt32BE(buf.length, 0);
-                const w1 = conn.write(hdr);
-                const w2 = conn.write(buf);
-                write_more = w1 && w2;
-                send_speedometer.update(buf.length);
-            } while (write_more);
-        };
-    }
-
-    conn.on('drain', send);
-    send();
-}
-
-
-function run_receiver(conn, recv_speedometer) {
-    if (argv.noframe) {
-        conn.on('readable', () => {
-            var read_more;
-            do {
-                let data = conn.read();
-                if (!data) {
-                    read_more = false;
-                    break;
-                }
-                read_more = true;
+function run_receiver(conn) {
+    const hasher = argv.hash && crypto.createHash(argv.hash);
+    conn.on('readable', () => {
+        var ok = true;
+        while (ok) {
+            let data = conn.read();
+            if (data) {
+                if (hasher) hasher.update(data);
                 recv_speedometer.update(data.length);
-            } while (read_more);
-        });
-    } else {
-        var hdr;
-        conn.on('readable', () => {
-            var read_more;
-            do {
+            } else {
+                ok = false;
+            }
+        }
+    });
+}
+
+function run_receiver_framing(conn) {
+    const hasher = argv.hash && crypto.createHash(argv.hash);
+    var hdr = null;
+    conn.on('readable', () => {
+        var ok = true;
+        while (ok) {
+            if (hdr) {
+                const len = hdr.readUInt32BE(0);
+                const data = conn.read(len);
+                if (data) {
+                    if (hasher) hasher.update(data);
+                    recv_speedometer.update(data.length);
+                    hdr = null;
+                } else {
+                    ok = false;
+                }
+            } else {
+                hdr = conn.read(4);
                 if (!hdr) {
-                    hdr = conn.read(4);
-                    if (!hdr) {
-                        read_more = false;
-                        break;
-                    }
+                    ok = false;
                 }
-                let len = hdr.readUInt32BE(0);
-                let data = conn.read(len);
-                if (!data) {
-                    read_more = false;
-                    break;
-                }
-                hdr = null;
-                read_more = true;
-                recv_speedometer.update(data.length);
-            } while (read_more);
-        });
-    }
+            }
+        }
+    });
 }

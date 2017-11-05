@@ -139,7 +139,6 @@ class RpcN2NAgent extends EventEmitter {
             tls.createSecureContext(secure_context_params);
     }
 
-
     update_n2n_config(config) {
         dbg.log0('UPDATE N2N CONFIG', config);
         _.each(config, (val, key) => {
@@ -147,16 +146,10 @@ class RpcN2NAgent extends EventEmitter {
                 // since the tcp permanent object holds more info than just the port_range
                 // then we need to check if the port range cofig changes, if not we ignore
                 // if it did then we have to start a new
-                let conf = this.n2n_config.tcp_permanent_passive;
-                let conf_val = _.pick(conf, N2N_CONFIG_PORT_PICK);
-                dbg.log0('update_n2n_config: update tcp_permanent_passive old', conf_val, 'new', val);
-                if (!_.isEqual(conf_val, val)) {
-                    if (conf.server) {
-                        dbg.log0('update_n2n_config: close tcp_permanent_passive old server');
-                        conf.server.close();
-                        conf.server = null;
-                        global_tcp_permanent_passive = null;
-                    }
+                const conf = _.pick(this.n2n_config.tcp_permanent_passive, N2N_CONFIG_PORT_PICK);
+                dbg.log0('update_n2n_config: update tcp_permanent_passive old', conf, 'new', val);
+                if (!_.isEqual(conf, val)) {
+                    this.disconnect();
                     if (!global_tcp_permanent_passive) {
                         global_tcp_permanent_passive = _.clone(val);
                     }
@@ -173,6 +166,16 @@ class RpcN2NAgent extends EventEmitter {
         if (remaining_listeners) {
             dbg.warn('update_n2n_config: remaining listeners on reset_n2n event',
                 remaining_listeners, '(probably a connection that forgot to call close)');
+        }
+    }
+
+    disconnect() {
+        let conf = this.n2n_config.tcp_permanent_passive;
+        if (conf.server) {
+            dbg.log0('close tcp_permanent_passive old server');
+            conf.server.close();
+            conf.server = null;
+            global_tcp_permanent_passive = null;
         }
     }
 

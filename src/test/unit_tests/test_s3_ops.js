@@ -50,9 +50,12 @@ mocha.describe('s3_ops', function() {
                 });
                 console.log('S3 CONFIG', s3.config);
             });
-        // .delay(2000)
-        // .then(() => coretest.init_test_nodes(client, SYS, 10));
     });
+
+    // mocha.after(function() {
+    //     const self = this; // eslint-disable-line no-invalid-this
+    //     self.timeout(60000);
+    // });
 
 
     mocha.describe('bucket-ops', function() {
@@ -118,14 +121,6 @@ mocha.describe('s3_ops', function() {
         mocha.after(function() {
             return s3.deleteBucket({ Bucket: 'object-ops' }).promise();
         });
-    });
-
-
-    mocha.after(function() {
-        const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(60000);
-
-        return coretest.clear_test_nodes();
     });
 
 });

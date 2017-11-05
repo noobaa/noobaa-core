@@ -431,6 +431,8 @@ function slabtop(dst) {
     const file_redirect = dst ? ' &> ' + dst : '';
     if (os.type() === 'Linux') {
         return promise_utils.exec('slabtop -o' + file_redirect);
+    } else {
+        return P.resolve();
     }
 }
 
@@ -704,7 +706,7 @@ function get_time_config() {
                 return_stdout: true,
             })
             .then(tzone => {
-                var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                var symlink = tzone.split('>')[1].split('/zoneinfo/')[1].trim();
                 reply.srv_time = moment().tz(symlink)
                     .format();
                 reply.timezone = symlink;

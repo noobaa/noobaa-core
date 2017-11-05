@@ -13,6 +13,7 @@ const stream = require('stream');
 const moment = require('moment');
 const size_utils = require('../util/size_utils');
 const RandStream = require('../util/rand_stream');
+const Speedometer = require('../util/speedometer');
 
 http.globalAgent.keepAlive = true;
 https.globalAgent.keepAlive = true;
@@ -268,27 +269,13 @@ function upload_object() {
             size_utils.human_size(data_size));
     }
 
-    let start_time = Date.now();
-    let progress_time = Date.now();
-    let progress_bytes = 0;
+    const start_time = Date.now();
+    const speedometer = new Speedometer('Upload Speed');
+    let last_progress_loaded = 0;
 
     function on_progress(progress) {
-        // console.log('on_progress', progress);
-        let now = Date.now();
-        if (now - progress_time >= 500) {
-            let percents = Math.round(progress.loaded / data_size * 100);
-            let current_speed_str = (
-                (progress.loaded - progress_bytes) /
-                (now - progress_time) * 1000 / 1024 / 1024).toFixed(0);
-            let avg_speed_str = (
-                progress.loaded /
-                (now - start_time) * 1000 / 1024 / 1024).toFixed(0);
-            progress_time = now;
-            progress_bytes = progress.loaded;
-            console.log(percents + '% progress.',
-                current_speed_str, 'MB/sec',
-                '(~', avg_speed_str, 'MB/sec)');
-        }
+        speedometer.update(progress.loaded - last_progress_loaded);
+        last_progress_loaded = progress.loaded;
     }
 
     function on_finish(err) {
@@ -425,7 +412,6 @@ function upload_object() {
                 }
             });
         });
-        return;
     }
 }
 
@@ -442,25 +428,12 @@ function get_object() {
             console.error('HEAD ERROR:', err);
             return;
         }
-        let data_size = parseInt(data.ContentLength, 10);
-        let progress = {
-            loaded: 0
-        };
+
+        const data_size = parseInt(data.ContentLength, 10);
+        const start_time = Date.now();
+        const speedometer = new Speedometer('Upload Speed');
 
         console.log('object size', size_utils.human_size(data_size));
-        let start_time = Date.now();
-        let progress_time = Date.now();
-
-        function on_progress(progr) {
-            let now = Date.now();
-            if (now - progress_time >= 500) {
-                progress_time = now;
-                let percents = Math.round(progr.loaded / data_size * 100);
-                let passed_seconds = (now - start_time) / 1000;
-                let speed_str = (progr.loaded / passed_seconds / 1024 / 1024).toFixed(0);
-                console.log(percents + '% progress.', speed_str, 'MB/sec');
-            }
-        }
 
         function on_finish(err2) {
             if (err2) {
@@ -475,12 +448,10 @@ function get_object() {
 
         s3.getObject(params)
             .createReadStream()
-            .pipe(new stream.Writable({
-                highWaterMark: 64 * 1024 * 1024,
-                write: function(write_data, enc, next) {
-                    progress.loaded += write_data.length;
-                    on_progress(progress);
-                    next();
+            .pipe(new stream.Transform({
+                transform: function(buf, encoding, callback) {
+                    speedometer.update(buf.length);
+                    callback();
                 }
             }))
             .on('finish', on_finish)

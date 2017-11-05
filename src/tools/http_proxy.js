@@ -4,7 +4,7 @@
 const url = require('url');
 const http = require('http');
 const https = require('https');
-const native_core = require('../util/native_core');
+const ssl_utils = require('../util/ssl_utils');
 
 // see https://en.wikipedia.org/wiki/URL_redirection#HTTP_status_codes_3xx
 const STATUS_CODES_3XX = {
@@ -37,7 +37,7 @@ function main() {
 function proxy_port(port, address) {
     const addr_url = url.parse(address);
     const server = addr_url.protocol === 'https:' ?
-        https.createServer(native_core().x509()) :
+        https.createServer(ssl_utils.generate_ssl_certificate()) :
         http.createServer();
     server.on('request', (req, res) => {
             proxy_request(addr_url, req, res);

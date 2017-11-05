@@ -25,23 +25,14 @@ class RandStream extends stream.Readable {
         super(options);
         this.max_length = max_length;
         this.chunk_size = options && options.highWaterMark || 1024 * 1024;
-        this.random_bytes = this[options.random_mode || 'cipher_random'];
+        this.generator = this[`generate_${options.generator || 'cipher'}`];
         this.pos = 0;
         this.ticks = 0;
     }
 
-
-    /**
-     * crypto.randomBytes() is slow ~50 MB/sec
-     * use at your own time.
-     */
-    real_random(size) {
-        return crypto.randomBytes(size);
-    }
-
     /**
      *
-     * cipher_random mode:
+     * generate_cipher:
      *
      * we create a fast block cipher (aes-128-gcm is the fastest
      * HW accelerated cipher currently) and seed it using a random key & IV,
@@ -56,7 +47,7 @@ class RandStream extends stream.Readable {
      * The speed of this mode is ~1000 MB/sec.
      *
      */
-    cipher_random(size) {
+    generate_cipher(size) {
         if (!this.cipher || this.cipher_bytes > this.cipher_limit) {
             this.cipher_bytes = 0;
             this.cipher_limit = 1024 * 1024 * 1024;
@@ -76,7 +67,7 @@ class RandStream extends stream.Readable {
 
     /**
      *
-     * fake_random mode:
+     * generate_fake:
      *
      * we randomize one big buffer and use it multiple times
      * by picking random offsets inside it and slice bytes from that offset.
@@ -85,12 +76,12 @@ class RandStream extends stream.Readable {
      * before being regenerated.
      * The larger it gets the less resistent it is against dedup.
      * The overall expected speed can be calculated by:
-     * speed(fake_random) = fake_factor * speed(crypto.randomBytes)
+     * speed = fake_factor * speed(crypto.randomBytes)
      *
      * The speed of this mode is ~3000 MB/sec (with fake_factor=64)
      *
      */
-    fake_random(size) {
+    generate_fake(size) {
         if (!this.fake_buf || this.fake_bytes > this.fake_limit) {
             // The length of the slices returned are fixed and quite small.
             // Setting to small KB to avoid dedup in the scale of 256 KB.
@@ -114,6 +105,23 @@ class RandStream extends stream.Readable {
     }
 
     /**
+     * generate_crypto:
+     *
+     * crypto.randomBytes() is slow ~50 MB/sec. use at your own time.
+     */
+    generate_crypto(size) {
+        return crypto.randomBytes(size);
+    }
+
+    generate_zeros(size) {
+        return Buffer.alloc(size);
+    }
+
+    generate_alloc(size) {
+        return Buffer.allocUnsafe(size);
+    }
+
+    /**
      * implement the stream's Readable._read() function.
      */
     _read(requested_size) {
@@ -122,7 +130,7 @@ class RandStream extends stream.Readable {
             this.push(null);
             return;
         }
-        const buf = this.random_bytes(size);
+        const buf = this.generator(size);
         this.pos += buf.length;
         // nextTick is efficient, but need to limit the amount of
         // nextTick we use or otherwise if the stream consumer is also

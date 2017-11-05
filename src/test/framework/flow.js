@@ -26,9 +26,7 @@ var steps = [
         params: [{
             arg: 'run',
         }, {
-            arg: 'mocha',
-        }, {
-            arg: '--coverage',
+            arg: 'mocha:coverage',
         }],
         env: {
             COVDIR: './report/cov/mocha',

@@ -24,14 +24,19 @@ const _ = require('lodash');
 const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
+const mongodb = require('mongodb');
 
 const api = require('../../api');
 const endpoint = require('../../endpoint/endpoint');
 const server_rpc = require('../../server/server_rpc');
-const NodesStore = require('../../server/node_services/nodes_store').NodesStore;
 const node_server = require('../../server/node_services/node_server');
 const mongo_client = require('../../util/mongo_client');
+const node_allocator = require('../../server/node_services/node_allocator');
+const account_server = require('../../server/system_services/account_server');
 const core_agent_control = require('./core_agent_control');
+const { NodesStore } = require('../../server/node_services/nodes_store');
+const { BlockStoreMem } = require('../../agent/block_store_services/block_store_mem');
+const { RPC_BUFFERS } = require('../../rpc');
 
 let base_address;
 let http_address;
@@ -79,6 +84,7 @@ function setup({ incomplete_rpc_coverage } = {}) {
         s3: true,
         blob: true,
         lambda: true,
+        n2n_agent: false, // we use n2n_proxy        
     });
 
     mocha.before('coretest-before', function() {
@@ -86,9 +92,12 @@ function setup({ incomplete_rpc_coverage } = {}) {
         self.timeout(10000);
         return P.resolve()
             .then(() => console.log('running mongo_client.instance().connect()'))
-            .then(() => mongo_client.instance().connect())
-            .then(() => console.log('running mongo_client.db.dropDatabase()'))
+            .then(() => mongo_client.instance().connect('skip_init_db'))
+            .then(() => console.log('running mongo_client.instance().db.dropDatabase()'))
             .then(() => mongo_client.instance().db.dropDatabase())
+            .then(() => console.log('running mongo_client.instance().reconnect()'))
+            .then(() => mongo_client.instance().reconnect())
+            .then(() => account_server.ensure_support_account())
             .then(() => console.log('running server_rpc.rpc.start_http_server'))
             .then(() => server_rpc.rpc.start_http_server({
                 port: 0,
@@ -129,12 +138,16 @@ function setup({ incomplete_rpc_coverage } = {}) {
                 }
             }
         }
-
-        return core_agent_control.cleanup_agents()
+        return P.resolve()
+            .then(() => clear_test_nodes())
             .delay(1000)
             .then(() => server_rpc.rpc.set_disconnected_state(true))
             .then(() => mongo_client.instance().disconnect())
-            .then(() => http_server && http_server.close());
+            .then(() => http_server && http_server.close())
+            .then(() => setInterval(() => {
+                console.log('process._getActiveRequests', process._getActiveRequests());
+                console.log('process._getActiveHandles', process._getActiveHandles());
+            }, 30000).unref());
     });
 
 }
@@ -144,9 +157,110 @@ function new_test_client() {
     return client;
 }
 
-// create some test nodes named 0, 1, 2, ..., count
+function init_mock_nodes(client, system, count) {
+
+    const mock_monitor = {
+        _nodes: _.times(count, i => {
+            const name = `node${i}`;
+            const _id = new mongodb.ObjectId();
+            const peer_id = new mongodb.ObjectId();
+            const rpc_address = `n2n://${peer_id}`;
+            // const rpc = api.new_rpc(base_address);
+            // const rpc_client = rpc.new_client();
+            // const n2n_agent = rpc.register_n2n_agent(rpc_client.node.n2n_signal);
+            // n2n_agent.set_rpc_address(rpc_address);
+            const block_store = new BlockStoreMem({
+                node_name: name,
+                rpc_client: client,
+                // storage_limit: undefined,
+                // proxy: undefined,
+            });
+            // rpc.register_service(rpc.schema.block_store_api, block_store, {});
+            const node = {
+                _id,
+                peer_id,
+                rpc_address,
+                name,
+                // rpc,
+                // n2n_agent,
+                block_store,
+            };
+            return node;
+        }),
+        _get_node_info(node) {
+            const pool = system_store.data.systems_by_name[system].pools_by_name[config.NEW_SYSTEM_POOL_NAME];
+            return {
+                _id: node._id.toString(),
+                peer_id: node.peer_id.toString(),
+                name: node.name,
+                pool: pool.name,
+                rpc_address: node.rpc_address,
+                has_issues: false,
+                online: true,
+                readable: true,
+                writable: true,
+                trusted: true,
+                ip: '0.0.0.0',
+                host_seq: '',
+                os_info: { hostname: node.name },
+                storage: { free: 1024 * 1024 * 1024 * 1024 },
+            };
+        },
+        start() {
+            // nop
+        },
+        stop() {
+            // nop
+        },
+        list_nodes(params) {
+            return {
+                nodes: _.map(this._nodes, node => this._get_node_info(node))
+            };
+        },
+        allocate_nodes(params) {
+            return {
+                nodes: _.map(this._nodes, node => this._get_node_info(node))
+            };
+        },
+        // we use rpc n2n_proxy to send messages to the nodes in the test
+        // so we avoid the n2n_agent and ICE altogether.
+        n2n_proxy(params) {
+            const node = _.find(this._nodes, n => n.rpc_address === params.target);
+            if (params.request_params) {
+                params.request_params[RPC_BUFFERS] = params[RPC_BUFFERS];
+            }
+            return node.block_store[params.method_name]({
+                    // bit hacky rpc request object
+                    params: params.request_params,
+                    rpc_params: params.request_params,
+                })
+                .then(reply => ({
+                    proxy_reply: reply,
+                    [RPC_BUFFERS]: reply && reply[RPC_BUFFERS],
+                }));
+        }
+    };
+
+    return P.resolve()
+        .then(() => clear_mock_nodes())
+        .then(() => node_server.set_external_monitor(mock_monitor))
+        .then(() => node_server.start_monitor())
+        .then(() => node_allocator.reset_alloc_groups());
+}
+
+// delete all test nodes directly from the db
+function clear_mock_nodes() {
+    return P.resolve()
+        .then(() => console.log('STOP MONITOR'))
+        .then(() => node_server.stop_monitor('force_close_n2n'))
+        .then(() => console.log('RESET ORIGINAL MONITOR'))
+        .then(() => node_server.reset_original_monitor());
+}
+
+// create some test agents named 0, 1, 2, ..., count
 function init_test_nodes(client, system, count) {
     return clear_test_nodes()
+        .then(() => node_server.start_monitor())
         .then(() => client.auth.create_auth({
             role: 'create_node',
             system: system
@@ -158,22 +272,19 @@ function init_test_nodes(client, system, count) {
             return core_agent_control.start_all_agents();
         })
         .then(() => console.log(`created ${count} agents`))
-        .then(() => client.node.sync_monitor_to_store())
+        .then(() => node_server.sync_monitor_to_store())
         .then(() => P.delay(2000))
-        .then(() => client.node.sync_monitor_to_store());
+        .then(() => node_server.sync_monitor_to_store());
 }
 
-// delete all edge nodes directly from the db
+// delete all test agents and nodes
 function clear_test_nodes() {
     return P.resolve()
-        .then(() => console.log('REMOVE NODES'))
-        .then(() => NodesStore.instance().test_code_delete_all_nodes())
         .then(() => console.log('CLEANING AGENTS'))
         .then(() => core_agent_control.cleanup_agents())
-        .then(() => {
-            node_server.stop_monitor();
-            node_server.start_monitor();
-        });
+        .then(() => console.log('REMOVE NODES'))
+        .then(() => NodesStore.instance().test_code_delete_all_nodes())
+        .then(() => clear_mock_nodes());
 }
 
 function get_http_address() {
@@ -188,10 +299,10 @@ function create_system(client, params) {
         .then(() => client.system.create_system(params))
         .then(token => {
             const system = _.find(system_store.data.systems, system_rec => String(system_rec.name) === String(params.name));
-            const internal_pool = _.find(system_store.data.pools, pools_rec => pools_rec.name.indexOf(config.INTERNAL_STORAGE_POOL_NAME) > -1);
-            const internal_tier = _.find(system_store.data.tiers, tier_rec => tier_rec.name.indexOf(config.SPILLOVER_TIER_NAME) > -1);
+            const internal_pool = _.find(system.pools_by_name, pools_rec => pools_rec.name.indexOf(config.INTERNAL_STORAGE_POOL_NAME) > -1);
+            const internal_tier = _.find(system.tiers_by_name, tier_rec => tier_rec.name.indexOf(config.SPILLOVER_TIER_NAME) > -1);
             if (!internal_pool || !internal_tier) {
-                console.error('ASSUME THAT FIRST SYSTEM');
+                console.warn('ASSUME THAT FIRST SYSTEM');
                 return P.resolve(token);
             }
             const changes = {
@@ -216,7 +327,9 @@ function create_system(client, params) {
 exports.setup = setup;
 exports.client = new_test_client();
 exports.new_test_client = new_test_client;
-exports.init_test_nodes = init_test_nodes;
-exports.create_system = create_system;
-exports.clear_test_nodes = clear_test_nodes;
 exports.get_http_address = get_http_address;
+exports.create_system = create_system;
+exports.init_mock_nodes = init_mock_nodes;
+exports.init_test_nodes = init_test_nodes;
+exports.clear_mock_nodes = clear_mock_nodes;
+exports.clear_test_nodes = clear_test_nodes;

@@ -26,7 +26,6 @@ const Dispatcher = require('../notifications/dispatcher');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const os_utils = require('../../util/os_utils');
@@ -250,6 +249,7 @@ class NodesMonitor extends EventEmitter {
         }
         dbg.log0('starting nodes_monitor');
         this._started = true;
+        this.n2n_rpc.set_disconnected_state(false);
         return P.resolve()
             .then(() => ssl_utils.read_ssl_certificate())
             .then(ssl_certs => {
@@ -258,9 +258,13 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._load_from_store());
     }
 
-    stop() {
+    stop(force_close_n2n) {
         dbg.log0('stoping nodes_monitor');
         this._started = false;
+        this.n2n_rpc.set_disconnected_state(true);
+        if (force_close_n2n === 'force_close_n2n') {
+            this.n2n_agent.disconnect();
+        }
         this._close_all_nodes_connections();
         this._clear();
     }
@@ -835,6 +839,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _close_all_nodes_connections() {
+        if (!this._map_node_id) return;
         for (const item of this._map_node_id.values()) {
             this._close_node_connection(item);
         }
@@ -957,7 +962,8 @@ class NodesMonitor extends EventEmitter {
     }
 
     _handle_issues(item) {
-        if (item.node.permission_tempering && !item.node_from_store.permission_tempering &&
+        if (item.node.permission_tempering &&
+            !item.node_from_store.permission_tempering &&
             !item.permission_event) {
             item.permission_event = Date.now();
             this._dispatch_node_event(item, 'untrusted', `Node ${this._item_hostname(item)} in pool ${this._item_pool_name(item)} was set to untrusted due to permission tampering`);
@@ -967,6 +973,24 @@ class NodesMonitor extends EventEmitter {
             !item.data_event) {
             item.data_event = Date.now();
             this._dispatch_node_event(item, 'untrusted', `Node ${this._item_hostname(item)} in pool ${this._item_pool_name(item)} was set to untrusted due to data tampering`);
+        }
+
+        // for first run of the node don't send the event.
+        // prevents blast of events if node_monitor is restarted and all nodes reconnects again.
+        if (item.online !== item._dispatched_online &&
+            !_.isUndefined(item.online) &&
+            item.node_from_store &&
+            item.node.node_type === 'BLOCK_STORE_FS' &&
+            item.node.drives && item.node.drives.length) {
+
+            if (!item.online && item._dispatched_online) {
+                dbg.warn(`node ${item.node.name} became offline`);
+                this._dispatch_node_event(item, 'disconnected', `Drive ${this._item_drive_description(item)} is offline`);
+            } else if (item.online && !item._dispatched_online) {
+                dbg.warn(`node ${item.node.name} is back online`);
+                this._dispatch_node_event(item, 'connected', `Drive ${this._item_drive_description(item)} is online`);
+            }
+            item._dispatched_online = item.online;
         }
     }
 
@@ -1770,7 +1794,7 @@ class NodesMonitor extends EventEmitter {
         dbg.log3('_update_status:', item.node.name);
 
         const now = Date.now();
-        item.online = this._get_connection_status(item);
+        item.online = Boolean(item.connection) && (now < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME);
 
         // if we still have a connection, but considered offline, close the connection
         if (!item.online && item.connection) {
@@ -1842,23 +1866,6 @@ class NodesMonitor extends EventEmitter {
             node: item.node._id,
             desc: description,
         });
-    }
-
-    _get_connection_status(item) {
-        let is_node_online = Boolean(item.connection) && (Date.now() < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME);
-        // for first run of the node don't send the event.
-        // prevents blast of events if node_monitor is restarted and all nodes reconnects again.
-        if (!_.isUndefined(item.online) && item.node.node_type === 'BLOCK_STORE_FS' &&
-            item.node.drives && item.node.drives.length) {
-            if (!_.isUndefined(item.online) && !is_node_online && item.online) {
-                dbg.warn(`node ${item.node.name} became offline`);
-                this._dispatch_node_event(item, 'disconnected', `Drive ${this._item_drive_description(item)} is offline`);
-            } else if (!_.isUndefined(item.online) && is_node_online && !item.online) {
-                dbg.warn(`node ${item.node.name} is back online`);
-                this._dispatch_node_event(item, 'connected', `Drive ${this._item_drive_description(item)} is online`);
-            }
-        }
-        return is_node_online;
     }
 
     _get_item_storage_full(item) {

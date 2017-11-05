@@ -11,9 +11,9 @@ const nodes_client = require('./nodes_client');
 
 const ALLOC_REFRESH_MS = 10000;
 
-const alloc_group_by_pool = {};
-const alloc_group_by_pool_set = {};
-const alloc_group_by_tiering = {};
+let alloc_group_by_pool = {};
+let alloc_group_by_pool_set = {};
+let alloc_group_by_tiering = {};
 
 
 function refresh_tiering_alloc(tiering) {
@@ -26,10 +26,10 @@ function refresh_tiering_alloc(tiering) {
             });
             return tier_pools;
         }));
-    return P.all([
+    return P.join(
         P.map(pools, refresh_pool_alloc),
         refresh_tiers_alloc(tiering)
-    ]);
+    );
 }
 
 function refresh_pool_alloc(pool) {
@@ -55,7 +55,7 @@ function refresh_pool_alloc(pool) {
             group.last_refresh = Date.now();
             group.promise = null;
             group.nodes = res.nodes;
-            dbg.log1('refresh_pool_alloc: updated pool', pool._id,
+            dbg.log1('refresh_pool_alloc: updated pool', pool.name,
                 'nodes', _.map(group.nodes, 'name'));
             _.each(alloc_group_by_pool_set, (g, pool_set) => {
                 if (_.includes(pool_set, String(pool._id))) {
@@ -253,6 +253,12 @@ function report_error_on_node_alloc(node_id) {
     });
 }
 
+function reset_alloc_groups() {
+    alloc_group_by_pool = {};
+    alloc_group_by_pool_set = {};
+    alloc_group_by_tiering = {};
+}
+
 
 // EXPORTS
 exports.get_tiering_status = get_tiering_status;
@@ -260,3 +266,4 @@ exports.refresh_tiering_alloc = refresh_tiering_alloc;
 exports.refresh_pool_alloc = refresh_pool_alloc;
 exports.allocate_node = allocate_node;
 exports.report_error_on_node_alloc = report_error_on_node_alloc;
+exports.reset_alloc_groups = reset_alloc_groups;

@@ -34,19 +34,17 @@ mocha.describe('system_servers', function() {
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
     const NAMESPACE_RESOURCE_NAME = PREFIX + '-namespace-resource';
     const SERVER_RESTART_DELAY = 10000;
-    let server_secret = '';
-
     const client = coretest.new_test_client();
+    let server_secret = '';
+    let nodes_list;
 
-    mocha.it('works', function() {
-        const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(90000);
+    ///////////////
+    //  ACCOUNT  //
+    ///////////////
 
-        let nodes_list;
+    mocha.it('account works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            ///////////////
-            //  ACCOUNT  //
-            ///////////////
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
             .then(() => account_server.ensure_support_account())
@@ -110,10 +108,16 @@ mocha.describe('system_servers', function() {
             })
             .then(() => client.events.read_activity_log({
                 limit: 2016
-            }))
-            ////////////
-            //  AUTH  //
-            ////////////
+            }));
+    });
+
+    ////////////
+    //  AUTH  //
+    ////////////
+
+    mocha.it('auth works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => client.auth.read_auth())
             .then(() => client.auth.create_auth({
                 email: EMAIL,
@@ -135,20 +139,23 @@ mocha.describe('system_servers', function() {
                     () => assert.ifError('should fail with UNAUTHORIZED'),
                     err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED')
                 )
+            );
+    });
 
-            )
-            //////////////
-            //  SYSTEM  //
-            //////////////
+
+    //////////////
+    //  SYSTEM  //
+    //////////////
+
+    mocha.it('system works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => client.system.update_base_address({
                 base_address: 'fcall://fcall'
             }))
             .then(() => client.system.update_n2n_config({
                 tcp_active: true
             }))
-            .then(() => client.system.update_system_certificate()
-                .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
-            )
             //.then(() => client.system.start_debug({level:0}))
             .then(() => client.cluster_server.update_time_config({
                 epoch: Math.round(Date.now() / 1000),
@@ -203,10 +210,16 @@ mocha.describe('system_servers', function() {
                 email: EMAIL1,
                 password: PASSWORD,
                 system: SYS,
-            }))
-            ////////////
-            //  POOL  //
-            ////////////
+            }));
+    });
+
+    ////////////
+    //  POOL  //
+    ////////////
+
+    mocha.it('pool works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => coretest.init_test_nodes(client, SYS, 6))
             .then(() => client.node.list_nodes({}))
             .then(res => {
@@ -238,51 +251,38 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.pool.get_associated_buckets({
                 name: POOL
-            }))
-            .then(() => {
-                if (config.SKIP_EXTERNAL_TESTS) return;
-                if (!process.env.AWS_ACCESS_KEY_ID ||
-                    !process.env.AWS_SECRET_ACCESS_KEY) {
-                    throw new Error('No valid AWS credentials in env - ' +
-                        'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
-                        'for testing account.add_external_connection()');
-                }
-                return P.resolve()
-                    .then(() => client.account.add_external_connection({
-                        name: NAMESPACE_RESOURCE_CONNECTION,
-                        endpoint: 'https://s3.amazonaws.com',
-                        endpoint_type: 'AWS',
-                        identity: process.env.AWS_ACCESS_KEY_ID,
-                        secret: process.env.AWS_SECRET_ACCESS_KEY
-                    }));
-            })
-            .then(() => client.pool.create_namespace_resource({
-                name: NAMESPACE_RESOURCE_NAME,
-                connection: NAMESPACE_RESOURCE_CONNECTION,
-                target_bucket: BUCKET
-            }))
-            ////////////
-            //  TIER  //
-            ////////////
+            }));
+    });
+
+    ////////////
+    //  TIER  //
+    ////////////
+
+    mocha.it('tier works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => client.tier.create_tier({
                 name: TIER,
                 attached_pools: [POOL],
                 data_placement: 'SPREAD',
-                replicas: 17,
-                data_fragments: 919,
-                parity_fragments: 42,
             }))
             .then(() => client.tier.read_tier({
                 name: TIER,
             }))
             .then(() => client.tier.update_tier({
                 name: TIER,
-                replicas: 980
+                data_placement: 'MIRROR',
             }))
-            .then(() => client.system.read_system())
-            //////////////////////
-            //  TIERING_POLICY  //
-            //////////////////////
+            .then(() => client.system.read_system());
+    });
+
+    //////////////////////
+    //  TIERING_POLICY  //
+    //////////////////////
+
+    mocha.it('tiering policy works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => client.tiering_policy.create_policy({
                 name: TIERING_POLICY,
                 tiers: [{
@@ -314,26 +314,16 @@ mocha.describe('system_servers', function() {
             .then(() => client.tiering_policy.get_policy_pools({
                 name: TIERING_POLICY
             }))
-            .then(() => client.system.read_system())
-            // //////////////
-            // //  BUCKET  //
-            // //////////////
-            .then(() => client.bucket.create_bucket({
-                name: NAMESPACE_BUCKET,
-                namespace: {
-                    read_resources: [NAMESPACE_RESOURCE_NAME],
-                    write_resource: NAMESPACE_RESOURCE_NAME
-                },
-            }))
-            .then(() => client.bucket.delete_bucket({
-                name: NAMESPACE_BUCKET,
-            }))
-            .then(() => client.pool.delete_namespace_resource({
-                name: NAMESPACE_RESOURCE_NAME,
-            }))
-            .then(() => client.account.delete_external_connection({
-                connection_name: NAMESPACE_RESOURCE_CONNECTION,
-            }))
+            .then(() => client.system.read_system());
+    });
+
+    //////////////
+    //  BUCKET  //
+    //////////////
+
+    mocha.it('bucket works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => client.bucket.create_bucket({
                 name: BUCKET,
                 tiering: TIERING_POLICY,
@@ -384,45 +374,87 @@ mocha.describe('system_servers', function() {
                         throw new Error('update bucket with 0 quota should fail');
                     },
                     () => _.noop) // update bucket with 0 quota should fail
-            )
-            .then(() => {
-                if (config.SKIP_EXTERNAL_TESTS) return;
-                if (!process.env.AWS_ACCESS_KEY_ID ||
-                    !process.env.AWS_SECRET_ACCESS_KEY) {
-                    throw new Error('No valid AWS credentials in env - ' +
-                        'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
-                        'for testing account.add_external_connection()');
+            );
+    });
+
+    mocha.it('namespace works', function() {
+        if (config.SKIP_EXTERNAL_TESTS) this.skip(); // eslint-disable-line no-invalid-this
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        if (!process.env.AWS_ACCESS_KEY_ID ||
+            !process.env.AWS_SECRET_ACCESS_KEY) {
+            throw new Error('No valid AWS credentials in env - ' +
+                'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
+                'for testing account.add_external_connection()');
+        }
+        return P.resolve()
+            .then(() => client.account.add_external_connection({
+                name: NAMESPACE_RESOURCE_CONNECTION,
+                endpoint: 'https://s3.amazonaws.com',
+                endpoint_type: 'AWS',
+                identity: process.env.AWS_ACCESS_KEY_ID,
+                secret: process.env.AWS_SECRET_ACCESS_KEY
+            }))
+            .then(() => client.pool.create_namespace_resource({
+                name: NAMESPACE_RESOURCE_NAME,
+                connection: NAMESPACE_RESOURCE_CONNECTION,
+                target_bucket: BUCKET
+            }))
+            .then(() => client.bucket.create_bucket({
+                name: NAMESPACE_BUCKET,
+                namespace: {
+                    read_resources: [NAMESPACE_RESOURCE_NAME],
+                    write_resource: NAMESPACE_RESOURCE_NAME
+                },
+            }))
+            .then(() => client.bucket.delete_bucket({
+                name: NAMESPACE_BUCKET,
+            }))
+            .then(() => client.pool.delete_namespace_resource({
+                name: NAMESPACE_RESOURCE_NAME,
+            }))
+            .then(() => client.account.delete_external_connection({
+                connection_name: NAMESPACE_RESOURCE_CONNECTION,
+            }));
+    });
+
+    mocha.it('cloud sync works', function() {
+        if (config.SKIP_EXTERNAL_TESTS) this.skip(); // eslint-disable-line no-invalid-this
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        if (!process.env.AWS_ACCESS_KEY_ID ||
+            !process.env.AWS_SECRET_ACCESS_KEY) {
+            throw new Error('No valid AWS credentials in env - ' +
+                'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
+                'for testing account.add_external_connection()');
+        }
+        return P.resolve()
+            .then(() => client.account.add_external_connection({
+                name: CLOUD_SYNC_CONNECTION,
+                endpoint: 'https://s3.amazonaws.com',
+                endpoint_type: 'AWS',
+                identity: process.env.AWS_ACCESS_KEY_ID,
+                secret: process.env.AWS_SECRET_ACCESS_KEY
+            }))
+            .then(() => client.account.delete_external_connection({
+                connection_name: CLOUD_SYNC_CONNECTION,
+            }))
+            .then(() => client.account.add_external_connection({
+                name: CLOUD_SYNC_CONNECTION,
+                endpoint: 'https://s3.amazonaws.com',
+                endpoint_type: 'AWS',
+                identity: process.env.AWS_ACCESS_KEY_ID,
+                secret: process.env.AWS_SECRET_ACCESS_KEY
+            }))
+            .then(() => client.bucket.set_cloud_sync({
+                name: BUCKET,
+                connection: CLOUD_SYNC_CONNECTION,
+                target_bucket: BUCKET,
+                policy: {
+                    schedule_min: 11
                 }
-                return P.resolve()
-                    .then(() => client.account.add_external_connection({
-                        name: CLOUD_SYNC_CONNECTION,
-                        endpoint: 'https://s3.amazonaws.com',
-                        endpoint_type: 'AWS',
-                        identity: process.env.AWS_ACCESS_KEY_ID,
-                        secret: process.env.AWS_SECRET_ACCESS_KEY
-                    }))
-                    .then(() => client.account.delete_external_connection({
-                        connection_name: CLOUD_SYNC_CONNECTION,
-                    }))
-                    .then(() => client.account.add_external_connection({
-                        name: CLOUD_SYNC_CONNECTION,
-                        endpoint: 'https://s3.amazonaws.com',
-                        endpoint_type: 'AWS',
-                        identity: process.env.AWS_ACCESS_KEY_ID,
-                        secret: process.env.AWS_SECRET_ACCESS_KEY
-                    }))
-                    .then(() => client.bucket.set_cloud_sync({
-                        name: BUCKET,
-                        connection: CLOUD_SYNC_CONNECTION,
-                        target_bucket: BUCKET,
-                        policy: {
-                            schedule_min: 11
-                        }
-                    }));
-                // .then(() => client.bucket.get_cloud_buckets({
-                //     connection: CLOUD_SYNC_CONNECTION
-                // }))
-            })
+            }))
+            // .then(() => client.bucket.get_cloud_buckets({
+            //     connection: CLOUD_SYNC_CONNECTION
+            // }))
             .then(() => client.system.read_system())
             // .then(() => client.bucket.get_cloud_sync({
             //     name: BUCKET,
@@ -431,24 +463,42 @@ mocha.describe('system_servers', function() {
                 name: BUCKET,
             }))
             .then(() => client.bucket.get_all_cloud_sync())
-            .then(() => client.system.read_system())
-            // /////////////
-            // //  STATS  //
-            // /////////////
+            .then(() => client.system.read_system());
+    });
+
+    /////////////
+    //  STATS  //
+    /////////////
+
+    mocha.it('stats works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => client.stats.get_systems_stats({}))
             .then(() => client.stats.get_nodes_stats({}))
             .then(() => client.stats.get_ops_stats({}))
-            .then(() => client.stats.get_all_stats({}))
-            ////////////
-            //  MISC  //
-            ////////////
+            .then(() => client.stats.get_all_stats({}));
+    });
+
+    ////////////
+    //  MISC  //
+    ////////////
+
+    mocha.it('misc works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => client.debug.set_debug_level({
                 module: 'rpc',
                 level: 0
-            }))
-            /////////////////
-            //  deletions  //
-            /////////////////
+            }));
+    });
+
+    /////////////////
+    //  DELETIONS  //
+    /////////////////
+
+    mocha.it('deletions works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
             .then(() => client.bucket.delete_bucket({
                 name: BUCKET,
             }))
@@ -478,11 +528,11 @@ mocha.describe('system_servers', function() {
                 name: config.NEW_SYSTEM_POOL_NAME,
                 nodes: _.map(nodes_list, node => _.pick(node, 'name')),
             }))
-            .then(() => coretest.clear_test_nodes())
             .then(() => client.pool.delete_pool({
                 name: POOL,
             }))
             .then(() => client.system.read_system())
+            .then(() => coretest.clear_test_nodes())
             .then(() => client.system.delete_system());
     });
 });

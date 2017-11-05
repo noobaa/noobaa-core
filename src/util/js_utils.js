@@ -75,23 +75,6 @@ function named_array_push(obj, arr_name, item) {
     return arr;
 }
 
-
-function append_buffer_or_array(buffer_or_array, item) {
-    if (_.isArray(buffer_or_array)) {
-        if (_.isArray(item)) {
-            return array_push_all(buffer_or_array, item);
-        } else {
-            buffer_or_array.push(item);
-        }
-    } else if (_.isArray(item)) {
-        buffer_or_array = Buffer.concat(array_push_all([buffer_or_array], item));
-    } else {
-        buffer_or_array = Buffer.concat([buffer_or_array, item]);
-    }
-    return buffer_or_array;
-}
-
-
 function deep_freeze(obj) {
 
     // Checking isFrozen is the break condition for the recursion
@@ -166,7 +149,6 @@ exports.self_bind = self_bind;
 exports.array_push_all = array_push_all;
 exports.array_push_keep_latest = array_push_keep_latest;
 exports.named_array_push = named_array_push;
-exports.append_buffer_or_array = append_buffer_or_array;
 exports.deep_freeze = deep_freeze;
 exports.make_object = make_object;
 exports.default_value = default_value;

@@ -22,7 +22,7 @@ const os_utils = require('../util/os_utils');
 const js_utils = require('../util/js_utils');
 const url_utils = require('../util/url_utils');
 const time_utils = require('../util/time_utils');
-const native_core = require('../util/native_core');
+const ssl_utils = require('../util/ssl_utils');
 const FuncNode = require('./func_services/func_node');
 const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
@@ -224,7 +224,7 @@ class Agent {
             });
     }
 
-    stop() {
+    stop(force_close_n2n) {
         const dbg = this.dbg;
         dbg.log0('stop agent ' + this.node_name);
         this.is_started = false;
@@ -234,11 +234,12 @@ class Agent {
         clearTimeout(this._test_connection_timeout);
         if (this._server_connection) this._server_connection.close();
         this._start_stop_server();
+
+        if (force_close_n2n === 'force_close_n2n') {
         // TODO: for now commented out the update_n2n_config. revisit if needed (issue #2379)
-        // // reset the n2n config to close any open ports
-        // this.n2n_agent.update_n2n_config({
-        //     tcp_permanent_passive: false
-        // });
+            // reset the n2n config to close any open ports
+            this.n2n_agent.disconnect();
+        }
     }
 
     sample_stats() {
@@ -317,7 +318,7 @@ class Agent {
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
-                this.ssl_context = native_core().x509();
+                this.ssl_context = ssl_utils.generate_ssl_certificate();
                 // update the n2n ssl to use my certificate
                 this.n2n_agent.set_ssl_context(this.ssl_context);
             })
@@ -381,6 +382,7 @@ class Agent {
                     if (this._server_connection === conn) {
                         this._server_connection = null;
                     }
+                    if (!this.is_started) return;
                     P.delay(1000).then(() => this._do_heartbeat());
                 });
             })

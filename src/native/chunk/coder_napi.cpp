@@ -40,7 +40,7 @@ static napi_value
 _nb_chunk_coder(napi_env env, napi_callback_info info)
 {
     size_t argc = 2;
-    napi_value argv[] = {0, 0};
+    napi_value argv[] = { 0, 0 };
     napi_get_cb_info(env, info, &argc, argv, 0, 0);
 
     napi_value v_chunks = argv[0];
@@ -120,7 +120,7 @@ static void
 _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk* chunk)
 {
     char coder[8];
-    napi_value v_coder_config;
+    napi_value v_config;
 
     nb_chunk_init(chunk);
 
@@ -134,32 +134,28 @@ _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk* ch
         return;
     }
 
+    napi_get_named_property(env, v_chunk, "chunk_coder_config", &v_config);
+    nb_napi_get_str(
+        env, v_config, "digest_type", chunk->digest_type, sizeof(chunk->digest_type));
+    nb_napi_get_str(
+        env, v_config, "compress_type", chunk->compress_type, sizeof(chunk->compress_type));
+    nb_napi_get_str(
+        env, v_config, "cipher_type", chunk->cipher_type, sizeof(chunk->cipher_type));
+    nb_napi_get_str(
+        env, v_config, "frag_digest_type", chunk->frag_digest_type, sizeof(chunk->frag_digest_type));
+    nb_napi_get_int(env, v_config, "data_frags", &chunk->data_frags);
+    nb_napi_get_int(env, v_config, "parity_frags", &chunk->parity_frags);
+    nb_napi_get_str(env, v_config, "parity_type", chunk->parity_type, sizeof(chunk->parity_type));
+    nb_napi_get_int(env, v_config, "lrc_group", &chunk->lrc_group);
+    nb_napi_get_int(env, v_config, "lrc_frags", &chunk->lrc_frags);
+
     nb_napi_get_int(env, v_chunk, "size", &chunk->size);
-    nb_napi_get_int(env, v_chunk, "compress_size", &chunk->compress_size);
     nb_napi_get_int(env, v_chunk, "frag_size", &chunk->frag_size);
+    nb_napi_get_int(env, v_chunk, "compress_size", &chunk->compress_size);
 
     nb_napi_get_buf_b64(env, v_chunk, "digest_b64", &chunk->digest);
     nb_napi_get_buf_b64(env, v_chunk, "cipher_key_b64", &chunk->cipher_key);
     nb_napi_get_buf_b64(env, v_chunk, "cipher_auth_tag_b64", &chunk->cipher_auth_tag);
-
-    napi_get_named_property(env, v_chunk, "chunk_coder_config", &v_coder_config);
-    nb_napi_get_str(
-        env, v_coder_config, "digest_type", chunk->digest_type, sizeof(chunk->digest_type));
-    nb_napi_get_str(
-        env, v_coder_config, "compress_type", chunk->compress_type, sizeof(chunk->compress_type));
-    nb_napi_get_str(
-        env, v_coder_config, "cipher_type", chunk->cipher_type, sizeof(chunk->cipher_type));
-    nb_napi_get_str(
-        env,
-        v_coder_config,
-        "frag_digest_type",
-        chunk->frag_digest_type,
-        sizeof(chunk->frag_digest_type));
-    nb_napi_get_int(env, v_coder_config, "data_frags", &chunk->data_frags);
-    nb_napi_get_int(env, v_coder_config, "parity_frags", &chunk->parity_frags);
-    nb_napi_get_str(env, v_coder_config, "parity_type", chunk->parity_type, sizeof(chunk->parity_type));
-    nb_napi_get_int(env, v_coder_config, "lrc_group", &chunk->lrc_group);
-    nb_napi_get_int(env, v_coder_config, "lrc_frags", &chunk->lrc_frags);
 
     if (!chunk->size) {
         nb_chunk_error(chunk, "Cannot code zero size chunk");
@@ -190,8 +186,9 @@ _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk* ch
                 struct NB_Coder_Frag* f = chunk->frags + i;
                 nb_frag_init(f);
                 napi_get_element(env, v_frags, i, &v_frag);
-                nb_napi_get_int(env, v_frag, "index", &f->index);
-                nb_napi_get_int(env, v_frag, "lrc", &f->lrc);
+                nb_napi_get_int(env, v_frag, "data_index", &f->data_index);
+                nb_napi_get_int(env, v_frag, "parity_index", &f->parity_index);
+                nb_napi_get_int(env, v_frag, "lrc_index", &f->lrc_index);
                 nb_napi_get_bufs(env, v_frag, "block", &f->block);
                 nb_napi_get_buf_b64(env, v_frag, "digest_b64", &f->digest);
             }
@@ -233,7 +230,7 @@ _nb_coder_async_complete(napi_env env, napi_status status, void* data)
     }
 
     if (!v_err) napi_get_null(env, &v_err);
-    napi_value v_callback_args[] = {v_err, v_chunks};
+    napi_value v_callback_args[] = { v_err, v_chunks };
     napi_make_callback(env, v_global, v_callback, 2, v_callback_args, 0);
 
     napi_delete_reference(env, async->r_chunks);
@@ -283,6 +280,7 @@ _nb_coder_update_chunk(
 
     if (chunk->coder == NB_Coder_Type::ENCODER) {
 
+        nb_napi_set_int(env, v_chunk, "frag_size", chunk->frag_size);
         if (chunk->compress_type[0]) {
             nb_napi_set_int(env, v_chunk, "compress_size", chunk->compress_size);
         }
@@ -293,7 +291,6 @@ _nb_coder_update_chunk(
             nb_napi_set_buf_b64(env, v_chunk, "cipher_key_b64", &chunk->cipher_key);
             nb_napi_set_buf_b64(env, v_chunk, "cipher_auth_tag_b64", &chunk->cipher_auth_tag);
         }
-        nb_napi_set_int(env, v_chunk, "frag_size", chunk->frag_size);
 
         napi_value v_frag = 0;
         napi_value v_frags = 0;
@@ -304,11 +301,10 @@ _nb_coder_update_chunk(
             struct NB_Coder_Frag* f = chunk->frags + i;
             napi_create_object(env, &v_frag);
             napi_set_element(env, v_frags, i, v_frag);
-            nb_napi_set_int(env, v_frag, "index", f->index);
+            if (f->data_index >= 0) nb_napi_set_int(env, v_frag, "data_index", f->data_index);
+            if (f->parity_index >= 0) nb_napi_set_int(env, v_frag, "parity_index", f->parity_index);
+            if (f->lrc_index >= 0) nb_napi_set_int(env, v_frag, "lrc_index", f->lrc_index);
             nb_napi_set_bufs(env, v_frag, "block", &f->block);
-            if (f->lrc >= 0) {
-                nb_napi_set_int(env, v_frag, "lrc", f->lrc);
-            }
             if (chunk->frag_digest_type[0]) {
                 nb_napi_set_buf_b64(env, v_frag, "digest_b64", &f->digest);
             }

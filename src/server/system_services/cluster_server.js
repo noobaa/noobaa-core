@@ -894,7 +894,8 @@ function update_dns_servers(req) {
 
 
 function apply_updated_dns_servers(req) {
-    return os_utils.set_dns_and_search_domains(req.rpc_params.dns_servers, req.rpc_params.search_domains)
+    return P.resolve()
+        .then(() => os_utils.set_dns_and_search_domains(req.rpc_params.dns_servers, req.rpc_params.search_domains))
         .return();
 }
 

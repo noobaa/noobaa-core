@@ -254,7 +254,7 @@ function human_size(bytes) {
  *
  * human_offset
  *
- * @param offset - must be integer
+ * @param offset integer or {peta,n} object
  *
  */
 function human_offset(offset) {

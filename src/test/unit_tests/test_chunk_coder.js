@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
+// const _ = require('lodash');
 const mocha = require('mocha');
 const stream = require('stream');
 const crypto = require('crypto');
@@ -14,6 +14,7 @@ const Pipeline = require('../../util/pipeline');
 const nb_native = require('../../util/nb_native');
 const RandStream = require('../../util/rand_stream');
 const ChunkCoder = require('../../util/chunk_coder');
+const ChunkEraser = require('../../util/chunk_eraser');
 const Speedometer = require('../../util/speedometer');
 const FlattenStream = require('../../util/flatten_stream');
 const ChunkSplitter = require('../../util/chunk_splitter');
@@ -248,20 +249,8 @@ function test_stream({ erase, decode, generator, input_size, chunk_split_config,
         chunk_coder_config,
     });
 
-    const eraser = new stream.Transform({
-        objectMode: true,
-        allowHalfOpen: false,
-        highWaterMark: 50,
-        transform(chunk, encoding, callback) {
-            const parity_frags = (chunk.chunk_coder_config && chunk.chunk_coder_config.parity_frags) || 0;
-            const erasures = chance.integer({ min: 0, max: parity_frags });
-            for (var i = 0; i < erasures; ++i) {
-                const frag = chance.pick(chunk.frags);
-                _.pull(chunk.frags, frag);
-            }
-            // console.log('erasures', erasures, 'frags', chunk.frags.length);
-            return callback(null, chunk);
-        }
+    const eraser = new ChunkEraser({
+        watermark: 50,
     });
 
     const decoder = new ChunkCoder({
@@ -275,16 +264,18 @@ function test_stream({ erase, decode, generator, input_size, chunk_split_config,
         allowHalfOpen: false,
         highWaterMark: 50,
         transform(chunk, encoding, callback) {
-            // if (verbose) console.log(chunk);
-            this.size_sum = (this.size_sum || 0) + chunk.size;
             this.count = (this.count || 0) + 1;
+            this.pos = this.pos || 0;
+            // checking the position is continuous
+            assert.strictEqual(this.pos, chunk.pos);
+            this.pos += chunk.size;
             speedometer.update(chunk.size);
             callback();
         },
         flush(callback) {
             speedometer.clear_interval();
             // speedometer.report();
-            // console.log('AVERAGE CHUNK SIZE', (this.size_sum / this.count).toFixed(0));
+            // console.log('AVERAGE CHUNK SIZE', (this.pos / this.count).toFixed(0));
             callback();
         }
     });

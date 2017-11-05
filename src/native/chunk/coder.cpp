@@ -140,8 +140,9 @@ nb_frag_init(struct NB_Coder_Frag* f)
 {
     nb_bufs_init(&f->block);
     nb_buf_init(&f->digest);
-    f->index = 0;
-    f->lrc = -1;
+    f->data_index = -1;
+    f->parity_index = -1;
+    f->lrc_index = -1;
 }
 
 void
@@ -237,7 +238,13 @@ _nb_encode(struct NB_Coder_Chunk* chunk)
     for (int i = 0; i < chunk->frags_count; ++i) {
         struct NB_Coder_Frag* f = chunk->frags + i;
         nb_frag_init(f);
-        f->index = i;
+        if (i < chunk->data_frags) {
+            f->data_index = i;
+        } else if (i < chunk->data_frags + chunk->parity_frags) {
+            f->parity_index = i - chunk->data_frags;
+        } else {
+            f->lrc_index = i - chunk->data_frags - chunk->parity_frags;
+        }
     }
 
     if (evp_cipher) {
@@ -689,7 +696,7 @@ _nb_ec_update_decoded_fragments(
             assert(r >= k && r < m);
         }
         struct NB_Coder_Frag* f = frags_map[r];
-        f->index = j;
+        f->data_index = j;
         nb_bufs_free(&f->block);
         nb_bufs_init(&f->block);
         nb_bufs_push_owned(&f->block, out_bufs[i], frag_size);
@@ -726,23 +733,26 @@ _nb_derasure(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, int
 
     for (int i = 0; i < chunk->frags_count; ++i) {
         struct NB_Coder_Frag* f = chunk->frags + i;
-        if (f->lrc >= 0) {
+        int index = -1;
+        if (f->data_index >= 0 && f->data_index < chunk->data_frags) {
+            index = f->data_index;
+        } else if (f->parity_index >= 0 && f->parity_index < chunk->parity_frags) {
+            index = chunk->data_frags + f->parity_index;
+        } else if (f->lrc_index >= 0 && f->lrc_index < total_frags - chunk->data_frags - chunk->parity_frags) {
             continue; // lrc not yet applicable
-        }
-        if (f->index < 0 || f->index >= total_frags) {
-            continue; // invalid fragment number
+        } else {
+            continue; // invalid chunk index
         }
         if (f->block.len != chunk->frag_size) {
             printf(
-                "ERROR [%i] %i:%i frag_size %i != %i\n",
+                "ERROR [%i] %i frag_size %i != %i\n",
                 i,
-                f->index,
-                f->lrc,
+                index,
                 f->block.len,
                 chunk->frag_size);
             continue; // mismatching block size
         }
-        if (frags_map[f->index]) {
+        if (frags_map[index]) {
             continue; // duplicate frag
         }
         if (evp_md_frag) {
@@ -750,8 +760,8 @@ _nb_derasure(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, int
                 continue; // mismatching block digest
             }
         }
-        frags_map[f->index] = f;
-        if (f->index < chunk->data_frags) {
+        frags_map[index] = f;
+        if (index < chunk->data_frags) {
             num_avail_data_frags++;
         } else {
             num_avail_parity_frags++;
@@ -824,7 +834,11 @@ _nb_derasure(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, int
                     frags_map[next_parity] = 0;
                     ++next_parity;
                 }
-                cm_blocks[i].Index = frags_map[i]->index;
+                if (frags_map[i]->data_index >= 0) {
+                    cm_blocks[i].Index = frags_map[i]->data_index;
+                } else {
+                    cm_blocks[i].Index = chunk->data_frags + frags_map[i]->parity_index;
+                }
                 cm_blocks[i].Block = nb_bufs_merge(&frags_map[i]->block, 0);
             }
             int decode_err = cm256_decode(cm_params, cm_blocks);

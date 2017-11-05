@@ -2,9 +2,10 @@
 'use strict';
 
 const _ = require('lodash');
-const url = require('url');
-const mime = require('mime');
 const os = require('os');
+const url = require('url');
+// const util = require('util');
+const mime = require('mime');
 const crypto = require('crypto');
 const ip_module = require('ip');
 const glob_to_regexp = require('glob-to-regexp');
@@ -21,12 +22,11 @@ const map_writer = require('./map_writer');
 const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
 const cloud_utils = require('../../util/cloud_utils');
-const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
+const system_utils = require('../utils/system_utils');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
-const map_allocator = require('./map_allocator');
-const system_utils = require('../utils/system_utils');
+const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
 
 /**
  *
@@ -57,12 +57,13 @@ function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
+    // TODO GUY GAP select preferred tier, what about changing preferred tier during streaming?
     const tier = req.bucket.tiering.tiers[0].tier;
     return MDStore.instance().insert_object(info)
         .return({
             obj_id: info._id,
             chunk_split_config: req.bucket.tiering.chunk_split_config,
-            chunk_coder_config: tier.chunk_config && tier.chunk_config.chunk_coder_config,
+            chunk_coder_config: tier.chunk_config.chunk_coder_config,
         });
 }
 
@@ -241,10 +242,11 @@ function allocate_object_parts(req) {
     throw_if_maintenance(req);
     return find_cached_object_upload(req)
         .then(obj => {
-            let allocator = new map_allocator.MapAllocator(
+            const allocator = new map_writer.MapAllocator(
                 req.bucket,
                 obj,
-                req.rpc_params.parts);
+                req.rpc_params.parts
+            );
             return allocator.run();
         });
 }
@@ -278,11 +280,12 @@ function create_multipart(req) {
         })
         .then(() => MDStore.instance().insert_multipart(multipart))
         .then(() => {
+            // TODO GUY GAP select preferred tier, what about changing preferred tier during streaming?
             const tier = req.bucket.tiering.tiers[0].tier;
             return {
                 multipart_id: multipart._id,
                 chunk_split_config: req.bucket.tiering.chunk_split_config,
-                chunk_coder_config: tier.chunk_config && tier.chunk_config.chunk_coder_config,
+                chunk_coder_config: tier.chunk_config.chunk_coder_config,
             };
         });
 }
@@ -388,22 +391,16 @@ function read_object_mappings(req) {
     var obj;
     var reply = {};
 
+    const { start, end, skip, limit, adminfo } = req.rpc_params;
+    if (adminfo && req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED', 'Only admin can get adminfo');
+    }
+
     return find_object_md(req)
         .then(obj_arg => {
             obj = obj_arg;
             reply.object_md = get_object_info(obj);
-            var params = _.pick(req.rpc_params,
-                'start',
-                'end',
-                'skip',
-                'limit',
-                'adminfo');
-            params.obj = obj;
-            // allow adminfo only to admin!
-            if (params.adminfo && req.role !== 'admin') {
-                params.adminfo = false;
-            }
-            return map_reader.read_object_mappings(params);
+            return map_reader.read_object_mappings(obj, start, end, skip, limit, adminfo);
         })
         .then(parts => {
             reply.parts = parts;
@@ -411,13 +408,12 @@ function read_object_mappings(req) {
 
             // when called from admin console, we do not update the stats
             // so that viewing the mapping in the ui will not increase read count
-            if (req.rpc_params.adminfo) return;
+            if (adminfo) return;
             const date = new Date();
-            MDStore.instance().update_object_by_id(obj._id, {
-                'stats.last_read': date
-            }, undefined, {
-                'stats.reads': 1
-            });
+            MDStore.instance().update_object_by_id(
+                obj._id, { 'stats.last_read': date },
+                undefined, { 'stats.reads': 1 }
+            );
         })
         .return(reply);
 }
@@ -429,24 +425,7 @@ function read_object_mappings(req) {
  *
  */
 function read_node_mappings(req) {
-    return nodes_client.instance().get_node_ids_by_name(req.system._id, req.params.name)
-        .then(node_ids => {
-            const params = _.pick(req.rpc_params, 'skip', 'limit');
-            params.node_ids = node_ids;
-            params.system = req.system;
-            return P.join(
-                map_reader.read_node_mappings(params),
-                req.rpc_params.adminfo &&
-                MDStore.instance().count_blocks_of_nodes(node_ids));
-        })
-        .spread((objects, blocks_count) => (
-            req.rpc_params.adminfo ? {
-                objects: objects,
-                total_count: blocks_count
-            } : {
-                objects: objects
-            }
-        ));
+    return _read_node_mappings(req);
 }
 
 
@@ -456,26 +435,19 @@ function read_node_mappings(req) {
  *
  */
 function read_host_mappings(req) {
-    return nodes_client.instance().get_node_ids_by_name(req.system._id, req.params.name, /*by_host=*/ true)
-        .then(node_ids => {
-            const params = _.pick(req.rpc_params, 'skip', 'limit');
-            params.node_ids = node_ids;
-            params.system = req.system;
-            return P.join(
-                map_reader.read_node_mappings(params),
-                req.rpc_params.adminfo &&
-                MDStore.instance().count_blocks_of_nodes(node_ids));
-        })
-        .spread((objects, blocks_count) => (
-            req.rpc_params.adminfo ? {
-                objects: objects,
-                total_count: blocks_count
-            } : {
-                objects: objects
-            }
-        ));
+    return _read_node_mappings(req, true);
 }
 
+
+function _read_node_mappings(req, by_host) {
+    const { name, skip, limit, adminfo } = req.rpc_params;
+    return nodes_client.instance().get_node_ids_by_name(req.system._id, name, by_host)
+        .then(node_ids => P.join(
+            map_reader.read_node_mappings(node_ids, skip, limit),
+            adminfo && MDStore.instance().count_blocks_of_nodes(node_ids)
+        ))
+        .spread((objects, total_count) => (adminfo ? { objects, total_count } : { objects }));
+}
 
 /**
  *
@@ -508,15 +480,13 @@ function read_object_md(req) {
                 key: req.rpc_params.key,
             });
 
-            return map_reader.read_object_mappings({ obj })
+            return map_reader.read_object_mappings(obj)
                 .then(parts => {
                     info.total_parts_count = parts.length;
                     info.capacity_size = 0;
-                    _.forEach(parts, part =>
-                        _.forEach(part.chunk.frags, frag =>
-                            _.forEach(frag.blocks, block => {
-                                info.capacity_size += block.block_md.size;
-                            })));
+                    _.forEach(parts, part => _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
+                        info.capacity_size += block.block_md.size;
+                    })));
                 });
         })
         .then(() => info);

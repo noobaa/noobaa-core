@@ -225,23 +225,12 @@ mocha.describe('md_aggregator', function() {
                     node: md_store.make_md_id(),
                     chunk: md_store.make_md_id(),
                     size: 12,
-                    frag: 0,
-                    layer_n: 0,
-                    layer: 'D',
-                    digest_type: '',
-                    digest_b64: '',
                 }]))
                 .then(() => md_store.insert_chunks([{
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
                     system: system_id,
                     bucket: system_store.data.buckets[0]._id,
                     size: 12,
-                    digest_type: '',
-                    digest_b64: '',
-                    cipher_type: '',
-                    cipher_key_b64: '',
-                    data_frags: 1,
-                    lrc_frags: 0,
                 }]))
                 .then(() => md_store.insert_object({
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
@@ -290,12 +279,6 @@ mocha.describe('md_aggregator', function() {
                     system: system_id,
                     bucket: system_store.data.buckets[0]._id,
                     size: 230,
-                    digest_type: '',
-                    digest_b64: '',
-                    cipher_type: '',
-                    cipher_key_b64: '',
-                    data_frags: 1,
-                    lrc_frags: 0,
                 }]))
                 .then(() => md_store.insert_object({
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
@@ -358,12 +341,6 @@ mocha.describe('md_aggregator', function() {
                     system: system_id,
                     bucket: system_store.data.buckets[0]._id,
                     size: 300000,
-                    digest_type: '',
-                    digest_b64: '',
-                    cipher_type: '',
-                    cipher_key_b64: '',
-                    data_frags: 1,
-                    lrc_frags: 0,
                 }]))
                 .then(() => md_store.insert_object({
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
@@ -413,25 +390,19 @@ mocha.describe('md_aggregator', function() {
 
             return P.resolve()
                 .then(() => md_store.insert_blocks(_.times(num_ranges, i => {
-                        const current_cycle = last_update + (i * range);
-                        const bucket = system_store.data.buckets[i];
-                        const pool = system_store.data.pools[i];
-                        bucket.storage_stats.last_update = current_cycle;
-                        pool.storage_stats.last_update = current_cycle;
-                        const block_id = md_store.make_md_id_from_time(current_cycle + (sub_cycle() / 2));
-                        return make_block(block_id, 666, bucket, pool);
+                    const current_cycle = last_update + (i * range);
+                    const bucket = system_store.data.buckets[i];
+                    const pool = system_store.data.pools[i];
+                    bucket.storage_stats.last_update = current_cycle;
+                    pool.storage_stats.last_update = current_cycle;
+                    const block_id = md_store.make_md_id_from_time(current_cycle + (sub_cycle() / 2));
+                    return make_block(block_id, 666, bucket, pool);
                 })))
                 .then(() => md_store.insert_chunks([{
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
                     system: system_id,
                     bucket: system_store.data.buckets[0]._id,
                     size: 300000,
-                    digest_type: '',
-                    digest_b64: '',
-                    cipher_type: '',
-                    cipher_key_b64: '',
-                    data_frags: 1,
-                    lrc_frags: 0,
                 }]))
                 .then(() => md_store.insert_object({
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
@@ -585,11 +556,6 @@ mocha.describe('md_aggregator', function() {
             node: md_store.make_md_id(),
             chunk: md_store.make_md_id(),
             size,
-            frag: 0,
-            layer_n: 0,
-            layer: 'D',
-            digest_type: '',
-            digest_b64: '',
         };
     }
 });

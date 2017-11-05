@@ -99,9 +99,9 @@ class MongoClient extends EventEmitter {
      * connect to the "real" mongodb and not the config mongo
      */
     connect(skip_init_db) {
-        dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
+        dbg.log0('connect called, current url', this.url);
         this.promise = P.resolve().then(() => this._connect(skip_init_db));
         return this.promise;
     }

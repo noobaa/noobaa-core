@@ -200,15 +200,6 @@ const COLLECTIONS = [{
         context: 'system',
         key: '_id'
     }],
-    db_indexes: [{
-        fields: {
-            system: 1,
-            name: 1,
-        },
-        options: {
-            unique: true,
-        }
-    }],
 }];
 
 const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');

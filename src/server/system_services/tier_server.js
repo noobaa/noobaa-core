@@ -14,7 +14,8 @@ const { RpcError } = require('../../rpc');
 const size_utils = require('../../util/size_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
-const system_store = require('../system_services/system_store').get_instance();
+const system_store = require('./system_store').get_instance();
+const chunk_config_utils = require('../utils/chunk_config_utils');
 
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors) {
@@ -41,30 +42,6 @@ function new_policy_defaults(name, system_id, tiers_orders) {
     };
 }
 
-function new_chunk_code_config_defaults(chunk_coder_config) {
-    const ccc = Object.assign({
-        digest_type: config.CHUNK_CODER_DIGEST_TYPE,
-        frag_digest_type: config.CHUNK_CODER_FRAG_DIGEST_TYPE,
-        compress_type: config.CHUNK_CODER_COMPRESS_TYPE,
-        cipher_type: config.CHUNK_CODER_CIPHER_TYPE,
-    }, chunk_coder_config);
-
-    if (ccc.parity_frags) {
-        // Erasure Codes
-        ccc.replicas = ccc.replicas || 1;
-        ccc.data_frags = ccc.data_frags || 1;
-        ccc.parity_type = ccc.parity_type || config.CHUNK_CODER_EC_PARITY_TYPE;
-    } else {
-        // Data Copies
-        ccc.replicas = ccc.replicas || 3;
-        ccc.data_frags = ccc.data_frags || 1;
-        ccc.parity_frags = 0;
-        delete ccc.parity_type;
-    }
-
-    return ccc;
-}
-
 /**
  *
  * CREATE_TIER
@@ -75,16 +52,8 @@ function create_tier(req) {
         return req.system.pools_by_name[pool_name]._id;
     });
 
-    const chunk_coder_config = new_chunk_code_config_defaults(
-        req.rpc_params.chunk_coder_config || req.account.default_chunk_config || req.system.default_chunk_config);
-    const existing_chunk_config = _.find(req.system.chunk_configs_by_id,
-        c => _.matches(c.chunk_coder_config, chunk_coder_config));
-    const chunk_config = existing_chunk_config || {
-        _id: system_store.generate_id(),
-        system: req.system._id,
-        chunk_coder_config,
-    };
-    const insert_chunk_configs = chunk_config === existing_chunk_config ? undefined : [chunk_config];
+    const { chunk_config, insert_chunk_configs } = chunk_config_utils.resolve_chunk_config(
+        req.rpc_params.chunk_coder_config, req.account, req.system);
 
     const mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
 
@@ -167,16 +136,9 @@ function update_tier(req) {
         updates.data_placement = req.rpc_params.data_placement;
     }
 
-    const chunk_coder_config = new_chunk_code_config_defaults(
-        req.rpc_params.chunk_coder_config || req.account.default_chunk_config || req.system.default_chunk_config);
-    const existing_chunk_config = _.find(req.system.chunk_configs_by_id,
-        c => _.matches(c.chunk_coder_config, chunk_coder_config));
-    const chunk_config = existing_chunk_config || {
-        _id: system_store.generate_id(),
-        system: req.system._id,
-        chunk_coder_config,
-    };
-    const insert_chunk_configs = chunk_config === existing_chunk_config ? undefined : [chunk_config];
+    const { chunk_config, insert_chunk_configs } = chunk_config_utils.resolve_chunk_config(
+        req.rpc_params.chunk_coder_config, req.account, req.system);
+
     if (chunk_config !== tier.chunk_config) {
         updates.chunk_config = chunk_config._id;
     }
@@ -482,7 +444,6 @@ exports.get_associated_tiering_policies = get_associated_tiering_policies;
 exports.get_internal_storage_tier = get_internal_storage_tier;
 exports.new_tier_defaults = new_tier_defaults;
 exports.new_policy_defaults = new_policy_defaults;
-exports.new_chunk_code_config_defaults = new_chunk_code_config_defaults;
 exports.get_tier_info = get_tier_info;
 exports.get_tiering_policy_info = get_tiering_policy_info;
 //Tiers

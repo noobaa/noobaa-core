@@ -1142,48 +1142,17 @@ module.exports = {
             type: 'object',
             required: [
                 'size',
-                'digest_type',
-                'digest_b64',
-                'cipher_type',
-                'cipher_key_b64',
-                'data_frags',
-                'lrc_frags',
                 'frags'
             ],
             properties: {
-                size: {
-                    type: 'integer',
-                },
-                digest_type: {
-                    type: 'string',
-                },
-                digest_b64: {
-                    type: 'string',
-                },
-                compress_type: {
-                    type: 'string',
-                },
-                compress_size: {
-                    type: 'integer',
-                },
-                cipher_type: {
-                    type: 'string',
-                },
-                cipher_key_b64: {
-                    type: 'string',
-                },
-                cipher_iv_b64: {
-                    type: 'string',
-                },
-                cipher_auth_tag_b64: {
-                    type: 'string',
-                },
-                data_frags: {
-                    type: 'integer',
-                },
-                lrc_frags: {
-                    type: 'integer',
-                },
+                chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
+                size: { type: 'integer' },
+                frag_size: { type: 'integer' },
+                compress_size: { type: 'integer' },
+                digest_b64: { type: 'string' },
+                cipher_key_b64: { type: 'string' },
+                cipher_iv_b64: { type: 'string' },
+                cipher_auth_tag_b64: { type: 'string' },
                 frags: {
                     type: 'array',
                     items: {
@@ -1205,37 +1174,14 @@ module.exports = {
 
         frag_info: {
             type: 'object',
-            required: [
-                'size',
-                'layer',
-                'frag',
-                'digest_type',
-                'digest_b64'
-            ],
             properties: {
-                size: {
-                    type: 'integer'
-                },
-                layer: {
-                    type: 'string'
-                },
-                layer_n: {
-                    type: 'integer'
-                },
-                frag: {
-                    type: 'integer'
-                },
-                digest_type: {
-                    type: 'string'
-                },
-                digest_b64: {
-                    type: 'string'
-                },
+                data_index: { type: 'integer' },
+                parity_index: { type: 'integer' },
+                lrc_index: { type: 'integer' },
+                digest_b64: { type: 'string' },
                 blocks: {
                     type: 'array',
-                    items: {
-                        $ref: '#/definitions/block_info'
-                    }
+                    items: { $ref: '#/definitions/block_info' }
                 },
             }
         },

@@ -5,278 +5,226 @@
 const coretest = require('./coretest');
 coretest.setup();
 
-let _ = require('lodash');
-let mocha = require('mocha');
-let assert = require('assert');
-let argv = require('minimist')(process.argv);
+const _ = require('lodash');
+const mocha = require('mocha');
+const crypto = require('crypto');
+const assert = require('assert');
+const argv = require('minimist')(process.argv);
 
-let P = require('../../util/promise');
-// let dbg = require('../../util/debug_module')(__filename);
-let ObjectIO = require('../../sdk/object_io');
-let SliceReader = require('../../util/slice_reader');
-let promise_utils = require('../../util/promise_utils');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
+const ObjectIO = require('../../sdk/object_io');
+const SliceReader = require('../../util/slice_reader');
+const promise_utils = require('../../util/promise_utils');
 
-let chance_seed = argv.seed || Date.now();
+const chance_seed = argv.seed || Date.now();
+const chance = require('chance')(chance_seed);
 console.log('using seed', chance_seed);
-let chance = require('chance')(chance_seed);
+
+if (argv.verbose) {
+    dbg.set_level(5, 'core.sdk');
+}
 
 mocha.describe('object_io', function() {
 
-    let client = coretest.new_test_client();
-    let object_io = new ObjectIO();
+    const { rpc_client } = coretest;
+    const object_io = new ObjectIO();
     object_io.set_verification_mode();
+    let nodes_list;
 
-    const SYS = 'test-object-system';
-    const BKT = 'first.bucket'; // the default bucket name
-    const KEY = 'test-object-key';
-    const EMAIL = 'test-object-email@mail.mail';
-    const PASSWORD = 'test-object-password';
+    const BKT = 'test-object-io-bucket';
+    const KEY = 'test-object-io-key';
     // const NODE = 'test-node';
 
+    const CHANCE_BYTE = { min: 0, max: 255 };
+
     mocha.before(function() {
-        const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(60000);
+        this.timeout(60000); // eslint-disable-line no-invalid-this
 
         return P.resolve()
-            .then(() => coretest.create_system(client, {
-                activation_code: '1111',
-                name: SYS,
-                email: EMAIL,
-                password: PASSWORD
-            }))
+            .then(() => rpc_client.node.list_nodes({}))
             .then(res => {
-                client.options.auth_token = res.token;
-            })
-            .then(() => client.create_auth_token({
-                email: EMAIL,
-                password: PASSWORD,
-                system: SYS,
-            }))
-            .delay(2000)
-            .then(() => coretest.init_mock_nodes(client, SYS, 20));
+                nodes_list = res.nodes;
+            });
     });
 
-    mocha.after(function() {
-        const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(60000);
+    let bucket_idgen = 1;
 
-        return coretest.clear_mock_nodes();
-    });
+    const CHUNK_CODER_CONFIGS = [{
+        replicas: 3,
+        data_frags: 1,
+        parity_frags: 0,
+    }, {
+        replicas: 1,
+        data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
+        parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
+    }];
+
+    CHUNK_CODER_CONFIGS.forEach(chunk_coder_config => {
+
+        const test_name = `bucket with chunk_coder_config=${JSON.stringify(chunk_coder_config)}`;
+        const { replicas, data_frags, parity_frags } = chunk_coder_config;
+        const total_frags = data_frags + parity_frags;
+
+        mocha.describe(test_name, function() {
+
+            const bucket = `${BKT}${bucket_idgen}`;
+            bucket_idgen += 1;
+
+            mocha.before(function() {
+                return P.resolve()
+                    .then(() => rpc_client.bucket.create_bucket({
+                        name: bucket,
+                        chunk_coder_config,
+                    }));
+            });
+
+            mocha.it('empty object', function() {
+                this.timeout(60000); // eslint-disable-line no-invalid-this
+                const key = KEY + Date.now();
+                const content_type = 'application/octet-stream';
+                const content_type2 = 'text/plain';
+                return P.resolve()
+                    .then(() => rpc_client.object.create_object_upload({ bucket, key, content_type }))
+                    .then(create_reply => rpc_client.object.complete_object_upload({
+                        obj_id: create_reply.obj_id,
+                        bucket,
+                        key,
+                    }))
+                    .then(() => rpc_client.object.read_object_md({ bucket, key }))
+                    .then(() => rpc_client.object.update_object_md({ bucket, key, content_type: content_type2 }))
+                    .then(() => rpc_client.object.list_objects({ bucket, prefix: key }))
+                    .then(() => rpc_client.object.delete_object({ bucket, key }));
+            });
+
+            mocha.it('upload_and_verify', function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                return P.resolve()
+                    .then(() => promise_utils.loop(10, () => upload_and_verify(222)))
+                    .then(() => promise_utils.loop(7, () => upload_and_verify(827015)))
+                    .then(() => promise_utils.loop(3, () => upload_and_verify(9033526)));
+            });
+
+            mocha.it('multipart_upload_and_verify', function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                return P.resolve()
+                    .then(() => promise_utils.loop(10, () => multipart_upload_and_verify(76, 2)))
+                    .then(() => promise_utils.loop(7, () => multipart_upload_and_verify(232455, 5)))
+                    .then(() => promise_utils.loop(3, () => multipart_upload_and_verify(755924, 12)));
+            });
 
 
-    mocha.it('works', function() {
-        const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(60000);
-
-        let key = KEY + Date.now();
-        return P.resolve()
-            .then(() => client.object.create_object_upload({
-                bucket: BKT,
-                key: key,
-                content_type: 'application/octet-stream',
-            }))
-            .then(create_reply => client.object.complete_object_upload({
-                obj_id: create_reply.obj_id,
-                bucket: BKT,
-                key: key,
-            }))
-            .then(() => client.object.read_object_md({
-                bucket: BKT,
-                key: key,
-            }))
-            .then(() => client.object.update_object_md({
-                bucket: BKT,
-                key: key,
-                content_type: 'text/plain',
-            }))
-            .then(() => client.object.list_objects({
-                bucket: BKT,
-                prefix: key,
-            }))
-            .then(() => client.object.delete_object({
-                bucket: BKT,
-                key: key,
-            }));
-    });
-
-    let CHANCE_BYTE = {
-        min: 0,
-        max: 255,
-    };
-
-
-    mocha.describe('object IO', function() {
-
-        let OBJ_NUM_PARTS = 16;
-        let OBJ_PART_SIZE = 128 * 1024;
-        let CHANCE_PART_NUM = {
-            min: 0,
-            max: OBJ_NUM_PARTS,
-        };
-        let CHANCE_PART_OFFSET = {
-            min: 0,
-            max: OBJ_PART_SIZE - 1,
-        };
-
-
-        mocha.it('should write and read object data', function() {
-            const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(60000);
-
-            let key = KEY + Date.now();
-            let size;
-            let data;
-            return P.resolve()
-                .then(() => client.node.list_nodes({}))
-                .then(nodes => console.log("list_nodes in use", nodes))
-                .then(() => {
-                    // randomize size with equal chance on KB sizes
-                    size = (OBJ_PART_SIZE * chance.integer(CHANCE_PART_NUM)) +
-                        chance.integer(CHANCE_PART_OFFSET);
-                    // randomize a buffer
-                    console.log('random object size', size);
-                    data = Buffer.allocUnsafe(size);
-                    for (let i = 0; i < size; i++) {
-                        data[i] = chance.integer(CHANCE_BYTE);
-                    }
-                    return object_io.upload_object({
-                        client: client,
-                        bucket: BKT,
-                        key: key,
-                        size: size,
+            function upload_and_verify(size) {
+                // random buffer from fixed seed
+                const seed = Buffer.from('upload_and_verify oh yes yes');
+                const generator = crypto.createCipheriv('aes-128-gcm', seed.slice(0, 16), seed.slice(16, 28));
+                const data = generator.update(Buffer.alloc(size));
+                const key = KEY + Date.now();
+                return P.resolve()
+                    .then(() => object_io.upload_object({
+                        client: rpc_client,
+                        bucket,
+                        key,
+                        size,
                         content_type: 'application/octet-stream',
                         source_stream: new SliceReader(data),
-                    });
-                })
-                .then(() => object_io.read_entire_object({
-                    client: client,
-                    bucket: BKT,
-                    key: key,
-                    start: 0,
-                    end: size,
-                }))
-                .then(read_buf => {
-
-                    // verify the read buffer equals the written buffer
-                    assert.strictEqual(data.length, read_buf.length);
-                    for (let i = 0; i < size; i++) {
-                        assert.strictEqual(data[i], read_buf[i]);
-                    }
-                    console.log('READ SUCCESS');
-
-                })
-                .then(() => client.object.read_object_mappings({
-                    bucket: BKT,
-                    key: key,
-                    adminfo: true
-                }))
-                .then(res => {
-                    // testing mappings that nodes don't repeat in the same fragment
-                    _.each(res.parts, function(part) {
-                        let blocks = _.flatten(_.map(part.fragments, 'blocks'));
-                        let blocks_per_node = _.groupBy(blocks, function(block) {
-                            return block.adminfo.node_name;
-                        });
-                        console.log('VERIFY MAPPING UNIQUE ON NODE', blocks_per_node);
-                        _.each(blocks_per_node, function(b, node_name) {
-                            assert.strictEqual(b.length, 1);
-                        });
-                    });
-                });
-        });
-    });
-
-
-    mocha.describe('multipart upload', function() {
-
-        mocha.it('should list_multiparts', function() {
-            const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(60000);
-
-            let obj_id;
-            let test_nodes;
-            let key = KEY + Date.now();
-            let part_size = 1024;
-            let num_parts = 10;
-            let data = Buffer.allocUnsafe(num_parts * part_size);
-            for (let i = 0; i < data.length; i++) {
-                data[i] = chance.integer(CHANCE_BYTE);
-            }
-            return P.resolve()
-                .then(() => client.node.list_nodes({}))
-                .then(nodes => {
-                    test_nodes = nodes.nodes;
-                    console.log("list_nodes in use", nodes);
-
-                })
-                .then(() => client.object.create_object_upload({
-                    bucket: BKT,
-                    key: key,
-                    content_type: 'test/test'
-                }))
-                .then(create_reply => {
-                    obj_id = create_reply.obj_id;
-                })
-                .then(() => attempt_read_mappings(test_nodes))
-                .then(() => client.object.list_multiparts({
-                    obj_id: obj_id,
-                    bucket: BKT,
-                    key: key,
-                }))
-                .tap(list => console.log('list_multiparts reply', list))
-                .then(list => promise_utils.loop(num_parts, i => object_io.upload_multipart({
-                    client: client,
-                    obj_id: obj_id,
-                    bucket: BKT,
-                    key: key,
-                    num: i + 1,
-                    size: part_size,
-                    source_stream: new SliceReader(data, {
-                        start: i * part_size,
-                        end: (i + 1) * part_size
-                    }),
-                })))
-                .then(() => client.object.list_multiparts({
-                    obj_id: obj_id,
-                    bucket: BKT,
-                    key: key,
-                }))
-                .tap(list => console.log('list_multiparts reply', list))
-                .then(list => client.object.complete_object_upload({
-                    obj_id: obj_id,
-                    bucket: BKT,
-                    key: key,
-                    multiparts: _.map(list.multiparts, p => ({
-                        num: p.num,
-                        etag: p.etag,
                     }))
-                }))
-                .then(() => attempt_read_mappings(test_nodes))
-                .then(() => object_io.read_entire_object({
-                    client: client,
-                    bucket: BKT,
-                    key: key,
-                }))
-                .then(read_buf => {
-                    assert.strictEqual(data.length, read_buf.length, "mismatch data length");
-                    for (let i = 0; i < data.length; i++) {
-                        assert.strictEqual(data[i], read_buf[i], "mismatch data at offset " + i);
-                    }
-                });
+                    .then(() => verify_read_data(key, data))
+                    .then(() => verify_read_mappings(key, size))
+                    .then(() => verify_nodes_mappings(nodes_list))
+                    .then(() => console.log('upload_and_verify: OK', size));
+            }
+
+            function multipart_upload_and_verify(part_size, num_parts) {
+                let obj_id;
+                const key = KEY + Date.now();
+                const content_type = 'test/test';
+                const size = num_parts * part_size;
+                const data = Buffer.allocUnsafe(size);
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = chance.integer(CHANCE_BYTE);
+                }
+                return P.resolve()
+                    .then(() => rpc_client.object.create_object_upload({ bucket, key, content_type }))
+                    .then(create_reply => {
+                        obj_id = create_reply.obj_id;
+                    })
+                    .then(() => rpc_client.object.list_multiparts({ obj_id, bucket, key }))
+                    .tap(list => console.log('list_multiparts reply', list))
+                    .then(list => promise_utils.loop(num_parts, i =>
+                        object_io.upload_multipart({
+                            client: rpc_client,
+                            obj_id,
+                            bucket,
+                            key,
+                            num: i + 1,
+                            size: part_size,
+                            source_stream: new SliceReader(data, {
+                                start: i * part_size,
+                                end: (i + 1) * part_size
+                            }),
+                        })
+                    ))
+                    .then(() => rpc_client.object.list_multiparts({ obj_id, bucket, key }))
+                    .tap(list => console.log('list_multiparts reply', list))
+                    .then(list => rpc_client.object.complete_object_upload({
+                        obj_id,
+                        bucket,
+                        key,
+                        multiparts: _.map(list.multiparts, p => _.pick(p, 'num', 'etag'))
+                    }))
+                    .then(() => verify_read_data(key, data))
+                    .then(() => verify_read_mappings(key, size))
+                    .then(() => verify_nodes_mappings())
+                    .then(() => console.log('multipart_upload_and_verify: OK', part_size, num_parts));
+            }
+
+            function verify_read_mappings(key, size) {
+                return rpc_client.object.read_object_mappings({ bucket, key, adminfo: true })
+                    .then(({ parts }) => {
+                        let pos = 0;
+                        parts.forEach(part => {
+                            const { start, end, chunk: { frags } } = part;
+                            assert.strictEqual(start, pos);
+                            pos = end;
+                            assert.strictEqual(frags.length, total_frags);
+                            _.forEach(frags, frag => assert.strictEqual(frag.blocks.length, replicas));
+                            // check blocks don't repeat in the same chunk
+                            const part_blocks = _.flatMap(frags, 'blocks');
+                            const blocks_per_node = _.groupBy(part_blocks, block => block.adminfo.node_name);
+                            _.forEach(blocks_per_node, (b, node_name) => assert.strictEqual(b.length, 1));
+                        });
+                        assert.strictEqual(pos, size);
+                    });
+            }
+
+            function verify_read_data(key, data) {
+                return object_io.read_entire_object({ client: rpc_client, bucket, key })
+                    .then(read_buf => {
+                        // verify the read buffer equals the written buffer
+                        assert.strictEqual(data.length, read_buf.length);
+                        for (let i = 0; i < data.length; i++) {
+                            assert.strictEqual(data[i], read_buf[i], `mismatch data at pos ${i}`);
+                        }
+                    });
+            }
+
+            function verify_nodes_mappings() {
+                return P.map(nodes_list, node => P.join(
+                    rpc_client.object.read_node_mappings({
+                        name: node.name,
+                        adminfo: true
+                    }),
+                    rpc_client.object.read_host_mappings({
+                        name: `${node.os_info.hostname}#${node.host_seq}`,
+                        adminfo: true
+                    })
+                ));
+            }
+
         });
 
     });
 
-    function attempt_read_mappings(nodes) {
-        return P.resolve()
-            .then(() => P.map(nodes, node => P.join(
-                client.object.read_node_mappings({
-                    name: node.name,
-                    adminfo: true
-                }),
-                client.object.read_host_mappings({
-                    name: node.os_info.hostname,
-                    adminfo: true
-                }))));
-    }
 });

@@ -1,6 +1,31 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/*
+ * for mapping to edge nodes, chunk data is divided into fragments of equal size.
+ * this number is configured (by the tier/bucket) but saved in the chunk to allow
+ * future changes to the tier's configuration without breaking the chunk's encoding.
+ *
+ * to support copies and/or erasure coded blocks, chunks are composed of fragments
+ * such that each fragment has a purpose:
+ *
+ * - fragments containing real data fragment
+ * - fragments containing global parity fragment.
+ * - fragments containing local parity fragment per redundancy group (LRC)
+ *
+ * data blocks specify frag, and when two blocks have the same frag it means
+ * they are copies of the same fragment.
+ *
+ * lrc_group is the number of fragments in every LRC group (locally recoverable code)
+ * this number does not include the added LRC parity fragments, only the source frags.
+ *
+ * sample layout:
+ * (data_frags=8 lrc_group=4 D=data P=global-parity L=local-parity)
+ *
+ *      [D0 D1 D2 D3] [D4 D5 D6 D7] [P0 P1 P2 P3]
+ *      [ L0:0 L0:1 ] [ L1:0 L1:1 ] [ L2:0 L2:1 ]
+ *
+ */
 module.exports = {
     id: 'data_chunk_schema',
     type: 'object',
@@ -8,12 +33,6 @@ module.exports = {
         '_id',
         'system',
         'size',
-        'digest_type',
-        'digest_b64',
-        'cipher_type',
-        'cipher_key_b64',
-        'data_frags',
-        'lrc_frags',
     ],
     properties: {
 
@@ -22,91 +41,46 @@ module.exports = {
         system: { objectid: true },
         deleted: { date: true },
 
-
-        // every chunk belongs exclusively to a single bucket in order to specify its data placement
-        // TODO consider changing chunks to refer to tier/tieringpolicy instead so multiple buckets could share dedup
+        // every chunk belongs exclusively to a bucket for data placement and storage accounting
         bucket: { objectid: true },
 
+        // chunk_config defines how to decode the chunk data, and @@@ MUST NOT CHANGE @@@
+        chunk_config: { objectid: true },
+
         // size in bytes
-        size: {
-            type: 'integer'
-        },
+        size: { type: 'integer' },
 
         // Used in extra replication for video type chunks
         // Currently only the first and the last chunks of the video
-        special_replica: {
-            type: 'boolean'
-        },
+        special_replica: { type: 'boolean' },
 
         // the key for data dedup, will include both the scope (bucket/tier) and the digest
         // and once the chunk is marked as deleted it will be unset to remove from the index
-        dedup_key: {
-            type: 'string'
-        },
+        dedup_key: { binary: true },
 
         // data digest (hash) - computed on the plain data before compression and encryption
-        digest_type: {
-            type: 'string'
-        },
-        digest_b64: {
-            type: 'string'
-        },
-
-        // the compression used for the data (optional)
-        compress_type: {
-            type: 'string',
-            enum: ['snappy', 'zlib']
-        },
-        compress_size: {
-            type: 'integer'
-        },
-
+        digest: { binary: true },
+        // the compressed size of the data
+        compress_size: { type: 'integer' },
         // cipher used to provide confidentiality - computed on the compressed data
-        cipher_type: {
-            type: 'string'
-        },
-        cipher_key_b64: {
-            type: 'string'
-        },
-        cipher_iv_b64: {
-            type: 'string'
-        },
-        cipher_auth_tag_b64: {
-            type: 'string'
-        },
+        cipher_key: { binary: true },
+        cipher_iv: { binary: true },
+        cipher_auth_tag: { binary: true },
 
-        /*
-         * for mapping to edge nodes, the chunk range is divided
-         * into k fragments of equal size.
-         * this number is configured (by the tier/bucket) but saved in the chunk to allow
-         * future changes to the tier's configuration without breaking the chunk's encoding.
-         *
-         * to support copies and/or erasure coded blocks, chunks are composed of blocks
-         * such that each block has a fragment number and a layer:
-         *
-         * - blocks with layer==='D' contain real data fragment.
-         * - blocks with layer==='RS' contain a reed solomon parity fragment.
-         * - blocks with layer==='LRC' index contain a computed LRC parity block for the group x,
-         *      the fragment index in this case represents the LRC parity index.
-         *
-         * different blocks with the same value of (frag,layer) - means they are copies
-         * of the same data fragment.
-         *
-         * lrc_frags is the number of fragments in every LRC group (locally recoverable code)
-         * this number does not include the added LRC parity fragments, only the source frags.
-         *
-         * sample layout:
-         * (data_frags=8 lrc_frags=4 D=data P=global-parity L=local-parity)
-         *
-         *      [D D D D] [D D D D] [P P P P]
-         *      [  L L  ] [  L L  ] [  L L  ]
-         *
-         */
-        data_frags: {
-            type: 'integer'
-        },
-        lrc_frags: {
-            type: 'integer'
+        frag_size: { type: 'integer' },
+
+        frags: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    _id: { objectid: true },
+                    data_index: { type: 'integer' },
+                    parity_index: { type: 'integer' },
+                    lrc_index: { type: 'integer' },
+                    digest: { binary: true },
+                }
+            }
         },
 
     }

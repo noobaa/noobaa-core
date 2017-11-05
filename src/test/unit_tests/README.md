@@ -40,14 +40,3 @@
     1) client - Return the rpc client
 
     2) new_client - Allocate and return a new client
-
-    3) init_test_nodes(client, system, count) - Performs the following
-        1. Creates Auth Token for new agent in the system,
-        2. Sets the agent control to work locally (will be removed once we support remote),
-        3. Starts all stopped agents
-
-    4) clear_test_nodes - Stops all agents and then clears them
-
-  In addition, it exposes all the core_agent_control API.
-
-  In the future, will expose all the client control API as well.

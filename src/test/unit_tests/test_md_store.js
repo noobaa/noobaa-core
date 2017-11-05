@@ -60,7 +60,7 @@ mocha.describe('md_store', function() {
                 .return();
         });
 
-        mocha.it('insert_object() bad schema', function() {
+        mocha.it('insert_object() detects missing key (bad schema)', function() {
             const info = {
                 _id: md_store.make_md_id(),
                 system: system_id,
@@ -241,22 +241,13 @@ mocha.describe('md_store', function() {
             _id: md_store.make_md_id(),
             system: system_id,
             size: 1,
-            digest_type: '',
-            digest_b64: '',
-            cipher_type: '',
-            cipher_key_b64: '',
-            data_frags: 1,
-            lrc_frags: 0,
+            frag_size: 1,
         }, {
             _id: md_store.make_md_id(),
             system: system_id,
             size: 2,
-            digest_type: '',
-            digest_b64: '',
-            cipher_type: '',
-            cipher_key_b64: '',
-            data_frags: 1,
-            lrc_frags: 0,
+            frag_size: 2,
+            digest: Buffer.from('not a real digest'),
         }];
 
         mocha.it('insert_chunks()', function() {
@@ -282,7 +273,15 @@ mocha.describe('md_store', function() {
 
         mocha.it('find_chunks_by_ids()', function() {
             return md_store.find_chunks_by_ids(_.map(chunks, '_id'))
-                .then(res => assert_equal_docs_list(res, chunks));
+                .then(res => {
+                    res.forEach(chunk => {
+                        if (chunk.digest) chunk.digest = chunk.digest.buffer;
+                        if (chunk.cipher_key) chunk.cipher_key = chunk.cipher_key.buffer;
+                        if (chunk.cipher_iv) chunk.cipher_iv = chunk.cipher_iv.buffer;
+                        if (chunk.cipher_auth_tag) chunk.cipher_auth_tag = chunk.cipher_auth_tag.buffer;
+                    });
+                    assert_equal_docs_list(res, chunks);
+                });
         });
 
         mocha.it('delete_chunks_by_ids()', function() {
@@ -300,11 +299,7 @@ mocha.describe('md_store', function() {
             node: md_store.make_md_id(),
             bucket: md_store.make_md_id(),
             chunk: md_store.make_md_id(),
-            layer: 'D',
-            frag: 0,
             size: 1,
-            digest_type: '',
-            digest_b64: '',
         }];
 
         mocha.it('insert_blocks()', function() {

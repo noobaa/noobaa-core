@@ -30,7 +30,7 @@
     "hosted_agents": "node src/hosted_agents/hosted_agents_starter",
     "tunnel": "sudo node src/tools/tcp_tunnel",
     "agent": "node src/agent/agent_cli",
-    "agents": "node src/agent/agent_cli --scale 20",
+    "agents": "node src/agent/agent_cli --scale 10",
     "start": "node src/server",
     "------": "---------------------------------------------------------------",
     "clean:storage": "rm -rf ./noobaa_storage*/ ./metadata_storage/* agent_conf*.json",

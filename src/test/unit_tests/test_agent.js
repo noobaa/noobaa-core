@@ -5,39 +5,18 @@
 const coretest = require('./coretest');
 coretest.setup();
 
-// var _ = require('lodash');
-var P = require('../../util/promise');
-var mocha = require('mocha');
-// var assert = require('assert');
+// const _ = require('lodash');
+// const P = require('../../util/promise');
+const mocha = require('mocha');
+// const assert = require('assert');
 
 mocha.describe('agent', function() {
 
-    var client = coretest.new_test_client();
+    mocha.it.skip('should run agents', function() {
+        this.timeout(20000); // eslint-disable-line no-invalid-this
 
-    const SYS = 'test-agent-system';
-    const EMAIL = SYS + '@coretest.coretest';
-    const PASSWORD = 'tululu';
+        // TODO test_agent is empty...
 
-    mocha.it('should run agents', function() {
-        const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(20000);
-
-        return P.resolve()
-            .then(() => coretest.create_system(client, {
-                activation_code: '1111',
-                name: SYS,
-                email: EMAIL,
-                password: PASSWORD
-            }))
-            .then(res => {
-                client.options.auth_token = res.token;
-            })
-            .then(() => coretest.init_test_nodes(client, SYS, 5))
-            .delay(2000)
-            .then(() => coretest.clear_test_nodes())
-            .catch(err => {
-                console.log('Failure during testing agent:' + err, err.stack);
-            });
     });
 
 });

@@ -12,29 +12,22 @@ const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
 const config = require('../../../config');
-const account_server = require('../../server/system_services/account_server');
-
-const s3_auth = new S3Auth();
 
 mocha.describe('system_servers', function() {
 
-    const PREFIX = 'coretest';
-    const SYS = PREFIX + '-system';
-    const POOL = PREFIX + '-pool';
-    const TIER = PREFIX + '-tier';
-    const TIERING_POLICY = PREFIX + '-tiering-policy';
-    const BUCKET = PREFIX + '-bucket';
-    const NAMESPACE_BUCKET = PREFIX + '-namespace-bucket';
-    const SYS1 = SYS + '-1';
-    const EMAIL_DOMAIN = '@coretest.coretest';
-    const EMAIL = SYS + EMAIL_DOMAIN;
-    const EMAIL1 = SYS1 + EMAIL_DOMAIN;
-    const PASSWORD = SYS + '-password';
+    const { rpc_client, SYSTEM, EMAIL, PASSWORD } = coretest;
+    const PREFIX = 'system-servers';
+    const POOL = `${PREFIX}-pool`;
+    const TIER = `${PREFIX}-tier`;
+    const TIERING_POLICY = `${PREFIX}-tiering-policy`;
+    const BUCKET = `${PREFIX}-bucket`;
+    const NAMESPACE_BUCKET = `${PREFIX}-namespace-bucket`;
+    const SYS1 = `${PREFIX}-${SYSTEM}-1`;
+    const EMAIL1 = `${PREFIX}-${EMAIL}`;
     const CLOUD_SYNC_CONNECTION = 'Connection 1';
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
-    const NAMESPACE_RESOURCE_NAME = PREFIX + '-namespace-resource';
+    const NAMESPACE_RESOURCE_NAME = `${PREFIX}-namespace-resource`;
     const SERVER_RESTART_DELAY = 10000;
-    const client = coretest.new_test_client();
     let server_secret = '';
     let nodes_list;
 
@@ -45,40 +38,26 @@ mocha.describe('system_servers', function() {
     mocha.it('account works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.account.accounts_status())
-            .then(res => assert(!res.has_accounts, '!has_accounts'))
-            .then(() => account_server.ensure_support_account())
-            .then(() => coretest.create_system(client, {
-                activation_code: '1111',
-                name: SYS,
-                email: EMAIL,
-                password: PASSWORD,
-            }))
-            .then(res => {
-                client.options.auth_token = res.token;
-            })
-            .then(() => client.account.accounts_status())
+            .then(() => rpc_client.account.accounts_status())
             .then(res => assert(res.has_accounts, 'has_accounts'))
-            .then(() => client.account.read_account({
+            .then(() => rpc_client.account.read_account({
                 email: EMAIL
             }))
-            .then(() => client.account.list_accounts())
-            .then(() => client.system.read_system())
-            .then(() => client.system.update_system({
-                name: SYS1,
-            }))
-            .then(() => client.account.update_account({
+            .then(() => rpc_client.account.list_accounts())
+            .then(() => rpc_client.system.read_system())
+            .then(() => rpc_client.account.update_account({
                 email: EMAIL,
-                name: SYS1,
+                name: EMAIL1,
             }))
-            .then(() => client.system.read_system())
-            .then(() => client.system.update_system({
-                name: SYS,
+            .then(() => rpc_client.system.read_system())
+            .then(() => rpc_client.account.update_account({
+                email: EMAIL,
+                name: EMAIL,
             }))
-            .then(() => client.account.create_account({
+            .then(() => rpc_client.account.create_account({
                 name: EMAIL1,
                 email: EMAIL1,
-                password: PASSWORD,
+                password: EMAIL1,
                 has_login: true,
                 s3_access: true,
                 allowed_buckets: {
@@ -87,26 +66,26 @@ mocha.describe('system_servers', function() {
                 },
                 default_pool: config.NEW_SYSTEM_POOL_NAME
             }))
-            .then(() => client.system.read_system())
-            .then(() => client.system.add_role({
+            .then(() => rpc_client.system.read_system())
+            .then(() => rpc_client.system.add_role({
                 email: EMAIL1,
                 role: 'admin',
             }))
-            .then(() => client.system.read_system())
-            .then(() => client.system.remove_role({
+            .then(() => rpc_client.system.read_system())
+            .then(() => rpc_client.system.remove_role({
                 email: EMAIL1,
                 role: 'admin',
             }))
-            .then(() => client.system.read_system())
-            .then(() => client.account.delete_account({
+            .then(() => rpc_client.system.read_system())
+            .then(() => rpc_client.account.delete_account({
                 email: EMAIL1
             }))
-            .then(() => client.system.read_system())
+            .then(() => rpc_client.system.read_system())
             .then(res => {
                 server_secret = res.cluster.master_secret;
-                return client.system.list_systems();
+                return rpc_client.system.list_systems();
             })
-            .then(() => client.events.read_activity_log({
+            .then(() => rpc_client.events.read_activity_log({
                 limit: 2016
             }));
     });
@@ -118,27 +97,26 @@ mocha.describe('system_servers', function() {
     mocha.it('auth works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.auth.read_auth())
-            .then(() => client.auth.create_auth({
+            .then(() => rpc_client.auth.read_auth())
+            .then(() => rpc_client.auth.create_auth({
+                system: SYSTEM,
                 email: EMAIL,
                 password: PASSWORD,
-                system: SYS,
             }))
-            .then(() => P.resolve(client.system.read_system())
-                .then(res => client.auth.create_access_key_auth({
-                    access_key: res.owner.access_keys[0].access_key,
-                    string_to_sign: '',
-                    signature: s3_auth.sign(res.owner.access_keys[0].secret_key, '')
-                }).then(() => res))
-                .then(res => client.auth.create_access_key_auth({
-                    access_key: res.owner.access_keys[0].access_key,
-                    string_to_sign: 'blabla',
-                    signature: 'blibli'
-                }))
-                .then(
-                    () => assert.ifError('should fail with UNAUTHORIZED'),
-                    err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED')
-                )
+            .then(() => rpc_client.system.read_system())
+            .then(res => rpc_client.auth.create_access_key_auth({
+                access_key: res.owner.access_keys[0].access_key,
+                string_to_sign: '',
+                signature: new S3Auth().sign(res.owner.access_keys[0].secret_key, '')
+            }).then(() => res))
+            .then(res => rpc_client.auth.create_access_key_auth({
+                access_key: res.owner.access_keys[0].access_key,
+                string_to_sign: 'blabla',
+                signature: 'blibli'
+            }))
+            .then(
+                () => assert.ifError('should fail with UNAUTHORIZED'),
+                err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED')
             );
     });
 
@@ -150,66 +128,53 @@ mocha.describe('system_servers', function() {
     mocha.it('system works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.system.update_base_address({
+            .then(() => rpc_client.system.update_base_address({
                 base_address: 'fcall://fcall'
             }))
-            .then(() => client.system.update_n2n_config({
+            .then(() => rpc_client.system.update_n2n_config({
                 tcp_active: true
             }))
-            //.then(() => client.system.start_debug({level:0}))
-            .then(() => client.cluster_server.update_time_config({
+            //.then(() => rpc_client.system.start_debug({level:0}))
+            .then(() => rpc_client.cluster_server.update_time_config({
                 epoch: Math.round(Date.now() / 1000),
                 target_secret: server_secret,
                 timezone: "Asia/Jerusalem"
             }))
-            .then(() => client.cluster_server.update_dns_servers({
+            .then(() => rpc_client.cluster_server.update_dns_servers({
                 target_secret: server_secret,
                 dns_servers: ['8.8.8.8']
             }))
             .delay(SERVER_RESTART_DELAY)
-            .then(() => client.cluster_server.update_dns_servers({
+            .then(() => rpc_client.cluster_server.update_dns_servers({
                 target_secret: server_secret,
                 dns_servers: ['8.8.8.8', '8.8.4.4']
             }))
             .delay(SERVER_RESTART_DELAY)
-            .then(() => client.cluster_server.update_time_config({
+            .then(() => rpc_client.cluster_server.update_time_config({
                 timezone: "Asia/Jerusalem",
                 target_secret: server_secret,
                 ntp_server: 'pool.ntp.org'
             }))
-            .then(() => client.cluster_server.update_dns_servers({
+            .then(() => rpc_client.cluster_server.update_dns_servers({
                 target_secret: server_secret,
                 dns_servers: ['8.8.8.8', '8.8.4.4'],
                 search_domains: ['noobaa']
             }))
             .delay(SERVER_RESTART_DELAY)
-            .then(() => client.cluster_server.diagnose_system({}))
-            .then(() => client.cluster_server.diagnose_system({
+            .then(() => rpc_client.cluster_server.diagnose_system({}))
+            .then(() => rpc_client.cluster_server.diagnose_system({
                 target_secret: server_secret,
             }))
-            .then(() => client.system.update_system({
+            .then(() => rpc_client.system.update_system({
                 name: SYS1,
             }))
-            .then(() => client.create_auth_token({
+            .then(() => rpc_client.create_auth_token({
                 email: EMAIL,
                 password: PASSWORD,
                 system: SYS1,
             }))
-            .then(() => client.system.delete_system())
-            .then(() => {
-                // reset the token after delete system, because it is invalid
-                client.options.auth_token = '';
-            })
-            .then(() => coretest.create_system(client, {
-                activation_code: '1111',
-                name: SYS,
-                email: EMAIL1,
-                password: PASSWORD,
-            }))
-            .then(() => client.create_auth_token({
-                email: EMAIL1,
-                password: PASSWORD,
-                system: SYS,
+            .then(() => rpc_client.system.update_system({
+                name: SYSTEM,
             }));
     });
 
@@ -220,36 +185,35 @@ mocha.describe('system_servers', function() {
     mocha.it('pool works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => coretest.init_test_nodes(client, SYS, 6))
-            .then(() => client.node.list_nodes({}))
+            .then(() => rpc_client.node.list_nodes({}))
             .then(res => {
                 nodes_list = res.nodes;
                 console.log('nodes_list', _.map(nodes_list, 'name'));
-                assert.strictEqual(nodes_list.length, 6);
+                assert(nodes_list.length >= 6, `${nodes_list.length} >= 6`);
             })
-            .then(() => client.pool.create_nodes_pool({
+            .then(() => rpc_client.pool.create_nodes_pool({
                 name: POOL,
                 nodes: _.map(nodes_list.slice(0, 3),
                     node => _.pick(node, 'name')),
             }))
-            .then(() => client.pool.read_pool({
+            .then(() => rpc_client.pool.read_pool({
                 name: POOL,
             }))
-            .then(() => client.pool.assign_nodes_to_pool({
+            .then(() => rpc_client.pool.assign_nodes_to_pool({
                 name: POOL,
                 nodes: _.map(nodes_list.slice(3, 6),
                     node => _.pick(node, 'name')),
             }))
-            .then(() => client.pool.assign_nodes_to_pool({
+            .then(() => rpc_client.pool.assign_nodes_to_pool({
                 name: config.NEW_SYSTEM_POOL_NAME,
                 nodes: _.map([nodes_list[1], nodes_list[3], nodes_list[5]],
                     node => _.pick(node, 'name')),
             }))
-            .then(() => client.system.read_system())
-            .then(() => client.pool.list_pool_nodes({
+            .then(() => rpc_client.system.read_system())
+            .then(() => rpc_client.pool.list_pool_nodes({
                 name: POOL
             }))
-            .then(() => client.pool.get_associated_buckets({
+            .then(() => rpc_client.pool.get_associated_buckets({
                 name: POOL
             }));
     });
@@ -261,19 +225,19 @@ mocha.describe('system_servers', function() {
     mocha.it('tier works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.tier.create_tier({
+            .then(() => rpc_client.tier.create_tier({
                 name: TIER,
                 attached_pools: [POOL],
                 data_placement: 'SPREAD',
             }))
-            .then(() => client.tier.read_tier({
+            .then(() => rpc_client.tier.read_tier({
                 name: TIER,
             }))
-            .then(() => client.tier.update_tier({
+            .then(() => rpc_client.tier.update_tier({
                 name: TIER,
                 data_placement: 'MIRROR',
             }))
-            .then(() => client.system.read_system());
+            .then(() => rpc_client.system.read_system());
     });
 
     //////////////////////
@@ -283,7 +247,7 @@ mocha.describe('system_servers', function() {
     mocha.it('tiering policy works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.tiering_policy.create_policy({
+            .then(() => rpc_client.tiering_policy.create_policy({
                 name: TIERING_POLICY,
                 tiers: [{
                     order: 0,
@@ -292,10 +256,10 @@ mocha.describe('system_servers', function() {
                     disabled: false
                 }]
             }))
-            .then(() => client.tiering_policy.read_policy({
+            .then(() => rpc_client.tiering_policy.read_policy({
                 name: TIERING_POLICY
             }))
-            .then(() => client.tiering_policy.update_policy({
+            .then(() => rpc_client.tiering_policy.update_policy({
                     name: TIERING_POLICY,
                     tiers: [{
                         order: 0,
@@ -311,10 +275,10 @@ mocha.describe('system_servers', function() {
                 })
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
             )
-            .then(() => client.tiering_policy.get_policy_pools({
+            .then(() => rpc_client.tiering_policy.get_policy_pools({
                 name: TIERING_POLICY
             }))
-            .then(() => client.system.read_system());
+            .then(() => rpc_client.system.read_system());
     });
 
     //////////////
@@ -324,46 +288,46 @@ mocha.describe('system_servers', function() {
     mocha.it('bucket works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.bucket.create_bucket({
+            .then(() => rpc_client.bucket.create_bucket({
                 name: BUCKET,
                 tiering: TIERING_POLICY,
             }))
-            .then(() => client.bucket.read_bucket({
+            .then(() => rpc_client.bucket.read_bucket({
                 name: BUCKET,
             }))
-            .then(() => client.bucket.list_buckets())
-            .then(() => client.bucket.update_bucket({
+            .then(() => rpc_client.bucket.list_buckets())
+            .then(() => rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 new_name: BUCKET + 1,
                 tiering: TIERING_POLICY //'default_tiering',
             }))
-            .then(() => client.bucket.read_bucket({
+            .then(() => rpc_client.bucket.read_bucket({
                 name: BUCKET + 1,
             }))
-            .then(() => client.bucket.update_bucket({
+            .then(() => rpc_client.bucket.update_bucket({
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
-            .then(() => client.bucket.update_bucket({
+            .then(() => rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 quota: {
                     size: 10,
                     unit: 'TERABYTE'
                 }
             }))
-            .then(() => client.bucket.read_bucket({
+            .then(() => rpc_client.bucket.read_bucket({
                 name: BUCKET,
             }))
             .then(info => assert(info.quota && info.quota.size === 10 && info.quota.unit === 'TERABYTE'))
-            .then(() => client.bucket.update_bucket({
+            .then(() => rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 quota: null
             }))
-            .then(() => client.bucket.read_bucket({
+            .then(() => rpc_client.bucket.read_bucket({
                 name: BUCKET,
             }))
             .then(info => assert(_.isUndefined(info.quota)))
-            .then(() => client.bucket.update_bucket({
+            .then(() => rpc_client.bucket.update_bucket({
                     name: BUCKET,
                     quota: {
                         size: 0,
@@ -387,32 +351,32 @@ mocha.describe('system_servers', function() {
                 'for testing account.add_external_connection()');
         }
         return P.resolve()
-            .then(() => client.account.add_external_connection({
+            .then(() => rpc_client.account.add_external_connection({
                 name: NAMESPACE_RESOURCE_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
                 endpoint_type: 'AWS',
                 identity: process.env.AWS_ACCESS_KEY_ID,
                 secret: process.env.AWS_SECRET_ACCESS_KEY
             }))
-            .then(() => client.pool.create_namespace_resource({
+            .then(() => rpc_client.pool.create_namespace_resource({
                 name: NAMESPACE_RESOURCE_NAME,
                 connection: NAMESPACE_RESOURCE_CONNECTION,
                 target_bucket: BUCKET
             }))
-            .then(() => client.bucket.create_bucket({
+            .then(() => rpc_client.bucket.create_bucket({
                 name: NAMESPACE_BUCKET,
                 namespace: {
                     read_resources: [NAMESPACE_RESOURCE_NAME],
                     write_resource: NAMESPACE_RESOURCE_NAME
                 },
             }))
-            .then(() => client.bucket.delete_bucket({
+            .then(() => rpc_client.bucket.delete_bucket({
                 name: NAMESPACE_BUCKET,
             }))
-            .then(() => client.pool.delete_namespace_resource({
+            .then(() => rpc_client.pool.delete_namespace_resource({
                 name: NAMESPACE_RESOURCE_NAME,
             }))
-            .then(() => client.account.delete_external_connection({
+            .then(() => rpc_client.account.delete_external_connection({
                 connection_name: NAMESPACE_RESOURCE_CONNECTION,
             }));
     });
@@ -427,24 +391,24 @@ mocha.describe('system_servers', function() {
                 'for testing account.add_external_connection()');
         }
         return P.resolve()
-            .then(() => client.account.add_external_connection({
+            .then(() => rpc_client.account.add_external_connection({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
                 endpoint_type: 'AWS',
                 identity: process.env.AWS_ACCESS_KEY_ID,
                 secret: process.env.AWS_SECRET_ACCESS_KEY
             }))
-            .then(() => client.account.delete_external_connection({
+            .then(() => rpc_client.account.delete_external_connection({
                 connection_name: CLOUD_SYNC_CONNECTION,
             }))
-            .then(() => client.account.add_external_connection({
+            .then(() => rpc_client.account.add_external_connection({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
                 endpoint_type: 'AWS',
                 identity: process.env.AWS_ACCESS_KEY_ID,
                 secret: process.env.AWS_SECRET_ACCESS_KEY
             }))
-            .then(() => client.bucket.set_cloud_sync({
+            .then(() => rpc_client.bucket.set_cloud_sync({
                 name: BUCKET,
                 connection: CLOUD_SYNC_CONNECTION,
                 target_bucket: BUCKET,
@@ -452,18 +416,18 @@ mocha.describe('system_servers', function() {
                     schedule_min: 11
                 }
             }))
-            // .then(() => client.bucket.get_cloud_buckets({
+            // .then(() => rpc_client.bucket.get_cloud_buckets({
             //     connection: CLOUD_SYNC_CONNECTION
             // }))
-            .then(() => client.system.read_system())
-            // .then(() => client.bucket.get_cloud_sync({
+            .then(() => rpc_client.system.read_system())
+            // .then(() => rpc_client.bucket.get_cloud_sync({
             //     name: BUCKET,
             // }))
-            .then(() => client.bucket.delete_cloud_sync({
+            .then(() => rpc_client.bucket.delete_cloud_sync({
                 name: BUCKET,
             }))
-            .then(() => client.bucket.get_all_cloud_sync())
-            .then(() => client.system.read_system());
+            .then(() => rpc_client.bucket.get_all_cloud_sync())
+            .then(() => rpc_client.system.read_system());
     });
 
     /////////////
@@ -473,10 +437,10 @@ mocha.describe('system_servers', function() {
     mocha.it('stats works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.stats.get_systems_stats({}))
-            .then(() => client.stats.get_nodes_stats({}))
-            .then(() => client.stats.get_ops_stats({}))
-            .then(() => client.stats.get_all_stats({}));
+            .then(() => rpc_client.stats.get_systems_stats({}))
+            .then(() => rpc_client.stats.get_nodes_stats({}))
+            .then(() => rpc_client.stats.get_ops_stats({}))
+            .then(() => rpc_client.stats.get_all_stats({}));
     });
 
     ////////////
@@ -486,7 +450,7 @@ mocha.describe('system_servers', function() {
     mocha.it('misc works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.debug.set_debug_level({
+            .then(() => rpc_client.debug.set_debug_level({
                 module: 'rpc',
                 level: 0
             }));
@@ -499,10 +463,10 @@ mocha.describe('system_servers', function() {
     mocha.it('deletions works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => client.bucket.delete_bucket({
+            .then(() => rpc_client.bucket.delete_bucket({
                 name: BUCKET,
             }))
-            .then(() => client.tiering_policy.delete_policy({
+            .then(() => rpc_client.tiering_policy.delete_policy({
                     name: TIERING_POLICY,
                 })
                 .then(res => {
@@ -513,7 +477,7 @@ mocha.describe('system_servers', function() {
                     if (err.rpc_code !== 'NO_SUCH_TIERING_POLICY') throw err;
                 })
             )
-            .then(() => client.tier.delete_tier({
+            .then(() => rpc_client.tier.delete_tier({
                     name: TIER,
                 })
                 .then(() => {
@@ -524,15 +488,15 @@ mocha.describe('system_servers', function() {
                     if (err.rpc_code !== 'NO_SUCH_TIER') throw err;
                 })
             )
-            .then(() => client.pool.assign_nodes_to_pool({
+            .then(() => rpc_client.pool.assign_nodes_to_pool({
                 name: config.NEW_SYSTEM_POOL_NAME,
                 nodes: _.map(nodes_list, node => _.pick(node, 'name')),
             }))
-            .then(() => client.pool.delete_pool({
+            .then(() => rpc_client.pool.delete_pool({
                 name: POOL,
             }))
-            .then(() => client.system.read_system())
-            .then(() => coretest.clear_test_nodes())
-            .then(() => client.system.delete_system());
+            .then(() => rpc_client.system.read_system());
+            // .then(() => coretest.clear_test_nodes())
+            // .then(() => rpc_client.system.delete_system());
     });
 });

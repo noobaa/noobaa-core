@@ -5,9 +5,9 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
+const mapper = require('./mapper');
 const MDStore = require('./md_store').MDStore;
 const js_utils = require('../../util/js_utils');
-const map_utils = require('./map_utils');
 const Semaphore = require('../../util/semaphore');
 const server_rpc = require('../server_rpc');
 const map_deleter = require('./map_deleter');
@@ -19,7 +19,6 @@ const KeysLock = require('../../util/keys_lock');
 
 const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY_GLOBAL);
 const builder_lock = new KeysLock();
-
 
 /**
  *
@@ -52,9 +51,7 @@ class MapBuilder {
             ))
             .spread(parts_objects_res => this.prepare_and_fix_chunks(parts_objects_res))
             .then(() => this.refresh_alloc())
-            .then(() => this.analyze_chunks())
-            .then(() => this.allocate_blocks())
-            .then(() => this.replicate_blocks())
+            .then(() => this.build_chunks())
             .then(() => this.update_db())
             .then(() => {
                 // return error from the promise if any replication failed,
@@ -96,6 +93,7 @@ class MapBuilder {
         const objects_by_id = _.keyBy(objects, '_id');
         return P.map(this.chunks, chunk => {
             // if other actions should be done to prepare a chunk for build, those actions should be added here
+            chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
             chunk.parts = parts_by_chunk[chunk._id];
             chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj])));
             return P.resolve()
@@ -164,51 +162,43 @@ class MapBuilder {
         return P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
     }
 
-    analyze_chunks() {
-        _.each(this.chunks, chunk => {
-            if (chunk.had_errors || chunk.bucket.deleted) return;
-            map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
+    build_chunks() {
+        return P.map(this.chunks, chunk => {
+            dbg.log2('MapBuilder.build_chunks:', chunk);
 
-            chunk.status = map_utils.get_chunk_status(
-                chunk,
-                chunk.bucket.tiering, {
-                    tiering_status: node_allocator.get_tiering_status(chunk.bucket.tiering)
-                });
+            if (chunk.had_errors || chunk.bucket.deleted) return;
+
+            const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
+            const mapping = mapper.map_chunk(chunk, chunk.bucket.tiering, tiering_status);
 
             // first allocate the basic allocations of the chunk.
             // if there are no allocations, then try to allocate extra_allocations for special replicas
-            chunk.current_cycle_allocations = chunk.status.allocations.length ?
-                chunk.status.allocations :
-                chunk.status.extra_allocations;
+            const current_cycle_allocations = mapping.allocations || mapping.extra_allocations;
 
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
-            if (chunk.status.accessible &&
-                !chunk.status.allocations.length &&
-                chunk.status.deletions.length) {
+            if (mapping.accessible && !mapping.allocations && mapping.deletions) {
                 this.delete_blocks = this.delete_blocks || [];
-                js_utils.array_push_all(this.delete_blocks, chunk.status.deletions);
+                js_utils.array_push_all(this.delete_blocks, mapping.deletions);
             }
-        });
-    }
 
-    allocate_blocks() {
-        _.each(this.chunks, chunk => {
-            if (!chunk.status) return;
             const avoid_nodes = chunk.blocks.map(block => String(block.node._id));
             const allocated_hosts = chunk.blocks.map(block => block.node.host_id);
-            _.each(chunk.current_cycle_allocations, alloc => {
-                const f = alloc.fragment;
+
+            if (!current_cycle_allocations) return;
+
+            _.each(current_cycle_allocations, alloc => {
+                const { frag, pools, special_replica } = alloc;
+                dbg.log2('MapBuilder.build_chunks:', chunk._id, 'frag', frag);
                 // We send an additional flag in order to allocate
                 // replicas of content tiering feature on the best read latency nodes
-                const node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts, {
-                    special_replica: chunk.is_special
-                });
+                const node = node_allocator.allocate_node(
+                    pools, avoid_nodes, allocated_hosts, { special_replica });
                 if (!node) {
                     // In case of special chunks replication we consider it opportunistic
                     // Which means that they will be replicated when there are enough nodes
                     // They do not need to fail the rebuilding process
-                    if (alloc.special_replica) {
+                    if (special_replica) {
                         dbg.error('MapBuilder: special chunk no nodes for allocation');
                         return;
                     }
@@ -218,51 +208,39 @@ class MapBuilder {
                     this.had_errors = true;
                     return;
                 }
-                const block = _.pick(f,
-                    'layer',
-                    'layer_n',
-                    'frag',
-                    'size',
-                    'digest_type',
-                    'digest_b64');
-                block._id = MDStore.instance().make_md_id();
-                map_utils.assign_node_to_block(block, node, chunk.system);
-                block.system = chunk.system;
-                block.chunk = chunk;
-                block.bucket = chunk.bucket._id;
+                const block = {
+                    _id: MDStore.instance().make_md_id(),
+                    chunk,
+                    frag: frag._id,
+                    size: chunk.frag_size,
+                    system: chunk.system,
+                    bucket: chunk.bucket._id,
+                };
+                mapper.assign_node_to_block(block, node, chunk.system);
                 alloc.block = block;
                 avoid_nodes.push(String(node._id));
                 allocated_hosts.push(node.host_id);
             });
-        });
-    }
 
-    replicate_blocks() {
-        return P.all(_.map(this.chunks, chunk => {
-            if (!chunk.status) return;
-            return P.all(_.map(chunk.current_cycle_allocations, alloc => {
-                const block = alloc.block;
-                if (!block) {
-                    // block that failed to allocate - skip replicate.
-                    return;
-                }
+            return P.map(current_cycle_allocations, alloc => {
+                const { frag, block, sources } = alloc;
+                dbg.log2('MapBuilder.build_chunks:', chunk._id, 'frag', frag);
 
-                const f = alloc.fragment;
-                f.accessible_blocks = f.accessible_blocks ||
-                    _.filter(f.blocks, b => map_utils.is_block_accessible(b));
-                f.next_source = f.next_source || 0;
-                const source_block = f.accessible_blocks[f.next_source];
-                //if no accessible_blocks - skip replication
-                if (!source_block) {
-                    return;
-                }
-                f.next_source = (f.next_source + 1) % f.accessible_blocks.length;
+                // block that failed to allocate - skip replicate.
+                if (!block) return;
 
-                const target = map_utils.get_block_md(block);
-                const source = map_utils.get_block_md(source_block);
+                const source_block = sources.accessible_blocks[sources.next_source];
 
-                dbg.log1('MapBuilder.replicate_blocks: replicating to', target,
-                    'from', source, 'chunk', chunk);
+                // TODO GUY GAP rebuild chunk from erasure codes
+
+                // if no accessible_blocks - skip replication
+                if (!source_block) return;
+                sources.next_source = (sources.next_source + 1) % sources.accessible_blocks.length;
+
+                const target = mapper.get_block_md(chunk, frag, block);
+                const source = mapper.get_block_md(chunk, frag, source_block);
+
+                dbg.log1('MapBuilder: replicating to', target, 'from', source, 'chunk', chunk);
                 return replicate_block_sem.surround(
                         () => server_rpc.client.block_store.replicate_block({
                             target: target,
@@ -274,19 +252,19 @@ class MapBuilder {
                     .then(() => {
                         this.new_blocks = this.new_blocks || [];
                         this.new_blocks.push(block);
-                        dbg.log1('MapBuilder.replicate_blocks: replicated block',
+                        dbg.log1('MapBuilder: replicated block',
                             block._id, 'to', target.address, 'from', source.address);
                     }, err => {
-                        dbg.error('MapBuilder.replicate_blocks: FAILED replicate block',
+                        dbg.error('MapBuilder: FAILED replicate block',
                             block._id, 'to', target.address, 'from', source.address,
                             err.stack || err);
                         chunk.had_errors = true;
                         this.had_errors = true;
                         // don't fail here yet to allow handling the successful blocks
-                        // so just keep the error, and we will fail at the end of build_chunks
+                        // so just keep the error, and we will fail at the end of MapBuilder.run()
                     });
-            }));
-        }));
+            });
+        });
     }
 
     update_db() {
@@ -295,11 +273,11 @@ class MapBuilder {
             const bucket = block.chunk.bucket;
             const block_id_time = block._id.getTimestamp().getTime();
             if (block_id_time < now.getTime() - (config.MD_GRACE_IN_MILLISECONDS - config.MD_AGGREGATOR_INTERVAL)) {
-                dbg.error('update_db: A big gap was found between id creation and addition to DB:',
+                dbg.error('MapBuilder.update_db: A big gap was found between id creation and addition to DB:',
                     block, bucket.name, block_id_time, now.getTime());
             }
             if (block_id_time < bucket.storage_stats.last_update + config.MD_AGGREGATOR_INTERVAL) {
-                dbg.error('finalize_object_parts: A big gap was found between id creation and bucket last update:',
+                dbg.error('MapBuilder.update_db: A big gap was found between id creation and bucket last update:',
                     block, bucket.name, block_id_time, bucket.storage_stats.last_update);
             }
             block.node = mongo_utils.make_object_id(block.node._id);

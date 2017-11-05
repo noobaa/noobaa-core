@@ -62,8 +62,8 @@ config.AMZ_DATE_MAX_TIME_SKEW_MILLIS = 15 * 60 * 1000;
 // MD CONFIG //
 ///////////////
 
-// TODO DEDUP is temporarily disabled for capacity. Will enable once resolving the issues.
-config.DEDUP_ENABLED = false;
+config.DEDUP_ENABLED = true;
+
 // Date was chosen as default NooBaa epoch date 2015
 config.NOOBAA_EPOCH = 1430006400000;
 config.NEW_SYSTEM_POOL_NAME = 'first.pool';
@@ -144,6 +144,13 @@ config.SCRUBBER_RESTART_DELAY = 30000;
 //////////////////
 // CHUNK CONFIG //
 //////////////////
+
+// SPECIAL
+config.SPECIAL_CHUNK_REPLICA_MULTIPLIER = 2;
+config.SPECIAL_CHUNK_CONTENT_TYPES = [
+    'video/mp4',
+    'video/webm',
+];
 
 // SPLIT
 config.CHUNK_SPLIT_AVG_CHUNK = 4 * 1024 * 1024;

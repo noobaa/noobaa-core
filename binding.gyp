@@ -3,7 +3,7 @@
         'target_name': 'all',
         'type': 'none',
         'dependencies': [
-            'src/native/native.gyp:*'
+            'src/native/nb_native.gyp:*',
         ]
     }]
 }

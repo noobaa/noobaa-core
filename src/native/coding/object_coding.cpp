@@ -1,10 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 #include "object_coding.h"
 #include "../util/buf.h"
-#include "../util/crypto.h"
 #include "../util/compression.h"
+#include "../util/crypto.h"
+#include <deque>
 
-namespace noobaa {
+namespace noobaa
+{
 
 Nan::Persistent<v8::Function> ObjectCoding::_ctor;
 
@@ -70,8 +72,7 @@ NAN_METHOD(ObjectCoding::new_instance)
     info.GetReturnValue().Set(self);
 }
 
-struct Fragment
-{
+struct Fragment {
     Buf block;
     std::string layer;
     int layer_n;
@@ -98,6 +99,7 @@ private:
     int _compress_size;
     std::deque<Fragment> _frags;
     std::string _bad_compress;
+
 public:
     explicit EncodeWorker(
         ObjectCoding& coding,
@@ -151,7 +153,7 @@ public:
                 _secret = Buf(32);
                 RAND_bytes(_secret.data(), _secret.length());
             } else {
-                _secret = Buf(_coding._cipher_key_b64, Buf::BASE64);
+                _secret = Buf(_coding._cipher_key_b64, Buf::Encoding::BASE64);
             }
             // IV is just zeros since the key is unique then IV is not needed
             static Buf iv(64, 0);
@@ -167,13 +169,13 @@ public:
         const int parity_frags = _coding._parity_frags;
         const int lrc_frags = _coding._lrc_frags;
         const int lrc_parity = _coding._lrc_parity;
-        const int lrc_groups = (lrc_frags==0) ? 0 : (data_frags + parity_frags) / lrc_frags;
+        const int lrc_groups = (lrc_frags == 0) ? 0 : (data_frags + parity_frags) / lrc_frags;
         const int lrc_total_frags = lrc_groups * lrc_parity;
         const int block_len = (encrypted_len + data_frags - 1) / data_frags;
         _frags.resize(data_frags + parity_frags + lrc_total_frags);
-        for (int i=0; i<data_frags; ++i) {
+        for (int i = 0; i < data_frags; ++i) {
             Fragment& f = _frags[i];
-            f.block = Buf(encrypted, i*block_len, block_len);
+            f.block = Buf(encrypted, i * block_len, block_len);
             f.layer = "D";
             f.layer_n = 0;
             f.frag = i;
@@ -181,12 +183,12 @@ public:
 
         // TODO this is not erasure code, it's just XOR of all blocks to test performance
 
-        for (int i=0; i<parity_frags; ++i) {
+        for (int i = 0; i < parity_frags; ++i) {
             Buf parity(block_len, 0);
             uint8_t* target = parity.data();
-            for (int j=0; j<data_frags; ++j) {
+            for (int j = 0; j < data_frags; ++j) {
                 const uint8_t* source = _frags[j].block.data();
-                for (int k=0; k<block_len; ++k) {
+                for (int k = 0; k < block_len; ++k) {
                     target[k] ^= source[k];
                 }
             }
@@ -196,17 +198,17 @@ public:
             f.layer_n = 0;
             f.frag = i;
         }
-        for (int l=0; l<lrc_groups; ++l) {
-            for (int i=0; i<lrc_parity; ++i) {
+        for (int l = 0; l < lrc_groups; ++l) {
+            for (int i = 0; i < lrc_parity; ++i) {
                 Buf parity(block_len, 0);
                 uint8_t* target = parity.data();
-                for (int j=0; j<lrc_frags; ++j) {
-                    const uint8_t* source = _frags[(l*lrc_frags) + j].block.data();
-                    for (int k=0; k<block_len; ++k) {
+                for (int j = 0; j < lrc_frags; ++j) {
+                    const uint8_t* source = _frags[(l * lrc_frags) + j].block.data();
+                    for (int k = 0; k < block_len; ++k) {
                         target[k] ^= source[k];
                     }
                 }
-                Fragment& f = _frags[data_frags + parity_frags + (l*lrc_parity) + i];
+                Fragment& f = _frags[data_frags + parity_frags + (l * lrc_parity) + i];
                 f.block = parity;
                 f.layer = "LRC";
                 f.layer_n = l;
@@ -216,7 +218,7 @@ public:
 
         // COMPUTE BLOCKS HASH
         if (!_coding._frag_digest_type.empty()) {
-            for (size_t i=0; i<_frags.size(); ++i) {
+            for (size_t i = 0; i < _frags.size(); ++i) {
                 Fragment& f = _frags[i];
                 f.digest_type = _coding._frag_digest_type;
                 f.digest_buf = Crypto::digest(f.block, f.digest_type.c_str());
@@ -230,7 +232,7 @@ public:
         if (!_bad_compress.empty()) {
             auto err = NAN_ERR("CHUNK COMPRESS ERROR");
             NAN_SET_STR(err, "compress_error", _bad_compress);
-            v8::Local<v8::Value> argv[] = { err };
+            v8::Local<v8::Value> argv[] = {err};
             _callback->Call(1, argv);
         } else {
             auto obj = NAN_NEW_OBJ();
@@ -250,7 +252,7 @@ public:
             NAN_SET_INT(obj, "data_frags", _coding._data_frags);
             NAN_SET_INT(obj, "lrc_frags", _coding._lrc_frags);
             auto frags = NAN_NEW_ARR(_frags.size());
-            for (size_t i=0; i<_frags.size(); ++i) {
+            for (size_t i = 0; i < _frags.size(); ++i) {
                 Fragment& f = _frags[i];
                 auto frag_obj = NAN_NEW_OBJ();
                 NAN_SET_STR(frag_obj, "layer", f.layer);
@@ -264,14 +266,12 @@ public:
                 NAN_SET(frags, i, frag_obj);
             }
             NAN_SET(obj, "frags", frags);
-            v8::Local<v8::Value> argv[] = { Nan::Undefined(), obj };
+            v8::Local<v8::Value> argv[] = {Nan::Undefined(), obj};
             _callback->Call(2, argv);
         }
         delete this;
     }
-
 };
-
 
 /**
  *
@@ -282,7 +282,7 @@ public:
 class ObjectCoding::DecodeWorker : public ThreadPool::Worker
 {
 private:
-    ObjectCoding& _coding;
+    // ObjectCoding &_coding;
     Nan::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
     std::string _digest_type;
@@ -298,14 +298,15 @@ private:
     std::deque<Buf> _bad_frags_digests;
     Buf _bad_chunk_digest;
     std::string _bad_decompress;
+
 public:
     explicit DecodeWorker(
         ObjectCoding& coding,
         v8::Handle<v8::Object> object_coding_handle,
         v8::Handle<v8::Object> chunk,
         NanCallbackSharedPtr callback)
-        : _coding(coding)
-        , _callback(callback)
+        // : _coding(coding)
+        : _callback(callback)
     {
         auto persistent = NAN_NEW_OBJ();
         NAN_SET(persistent, 0, object_coding_handle);
@@ -319,21 +320,21 @@ public:
         _digest_type = NAN_GET_STR(chunk, "digest_type");
         _compress_type = NAN_GET_STR(chunk, "compress_type");
         _cipher_type = NAN_GET_STR(chunk, "cipher_type");
-        _digest = Buf(std::string(NAN_GET_STR(chunk, "digest_b64")), Buf::BASE64);
-        _secret = Buf(std::string(NAN_GET_STR(chunk, "cipher_key_b64")), Buf::BASE64);
+        _digest = Buf(std::string(NAN_GET_STR(chunk, "digest_b64")), Buf::Encoding::BASE64);
+        _secret = Buf(std::string(NAN_GET_STR(chunk, "cipher_key_b64")), Buf::Encoding::BASE64);
         _size = NAN_GET_INT(chunk, "size");
         _compress_size = NAN_GET_INT(chunk, "compress_size");
         _data_frags = NAN_GET_INT(chunk, "data_frags");
         auto frags = NAN_GET_ARR(chunk, "frags");
         _frags.resize(frags->Length());
-        for (size_t i=0; i<_frags.size(); ++i) {
+        for (size_t i = 0; i < _frags.size(); ++i) {
             Fragment& f = _frags[i];
             auto frag = NAN_GET_OBJ(frags, i);
             f.layer = NAN_GET_STR(frag, "layer");
             f.layer_n = NAN_GET_INT(frag, "layer_n");
             f.frag = NAN_GET_INT(frag, "frag");
             f.digest_type = NAN_GET_STR(frag, "digest_type");
-            f.digest_buf = Buf(std::string(NAN_GET_STR(frag, "digest_b64")), Buf::BASE64);
+            f.digest_buf = Buf(std::string(NAN_GET_STR(frag, "digest_b64")), Buf::Encoding::BASE64);
             f.block = NAN_GET_BUF(frag, "block");
         }
     }
@@ -346,7 +347,7 @@ public:
     virtual void work() //override (override requires C++11, N/A before gcc-4.7)
     {
         // VERIFY BLOCKS HASH
-        for (size_t i=0; i<_frags.size(); ++i) {
+        for (size_t i = 0; i < _frags.size(); ++i) {
             Fragment& f = _frags[i];
             if (!f.digest_type.empty()) {
                 Buf digest_buf = Crypto::digest(f.block, f.digest_type.c_str());
@@ -359,10 +360,10 @@ public:
                     << f.digest_buf.length()
                     << " hex " << f.digest_buf.hex()
                     << " base64 " << f.digest_buf.base64());
-                   digest_buf = Buf(digest_buf.base64(), Buf::BASE64);
+                   digest_buf = Buf(digest_buf.base64(), Buf::Encoding::BASE64);
                  */
                 if (!digest_buf.same(f.digest_buf)) {
-                    _bad_frags_digests.resize(i+1);
+                    _bad_frags_digests.resize(i + 1);
                     _bad_frags_digests[i] = digest_buf;
                 }
             }
@@ -373,7 +374,7 @@ public:
 
         // REBUILD ERASURE CODE DATA FROM FRAGMENTS
         std::vector<Buf> data_bufs(_data_frags);
-        for (size_t i=0; i<data_bufs.size(); ++i) {
+        for (size_t i = 0; i < data_bufs.size(); ++i) {
             data_bufs[i] = _frags[i].block;
             // LOG(DVAL(data_bufs[i].length()));
         }
@@ -416,36 +417,34 @@ public:
             auto err = NAN_ERR("FRAGS DIGEST MISMATCH");
             auto bad_frags_digests = NAN_NEW_ARR(len);
             NAN_SET(err, "bad_frags_digests_b64", bad_frags_digests);
-            for (int i=0; i<len; ++i) {
+            for (int i = 0; i < len; ++i) {
                 Buf& digest = _bad_frags_digests[i];
                 if (digest.length()) {
                     NAN_SET_STR(bad_frags_digests, i, digest.base64());
                 }
             }
-            v8::Local<v8::Value> argv[] = { err };
+            v8::Local<v8::Value> argv[] = {err};
             _callback->Call(1, argv);
         } else if (!_bad_decompress.empty()) {
             auto err = NAN_ERR("CHUNK DECOMPRESS FAILED");
             NAN_SET_STR(err, "decompress_error", _bad_decompress);
-            v8::Local<v8::Value> argv[] = { err };
+            v8::Local<v8::Value> argv[] = {err};
             _callback->Call(1, argv);
         } else if (_bad_chunk_digest.length()) {
             auto err = NAN_ERR("CHUNK DIGEST MISMATCH");
             NAN_SET_STR(err, "bad_chunk_digest_b64", _bad_chunk_digest.base64());
-            v8::Local<v8::Value> argv[] = { err };
+            v8::Local<v8::Value> argv[] = {err};
             _callback->Call(1, argv);
         } else {
             auto persistent = Nan::New(_persistent);
             auto chunk = NAN_GET_OBJ(persistent, 1);
             NAN_SET_BUF_DETACH(chunk, "data", _chunk);
-            v8::Local<v8::Value> argv[] = { Nan::Undefined(), chunk };
+            v8::Local<v8::Value> argv[] = {Nan::Undefined(), chunk};
             _callback->Call(2, argv);
         }
         delete this;
     }
-
 };
-
 
 NAN_METHOD(ObjectCoding::encode)
 {

@@ -1,44 +1,44 @@
 /* Copyright (C) 2016 NooBaa */
 #pragma once
 
+#include <functional>
+#include <memory>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <memory>
-#include <functional>
 
-namespace noobaa 
+namespace noobaa
 {
 
 #define NB_BUF_PAGE_SIZE 4096
 
-typedef void (*NB_Buf_Deleter)(void *, const char *, size_t);
+typedef void (*NB_Buf_Deleter)(void*, const char*, size_t);
 
 struct NB_Buf {
-    uint8_t *data;
+    uint8_t* data;
     int len;
     NB_Buf_Deleter deleter;
-    void *deleter_arg;
+    void* deleter_arg;
 };
 
 struct NB_Bufs {
     struct NB_Buf prealloc[2];
-    struct NB_Buf *arr;
+    struct NB_Buf* arr;
     int capacity;
     int count;
     int len;
 };
 
-#define nb_new(type) ((type *)malloc(sizeof(type)))
-#define nb_new_arr(count, type) ((type *)malloc(count * sizeof(type)))
-#define nb_new_mem(len) ((uint8_t *)malloc((len)))
+#define nb_new(type) ((type*)malloc(sizeof(type)))
+#define nb_new_arr(count, type) ((type*)malloc(count * sizeof(type)))
+#define nb_new_mem(len) ((uint8_t*)malloc((len)))
 
-#define nb_renew(p, type) ((type *)realloc((p), sizeof((type))))
-#define nb_renew_arr(p, count, type) ((type *)realloc(p, (count) * sizeof(type)))
-#define nb_renew_mem(p, len) ((uint8_t *)realloc((p), (len)))
+#define nb_renew(p, type) ((type*)realloc((p), sizeof((type))))
+#define nb_renew_arr(p, count, type) ((type*)realloc(p, (count) * sizeof(type)))
+#define nb_renew_mem(p, len) ((uint8_t*)realloc((p), (len)))
 
 #define nb_free(p) (free((p)))
 
@@ -78,7 +78,7 @@ struct NB_Bufs {
 
 #define nb_list_push(list, type, value)           \
     do {                                          \
-        type *p_item;                             \
+        type* p_item;                             \
         nb_list_get_push_ptr(list, type, p_item); \
         *p_item = value;                          \
     } while (0)
@@ -133,42 +133,41 @@ struct NB_Bufs {
 
 #define nb_pre_list_push(list, type, value)           \
     do {                                              \
-        type *p_item;                                 \
+        type* p_item;                                 \
         nb_pre_list_get_push_ptr(list, type, p_item); \
         *p_item = value;                              \
     } while (0)
 
-void nb_buf_init(struct NB_Buf *buf);
-void nb_buf_init_shared(struct NB_Buf *buf, uint8_t *data, int len);
-void nb_buf_init_owned(struct NB_Buf *buf, uint8_t *data, int len);
-void nb_buf_init_copy(struct NB_Buf *buf, uint8_t *data, int len);
-uint8_t *nb_buf_init_alloc(struct NB_Buf *buf, int len);
-void nb_buf_init_zeros(struct NB_Buf *buf, int len);
-void nb_buf_init_hex_str(struct NB_Buf *buf, struct NB_Buf *source);
-void nb_buf_init_from_hex(struct NB_Buf *buf, struct NB_Buf *source_hex);
-void nb_buf_free(struct NB_Buf *buf);
-void nb_buf_default_deleter(void *arg, const char *data, size_t len);
+void nb_buf_init(struct NB_Buf* buf);
+void nb_buf_init_shared(struct NB_Buf* buf, uint8_t* data, int len);
+void nb_buf_init_owned(struct NB_Buf* buf, uint8_t* data, int len);
+void nb_buf_init_copy(struct NB_Buf* buf, uint8_t* data, int len);
+uint8_t* nb_buf_init_alloc(struct NB_Buf* buf, int len);
+void nb_buf_init_zeros(struct NB_Buf* buf, int len);
+void nb_buf_init_hex_str(struct NB_Buf* buf, struct NB_Buf* source);
+void nb_buf_init_from_hex(struct NB_Buf* buf, struct NB_Buf* source_hex);
+void nb_buf_free(struct NB_Buf* buf);
+void nb_buf_default_deleter(void* arg, const char* data, size_t len);
 
-void nb_bufs_init(struct NB_Bufs *bufs);
-void nb_bufs_free(struct NB_Bufs *bufs);
-struct NB_Buf *nb_bufs_push(struct NB_Bufs *bufs, struct NB_Buf *buf);
-struct NB_Buf *nb_bufs_push_shared(struct NB_Bufs *bufs, uint8_t *data, int len);
-struct NB_Buf *nb_bufs_push_owned(struct NB_Bufs *bufs, uint8_t *data, int len);
-struct NB_Buf *nb_bufs_push_copy(struct NB_Bufs *bufs, uint8_t *data, int len);
-struct NB_Buf *nb_bufs_push_alloc(struct NB_Bufs *bufs, int len);
-struct NB_Buf *nb_bufs_push_zeros(struct NB_Bufs *bufs, int len);
-void nb_bufs_copy(struct NB_Bufs *bufs, struct NB_Bufs *source);
-uint8_t *nb_bufs_merge(struct NB_Bufs *bufs, struct NB_Buf *b);
-uint8_t *nb_bufs_detach(struct NB_Bufs *bufs, struct NB_Buf *b);
-int nb_bufs_read(struct NB_Bufs *bufs, void *target, int len);
-void nb_bufs_truncate(struct NB_Bufs *bufs, int len);
-void nb_bufs_push_printf(struct NB_Bufs *bufs, int alloc, const char *fmt, ...);
-void nb_bufs_push_vprintf(struct NB_Bufs *bufs, int alloc, const char *fmt, va_list va);
+void nb_bufs_init(struct NB_Bufs* bufs);
+void nb_bufs_free(struct NB_Bufs* bufs);
+struct NB_Buf* nb_bufs_push(struct NB_Bufs* bufs, struct NB_Buf* buf);
+struct NB_Buf* nb_bufs_push_shared(struct NB_Bufs* bufs, uint8_t* data, int len);
+struct NB_Buf* nb_bufs_push_owned(struct NB_Bufs* bufs, uint8_t* data, int len);
+struct NB_Buf* nb_bufs_push_copy(struct NB_Bufs* bufs, uint8_t* data, int len);
+struct NB_Buf* nb_bufs_push_alloc(struct NB_Bufs* bufs, int len);
+struct NB_Buf* nb_bufs_push_zeros(struct NB_Bufs* bufs, int len);
+void nb_bufs_copy(struct NB_Bufs* bufs, struct NB_Bufs* source);
+uint8_t* nb_bufs_merge(struct NB_Bufs* bufs, struct NB_Buf* b);
+uint8_t* nb_bufs_detach(struct NB_Bufs* bufs, struct NB_Buf* b);
+int nb_bufs_read(struct NB_Bufs* bufs, void* target, int len);
+void nb_bufs_truncate(struct NB_Bufs* bufs, int len);
+void nb_bufs_push_printf(struct NB_Bufs* bufs, int alloc, const char* fmt, ...);
+void nb_bufs_push_vprintf(struct NB_Bufs* bufs, int alloc, const char* fmt, va_list va);
 
-static inline struct NB_Buf *
-nb_bufs_get(struct NB_Bufs *bufs, int index)
+static inline struct NB_Buf*
+nb_bufs_get(struct NB_Bufs* bufs, int index)
 {
     return nb_pre_list_at(bufs, index);
 }
-
 }

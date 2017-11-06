@@ -16,10 +16,11 @@
  */
 module.exports = DebugLogger;
 
-var _ = require('lodash');
-var fs = require('fs');
-var path = require('path');
-var util = require('util');
+const _ = require('lodash');
+const fs = require('fs');
+const path = require('path');
+const util = require('util');
+const nb_native = require('./nb_native');
 
 var config = {
     dbg_log_level: 0,
@@ -58,11 +59,8 @@ if (typeof process !== 'undefined' &&
     }
 
     if (should_log_to_syslog) {
-        // console.log('creating syslog');
-        var native_core = require('./native_core')();
-        syslog = new native_core.Syslog();
+        syslog = nb_native().syslog;
     } else {
-        // console.log('creating winston');
         winston = require('winston');
     }
 
@@ -73,13 +71,13 @@ if (typeof process !== 'undefined' &&
     processType = "browser";
 }
 
-var int_dbg = new InternalDebugLogger();
+const int_dbg = new InternalDebugLogger();
 
-var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Pretty time format
 function formatted_time() {
-    var now = new Date();
+    const now = new Date();
     var timemsg = MONTHS[now.getMonth()] + '-' + now.getDate() + ' ' + now.getHours() + ':';
     //not pretty but more effecient than convert to array and slice
     timemsg += (now.getMinutes() < 10 ? "0" : "") + now.getMinutes();
@@ -91,7 +89,7 @@ function formatted_time() {
 
 function extract_module(mod, ignore_extension) {
     // the 'core.' prefix is helpful for setting the level for all modules
-    var stems = {
+    const stems = {
         "/src/": "core.",
         "\\src\\": "core."
     };
@@ -134,7 +132,7 @@ function extract_module(mod, ignore_extension) {
  *
  */
 function InternalDebugLogger() {
-    var self = this;
+    const self = this;
 
     self._file_path = undefined;
     self._logs_by_file = [];
@@ -246,7 +244,7 @@ function InternalDebugLogger() {
 }
 
 InternalDebugLogger.prototype.build_module_context = function(mod, mod_object) {
-    var self = this;
+    const self = this;
     var mod_name;
     var new_mod;
 
@@ -284,7 +282,7 @@ InternalDebugLogger.prototype.build_module_context = function(mod, mod_object) {
 
 //Traverse on modules tree, set level
 InternalDebugLogger.prototype.populate_subtree = function(mod, level) {
-    var self = this;
+    const self = this;
     mod.__level = level;
     _.each(mod, function(sub_mod, name) {
         if (name[0] !== '_') {
@@ -342,7 +340,7 @@ var LOG_FUNC_PER_LEVEL = {
 };
 
 InternalDebugLogger.prototype.syslog_formatter = function(level, args) {
-    var self = this;
+    const self = this;
     let msg = args[1] || '';
     if (args.length > 2) {
         msg = util.format.apply(msg, Array.prototype.slice.call(args, 1));
@@ -364,7 +362,7 @@ InternalDebugLogger.prototype.syslog_formatter = function(level, args) {
 };
 
 InternalDebugLogger.prototype.log_internal = function(level) {
-    var self = this;
+    const self = this;
     var args;
     if (console_wrapper) console_wrapper.original_console();
     if (self._file_path) {
@@ -416,7 +414,7 @@ InternalDebugLogger.prototype.log_internal = function(level) {
     } else if (!_.isUndefined(syslog)) {
         // syslog path
         let msg = self.syslog_formatter(level, arguments);
-        syslog.log(this._levels_to_syslog[level], msg.message);
+        syslog(this._levels_to_syslog[level], msg.message, 'LOG_LOCAL0');
         // when not redirecting to file console.log is async:
         // https://nodejs.org/api/console.html#console_asynchronous_vs_synchronous_consoles
         if (level === 'ERROR') {
@@ -587,8 +585,9 @@ DebugLogger.prototype.set_logger_name = function(name) {
 
 DebugLogger.prototype.set_process_name = function(name) {
     int_dbg._proc_name = name;
-    if (!_.isUndefined(syslog)) {
-        syslog.openlog(name);
+    if (syslog) {
+        nb_native().closelog();
+        nb_native().openlog(name);
     }
 };
 
@@ -597,16 +596,6 @@ DebugLogger.prototype.set_log_to_file = function(log_file) {
         int_dbg._file_path = path.parse(log_file);
     } else {
         int_dbg._file_path = undefined;
-    }
-};
-
-DebugLogger.prototype.log_progress = function(fraction) {
-    var percents = (100 * fraction) | 0;
-    var msg = "progress: " + percents.toFixed(0) + " %";
-    if (!process.stdout) {
-        this.info(msg);
-    } else {
-        process.stdout.write(msg + '\r');
     }
 };
 

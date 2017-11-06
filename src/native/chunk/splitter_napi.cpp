@@ -7,9 +7,9 @@ namespace noobaa
 {
 #define SPLITTER_JS_SIGNATURE "function chunk_splitter(state, buffers, callback?)"
 
-static Napi::Value _chunk_splitter(const Napi::CallbackInfo &info);
-static Napi::Value _splitter_finish(Napi::Env env, Splitter *splitter);
-static Napi::Value _splitter_result(Napi::Env env, Splitter *splitter);
+static Napi::Value _chunk_splitter(const Napi::CallbackInfo& info);
+static Napi::Value _splitter_finish(Napi::Env env, Splitter* splitter);
+static Napi::Value _splitter_result(Napi::Env env, Splitter* splitter);
 
 void
 splitter_napi(Napi::Env env, Napi::Object exports)
@@ -24,7 +24,7 @@ public:
         Napi::Object state,
         Napi::Array buffers,
         Napi::Function callback,
-        Splitter *splitter)
+        Splitter* splitter)
         : Napi::AsyncWorker(callback)
         , _state_ref(Napi::ObjectReference::New(state, 1))
         , _buffers_ref(Napi::ObjectReference::New(buffers, 1))
@@ -51,7 +51,7 @@ public:
 
     virtual void Execute()
     {
-        struct NB_Buf *b = nb_bufs_get(&_input, 0);
+        struct NB_Buf* b = nb_bufs_get(&_input, 0);
         for (int i = 0; i < _input.count; ++i, ++b) {
             _splitter->push(b->data, b->len);
         }
@@ -66,12 +66,12 @@ public:
 private:
     Napi::ObjectReference _state_ref;
     Napi::ObjectReference _buffers_ref;
-    Splitter *_splitter;
+    Splitter* _splitter;
     struct NB_Bufs _input;
 };
 
 static Napi::Value
-_chunk_splitter(const Napi::CallbackInfo &info)
+_chunk_splitter(const Napi::CallbackInfo& info)
 {
     if (!info[0].IsObject()) {
         throw Napi::TypeError::New(
@@ -81,7 +81,7 @@ _chunk_splitter(const Napi::CallbackInfo &info)
     auto state = info[0].As<Napi::Object>();
     Napi::Value splitter_val = state["splitter"];
     Napi::External<Splitter> external(info.Env(), splitter_val);
-    Splitter *splitter = 0;
+    Splitter* splitter = 0;
     if (!splitter_val.IsUndefined()) splitter = external.Data();
 
     if (splitter && info.Length() == 1) {
@@ -101,12 +101,15 @@ _chunk_splitter(const Napi::CallbackInfo &info)
     }
 
     if (!splitter) {
-        splitter = new Splitter(
-            Napi::Value(state["min_chunk"]).As<Napi::Number>(),
-            Napi::Value(state["max_chunk"]).As<Napi::Number>(),
-            Napi::Value(state["avg_chunk_bits"]).As<Napi::Number>(),
-            Napi::Value(state["calc_md5"]).As<Napi::Boolean>(),
-            Napi::Value(state["calc_sha256"]).As<Napi::Boolean>());
+        const int min_chunk = Napi::Value(state["min_chunk"]).As<Napi::Number>();
+        const int max_chunk = Napi::Value(state["max_chunk"]).As<Napi::Number>();
+        const int avg_chunk_bits = Napi::Value(state["avg_chunk_bits"]).As<Napi::Number>();
+        const bool calc_md5 = Napi::Value(state["calc_md5"]).As<Napi::Boolean>();
+        const bool calc_sha256 = Napi::Value(state["calc_sha256"]).As<Napi::Boolean>();
+        if (min_chunk <= 0 || max_chunk < min_chunk || avg_chunk_bits < 0) {
+            throw Napi::Error::New(info.Env(), "Invalid splitter config");
+        }
+        splitter = new Splitter(min_chunk, max_chunk, avg_chunk_bits, calc_md5, calc_sha256);
         state["splitter"] = Napi::External<Splitter>::New(info.Env(), splitter);
     }
 
@@ -127,17 +130,17 @@ _chunk_splitter(const Napi::CallbackInfo &info)
 
     } else {
         auto callback = info[2].As<Napi::Function>();
-        SplitterWorker *worker = new SplitterWorker(state, buffers, callback, splitter);
+        SplitterWorker* worker = new SplitterWorker(state, buffers, callback, splitter);
         worker->Queue();
         return info.Env().Undefined();
     }
 }
 
 static Napi::Value
-_splitter_finish(Napi::Env env, Splitter *splitter)
+_splitter_finish(Napi::Env env, Splitter* splitter)
 {
-    uint8_t *md5 = 0;
-    uint8_t *sha256 = 0;
+    uint8_t* md5 = 0;
+    uint8_t* sha256 = 0;
     auto res = Napi::Object::New(env);
     if (splitter->calc_md5()) {
         auto md5_buf = Napi::Buffer<uint8_t>::New(env, EVP_MD_size(EVP_md5()));
@@ -154,7 +157,7 @@ _splitter_finish(Napi::Env env, Splitter *splitter)
 }
 
 static Napi::Value
-_splitter_result(Napi::Env env, Splitter *splitter)
+_splitter_result(Napi::Env env, Splitter* splitter)
 {
     auto split_points = splitter->extract_points();
     int count = split_points.size();

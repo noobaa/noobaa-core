@@ -4,7 +4,7 @@
 // let _ = require('lodash');
 // let P = require('../util/promise');
 let RpcBaseConnection = require('./rpc_base_conn');
-let native_core = require('../util/native_core');
+let nb_native = require('../util/nb_native');
 // let dbg = require('../util/debug_module')(__filename);
 
 
@@ -23,7 +23,7 @@ class RpcNtcpConnection extends RpcBaseConnection {
      *
      */
     _connect() {
-        let Ntcp = native_core().Ntcp;
+        let Ntcp = nb_native().Ntcp;
         this.ntcp = new Ntcp();
         this.ntcp.connect(this.url.port, this.url.hostname,
             () => this.emit('connect'));

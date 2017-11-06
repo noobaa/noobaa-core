@@ -1,15 +1,13 @@
-// "License": Public Domain
-// I, Mathias Panzenböck, place this file hereby into the public domain. Use it
-// at your own risk for whatever you like.
-// In case there are jurisdictions that don't support putting things in the
-// public domain you can also consider it to
-// be "dual licensed" under the BSD, MIT and Apache licenses, if you want to.
-// This code is trivial anyway. Consider it
-// an example on how to get the endian conversion functions on different
-// platforms.
+/* Copyright (C) 2016 NooBaa */
+#pragma once
 
-#ifndef PORTABLE_ENDIAN_H__
-#define PORTABLE_ENDIAN_H__
+// Based on https://gist.github.com/panzi/6856583
+
+// "License": Public Domain
+// I, Mathias Panzenböck, place this file hereby into the public domain. Use it at your own risk for whatever you like.
+// In case there are jurisdictions that don't support putting things in the public domain you can also consider it to
+// be "dual licensed" under the BSD, MIT and Apache licenses, if you want to. This code is trivial anyway. Consider it
+// an example on how to get the endian conversion functions on different platforms.
 
 #if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
 #ifndef __WINDOWS__
@@ -18,9 +16,9 @@
 #endif
 
 #if defined(__linux__) || defined(__CYGWIN__)
-#include <byteswap.h>
 #include <endian.h>
-#if !defined htobe32 && defined __bswap_16
+#if !defined(htobe32) && defined(__bswap_32)
+#include <byteswap.h>
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define htole16(x) (x)
 #define htole32(x) (x)
@@ -34,7 +32,7 @@
 #define be16toh(x) __bswap_16(x)
 #define be32toh(x) __bswap_32(x)
 #define be64toh(x) __bswap_64(x)
-#else
+#elif __BYTE_ORDER == BIG_ENDIAN
 #define htole16(x) __bswap_16(x)
 #define htole32(x) __bswap_32(x)
 #define htole64(x) __bswap_64(x)
@@ -47,11 +45,17 @@
 #define be16toh(x) (x)
 #define be32toh(x) (x)
 #define be64toh(x) (x)
+#else
+#error byte order not supported
 #endif
 #endif
 
 #elif defined(__APPLE__)
 #include <libkern/OSByteOrder.h>
+#define __BYTE_ORDER BYTE_ORDER
+#define __BIG_ENDIAN BIG_ENDIAN
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __PDP_ENDIAN PDP_ENDIAN
 #define htole16(x) OSSwapHostToLittleInt16(x)
 #define htole32(x) OSSwapHostToLittleInt32(x)
 #define htole64(x) OSSwapHostToLittleInt64(x)
@@ -64,10 +68,6 @@
 #define be16toh(x) OSSwapBigToHostInt16(x)
 #define be32toh(x) OSSwapBigToHostInt32(x)
 #define be64toh(x) OSSwapBigToHostInt64(x)
-#define __BYTE_ORDER BYTE_ORDER
-#define __BIG_ENDIAN BIG_ENDIAN
-#define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __PDP_ENDIAN PDP_ENDIAN
 
 #elif defined(__OpenBSD__)
 #include <sys/endian.h>
@@ -83,7 +83,11 @@
 
 #elif defined(__WINDOWS__)
 #include <winsock2.h>
-#if BYTE_ORDER == LITTLE_ENDIAN
+#define __BYTE_ORDER BYTE_ORDER
+#define __BIG_ENDIAN BIG_ENDIAN
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __PDP_ENDIAN PDP_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 #define htole16(x) (x)
 #define htole32(x) (x)
 #define htole64(x) (x)
@@ -96,7 +100,7 @@
 #define be16toh(x) _byteswap_ushort(x)
 #define be32toh(x) _byteswap_ulong(x)
 #define be64toh(x) _byteswap_uint64(x)
-#elif BYTE_ORDER == BIG_ENDIAN
+#elif __BYTE_ORDER == BIG_ENDIAN
 /* that would be xbox 360 */
 #define htole16(x) _byteswap_ushort(x)
 #define htole32(x) _byteswap_ulong(x)
@@ -114,13 +118,6 @@
 #error byte order not supported
 #endif
 
-#define __BYTE_ORDER BYTE_ORDER
-#define __BIG_ENDIAN BIG_ENDIAN
-#define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __PDP_ENDIAN PDP_ENDIAN
-
 #else
 #error platform not supported
-#endif
-
 #endif

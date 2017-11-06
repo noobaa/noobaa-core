@@ -6,14 +6,16 @@ IndentWidth: 4
 ContinuationIndentWidth: 4
 ColumnLimit: 0
 SortIncludes: true
+SortUsingDeclarations: true
 BinPackArguments: false
 BinPackParameters: false
 AccessModifierOffset: -4
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
-BreakBeforeBraces: Linux
-BreakConstructorInitializers: BeforeComma
 FixNamespaceComments: true
 NamespaceIndentation: Inner
+PointerAlignment: Left
+Cpp11BracedListStyle: false
+# IndentPPDirectives: AfterHash
 
 AlignOperands: false
 AlignTrailingComments: false
@@ -29,5 +31,8 @@ AlwaysBreakBeforeMultilineStrings: false
 AllowShortLoopsOnASingleLine: true
 AllowShortBlocksOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
 
+BreakBeforeBraces: Linux
+BreakConstructorInitializers: BeforeComma

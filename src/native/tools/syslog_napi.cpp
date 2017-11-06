@@ -8,9 +8,9 @@
 namespace noobaa
 {
 
-static void _syslog(const Napi::CallbackInfo &info);
-static void _openlog(const Napi::CallbackInfo &info);
-static void _closelog(const Napi::CallbackInfo &info);
+static void _syslog(const Napi::CallbackInfo& info);
+static void _openlog(const Napi::CallbackInfo& info);
+static void _closelog(const Napi::CallbackInfo& info);
 
 // openlog requires ident to remain allocated until closelog is called.
 // since we pass the string data() to openlog we must not modify this string
@@ -26,7 +26,7 @@ syslog_napi(Napi::Env env, Napi::Object exports)
 }
 
 static void
-_syslog(const Napi::CallbackInfo &info)
+_syslog(const Napi::CallbackInfo& info)
 {
 #ifndef WIN32
     int priority = info[0].As<Napi::Number>();
@@ -47,7 +47,7 @@ _syslog(const Napi::CallbackInfo &info)
 }
 
 static void
-_openlog(const Napi::CallbackInfo &info)
+_openlog(const Napi::CallbackInfo& info)
 {
 #ifndef WIN32
     if (!_syslog_ident.empty()) {
@@ -61,7 +61,7 @@ _openlog(const Napi::CallbackInfo &info)
 }
 
 static void
-_closelog(const Napi::CallbackInfo &info)
+_closelog(const Napi::CallbackInfo& info)
 {
 #ifndef WIN32
     ::closelog();

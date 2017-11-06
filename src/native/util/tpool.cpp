@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 #include "tpool.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
 Nan::Persistent<v8::Function> ThreadPool::_ctor;
 
@@ -65,7 +66,7 @@ ThreadPool::set_nthreads(int nthreads)
     MutexCond::Lock lock(_mutex);
     int prev_nthreads = _nthreads;
     _nthreads = nthreads;
-    for (int i=prev_nthreads; i<nthreads; ++i) {
+    for (int i = prev_nthreads; i < nthreads; ++i) {
         uv_thread_t tid;
         uv_thread_create(
             &tid,
@@ -76,8 +77,7 @@ ThreadPool::set_nthreads(int nthreads)
     _mutex.signal();
 }
 
-struct UvWorker
-{
+struct UvWorker {
     uv_work_t req;
     ThreadPool::Worker* worker;
     static void work(uv_work_t* req)

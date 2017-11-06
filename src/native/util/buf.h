@@ -1,59 +1,38 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__BUF__H
-#define NOOBAA__BUF__H
+#pragma once
 
+#include "b64.h"
 #include "common.h"
-#include "../third_party/base64/cencode.h"
-#include "../third_party/base64/cdecode.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
-/**
- * Like a nodejs buffer, but thread safe
- */
 class Buf
 {
 public:
-
     Buf()
-        : _data(0)
-        , _len(0)
-    {
-    }
+        : _data(0), _len(0) {}
 
     explicit Buf(int len)
-        : _alloc(new Alloc(len))
-        , _data(_alloc->data())
-        , _len(_alloc->length())
-    {
-    }
+        : _alloc(new Alloc(len)), _data(_alloc->data()), _len(_alloc->length()) {}
 
     explicit Buf(int len, uint8_t fill)
-        : _alloc(new Alloc(len))
-        , _data(_alloc->data())
-        , _len(_alloc->length())
+        : _alloc(new Alloc(len)), _data(_alloc->data()), _len(_alloc->length())
     {
         memset(_data, fill, _len);
     }
 
     explicit Buf(void* data, int len)
-        : _alloc()
-        , _data(reinterpret_cast<uint8_t*>(data))
-        , _len(len)
+        : _alloc(), _data(reinterpret_cast<uint8_t*>(data)), _len(len)
     {
     }
 
     explicit Buf(const void* data, int len)
-        : _alloc()
-        , _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
-        , _len(len)
+        : _alloc(), _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data))), _len(len)
     {
     }
 
-    Buf(const Buf& other)
-    {
-        init(other);
-    }
+    Buf(const Buf& other) { init(other); }
 
     Buf(const Buf& other, int offset, int len)
     {
@@ -61,13 +40,10 @@ public:
         slice(offset, len);
     }
 
-
     // copyful concat
     template <typename Iter>
     Buf(int len, Iter begin, Iter end)
-        : _alloc(new Alloc(len))
-        , _data(_alloc->data())
-        , _len(_alloc->length())
+        : _alloc(new Alloc(len)), _data(_alloc->data()), _len(_alloc->length())
     {
         uint8_t* data = _data;
         while (len > 0) {
@@ -81,76 +57,83 @@ public:
         }
     }
 
-    enum Encoding { HEX, BASE64 };
+    enum class Encoding {
+        HEX,
+        BASE64,
+    };
 
     Buf(std::string data, Encoding encoding)
     {
         switch (encoding) {
-            case HEX:
-                _len = (data.size()+1) / 2;
-                _alloc.reset(new Alloc(_len));
-                _data = _alloc->data();
-                for (int i=0, j=0; i<_len; ++i, j+=2) {
-                    _data[i] = (hex_to_int(data[j]) << 4) | hex_to_int(data[j+1]);
-                }
-                break;
-            case BASE64:
-                _len = data.size();
-                _alloc.reset(new Alloc(_len));
-                _data = _alloc->data();
-                base64_decodestate state;
-                base64_init_decodestate(&state);
-                _len = base64_decode_block(data.data(), data.size(), cdata(), &state);
-                break;
+        case Encoding::HEX:
+            _len = (data.size() + 1) / 2;
+            _alloc.reset(new Alloc(_len));
+            _data = _alloc->data();
+            for (int i = 0, j = 0; i < _len; ++i, j += 2) {
+                _data[i] = (hex_to_int(data[j]) << 4) | hex_to_int(data[j + 1]);
+            }
+            break;
+        case Encoding::BASE64:
+            _len = b64_decode_len(data.size());
+            _alloc.reset(new Alloc(_len));
+            _data = _alloc->data();
+            const int r = b64_decode((uint8_t*)data.data(), data.size(), _data);
+            if (r < 0) {
+                _data = 0;
+                _len = 0;
+                _alloc.reset();
+            } else {
+                _len = r;
+            }
+            break;
         }
     }
 
-    ~Buf()
-    {
-    }
+    ~Buf() {}
 
-    const Buf& operator=(const Buf& other)
+    const Buf&
+    operator=(const Buf& other)
     {
         init(other);
         return other;
     }
 
-    inline uint8_t* data()
+    inline uint8_t*
+    data()
     {
         return _data;
     }
 
-    inline const uint8_t* data() const
+    inline const uint8_t*
+    data() const
     {
         return _data;
     }
 
-    inline char* cdata()
+    inline char*
+    cdata()
     {
         return reinterpret_cast<char*>(_data);
     }
 
-    inline const char* cdata() const
+    inline const char*
+    cdata() const
     {
         return reinterpret_cast<const char*>(_data);
     }
 
-    inline int length() const
+    inline int
+    length() const
     {
         return _len;
     }
 
-    inline uint8_t& operator[](int i)
-    {
-        return _data[i];
-    }
+    inline uint8_t& operator[](int i) { return _data[i]; }
 
-    inline const uint8_t& operator[](int i) const
-    {
-        return _data[i];
-    }
+    inline const uint8_t& operator[](int i) const { return _data[i]; }
 
-    inline void slice(int offset, int len)
+    inline void
+    slice(int offset, int len)
     {
         // skip to offset
         if (offset > _len) {
@@ -170,35 +153,40 @@ public:
         }
     }
 
-    inline void reset()
+    inline void
+    reset()
     {
         _data = _alloc->data();
         _len = _alloc->length();
     }
 
     // detach the allocated memory back to the responsibility of the caller
-    inline uint8_t* detach_alloc()
+    inline uint8_t*
+    detach_alloc()
     {
         return _alloc->detach();
     }
 
-    inline bool unique_alloc()
+    inline bool
+    unique_alloc()
     {
         return _alloc.unique();
     }
 
-    inline bool same(const Buf& buf) const
+    inline bool
+    same(const Buf& buf) const
     {
         return (_len == buf._len) && !memcmp(_data, buf._data, _len);
     }
 
-    inline std::string hex() const
+    inline std::string
+    hex() const
     {
         std::string str;
         str.resize(2 * _len);
-        for (int i=0, j=0; i<_len; ++i, j+=2) {
-            str[j]   = HEX_CHARS[_data[i] >> 4];
-            str[j+1] = HEX_CHARS[_data[i] & 0xf];
+        for (int i = 0, j = 0; i < _len; ++i, j += 2) {
+            str[j] = HEX_CHARS[_data[i] >> 4];
+            str[j + 1] = HEX_CHARS[_data[i] & 0xf];
         }
         return str;
     }
@@ -206,69 +194,73 @@ public:
     inline std::string base64() const
     {
         std::string str;
-        str.resize(2 * _len);
-        char* data = const_cast<char*>(str.data());
-        int pos = 0;
-        base64_encodestate state;
-        base64_init_encodestate(&state);
-        pos += base64_encode_block(cdata(), _len, data, &state);
-        pos += base64_encode_blockend(data + pos, &state);
-        str.resize(pos);
+        const int len = b64_encode_len(_len);
+        str.resize(len);
+        uint8_t* data = (uint8_t*)str.data();
+        const int r = b64_encode(_data, _len, data);
+        if (r < 0) {
+            str = "";
+        } else {
+            if (r != len) {
+                str.resize(r);
+            }
+        }
         return str;
     }
 
     /**
      * dump memory in hex
      */
-    static void hexdump(const void *p, size_t len, const char* prefix = NULL);
+    static void hexdump(const void* p, size_t len, const char* prefix = NULL);
 
 private:
-
     class Alloc
     {
-private:
+    private:
         uint8_t* _data;
         int _len;
-public:
+
+    public:
         explicit Alloc(int len)
-            : _data(new uint8_t[len])
-            , _len(len)
-        {
-        }
+            : _data(new uint8_t[len]), _len(len) {}
+
         explicit Alloc(void* data, int len)
-            : _data(reinterpret_cast<uint8_t*>(data))
-            , _len(len)
-        {
-        }
+            : _data(reinterpret_cast<uint8_t*>(data)), _len(len) {}
+
         explicit Alloc(const void* data, int len)
-            : _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
-            , _len(len)
+            : _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data))), _len(len)
         {
         }
+
         Alloc(const Alloc& other)
-            : _data(new uint8_t[other._len])
-            , _len(other._len)
+            : _data(new uint8_t[other._len]), _len(other._len)
         {
             memcpy(_data, other._data, _len);
         }
-        ~Alloc()
-        {
-            delete[] _data;
-        }
-        inline uint8_t* data()
+
+        ~Alloc() { delete[] _data; }
+
+        inline uint8_t*
+        data()
         {
             return _data;
         }
-        inline char* cdata()
+
+        inline char*
+        cdata()
         {
             return reinterpret_cast<char*>(_data);
         }
-        inline int length()
+
+        inline int
+        length()
         {
             return _len;
         }
+
         // detach the allocated memory to the responsibility of the caller
-        inline uint8_t* detach()
+        inline uint8_t*
+        detach()
         {
             uint8_t* data = _data;
             _data = NULL;
@@ -277,7 +269,8 @@ public:
         }
     };
 
-    void init(const Buf& other)
+    void
+    init(const Buf& other)
     {
         _alloc = other._alloc;
         _data = other._data;
@@ -286,32 +279,56 @@ public:
 
     static const char HEX_CHARS[16];
 
-    inline int hex_to_int(char hex)
+    inline int
+    hex_to_int(char hex)
     {
-        switch(hex) {
-        case '0': return 0;
-        case '1': return 1;
-        case '2': return 2;
-        case '3': return 3;
-        case '4': return 4;
-        case '5': return 5;
-        case '6': return 6;
-        case '7': return 7;
-        case '8': return 8;
-        case '9': return 9;
-        case 'a': return 10;
-        case 'b': return 11;
-        case 'c': return 12;
-        case 'd': return 13;
-        case 'e': return 14;
-        case 'f': return 15;
-        case 'A': return 10;
-        case 'B': return 11;
-        case 'C': return 12;
-        case 'D': return 13;
-        case 'E': return 14;
-        case 'F': return 15;
-        default: return 0;
+        switch (hex) {
+        case '0':
+            return 0;
+        case '1':
+            return 1;
+        case '2':
+            return 2;
+        case '3':
+            return 3;
+        case '4':
+            return 4;
+        case '5':
+            return 5;
+        case '6':
+            return 6;
+        case '7':
+            return 7;
+        case '8':
+            return 8;
+        case '9':
+            return 9;
+        case 'a':
+            return 10;
+        case 'b':
+            return 11;
+        case 'c':
+            return 12;
+        case 'd':
+            return 13;
+        case 'e':
+            return 14;
+        case 'f':
+            return 15;
+        case 'A':
+            return 10;
+        case 'B':
+            return 11;
+        case 'C':
+            return 12;
+        case 'D':
+            return 13;
+        case 'E':
+            return 14;
+        case 'F':
+            return 15;
+        default:
+            return 0;
         }
     }
 
@@ -321,5 +338,3 @@ public:
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__BUF__H

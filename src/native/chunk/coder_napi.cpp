@@ -13,7 +13,7 @@ namespace noobaa
 #define CODER_JS_SIGNATURE "function chunk_coder(chunk/s, callback?)"
 
 struct CoderAsync {
-    struct NB_Coder_Chunk *chunks;
+    struct NB_Coder_Chunk* chunks;
     int chunks_count;
     napi_ref r_chunks;
     napi_ref r_callback;
@@ -21,11 +21,11 @@ struct CoderAsync {
 };
 
 static napi_value _nb_chunk_coder(napi_env env, napi_callback_info info);
-static void _nb_coder_async_execute(napi_env env, void *data);
-static void _nb_coder_async_complete(napi_env env, napi_status status, void *data);
-static void _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk *chunk);
+static void _nb_coder_async_execute(napi_env env, void* data);
+static void _nb_coder_async_complete(napi_env env, napi_status status, void* data);
+static void _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk* chunk);
 static void _nb_coder_update_chunk(
-    napi_env env, napi_value v_chunk, napi_value *v_err, struct NB_Coder_Chunk *chunk);
+    napi_env env, napi_value v_chunk, napi_value* v_err, struct NB_Coder_Chunk* chunk);
 
 void
 chunk_coder_napi(napi_env env, napi_value exports)
@@ -96,12 +96,12 @@ _nb_chunk_coder(napi_env env, napi_callback_info info)
 
     } else {
 
-        struct CoderAsync *async = nb_new(struct CoderAsync);
+        struct CoderAsync* async = nb_new(struct CoderAsync);
         async->chunks = nb_new_arr(chunks_len, struct NB_Coder_Chunk);
         async->chunks_count = chunks_len;
 
         for (uint32_t i = 0; i < chunks_len; ++i) {
-            struct NB_Coder_Chunk *chunk = async->chunks + i;
+            struct NB_Coder_Chunk* chunk = async->chunks + i;
             napi_value v_chunk = v_chunks;
             if (is_chunks_array) napi_get_element(env, v_chunks, i, &v_chunk);
             _nb_coder_load_chunk(env, v_chunk, chunk);
@@ -117,7 +117,7 @@ _nb_chunk_coder(napi_env env, napi_callback_info info)
 }
 
 static void
-_nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk *chunk)
+_nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk* chunk)
 {
     char coder[8];
     napi_value v_coder_config;
@@ -126,9 +126,9 @@ _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk *ch
 
     nb_napi_get_str(env, v_chunk, "coder", coder, sizeof(coder));
     if (strncmp(coder, "enc", sizeof(coder)) == 0) {
-        chunk->coder = NB_ENCODER;
+        chunk->coder = NB_Coder_Type::ENCODER;
     } else if (strncmp(coder, "dec", sizeof(coder)) == 0) {
-        chunk->coder = NB_DECODER;
+        chunk->coder = NB_Coder_Type::DECODER;
     } else {
         nb_chunk_error(chunk, "Unknown coder type %s", coder);
         return;
@@ -165,13 +165,13 @@ _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk *ch
         nb_chunk_error(chunk, "Cannot code zero size chunk");
     }
 
-    if (chunk->coder == NB_ENCODER) {
+    if (chunk->coder == NB_Coder_Type::ENCODER) {
 
         nb_napi_get_bufs(env, v_chunk, "data", &chunk->data);
 
         // TODO fail if no data? - nb_chunk_error(chunk, "chunk.data should be buffer/s");
 
-    } else if (chunk->coder == NB_DECODER) {
+    } else if (chunk->coder == NB_Coder_Type::DECODER) {
 
         napi_value v_frags = 0;
         bool is_frags_array = false;
@@ -187,7 +187,7 @@ _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk *ch
             chunk->frags = nb_new_arr(chunk->frags_count, struct NB_Coder_Frag);
 
             for (uint32_t i = 0; i < frags_len; ++i) {
-                struct NB_Coder_Frag *f = chunk->frags + i;
+                struct NB_Coder_Frag* f = chunk->frags + i;
                 nb_frag_init(f);
                 napi_get_element(env, v_frags, i, &v_frag);
                 nb_napi_get_int(env, v_frag, "index", &f->index);
@@ -200,19 +200,19 @@ _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk *ch
 }
 
 static void
-_nb_coder_async_execute(napi_env env, void *data)
+_nb_coder_async_execute(napi_env env, void* data)
 {
-    struct CoderAsync *async = (struct CoderAsync *)data;
+    struct CoderAsync* async = (struct CoderAsync*)data;
     for (int i = 0; i < async->chunks_count; ++i) {
-        struct NB_Coder_Chunk *chunk = async->chunks + i;
+        struct NB_Coder_Chunk* chunk = async->chunks + i;
         nb_chunk_coder(chunk);
     }
 }
 
 static void
-_nb_coder_async_complete(napi_env env, napi_status status, void *data)
+_nb_coder_async_complete(napi_env env, napi_status status, void* data)
 {
-    struct CoderAsync *async = (struct CoderAsync *)data;
+    struct CoderAsync* async = (struct CoderAsync*)data;
     napi_value v_global = 0;
     napi_value v_chunks = 0;
     napi_value v_callback = 0;
@@ -225,7 +225,7 @@ _nb_coder_async_complete(napi_env env, napi_status status, void *data)
 
     napi_value v_err = 0;
     for (int i = 0; i < async->chunks_count; ++i) {
-        struct NB_Coder_Chunk *chunk = async->chunks + i;
+        struct NB_Coder_Chunk* chunk = async->chunks + i;
         napi_value v_chunk = v_chunks;
         if (is_chunks_array) napi_get_element(env, v_chunks, i, &v_chunk);
         _nb_coder_update_chunk(env, v_chunk, &v_err, chunk);
@@ -246,7 +246,7 @@ _nb_coder_async_complete(napi_env env, napi_status status, void *data)
 
 static void
 _nb_coder_update_chunk(
-    napi_env env, napi_value v_chunk, napi_value *v_err, struct NB_Coder_Chunk *chunk)
+    napi_env env, napi_value v_chunk, napi_value* v_err, struct NB_Coder_Chunk* chunk)
 {
     if (chunk->errors.count) {
         if (!*v_err) {
@@ -275,13 +275,13 @@ _nb_coder_update_chunk(
         for (int i = 0; i < chunk->errors.count; ++i) {
             napi_value v = 0;
             napi_create_string_utf8(
-                env, (const char *)nb_bufs_get(&chunk->errors, i)->data, -1, &v);
+                env, (const char*)nb_bufs_get(&chunk->errors, i)->data, -1, &v);
             napi_set_element(env, v_errors, i, v);
         }
         return;
     }
 
-    if (chunk->coder == NB_ENCODER) {
+    if (chunk->coder == NB_Coder_Type::ENCODER) {
 
         if (chunk->compress_type[0]) {
             nb_napi_set_int(env, v_chunk, "compress_size", chunk->compress_size);
@@ -301,7 +301,7 @@ _nb_coder_update_chunk(
         napi_set_named_property(env, v_chunk, "frags", v_frags);
 
         for (int i = 0; i < chunk->frags_count; ++i) {
-            struct NB_Coder_Frag *f = chunk->frags + i;
+            struct NB_Coder_Frag* f = chunk->frags + i;
             napi_create_object(env, &v_frag);
             napi_set_element(env, v_frags, i, v_frag);
             nb_napi_set_int(env, v_frag, "index", f->index);
@@ -314,7 +314,7 @@ _nb_coder_update_chunk(
             }
         }
 
-    } else if (chunk->coder == NB_DECODER) {
+    } else if (chunk->coder == NB_Coder_Type::DECODER) {
 
         nb_napi_set_bufs(env, v_chunk, "data", &chunk->data);
     }

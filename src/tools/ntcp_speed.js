@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
-let Ntcp = require('../util/native_core')().Ntcp;
+let Ntcp = require('../util/nb_native')().Ntcp;
 let Speedometer = require('../util/speedometer');
 let argv = require('minimist')(process.argv);
 argv.size = argv.size || 1024 * 1024;

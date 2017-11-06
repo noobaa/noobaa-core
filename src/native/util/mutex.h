@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__MUTEX__H
-#define NOOBAA__MUTEX__H
+#pragma once
 
 #include <uv.h>
 
-namespace noobaa {
+namespace noobaa
+{
 
 /**
  *
@@ -45,8 +45,9 @@ public:
 
     class Lock
     {
-public:
-        explicit Lock(Mutex& m) : _m(m), _locked(true)
+    public:
+        explicit Lock(Mutex& m)
+            : _m(m), _locked(true)
         {
             _m.lock();
         }
@@ -61,7 +62,8 @@ public:
         {
             unlock();
         }
-protected:
+
+    protected:
         Mutex& _m;
         bool _locked;
     };
@@ -69,7 +71,6 @@ protected:
 protected:
     uv_mutex_t _mutex;
 };
-
 
 /**
  *
@@ -79,7 +80,8 @@ protected:
 class MutexCond : public Mutex
 {
 public:
-    explicit MutexCond() : Mutex()
+    explicit MutexCond()
+        : Mutex()
     {
         uv_cond_init(&_cond);
     }
@@ -104,5 +106,3 @@ protected:
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__MUTEX__H

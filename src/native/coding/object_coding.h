@@ -1,13 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__OBJECT_CODING__H
-#define NOOBAA__OBJECT_CODING__H
+#pragma once
 
 #include "../util/common.h"
 #include "../util/rabin_fingerprint.h"
 #include "../util/tpool.h"
 #include "dedup.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
 /**
  *
@@ -55,5 +55,3 @@ private:
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__OBJECT_CODING__H

@@ -1,11 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__TPOOL__H
-#define NOOBAA__TPOOL__H
+#pragma once
+
+#include <list>
 
 #include "common.h"
 #include "mutex.h"
+#include "nan.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
 class ThreadPool : public Nan::ObjectWrap
 {
@@ -19,7 +22,6 @@ private:
     static NAN_SETTER(nthreads_setter);
 
 public:
-
     /**
      * nthreads <= -1: use uv threadpool
      * nthreads == 0: no threads, run all inline in event loop thread
@@ -29,12 +31,9 @@ public:
     virtual ~ThreadPool();
 
     void set_nthreads(int nthreads);
-    int get_nthreads() {
-        return _nthreads;
-    }
+    int get_nthreads() { return _nthreads; }
 
-    struct Worker
-    {
+    struct Worker {
         virtual ~Worker() {}
         virtual void work() = 0; // called from pooled thread
         virtual void after_work() = 0; // called on event loop
@@ -42,8 +41,7 @@ public:
     void submit(Worker* worker);
 
 private:
-    struct ThreadSpec
-    {
+    struct ThreadSpec {
         ThreadPool* tpool;
         int index;
         ThreadSpec(ThreadPool* tp, int i)
@@ -68,5 +66,3 @@ private:
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__TPOOL__H

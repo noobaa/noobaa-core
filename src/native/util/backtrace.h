@@ -1,25 +1,33 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__BACKTRACE__H
-#define NOOBAA__BACKTRACE__H
+#pragma once
+
+#include <stdlib.h>
+#include <vector>
 
 #ifdef _WIN32
+// TODO Backtrace on windows
 #else
-# include <execinfo.h>
-# include <cxxabi.h>
-# include <dlfcn.h>
+#include <cxxabi.h>
+#include <dlfcn.h>
+#include <execinfo.h>
 #endif
-#include <stdlib.h>
 
-namespace noobaa {
+namespace noobaa
+{
 
 class Backtrace
 {
 public:
-
-    struct Entry
-    {
-        explicit Entry(void* addr_, std::string file_, int line_, std::string func_)
-            : addr(addr_), file(file_), line(line_), func(func_)
+    struct Entry {
+        explicit Entry(
+            void* addr_,
+            std::string file_,
+            int line_,
+            std::string func_)
+            : addr(addr_)
+            , file(file_)
+            , line(line_)
+            , func(func_)
         {
         }
         void* addr;
@@ -28,13 +36,17 @@ public:
         std::string func;
     };
 
+    enum { MAX_DEPTH = 96 };
+
     explicit Backtrace(int depth = 32, int skip = 0)
     {
 #ifdef _WIN32
+// TODO Backtrace on windows
 #else
-        void* trace[depth];
+        assert(depth <= MAX_DEPTH);
+        void* trace[MAX_DEPTH];
         int stack_depth = backtrace(trace, depth);
-        for (int i = skip+1; i < stack_depth; i++) {
+        for (int i = skip + 1; i < stack_depth; i++) {
             Dl_info info;
             if (!dladdr(trace[i], &info)) {
                 break;
@@ -61,22 +73,17 @@ public:
     {
         os << "Backtrace:" << std::endl;
         int len = bt._stack.size();
-        for (int i=0; i<len; i++) {
+        for (int i = 0; i < len; i++) {
             const Entry& e = bt._stack[i];
             os << "\t" << e.addr << " " << e.file << ":" << e.line << " " << e.func << std::endl;
         }
         return os;
     }
 
-    void print()
-    {
-        std::cout << *this;
-    }
+    void print() { std::cout << *this; }
 
 private:
     std::vector<Entry> _stack;
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__BACKTRACE__H

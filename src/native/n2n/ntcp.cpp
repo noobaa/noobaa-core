@@ -1,8 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 #include "ntcp.h"
-#include "../util/buf.h"
 
-namespace noobaa {
+#include "../util/buf.h"
+#include "../util/endian.h"
+
+namespace noobaa
+{
 
 DBG_INIT(0);
 
@@ -40,7 +43,7 @@ Ntcp::Ntcp()
     : _recv_payload(NULL)
     , _recv_hdr_pos(0)
     , _recv_payload_pos(0)
-    , _send_msg_seq(1)
+    // , _send_msg_seq(1)
     , _recv_msg_seq(1)
     , _closed(false)
     , _reading(false)
@@ -79,7 +82,7 @@ Ntcp::_close()
     Nan::HandleScope scope;
     _reading_persistent.Reset();
     if (*handle()) {
-        v8::Local<v8::Value> argv[] = { NAN_STR("close") };
+        v8::Local<v8::Value> argv[] = {NAN_STR("close")};
         Nan::MakeCallback(handle(), "emit", 1, argv);
     }
 }
@@ -110,13 +113,9 @@ Ntcp::_bind(const char* address, int port)
     NAUV_CALL(uv_tcp_bind(&_tcp_handle, NAUV_UDP_ADDR(&sin), 0));
     // once we have a file descriptor we can set the
     int buffer_size = NTCP_SNDBUF_SIZE;
-    NAUV_CALL(uv_send_buffer_size(
-        reinterpret_cast<uv_handle_t*>(&_tcp_handle),
-        &buffer_size));
+    NAUV_CALL(uv_send_buffer_size(reinterpret_cast<uv_handle_t*>(&_tcp_handle), &buffer_size));
     buffer_size = NTCP_RCVBUF_SIZE;
-    NAUV_CALL(uv_recv_buffer_size(
-        reinterpret_cast<uv_handle_t*>(&_tcp_handle),
-        &buffer_size));
+    NAUV_CALL(uv_recv_buffer_size(reinterpret_cast<uv_handle_t*>(&_tcp_handle), &buffer_size));
     NAUV_CALL(uv_tcp_getsockname(&_tcp_handle, NAUV_UDP_ADDR(&sin), &sin_len));
     _local_port = ntohs(sin.sin_port);
     _start_reading();
@@ -141,12 +140,11 @@ NAUV_CALLBACK_STATUS(Ntcp::_connection_callback, uv_stream_t* listener)
     DBG1("Ntcp::_connection_callback: got connection");
     Nan::HandleScope scope;
     Ntcp& self = *reinterpret_cast<Ntcp*>(listener->data);
-    v8::Local<v8::Value> obj(
-        Nan::CallAsConstructor(Nan::New(Ntcp::_ctor), 0, 0).ToLocalChecked());
+    v8::Local<v8::Value> obj(Nan::CallAsConstructor(Nan::New(Ntcp::_ctor), 0, 0).ToLocalChecked());
     Ntcp& conn = *NAN_UNWRAP_OBJ(Ntcp, obj);
     conn._local_port = self._local_port;
     conn._accept(listener);
-    v8::Local<v8::Value> argv[] = { NAN_STR("connection"), obj };
+    v8::Local<v8::Value> argv[] = {NAN_STR("connection"), obj};
     Nan::MakeCallback(self.handle(), "emit", 2, argv);
 }
 
@@ -172,10 +170,15 @@ NAN_METHOD(Ntcp::connect)
     struct sockaddr_in sin;
     NAUV_IP4_ADDR(*address, port, &sin);
     self._bind("0.0.0.0", 0);
-    DBG0("Ntcp::connect:"
-         << " local_port " << self._local_port
-         << " to " << *address << ":" << port);
-    ConnectRequest *r = new ConnectRequest;
+    DBG0(
+        "Ntcp::connect:"
+        << " local_port "
+        << self._local_port
+        << " to "
+        << *address
+        << ":"
+        << port);
+    ConnectRequest* r = new ConnectRequest;
     r->req.data = r;
     r->self = &self;
     r->persistent.Reset(info.This());
@@ -199,16 +202,15 @@ NAUV_CALLBACK_STATUS(Ntcp::_connect_callback, uv_connect_t* req)
 
     if (status < 0) {
         DBG0("Ntcp::_connect_callback: ERROR local_port " << self._local_port);
-        v8::Local<v8::Value> argv[] = { NAN_ERR("Ntcp::_connect_callback: ERROR") };
+        v8::Local<v8::Value> argv[] = {NAN_ERR("Ntcp::_connect_callback: ERROR")};
         callback->Call(1, argv);
     } else {
         DBG0("Ntcp::_connect_callback: local_port " << self._local_port);
         self._start_reading();
-        v8::Local<v8::Value> args[] = { Nan::Undefined(), NAN_INT(self._local_port) };
+        v8::Local<v8::Value> args[] = {Nan::Undefined(), NAN_INT(self._local_port)};
         callback->Call(2, args);
     }
 }
-
 
 NAN_METHOD(Ntcp::write)
 {
@@ -216,7 +218,7 @@ NAN_METHOD(Ntcp::write)
     NanCallbackSharedPtr callback(new Nan::Callback(info[1].As<v8::Function>()));
     if (self._closed) {
         DBG5("Ntcp::write: closed. thats an error.");
-        v8::Local<v8::Value> argv[] = { NAN_ERR("Ntcp::write: CLOSED") };
+        v8::Local<v8::Value> argv[] = {NAN_ERR("Ntcp::write: CLOSED")};
         callback->Call(1, argv);
         return;
     }
@@ -244,22 +246,25 @@ NAN_METHOD(Ntcp::write)
         m->iovecs.resize(num_buffers + 1);
         m->iovecs[0].base = reinterpret_cast<char*>(&m->hdr);
         m->iovecs[0].len = MSG_HDR_SIZE;
-        for (int i=0; i<num_buffers; ++i) {
+        for (int i = 0; i < num_buffers; ++i) {
             auto buf = NAN_GET_OBJ(buffer_or_buffers, i);
             char* data = node::Buffer::Data(buf);
             int len = node::Buffer::Length(buf);
-            m->iovecs[i+1].base = data;
-            m->iovecs[i+1].len = len;
+            m->iovecs[i + 1].base = data;
+            m->iovecs[i + 1].len = len;
             m->hdr.len += len;
         }
     } else {
         return Nan::ThrowError("Ntcp::write: expected buffer or array of buffers");
     }
     // m->hdr.seq = self._send_msg_seq++;
-    DBG2("Ntcp::write:"
+    DBG2(
+        "Ntcp::write:"
         //  << " seq " << m->hdr.seq
-         << " len " << m->hdr.len
-         << " local_port " << self._local_port);
+        << " len "
+        << m->hdr.len
+        << " local_port "
+        << self._local_port);
     m->hdr.encode();
     NAUV_CALL(uv_write(
         write_req,
@@ -276,19 +281,20 @@ NAUV_CALLBACK_STATUS(Ntcp::_write_callback, uv_write_t* req)
     Msg* m = reinterpret_cast<Msg*>(req->data);
     m->hdr.decode();
     if (status < 0) {
-        v8::Local<v8::Value> argv[] = { NAN_ERR("Ntcp::write: ERROR") };
+        v8::Local<v8::Value> argv[] = {NAN_ERR("Ntcp::write: ERROR")};
         m->callback->Call(1, argv);
     } else {
-        DBG2("Ntcp::_write_callback:"
+        DBG2(
+            "Ntcp::_write_callback:"
             // << " seq " << m->hdr.seq
-            << " len " << m->hdr.len);
-        v8::Local<v8::Value> args[] = { Nan::Undefined() };
+            << " len "
+            << m->hdr.len);
+        v8::Local<v8::Value> args[] = {Nan::Undefined()};
         m->callback->Call(1, args);
     }
     delete m;
     delete req;
 }
-
 
 void
 Ntcp::_start_reading()
@@ -328,15 +334,18 @@ Ntcp::_alloc_for_read(uv_buf_t* buf, size_t suggested_size)
     if (!_recv_payload) {
         buf->len = MSG_HDR_SIZE - _recv_hdr_pos;
         buf->base = reinterpret_cast<char*>(&_recv_hdr) + _recv_hdr_pos;
-        DBG8("Ntcp::_alloc_for_read: allocate hdr pos " <<
-            _recv_hdr_pos << " len " << buf->len <<
-            " suggested " << suggested_size);
+        DBG8(
+            "Ntcp::_alloc_for_read: allocate hdr pos " << _recv_hdr_pos << " len " << buf->len
+                                                       << " suggested "
+                                                       << suggested_size);
     } else {
         buf->len = _recv_hdr.len - _recv_payload_pos;
         buf->base = _recv_payload + _recv_payload_pos;
-        DBG8("Ntcp::_alloc_for_read: allocate payload pos " <<
-            _recv_payload_pos << " len " << buf->len <<
-            " suggested " << suggested_size);
+        DBG8(
+            "Ntcp::_alloc_for_read: allocate payload pos " << _recv_payload_pos << " len "
+                                                           << buf->len
+                                                           << " suggested "
+                                                           << suggested_size);
     }
 }
 
@@ -347,11 +356,11 @@ Ntcp::_read_data(const uv_buf_t* buf, size_t nread)
     if (DBG_VISIBLE(9)) {
         Buf::hexdump(buf->base, nread > 128 ? 128 : nread, "Ntcp::_read_data");
     }
-    if (nread < 0) {
-        // TODO
-        PANIC("Ntcp::_read_data failed");
-        return;
-    }
+    // if (nread < 0) {
+    //     // TODO
+    //     PANIC("Ntcp::_read_data failed");
+    //     return;
+    // }
     if (nread == 0) {
         return; // means EGAIN/EWOULDBLOCK so we can ignore
     }
@@ -363,17 +372,21 @@ Ntcp::_read_data(const uv_buf_t* buf, size_t nread)
                 Buf::hexdump(&_recv_hdr, MSG_HDR_SIZE, "Ntcp::_read_data: (header)");
             }
             _recv_hdr.decode();
-            DBG3("Ntcp::_read_data: incoming message"
+            DBG3(
+                "Ntcp::_read_data: incoming message"
                 //  << " seq " << _recv_hdr.seq
-                 << " len " << _recv_hdr.len
-                 << " local_port " << _local_port);
+                << " len "
+                << _recv_hdr.len
+                << " local_port "
+                << _local_port);
             if (_recv_hdr.len > MAX_MSG_LEN) {
                 // TODO close connection instead of panic
                 LOG("Ntcp::_read_data: message too big:"
                     // << " magic " << _recv_hdr.magic
                     // << " seq " << _recv_hdr.seq
                     // << " seq " << _recv_msg_seq
-                    << " len " << _recv_hdr.len);
+                    << " len "
+                    << _recv_hdr.len);
                 _recv_hdr.len = 0;
             }
             _recv_payload = new char[_recv_hdr.len];
@@ -383,20 +396,23 @@ Ntcp::_read_data(const uv_buf_t* buf, size_t nread)
     } else {
         _recv_payload_pos += nread;
         // process the payload when full
-        if (_recv_payload_pos >= _recv_hdr.len) {
+        if (_recv_payload_pos >= (int)_recv_hdr.len) {
             if (!_recv_hdr.is_valid()
                 // || _recv_hdr.seq != _recv_msg_seq
-                ) {
+            ) {
                 Buf::hexdump(&_recv_hdr, MSG_HDR_SIZE, "Ntcp::_read_data: (header decoded)");
-                Buf::hexdump(_recv_payload,
-                             _recv_hdr.len > 128 ? 128 : _recv_hdr.len,
-                             "Ntcp::_read_data: (payload)");
+                Buf::hexdump(
+                    _recv_payload,
+                    _recv_hdr.len > 128 ? 128 : _recv_hdr.len,
+                    "Ntcp::_read_data: (payload)");
                 // TODO close connection instead of panic
-                PANIC("Ntcp::_read_data: bad message:"
+                PANIC(
+                    "Ntcp::_read_data: bad message:"
                     //   << " magic " << _recv_hdr.magic
                     //   << " seq " << _recv_hdr.seq
                     //   << " expected " << _recv_msg_seq
-                      << " len " << _recv_hdr.len);
+                    << " len "
+                    << _recv_hdr.len);
             }
             _recv_msg_seq += 1;
             // ownership on memory passed to the node buffer
@@ -407,21 +423,21 @@ Ntcp::_read_data(const uv_buf_t* buf, size_t nread)
             _recv_hdr_pos = 0;
             _recv_payload_pos = 0;
             // emit the message buffer
-            DBG3("Ntcp::_read_data: incoming message completed"
+            DBG3(
+                "Ntcp::_read_data: incoming message completed"
                 //  << " seq " << _recv_hdr.seq
-                 << " len " << _recv_hdr.len
-                 << " local_port " << _local_port);
-            v8::Local<v8::Value> argv[] = { NAN_STR("message"), node_buf };
+                << " len "
+                << _recv_hdr.len
+                << " local_port "
+                << _local_port);
+            v8::Local<v8::Value> argv[] = {NAN_STR("message"), node_buf};
             Nan::MakeCallback(handle(), "emit", 2, argv);
         }
     }
 }
 
-
 Ntcp::Msg::Msg()
-    : iov_index(0)
-{
-}
+    : iov_index(0) {}
 
 Ntcp::Msg::~Msg()
 {
@@ -443,13 +459,13 @@ Ntcp::MsgHdr::decode()
     // seq = be64toh(seq);
 }
 
-const char Ntcp::MSG_HDR_MAGIC[Ntcp::MSG_MAGIC_LEN] = { 'N', 't', 'c', 'p' };
+const char Ntcp::MSG_HDR_MAGIC[Ntcp::MSG_MAGIC_LEN] = {'N', 't', 'c', 'p'};
 
 bool
 Ntcp::MsgHdr::is_valid()
 {
     // if (memcmp(magic, MSG_HDR_MAGIC, MSG_MAGIC_LEN)) {
-        // return false;
+    // return false;
     // }
     return true;
 }

@@ -9,13 +9,13 @@
 
 #include "../util/common.h"
 
-namespace noobaa 
+namespace noobaa
 {
 
 DBG_INIT(0);
 
 int
-nb_zlib_compress(struct NB_Bufs *bufs, struct NB_Bufs *errors)
+nb_zlib_compress(struct NB_Bufs* bufs, struct NB_Bufs* errors)
 {
     int z_res;
     z_stream strm;
@@ -44,12 +44,12 @@ nb_zlib_compress(struct NB_Bufs *bufs, struct NB_Bufs *errors)
     }
 
     for (int i = 0; i < bufs->count; ++i) {
-        struct NB_Buf *b = nb_bufs_get(bufs, i);
+        struct NB_Buf* b = nb_bufs_get(bufs, i);
         strm.next_in = b->data;
         strm.avail_in = b->len;
         while (strm.avail_in) {
             if (!strm.avail_out) {
-                struct NB_Buf *o = nb_bufs_push_alloc(&out, NB_BUF_PAGE_SIZE);
+                struct NB_Buf* o = nb_bufs_push_alloc(&out, NB_BUF_PAGE_SIZE);
                 strm.next_out = o->data;
                 strm.avail_out = o->len;
             }
@@ -84,7 +84,7 @@ nb_zlib_compress(struct NB_Bufs *bufs, struct NB_Bufs *errors)
             break; // need to allocate on Z_OK too ???
         case Z_BUF_ERROR:
             if (!strm.avail_out) {
-                struct NB_Buf *o = nb_bufs_push_alloc(&out, NB_BUF_PAGE_SIZE);
+                struct NB_Buf* o = nb_bufs_push_alloc(&out, NB_BUF_PAGE_SIZE);
                 strm.next_out = o->data;
                 strm.avail_out = o->len;
             }
@@ -116,7 +116,7 @@ nb_zlib_compress(struct NB_Bufs *bufs, struct NB_Bufs *errors)
 }
 
 int
-nb_zlib_uncompress(struct NB_Bufs *bufs, int uncompressed_len, struct NB_Bufs *errors)
+nb_zlib_uncompress(struct NB_Bufs* bufs, int uncompressed_len, struct NB_Bufs* errors)
 {
     int z_res;
     z_stream strm;
@@ -145,12 +145,12 @@ nb_zlib_uncompress(struct NB_Bufs *bufs, int uncompressed_len, struct NB_Bufs *e
     }
 
     for (int i = 0; i < bufs->count; ++i) {
-        struct NB_Buf *b = nb_bufs_get(bufs, i);
+        struct NB_Buf* b = nb_bufs_get(bufs, i);
         strm.next_in = b->data;
         strm.avail_in = b->len;
         while (strm.avail_in) {
             if (!strm.avail_out) {
-                struct NB_Buf *o = nb_bufs_push_alloc(&out, NB_BUF_PAGE_SIZE);
+                struct NB_Buf* o = nb_bufs_push_alloc(&out, NB_BUF_PAGE_SIZE);
                 strm.next_out = o->data;
                 strm.avail_out = o->len;
             }
@@ -183,7 +183,7 @@ nb_zlib_uncompress(struct NB_Bufs *bufs, int uncompressed_len, struct NB_Bufs *e
             break; // need to allocate on Z_OK too ???
         case Z_BUF_ERROR:
             if (!strm.avail_out) {
-                struct NB_Buf *o = nb_bufs_push_alloc(&out, NB_BUF_PAGE_SIZE);
+                struct NB_Buf* o = nb_bufs_push_alloc(&out, NB_BUF_PAGE_SIZE);
                 strm.next_out = o->data;
                 strm.avail_out = o->len;
             }
@@ -213,5 +213,4 @@ nb_zlib_uncompress(struct NB_Bufs *bufs, int uncompressed_len, struct NB_Bufs *e
     nb_bufs_init(&out);
     return 0;
 }
-
 }

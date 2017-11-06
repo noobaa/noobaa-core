@@ -1,6 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__DEDUP_CHUNKER__H
-#define NOOBAA__DEDUP_CHUNKER__H
+#pragma once
 
 #include "../util/common.h"
 #include "../util/rabin_fingerprint.h"
@@ -8,7 +7,8 @@
 #include "dedup.h"
 #include "dedup_config.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
 /**
  *
@@ -31,7 +31,7 @@ private:
 private:
     explicit DedupChunker(DedupConfig* config)
         : _dedup_config(config)
-        , _dedup_window(config->deduper)
+        , _dedup_window(_dedup_config->deduper)
         , _chunk_len(0)
     {
     }
@@ -50,5 +50,3 @@ private:
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__DEDUP_CHUNKER__H

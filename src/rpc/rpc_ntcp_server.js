@@ -1,13 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// let _ = require('lodash');
-// let P = require('../util/promise');
-let url = require('url');
-let EventEmitter = require('events').EventEmitter;
-let RpcNtcpConnection = require('./rpc_ntcp');
-let native_core = require('../util/native_core');
-let dbg = require('../util/debug_module')(__filename);
+// const _ = require('lodash');
+// const P = require('../util/promise');
+const url = require('url');
+const dbg = require('../util/debug_module')(__filename);
+const nb_native = require('../util/nb_native');
+const EventEmitter = require('events').EventEmitter;
+const RpcNtcpConnection = require('./rpc_ntcp');
 
 /**
  *
@@ -19,7 +19,7 @@ class RpcNtcpServer extends EventEmitter {
     constructor(tls_options) {
         super();
         this.protocol = (tls_options ? 'ntls:' : 'ntcp:');
-        let Ntcp = native_core().Ntcp;
+        let Ntcp = nb_native().Ntcp;
         this.server = new Ntcp();
         this.server.on('connection', ntcp => this._on_connection(ntcp));
         this.server.on('close', err => {

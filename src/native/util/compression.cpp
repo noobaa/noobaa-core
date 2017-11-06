@@ -1,10 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 #include "compression.h"
-#include "../third_party/snappy/snappy.h"
-#include "../third_party/snappy/snappy-sinksource.h"
-#include "../third_party/zlib/zlib.h"
 
-namespace noobaa {
+#include <list>
+
+#include <zlib.h>
+
+#include "../third_party/snappy/snappy-sinksource.h"
+#include "../third_party/snappy/snappy.h"
+
+namespace noobaa
+{
 
 /**
  *
@@ -38,8 +43,8 @@ public:
     {
         int len = static_cast<int>(len_);
         // LOG("BufSink::GetAppendBuffer "
-            // << DVAL(len) << DVAL(_alloc_offset)
-            // << DVAL(_alloc.length()) << DVAL(_len));
+        // << DVAL(len) << DVAL(_alloc_offset)
+        // << DVAL(_alloc.length()) << DVAL(_len));
         if (_alloc_offset + len > _alloc.length()) {
             if (_alloc_offset > 0) {
                 _alloc.slice(0, _alloc_offset);
@@ -55,8 +60,8 @@ public:
     {
         int n = static_cast<int>(n_);
         // LOG("BufSink::Append "
-            // << DVAL(n) << DVAL(_alloc_offset)
-            // << DVAL(_alloc.length()) << DVAL(_len));
+        // << DVAL(n) << DVAL(_alloc_offset)
+        // << DVAL(_alloc.length()) << DVAL(_len));
         if (_alloc.cdata() + _alloc_offset != data) {
             // data pointer was returned from GetAppendBuffer
             char* dest = GetAppendBuffer(n, 0);
@@ -66,6 +71,7 @@ public:
         _alloc_offset += n;
         _len += n;
     }
+
 private:
     int _alloc_size;
     int _alloc_offset;
@@ -73,7 +79,6 @@ private:
     std::list<Buf> _bufs;
     int _len;
 };
-
 
 /**
  *
@@ -114,8 +119,7 @@ public:
         _len -= n;
     }
     virtual char* GetAppendBufferVariable(
-        size_t min_size, size_t desired_size_hint,
-        char* scratch, size_t scratch_size, size_t* allocated_size)
+        size_t min_size, size_t desired_size_hint, char* scratch, size_t scratch_size, size_t* allocated_size)
     {
         throw_if_exhausted(min_size);
         *allocated_size =
@@ -125,9 +129,7 @@ public:
         return _dest;
     }
     virtual void AppendAndTakeOwnership(
-        char* data, size_t n,
-        void (*deleter)(void*, const char*, size_t),
-        void *deleter_arg)
+        char* data, size_t n, void (*deleter)(void*, const char*, size_t), void* deleter_arg)
     {
         throw_if_exhausted(n);
         if (data != _dest) {
@@ -137,6 +139,7 @@ public:
         _dest += n;
         _len -= n;
     }
+
 private:
     char* _dest;
     int _len;
@@ -153,7 +156,9 @@ Compression::compress(Buf buf, std::string type)
         BufSink sink(buf.length() + EXTRA_ALLOC);
         size_t compressed_len = snappy::Compress(&source, &sink);
         Buf compressed = sink.get_buffer();
-        assert(compressed.length() == static_cast<int>(compressed_len));
+        if (compressed.length() != static_cast<int>(compressed_len)) {
+            throw Exception("SNAPPY compressed length mismatch");
+        }
         return compressed;
     } else if (type == "zlib") {
         static const int ZLIB_LEVEL = 1;

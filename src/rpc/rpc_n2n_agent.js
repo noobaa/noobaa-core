@@ -10,7 +10,7 @@ const tls = require('tls');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const url_utils = require('../util/url_utils');
-const native_core = require('../util/native_core');
+const nb_native = require('../util/nb_native');
 const EventEmitter = require('events').EventEmitter;
 const RpcN2NConnection = require('./rpc_n2n');
 
@@ -54,8 +54,8 @@ class RpcN2NAgent extends EventEmitter {
         // and returns back the info that was returned by the peer.
         let send_signal = options.send_signal;
 
-        // lazy loading of native_core to use Nudp
-        let Nudp = native_core().Nudp;
+        // lazy loading of nb_native to use Nudp
+        let Nudp = nb_native().Nudp;
 
         // initialize the default config structure
         this.n2n_config = {

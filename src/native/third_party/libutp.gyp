@@ -1,5 +1,6 @@
+# Copyright (C) 2016 NooBaa
 {
-    'includes': ['../../common.gypi'],
+    'includes': ['common_third_party.gypi'],
     'configurations': {
         'Debug': {
             'defines': ['_DEBUG', 'UTP_DEBUG_LOGGING'],
@@ -20,20 +21,20 @@
             }]
         ],
         'sources': [
-            'utp.h',
-            'utp_api.cpp',
-            'utp_callbacks.cpp',
-            'utp_callbacks.h',
-            'utp_hash.cpp',
-            'utp_hash.h',
-            'utp_internal.cpp',
-            'utp_internal.h',
-            'utp_packedsockaddr.cpp',
-            'utp_packedsockaddr.h',
-            'utp_templates.h',
-            'utp_types.h',
-            'utp_utils.cpp',
-            'utp_utils.h',
+            'libutp/utp.h',
+            'libutp/utp_api.cpp',
+            'libutp/utp_callbacks.cpp',
+            'libutp/utp_callbacks.h',
+            'libutp/utp_hash.cpp',
+            'libutp/utp_hash.h',
+            'libutp/utp_internal.cpp',
+            'libutp/utp_internal.h',
+            'libutp/utp_packedsockaddr.cpp',
+            'libutp/utp_packedsockaddr.h',
+            'libutp/utp_templates.h',
+            'libutp/utp_types.h',
+            'libutp/utp_utils.cpp',
+            'libutp/utp_utils.h',
         ],
     }, {
         'target_name': 'ucat',
@@ -47,6 +48,8 @@
             }]
         ],
         'dependencies': ['libutp'],
-        'sources': ['ucat.c']
+        'sources': [
+            'libutp/ucat.c'
+        ]
     }]
 }

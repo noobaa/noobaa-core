@@ -12,6 +12,7 @@ const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const Pipeline = require('../util/pipeline');
 const LRUCache = require('../util/lru_cache');
+const nb_native = require('../util/nb_native');
 const Semaphore = require('../util/semaphore');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
@@ -112,24 +113,21 @@ class ObjectIO {
     }
 
     lazy_init_natives() {
-        if (!this.native_core) {
-            this.native_core = require('../util/native_core')(); // eslint-disable-line global-require
-        }
-        let nc = this.native_core;
         // these threadpools are global OS threads used to offload heavy CPU work
         // from the node.js thread so that it will keep processing incoming IO while
         // encoding/decoding the object chunks in high performance native code.
+        const n = nb_native();
         if (!ObjectIO.dedup_chunker_tpool) {
-            ObjectIO.dedup_chunker_tpool = new nc.ThreadPool(1);
+            ObjectIO.dedup_chunker_tpool = new n.ThreadPool(1);
         }
         if (!ObjectIO.object_coding_tpool) {
-            ObjectIO.object_coding_tpool = new nc.ThreadPool(1);
+            ObjectIO.object_coding_tpool = new n.ThreadPool(1);
         }
         if (!this.dedup_config) {
-            this.dedup_config = new nc.DedupConfig(dedup_options);
+            this.dedup_config = new n.DedupConfig(dedup_options);
         }
         if (!this.object_coding) {
-            this.object_coding = new nc.ObjectCoding(this.object_coding_default_options);
+            this.object_coding = new n.ObjectCoding(this.object_coding_default_options);
         }
     }
 
@@ -320,7 +318,7 @@ class ObjectIO {
 
         this.lazy_init_natives();
         params.source_stream._readableState.highWaterMark = size_utils.MEGABYTE;
-        params.dedup_chunker = new this.native_core.DedupChunker({
+        params.dedup_chunker = new (nb_native().DedupChunker)({
             tpool: ObjectIO.dedup_chunker_tpool
         }, this.dedup_config);
 
@@ -397,7 +395,6 @@ class ObjectIO {
                                 dbg.log0('UPLOAD:', params.desc,
                                     'streaming at', range_utils.human_range(part),
                                     'took', time_utils.millitook(part.millistamp));
-                                dbg.log_progress(part.end / params.size);
                                 if (params.progress) params.progress(part);
                             }
                             return callback();

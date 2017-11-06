@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__COMPRESSION__H
-#define NOOBAA__COMPRESSION__H
+#pragma once
 
-#include "common.h"
 #include "buf.h"
+#include "common.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
 /**
  * supported types: "zlib", "snappy"
@@ -18,5 +18,3 @@ public:
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__COMPRESSION__H

@@ -1,127 +1,69 @@
+# Copyright (C) 2016 NooBaa
 {
-    'variables': {
-
-        'nan_path': '<!(node -e \"require(\'nan\')\")',
-        'zlib_include_path': '<(node_root_dir)/deps/zlib',
-
-        # node v0.6.x doesn't give us its build variables,
-        # but on Unix it was only possible to use the system OpenSSL library,
-        # so default the variable to "true", v0.8.x node and up will overwrite it.
-        'node_shared_openssl%': 'true',
-
-        # variables inside variables hack to allow using conditional and then reload the variables
-        # see https://code.google.com/p/gyp/issues/detail?id=165
-        'variables': {
-            'conditions' : [
-                [ 'OS=="win"', {
-                    'conditions': [
-                        ['target_arch=="x64"', {
-                            'openssl_root%': 'C:/OpenSSL-Win64'
-                        }, {
-                            'openssl_root%': 'C:/OpenSSL-Win32'
-                        }],
-                    ],
-                }, { # not windows
-                    'openssl_root%': '<(node_root_dir)/deps/openssl',
-                }]
-            ]
-        },
-
-        'conditions' : [
-            [ 'OS=="win"', {
-                'openssl_config_path': ' ', # node-gyp fails if the string is empty...
-                'openssl_include_path': '<(openssl_root)/include',
-                'openssl_lib': '-l<(openssl_root)/lib/libeay32.lib',
-            }, { # not windows
-                'openssl_include_path': '<(openssl_root)/openssl/include',
-                'openssl_lib': ' ',
-                'conditions': [
-                    ['target_arch=="ia32"', {
-                        'openssl_config_path': [ '<(openssl_root)/config/piii' ]
-                    }],
-                    ['target_arch=="x64"', {
-                        'openssl_config_path': [ '<(openssl_root)/config/k8' ]
-                    }],
-                    ['target_arch=="arm"', {
-                        'openssl_config_path': [ '<(openssl_root)/config/arm' ]
-                    }],
-                    ['target_arch=="ppc64"', {
-                        'openssl_config_path': [ '<(openssl_root)/config/powerpc64' ]
-                    }],
-                ],
-            }]
-        ],
-    },
-
     'target_defaults': {
 
-        'include_dirs' : [
-            '<(nan_path)',
-            '<(zlib_include_path)',
-            '<(openssl_include_path)',
-            '<(openssl_config_path)',
-        ],
-
-        # enable exceptions using negative (cflags!) to remove cflags set by node.js common.gypi
-        'cflags!': ['-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics'],
-        'cflags_cc!': ['-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics'],
-        'cflags_cc': ['-std=c++0x'],
-        'libraries': [
-            '<(openssl_lib)',
-        ],
-
         'conditions' : [
+
             [ 'OS=="linux"', {
-                'ldflags': ['-lrt']
+                'cflags!': [
+                    '-fno-exceptions',
+                ],
+                'cflags_cc!': [
+                    '-fno-exceptions',
+                ],
+                'cflags': [
+                    '-std=c99',
+                    '-msse4.1', # tell the compiler we use SSE4.1 in cm256
+                ],
+                'cflags_cc': [
+                    '-std=c++11'
+                ],
+                'ldflags': [
+                    '-lrt', # librt
+                ],
             }],
+
             [ 'OS=="win"', {
-                'libraries': ['ws2_32']
-            }]
+                'libraries': [
+                    'ws2_32', # winsock2
+                ],
+                'msvs_settings': {
+                    'VCCLCompilerTool': {
+                        'ExceptionHandling': 1,
+                        'AdditionalOptions': [
+                            # https://docs.microsoft.com/en-us/cpp/build/reference/eh-exception-handling-model
+                            # /EHsc - catches C++ exceptions only and tells the compiler
+                            # to assume that functions declared as extern "C" never throw a C++ exception.
+                            '/EHsc', 
+                        ],
+                    }
+                },
+            }],
+
+            [ 'OS=="mac"', {
+                'xcode_settings': {
+                    # Reference - http://help.apple.com/xcode/mac/8.0/#/itcaec37c2a6
+                    'MACOSX_DEPLOYMENT_TARGET': '10.9',
+                    'CLANG_CXX_LIBRARY': 'libc++',
+                    'CLANG_CXX_LANGUAGE_STANDARD': 'c++11', # -std=c++11
+                    'GCC_C_LANGUAGE_STANDARD': 'c99', # -std=c99
+                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                },
+            }],
+
         ],
 
-        'xcode_settings': {
-            'OTHER_CFLAGS': [
-                # '-std=c++0x',
-            ],
-            'OTHER_CPLUSPLUSFLAGS': [
-                '-std=c++0x',
-                '-stdlib=libc++', # clang
-                # '-stdlib=libstdc++', # gcc
-            ],
-            'OTHER_LDFLAGS': [
-                # '-std=c++0x',
-                # '-stdlib=libc++', # clang
-                # '-stdlib=libstdc++', # gcc
-            ],
-        },
-
-        'msvs_settings': {
-            'VCCLCompilerTool': {
-                # Enable unwind semantics for Exception Handling.
-                # This one actually does the trick.
-                # This is also where you can put /GR or /MDd, or other defines.
-                'AdditionalOptions': [ '/EHsc' ],
-                'ExceptionHandling': 1, # /EHsc (doesn't work?)
-                'RuntimeLibrary': 3, # shared debug
-                'RuntimeTypeInfo': 'true', # /GR
-                # 'RuntimeLibrary': '2' # /MD
-            }
-        },
-
-        'default_configuration': 'Debug',
+        'default_configuration': 'Release',
 
         'configurations': {
 
             'Debug': {
                 'defines!': ['NDEBUG'],
+                'defines': ['DEBUG', '_DEBUG'],
                 'cflags!': ['-Os', '-O1', '-O2', '-O3'],
                 'cflags_cc!': ['-Os', '-O1', '-O2', '-O3'],
                 'cflags': ['-O0', '-g'],
                 'xcode_settings': {
-                    'MACOSX_DEPLOYMENT_TARGET': '10.7',
-                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-                    'GCC_ENABLE_CPP_RTTI': 'YES',
-                    'GCC_THREADSAFE_STATICS': 'YES',
                     'GCC_GENERATE_DEBUGGING_SYMBOLS': 'YES',
                     'GCC_OPTIMIZATION_LEVEL': '0',
                     'OTHER_CFLAGS!': ['-Os', '-O1', '-O2', '-O3'],
@@ -132,14 +74,11 @@
 
             'Release': {
                 'defines': ['NDEBUG'],
+                'defines!': ['DEBUG', '_DEBUG'],
                 'cflags!': ['-Os', '-O0', '-O1', '-O2'],
                 'cflags_cc!': ['-Os', '-O0', '-O1', '-O2'],
                 'cflags': ['-O3'],
                 'xcode_settings': {
-                    'MACOSX_DEPLOYMENT_TARGET': '10.7',
-                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-                    'GCC_ENABLE_CPP_RTTI': 'YES',
-                    'GCC_THREADSAFE_STATICS': 'YES',
                     'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
                     'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
                     'GCC_OPTIMIZATION_LEVEL': '3',
@@ -148,7 +87,7 @@
                     'OTHER_CPLUSPLUSFLAGS!': ['-Os', '-O0', '-O1', '-O2'],
                     'OTHER_CFLAGS': ['-O3'],
                 },
-            }
+            },
         }
     }
 }

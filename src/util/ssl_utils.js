@@ -7,14 +7,14 @@ const path = require('path');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
-const native_core = require('./native_core');
+const nb_native = require('./nb_native');
 
 const SERVER_SSL_DIR_PATH = path.join('/etc', 'private_ssl_path');
 const SERVER_SSL_KEY_PATH = path.join(SERVER_SSL_DIR_PATH, 'server.key');
 const SERVER_SSL_CERT_PATH = path.join(SERVER_SSL_DIR_PATH, 'server.crt');
 
 function generate_ssl_certificate() {
-    return native_core().x509();
+    return nb_native().x509();
 }
 
 function verify_ssl_certificate(certificate) {

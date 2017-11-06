@@ -8,14 +8,16 @@ const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const AlertsLogStore = require('./alerts_log_store').AlertsLogStore;
 const server_rpc = require('../server_rpc');
-const native_core = require('../../util/native_core')();
+const nb_native = require('../../util/nb_native');
 const alerts_rules = require('./alerts_rules');
 const ActivityLogStore = require('../analytic_services/activity_log_store').ActivityLogStore;
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_client = require('../node_services/nodes_client');
 
+const SYSLOG_INFO_LEVEL = 5;
+const SYSLOG_LOG_LOCAL0 = 'LOG_LOCAL0';
 
-var NotificationTypes = Object.freeze({
+const NotificationTypes = Object.freeze({
     ALERT: 1,
     NOTIFICATION: 2,
     ACTIVITYLOG: 3,
@@ -36,7 +38,6 @@ class Dispatcher {
     }
 
     constructor() {
-        this._ext_syslog = new native_core.Syslog();
         this._pid = process.pid;
     }
 
@@ -90,8 +91,7 @@ class Dispatcher {
     //Remote Syslog
     send_syslog(item) {
         dbg.log3('Sending external syslog', item);
-        const INFO_LEVEL = 5;
-        this._ext_syslog.log(INFO_LEVEL, 'NooBaa ' + item.description);
+        nb_native().syslog(SYSLOG_INFO_LEVEL, 'NooBaa ' + item.description, SYSLOG_LOG_LOCAL0);
     }
 
     //Alerts

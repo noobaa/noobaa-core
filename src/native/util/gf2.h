@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__GF2__H
-#define NOOBAA__GF2__H
+#pragma once
 
 #include "common.h"
 #include <math.h>
 
-namespace noobaa {
+namespace noobaa
+{
 
 /**
  *
@@ -35,9 +35,9 @@ public:
     {
         assert(degree > 8);
         assert(necessary_check_for_irreducible());
-        for (int i=0; i<256; ++i) {
+        for (int i = 0; i < 256; ++i) {
             T a = T(i) << carry_byte_shift;
-            for (int j=0; j<8; ++j) {
+            for (int j = 0; j < 8; ++j) {
                 a = shift_left(a);
             }
             carry_byte_shift_table[i] = a;
@@ -52,7 +52,7 @@ public:
     {
         static const T TWO = 2;
         T a = TWO;
-        for (int i=0; i<degree; ++i) {
+        for (int i = 0; i < degree; ++i) {
             a = mult(a, a);
         }
         return a == TWO;
@@ -141,5 +141,3 @@ private:
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__GF2__H

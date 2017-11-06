@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__TCP__H
-#define NOOBAA__TCP__H
+#pragma once
 
-#include "../util/common.h"
+#include "../util/nan.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
 class Ntcp : public Nan::ObjectWrap
 {
@@ -35,16 +35,16 @@ private:
     static const int MSG_MAGIC_LEN = 4;
     static const char MSG_HDR_MAGIC[MSG_MAGIC_LEN];
 
-    // packing the header so that if it has multiple fields
-    // then it won't have different padding between different compilers
-    #pragma pack(push, 1)
+// packing the header so that if it has multiple fields
+// then it won't have different padding between different compilers
+#pragma pack(push, 1)
     struct MsgHdr {
         // char magic[MSG_MAGIC_LEN];
         uint32_t len;
         // uint64_t seq;
         MsgHdr()
             : len(0)
-            // , seq(0)
+        // , seq(0)
         {
             // memcpy(magic, MSG_HDR_MAGIC, MSG_MAGIC_LEN);
         }
@@ -52,7 +52,7 @@ private:
         void decode();
         bool is_valid();
     };
-    #pragma pack(pop)
+#pragma pack(pop)
 
     struct Msg {
         Nan::Persistent<v8::Object> persistent;
@@ -83,7 +83,7 @@ private:
     char* _recv_payload;
     int _recv_hdr_pos;
     int _recv_payload_pos;
-    uint64_t _send_msg_seq;
+    // uint64_t _send_msg_seq;
     uint64_t _recv_msg_seq;
     bool _closed;
     bool _reading;
@@ -92,5 +92,3 @@ private:
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__NTCP__H

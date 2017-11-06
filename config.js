@@ -125,9 +125,38 @@ config.SCRUBBER_BATCH_DELAY = 50;
 config.SCRUBBER_ERROR_DELAY = 3000;
 config.SCRUBBER_RESTART_DELAY = 30000;
 
+//////////////////
+// CHUNK CONFIG //
+//////////////////
+
+// SPLIT
+config.CHUNK_SPLIT_AVG_CHUNK = 4 * 1024 * 1024;
+config.CHUNK_SPLIT_DELTA_CHUNK = config.CHUNK_SPLIT_AVG_CHUNK / 4;
+
+// CODER
+config.CHUNK_CODER_DIGEST_TYPE = 'sha384';
+config.CHUNK_CODER_FRAG_DIGEST_TYPE = 'sha1';
+config.CHUNK_CODER_COMPRESS_TYPE = 'snappy';
+config.CHUNK_CODER_CIPHER_TYPE = 'aes-256-gcm';
+config.CHUNK_CODER_DATA_FRAGS = 1;
+
+// REPLICAS
+config.CHUNK_CODER_3_REPLICAS = 3;
+
+// ERASURE CODES
+config.CHUNK_CODER_EC_DATA_FRAGS = 4;
+config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
+config.CHUNK_CODER_EC_PARITY_TYPE = 'isa-c1';
+
+// LRC
+// config.CHUNK_CODER_LRC_GROUP = 2;
+// config.CHUNK_CODER_LRC_FRAGS = 1;
+
+
 //////////////////////
 // LIFECYCLE CONFIG //
 //////////////////////
+
 config.LIFECYCLE_INTERVAL = 15 * 60 * 1000;
 
 //////////////////////////

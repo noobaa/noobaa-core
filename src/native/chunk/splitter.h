@@ -1,10 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 #pragma once
 
+#include <vector>
+
+#include <openssl/evp.h>
+
 #include "../util/rabin.h"
 #include "../util/struct_buf.h"
-#include <openssl/evp.h>
-#include <vector>
 
 namespace noobaa
 {
@@ -24,9 +26,9 @@ public:
 
     ~Splitter();
 
-    void push(const uint8_t *data, int len);
+    void push(const uint8_t* data, int len);
 
-    void finish(uint8_t *md5, uint8_t *sha256);
+    void finish(uint8_t* md5, uint8_t* sha256);
 
     bool calc_md5() { return _calc_md5; }
     bool calc_sha256() { return _calc_sha256; }
@@ -49,6 +51,6 @@ private:
 
     static Rabin _rabin;
 
-    bool _next_point(const uint8_t **const p_data, int *const p_len);
+    bool _next_point(const uint8_t** const p_data, int* const p_len);
 };
 }

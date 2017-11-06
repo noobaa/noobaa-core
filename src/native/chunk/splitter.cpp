@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 #include "splitter.h"
 
+#include "../util/common.h"
+
 namespace noobaa
 {
 
@@ -29,6 +31,9 @@ Splitter::Splitter(
     , _chunk_pos(0)
     , _hash(0)
 {
+    assert(_min_chunk > 0);
+    assert(_min_chunk <= _max_chunk);
+    assert(_avg_chunk_bits >= 0);
     nb_buf_init_alloc(&_window, NB_RABIN_WINDOW_LEN);
     memset(_window.data, 0, _window.len);
     if (calc_md5) {
@@ -49,7 +54,7 @@ Splitter::~Splitter()
 }
 
 void
-Splitter::push(const uint8_t *data, int len)
+Splitter::push(const uint8_t* data, int len)
 {
     if (_calc_md5) EVP_DigestUpdate(&_md5_ctx, data, len);
     if (_calc_sha256) EVP_DigestUpdate(&_sha256_ctx, data, len);
@@ -60,14 +65,14 @@ Splitter::push(const uint8_t *data, int len)
 }
 
 void
-Splitter::finish(uint8_t *md5, uint8_t *sha256)
+Splitter::finish(uint8_t* md5, uint8_t* sha256)
 {
     if (md5 && _calc_md5) EVP_DigestFinal_ex(&_md5_ctx, md5, 0);
     if (sha256 && _calc_sha256) EVP_DigestFinal_ex(&_sha256_ctx, sha256, 0);
 }
 
 bool
-Splitter::_next_point(const uint8_t **const p_data, int *const p_len)
+Splitter::_next_point(const uint8_t** const p_data, int* const p_len)
 {
     // this code is very tight on CPU,
     // se we copy the memory that gets accessed frequently to the stack,
@@ -75,7 +80,7 @@ Splitter::_next_point(const uint8_t **const p_data, int *const p_len)
 
     int window_pos = _window_pos;
     const int window_len = _window.len;
-    uint8_t *const window_data = _window.data;
+    uint8_t* const window_data = _window.data;
 
     int chunk_pos = _chunk_pos;
     const int total = chunk_pos + (*p_len);
@@ -86,7 +91,7 @@ Splitter::_next_point(const uint8_t **const p_data, int *const p_len)
     const Rabin::Hash avg_chunk_mask = ~(~((Rabin::Hash)0) << _avg_chunk_bits);
     const Rabin::Hash avg_chunk_val = ~((Rabin::Hash)0) & avg_chunk_mask;
 
-    const uint8_t *data = *p_data;
+    const uint8_t* data = *p_data;
     bool boundary = false;
     uint8_t byte = 0;
 

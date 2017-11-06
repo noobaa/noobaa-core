@@ -27,12 +27,12 @@ static napi_value _nb_x509(napi_env env, napi_callback_info info);
 static napi_value _nb_x509_verify(napi_env env, napi_callback_info info);
 static napi_value _nb_rsa(napi_env env, napi_callback_info info);
 
-static void write_pem_private(napi_env env, napi_value result, const char *name, EVP_PKEY *pkey);
-static void write_pem_public(napi_env env, napi_value result, const char *name, EVP_PKEY *pkey);
-static void write_pem_x509(napi_env env, napi_value result, const char *name, X509 *x509);
-static X509_NAME *x509_name_from_entries(napi_env env, napi_value entries);
-static napi_value x509_name_to_entries(napi_env env, X509_NAME *x509_name);
-static int no_password_callback(char *buf, int size, int rwflag, void *u);
+static void write_pem_private(napi_env env, napi_value result, const char* name, EVP_PKEY* pkey);
+static void write_pem_public(napi_env env, napi_value result, const char* name, EVP_PKEY* pkey);
+static void write_pem_x509(napi_env env, napi_value result, const char* name, X509* x509);
+static X509_NAME* x509_name_from_entries(napi_env env, napi_value entries);
+static napi_value x509_name_to_entries(napi_env env, X509_NAME* x509_name);
+static int no_password_callback(char* buf, int size, int rwflag, void* u);
 
 void
 ssl_napi(napi_env env, napi_value exports)
@@ -68,12 +68,12 @@ _nb_x509(napi_env env, napi_callback_info info)
 {
     napi_value result = 0;
     int days = 36500;
-    X509_NAME *owner_x509_name = NULL;
-    X509_NAME *issuer_x509_name = NULL;
-    EVP_PKEY *issuer_private_key = NULL;
-    EVP_PKEY *owner_public_key = NULL;
-    EVP_PKEY_CTX *ctx = NULL;
-    X509 *x509 = NULL;
+    X509_NAME* owner_x509_name = NULL;
+    X509_NAME* issuer_x509_name = NULL;
+    EVP_PKEY* issuer_private_key = NULL;
+    EVP_PKEY* owner_public_key = NULL;
+    EVP_PKEY_CTX* ctx = NULL;
+    X509* x509 = NULL;
 
     StackCleaner cleaner([&] {
         if (issuer_x509_name != owner_x509_name) {
@@ -121,9 +121,9 @@ _nb_x509(napi_env env, napi_callback_info info)
             size_t private_len = 0;
             napi_get_value_string_utf8(env, v, 0, 0, &private_len);
             private_len++; // for null terminator
-            char *private_str = (char *)malloc(private_len);
+            char* private_str = (char*)malloc(private_len);
             napi_get_value_string_utf8(env, v, private_str, private_len, 0);
-            BIO *bio = BIO_new_mem_buf(private_str, private_len);
+            BIO* bio = BIO_new_mem_buf(private_str, private_len);
             issuer_private_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
             BIO_free(bio);
             free(private_str);
@@ -139,9 +139,9 @@ _nb_x509(napi_env env, napi_callback_info info)
             size_t public_len = 0;
             napi_get_value_string_utf8(env, v, 0, 0, &public_len);
             public_len++; // for null terminator
-            char *public_str = (char *)malloc(public_len);
+            char* public_str = (char*)malloc(public_len);
             napi_get_value_string_utf8(env, v, public_str, public_len, 0);
-            BIO *bio = BIO_new_mem_buf(public_str, strlen(public_str));
+            BIO* bio = BIO_new_mem_buf(public_str, strlen(public_str));
             owner_public_key = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
             BIO_free(bio);
             free(public_str);
@@ -156,11 +156,11 @@ _nb_x509(napi_env env, napi_callback_info info)
         // the minimal name should have an organization
         owner_x509_name = X509_NAME_new();
         X509_NAME_add_entry_by_txt(
-            owner_x509_name, "C", MBSTRING_UTF8, (const unsigned char *)"US", -1, -1, 0);
+            owner_x509_name, "C", MBSTRING_UTF8, (const unsigned char*)"US", -1, -1, 0);
         X509_NAME_add_entry_by_txt(
-            owner_x509_name, "ST", MBSTRING_UTF8, (const unsigned char *)"California", -1, -1, 0);
+            owner_x509_name, "ST", MBSTRING_UTF8, (const unsigned char*)"California", -1, -1, 0);
         X509_NAME_add_entry_by_txt(
-            owner_x509_name, "O", MBSTRING_UTF8, (const unsigned char *)"SelfSigned", -1, -1, 0);
+            owner_x509_name, "O", MBSTRING_UTF8, (const unsigned char*)"SelfSigned", -1, -1, 0);
     }
     if (!issuer_x509_name) issuer_x509_name = owner_x509_name;
     if (!issuer_private_key && !owner_public_key) {
@@ -214,14 +214,14 @@ static napi_value
 _nb_x509_verify(napi_env env, napi_callback_info info)
 {
     napi_value result = 0;
-    EVP_PKEY *issuer_private_key = NULL;
-    X509 *x509 = NULL;
+    EVP_PKEY* issuer_private_key = NULL;
+    X509* x509 = NULL;
 
     StackCleaner cleaner([&] {
         EVP_PKEY_free(issuer_private_key);
         X509_free(x509);
     });
-        
+
     size_t argc = 1;
     napi_value argv[] = {0};
     napi_get_cb_info(env, info, &argc, argv, 0, 0);
@@ -240,9 +240,9 @@ _nb_x509_verify(napi_env env, napi_callback_info info)
             size_t private_len = 0;
             napi_get_value_string_utf8(env, v, 0, 0, &private_len);
             private_len++; // for null terminator
-            char *private_str = (char *)malloc(private_len);
+            char* private_str = (char*)malloc(private_len);
             napi_get_value_string_utf8(env, v, private_str, private_len, 0);
-            BIO *bio = BIO_new_mem_buf(private_str, private_len);
+            BIO* bio = BIO_new_mem_buf(private_str, private_len);
             issuer_private_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
             BIO_free(bio);
             free(private_str);
@@ -259,9 +259,9 @@ _nb_x509_verify(napi_env env, napi_callback_info info)
             size_t cert_len = 0;
             napi_get_value_string_utf8(env, v, 0, 0, &cert_len);
             cert_len++; // for null terminator
-            char *cert_str = (char *)malloc(cert_len);
+            char* cert_str = (char*)malloc(cert_len);
             napi_get_value_string_utf8(env, v, cert_str, cert_len, 0);
-            BIO *bio = BIO_new_mem_buf(cert_str, cert_len);
+            BIO* bio = BIO_new_mem_buf(cert_str, cert_len);
             x509 = PEM_read_bio_X509(bio, NULL, no_password_callback, NULL);
             BIO_free(bio);
             free(cert_str);
@@ -281,7 +281,7 @@ _nb_x509_verify(napi_env env, napi_callback_info info)
     switch (EVP_PKEY_type(issuer_private_key->type)) {
     case EVP_PKEY_RSA:
     case EVP_PKEY_RSA2: {
-        RSA *rsa = EVP_PKEY_get1_RSA(issuer_private_key);
+        RSA* rsa = EVP_PKEY_get1_RSA(issuer_private_key);
         int rc = RSA_check_key(rsa);
         RSA_free(rsa);
         if (rc != 1) {
@@ -331,8 +331,8 @@ _nb_rsa(napi_env env, napi_callback_info info)
         napi_get_value_int32(env, v, &bits);
     }
 
-    EVP_PKEY *pkey = NULL;
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    EVP_PKEY* pkey = NULL;
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     EVP_PKEY_keygen_init(ctx);
     EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, bits);
     EVP_PKEY_keygen(ctx, &pkey);
@@ -347,11 +347,11 @@ _nb_rsa(napi_env env, napi_callback_info info)
 }
 
 static void
-write_pem_private(napi_env env, napi_value result, const char *name, EVP_PKEY *pkey)
+write_pem_private(napi_env env, napi_value result, const char* name, EVP_PKEY* pkey)
 {
-    BIO *bio = BIO_new(BIO_s_mem());
+    BIO* bio = BIO_new(BIO_s_mem());
     PEM_write_bio_PKCS8PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);
-    char *data = NULL;
+    char* data = NULL;
     long len = BIO_get_mem_data(bio, &data);
     napi_value v;
     napi_create_string_utf8(env, data, len, &v);
@@ -360,11 +360,11 @@ write_pem_private(napi_env env, napi_value result, const char *name, EVP_PKEY *p
 }
 
 static void
-write_pem_public(napi_env env, napi_value result, const char *name, EVP_PKEY *pkey)
+write_pem_public(napi_env env, napi_value result, const char* name, EVP_PKEY* pkey)
 {
-    BIO *bio = BIO_new(BIO_s_mem());
+    BIO* bio = BIO_new(BIO_s_mem());
     PEM_write_bio_PUBKEY(bio, pkey);
-    char *data = NULL;
+    char* data = NULL;
     long len = BIO_get_mem_data(bio, &data);
     napi_value v;
     napi_create_string_utf8(env, data, len, &v);
@@ -373,11 +373,11 @@ write_pem_public(napi_env env, napi_value result, const char *name, EVP_PKEY *pk
 }
 
 static void
-write_pem_x509(napi_env env, napi_value result, const char *name, X509 *x509)
+write_pem_x509(napi_env env, napi_value result, const char* name, X509* x509)
 {
-    BIO *bio = BIO_new(BIO_s_mem());
+    BIO* bio = BIO_new(BIO_s_mem());
     PEM_write_bio_X509(bio, x509);
-    char *data = NULL;
+    char* data = NULL;
     long len = BIO_get_mem_data(bio, &data);
     napi_value v;
     napi_create_string_utf8(env, data, len, &v);
@@ -397,10 +397,10 @@ write_pem_x509(napi_env env, napi_value result, const char *name, X509 *x509)
  *      "CN": "*.noobaa.com",
  *  }
  */
-static X509_NAME *
+static X509_NAME*
 x509_name_from_entries(napi_env env, napi_value entries)
 {
-    X509_NAME *x509_name = X509_NAME_new();
+    X509_NAME* x509_name = X509_NAME_new();
     napi_value v_props = 0;
     uint32_t num_props = 0;
     napi_get_property_names(env, entries, &v_props);
@@ -415,23 +415,23 @@ x509_name_from_entries(napi_env env, napi_value entries)
         napi_get_named_property(env, entries, prop, &v_value);
         napi_get_value_string_utf8(env, v_value, value, sizeof(value), 0);
         X509_NAME_add_entry_by_txt(
-            x509_name, prop, MBSTRING_UTF8, (const unsigned char *)value, -1, -1, 0);
+            x509_name, prop, MBSTRING_UTF8, (const unsigned char*)value, -1, -1, 0);
     }
     return x509_name;
 }
 
 static napi_value
-x509_name_to_entries(napi_env env, X509_NAME *x509_name)
+x509_name_to_entries(napi_env env, X509_NAME* x509_name)
 {
     napi_value v_entries = 0;
     napi_create_object(env, &v_entries);
     int num_entries = X509_NAME_entry_count(x509_name);
     for (int i = 0; i < num_entries; i++) {
-        X509_NAME_ENTRY *e = X509_NAME_get_entry(x509_name, i);
-        ASN1_OBJECT *o = X509_NAME_ENTRY_get_object(e);
-        ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
-        const char *key = OBJ_nid2sn(OBJ_obj2nid(o));
-        const char *val = (const char *)ASN1_STRING_data(d);
+        X509_NAME_ENTRY* e = X509_NAME_get_entry(x509_name, i);
+        ASN1_OBJECT* o = X509_NAME_ENTRY_get_object(e);
+        ASN1_STRING* d = X509_NAME_ENTRY_get_data(e);
+        const char* key = OBJ_nid2sn(OBJ_obj2nid(o));
+        const char* val = (const char*)ASN1_STRING_data(d);
         napi_value v = 0;
         napi_create_string_utf8(env, val, 0, &v);
         napi_set_named_property(env, v_entries, key, v);
@@ -441,9 +441,8 @@ x509_name_to_entries(napi_env env, X509_NAME *x509_name)
 
 // avoid prompt passphrase which is the default callback in openssl
 static int
-no_password_callback(char *buf, int size, int rwflag, void *u)
+no_password_callback(char* buf, int size, int rwflag, void* u)
 {
     return 0;
 }
-
 }

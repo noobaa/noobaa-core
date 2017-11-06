@@ -1,3 +1,4 @@
+# Copyright (C) 2016 NooBaa
 {
     'includes': ['common_third_party.gypi'],
     'targets': [{

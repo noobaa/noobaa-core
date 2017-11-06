@@ -2,7 +2,8 @@
 #include "dedup_chunker.h"
 #include "../util/buf.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
 Nan::Persistent<v8::Function> DedupChunker::_ctor;
 
@@ -50,8 +51,8 @@ private:
     NanCallbackSharedPtr _callback;
     std::list<Buf> _bufs;
     std::list<Buf> _chunks;
-public:
 
+public:
     // ctor with data buffer
     explicit Worker(
         DedupChunker& chunker,
@@ -68,7 +69,7 @@ public:
 
         if (buf_or_bufs->IsArray()) {
             int num_buffers = buf_or_bufs.As<v8::Array>()->Length();
-            for (int i=0; i<num_buffers; ++i) {
+            for (int i = 0; i < num_buffers; ++i) {
                 auto node_buf = NAN_GET_OBJ(buf_or_bufs, i);
                 Buf buf(node::Buffer::Data(node_buf), node::Buffer::Length(node_buf));
                 _bufs.push_back(buf);
@@ -159,7 +160,7 @@ public:
         Nan::HandleScope scope;
         int len = _chunks.size();
         auto arr = NAN_NEW_ARR(len);
-        for (int i=0; i<len; ++i) {
+        for (int i = 0; i < len; ++i) {
             Buf chunk = _chunks.front();
             _chunks.pop_front();
             // we optimize to avoid another memory copy -
@@ -169,7 +170,7 @@ public:
             // and uniquely pointed here.
             NAN_SET_BUF_DETACH(arr, i, chunk);
         }
-        v8::Local<v8::Value> argv[] = { Nan::Undefined(), arr };
+        v8::Local<v8::Value> argv[] = {Nan::Undefined(), arr};
         _callback->Call(2, argv);
         delete this;
     }
@@ -177,9 +178,7 @@ public:
 
 NAN_METHOD(DedupChunker::push)
 {
-    if (info.Length() != 2
-        || (!node::Buffer::HasInstance(info[0]) && !info[0]->IsArray())
-        || !info[1]->IsFunction()) {
+    if (info.Length() != 2 || (!node::Buffer::HasInstance(info[0]) && !info[0]->IsArray()) || !info[1]->IsFunction()) {
         return Nan::ThrowError("DedupChunker::push expected arguments function(buf_or_bufs,callback)");
     }
     v8::Local<v8::Object> self = info.This();

@@ -16,6 +16,7 @@ const ip_module = require('ip');
 const moment = require('moment');
 
 const P = require('../../util/promise');
+const api = require('../../api/api');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('../utils/clustering_utils');
@@ -24,8 +25,11 @@ const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const { RpcError } = require('../../rpc');
+const ssl_utils = require('../../util/ssl_utils');
+const nb_native = require('../../util/nb_native');
 const net_utils = require('../../util/net_utils');
 const zip_utils = require('../../util/zip_utils');
+const MongoCtrl = require('../utils/mongo_ctrl');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -35,6 +39,7 @@ const auth_server = require('../common_services/auth_server');
 const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
+const system_utils = require('../utils/system_utils');
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
@@ -42,10 +47,9 @@ const cluster_server = require('./cluster_server');
 const node_allocator = require('../node_services/node_allocator');
 const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
-const system_utils = require('../utils/system_utils');
-const MongoCtrl = require('../utils/mongo_ctrl');
-const api = require('../../api/api');
-const ssl_utils = require('../../util/ssl_utils');
+
+const SYSLOG_INFO_LEVEL = 5;
+const SYSLOG_LOG_LOCAL1 = 'LOG_LOCAL1';
 
 const SYS_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -60,13 +64,9 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
     by_mode: {},
 });
 
-var client_syslog;
 // called on rpc server init
 function _init() {
     const DEFUALT_DELAY = 5000;
-
-    var native_core = require('../../util/native_core')(); // eslint-disable-line global-require
-    client_syslog = new native_core.Syslog();
 
     function wait_for_system_store() {
         var update_done = false;
@@ -1201,7 +1201,7 @@ function validate_activation(req) {
 
 function log_client_console(req) {
     _.each(req.rpc_params.data, function(line) {
-        client_syslog.log(5, req.rpc_params.data, 'LOG_LOCAL1');
+        nb_native().syslog(SYSLOG_INFO_LEVEL, req.rpc_params.data, SYSLOG_LOG_LOCAL1);
     });
 }
 

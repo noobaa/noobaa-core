@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+#define WIN32_LEAN_AND_MEAN
 #include "crypto.h"
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
@@ -18,7 +19,11 @@ NAN_MODULE_INIT(Crypto::setup)
     // doing as suggested and seeding with /dev/random
     do {
         LOG(SSLeay_version(SSLEAY_VERSION) << " seeding randomness");
-        ASSERT(RAND_load_file("/dev/random", 32) == 32);
+        const int RANDOM_SEED_LEN = 32;
+        const int r = RAND_load_file("/dev/random", RANDOM_SEED_LEN);
+        if (r != RANDOM_SEED_LEN) {
+            PANIC("/dev/random seed failed " << r);
+        }
     } while (!RAND_status());
 
     Nan::SetMethod(target, "rsa", rsa);
@@ -27,33 +32,33 @@ NAN_MODULE_INIT(Crypto::setup)
 }
 
 static void
-write_pem_private(v8::Local<v8::Object> result, const char *name, EVP_PKEY *pkey)
+write_pem_private(v8::Local<v8::Object> result, const char* name, EVP_PKEY* pkey)
 {
-    BIO *bio = BIO_new(BIO_s_mem());
+    BIO* bio = BIO_new(BIO_s_mem());
     PEM_write_bio_PKCS8PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);
-    char *data = NULL;
+    char* data = NULL;
     long len = BIO_get_mem_data(bio, &data);
     NAN_SET(result, name, Nan::Encode(data, len, Nan::Encoding::UTF8));
     BIO_free(bio);
 }
 
 static void
-write_pem_public(v8::Local<v8::Object> result, const char *name, EVP_PKEY *pkey)
+write_pem_public(v8::Local<v8::Object> result, const char* name, EVP_PKEY* pkey)
 {
-    BIO *bio = BIO_new(BIO_s_mem());
+    BIO* bio = BIO_new(BIO_s_mem());
     PEM_write_bio_PUBKEY(bio, pkey);
-    char *data = NULL;
+    char* data = NULL;
     long len = BIO_get_mem_data(bio, &data);
     NAN_SET(result, name, Nan::Encode(data, len, Nan::Encoding::UTF8));
     BIO_free(bio);
 }
 
 static void
-write_pem_x509(v8::Local<v8::Object> result, const char *name, X509 *x509)
+write_pem_x509(v8::Local<v8::Object> result, const char* name, X509* x509)
 {
-    BIO *bio = BIO_new(BIO_s_mem());
+    BIO* bio = BIO_new(BIO_s_mem());
     PEM_write_bio_X509(bio, x509);
-    char *data = NULL;
+    char* data = NULL;
     long len = BIO_get_mem_data(bio, &data);
     NAN_SET(result, name, Nan::Encode(data, len, Nan::Encoding::UTF8));
     BIO_free(bio);
@@ -71,32 +76,32 @@ write_pem_x509(v8::Local<v8::Object> result, const char *name, X509 *x509)
  *      "CN": "*.noobaa.com",
  *  }
  */
-static X509_NAME *
+static X509_NAME*
 x509_name_from_entries(v8::Local<v8::Object> entries)
 {
-    X509_NAME *x509_name = X509_NAME_new();
+    X509_NAME* x509_name = X509_NAME_new();
     auto props = entries->GetOwnPropertyNames();
     const int num_props = props->Length();
     for (int i = 0; i < num_props; ++i) {
         auto prop = NAN_GET_STR(props, i);
         auto value = NAN_GET_STR(entries, prop);
         X509_NAME_add_entry_by_txt(
-            x509_name, prop, MBSTRING_UTF8, reinterpret_cast<const unsigned char *>(value), -1, -1, 0);
+            x509_name, prop, MBSTRING_UTF8, reinterpret_cast<const unsigned char*>(value), -1, -1, 0);
     }
     return x509_name;
 }
 
 static v8::Local<v8::Object>
-x509_name_to_entries(X509_NAME *x509_name)
+x509_name_to_entries(X509_NAME* x509_name)
 {
     auto entries = NAN_NEW_OBJ();
     int num_entries = X509_NAME_entry_count(x509_name);
     for (int i = 0; i < num_entries; i++) {
-        X509_NAME_ENTRY *e = X509_NAME_get_entry(x509_name, i);
-        ASN1_OBJECT *o = X509_NAME_ENTRY_get_object(e);
-        ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
-        const char *key = OBJ_nid2sn(OBJ_obj2nid(o));
-        const char *val = (const char *)ASN1_STRING_data(d);
+        X509_NAME_ENTRY* e = X509_NAME_get_entry(x509_name, i);
+        ASN1_OBJECT* o = X509_NAME_ENTRY_get_object(e);
+        ASN1_STRING* d = X509_NAME_ENTRY_get_data(e);
+        const char* key = OBJ_nid2sn(OBJ_obj2nid(o));
+        const char* val = (const char*)ASN1_STRING_data(d);
         NAN_SET_STR(entries, key, val);
     }
     return entries;
@@ -104,7 +109,7 @@ x509_name_to_entries(X509_NAME *x509_name)
 
 // avoid prompt passphrase which is the default callback in openssl
 static int
-no_password_callback(char *buf, int size, int rwflag, void *u)
+no_password_callback(char* buf, int size, int rwflag, void* u)
 {
     return 0;
 }
@@ -124,8 +129,8 @@ NAN_METHOD(Crypto::rsa)
         }
     }
 
-    EVP_PKEY *pkey = NULL;
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    EVP_PKEY* pkey = NULL;
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     EVP_PKEY_keygen_init(ctx);
     EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, bits);
     EVP_PKEY_keygen(ctx, &pkey);
@@ -143,12 +148,12 @@ NAN_METHOD(Crypto::x509)
 {
     auto result = NAN_NEW_OBJ();
     int days = 36500;
-    X509_NAME *owner_x509_name = NULL;
-    X509_NAME *issuer_x509_name = NULL;
-    EVP_PKEY *issuer_private_key = NULL;
-    EVP_PKEY *owner_public_key = NULL;
-    EVP_PKEY_CTX *ctx = NULL;
-    X509 *x509 = NULL;
+    X509_NAME* owner_x509_name = NULL;
+    X509_NAME* issuer_x509_name = NULL;
+    EVP_PKEY* issuer_private_key = NULL;
+    EVP_PKEY* owner_public_key = NULL;
+    EVP_PKEY_CTX* ctx = NULL;
+    X509* x509 = NULL;
 
     if (info.Length() > 0 && info[0]->IsObject()) {
         auto options = info[0]->ToObject();
@@ -163,7 +168,7 @@ NAN_METHOD(Crypto::x509)
         }
         if (NAN_GET(options, "private")->IsString()) {
             auto private_str = NAN_GET_STR(options, "private");
-            BIO *bio = BIO_new_mem_buf(private_str, strlen(private_str));
+            BIO* bio = BIO_new_mem_buf(private_str, strlen(private_str));
             issuer_private_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
             BIO_free(bio);
             if (!issuer_private_key) {
@@ -173,7 +178,7 @@ NAN_METHOD(Crypto::x509)
         }
         if (NAN_GET(options, "public")->IsString()) {
             auto public_str = NAN_GET_STR(options, "public");
-            BIO *bio = BIO_new_mem_buf(public_str, strlen(public_str));
+            BIO* bio = BIO_new_mem_buf(public_str, strlen(public_str));
             owner_public_key = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
             BIO_free(bio);
             if (!owner_public_key) {
@@ -187,11 +192,11 @@ NAN_METHOD(Crypto::x509)
         // the minimal name should have an organization
         owner_x509_name = X509_NAME_new();
         X509_NAME_add_entry_by_txt(
-            owner_x509_name, "C", MBSTRING_UTF8, reinterpret_cast<const unsigned char *>("US"), -1, -1, 0);
+            owner_x509_name, "C", MBSTRING_UTF8, reinterpret_cast<const unsigned char*>("US"), -1, -1, 0);
         X509_NAME_add_entry_by_txt(
-            owner_x509_name, "ST", MBSTRING_UTF8, reinterpret_cast<const unsigned char *>("California"), -1, -1, 0);
+            owner_x509_name, "ST", MBSTRING_UTF8, reinterpret_cast<const unsigned char*>("California"), -1, -1, 0);
         X509_NAME_add_entry_by_txt(
-            owner_x509_name, "O", MBSTRING_UTF8, reinterpret_cast<const unsigned char *>("SelfSigned"), -1, -1, 0);
+            owner_x509_name, "O", MBSTRING_UTF8, reinterpret_cast<const unsigned char*>("SelfSigned"), -1, -1, 0);
     }
     if (!issuer_x509_name) issuer_x509_name = owner_x509_name;
     if (!issuer_private_key && !owner_public_key) {
@@ -259,14 +264,14 @@ cleanup:
 NAN_METHOD(Crypto::x509_verify)
 {
     auto result = NAN_NEW_OBJ();
-    EVP_PKEY *issuer_private_key = NULL;
-    X509 *x509 = NULL;
+    EVP_PKEY* issuer_private_key = NULL;
+    X509* x509 = NULL;
 
     if (info.Length() > 0 && info[0]->IsObject()) {
         auto options = info[0]->ToObject();
         if (NAN_GET(options, "key")->IsString()) {
             auto private_str = NAN_GET_STR(options, "key");
-            BIO *bio = BIO_new_mem_buf(private_str, strlen(private_str));
+            BIO* bio = BIO_new_mem_buf(private_str, strlen(private_str));
             issuer_private_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
             BIO_free(bio);
             if (!issuer_private_key) {
@@ -278,7 +283,7 @@ NAN_METHOD(Crypto::x509_verify)
         }
         if (NAN_GET(options, "cert")->IsString()) {
             auto x509_str = NAN_GET_STR(options, "cert");
-            BIO *bio = BIO_new_mem_buf(x509_str, strlen(x509_str));
+            BIO* bio = BIO_new_mem_buf(x509_str, strlen(x509_str));
             x509 = PEM_read_bio_X509(bio, NULL, no_password_callback, NULL);
             BIO_free(bio);
             if (!x509) {
@@ -297,7 +302,7 @@ NAN_METHOD(Crypto::x509_verify)
     switch (EVP_PKEY_type(issuer_private_key->type)) {
     case EVP_PKEY_RSA:
     case EVP_PKEY_RSA2: {
-        RSA *rsa = EVP_PKEY_get1_RSA(issuer_private_key);
+        RSA* rsa = EVP_PKEY_get1_RSA(issuer_private_key);
         int rc = RSA_check_key(rsa);
         RSA_free(rsa);
         if (rc != 1) {

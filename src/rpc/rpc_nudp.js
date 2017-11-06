@@ -5,7 +5,7 @@
 let P = require('../util/promise');
 // let url = require('url');
 let RpcBaseConnection = require('./rpc_base_conn');
-let native_core = require('../util/native_core');
+let nb_native = require('../util/nb_native');
 let stun = require('./stun');
 // let promise_utils = require('../util/promise_utils');
 // let dbg = require('../util/debug_module')(__filename);
@@ -20,7 +20,7 @@ class RpcNudpConnection extends RpcBaseConnection {
     // constructor(addr_url) { super(addr_url); }
 
     _connect() {
-        let Nudp = native_core().Nudp;
+        let Nudp = nb_native().Nudp;
         this.nudp = new Nudp();
         this._init_nudp();
         return P.ninvoke(this.nudp, 'bind', 0, '0.0.0.0')
@@ -42,7 +42,7 @@ class RpcNudpConnection extends RpcBaseConnection {
     }
 
     accept(port) {
-        let Nudp = native_core().Nudp;
+        let Nudp = nb_native().Nudp;
         this.nudp = new Nudp();
         this._init_nudp();
         return P.ninvoke(this.nudp, 'bind', port, '0.0.0.0')

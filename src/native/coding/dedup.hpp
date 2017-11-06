@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 // template hpp
 
-namespace noobaa {
+namespace noobaa
+{
 
 template <typename _Hasher>
 int
@@ -69,7 +70,7 @@ Dedup<_Hasher>::Window::push(const uint8_t* data, int len)
 
     if (boundary || chunk_len >= max_chunk) {
         reset();
-        return datap - data;
+        return static_cast<int>(datap - data);
     } else {
         return 0;
     }

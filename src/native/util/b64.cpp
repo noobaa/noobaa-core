@@ -3,11 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 
-namespace noobaa 
+namespace noobaa
 {
 
 #define FF 255
 
+/* clang-format off */
 const char B64_ENCODE[64] = {
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
     'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
@@ -33,9 +34,10 @@ const uint8_t B64_DECODE[256] = {
     FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, // [224-240]
     FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, // [240-256]
 };
+/* clang-format on */
 
 int
-b64_main(int ac, char **av)
+b64_main(int ac, char** av)
 {
     uint8_t in[1024];
     uint8_t out[2 * sizeof(in)];
@@ -46,7 +48,7 @@ b64_main(int ac, char **av)
         // encode av[2]
         if (ac >= 3) {
             const int n = strlen(av[2]);
-            const int r = b64_encode((uint8_t *)av[2], n, out);
+            const int r = b64_encode((uint8_t*)av[2], n, out);
             if (r < 0) return r;
             assert(r == b64_encode_len(n));
             assert(r <= (int)sizeof(out));
@@ -78,7 +80,7 @@ b64_main(int ac, char **av)
         // decode av[2]
         if (ac >= 3) {
             const int n = strlen(av[2]);
-            const int r = b64_decode((uint8_t *)av[2], n, out);
+            const int r = b64_decode((uint8_t*)av[2], n, out);
             if (r < 0) return 1;
             assert(r <= (int)sizeof(out));
             assert(r <= b64_decode_len(n));
@@ -112,5 +114,4 @@ b64_main(int ac, char **av)
         return 1;
     }
 }
-
 }

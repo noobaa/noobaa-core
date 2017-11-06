@@ -2,11 +2,11 @@
 #include "napi.h"
 #include "b64.h"
 
-namespace noobaa 
+namespace noobaa
 {
 
 void
-nb_napi_get_int(napi_env env, napi_value obj, const char *name, int *p_num)
+nb_napi_get_int(napi_env env, napi_value obj, const char* name, int* p_num)
 {
     napi_value v = 0;
     napi_get_named_property(env, obj, name, &v);
@@ -14,7 +14,7 @@ nb_napi_get_int(napi_env env, napi_value obj, const char *name, int *p_num)
 }
 
 void
-nb_napi_set_int(napi_env env, napi_value obj, const char *name, int num)
+nb_napi_set_int(napi_env env, napi_value obj, const char* name, int num)
 {
     napi_value v = 0;
     napi_create_int32(env, num, &v);
@@ -22,7 +22,7 @@ nb_napi_set_int(napi_env env, napi_value obj, const char *name, int num)
 }
 
 void
-nb_napi_get_str(napi_env env, napi_value obj, const char *name, char *str, int max)
+nb_napi_get_str(napi_env env, napi_value obj, const char* name, char* str, int max)
 {
     napi_value v = 0;
     napi_get_named_property(env, obj, name, &v);
@@ -30,7 +30,7 @@ nb_napi_get_str(napi_env env, napi_value obj, const char *name, char *str, int m
 }
 
 void
-nb_napi_set_str(napi_env env, napi_value obj, const char *name, const char *str, int len)
+nb_napi_set_str(napi_env env, napi_value obj, const char* name, const char* str, int len)
 {
     napi_value v = 0;
     napi_create_string_utf8(env, str, len, &v);
@@ -38,22 +38,22 @@ nb_napi_set_str(napi_env env, napi_value obj, const char *name, const char *str,
 }
 
 void
-nb_napi_get_buf(napi_env env, napi_value obj, const char *name, struct NB_Buf *b)
+nb_napi_get_buf(napi_env env, napi_value obj, const char* name, struct NB_Buf* b)
 {
     napi_value v = 0;
     bool is_buffer = false;
     napi_get_named_property(env, obj, name, &v);
     napi_is_buffer(env, v, &is_buffer);
     if (is_buffer) {
-        void *data = 0;
+        void* data = 0;
         size_t len = 0;
         napi_get_buffer_info(env, v, &data, &len);
-        nb_buf_init_shared(b, (uint8_t *)data, (int)len);
+        nb_buf_init_shared(b, (uint8_t*)data, (int)len);
     }
 }
 
 void
-nb_napi_set_buf(napi_env env, napi_value obj, const char *name, struct NB_Buf *b)
+nb_napi_set_buf(napi_env env, napi_value obj, const char* name, struct NB_Buf* b)
 {
     napi_value v = 0;
     napi_create_buffer_copy(env, b->len, b->data, 0, &v);
@@ -61,7 +61,7 @@ nb_napi_set_buf(napi_env env, napi_value obj, const char *name, struct NB_Buf *b
 }
 
 void
-nb_napi_get_buf_b64(napi_env env, napi_value obj, const char *name, struct NB_Buf *b)
+nb_napi_get_buf_b64(napi_env env, napi_value obj, const char* name, struct NB_Buf* b)
 {
     napi_value v = 0;
     struct NB_Buf str_buf;
@@ -70,7 +70,7 @@ nb_napi_get_buf_b64(napi_env env, napi_value obj, const char *name, struct NB_Bu
     napi_get_value_string_utf8(env, v, 0, 0, &len);
     if (!len) return;
     nb_buf_init_alloc(&str_buf, len + 1);
-    napi_get_value_string_utf8(env, v, (char *)str_buf.data, str_buf.len, 0);
+    napi_get_value_string_utf8(env, v, (char*)str_buf.data, str_buf.len, 0);
     nb_buf_init_alloc(b, b64_decode_len(len));
     int r = b64_decode(str_buf.data, len, b->data);
     if (r < 0) {
@@ -83,7 +83,7 @@ nb_napi_get_buf_b64(napi_env env, napi_value obj, const char *name, struct NB_Bu
 }
 
 void
-nb_napi_set_buf_b64(napi_env env, napi_value obj, const char *name, struct NB_Buf *b)
+nb_napi_set_buf_b64(napi_env env, napi_value obj, const char* name, struct NB_Buf* b)
 {
     napi_value v = 0;
     struct NB_Buf str_buf;
@@ -94,19 +94,19 @@ nb_napi_set_buf_b64(napi_env env, napi_value obj, const char *name, struct NB_Bu
         nb_buf_free(b);
         nb_buf_init(b);
     } else {
-        napi_create_string_utf8(env, (char *)str_buf.data, len, &v);
+        napi_create_string_utf8(env, (char*)str_buf.data, len, &v);
         napi_set_named_property(env, obj, name, v);
     }
     nb_buf_free(&str_buf);
 }
 
 void
-nb_napi_get_bufs(napi_env env, napi_value obj, const char *name, struct NB_Bufs *bufs)
+nb_napi_get_bufs(napi_env env, napi_value obj, const char* name, struct NB_Bufs* bufs)
 {
     napi_value v = 0;
     bool is_buffer = false;
     bool is_array = false;
-    void *data = 0;
+    void* data = 0;
     size_t len = 0;
 
     napi_get_named_property(env, obj, name, &v);
@@ -114,7 +114,7 @@ nb_napi_get_bufs(napi_env env, napi_value obj, const char *name, struct NB_Bufs 
 
     if (is_buffer) {
         napi_get_buffer_info(env, v, &data, &len);
-        nb_bufs_push_shared(bufs, (uint8_t *)data, (int)len);
+        nb_bufs_push_shared(bufs, (uint8_t*)data, (int)len);
         return;
     }
 
@@ -129,14 +129,14 @@ nb_napi_get_bufs(napi_env env, napi_value obj, const char *name, struct NB_Bufs 
             napi_is_buffer(env, v_buf, &is_buffer);
             if (is_buffer) {
                 napi_get_buffer_info(env, v_buf, &data, &len);
-                nb_bufs_push_shared(bufs, (uint8_t *)data, (int)len);
+                nb_bufs_push_shared(bufs, (uint8_t*)data, (int)len);
             }
         }
     }
 }
 
 void
-nb_napi_set_bufs(napi_env env, napi_value obj, const char *name, struct NB_Bufs *bufs)
+nb_napi_set_bufs(napi_env env, napi_value obj, const char* name, struct NB_Bufs* bufs)
 {
     napi_value v = 0;
     struct NB_Buf b;
@@ -146,9 +146,8 @@ nb_napi_set_bufs(napi_env env, napi_value obj, const char *name, struct NB_Bufs 
 }
 
 void
-nb_napi_finalize_free_data(napi_env env, void *data, void *hint)
+nb_napi_finalize_free_data(napi_env env, void* data, void* hint)
 {
     nb_free(data);
 }
-
 }

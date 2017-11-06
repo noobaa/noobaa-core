@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__DEDUP__H
-#define NOOBAA__DEDUP__H
+#pragma once
 
-#include "../util/common.h"
 #include "../util/buf.h"
+#include "../util/common.h"
 
-namespace noobaa {
+namespace noobaa
+{
 
 /**
  *
@@ -34,7 +34,7 @@ public:
         , _min_chunk(min_chunk)
         , _max_chunk(max_chunk)
         , _avg_chunk_bits(avg_chunk_bits)
-        , _avg_chunk_mask( ~((~T(0)) >> avg_chunk_bits << avg_chunk_bits) )
+        , _avg_chunk_mask(~((~T(0)) >> avg_chunk_bits << avg_chunk_bits))
         , _avg_chunk_val(avg_chunk_val & _avg_chunk_mask)
     {
     }
@@ -55,13 +55,12 @@ private:
     const T _avg_chunk_val;
 
 public:
-
     /**
      * The Window class is used to perform chunking with sliding window.
      */
     class Window
     {
-public:
+    public:
         explicit Window(const Dedup& dedup)
             : _dedup(dedup)
             , _window(new uint8_t[_dedup._window_len])
@@ -91,18 +90,15 @@ public:
          */
         int push(const uint8_t* data, int len);
 
-private:
+    private:
         const Dedup& _dedup;
         T _hash;
         int _chunk_len;
         int _window_pos;
         uint8_t* _window;
     };
-
 };
 
 } // namespace noobaa
 
 #include "dedup.hpp"
-
-#endif // NOOBAA__DEDUP__H

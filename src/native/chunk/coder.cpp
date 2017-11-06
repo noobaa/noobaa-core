@@ -27,20 +27,20 @@ namespace noobaa
 #define MAX_TOTAL_FRAGS (MAX_DATA_FRAGS + MAX_PARITY_FRAGS)
 #define MAX_MATRIX_SIZE (MAX_DATA_FRAGS * MAX_TOTAL_FRAGS)
 
-static void _nb_encode(struct NB_Coder_Chunk *chunk);
-static void _nb_encrypt(struct NB_Coder_Chunk *chunk, const EVP_CIPHER *evp_cipher);
-static void _nb_no_encrypt(struct NB_Coder_Chunk *chunk);
-static void _nb_erasure(struct NB_Coder_Chunk *chunk);
+static void _nb_encode(struct NB_Coder_Chunk* chunk);
+static void _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher);
+static void _nb_no_encrypt(struct NB_Coder_Chunk* chunk);
+static void _nb_erasure(struct NB_Coder_Chunk* chunk);
 
-static void _nb_decode(struct NB_Coder_Chunk *chunk);
+static void _nb_decode(struct NB_Coder_Chunk* chunk);
 static void
-_nb_derasure(struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map, int total_frags);
+_nb_derasure(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, int total_frags);
 static void _nb_decrypt(
-    struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map, const EVP_CIPHER *evp_cipher);
-static void _nb_no_decrypt(struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map);
+    struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, const EVP_CIPHER* evp_cipher);
+static void _nb_no_decrypt(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map);
 
-static void _nb_digest(const EVP_MD *md, struct NB_Bufs *bufs, struct NB_Buf *digest);
-static bool _nb_digest_match(const EVP_MD *md, struct NB_Bufs *data, struct NB_Buf *digest);
+static void _nb_digest(const EVP_MD* md, struct NB_Bufs* bufs, struct NB_Buf* digest);
+static bool _nb_digest_match(const EVP_MD* md, struct NB_Bufs* data, struct NB_Buf* digest);
 
 static inline int
 _nb_div_up(int n, int align)
@@ -58,16 +58,18 @@ void
 nb_chunk_coder_init()
 {
     cm256_init();
+#ifndef WIN32
     // static inline unused functions from gf256.h
     (void)gf256_add;
     (void)gf256_mul;
     (void)gf256_div;
     (void)gf256_inv;
     (void)gf256_div_mem;
+#endif
 }
 
 void
-nb_chunk_init(struct NB_Coder_Chunk *chunk)
+nb_chunk_init(struct NB_Coder_Chunk* chunk)
 {
     chunk->digest_type[0] = 0;
     chunk->frag_digest_type[0] = 0;
@@ -82,7 +84,7 @@ nb_chunk_init(struct NB_Coder_Chunk *chunk)
     nb_buf_init(&chunk->cipher_auth_tag);
 
     chunk->frags = 0;
-    chunk->coder = NB_ENCODER;
+    chunk->coder = NB_Coder_Type::ENCODER;
     chunk->size = 0;
     chunk->compress_size = 0;
     chunk->data_frags = 1;
@@ -93,7 +95,7 @@ nb_chunk_init(struct NB_Coder_Chunk *chunk)
 }
 
 void
-nb_chunk_free(struct NB_Coder_Chunk *chunk)
+nb_chunk_free(struct NB_Coder_Chunk* chunk)
 {
     nb_bufs_free(&chunk->data);
     nb_bufs_free(&chunk->errors);
@@ -103,7 +105,7 @@ nb_chunk_free(struct NB_Coder_Chunk *chunk)
 
     if (chunk->frags) {
         for (int i = 0; i < chunk->frags_count; ++i) {
-            struct NB_Coder_Frag *f = chunk->frags + i;
+            struct NB_Coder_Frag* f = chunk->frags + i;
             nb_frag_free(f);
         }
         nb_free(chunk->frags);
@@ -111,21 +113,21 @@ nb_chunk_free(struct NB_Coder_Chunk *chunk)
 }
 
 void
-nb_chunk_coder(struct NB_Coder_Chunk *chunk)
+nb_chunk_coder(struct NB_Coder_Chunk* chunk)
 {
     if (chunk->errors.count) return;
     switch (chunk->coder) {
-    case NB_ENCODER:
+    case NB_Coder_Type::ENCODER:
         _nb_encode(chunk);
         break;
-    case NB_DECODER:
+    case NB_Coder_Type::DECODER:
         _nb_decode(chunk);
         break;
     }
 }
 
 void
-nb_chunk_error(struct NB_Coder_Chunk *chunk, const char *fmt, ...)
+nb_chunk_error(struct NB_Coder_Chunk* chunk, const char* fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
@@ -134,7 +136,7 @@ nb_chunk_error(struct NB_Coder_Chunk *chunk, const char *fmt, ...)
 }
 
 void
-nb_frag_init(struct NB_Coder_Frag *f)
+nb_frag_init(struct NB_Coder_Frag* f)
 {
     nb_bufs_init(&f->block);
     nb_buf_init(&f->digest);
@@ -143,18 +145,18 @@ nb_frag_init(struct NB_Coder_Frag *f)
 }
 
 void
-nb_frag_free(struct NB_Coder_Frag *f)
+nb_frag_free(struct NB_Coder_Frag* f)
 {
     nb_bufs_free(&f->block);
     nb_buf_free(&f->digest);
 }
 
 static void
-_nb_encode(struct NB_Coder_Chunk *chunk)
+_nb_encode(struct NB_Coder_Chunk* chunk)
 {
-    const EVP_MD *evp_md = 0;
-    const EVP_MD *evp_md_frag = 0;
-    const EVP_CIPHER *evp_cipher = 0;
+    const EVP_MD* evp_md = 0;
+    const EVP_MD* evp_md_frag = 0;
+    const EVP_CIPHER* evp_cipher = 0;
 
     if (chunk->digest_type[0]) {
         evp_md = EVP_get_digestbyname(chunk->digest_type);
@@ -233,7 +235,7 @@ _nb_encode(struct NB_Coder_Chunk *chunk)
     chunk->frags_count = total_frags;
     chunk->frags = nb_new_arr(total_frags, struct NB_Coder_Frag);
     for (int i = 0; i < chunk->frags_count; ++i) {
-        struct NB_Coder_Frag *f = chunk->frags + i;
+        struct NB_Coder_Frag* f = chunk->frags + i;
         nb_frag_init(f);
         f->index = i;
     }
@@ -254,14 +256,14 @@ _nb_encode(struct NB_Coder_Chunk *chunk)
 
     if (evp_md_frag) {
         for (int i = 0; i < chunk->frags_count; ++i) {
-            struct NB_Coder_Frag *f = chunk->frags + i;
+            struct NB_Coder_Frag* f = chunk->frags + i;
             _nb_digest(evp_md_frag, &f->block, &f->digest);
         }
     }
 }
 
 static void
-_nb_encrypt(struct NB_Coder_Chunk *chunk, const EVP_CIPHER *evp_cipher)
+_nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher)
 {
     EVP_CIPHER_CTX ctx;
     struct NB_Buf iv;
@@ -290,15 +292,15 @@ _nb_encrypt(struct NB_Coder_Chunk *chunk, const EVP_CIPHER *evp_cipher)
 
     // allocate blocks for all data frags
     for (int i = 0; i < chunk->data_frags; ++i) {
-        struct NB_Coder_Frag *f = chunk->frags + i;
+        struct NB_Coder_Frag* f = chunk->frags + i;
         nb_bufs_push_alloc(&f->block, chunk->frag_size);
     }
 
     int frag_pos = 0;
-    struct NB_Coder_Frag *f = chunk->frags;
+    struct NB_Coder_Frag* f = chunk->frags;
 
     for (int i = 0; i < chunk->data.count; ++i) {
-        struct NB_Buf *b = nb_bufs_get(&chunk->data, i);
+        struct NB_Buf* b = nb_bufs_get(&chunk->data, i);
 
         for (int pos = 0; pos < b->len;) {
 
@@ -308,7 +310,7 @@ _nb_encrypt(struct NB_Coder_Chunk *chunk, const EVP_CIPHER *evp_cipher)
                 return;
             }
 
-            struct NB_Buf *fb = nb_bufs_get(&f->block, 0);
+            struct NB_Buf* fb = nb_bufs_get(&f->block, 0);
             assert(fb && fb->len == chunk->frag_size);
 
             if (frag_pos > fb->len) {
@@ -379,12 +381,12 @@ _nb_encrypt(struct NB_Coder_Chunk *chunk, const EVP_CIPHER *evp_cipher)
 }
 
 static void
-_nb_no_encrypt(struct NB_Coder_Chunk *chunk)
+_nb_no_encrypt(struct NB_Coder_Chunk* chunk)
 {
-    struct NB_Coder_Frag *f = chunk->frags;
+    struct NB_Coder_Frag* f = chunk->frags;
 
     for (int i = 0; i < chunk->data.count; ++i) {
-        struct NB_Buf *b = nb_bufs_get(&chunk->data, i);
+        struct NB_Buf* b = nb_bufs_get(&chunk->data, i);
 
         for (int pos = 0; pos < b->len;) {
 
@@ -433,25 +435,22 @@ _nb_no_encrypt(struct NB_Coder_Chunk *chunk)
 }
 
 static void
-_nb_erasure(struct NB_Coder_Chunk *chunk)
+_nb_erasure(struct NB_Coder_Chunk* chunk)
 {
     struct NB_Buf parity_buf;
 
-    enum { PARITY_NONE,
-           PARITY_C1,
-           PARITY_RS,
-           PARITY_CM } parity_type;
+    NB_Parity_Type parity_type;
     if (strcmp(chunk->parity_type, "isa-c1") == 0) {
-        parity_type = PARITY_C1;
+        parity_type = NB_Parity_Type::C1;
     } else if (strcmp(chunk->parity_type, "isa-rs") == 0) {
-        parity_type = PARITY_RS;
+        parity_type = NB_Parity_Type::RS;
     } else if (strcmp(chunk->parity_type, "cm256") == 0) {
-        parity_type = PARITY_CM;
+        parity_type = NB_Parity_Type::CM;
     } else {
-        parity_type = PARITY_NONE;
+        parity_type = NB_Parity_Type::NONE;
     }
 
-    if (parity_type == PARITY_NONE || chunk->parity_frags <= 0) return;
+    if (parity_type == NB_Parity_Type::NONE || chunk->parity_frags <= 0) return;
 
     if (chunk->data_frags > MAX_DATA_FRAGS || chunk->parity_frags > MAX_PARITY_FRAGS) {
         nb_chunk_error(
@@ -473,7 +472,7 @@ _nb_erasure(struct NB_Coder_Chunk *chunk)
     // and the rest will share it
     nb_buf_init_alloc(&parity_buf, chunk->parity_frags * chunk->frag_size);
     for (int i = 0; i < chunk->parity_frags; ++i) {
-        struct NB_Coder_Frag *f = chunk->frags + chunk->data_frags + i;
+        struct NB_Coder_Frag* f = chunk->frags + chunk->data_frags + i;
         if (i == 0) {
             nb_bufs_push_owned(&f->block, parity_buf.data, chunk->frag_size);
         } else {
@@ -482,31 +481,31 @@ _nb_erasure(struct NB_Coder_Chunk *chunk)
         }
     }
 
-    if (parity_type == PARITY_C1 || parity_type == PARITY_RS) {
+    if (parity_type == NB_Parity_Type::C1 || parity_type == NB_Parity_Type::RS) {
         uint8_t ec_matrix_encode[MAX_MATRIX_SIZE];
         uint8_t ec_table[MAX_MATRIX_SIZE * 32];
-        uint8_t *ec_blocks[MAX_TOTAL_FRAGS];
+        uint8_t* ec_blocks[MAX_TOTAL_FRAGS];
         const int k = chunk->data_frags;
         const int m = chunk->data_frags + chunk->parity_frags;
         for (int i = 0; i < m; ++i) {
-            struct NB_Coder_Frag *f = chunk->frags + i;
+            struct NB_Coder_Frag* f = chunk->frags + i;
             ec_blocks[i] = nb_bufs_merge(&f->block, 0);
         }
-        if (parity_type == PARITY_C1) {
+        if (parity_type == NB_Parity_Type::C1) {
             gf_gen_cauchy1_matrix(ec_matrix_encode, m, k);
         } else {
             gf_gen_rs_matrix(ec_matrix_encode, m, k);
         }
         ec_init_tables(k, m - k, &ec_matrix_encode[k * k], ec_table);
         ec_encode_data(chunk->frag_size, k, m - k, ec_table, ec_blocks, &ec_blocks[k]);
-    } else if (parity_type == PARITY_CM) {
+    } else if (parity_type == NB_Parity_Type::CM) {
         cm256_encoder_params cm_params;
         cm256_block cm_blocks[MAX_DATA_FRAGS];
         cm_params.BlockBytes = chunk->frag_size;
         cm_params.OriginalCount = chunk->data_frags;
         cm_params.RecoveryCount = chunk->parity_frags;
         for (int i = 0; i < chunk->data_frags; ++i) {
-            struct NB_Coder_Frag *f = chunk->frags + i;
+            struct NB_Coder_Frag* f = chunk->frags + i;
             cm_blocks[i].Index = i;
             cm_blocks[i].Block = nb_bufs_merge(&f->block, 0);
         }
@@ -530,12 +529,12 @@ _nb_erasure(struct NB_Coder_Chunk *chunk)
 }
 
 static void
-_nb_decode(struct NB_Coder_Chunk *chunk)
+_nb_decode(struct NB_Coder_Chunk* chunk)
 {
-    const EVP_MD *evp_md = 0;
-    const EVP_MD *evp_md_frag = 0;
-    const EVP_CIPHER *evp_cipher = 0;
-    struct NB_Coder_Frag **frags_map = 0;
+    const EVP_MD* evp_md = 0;
+    const EVP_MD* evp_md_frag = 0;
+    const EVP_CIPHER* evp_cipher = 0;
+    struct NB_Coder_Frag** frags_map = 0;
 
     StackCleaner cleaner([&] {
         if (frags_map) nb_free(frags_map);
@@ -592,7 +591,7 @@ _nb_decode(struct NB_Coder_Chunk *chunk)
         return;
     }
 
-    frags_map = nb_new_arr(total_frags, struct NB_Coder_Frag *);
+    frags_map = nb_new_arr(total_frags, struct NB_Coder_Frag*);
 
     _nb_derasure(chunk, frags_map, total_frags);
 
@@ -646,14 +645,14 @@ _nb_decode(struct NB_Coder_Chunk *chunk)
 
 static void
 _nb_ec_select_available_fragments(
-    struct NB_Coder_Frag **frags_map,
+    struct NB_Coder_Frag** frags_map,
     int k,
     int m,
-    uint8_t *a,
-    uint8_t *b,
-    uint8_t *out_index,
-    int *p_out_len,
-    uint8_t **in_bufs)
+    uint8_t* a,
+    uint8_t* b,
+    uint8_t* out_index,
+    int* p_out_len,
+    uint8_t** in_bufs)
 {
     int out_len = 0;
     for (int i = 0, r = 0; i < k; ++i, ++r) {
@@ -675,7 +674,7 @@ _nb_ec_select_available_fragments(
 
 static void
 _nb_ec_update_decoded_fragments(
-    struct NB_Coder_Frag **frags_map, int k, int m, int out_len, uint8_t **out_bufs, int frag_size)
+    struct NB_Coder_Frag** frags_map, int k, int m, int out_len, uint8_t** out_bufs, int frag_size)
 {
     // replace parity fragments with the decoded data fragments
     for (int i = 0, j = 0, r = k; i < out_len; ++i, ++j, ++r) {
@@ -689,7 +688,7 @@ _nb_ec_update_decoded_fragments(
             ++r;
             assert(r >= k && r < m);
         }
-        struct NB_Coder_Frag *f = frags_map[r];
+        struct NB_Coder_Frag* f = frags_map[r];
         f->index = j;
         nb_bufs_free(&f->block);
         nb_bufs_init(&f->block);
@@ -700,24 +699,21 @@ _nb_ec_update_decoded_fragments(
 }
 
 static void
-_nb_derasure(struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map, int total_frags)
+_nb_derasure(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, int total_frags)
 {
-    const EVP_MD *evp_md_frag = 0;
+    const EVP_MD* evp_md_frag = 0;
     int num_avail_data_frags = 0;
     int num_avail_parity_frags = 0;
 
-    enum { PARITY_NONE,
-           PARITY_C1,
-           PARITY_RS,
-           PARITY_CM } parity_type;
+    NB_Parity_Type parity_type;
     if (strcmp(chunk->parity_type, "isa-c1") == 0) {
-        parity_type = PARITY_C1;
+        parity_type = NB_Parity_Type::C1;
     } else if (strcmp(chunk->parity_type, "isa-rs") == 0) {
-        parity_type = PARITY_RS;
+        parity_type = NB_Parity_Type::RS;
     } else if (strcmp(chunk->parity_type, "cm256") == 0) {
-        parity_type = PARITY_CM;
+        parity_type = NB_Parity_Type::CM;
     } else {
-        parity_type = PARITY_NONE;
+        parity_type = NB_Parity_Type::NONE;
     }
 
     if (chunk->frag_digest_type[0]) {
@@ -729,7 +725,7 @@ _nb_derasure(struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map, int
     }
 
     for (int i = 0; i < chunk->frags_count; ++i) {
-        struct NB_Coder_Frag *f = chunk->frags + i;
+        struct NB_Coder_Frag* f = chunk->frags + i;
         if (f->lrc >= 0) {
             continue; // lrc not yet applicable
         }
@@ -775,18 +771,18 @@ _nb_derasure(struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map, int
             return;
         }
 
-        if (parity_type == PARITY_C1 || parity_type == PARITY_RS) {
+        if (parity_type == NB_Parity_Type::C1 || parity_type == NB_Parity_Type::RS) {
             const int k = chunk->data_frags;
             const int m = chunk->data_frags + chunk->parity_frags;
             uint8_t ec_table[MAX_MATRIX_SIZE * 32];
             uint8_t a[MAX_MATRIX_SIZE];
             uint8_t b[MAX_MATRIX_SIZE];
-            uint8_t *in_bufs[MAX_DATA_FRAGS];
-            uint8_t *out_bufs[MAX_PARITY_FRAGS];
+            uint8_t* in_bufs[MAX_DATA_FRAGS];
+            uint8_t* out_bufs[MAX_PARITY_FRAGS];
             uint8_t out_index[MAX_PARITY_FRAGS];
             int out_len = 0;
             // calculate the decode matrix:
-            if (parity_type == PARITY_C1) {
+            if (parity_type == NB_Parity_Type::C1) {
                 gf_gen_cauchy1_matrix(a, m, k);
             } else {
                 gf_gen_rs_matrix(a, m, k);
@@ -814,7 +810,7 @@ _nb_derasure(struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map, int
             ec_encode_data(chunk->frag_size, k, out_len, ec_table, in_bufs, out_bufs);
             _nb_ec_update_decoded_fragments(frags_map, k, m, out_len, out_bufs, chunk->frag_size);
 
-        } else if (parity_type == PARITY_CM) {
+        } else if (parity_type == NB_Parity_Type::CM) {
             cm256_encoder_params cm_params;
             cm_params.BlockBytes = chunk->frag_size;
             cm_params.OriginalCount = chunk->data_frags;
@@ -867,7 +863,7 @@ _nb_derasure(struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map, int
 
 static void
 _nb_decrypt(
-    struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map, const EVP_CIPHER *evp_cipher)
+    struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, const EVP_CIPHER* evp_cipher)
 {
     EVP_CIPHER_CTX ctx;
     struct NB_Buf iv;
@@ -912,12 +908,12 @@ _nb_decrypt(
     }
 
     int pos = 0;
-    struct NB_Buf *b = nb_bufs_push_alloc(&chunk->data, padded_size);
+    struct NB_Buf* b = nb_bufs_push_alloc(&chunk->data, padded_size);
 
     for (int i = 0; i < chunk->data_frags; ++i) {
-        struct NB_Coder_Frag *f = frags_map[i];
+        struct NB_Coder_Frag* f = frags_map[i];
         for (int j = 0; j < f->block.count; ++j) {
-            struct NB_Buf *fb = nb_bufs_get(&f->block, j);
+            struct NB_Buf* fb = nb_bufs_get(&f->block, j);
 
             int out_len = 0;
             evp_ret = EVP_DecryptUpdate(&ctx, b->data + pos, &out_len, fb->data, fb->len);
@@ -940,25 +936,25 @@ _nb_decrypt(
 }
 
 static void
-_nb_no_decrypt(struct NB_Coder_Chunk *chunk, struct NB_Coder_Frag **frags_map)
+_nb_no_decrypt(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map)
 {
     for (int i = 0; i < chunk->data_frags; ++i) {
-        struct NB_Coder_Frag *f = frags_map[i];
+        struct NB_Coder_Frag* f = frags_map[i];
         for (int j = 0; j < f->block.count; ++j) {
-            struct NB_Buf *b = nb_bufs_get(&f->block, j);
+            struct NB_Buf* b = nb_bufs_get(&f->block, j);
             nb_bufs_push_shared(&chunk->data, b->data, b->len);
         }
     }
 }
 
 static void
-_nb_digest(const EVP_MD *md, struct NB_Bufs *data, struct NB_Buf *digest)
+_nb_digest(const EVP_MD* md, struct NB_Bufs* data, struct NB_Buf* digest)
 {
     EVP_MD_CTX ctx_md;
     EVP_MD_CTX_init(&ctx_md);
     EVP_DigestInit_ex(&ctx_md, md, NULL);
 
-    struct NB_Buf *b = nb_bufs_get(data, 0);
+    struct NB_Buf* b = nb_bufs_get(data, 0);
     for (int i = 0; i < data->count; ++i, ++b) {
         EVP_DigestUpdate(&ctx_md, b->data, b->len);
     }
@@ -973,7 +969,7 @@ _nb_digest(const EVP_MD *md, struct NB_Bufs *data, struct NB_Buf *digest)
 }
 
 static bool
-_nb_digest_match(const EVP_MD *md, struct NB_Bufs *data, struct NB_Buf *digest)
+_nb_digest_match(const EVP_MD* md, struct NB_Bufs* data, struct NB_Buf* digest)
 {
     struct NB_Buf computed_digest;
     nb_buf_init(&computed_digest);

@@ -1,14 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
-#ifndef NOOBAA__CRYPTO__H
-#define NOOBAA__CRYPTO__H
-
-#include "buf.h"
-#include "common.h"
+#pragma once
 
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+
+#include "buf.h"
+#include "common.h"
+#include "nan.h"
 
 namespace noobaa
 {
@@ -17,16 +17,15 @@ class Crypto
 {
 
 public:
-
     static NAN_MODULE_INIT(setup);
     static NAN_METHOD(rsa);
     static NAN_METHOD(x509);
     static NAN_METHOD(x509_verify);
 
     static inline Buf
-    digest(const Buf &buf, const char *digest_name)
+    digest(const Buf& buf, const char* digest_name)
     {
-        const EVP_MD *md = EVP_get_digestbyname(digest_name);
+        const EVP_MD* md = EVP_get_digestbyname(digest_name);
         ASSERT(md, DVAL(digest_name));
         Buf digest(EVP_MD_size(md));
         uint32_t digest_len;
@@ -41,14 +40,14 @@ public:
     }
 
     static inline Buf
-    hmac(const Buf &buf, const Buf &key, const char *digest_name)
+    hmac(const Buf& buf, const Buf& key, const char* digest_name)
     {
-        const EVP_MD *md = EVP_get_digestbyname(digest_name);
+        const EVP_MD* md = EVP_get_digestbyname(digest_name);
         ASSERT(md, DVAL(digest_name));
         Buf digest(EVP_MD_size(md));
         size_t digest_len;
-        EVP_PKEY_CTX *pctx = NULL;
-        EVP_PKEY *pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, key.data(), key.length());
+        EVP_PKEY_CTX* pctx = NULL;
+        EVP_PKEY* pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, key.data(), key.length());
         EVP_MD_CTX ctx_md;
         EVP_MD_CTX_init(&ctx_md);
         EVP_DigestSignInit(&ctx_md, &pctx, md, NULL, pkey);
@@ -61,9 +60,9 @@ public:
     }
 
     static Buf
-    encrypt(const Buf &buf, const char *cipher_name, const Buf &key, const Buf &iv)
+    encrypt(const Buf& buf, const char* cipher_name, const Buf& key, const Buf& iv)
     {
-        const EVP_CIPHER *cipher = _get_cipher(cipher_name, key, iv);
+        const EVP_CIPHER* cipher = _get_cipher(cipher_name, key, iv);
         int out_len = 0;
         int final_len = 0;
         EVP_CIPHER_CTX ctx;
@@ -78,9 +77,9 @@ public:
     }
 
     static Buf
-    decrypt(const Buf &buf, const char *cipher_name, const Buf &key, const Buf &iv)
+    decrypt(const Buf& buf, const char* cipher_name, const Buf& key, const Buf& iv)
     {
-        const EVP_CIPHER *cipher = _get_cipher(cipher_name, key, iv);
+        const EVP_CIPHER* cipher = _get_cipher(cipher_name, key, iv);
         int out_len = 0;
         int final_len = 0;
         Buf out(buf.length());
@@ -95,22 +94,17 @@ public:
     }
 
 private:
-
-    static const EVP_CIPHER *
-    _get_cipher(const char *cipher_name, const Buf &key, const Buf &iv)
+    static const EVP_CIPHER*
+    _get_cipher(const char* cipher_name, const Buf& key, const Buf& iv)
     {
-        const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_name);
+        const EVP_CIPHER* cipher = EVP_get_cipherbyname(cipher_name);
         ASSERT(cipher, DVAL(cipher_name));
         ASSERT(
             key.length() == EVP_CIPHER_key_length(cipher), DVAL(key.length()) << DVAL(EVP_CIPHER_key_length(cipher)));
         // iv is required if the key is reused, but can be empty if the key is unique
-        ASSERT(iv.length() >= EVP_CIPHER_iv_length(cipher) || iv.length() == 0,
-            DVAL(iv.length()) << DVAL(EVP_CIPHER_iv_length(cipher)));
+        ASSERT(iv.length() >= EVP_CIPHER_iv_length(cipher) || iv.length() == 0, DVAL(iv.length()) << DVAL(EVP_CIPHER_iv_length(cipher)));
         return cipher;
     }
-
 };
 
 } // namespace noobaa
-
-#endif // NOOBAA__CRYPTO__H

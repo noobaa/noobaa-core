@@ -7,7 +7,17 @@
 namespace noobaa
 {
 
-enum NB_Coder_Type { NB_ENCODER, NB_DECODER };
+enum class NB_Coder_Type {
+    ENCODER,
+    DECODER
+};
+
+enum class NB_Parity_Type {
+    NONE,
+    C1,
+    RS,
+    CM
+};
 
 typedef char NB_Coder_Short_String[32];
 
@@ -30,9 +40,9 @@ struct NB_Coder_Chunk {
     struct NB_Buf digest;
     struct NB_Buf cipher_key;
     struct NB_Buf cipher_auth_tag;
-    struct NB_Coder_Frag *frags;
+    struct NB_Coder_Frag* frags;
 
-    enum NB_Coder_Type coder;
+    NB_Coder_Type coder;
     int size;
     int compress_size;
     int data_frags;
@@ -45,12 +55,11 @@ struct NB_Coder_Chunk {
 
 void nb_chunk_coder_init();
 
-void nb_chunk_init(struct NB_Coder_Chunk *chunk);
-void nb_chunk_free(struct NB_Coder_Chunk *chunk);
-void nb_chunk_coder(struct NB_Coder_Chunk *chunk);
-void nb_chunk_error(struct NB_Coder_Chunk *chunk, const char *str, ...);
+void nb_chunk_init(struct NB_Coder_Chunk* chunk);
+void nb_chunk_free(struct NB_Coder_Chunk* chunk);
+void nb_chunk_coder(struct NB_Coder_Chunk* chunk);
+void nb_chunk_error(struct NB_Coder_Chunk* chunk, const char* str, ...);
 
-void nb_frag_init(struct NB_Coder_Frag *f);
-void nb_frag_free(struct NB_Coder_Frag *f);
-
+void nb_frag_init(struct NB_Coder_Frag* f);
+void nb_frag_free(struct NB_Coder_Frag* f);
 }

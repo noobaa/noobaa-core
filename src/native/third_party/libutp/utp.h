@@ -96,6 +96,7 @@ enum {
 
 extern const char *utp_callback_names[];
 
+// GUYM MOD - added name to the annonymous struct to be able to forward declare it as typedef
 typedef struct struct_utp_callback_arguments {
 	utp_context *context;
 	utp_socket *socket;

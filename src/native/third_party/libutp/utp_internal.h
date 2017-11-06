@@ -129,17 +129,9 @@ struct struct_utp_context {
 	struct_utp_context();
 	~struct_utp_context();
 
-	// GUYM MOD - inlined should_log
-	inline bool should_log(int level) {
-		switch (level) {
-			case UTP_LOG_NORMAL:	if (!log_normal) return false;
-			case UTP_LOG_MTU:		if (!log_mtu)    return false;
-			case UTP_LOG_DEBUG:		if (!log_debug)  return false;
-			default: return true;
-		}
-	}
-
 	void log(int level, utp_socket *socket, char const *fmt, ...);
+	void log_unchecked(utp_socket *socket, char const *fmt, ...);
+	bool would_log(int level);
 
 	bool log_normal:1;	// log normal events?
 	bool log_mtu:1;		// log MTU related events?

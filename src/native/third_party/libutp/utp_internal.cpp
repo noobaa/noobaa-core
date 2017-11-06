@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <limits.h> // for UINT_MAX
+#include <time.h>
 
 #include "utp_types.h"
 #include "utp_packedsockaddr.h"
@@ -552,10 +553,13 @@ struct UTPSocket {
 
 	void log(int level, char const *fmt, ...)
 	{
-		if (!ctx->should_log(level)) return; // GUYM MOD
-
 		va_list va;
 		char buf[4096], buf2[4096];
+
+		// don't bother with vsnprintf() etc calls if we're not going to log.
+		if (!ctx->would_log(level)) {
+			return;
+		}
 
 		va_start(va, fmt);
 		vsnprintf(buf, 4096, fmt, va);
@@ -565,7 +569,7 @@ struct UTPSocket {
 		snprintf(buf2, 4096, "%p %s %06u %s", this, addrfmt(addr, addrbuf), conn_id_recv, buf);
 		buf2[4095] = '\0';
 
-		ctx->log(level, this, buf2);
+		ctx->log_unchecked(this, buf2);
 	}
 
 	void schedule_ack();
@@ -754,7 +758,7 @@ void UTPSocket::send_data(byte* b, size_t length, bandwidth_type_t type, uint32 
 	int flags2 = b1->type();
 	uint16 seq_nr = b1->seq_nr;
 	uint16 ack_nr = b1->ack_nr;
-	log(UTP_LOG_DEBUG, "send %s len:%u id:%u timestamp:"  I64u  " reply_micro:%u flags:%s seq_nr:%u ack_nr:%u",
+	log(UTP_LOG_DEBUG, "send %s len:%u id:%u timestamp:" I64u " reply_micro:%u flags:%s seq_nr:%u ack_nr:%u",
 		addrfmt(addr, addrbuf), (uint)length, conn_id_send, time, reply_micro, flagnames[flags2],
 		seq_nr, ack_nr);
 #endif
@@ -1173,7 +1177,7 @@ void UTPSocket::check_timeouts()
 			// Increase RTO
 			const uint new_timeout = ignore_loss ? retransmit_timeout : retransmit_timeout * 2;
 
-			// They initiated the connection but failed to respond before the rto.
+			// They initiated the connection but failed to respond before the rto. 
 			// A malicious client can also spoof the destination address of a ST_SYN bringing us to this state.
 			// Kill the connection and do not notify the upper layer
 			if (state == CS_SYN_RECV) {
@@ -1717,11 +1721,11 @@ void UTPSocket::apply_ccontrol(size_t bytes_acked, uint32 actual_delay, int64 mi
 	// used in parse_log.py
 	log(UTP_LOG_NORMAL, "actual_delay:%u our_delay:%d their_delay:%u off_target:%d max_window:%u "
 			"delay_base:%u delay_sum:%d target_delay:%d acked_bytes:%u cur_window:%u "
-			"scaled_gain:%f rtt:%u rate:%u wnduser:%u rto:%u timeout:%d get_microseconds:"  I64u  " "
+			"scaled_gain:%f rtt:%u rate:%u wnduser:%u rto:%u timeout:%d get_microseconds:" I64u " "
 			"cur_window_packets:%u packet_size:%u their_delay_base:%u their_actual_delay:%u "
-			"average_delay:%d clock_drift:%d clock_drift_raw:%d delay_penalty:%d current_delay_sum:"  I64u
-			"current_delay_samples:%d average_delay_base:%d last_maxed_out_window:"  I64u  " opt_sndbuf:%d "
-			"current_ms:"  I64u  "",
+			"average_delay:%d clock_drift:%d clock_drift_raw:%d delay_penalty:%d current_delay_sum:" I64u
+			"current_delay_samples:%d average_delay_base:%d last_maxed_out_window:" I64u " opt_sndbuf:%d "
+			"current_ms:" I64u "",
 			actual_delay, our_delay / 1000, their_hist.get_value() / 1000,
 			int(off_target / 1000), uint(max_window), uint32(our_hist.delay_base),
 			int((our_delay + their_hist.get_value()) / 1000), int(target / 1000), uint(bytes_acked),
@@ -1802,7 +1806,7 @@ size_t utp_process_incoming(UTPSocket *conn, const byte *packet, size_t len, boo
 	// or a malicious attempt to attach the uTP implementation.
 	// acking a packet that hasn't been sent yet!
 	// SYN packets have an exception, since there are no previous packets
-	if ((pk_flags != ST_SYN || conn->state != CS_SYN_RECV) &&
+	if ((pk_flags != ST_SYN || conn->state != CS_SYN_RECV) && 
 		(wrapping_compare_less(conn->seq_nr - 1, pk_ack_nr, ACK_NR_MASK)
 		|| wrapping_compare_less(pk_ack_nr, conn->seq_nr - 1 - curr_window, ACK_NR_MASK))) {
 #if UTP_DEBUG_LOGGING
@@ -2019,7 +2023,7 @@ size_t utp_process_incoming(UTPSocket *conn, const byte *packet, size_t len, boo
 		}
 	}
 
-  	const uint32 actual_delay = (uint32(pf1->reply_micro)==INT_MAX?0:uint32(pf1->reply_micro));
+	const uint32 actual_delay = (uint32(pf1->reply_micro)==INT_MAX?0:uint32(pf1->reply_micro));
 
 	// if the actual delay is 0, it means the other end
 	// hasn't received a sample from us yet, and doesn't
@@ -2168,7 +2172,7 @@ size_t utp_process_incoming(UTPSocket *conn, const byte *packet, size_t len, boo
 		// Outgoing connection completion
 		if (pk_flags == ST_STATE && conn->state == CS_SYN_SENT)	{
 			conn->state = CS_CONNECTED;
-
+		
 			// If the user has defined the ON_CONNECT callback, use that to
 			// notify the user that the socket is now connected.  If ON_CONNECT
 			// has not been defined, notify the user via ON_STATE_CHANGE.
@@ -3077,7 +3081,7 @@ static UTPSocket* parse_icmp_payload(utp_context *ctx, const byte *buffer, size_
 // @len: buffer length
 // @to: destination address of the original UDP pakcet
 // @tolen: address length
-// @next_hop_mtu:
+// @next_hop_mtu: 
 int utp_process_icmp_fragmentation(utp_context *ctx, const byte* buffer, size_t len, const struct sockaddr *to, socklen_t tolen, uint16 next_hop_mtu)
 {
 	UTPSocket* conn = parse_icmp_payload(ctx, buffer, len, to, tolen);
@@ -3403,8 +3407,18 @@ void* utp_get_userdata(utp_socket *socket) {
 
 void struct_utp_context::log(int level, utp_socket *socket, char const *fmt, ...)
 {
-	if (!should_log(level)) return; // GUYM MOD
+	if (!would_log(level)) {
+		return;
+	}
 
+	va_list va;
+	va_start(va, fmt);
+	log_unchecked(socket, fmt, va);
+	va_end(va);
+}
+
+void struct_utp_context::log_unchecked(utp_socket *socket, char const *fmt, ...)
+{
 	va_list va;
 	char buf[4096];
 
@@ -3414,6 +3428,14 @@ void struct_utp_context::log(int level, utp_socket *socket, char const *fmt, ...
 	va_end(va);
 
 	utp_call_log(this, socket, (const byte *)buf);
+}
+
+inline bool struct_utp_context::would_log(int level)
+{
+	if (level == UTP_LOG_NORMAL) return log_normal;
+	if (level == UTP_LOG_MTU) return log_mtu;
+	if (level == UTP_LOG_DEBUG) return log_debug;
+	return true;
 }
 
 utp_socket_stats* utp_get_stats(utp_socket *socket)

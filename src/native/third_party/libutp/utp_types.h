@@ -43,7 +43,9 @@
 // hash.cpp needs socket definitions, which is why this networking specific
 // code is inclued in utypes.h
 #ifdef WIN32
+	#ifndef _CRT_SECURE_NO_DEPRECATE
 	#define _CRT_SECURE_NO_DEPRECATE
+	#endif
 	#define WIN32_LEAN_AND_MEAN
 	#include <windows.h>
 	#include <winsock2.h>

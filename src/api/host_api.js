@@ -461,12 +461,14 @@ module.exports = {
                             drive: {
                                 $ref: 'common_api#/definitions/drive_info'
                             },
-                            permission_event: {
-                                idate: true,
-                            },
-                            data_event: {
-                                idate: true,
-                            },
+                            events: {
+                                permission_event: {
+                                    idate: true,
+                                },
+                                data_event: {
+                                    idate: true,
+                                },
+                            }
                         }
                     }
                 }

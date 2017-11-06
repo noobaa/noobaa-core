@@ -2389,7 +2389,8 @@ class NodesMonitor extends EventEmitter {
             host_item.untrusted_reasons = _.map(
                 _.filter(host_nodes, item => (!item.trusted && item.node.node_type !== 'ENDPOINT_S3')),
                 untrusted_item => {
-                    let reason = _.pick(untrusted_item, UNTRUTED_REASONS_FIELD);
+                    let reason = {};
+                    reason.events = _.pick(untrusted_item, UNTRUTED_REASONS_FIELD);
                     reason.drive = untrusted_item.node.drives[0];
                     return reason;
                 });

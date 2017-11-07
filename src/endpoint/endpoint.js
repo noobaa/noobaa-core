@@ -34,6 +34,8 @@ const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const lambda_rest = require('./lambda/lambda_rest');
 
+const ENDPOINT_BLOB_ENABLED = process.env.ENDPOINT_BLOB_ENABLED === 'true';
+
 function start_all() {
     dbg.set_process_name('Endpoint');
     if (cluster.isMaster && config.ENDPOINT_FORKS_ENABLED && argv.address) {
@@ -62,8 +64,8 @@ function start_all() {
                 dbg.log0(`got ssl certificates. running server`);
                 run_server({
                     s3: true,
-                    blob: false,
                     lambda: true,
+                    blob: ENDPOINT_BLOB_ENABLED,
                     certs: params.certs,
                     node_id: params.node_id,
                     host_id: params.host_id
@@ -82,8 +84,8 @@ function start_all() {
     } else {
         run_server({
             s3: true,
-            blob: true,
-            lambda: true
+            lambda: true,
+            blob: ENDPOINT_BLOB_ENABLED,
         });
     }
 }

@@ -15,6 +15,7 @@ const tiering_policy_schema = require('./schemas/tiering_policy_schema');
 const tier_schema = require('./schemas/tier_schema');
 const pool_schema = require('./schemas/pool_schema');
 const agent_config_schema = require('./schemas/agent_config_schema');
+const chunk_config_schema = require('./schemas/chunk_config_schema');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
@@ -186,6 +187,23 @@ const COLLECTIONS = [{
         fields: {
             system: 1,
             name: 1
+        },
+        options: {
+            unique: true,
+        }
+    }],
+}, {
+    name: 'chunk_configs',
+    schema: chunk_config_schema,
+    mem_indexes: [{
+        name: 'chunk_configs_by_id',
+        context: 'system',
+        key: '_id'
+    }],
+    db_indexes: [{
+        fields: {
+            system: 1,
+            name: 1,
         },
         options: {
             unique: true,

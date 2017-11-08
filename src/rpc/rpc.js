@@ -614,7 +614,8 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
                 dbg.warn('RPC RECONNECT FAILED', addr_url.href,
                     'reconn_backoff', reconn_backoff.toFixed(0), err.message);
             });
-    }, reconn_backoff).unref();
+    }, reconn_backoff);
+    if (conn._reconnect_timeout.unref) conn._reconnect_timeout.unref();
 };
 
 

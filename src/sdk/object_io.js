@@ -173,6 +173,8 @@ class ObjectIO {
             .then(() => params.client.object.create_object_upload(create_params))
             .then(create_reply => {
                 params.obj_id = create_reply.obj_id;
+                params.chunk_split_config = create_reply.chunk_split_config;
+                params.chunk_coder_config = create_reply.chunk_coder_config;
                 complete_params.obj_id = create_reply.obj_id;
                 return params.copy_source ?
                     this._upload_copy(params, complete_params) :
@@ -217,6 +219,8 @@ class ObjectIO {
             .then(() => params.client.object.create_multipart(create_params))
             .then(multipart_reply => {
                 params.multipart_id = multipart_reply.multipart_id;
+                params.chunk_split_config = multipart_reply.chunk_split_config;
+                params.chunk_coder_config = multipart_reply.chunk_coder_config;
                 complete_params.multipart_id = multipart_reply.multipart_id;
                 return params.copy_source ?
                     this._upload_copy(params, complete_params) :

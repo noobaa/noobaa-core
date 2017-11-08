@@ -219,7 +219,7 @@ function create_mongo_pool(req) {
     var name = req.rpc_params.name;
     var mongo_info = {};
 
-    if (get_internal_mongo_pool(req.system._id)) {
+    if (get_internal_mongo_pool(req.system)) {
         dbg.error('System already has mongo pool');
         throw new Error('System already has mongo pool');
     }
@@ -669,12 +669,8 @@ function _is_regular_pool(pool) {
     return !(Boolean(pool.mongo_pool_info) || Boolean(pool.cloud_pool_info));
 }
 
-function get_internal_mongo_pool(system_id) {
-    const system = system_store.data.systems.find(sys => String(sys._id) === String(system_id));
-    if (!system) throw new Error('SYSTEM NOT FOUND', system_id);
-    const mongo_pool = _.find(system.pools_by_name, pool =>
-        String(pool.name) === String(`${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`));
-    return mongo_pool;
+function get_internal_mongo_pool(system) {
+    return system.pools_by_name[`${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`];
 }
 
 // EXPORTS

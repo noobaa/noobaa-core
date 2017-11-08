@@ -17,34 +17,53 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 
 
-function new_tier_defaults(name, system_id, mirrors) {
+function new_tier_defaults(name, system_id, chunk_config, mirrors) {
     return {
         _id: system_store.generate_id(),
-        system: system_id,
         name: name,
-        replicas: 3,
-        data_fragments: 1,
-        parity_fragments: 0,
+        system: system_id,
+        chunk_config,
         data_placement: 'SPREAD',
-        mirrors: mirrors,
+        mirrors,
     };
 }
 
 function new_policy_defaults(name, system_id, tiers_orders) {
     return {
         _id: system_store.generate_id(),
-        system: system_id,
         name: name,
-        tiers: tiers_orders
+        system: system_id,
+        tiers: tiers_orders,
+        chunk_split_config: {
+            avg_chunk: config.CHUNK_SPLIT_AVG_CHUNK,
+            delta_chunk: config.CHUNK_SPLIT_DELTA_CHUNK,
+        },
     };
 }
 
-var TIER_PLACEMENT_FIELDS = [
-    'data_placement',
-    'replicas',
-    'data_fragments',
-    'parity_fragments'
-];
+function new_chunk_code_config_defaults(chunk_coder_config) {
+    const ccc = Object.assign({
+        digest_type: config.CHUNK_CODER_DIGEST_TYPE,
+        frag_digest_type: config.CHUNK_CODER_FRAG_DIGEST_TYPE,
+        compress_type: config.CHUNK_CODER_COMPRESS_TYPE,
+        cipher_type: config.CHUNK_CODER_CIPHER_TYPE,
+    }, chunk_coder_config);
+
+    if (ccc.parity_frags) {
+        // Erasure Codes
+        ccc.replicas = ccc.replicas || 1;
+        ccc.data_frags = ccc.data_frags || 1;
+        ccc.parity_type = ccc.parity_type || config.CHUNK_CODER_EC_PARITY_TYPE;
+    } else {
+        // Data Copies
+        ccc.replicas = ccc.replicas || 3;
+        ccc.data_frags = ccc.data_frags || 1;
+        ccc.parity_frags = 0;
+        delete ccc.parity_type;
+    }
+
+    return ccc;
+}
 
 /**
  *
@@ -52,19 +71,36 @@ var TIER_PLACEMENT_FIELDS = [
  *
  */
 function create_tier(req) {
-    let policy_pool_ids = _.map(req.rpc_params.attached_pools, function(pool_name) {
+    const policy_pool_ids = _.map(req.rpc_params.attached_pools, function(pool_name) {
         return req.system.pools_by_name[pool_name]._id;
     });
 
-    let mirrors = [];
-    mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
+    const chunk_coder_config = new_chunk_code_config_defaults(
+        req.rpc_params.chunk_coder_config || req.account.default_chunk_config || req.system.default_chunk_config);
+    const existing_chunk_config = _.find(req.system.chunk_configs_by_id,
+        c => _.matches(c.chunk_coder_config, chunk_coder_config));
+    const chunk_config = existing_chunk_config || {
+        _id: system_store.generate_id(),
+        system: req.system._id,
+        chunk_coder_config,
+    };
+    const insert_chunk_configs = chunk_config === existing_chunk_config ? undefined : [chunk_config];
 
-    var tier = new_tier_defaults(req.rpc_params.name, req.system._id, mirrors);
-    _.merge(tier, _.pick(req.rpc_params, TIER_PLACEMENT_FIELDS));
+    const mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
+
+    const tier = new_tier_defaults(
+        req.rpc_params.name,
+        req.system._id,
+        chunk_config._id,
+        mirrors
+    );
+    if (req.rpc_params.data_placement) tier.data_placement = req.rpc_params.data_placement;
+
     dbg.log0('Creating new tier', tier);
     return system_store.make_changes({
             insert: {
-                tiers: [tier]
+                tiers: [tier],
+                chunk_configs: insert_chunk_configs,
             }
         })
         .then(function() {
@@ -123,9 +159,26 @@ function _convert_pools_to_data_placement_structure(pool_ids, data_placement) {
  */
 function update_tier(req) {
     var tier = find_tier_by_name(req);
-    var updates = _.pick(req.rpc_params, TIER_PLACEMENT_FIELDS);
+    var updates = {};
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
+    }
+    if (req.rpc_params.data_placement) {
+        updates.data_placement = req.rpc_params.data_placement;
+    }
+
+    const chunk_coder_config = new_chunk_code_config_defaults(
+        req.rpc_params.chunk_coder_config || req.account.default_chunk_config || req.system.default_chunk_config);
+    const existing_chunk_config = _.find(req.system.chunk_configs_by_id,
+        c => _.matches(c.chunk_coder_config, chunk_coder_config));
+    const chunk_config = existing_chunk_config || {
+        _id: system_store.generate_id(),
+        system: req.system._id,
+        chunk_coder_config,
+    };
+    const insert_chunk_configs = chunk_config === existing_chunk_config ? undefined : [chunk_config];
+    if (chunk_config !== tier.chunk_config) {
+        updates.chunk_config = chunk_config._id;
     }
 
     let old_pool_names = [];
@@ -153,7 +206,10 @@ function update_tier(req) {
     return system_store.make_changes({
             update: {
                 tiers: [updates]
-            }
+            },
+            insert: {
+                chunk_configs: insert_chunk_configs,
+            },
         })
         .then(res => {
             var bucket = find_bucket_by_tier(req);
@@ -322,9 +378,8 @@ function find_policy_by_name(req) {
 }
 
 function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier) {
-    var info = _.pick(tier, 'name', TIER_PLACEMENT_FIELDS);
     let mirrors_storage = [];
-    info.attached_pools = [];
+    let attached_pools = [];
 
     _.forEach(tier.mirrors, mirror_object => {
         let spread_storage;
@@ -349,27 +404,34 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
         });
 
         mirrors_storage.push(spread_storage);
-        info.attached_pools = _.concat(info.attached_pools, mirror_object.spread_pools);
+        attached_pools = _.concat(attached_pools, mirror_object.spread_pools);
     });
 
-    info.attached_pools = _.compact(info.attached_pools).map(pool => pool.name);
+    attached_pools = _.compact(attached_pools).map(pool => pool.name);
 
-    info.storage = size_utils.reduce_storage(size_utils.reduce_sum, mirrors_storage);
-    _.defaults(info.storage, {
-        used: 0,
-        total: 0,
-        free: 0,
-        unavailable_free: 0,
-        used_other: 0,
-        reserved: 0
-    });
+    const storage = _.defaults(
+        size_utils.reduce_storage(size_utils.reduce_sum, mirrors_storage), {
+            used: 0,
+            total: 0,
+            free: 0,
+            unavailable_free: 0,
+            used_other: 0,
+            reserved: 0
+        });
 
-    info.data = _.pick(_.defaults(
+    const data = _.pick(_.defaults(
         size_utils.reduce_storage(size_utils.reduce_minimum, aggregate_data_free_for_tier), {
             free: 0,
         }), 'free');
 
-    return info;
+    return {
+        name: tier.name,
+        chunk_coder_config: tier.chunk_config.chunk_coder_config,
+        data_placement: tier.data_placement,
+        attached_pools,
+        storage,
+        data,
+    };
 }
 
 function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate_data_free_by_tier) {
@@ -402,12 +464,8 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate
     return info;
 }
 
-function get_internal_storage_tier(system_id) {
-    const system = system_store.data.systems.find(sys => String(sys._id) === String(system_id));
-    if (!system) throw new Error('SYSTEM NOT FOUND', system_id);
-    const internal_tier = _.find(system.tiers_by_name, tier =>
-        String(tier.name) === String(`${config.SPILLOVER_TIER_NAME}-${system_id}`));
-    return internal_tier;
+function get_internal_storage_tier(system) {
+    return system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${system._id}`];
 }
 
 function get_associated_tiering_policies(tier) {
@@ -424,6 +482,7 @@ exports.get_associated_tiering_policies = get_associated_tiering_policies;
 exports.get_internal_storage_tier = get_internal_storage_tier;
 exports.new_tier_defaults = new_tier_defaults;
 exports.new_policy_defaults = new_policy_defaults;
+exports.new_chunk_code_config_defaults = new_chunk_code_config_defaults;
 exports.get_tier_info = get_tier_info;
 exports.get_tiering_policy_info = get_tiering_policy_info;
 //Tiers

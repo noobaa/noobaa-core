@@ -59,7 +59,7 @@ function _aggregate_data_free_for_tier(tier_id, system) {
                 mirror_available_storage.push({
                     free: size_utils.reduce_sum('free', _.concat(
                         on_mongo_or_cloud_storage.map(storage => (storage.free || 0)),
-                        calculate_total_spread_storage(on_prem_storage, tier.replicas, 'free')
+                        calculate_total_spread_storage(on_prem_storage, tier.chunk_config.chunk_coder_config.replicas, 'free')
                     ))
                 });
             }))

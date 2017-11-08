@@ -294,13 +294,14 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools, addi
     function check_blocks_group(blocks, fragment) {
         // This is the optimal maximum number of replicas that are required
         // Currently this is mainly used to special replica chunks which are allocated opportunistically
+        const base_replicas = tier.chunk_config.chunk_coder_config.replicas || 1;
         let max_replicas;
 
         // Currently we pick the highest replicas in our alloocation pools, which are on premise pools
         if (chunk.is_special) {
-            max_replicas = tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER;
+            max_replicas = base_replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER;
         } else {
-            max_replicas = tier.replicas;
+            max_replicas = base_replicas;
         }
 
         const PLACEMENT_WEIGHTS = {
@@ -376,8 +377,9 @@ function _get_mirror_chunk_status(chunk, tier, mirror_status, mirror_pools, addi
 
             // These are the minimum required replicas, which are a must to have for the chunk
             // In case of cloud/mongo pool allocation we consider one block as a fulfilment of all policy
-            let min_replicas = is_mongo_or_cloud_allocation ? (max_replicas / PLACEMENT_WEIGHTS.mongo_or_cloud_pool) :
-                Math.max(0, tier.replicas - num_good);
+            let min_replicas = is_mongo_or_cloud_allocation ?
+                (max_replicas / PLACEMENT_WEIGHTS.mongo_or_cloud_pool) :
+                Math.max(0, base_replicas - num_good);
 
             // Notice that we push the minimum required replicas in higher priority
             // This is done in order to insure that we will allocate them before the additional replicas
@@ -449,7 +451,7 @@ function get_missing_frags_in_chunk(chunk, tier) {
     let missing_frags;
     let fragments_by_frag_key = _.keyBy(chunk.frags, get_frag_key);
     // TODO handle parity fragments
-    _.times(tier.data_fragments, frag => {
+    _.times(tier.chunk_config.chunk_coder_config.data_frags, frag => {
         let f = {
             layer: 'D',
             frag: frag,

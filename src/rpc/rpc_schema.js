@@ -87,7 +87,7 @@ class RpcSchema {
                     let result = method_api.params_validator(params);
                     if (!result) {
                         dbg.error('INVALID_SCHEMA_PARAMS', desc, method_api.fullname,
-                            'ERRORS:', method_api.params_validator.errors,
+                            'ERRORS:', util.inspect(method_api.params_validator.errors, true, null, true),
                             'PARAMS:', util.inspect(params, true, null, true));
                         throw new RpcError('INVALID_SCHEMA_PARAMS', `INVALID_SCHEMA_PARAMS ${desc} ${method_api.fullname}`);
                     }
@@ -97,7 +97,7 @@ class RpcSchema {
                     let result = method_api.reply_validator(reply);
                     if (!result) {
                         dbg.error('INVALID_SCHEMA_REPLY', desc, method_api.fullname,
-                            'ERRORS:', method_api.reply_validator.errors,
+                            'ERRORS:', util.inspect(method_api.reply_validator.errors, true, null, true),
                             'REPLY:', util.inspect(reply, true, null, true));
                         throw new RpcError('INVALID_SCHEMA_REPLY', `INVALID_SCHEMA_REPLY ${desc} ${method_api.fullname}`);
                     }

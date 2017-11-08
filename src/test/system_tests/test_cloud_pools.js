@@ -248,7 +248,7 @@ function run_test() {
                     name: tier_name
                 })
                 .then(function(tier) {
-                    replicas_in_tier = tier.replicas;
+                    replicas_in_tier = tier.chunk_coder_config.replicas;
                     files_bucket_tier = tier;
                     let new_pools = tier.attached_pools.concat(TEST_CTX.cloud_pool_name);
                     return client.tier.update_tier({
@@ -262,7 +262,7 @@ function run_test() {
                             name: tier_name
                         })
                         .then(function(tier) {
-                            replicas_in_tier = tier.replicas;
+                            replicas_in_tier = tier.chunk_coder_config.replicas;
                             files_bucket_tier = tier;
                         });
                 });

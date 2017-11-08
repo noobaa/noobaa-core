@@ -76,14 +76,14 @@ function create_bucket(req) {
         throw new RpcError('BUCKET_ALREADY_EXISTS');
     }
     let tiering_policy;
-    let changes = {
+    const changes = {
         insert: {},
         update: {}
     };
 
-    const mongo_pool = pool_server.get_internal_mongo_pool(req.system._id);
+    const mongo_pool = pool_server.get_internal_mongo_pool(req.system);
     if (!mongo_pool) throw new RpcError('MONGO_POOL_NOT_FOUND');
-    const internal_storage_tier = tier_server.get_internal_storage_tier(req.system._id);
+    const internal_storage_tier = tier_server.get_internal_storage_tier(req.system);
     if (!internal_storage_tier) throw new RpcError('INTERNAL_TIER_NOT_FOUND');
 
     if (req.rpc_params.tiering) {
@@ -102,12 +102,15 @@ function create_bucket(req) {
     } else {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
-        let default_pool = req.account.default_pool;
+        const default_pool = req.account.default_pool;
+        const default_chunk_config = req.account.default_chunk_config || req.system.default_chunk_config;
         const bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
-        let tier = tier_server.new_tier_defaults(
-            bucket_with_suffix, req.system._id, [{
-                spread_pools: [default_pool._id]
-            }]
+        const mirrors = [{ spread_pools: [default_pool._id] }];
+        const tier = tier_server.new_tier_defaults(
+            bucket_with_suffix,
+            req.system._id,
+            default_chunk_config._id,
+            mirrors
         );
         tiering_policy = tier_server.new_policy_defaults(
             bucket_with_suffix, req.system._id, [{
@@ -127,7 +130,7 @@ function create_bucket(req) {
         changes.insert.tiers = [tier];
     }
 
-    let bucket = new_bucket_defaults(
+    const bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
         tiering_policy._id,
@@ -358,11 +361,11 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         const tiering = tiering_policy || bucket.tiering;
         let spillover_tier = tiering.tiers.find(tier_and_order => tier_and_order.spillover);
         if (!spillover_tier) {
-            const internal_mongo_pool = pool_server.get_internal_mongo_pool(req.system._id);
+            const internal_mongo_pool = pool_server.get_internal_mongo_pool(req.system);
             if (!internal_mongo_pool) throw new RpcError('INTERNAL POOL NOT FOUND');
-            spillover_tier = tier_server.get_internal_storage_tier(req.system._id);
+            spillover_tier = tier_server.get_internal_storage_tier(req.system);
             if (!spillover_tier) {
-                spillover_tier = system_server.create_internal_tier(req.system._id, internal_mongo_pool._id);
+                spillover_tier = system_server.create_internal_tier(req.system, internal_mongo_pool);
                 changes.inserts.tiers = changes.inserts.tiers || [];
                 changes.inserts.tiers.push(spillover_tier);
             }

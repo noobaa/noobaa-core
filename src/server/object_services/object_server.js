@@ -57,9 +57,12 @@ function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
+    const tier = req.bucket.tiering.tiers[0].tier;
     return MDStore.instance().insert_object(info)
         .return({
-            obj_id: String(info._id)
+            obj_id: info._id,
+            chunk_split_config: req.bucket.tiering.chunk_split_config,
+            chunk_coder_config: tier.chunk_config && tier.chunk_config.chunk_coder_config,
         });
 }
 
@@ -274,8 +277,13 @@ function create_multipart(req) {
             multipart.obj = obj._id;
         })
         .then(() => MDStore.instance().insert_multipart(multipart))
-        .return({
-            multipart_id: multipart._id
+        .then(() => {
+            const tier = req.bucket.tiering.tiers[0].tier;
+            return {
+                multipart_id: multipart._id,
+                chunk_split_config: req.bucket.tiering.chunk_split_config,
+                chunk_coder_config: tier.chunk_config && tier.chunk_config.chunk_coder_config,
+            };
         });
 }
 
@@ -500,15 +508,15 @@ function read_object_md(req) {
                 key: req.rpc_params.key,
             });
 
-            return map_reader.read_object_mappings({
-                    obj: obj
-                })
+            return map_reader.read_object_mappings({ obj })
                 .then(parts => {
                     info.total_parts_count = parts.length;
-                    info.capacity_size = _.reduce(parts, (sum_capacity, part) => {
-                        let frag = part.chunk.frags[0];
-                        return sum_capacity + (frag.size * frag.blocks.length);
-                    }, 0);
+                    info.capacity_size = 0;
+                    _.forEach(parts, part =>
+                        _.forEach(part.chunk.frags, frag =>
+                            _.forEach(frag.blocks, block => {
+                                info.capacity_size += block.block_md.size;
+                            })));
                 });
         })
         .then(() => info);

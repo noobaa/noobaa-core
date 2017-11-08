@@ -43,7 +43,7 @@ class HistoryDataStore {
 
     get_pool_history() {
         return this._history.col().find({}, {
-                timestamp: 1,
+                time_stamp: 1,
                 'system_snapshot.pools': 1,
             })
             .toArray();

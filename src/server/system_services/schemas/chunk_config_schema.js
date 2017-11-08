@@ -6,7 +6,6 @@ module.exports = {
     type: 'object',
     required: [
         '_id',
-        'name',
         'system',
         'chunk_coder_config',
     ],
@@ -14,7 +13,6 @@ module.exports = {
 
         // identifiers
         _id: { objectid: true },
-        name: { type: 'string' },
         system: { objectid: true },
 
         // chunk_coder_config defines the methods used for

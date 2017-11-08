@@ -32,7 +32,7 @@ function os_info(count_mongo_reserved_as_free) {
 
     _.each(orig_ifaces, function(iface, name) {
         if (name.indexOf('.') !== -1) {
-            var new_name = name.replace('.', '-');
+            var new_name = name.replace(/\./g, '-');
             interfaces[new_name] = iface;
             delete interfaces[name];
         }

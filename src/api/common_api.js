@@ -392,14 +392,16 @@ module.exports = {
                 frag_digest_type: { $ref: '#/definitions/digest_type' },
                 compress_type: { $ref: '#/definitions/compress_type' },
                 cipher_type: { $ref: '#/definitions/cipher_type' },
-                data_frags: { type: 'integer' },
+                // Data Copies:
+                replicas: { type: 'integer' },
                 // Erasure Coding:
-                parity_type: { $ref: '#/definitions/parity_type' },
+                data_frags: { type: 'integer' },
                 parity_frags: { type: 'integer' },
+                parity_type: { $ref: '#/definitions/parity_type' },
                 // LRC:
-                lrc_type: { $ref: '#/definitions/parity_type' },
                 lrc_group: { type: 'integer' },
                 lrc_frags: { type: 'integer' },
+                lrc_type: { $ref: '#/definitions/parity_type' },
             }
         },
 

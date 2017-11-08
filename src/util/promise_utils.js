@@ -148,10 +148,9 @@ function retry(attempts, delay, func, error_logger) {
  */
 function delay_unblocking(delay) {
     return new P((resolve, reject, on_cancel) => {
-        const timer = setTimeout(resolve, delay).unref();
-        if (on_cancel) {
-            on_cancel(() => clearTimeout(timer));
-        }
+        const timer = setTimeout(resolve, delay);
+        if (timer.unref) timer.unref();
+        if (on_cancel) on_cancel(() => clearTimeout(timer));
     });
 }
 

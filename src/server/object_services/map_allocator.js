@@ -52,8 +52,9 @@ class MapAllocator {
     check_parts() {
         const tiering_status = node_allocator.get_tiering_status(this.bucket.tiering);
         _.each(this.parts, part => {
+
             // checking that parts size does not exceed the max
-            // which allows the read path to limit range scanning
+            // which allows the read path to limit range scanning - see map_reader.js
             if (part.end - part.start > config.MAX_OBJECT_PART_SIZE) {
                 throw new Error('MapAllocator: PART TOO BIG ' +
                     range_utils.human_range(part));

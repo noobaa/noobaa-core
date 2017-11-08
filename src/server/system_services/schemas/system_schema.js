@@ -10,18 +10,13 @@ module.exports = {
         'owner',
     ],
     properties: {
-        _id: {
-            objectid: true
-        },
-        deleted: {
-            date: true
-        },
-        name: {
-            type: 'string'
-        },
-        owner: {
-            objectid: true // account id
-        },
+
+        _id: { objectid: true },
+        deleted: { date: true },
+        name: { type: 'string' },
+        owner: { objectid: true }, // account id
+        default_chunk_config: { objectid: true },
+
         // links to system resources used for storing install packages
         resources: {
             type: 'object',

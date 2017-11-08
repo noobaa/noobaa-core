@@ -6,25 +6,13 @@ module.exports = {
     type: 'object',
     required: [
         '_id',
-        'system',
         'name',
-        'replicas',
-        'data_fragments',
-        'parity_fragments',
+        'system',
+        'chunk_config',
         'data_placement',
         'mirrors',
     ],
     properties: {
-        replicas: {
-            type: 'integer'
-        },
-        // see data_frags in data_chunk.js
-        data_fragments: {
-            type: 'integer'
-        },
-        parity_fragments: {
-            type: 'integer'
-        },
 
         // identifiers
         _id: { objectid: true },
@@ -32,6 +20,19 @@ module.exports = {
         system: { objectid: true },
         deleted: { date: true },
 
+        // chunk_config is a link to a frozen config object
+        // all chunks will also link to it.
+        // we refactored all the constant settings of a chunk that are needed for read/write
+        // to optimize the metadata size per chunk.
+        // See chunk_config_schema.js
+        // this config will be used on all mirrors.
+        // NOTE: changing this link to another chunk_config will result in re-coding all the chunks.
+        chunk_config: { objectid: true },
+
+        // data placement mirror/spread is based on a user selection
+        // between one of these options.
+        // however the mapper functions support any combination of mirrors
+        // with any number of spread pools per mirror.
         data_placement: {
             type: 'string',
             enum: ['MIRROR', 'SPREAD']

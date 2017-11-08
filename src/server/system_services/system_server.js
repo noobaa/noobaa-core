@@ -162,46 +162,44 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account) {
-    return P.fcall(function() {
-        const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
-        const default_bucket_name = 'first.bucket';
-        const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-        var system = new_system_defaults(name, owner_account._id);
-        var pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
-        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [{
-            spread_pools: [pool._id]
-        }]);
-        var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
+    const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
+    const default_bucket_name = 'first.bucket';
+    const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
+    const system = new_system_defaults(name, owner_account._id);
+    const pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    const chunk_config = {
+        _id: system_store.generate_id(),
+        system: system._id,
+        chunk_coder_config: tier_server.new_chunk_code_config_defaults(),
+    };
+    system.default_chunk_config = chunk_config._id;
+    const tier_mirrors = [{ spread_pools: [pool._id] }];
+    const tier = tier_server.new_tier_defaults(
+        bucket_with_suffix,
+        system._id,
+        chunk_config._id,
+        tier_mirrors
+    );
+    const policy = tier_server.new_policy_defaults(
+        bucket_with_suffix,
+        system._id, [{
             tier: tier._id,
             order: 0,
             spillover: false,
             disabled: false
-        }]);
-        var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
-
-        let bucket_insert = [bucket];
-        let tieringpolicies_insert = [policy];
-        let tiers_insert = [tier];
-        let pools_insert = [pool];
-
-        Dispatcher.instance().activity({
-            event: 'conf.create_system',
-            level: 'info',
-            system: system._id,
-            actor: owner_account._id,
-            desc: `${name} was created by ${owner_account && owner_account.email}`,
-        });
-
-        return {
-            insert: {
-                systems: [system],
-                buckets: bucket_insert,
-                tieringpolicies: tieringpolicies_insert,
-                tiers: tiers_insert,
-                pools: pools_insert,
-            }
-        };
-    });
+        }]
+    );
+    const bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
+    return {
+        insert: {
+            systems: [system],
+            buckets: [bucket],
+            tieringpolicies: [policy],
+            tiers: [tier],
+            chunk_configs: [chunk_config],
+            pools: [pool],
+        }
+    };
 }
 
 
@@ -211,21 +209,25 @@ function new_system_changes(name, owner_account) {
  *
  */
 function create_system(req) {
-    var account = _.pick(req.rpc_params, 'name', 'email', 'password');
-    account.has_login = true;
     if (system_store.data.systems.length > 20) {
         throw new Error('Too many created systems');
     }
-    //Create the new system
-    account._id = system_store.generate_id();
-    let allowed_buckets;
-    let default_pool;
+    const account = {
+        _id: system_store.generate_id(),
+        name: req.rpc_params.name,
+        email: req.rpc_params.email,
+        password: req.rpc_params.password,
+        has_login: true,
+    };
+    const changes = new_system_changes(account.name, account);
+    const system_id = changes.insert.systems[0]._id;
+    const default_pool = changes.insert.pools[0]._id;
+    const owner_secret = system_store.get_server_secret();
     let reply_token;
-    let owner_secret = system_store.get_server_secret();
-    let system_changes;
     let ntp_configured = false;
-    //Create system
-    return P.fcall(function() {
+
+    return P.resolve()
+        .then(() => {
             var params = {
                 code: req.rpc_params.activation_code || '',
                 email: req.rpc_params.email,
@@ -252,21 +254,13 @@ function create_system(req) {
                     }
                 });
         })
-        .then(() => {
-            return P.join(
-                new_system_changes(account.name, account),
-                cluster_server.new_cluster_info({ address: "127.0.0.1" }),
-                os_utils.get_ntp(),
-                os_utils.get_time_config(),
-                os_utils.get_dns_servers()
-            );
-        })
-        .spread(function(changes, cluster_info, ntp_server, time_config, dns_config) {
-            allowed_buckets = {
-                full_permission: true
-            };
-            default_pool = changes.insert.pools[0]._id.toString();
-
+        .then(() => P.join(
+            cluster_server.new_cluster_info({ address: "127.0.0.1" }),
+            os_utils.get_ntp(),
+            os_utils.get_time_config(),
+            os_utils.get_dns_servers()
+        ))
+        .spread((cluster_info, ntp_server, time_config, dns_config) => {
             if (cluster_info) {
                 if (ntp_server) {
                     dbg.log0(`ntp server was already configured in first install to ${ntp_server}`);
@@ -282,27 +276,31 @@ function create_system(req) {
                 }
                 changes.insert.clusters = [cluster_info];
             }
-            return changes;
-        })
-        .then(changes => {
-            system_changes = changes;
+
+            Dispatcher.instance().activity({
+                event: 'conf.create_system',
+                level: 'info',
+                system: system_id,
+                actor: account._id,
+                desc: `${account.name} was created by ${account.email}`,
+            });
+
             return system_store.make_changes(changes);
         })
-        .then(() =>
+        .then(() => server_rpc.client.account.create_account({
             //Create the owner account
-            server_rpc.client.account.create_account({
-                name: req.rpc_params.name,
-                email: req.rpc_params.email,
-                password: req.rpc_params.password,
-                has_login: true,
-                s3_access: true,
-                new_system_parameters: {
-                    account_id: account._id.toString(),
-                    allowed_buckets: allowed_buckets,
-                    default_pool: default_pool,
-                    new_system_id: system_changes.insert.systems[0]._id.toString()
-                },
-            }))
+            name: req.rpc_params.name,
+            email: req.rpc_params.email,
+            password: req.rpc_params.password,
+            has_login: true,
+            s3_access: true,
+            new_system_parameters: {
+                account_id: account._id.toString(),
+                new_system_id: system_id.toString(),
+                default_pool: default_pool.toString(),
+                allowed_buckets: { full_permission: true },
+            },
+        }))
         .then(response => {
             reply_token = response.token;
 
@@ -352,8 +350,8 @@ function create_system(req) {
                 auth_token: reply_token
             });
         })
-        .then(() => _ensure_spillover_structure(system_changes))
-        .then(() => _init_system(system_changes.insert.systems[0]._id))
+        .then(() => _ensure_spillover_structure(system_id))
+        .then(() => _init_system(system_id))
         .then(() => system_utils.mongo_wrapper_system_created())
         .then(() => ({
             token: reply_token
@@ -976,9 +974,7 @@ function configure_remote_syslog(req) {
                 systems: [update]
             }
         })
-        .then(
-            () => os_utils.reload_syslog_configuration(params)
-        )
+        .then(() => os_utils.reload_syslog_configuration(params))
         .then(() => {
             Dispatcher.instance().activity({
                 event: 'conf.remote_syslog',
@@ -1209,68 +1205,70 @@ function log_client_console(req) {
 function _init_system(sysid) {
     return cluster_server.init_cluster()
         .then(() => stats_collector.collect_system_stats())
-        .then(() => Dispatcher.instance().alert('INFO',
+        .then(() => Dispatcher.instance().alert(
+            'INFO',
             sysid,
             'Welcome to NooBaa! It\'s time to get started. Connect your first resources, either 3 nodes or 1 cloud resource',
-            Dispatcher.rules.only_once));
+            Dispatcher.rules.only_once
+        ));
 }
 
-function create_internal_tier(system_id, mongo_pool_id) {
-    if (tier_server.get_internal_storage_tier(system_id)) return;
-    return tier_server.new_tier_defaults(`${config.SPILLOVER_TIER_NAME}-${system_id}`, system_id, [{
-        spread_pools: [mongo_pool_id]
-    }]);
+function create_internal_tier(system, mongo_pool) {
+    if (tier_server.get_internal_storage_tier(system)) return;
+    return tier_server.new_tier_defaults(
+        `${config.SPILLOVER_TIER_NAME}-${system._id}`,
+        system._id,
+        system.default_chunk_config._id, [{
+            spread_pools: [mongo_pool._id]
+        }]
+    );
 }
 
-function _ensure_spillover_structure(system_changes) {
-    const support_account = _.find(system_store.data.accounts, account => account.is_support);
-    const system_id = system_changes.insert.systems[0]._id;
-    const tiering_policy_id = system_changes.insert.tieringpolicies[0]._id;
-
-    if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
-    return P.fcall(function() {
-            if (!pool_server.get_internal_mongo_pool(system_id)) {
-                return server_rpc.client.pool.create_mongo_pool({
-                    name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`
-                }, {
-                    auth_token: auth_server.make_auth_token({
-                        system_id: system_id,
-                        role: 'admin',
-                        account_id: support_account._id
-                    })
-                });
-            }
+function _ensure_spillover_structure(system_id) {
+    return P.resolve()
+        .then(() => {
+            const system = system_store.data.get_by_id(system_id);
+            if (!system) throw new Error('SYSTEM DOES NOT EXIST');
+            const support_account = _.find(system_store.data.accounts, account => account.is_support);
+            if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
+            const mongo_pool = pool_server.get_internal_mongo_pool(system);
+            if (mongo_pool) return;
+            return server_rpc.client.pool.create_mongo_pool({
+                name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_id,
+                    role: 'admin',
+                    account_id: support_account._id
+                })
+            });
         })
         .then(() => {
-            if (!tier_server.get_internal_storage_tier(system_id)) {
-                const mongo_pool = pool_server.get_internal_mongo_pool(system_id);
-                if (!mongo_pool) throw new Error('MONGO POOL CREATION FAILURE');
-                const internal_tier = create_internal_tier(system_id, mongo_pool._id);
+            const system = system_store.data.get_by_id(system_id);
+            if (!system) throw new Error('SYSTEM DOES NOT EXIST');
+            if (tier_server.get_internal_storage_tier(system)) return;
+            const mongo_pool = pool_server.get_internal_mongo_pool(system);
+            if (!mongo_pool) throw new Error('MONGO POOL CREATION FAILURE');
+            const internal_tier = create_internal_tier(system, mongo_pool);
 
-                return {
-                    insert: {
-                        tiers: [internal_tier]
-                    },
-                    update: {
-                        tieringpolicies: [{
-                            _id: tiering_policy_id,
-                            $push: {
-                                tiers: {
-                                    tier: internal_tier._id,
-                                    order: 1,
-                                    spillover: true,
-                                    disabled: false
-                                }
+            return system_store.make_changes({
+                insert: {
+                    tiers: [internal_tier]
+                },
+                update: {
+                    tieringpolicies: _.map(system.tiering_policies_by_name, tiering => ({
+                        _id: tiering._id,
+                        $push: {
+                            tiers: {
+                                tier: internal_tier._id,
+                                order: 1,
+                                spillover: true,
+                                disabled: false
                             }
-                        }]
-                    }
-                };
-            }
-        })
-        .then(changes => {
-            if (changes) {
-                return system_store.make_changes(changes);
-            }
+                        }
+                    }))
+                }
+            });
         });
 }
 

@@ -48,9 +48,11 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['obj_id'],
+                required: ['obj_id', 'chunk_split_config', 'chunk_coder_config'],
                 properties: {
                     obj_id: { objectid: true },
+                    chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
+                    chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 }
             },
             auth: {
@@ -188,9 +190,11 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['multipart_id'],
+                required: ['multipart_id', 'chunk_split_config', 'chunk_coder_config'],
                 properties: {
                     multipart_id: { objectid: true },
+                    chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
+                    chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 }
             },
             auth: {

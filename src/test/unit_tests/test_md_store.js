@@ -71,7 +71,7 @@ mocha.describe('md_store', function() {
                 .then(() => {
                     throw new Error('should have failed');
                 }, err => {
-                    assert(err.message.startsWith('BAD COLLECTION SCHEMA'));
+                    assert(err.message.startsWith('INVALID_SCHEMA_DB'));
                 });
         });
 

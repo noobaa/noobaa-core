@@ -95,7 +95,8 @@ mocha.describe('nb_native chunk_coder', function() {
                     frag_digest_type: config.CHUNK_CODER_FRAG_DIGEST_TYPE,
                     compress_type: config.CHUNK_CODER_COMPRESS_TYPE,
                     cipher_type: config.CHUNK_CODER_CIPHER_TYPE,
-                    data_frags: config.CHUNK_CODER_DATA_FRAGS,
+                    data_frags: 1,
+                    parity_frags: 0,
                 }
             });
         });

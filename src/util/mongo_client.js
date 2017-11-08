@@ -233,15 +233,15 @@ class MongoClient extends EventEmitter {
     validate(col_name, doc, warn) {
         const validator = this._ajv.getSchema(col_name);
         if (!validator(doc)) {
-            const msg = `BAD COLLECTION SCHEMA ${col_name}`;
+            const msg = `INVALID_SCHEMA_DB ${col_name}`;
             if (warn === 'warn') {
                 dbg.warn(msg,
-                    'DOC', util.inspect(doc, true, null, true),
-                    'ERRORS', util.inspect(validator.errors, true, null, true));
+                    'ERRORS', util.inspect(validator.errors, true, null, true),
+                    'DOC', util.inspect(doc, true, null, true));
             } else {
                 dbg.error(msg,
-                    'DOC', util.inspect(doc, true, null, true),
-                    'ERRORS', util.inspect(validator.errors, true, null, true));
+                    'ERRORS', util.inspect(validator.errors, true, null, true),
+                    'DOC', util.inspect(doc, true, null, true));
                 throw new Error(msg);
             }
         }

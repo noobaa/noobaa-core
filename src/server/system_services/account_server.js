@@ -111,7 +111,16 @@ function create_account(req) {
                 }
             }
 
-            return {
+            Dispatcher.instance().activity({
+                event: 'account.create',
+                level: 'info',
+                system: (req.system && req.system._id) || sys_id,
+                actor: req.account && req.account._id,
+                account: account._id,
+                desc: `${account.email} was created ` + (req.account ? `by ${req.account.email}` : ``),
+            });
+
+            return system_store.make_changes({
                 insert: {
                     accounts: [account],
                     roles: [{
@@ -121,18 +130,7 @@ function create_account(req) {
                         role: 'admin',
                     }]
                 }
-            };
-        })
-        .then(changes => {
-            Dispatcher.instance().activity({
-                event: 'account.create',
-                level: 'info',
-                system: req.system && req.system._id || sys_id,
-                actor: req.account && req.account._id,
-                account: account._id,
-                desc: `${account.email} was created ` + (req.account ? `by ${req.account.email}` : ``),
             });
-            return system_store.make_changes(changes);
         })
         .then(function() {
             var created_account = system_store.data.get_by_id(account._id);

@@ -294,9 +294,9 @@ mocha.describe('map_utils', function() {
                 name: 'tier',
                 mirrors: regular_mirrors,
                 data_placement: data_placement,
-                replicas: replicas,
-                data_fragments: 1,
-                parity_fragments: 0,
+                chunk_config: {
+                    chunk_coder_config: { replicas, data_frags: 1, parity_frags: 0 },
+                },
             };
 
             let spill_tier = {
@@ -304,9 +304,9 @@ mocha.describe('map_utils', function() {
                 name: 'spill_tier',
                 mirrors: spill_mirrors,
                 data_placement: data_placement,
-                replicas: replicas,
-                data_fragments: 1,
-                parity_fragments: 0,
+                chunk_config: {
+                    chunk_coder_config: { replicas, data_frags: 1, parity_frags: 0 },
+                },
             };
 
             let tiering_policy = {

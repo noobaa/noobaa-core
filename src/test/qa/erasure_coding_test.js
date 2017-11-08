@@ -6,7 +6,7 @@ const AzureFunctions = require('../../deploy/azureFunctions');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
 const s3ops = require('../qa/s3ops');
-const af = require('../qa/agent_functions');
+const af = require('../qa/functions/agent_functions');
 const api = require('../../api');
 
 require('../../util/dotenv').load();
@@ -23,20 +23,40 @@ let stopped_agents = [];
 let failures_in_test = false;
 let errors = [];
 let files = [];
+let oses = [];
+let offlineAgents;
 
 //defining the required parameters
 const {
     location = 'westus2',
-    resource = 'pipeline-agents',
-    storage = 'pipelineagentsdisks',
-    vnet = 'pipeline-agents-vnet',
+    resource, // = 'pipeline-agents',
+    storage, // = 'pipelineagentsdisks',
+    vnet, // = 'pipeline-agents-vnet',
     agents_number = 4,
     failed_agents_number = 1,
     server_ip,
-    bucket = 'first.bucket'
+    bucket = 'first.bucket',
+    help = false
 } = argv;
-let oses = [];
-let offlineAgents;
+
+function usage() {
+    console.log(`
+    --location              -   azure location (default: ${location})
+    --bucket                -   bucket to run on (default: ${bucket})
+    --resource              -   azure resource group
+    --storage               -   azure storage on the resource group
+    --vnet                  -   azure vnet on the resource group
+    --agents_number         -   number of agents to add (default: ${agents_number})
+    --failed_agents_number  -   number of agents to fail (default: ${failed_agents_number})
+    --server_ip             -   noobaa server ip.
+    --help                  -   show this help.
+    `);
+}
+
+if (help) {
+    usage();
+    process.exit(1);
+}
 
 let osesSet = [
     'ubuntu12', 'ubuntu14', 'ubuntu16',
@@ -46,9 +66,9 @@ let osesSet = [
 ];
 
 const dataSet = [
-    {size_units: "KB", data_size: 1},
-    {size_units: "MB", data_size: 1},
-    {size_units: "GB", data_size: 1},
+    { size_units: "KB", data_size: 1 },
+    { size_units: "MB", data_size: 1 },
+    { size_units: "GB", data_size: 1 },
 ];
 
 const baseUnit = 1024;
@@ -94,13 +114,13 @@ console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}$
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
 function uploadAndVerify() {
-       return P.each(dataSet, size => {
-           let { data_multiplier } = unit_mapping[size.size_units.toUpperCase()];
-           let file_name = 'file_' + size.data_size + size.size_units + (Math.floor(Date.now() / 1000));
-                files.push(file_name);
-                return s3ops.put_file_with_md5(server_ip, bucket, file_name, size.data_size, data_multiplier)
-                    .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
-            })
+    return P.each(dataSet, size => {
+        let { data_multiplier } = unit_mapping[size.size_units.toUpperCase()];
+        let file_name = 'file_' + size.data_size + size.size_units + (Math.floor(Date.now() / 1000));
+        files.push(file_name);
+        return s3ops.put_file_with_md5(server_ip, bucket, file_name, size.data_size, data_multiplier)
+            .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
+    })
         .catch(err => {
             saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
             failures_in_test = true;
@@ -111,16 +131,16 @@ function uploadAndVerify() {
 function readFiles() {
     return P.each(files, file => s3ops.get_file_check_md5(server_ip, bucket, file))
         .catch(err => {
-        saveErrorAndResume(`${server_ip} FAILED read file`, err);
-        failures_in_test = true;
-        throw err;
-    });
+            saveErrorAndResume(`${server_ip} FAILED read file`, err);
+            failures_in_test = true;
+            throw err;
+        });
 }
 
 function getRebuildChunksStatus(key) {
     let result = false;
-   // let replicaStatusOnline = [];
-   // let replicas = [];
+    // let replicaStatusOnline = [];
+    // let replicas = [];
     const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     rpc.disable_validation();

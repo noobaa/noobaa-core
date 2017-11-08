@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
+const P = require('../../../util/promise');
 const fs = require('fs');
 
 //will connect the ssh session

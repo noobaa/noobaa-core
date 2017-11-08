@@ -16,14 +16,26 @@ let failures_in_test = false;
 let errors = [];
 let files_azure = [];
 let files_aws = [];
+let rpc;
+let client;
 
 //defining the required parameters
 const {
-    server_ip = '52.247.206.235',
+    server_ip, // = '52.247.206.235',
+    help = false
 } = argv;
 
-let rpc;
-let client;
+function usage() {
+    console.log(`
+    --server_ip     -   noobaa server ip.
+    --help          -   show this help.
+    `);
+}
+
+if (help) {
+    usage();
+    process.exit(1);
+}
 
 const connections_mapping = {
     AWS: {
@@ -62,10 +74,10 @@ const namespace_mapping = {
 };
 
 const dataSet = [
-    {size_units: 'KB', data_size: 1},
-    {size_units: 'KB', data_size: 500},
-    {size_units: 'MB', data_size: 1},
-    {size_units: 'MB', data_size: 100},
+    { size_units: 'KB', data_size: 1 },
+    { size_units: 'KB', data_size: 500 },
+    { size_units: 'MB', data_size: 1 },
+    { size_units: 'MB', data_size: 100 },
 ];
 
 const baseUnit = 1024;

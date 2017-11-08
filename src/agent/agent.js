@@ -236,7 +236,7 @@ class Agent {
         this._start_stop_server();
 
         if (force_close_n2n === 'force_close_n2n') {
-        // TODO: for now commented out the update_n2n_config. revisit if needed (issue #2379)
+            // TODO: for now commented out the update_n2n_config. revisit if needed (issue #2379)
             // reset the n2n config to close any open ports
             this.n2n_agent.disconnect();
         }
@@ -896,12 +896,11 @@ class Agent {
         const count = req.rpc_params.count || 5;
         const delay_ms = 200;
         const data = crypto.randomBytes(1024);
+        const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE;
         const block_md = {
             id: '_test_store_perf',
-            digest_type: 'sha1',
-            digest_b64: crypto.createHash('sha1')
-                .update(data)
-                .digest('base64')
+            digest_type,
+            digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
         };
         return test_average_latency(count, delay_ms, () =>
                 this.block_store._write_block(block_md, data))
@@ -1007,7 +1006,6 @@ class Agent {
                 dbg.log1('Reading packed file');
                 return fs.readFileAsync(inner_path)
                     .then(data => ({
-                        // data buffer in attachments
                         [RPC_BUFFERS]: { data }
                     }))
                     .catch(err => {

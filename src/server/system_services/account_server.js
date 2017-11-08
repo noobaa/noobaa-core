@@ -142,7 +142,7 @@ function create_account(req) {
             if (req.rpc_params.new_system_parameters) {
                 // since we created the first system for this account
                 // we expect just one system, but use _.each to get it from the map
-                var current_system = req.system && req.system._id || sys_id;
+                var current_system = (req.system && req.system._id) || sys_id;
                 _.each(created_account.roles_by_system, (roles, system_id) => {
                     //we cannot assume only one system.
                     if (current_system.toString() === system_id) {

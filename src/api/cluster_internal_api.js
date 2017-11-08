@@ -232,7 +232,7 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    // data buffer in attachments
+                    // [RPC_BUFFERS].data
                 },
             },
             auth: {

@@ -106,7 +106,7 @@ rename noobaa-setup.exe %FINAL_SETUP_FILE_NAME%
 
 if exist "%SIGNTOOL_PATH%" (
     echo "Signing installer with %SIGNTOOL_PATH%"
-    "%SIGNTOOL_PATH%" sign /v /sm /t http://timestamp.digicert.com /a %FINAL_SETUP_FILE_NAME% || exit 1
+    "%SIGNTOOL_PATH%" sign /v /s my /t http://timestamp.digicert.com /a %FINAL_SETUP_FILE_NAME% || exit 1
 )
 
 echo "%FINAL_SETUP_FILE_NAME% installer available under build\windows"

@@ -6,7 +6,7 @@ const _ = require('lodash');
 var AzureFunctions = require('../../deploy/azureFunctions');
 var crypto = require('crypto');
 const s3ops = require('../qa/s3ops');
-const af = require('../qa/agent_functions.js');
+const af = require('../qa/functions/agent_functions');
 const ops = require('../system_tests/basic_server_ops');
 
 // Environment Setup
@@ -30,7 +30,8 @@ let {
     storage,
     vnet,
     skipsetup = false,
-    clean = false
+    clean = false,
+    help = false
 } = argv;
 
 const {
@@ -40,6 +41,26 @@ const {
 } = argv;
 
 const upgrade_pack = argv.upgrade_pack === true ? undefined : argv.upgrade_pack;
+
+function usage() {
+    console.log(`
+    --location      -   azure location (default: ${location})
+    --bucket        -   bucket to run on (default: ${bucket})
+    --server_ip     -   noobaa server ip
+    --resource      -   azure resource group
+    --storage       -   azure storage on the resource group
+    --vnet          -   azure vnet on the resource group
+    --upgrade_pack  -   location of the file for upgrade
+    --skipsetup     -   skipping creation and deletion of agents.
+    --clean         -   will only delete the env and exit.
+    --help          -   show this help
+    `);
+}
+
+if (help) {
+    usage();
+    process.exit(1);
+}
 
 //define colors
 const Yellow = "\x1b[33;1m";

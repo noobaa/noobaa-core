@@ -13,7 +13,8 @@ const {
     aging_timeout = 0, // time running in minutes
     max_depth = 1, // the maximum depth
     min_depth = 1, // the minimum depth
-    size_units = 'MB' // the default units of the size is MB
+    size_units = 'MB', // the default units of the size is MB
+    help = false
 } = argv;
 
 let {
@@ -21,6 +22,28 @@ let {
     file_size_high = 200, // maximum 200Mb
     dataset_size = 10, // DS of 10GB
 } = argv;
+
+function usage() {
+    console.log(`
+    --server            -   azure location (default: ${server})
+    --bucket            -   bucket to run on (default: ${bucket})
+    --part_num_low      -   min part number in multipart (default: ${part_num_low})
+    --part_num_high     -   max part number in multipart (default: ${part_num_high}) 
+    --aging_timeout     -   time to run aging in min (default: ${aging_timeout})
+    --min_depth         -   min depth of directorys (default: ${min_depth})
+    --max_depth         -   mxa depth of directorys (default: ${max_depth})
+    --size_units        -   size of units (default: ${size_units})
+    --file_size_low     -   lowest file size (min 50 MB) (default: ${file_size_low})
+    --file_size_high    -   highest file size (max 200 MB) (default: ${file_size_high})
+    --dataset_size      -   dataset size (default: ${dataset_size})
+    --help              -   show this help
+    `);
+}
+
+if (help) {
+    usage();
+    process.exit(1);
+}
 
 const baseUnit = 1024;
 const unit_mapping = {

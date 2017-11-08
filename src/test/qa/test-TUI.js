@@ -4,13 +4,14 @@
 const child_process = require('child_process');
 const P = require('../../util/promise');
 const argv = require('minimist')(process.argv);
-const server_ops = require('../qa/server_functions');
+const server_ops = require('../qa/functions/server_functions');
 const promise_utils = require('../../util/promise_utils');
 let secret;
 let isSystemStarted = true;
 
 const {
     server_ip,
+    help = false
 } = argv;
 
 const api = require('../../api');
@@ -18,6 +19,17 @@ const rpc = api.new_rpc(`wss://${server_ip}:8443`);
 rpc.disable_validation();
 const client = rpc.new_client({});
 
+function usage() {
+    console.log(`
+    --server_ip     -   noobaa server ip
+    --help          -   show this help
+    `);
+}
+
+if (help) {
+    usage();
+    process.exit(1);
+}
 
 //class Expect, should move to a util.
 class Expect {

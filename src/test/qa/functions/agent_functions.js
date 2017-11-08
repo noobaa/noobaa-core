@@ -1,20 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
+const P = require('../../../util/promise');
 const _ = require('lodash');
 const crypto = require('crypto');
+const pool = 'first.pool';
+const api = require('../../../api');
 
 // Environment Setup
-require('../../util/dotenv').load();
+require('../../../util/dotenv').load();
 const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 
 //define colors
 const Yellow = "\x1b[33;1m";
 const NC = "\x1b[0m";
-const pool = 'first.pool';
-const api = require('../../api');
 
 function list_nodes(server_ip) {
     let online_agents;

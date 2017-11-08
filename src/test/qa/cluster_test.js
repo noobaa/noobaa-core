@@ -8,7 +8,7 @@ const api = require('../../api');
 const promise_utils = require('../../util/promise_utils');
 const ops = require('../system_tests/basic_server_ops');
 const s3ops = require('../qa/s3ops');
-const af = require('../qa/agent_functions.js');
+const af = require('../qa/functions/agent_functions');
 const _ = require('lodash');
 
 require('../../util/dotenv').load();
@@ -44,9 +44,33 @@ const {
     vnet,
     upgrade_pack,
     agents_number = 3,
-    clean = false
+    clean = false,
+    help = false
 } = argv;
 
+function usage() {
+    console.log(`
+    --location              -   azure location (default: ${location})
+    --configured_ntp        -   ntp server (default: ${configured_ntp})
+    --configured_timezone   -   time zone for the ntp (default: ${configured_timezone})
+    --prefix                -   noobaa server prefix name (default: ${prefix}) 
+    --timeout               -   time out in min (default: ${timeout})
+    --breakonerror          -   will stop the test on error
+    --resource              -   azure resource group
+    --storage               -   azure storage on the resource group
+    --vnet                  -   azure vnet on the resource group
+    --upgrade_pack          -   location of the file for upgrade
+    --agents_number         -   number of agents to add (default: ${agents_number})
+    --servers               -   number of servers to create cluster from (default: ${serversincluster})
+    --clean                 -   will only delete the env and exit.
+    --help                  -   show this help
+    `);
+}
+
+if (help) {
+    usage();
+    process.exit(1);
+}
 
 let osesSet = [
     'ubuntu12', 'ubuntu14', 'ubuntu16',

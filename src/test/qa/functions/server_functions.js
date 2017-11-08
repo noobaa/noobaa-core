@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
-const ssh = require('../qa/ssh_functions');
+const P = require('../../../util/promise');
+const promise_utils = require('../../../util/promise_utils');
+const ssh = require('./ssh_functions');
 const ssh2 = require('ssh2');
-const api = require('../../api');
+const api = require('../../../api');
 const activation_code = 'pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6ek&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQayzLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd';
 
 //will enable noobaa user login via ssh

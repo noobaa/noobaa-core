@@ -891,15 +891,19 @@ function update_cloud_sync(req) {
 
     // Please see the explanation and decision table below (at the end of the file).
     if (updated_policy.cloud_sync.additions_only === bucket.cloud_sync.additions_only) {
-        should_resync =
-            should_resync_deleted_files =
-            sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
+        should_resync = sync_directions_changed && (
+            bucket.cloud_sync.c2n_enabled &&
+            !bucket.cloud_sync.n2c_enabled
+        );
+        should_resync_deleted_files = should_resync;
     } else if (updated_policy.cloud_sync.additions_only) {
-        should_resync =
-            sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
+        should_resync = sync_directions_changed && (
+            bucket.cloud_sync.c2n_enabled &&
+            !bucket.cloud_sync.n2c_enabled
+        );
     } else {
-        should_resync =
-            should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
+        should_resync = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
+        should_resync_deleted_files = should_resync;
     }
 
     const db_updates = {

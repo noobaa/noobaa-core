@@ -46,7 +46,9 @@ mocha.describe('md_aggregator', function() {
                     existing_blocks_aggregate,
                     deleted_blocks_aggregate,
                 });
-                assert(pool_update.blocks_size === (existing_blocks_aggregate.pools[pool._id].size - deleted_blocks_aggregate.pools[pool._id].size));
+                assert(pool_update.blocks_size ===
+                    (existing_blocks_aggregate.pools[pool._id].size -
+                        deleted_blocks_aggregate.pools[pool._id].size));
             });
         });
 
@@ -95,8 +97,10 @@ mocha.describe('md_aggregator', function() {
                 deleted_blocks_aggregate: _.cloneDeep(deleted_blocks_aggregate),
             });
             _.each(bucket_update.pools, function(pool, id) {
-                const added_block_size = (existing_blocks_aggregate.buckets[123].pools[id] && existing_blocks_aggregate.buckets[123].pools[id].size) || 0;
-                const deleted_block_size = (deleted_blocks_aggregate.buckets[123].pools[id] && deleted_blocks_aggregate.buckets[123].pools[id].size) || 0;
+                const add = existing_blocks_aggregate.buckets[123].pools[id];
+                const del = deleted_blocks_aggregate.buckets[123].pools[id];
+                const added_block_size = (add && add.size) || 0;
+                const deleted_block_size = (del && del.size) || 0;
                 assert(pool.blocks_size === (added_block_size - deleted_block_size));
             });
         });
@@ -408,8 +412,7 @@ mocha.describe('md_aggregator', function() {
             const target_now = last_update + (num_ranges * range);
 
             return P.resolve()
-                .then(() => {
-                    return md_store.insert_blocks(_.times(num_ranges, i => {
+                .then(() => md_store.insert_blocks(_.times(num_ranges, i => {
                         const current_cycle = last_update + (i * range);
                         const bucket = system_store.data.buckets[i];
                         const pool = system_store.data.pools[i];
@@ -417,8 +420,7 @@ mocha.describe('md_aggregator', function() {
                         pool.storage_stats.last_update = current_cycle;
                         const block_id = md_store.make_md_id_from_time(current_cycle + (sub_cycle() / 2));
                         return make_block(block_id, 666, bucket, pool);
-                    }));
-                })
+                })))
                 .then(() => md_store.insert_chunks([{
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
                     system: system_id,

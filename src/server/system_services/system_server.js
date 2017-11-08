@@ -438,8 +438,9 @@ function read_system(req) {
         };
         _.forEach(system_store.data.buckets, bucket => {
             if (String(bucket.system._id) !== String(system._id)) return;
-            objects_sys.size = objects_sys.size
-                .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
+            objects_sys.size = objects_sys.size.plus(
+                (bucket.storage_stats && bucket.storage_stats.objects_size) || 0
+            );
         });
         objects_sys.count = objects_sys.count.plus(obj_count_per_bucket[''] || 0);
         const ip_address = ip_module.address();

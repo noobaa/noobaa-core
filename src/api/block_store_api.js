@@ -20,7 +20,7 @@ module.exports = {
                 type: 'object',
                 required: ['block_md'],
                 properties: {
-                    // data buffer in attachments
+                    // [RPC_BUFFERS].data
                     block_md: {
                         $ref: 'common_api#/definitions/block_md'
                     },
@@ -43,7 +43,7 @@ module.exports = {
                 type: 'object',
                 required: ['block_md'],
                 properties: {
-                    // data buffer in attachments
+                    // [RPC_BUFFERS].data
                     block_md: {
                         $ref: 'common_api#/definitions/block_md'
                     },

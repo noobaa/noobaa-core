@@ -272,13 +272,13 @@ module.exports = {
                     response_length: {
                         type: 'integer'
                     },
-                    // data buffer in attachments
+                    // [RPC_BUFFERS].data
                 },
             },
             reply: {
                 type: 'object',
                 properties: {
-                    // data buffer in attachments
+                    // [RPC_BUFFERS].data
                 },
             },
             auth: {
@@ -301,7 +301,7 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    // data buffer in attachments
+                    // [RPC_BUFFERS].data
                 },
             },
         },

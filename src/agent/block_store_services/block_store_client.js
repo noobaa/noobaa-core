@@ -3,6 +3,7 @@
 
 const request = require('request');
 const url = require('url');
+const xml2js = require('xml2js');
 
 const azure_storage = require('../../util/azure_storage_wrap');
 const P = require('../../util/promise');
@@ -118,6 +119,12 @@ class BlockStoreClient {
                 return P.fromCallback(callback => request(req_options, callback), {
                         multiArgs: true
                     })
+                    .spread((res, body) => {
+                        // if not OK parse the error and throw Error object
+                        if (res.statusCode !== 200) {
+                            return this._throw_s3_err(res);
+                        }
+                    })
                     .catch(error => {
                         dbg.error('encountered error on _delegate_write_block_s3:', error);
                         return rpc_client.block_store.handle_delegator_error({ error, usage }, options);
@@ -144,21 +151,42 @@ class BlockStoreClient {
                 return P.fromCallback(callback => request(req_options, callback), {
                         multiArgs: true
                     })
+                    .spread((res, body) => {
+                        if (res.statusCode === 200) {
+                            const ret = {
+                                data: body,
+                                block_md: JSON.parse(Buffer.from(res.headers['x-amz-meta-noobaa_block_md'], 'base64'))
+                            };
+                            return ret;
+
+                        } else {
+                            // parse the error and throw Error object
+                            return this._throw_s3_err(res);
+                        }
+                    })
                     .catch(error => {
                         dbg.error('encountered error on _delegate_read_block_s3:', error);
                         return rpc_client.block_store.handle_delegator_error({ error }, options);
-                    })
-                    .spread((response, body) => {
-                        const ret = {
-                            data: body,
-                            block_md: JSON.parse(Buffer.from(response.headers['x-amz-meta-noobaa_block_md'], 'base64'))
-                        };
-
-                        return ret;
                     });
 
             })
             .timeout(timeout);
+    }
+
+    _throw_s3_err(res) {
+        return P.fromCallback(callback => xml2js.parseString(res.body, callback))
+            .then(xml_obj => {
+                let err;
+                if (!xml_obj.Error && !xml_obj.Error.Message && !xml_obj.Error.Code) {
+                    // in case the structure is not as expected throw generic error
+                    err = new Error(`Unkown error on _delegate_read_block_s3. statusCode=${res.statusCode} statusMessage=${res.statusMessage}`);
+                } else {
+                    err = new Error(xml_obj.Error.Message[0]);
+                    err.code = xml_obj.Error.Code[0];
+                }
+                err.raw_error = res.body.toString();
+                throw err;
+            });
     }
 
 

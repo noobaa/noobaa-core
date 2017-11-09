@@ -326,7 +326,6 @@ function deleteNamespace(namespace) {
 P.fcall(function() {
     rpc = api.new_rpc('wss://' + server_ip + ':8443');
     client = rpc.new_client({});
-    rpc.disable_validation();
     let auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',

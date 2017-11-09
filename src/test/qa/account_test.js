@@ -18,13 +18,13 @@ let errors = [];
 
 const {
         name = 'account',
-        emailSuffix = '@email.email',
-        password = 'Password',
-        s3_access = true,
-        cycles = 1,
-        accounts_number = 1,
-        to_delete = true,
-        skip_create = false
+    emailSuffix = '@email.email',
+    password = 'Password',
+    s3_access = true,
+    cycles = 1,
+    accounts_number = 1,
+    to_delete = true,
+    skip_create = false
 } = argv;
 
 function saveErrorAndResume(message) {
@@ -38,70 +38,70 @@ function get_accounts_emails() {
         .then(accounts => {
             var emails = [];
             accounts.forEach(function(acc) {
-                  emails.push(acc.email);
-                });
+                emails.push(acc.email);
+            });
             console.log("Accounts list: " + emails);
             return emails;
         })
         .catch(err => {
-        console.error('Get account list failed!', err);
-        throw err;
-    });
+            console.error('Get account list failed!', err);
+            throw err;
+        });
 }
 
 function get_s3_account_access(email) {
     return client.system.read_system()
         .then(res => res.accounts)
         .then(accounts => {
-           for (var i = 0; i < accounts.length; i++) {
-                 if (accounts[i].email === email) {
-                      s3AccessKeys = {
-                         accessKeyId: accounts[i].access_keys[0].access_key,
-                         secretAccessKey: accounts[i].access_keys[0].secret_key,
-                         access: accounts[i].has_s3_access
-                     };
-                     break;
-                 }
+            for (var i = 0; i < accounts.length; i++) {
+                if (accounts[i].email === email) {
+                    s3AccessKeys = {
+                        accessKeyId: accounts[i].access_keys[0].access_key,
+                        secretAccessKey: accounts[i].access_keys[0].secret_key,
+                        access: accounts[i].has_s3_access
+                    };
+                    break;
                 }
+            }
             console.log("S3 access keys: " + s3AccessKeys.accessKeyId, s3AccessKeys.secretAccessKey);
             return s3AccessKeys;
         })
         .catch(err => {
-        console.error('Getting s3 access keys return error: ', err);
-        throw err;
-    });
+            console.error('Getting s3 access keys return error: ', err);
+            throw err;
+        });
 }
 
 function create_account(has_login, account_name) {
-        //building an account parameters object.
+    //building an account parameters object.
     console.log('Creating account: ' + account_name + " with access login: " + has_login + " s3 access: " + s3_access);
     let email = account_name + emailSuffix;
-        let allowed_buckets;
-        if (s3_access === true) {
-            allowed_buckets = {
-                full_permission: true,
-                permission_list: undefined
-            };
-        } else {
-            allowed_buckets = undefined;
-        }
-        let accountData = {
-            name: account_name,
-            email,
-            password,
-            has_login,
-            s3_access,
-            allowed_buckets,
-            default_pool: 'first.pool'
+    let allowed_buckets;
+    if (s3_access === true) {
+        allowed_buckets = {
+            full_permission: true,
+            permission_list: undefined
         };
-        return client.account.create_account(accountData)
-            .then(() => accountData.email)
-            .catch(err => {
-                console.error('Deleting account with error: ', err);
-                throw err;
-            })
-            .delay(10000);
-        }
+    } else {
+        allowed_buckets = undefined;
+    }
+    let accountData = {
+        name: account_name,
+        email,
+        password,
+        has_login,
+        s3_access,
+        allowed_buckets,
+        default_pool: 'first.pool'
+    };
+    return client.account.create_account(accountData)
+        .then(() => accountData.email)
+        .catch(err => {
+            console.error('Deleting account with error: ', err);
+            throw err;
+        })
+        .delay(10000);
+}
 
 function delete_account(email) {
     console.log('Deleting account: ' + email);
@@ -153,7 +153,7 @@ function restrict_ip_access(email, ips) {
 
 function verify_s3_access(email) {
     return get_s3_account_access(email)
-    .then(keys => s3ops.get_list_buckets(systemName, keys.accessKeyId, keys.secretAccessKey))
+        .then(keys => s3ops.get_list_buckets(systemName, keys.accessKeyId, keys.secretAccessKey))
         .then(buckets => {
             if (buckets.includes(bucketName)) {
                 console.log('Created account has access to s3 bucket' + bucketName);
@@ -167,7 +167,6 @@ function verify_s3_access(email) {
 function login_user(email) {
     rpc = api.new_rpc('wss://' + serverName + ':8443');
     client = rpc.new_client({});
-    rpc.disable_validation();
     return P.fcall(() => {
         let auth_params = {
             email,
@@ -190,10 +189,10 @@ function reset_password(email) {
     console.log('Resetting password for account ' + email);
     return login_user('demo@noobaa.com')
         .then(() => client.account.reset_password({
-        email,
-        must_change_password: false,
-        password: "DeMo1",
-        verification_password: "DeMo1"
+            email,
+            must_change_password: false,
+            password: "DeMo1",
+            verification_password: "DeMo1"
         }))
         .catch(err => {
             console.error('Resetting password with error: ', err);
@@ -204,14 +203,14 @@ function reset_password(email) {
 
 function verify_account_in_system(email, isPresent) {
     return get_accounts_emails()
-    .then(emails => {
-    if (emails.includes(email) === isPresent) {
-        console.log('System contains ', isPresent, 'account');
-    } else {
-        saveErrorAndResume('Created account doesn\'t contain on system');
-        failures_in_test = true;
-    }
-    });
+        .then(emails => {
+            if (emails.includes(email) === isPresent) {
+                console.log('System contains ', isPresent, 'account');
+            } else {
+                saveErrorAndResume('Created account doesn\'t contain on system');
+                failures_in_test = true;
+            }
+        });
 }
 
 function checkAccountFeatures() {
@@ -303,25 +302,25 @@ function doCycle(cycle_num, count) {
                 })
                 .delay(10000)
                 .then(() => {
-                if (to_delete === true) {
-                    return delete_account(newAccount)
-                    .then(() => verify_account_in_system(newAccount, false));
-                } else {
-                    console.log('Deleting skipped');
-                }
+                    if (to_delete === true) {
+                        return delete_account(newAccount)
+                            .then(() => verify_account_in_system(newAccount, false));
+                    } else {
+                        console.log('Deleting skipped');
+                    }
                 });
-    }));
+        }));
 }
 
 return promise_utils.loop(cycles, cycle => login_user('demo@noobaa.com')
-            .then(() => checkAccountFeatures())
-            .then(() => rpc.disconnect_all())
-            .then(() => login_user('demo@noobaa.com'))
-            .then(() => doCycle(cycle, accounts_number))
-            .delay(10000)
-            .then(() => checkAccountFeatures())
-            .then(() => rpc.disconnect_all())
-    )
+    .then(() => checkAccountFeatures())
+    .then(() => rpc.disconnect_all())
+    .then(() => login_user('demo@noobaa.com'))
+    .then(() => doCycle(cycle, accounts_number))
+    .delay(10000)
+    .then(() => checkAccountFeatures())
+    .then(() => rpc.disconnect_all())
+)
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;

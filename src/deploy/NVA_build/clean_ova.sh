@@ -1,10 +1,8 @@
 set -e
 # TODO copied from first_install_diaglog.sh
-isAzure=false
-isEsx=false
-isAlyun=false
-isAws=false
-platftom=on_prem
+eval {isAzure,isEsx,isAlyun,isAws}="false"
+platform="on_prem"
+
 function clean_ifcfg() {
     interfaces=$(ifconfig | grep ^eth | awk '{print $1}')
     for int in ${interfaces//:/}; do
@@ -13,16 +11,38 @@ function clean_ifcfg() {
     sudo echo "HOSTNAME=noobaa" > /etc/sysconfig/network
 }
 
+function aws_specific(){
+    sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+    sed -i 's/ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/g' /etc/ssh/sshd_config
+    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
+    yum install -y cloud-init
+    sudo passwd -l root
+    sudo passwd -l noobaaroot
+    echo "removing root user from /etc/shadow"
+    sed -i "/\<root/d" /etc/shadow
+    echo "removing Password from all users in /etc/shadow"
+    for user in $(cat /etc/shadow | awk -F ":" '{print $1}')
+    do
+        if [ -f /${user}/.ssh/authorized_keys ]
+        then
+            echo > /${user}/.ssh/authorized_keys
+        fi
+        sudo passwd -d ${user}
+    done
+
+    shred -u ~/.*history
+}
+
 OPTIONS=$( getopt -o 'h,e,a,l,w' --long "help,esx,azure,alyun,aws" -- "$@" )
 eval set -- "${OPTIONS}"
 
 function usage(){
     echo "$0 [options]"
-    echo "-e --esx run this script on esx"
+    echo "-e --esx   run this script on esx"
     echo "-a --azure run this script on azure"
     echo "-l --alyun run this script on alyun"
-    echo "-w --aws run this script on aws"
-    echo "-h --help will show this help"
+    echo "-w --aws   run this script on aws"
+    echo "-h --help  will show this help"
     exit 0
 }
 
@@ -47,21 +67,24 @@ do
     esac
 done
 
-if ! ${isAzure} && ! ${isEsx} && ! ${isAlyun} && ! ${isAws}
+if [ "${platform}" == "on_prem" ]
 then
     usage
 fi
 
-if ${isAzure}
+#calling yum upgrade before cleaning the network
+yum upgrade -y 
+
+if ! ${isEsx}
 then
     echo "make sure no swap entry in fstab!"
     cat /etc/fstab
 else
-    #calling yum upgrade before cleaning the network
-    yum upgrade -y 
+    #cleaning the network
     clean_ifcfg
     sudo rm /etc/first_install.mrk
-fi   
+fi
+
 sudo rm /etc/noobaa_sec
 echo Passw0rd | passwd noobaaroot --stdin
 #Clean log file
@@ -112,9 +135,15 @@ sudo sysctl kernel.hostname=noobaa
 #reduce VM size
 set +e
 /sbin/swapoff -a
-if ${isAzure}
+
+if ${isAws}
 then
-   echo "Azure - will not try to compress HD"
+    aws_specific
+fi
+
+if ! ${isEsx}
+then
+   echo "${platform} - will not try to compress HD"
 else
     dd if=/dev/zero of=zeroFile.tmp bs=1M
     rm -f zeroFile.tmp

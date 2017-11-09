@@ -227,8 +227,13 @@ class SystemStoreData {
         this.time = Date.now();
     }
 
+    /**
+     * If id is falsy return undefined, because it should mean there is no entity to resolve.
+     * Otherwise lookup the id in the map, and if not found return null to indicate the id is not found.
+     */
     get_by_id(id) {
-        return id ? this.idmap[String(id)] : null;
+        if (!id) return undefined;
+        return this.idmap[String(id)] || null;
     }
 
     //Return the mongo record (if found) and an indication if the

@@ -40,32 +40,30 @@ class MongoClient extends EventEmitter {
             // I opened this issue: https://jira.mongodb.org/browse/NODE-1168
             // And suggested this PR: https://github.com/mongodb/node-mongodb-native/pull/1555
             // promoteBuffers: true, // Promotes Binary BSON values to native Node Buffers
-            server: {
-                // setup infinit retries to connect
-                reconnectTries: -1,
-                reconnectInterval: 1000,
-                socketOptions: {
-                    autoReconnect: true
-                }
-            },
-            replset: {
-                socketOptions: {
-                    keepAlive: 1,
-                    connectTimeoutMS: 30000,
-                    socketTimeoutMS: 0
-                }
-            },
-            db: {
-                // bufferMaxEntries=0 is required for autoReconnect
-                // see: http://mongodb.github.io/node-mongodb-native/2.0/tutorials/connection_failures/
-                bufferMaxEntries: 0,
-                // authSource defined on which db the auth credentials are verified.
-                // when running mongod instance with --auth, the first and only
-                // user we can create is on the admin db.
-                // since we do not need to manage multiple users we simply use
-                // this user to authenticate also to our db.
-                //authSource: 'admin',
-            },
+
+            // server:
+            // setup infinit retries to connect
+            reconnectTries: -1,
+            reconnectInterval: 1000,
+            autoReconnect: true,
+            // bufferMaxEntries=0 is required for autoReconnect
+            // see: http://mongodb.github.io/node-mongodb-native/2.0/tutorials/connection_failures/
+            bufferMaxEntries: 0,
+
+            // replset
+            keepAlive: 1,
+            connectTimeoutMS: 30000,
+            socketTimeoutMS: 0,
+
+            // http://mongodb.github.io/node-mongodb-native/2.0/api/Db.html
+            ignoreUndefined: true,
+
+            // authSource defined on which db the auth credentials are verified.
+            // when running mongod instance with --auth, the first and only
+            // user we can create is on the admin db.
+            // since we do not need to manage multiple users we simply use
+            // this user to authenticate also to our db.
+            //authSource: 'admin',
         };
 
         this._ajv = new Ajv({ verbose: true });

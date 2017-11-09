@@ -70,7 +70,6 @@ const NC = "\x1b[0m";
 //noobaa rpc
 var api = require('../../api');
 var rpc = api.new_rpc('wss://' + server_ip + ':8443');
-rpc.disable_validation();
 var client = rpc.new_client({});
 const oses = [
     'ubuntu12', 'ubuntu14', 'ubuntu16',

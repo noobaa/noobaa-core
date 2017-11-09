@@ -16,7 +16,6 @@ const {
 
 const api = require('../../api');
 const rpc = api.new_rpc(`wss://${server_ip}:8443`);
-rpc.disable_validation();
 const client = rpc.new_client({});
 
 function usage() {

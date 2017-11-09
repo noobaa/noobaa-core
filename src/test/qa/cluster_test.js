@@ -210,7 +210,6 @@ function checkClusterStatus(servers, oldMasterNumber) {
                         console.log('Master ip', master_ip);
                         rpc = api.new_rpc('wss://' + master_ip + ':8443');
                         client = rpc.new_client({});
-                        rpc.disable_validation();
                         return P.fcall(() => {
                             let auth_params = {
                                 email: 'demo@noobaa.com',
@@ -255,7 +254,6 @@ let servers = [];
 function setNTPConfig(serverIndex) {
     rpc = api.new_rpc('wss://' + servers[serverIndex].ip + ':8443');
     client = rpc.new_client({});
-    rpc.disable_validation();
     console.log('Secret is ', servers[serverIndex].secret, 'for server ip ', servers[serverIndex].ip);
     return P.fcall(() => {
         let auth_params = {

@@ -143,7 +143,6 @@ function getRebuildChunksStatus(key) {
     // let replicas = [];
     const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    rpc.disable_validation();
     let auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',

@@ -675,7 +675,6 @@ class AzureFunctions {
             .then(ip => {
                 rpc = api.new_rpc('wss://' + ip + ':8443');
                 client = rpc.new_client({});
-                rpc.disable_validation();
                 return client.system.create_system(system);
             })
             .then(res => {

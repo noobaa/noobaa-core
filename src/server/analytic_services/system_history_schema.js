@@ -4,7 +4,7 @@
 module.exports = {
     id: 'system_history_schema',
     type: 'object',
-    required: ['_id', 'time_stamp', 'system_snapshot'],
+    required: ['_id', 'time_stamp', 'history_type'],
     properties: {
         _id: {
             objectid: true
@@ -16,6 +16,13 @@ module.exports = {
             type: 'object',
             additionalProperties: true,
             properties: {}
+        },
+        version_snapshot: {
+            type: 'string'
+        },
+        history_type: {
+            type: 'string',
+            enum: ['VERSION', 'SYSTEM']
         }
     }
 };

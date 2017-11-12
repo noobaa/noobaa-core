@@ -125,7 +125,7 @@ module.exports = {
 
         systems_stats: {
             type: 'object',
-            required: ['version', 'agent_version', 'count'],
+            required: ['version', 'agent_version', 'count', 'version_history'],
             properties: {
                 clusterid: {
                     type: 'string',
@@ -138,6 +138,14 @@ module.exports = {
                 },
                 count: {
                     type: 'integer'
+                },
+                version_history: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    }
                 },
                 systems: {
                     type: 'array',

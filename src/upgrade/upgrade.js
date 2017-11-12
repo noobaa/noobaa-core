@@ -240,11 +240,16 @@ function mongo_upgrade() {
                 ignore_rc: false,
                 return_stdout: true,
                 trim_stdout: true
+            }),
+            promise_utils.exec(`grep '"version": "' ${CORE_DIR}/package.json | cut -d\\" -f 4`, {
+                ignore_rc: true,
+                return_stdout: true,
+                trim_stdout: true
             })
         ))
-        .spread((bcrypt_secret, id, ip, client_subject) => {
-            dbg.log0(`starting mongo data upgrade ${bcrypt_secret} ${id} ${ip} ${client_subject}`);
-            return mongo_upgrade_database_metadata({ secret, bcrypt_secret, ip, client_subject })
+        .spread((bcrypt_secret, id, ip, client_subject, version) => {
+            dbg.log0(`starting mongo data upgrade ${bcrypt_secret} ${id} ${ip} ${client_subject} ${version}`);
+            return mongo_upgrade_database_metadata({ secret, bcrypt_secret, ip, client_subject, version })
                 .then(() => dbg.log0(`finished mongo data upgrade`))
                 .catch(err => {
                     dbg.error('FAILED mongo data upgrade!', err);
@@ -550,7 +555,7 @@ function mongo_upgrade_database_metadata(params) {
         .then(function() {
             return P.each(UPGRADE_SCRIPTS, script => {
                 dbg.log0(`Running Mongo Upgrade Script ${script}`);
-                return promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${params.secret}', param_bcrypt_secret='${params.bcrypt_secret}', param_ip='${params.ip}', param_client_subject='${params.client_subject}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
+                return promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${params.secret}', param_bcrypt_secret='${params.bcrypt_secret}', param_ip='${params.ip}', version='${params.version}', param_client_subject='${params.client_subject}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
                         ignore_rc: false,
                         return_stdout: true,
                         trim_stdout: true

@@ -22,6 +22,7 @@ const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
 const size_utils = require('../../util/size_utils');
 const Dispatcher = require('../notifications/dispatcher');
+const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
@@ -40,6 +41,7 @@ const SYSTEM_STATS_DEFAULTS = {
     clusterid: '',
     version: '',
     agent_version: '',
+    version_history: [],
     count: 0,
     systems: [],
 };
@@ -144,6 +146,10 @@ function get_systems_stats(req) {
         }))
         .then(systems => {
             sys_stats.systems = systems;
+            return HistoryDataStore.instance().get_system_version_history();
+        })
+        .then(version_history => {
+            sys_stats.version_history = version_history;
             return sys_stats;
         })
         .catch(err => {

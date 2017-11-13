@@ -45,7 +45,7 @@ class BarViewModel {
         limits = false,
         markers,
         emptyColor = defaultEmptyColor,
-        minRatio = defaultMinRatio,
+        minRatio = defaultMinRatio
 
     }) {
         this.total = ko.pureComputed(

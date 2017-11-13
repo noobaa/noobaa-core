@@ -25,7 +25,7 @@ const gatewayUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseco
 const initialState = {
     items: {},
     queries: {},
-    views: {},
+    views: {}
 };
 
 const initialHostDiagnosticsState = {
@@ -90,7 +90,7 @@ function onCompleteFetchHosts(state, { payload }) {
                 items: Object.keys(itemUpdates),
                 counters: {
                     nonPaginated: counters.non_paginated,
-                    byMode: counters.by_mode,
+                    byMode: counters.by_mode
                 }
             }
         }
@@ -202,7 +202,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         ip: data.ip,
         ports: ports && {
             min: ports.range.min || ports.range.port,
-            max: ports.range.max || ports.range.port,
+            max: ports.range.max || ports.range.port
         },
         protocol: data.connectivity,
         endpoint: data.base_address,

@@ -106,12 +106,12 @@ const clsuterModeToIcon = deepFreeze({
     UNHEALTHY: {
         name: 'problem',
         css: 'error',
-        tooltip: 'Not enough connected servers',
+        tooltip: 'Not enough connected servers'
     },
     WITH_ISSUES: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Has a high number of issues',
+        tooltip: 'Has a high number of issues'
     },
     HEALTHY: {
         name: 'healthy',

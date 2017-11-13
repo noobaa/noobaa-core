@@ -22,7 +22,7 @@ import {
     FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT,
     DELETE_GATEWAY_BUCKET,
     COMPLETE_DELETE_GATEWAY_BUCKET,
-    FAIL_DELETE_GATEWAY_BUCKET,
+    FAIL_DELETE_GATEWAY_BUCKET
 } from 'action-types';
 
 export function updateBucketQuota(bucket, quota) {

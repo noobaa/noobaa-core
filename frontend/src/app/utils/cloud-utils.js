@@ -30,7 +30,7 @@ const serviceToMeta = deepFreeze({
 const usedCloudTargetTooltip = deepFreeze({
     CLOUD_RESOURCE: name => `Already used by ${name} cloud resource`,
     CLOUD_SYNC: name => `Already used by bucket's ${name} cloud sync policy`,
-    NAMESPACE_RESOURCE: name => `Already used by ${name} namespace resource `,
+    NAMESPACE_RESOURCE: name => `Already used by ${name} namespace resource `
 });
 
 export function getCloudServiceMeta(service) {

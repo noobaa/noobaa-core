@@ -67,7 +67,7 @@ class CreateAccountWizardViewModel extends Observer {
                 hasS3Access: true,
                 defaultResource: undefined,
                 hasAccessToAllBuckets: false,
-                allowedBuckets: [],
+                allowedBuckets: []
             },
             groups: {
                 0: [ 'accountName' ],

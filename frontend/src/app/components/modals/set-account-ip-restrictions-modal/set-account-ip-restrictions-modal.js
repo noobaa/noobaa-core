@@ -12,7 +12,7 @@ import { deepFreeze } from 'utils/core-utils';
 const invalidIpReasonMapping = deepFreeze({
     MALFORMED: 'All values must be of the IPv4 format',
     INVALID_RANGE_ORDER: 'IP range must start with lowest value',
-    MULTIPLE_INVALID_IPS: 'Some IPs are invalid',
+    MULTIPLE_INVALID_IPS: 'Some IPs are invalid'
 });
 
 const allowedIpsPlaceholder =
@@ -44,7 +44,7 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
             fields: {
                 accountName: account.name,
                 usingIpRestrictions: usingIpRestrictions,
-                allowedIps: allowedIps,
+                allowedIps: allowedIps
             },
             onValidate: this.onValidate,
             onSubmit: this.onSubmit.bind(this)

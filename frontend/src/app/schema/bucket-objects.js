@@ -2,7 +2,7 @@ export default {
     type: 'object',
     required: [
         'counters',
-        'objects',
+        'objects'
     ],
     properties: {
         counters: {
@@ -47,16 +47,16 @@ export default {
                         type: 'string'
                     },
                     size: {
-                        type: 'integer',
+                        type: 'integer'
                     },
                     contentType: {
-                        type: 'string',
+                        type: 'string'
                     },
                     createTime: {
                         format: 'number'
                     }
                 }
             }
-        },
+        }
     }
 };

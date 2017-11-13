@@ -13,13 +13,13 @@ import {
 
 const undeletableReasons = deepFreeze({
     LAST_BUCKET: 'Last bucket cannot be deleted',
-    NOT_EMPTY: 'Cannot delete a bucket that contain files',
+    NOT_EMPTY: 'Cannot delete a bucket that contain files'
 });
 
 const resourceGroupMetadata = deepFreeze({
     HOSTS: {
         icon: 'nodes-pool',
-        tooltipTitle: 'Nodes pool resources',
+        tooltipTitle: 'Nodes pool resources'
     },
     CLOUD: {
         icon: 'cloud-resource',

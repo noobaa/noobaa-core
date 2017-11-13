@@ -21,7 +21,7 @@ function onCompleteFetchBucketObjects(_, { payload }) {
         counters: {
             nonPaginated: counters.non_paginated,
             completed: counters.by_mode.completed,
-            uploading: counters.by_mode.uploading,
+            uploading: counters.by_mode.uploading
         },
         objects: keyByProperty(
             objects,

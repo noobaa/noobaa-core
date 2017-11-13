@@ -66,12 +66,12 @@ const cloudResourceModeToStateIcon = deepFreeze({
     OPTIMAL: {
         tooltip: 'Healthy',
         css: 'success',
-        name: 'healthy',
+        name: 'healthy'
     },
     IO_ERRORS: {
         tooltip: 'Resource has Read/Write problems',
         css: 'error',
-        name: 'problem',
+        name: 'problem'
     },
     STORAGE_NOT_EXIST: resource => {
         const tooltip = resource.type === 'AZURE' ?
@@ -81,23 +81,23 @@ const cloudResourceModeToStateIcon = deepFreeze({
         return {
             tooltip,
             css: 'error',
-            name: 'problem',
+            name: 'problem'
         };
     },
     AUTH_FAILED: {
         tooltip: 'Authentication failure',
         css: 'error',
-        name: 'problem',
+        name: 'problem'
     },
     INITIALIZING: {
         tooltip: 'Initializing',
         css: 'warning',
-        name: 'working',
+        name: 'working'
     },
     ALL_NODES_OFFLINE: {
         tooltip: 'Offline',
         css: 'error',
-        name: 'problem',
+        name: 'problem'
     }
 });
 
@@ -128,7 +128,7 @@ const namespaceResourceModeToStateIcon = deepFreeze({
     OPTIMAL: {
         name: 'healthy',
         css: 'success',
-        tooltip: 'Healthy',
+        tooltip: 'Healthy'
     }
 });
 

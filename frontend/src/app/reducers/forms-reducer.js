@@ -194,7 +194,7 @@ function _initializeValue(value) {
         initial: value,
         value: value,
         touched: false,
-        validity: 'VALID',
+        validity: 'VALID'
     };
 }
 
@@ -209,6 +209,6 @@ export default createReducer(initialState, {
     [SET_FORM_VALIDITY]: onSetFormValidity,
     [LOCK_FORM]: onLockForm,
     [UNLOCK_FORM]: onUnlockForm,
-    [DROP_FROM]: onDropForm,
+    [DROP_FROM]: onDropForm
 });
 

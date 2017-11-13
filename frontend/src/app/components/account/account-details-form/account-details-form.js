@@ -24,7 +24,7 @@ class AccountDetailsFormViewModel extends Observer {
             {
                 label: 'Role',
                 value: this.role
-            },
+            }
         ];
 
         this.observe(

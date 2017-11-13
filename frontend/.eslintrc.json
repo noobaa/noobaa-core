@@ -36,6 +36,10 @@
                 "ignoreRestSiblings": true
             }
         ],
+        "comma-dangle": [
+            "error",
+            "never"
+        ],
         "no-console": 0
     }
 }

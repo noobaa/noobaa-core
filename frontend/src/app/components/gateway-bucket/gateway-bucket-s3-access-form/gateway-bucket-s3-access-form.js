@@ -14,7 +14,7 @@ import * as routes from 'routes';
 const columns = deepFreeze([
     {
         name: 'name',
-        type: 'newLink',
+        type: 'newLink'
     },
     {
         name: 'credentialsDetails',

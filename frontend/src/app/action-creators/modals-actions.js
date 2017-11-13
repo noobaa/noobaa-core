@@ -379,7 +379,7 @@ export function openEditBucketQuotaModal(bucketName) {
         payload: {
             component: {
                 name: 'edit-bucket-quota-modal',
-                params: { bucketName },
+                params: { bucketName }
             },
             options: {
                 size: 'small',
@@ -416,7 +416,7 @@ export function openSetAccountIpRestrictions(accountName) {
                 params: { accountName }
             },
             options: {
-                title: 'Set IP Restrictions',
+                title: 'Set IP Restrictions'
             }
         }
     };
@@ -487,7 +487,7 @@ export function openDisableHostStorageWarningModal(host, isLastService) {
         payload: {
             component: {
                 name: 'disable-host-storage-warning-modal',
-                params: { host, isLastService },
+                params: { host, isLastService }
             },
             options: {
                 size: 'xsmall',
@@ -504,7 +504,7 @@ export function openDisableHostLastServiceWarningModal(host, service) {
         payload: {
             component: {
                 name: 'disable-host-last-service-warning-modal',
-                params: { host, service },
+                params: { host, service }
             },
             options: {
                 size: 'xsmall',

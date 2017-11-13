@@ -12,7 +12,7 @@ import {
     setFormValidity,
     lockForm,
     unlockForm,
-    dropForm,
+    dropForm
 } from 'action-creators';
 
 function _selectValues(state) {
@@ -29,7 +29,7 @@ export default class FormViewModel extends Observer {
         onValidate,
         onValidateAsync,
         asyncTriggers,
-        onSubmit = noop,
+        onSubmit = noop
     }) {
         super();
 
@@ -140,7 +140,7 @@ export default class FormViewModel extends Observer {
     }
 
     _createFieldObservable(fieldName) {
-        const { _state, name: formName, } = this;
+        const { _state, name: formName } = this;
 
         const field = ko.pureComputed(
             () =>  _state() ? _state().fields[fieldName] : {}
@@ -229,7 +229,7 @@ export default class FormViewModel extends Observer {
             _warnHandler,
             _validateHandler,
             _validateAsyncHandler,
-            _asyncTriggers,
+            _asyncTriggers
         } = this;
 
         const warnings = _warnHandler && _warnHandler(values);

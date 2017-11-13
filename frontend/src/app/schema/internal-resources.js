@@ -9,7 +9,7 @@ export default {
         ],
         properties: {
             name: {
-                type: 'string',
+                type: 'string'
             },
             mode: {
                 type: 'string',

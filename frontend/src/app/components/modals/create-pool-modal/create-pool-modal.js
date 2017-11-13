@@ -16,7 +16,7 @@ import ko from 'knockout';
 const steps = deepFreeze([
     {
         label: 'Choose Name',
-        size: 'small',
+        size: 'small'
     },
     {
         label: 'Assign Nodes',
@@ -33,7 +33,7 @@ const columns = deepFreeze([
     {
         name: 'state',
         type: 'icon',
-        sortable: 'mode',
+        sortable: 'mode'
     },
     {
         name: 'displayName',
@@ -224,7 +224,7 @@ class CreatePoolModalViewModel extends Observer {
         const poolList = Object.values(pools);
         const poolNames = poolList.map(pool => pool.name);
         const nameRestrictionList = _validatedName(poolName, poolNames)
-            .map(({ valid, message, }) => ({
+            .map(({ valid, message }) => ({
                 label: message,
                 css: formFields.poolName.touched ? (valid ? 'success' : 'error') : ''
             }));

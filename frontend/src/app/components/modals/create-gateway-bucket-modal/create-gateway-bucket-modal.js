@@ -58,7 +58,7 @@ class CreateGatewayBucketModalViewModel extends Observer {
                 step: 0,
                 bucketName: '',
                 readPolicy: [],
-                writePolicy: undefined,
+                writePolicy: undefined
             },
             groups: {
                 0: [ 'bucketName' ],

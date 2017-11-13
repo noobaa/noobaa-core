@@ -19,7 +19,7 @@ export const unitsInBytes = deepFreeze({
     TERABYTE: Math.pow(kilo, 4),
     TB: Math.pow(kilo, 4),
     PETABYTE: Math.pow(kilo, 5),
-    PB: Math.pow(kilo, 5),
+    PB: Math.pow(kilo, 5)
 });
 
 export { bigInteger };

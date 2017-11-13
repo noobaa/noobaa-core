@@ -43,5 +43,5 @@ function onShowNotification(notifications, { payload }) {
 // ------------------------------
 export default createReducer(initialState, {
     [HIDE_NOTIFICATION]: onHideNotification,
-    [SHOW_NOTIFICATION]: onShowNotification,
+    [SHOW_NOTIFICATION]: onShowNotification
 });

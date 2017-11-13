@@ -8,14 +8,14 @@ export default {
     ],
     properties: {
         pathname: {
-            type: 'string',
+            type: 'string'
 
         },
         protocol: {
             type: 'string'
         },
         hostname: {
-            type: 'string',
+            type: 'string'
 
         },
         route: {

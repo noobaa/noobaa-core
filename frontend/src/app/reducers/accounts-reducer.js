@@ -3,7 +3,7 @@
 import { createReducer } from 'utils/reducer-utils';
 import { keyByProperty } from 'utils/core-utils';
 import {
-    COMPLETE_FETCH_SYSTEM_INFO,
+    COMPLETE_FETCH_SYSTEM_INFO
 } from 'action-types';
 
 // ------------------------------
@@ -79,5 +79,5 @@ function _mapExternalConnections(externalConnections) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
 });

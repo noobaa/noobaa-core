@@ -16,13 +16,13 @@ import { requestLocation } from 'action-creators';
 import {
     getBucketStateIcon,
     getCloudSyncState,
-    getPlacementTypeDisplayName,
+    getPlacementTypeDisplayName
 } from 'utils/bucket-utils';
 
 const viewOptions = deepFreeze([
     {
         label: 'Availability',
-        value: 'AVAILABILITY',
+        value: 'AVAILABILITY'
     },
     {
         label: 'Data Usage',
@@ -96,7 +96,7 @@ class BucketSummrayViewModel extends Observer {
             {
                 label: 'Total Original Size',
                 color: style['color7'],
-                value: ko.observable(),
+                value: ko.observable()
             },
             {
                 label: 'Compressed & Deduped',

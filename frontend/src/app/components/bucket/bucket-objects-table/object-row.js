@@ -10,12 +10,12 @@ import ko from 'knockout';
 const statusMapping = deepFreeze({
     COMPLETED: {
         css: 'success',
-        name: 'healthy',
+        name: 'healthy'
     },
     PROGRESS: {
         css: 'warning',
-        name: 'working',
-    },
+        name: 'working'
+    }
 });
 
 export default class ObjectRowViewModel {

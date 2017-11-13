@@ -90,7 +90,7 @@ const gatewayBucketToStateIcon = deepFreeze({
     OPTIMAL: {
         name: 'healthy',
         css: 'success',
-        tooltip: 'Healthy',
+        tooltip: 'Healthy'
     }
 });
 

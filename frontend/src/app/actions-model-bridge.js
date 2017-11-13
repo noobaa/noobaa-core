@@ -109,7 +109,7 @@ const actionHandlers = deepFreeze({
     [CHANGE_LOCATION]: onChangeLocation,
     [CHANGE_ACCOUNT_PASSWORD]: onChangeAccountPassword,
     [COMPLETE_CHANGE_ACCOUNT_PASSWORD]: onCompleteChangeAccountPassword,
-    [FAIL_CHANGE_ACCOUNT_PASSWORD]: onFailChangeAccountPassword,
+    [FAIL_CHANGE_ACCOUNT_PASSWORD]: onFailChangeAccountPassword
 });
 
 

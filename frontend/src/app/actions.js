@@ -16,7 +16,7 @@ import {
     fetchSystemInfo,
     showNotification,
     closeModal,
-    requestLocation,
+    requestLocation
 } from 'action-creators';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
@@ -183,13 +183,13 @@ export async function updateFuncConfig(name, version, config) {
 }
 
 export async function updateFuncCode(name, version, patches) {
-    logAction('updateFuncCode', { name, version,});
+    logAction('updateFuncCode', { name, version });
 
     try {
         const { code = {} } = await api.func.read_func({
             name,
             version,
-            read_code: true,
+            read_code: true
         });
 
         if (code.zipfile) {

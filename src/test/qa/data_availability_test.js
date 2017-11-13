@@ -24,7 +24,6 @@ let failures_in_test = false;
 let errors = [];
 let files = [];
 let oses = [];
-let offlineAgents;
 
 //defining the required parameters
 const {
@@ -32,7 +31,7 @@ const {
     resource, // = 'pipeline-agents',
     storage, // = 'pipelineagentsdisks',
     vnet, // = 'pipeline-agents-vnet',
-    agents_number = 4,
+    agents_number = 5,
     failed_agents_number = 1,
     server_ip,
     bucket = 'first.bucket',
@@ -65,12 +64,6 @@ let osesSet = [
     'win2008', 'win2012', 'win2016'
 ];
 
-const dataSet = [
-    { size_units: "KB", data_size: 1 },
-    { size_units: "MB", data_size: 1 },
-    { size_units: "GB", data_size: 1 },
-];
-
 const baseUnit = 1024;
 const unit_mapping = {
     KB: {
@@ -87,24 +80,6 @@ const unit_mapping = {
     }
 };
 
-function getRandomAgentsOses() {
-    for (let i = 0; i < agents_number; i++) {
-        let rand = Math.floor(Math.random() * osesSet.length);
-        oses.push(osesSet[rand]);
-        osesSet.splice(rand, 1);
-    }
-    console.log('Random oses for creating agents ', oses);
-}
-
-function getRandomStoppingOses() {
-    for (let i = 0; i < failed_agents_number; i++) {
-        let rand = Math.floor(Math.random() * oses.length);
-        stopped_agents.push(oses[rand]);
-        oses.splice(rand, 1);
-    }
-    console.log('Random oses for stopping agents ', stopped_agents);
-}
-
 function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
@@ -113,12 +88,21 @@ function saveErrorAndResume(message) {
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-function uploadAndVerify() {
-    return P.each(dataSet, size => {
-        let { data_multiplier } = unit_mapping[size.size_units.toUpperCase()];
-        let file_name = 'file_' + size.data_size + size.size_units + (Math.floor(Date.now() / 1000));
+function uploadAndVerifyFiles(dataset_size_GB) {
+    let { data_multiplier } = unit_mapping.MB;
+    let dataset_size = dataset_size_GB * 1024;
+    let parts = 20;
+    let partSize = dataset_size / parts;
+    let file_size = Math.floor(partSize);
+    let part = 0;
+    console.log('Writing and deleting data till size amount to grow ' + dataset_size_GB + ' GB');
+    return promise_utils.pwhile(() => part < parts, () => {
+        let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
         files.push(file_name);
-        return s3ops.put_file_with_md5(server_ip, bucket, file_name, size.data_size, data_multiplier)
+        console.log('files list is ' + files);
+        part += 1;
+        console.log('Uploading file with size ' + file_size + ' MB');
+        return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
             .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
     })
         .catch(err => {
@@ -137,10 +121,9 @@ function readFiles() {
         });
 }
 
-function getRebuildChunksStatus(key) {
+function getFileHealthStatus(key) {
     let result = false;
-    // let replicaStatusOnline = [];
-    // let replicas = [];
+    let parts = [];
     const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     let auth_params = {
@@ -155,8 +138,9 @@ function getRebuildChunksStatus(key) {
             adminfo: true
         })))
         .then(res => {
-            let chunkAvailable = res.parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
-            let chunkNum = res.parts.length;
+            parts = res.parts;
+            let chunkAvailable = parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
+            let chunkNum = parts.length;
             if (chunkAvailable === chunkNum) {
                 console.log('Available chunks number ' + chunkAvailable + ' all amount chunks ' + chunkNum);
                 result = true;
@@ -169,31 +153,13 @@ function getRebuildChunksStatus(key) {
         .then(() => result);
 }
 
-function waitForAgentsAmount(numberAgents) {
-    let agents;
-    let retries = 0;
-    console.log('Waiting for server getting up all agents ' + numberAgents);
-    return promise_utils.pwhile(
-        () => agents !== numberAgents && retries !== 36,
-        () => P.resolve(af.list_nodes(server_ip))
-            .then(res => {
-                if (res) {
-                    agents = res.length;
-                } else {
-                    retries += 1;
-                    console.log('Current agents : ' + agents + ' waiting for: ' + numberAgents + ' - will wait for extra 5 seconds');
-                }
-            })
-            .delay(5000));
-}
-
 function waitForRebuildObjects(file) {
     let retries = 0;
     let rebuild = false;
     console.log('Waiting for rebuild object ' + file);
     return promise_utils.pwhile(
         () => rebuild === false && retries !== 36,
-        () => P.resolve(getRebuildChunksStatus(file))
+        () => P.resolve(getFileHealthStatus(file))
             .then(res => {
                 if (res) {
                     rebuild = res;
@@ -206,81 +172,67 @@ function waitForRebuildObjects(file) {
             .delay(5000));
 }
 
+function clean_up_dataset() {
+    console.log('runing clean up files from bucket ' + bucket);
+    return s3ops.get_list_files(server_ip, bucket, '')
+        .then(res => s3ops.delete_folder(server_ip, bucket, ...res))
+        .catch(err => console.error(`Errors during deleting `, err));
+}
+
 return azf.authenticate()
-    .then(getRandomAgentsOses)
-    .then(() => af.number_offline_agents(server_ip))
+    .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, [], osesSet))
     .then(res => {
-        offlineAgents = res;
-        console.log('Offline agents number before stopping is ', offlineAgents);
+        oses = res;
+        //Create a dataset on it (1 GB per agent)
+        return uploadAndVerifyFiles(agents_number);
     })
-    .then(() => af.create_agents(azf, server_ip, storage, vnet, ...oses))
-    .then(uploadAndVerify)
-    .then(getRandomStoppingOses)
-    .then(() => P.each(stopped_agents, agent => af.stop_agent(azf, agent)))
+    //Power down agents (random number between 1 to the max amount)
+    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, oses))
+    .then(res => {
+        stopped_agents = res;
+        //waiting for rebuild files by chunks and parts
+        return P.each(files, file => waitForRebuildObjects(file));
+    })
+    //Read and verify the read
+    .then(() => P.each(files, file => getFileHealthStatus(file)
+        .then(res => {
+            if (res === true) {
+                console.log('File ' + file + ' rebuild successfully');
+            } else {
+                saveErrorAndResume('File ' + file + ' didn\'t rebuild');
+            }
+        })))
     .then(readFiles)
-    .then(() => P.each(files, file => waitForRebuildObjects(file)))
-    .then(() => af.number_offline_agents(server_ip))
+    //Power on the powered off agents and wait for them to be on
+    .then(() => af.startOfflineAgents(azf, server_ip, stopped_agents))
+    //Power down agents (random number between 1 to the max amount)
+    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, oses))
     .then(res => {
-        const offlineAgentsAfter = res;
-        const offlineExpected = offlineAgents + failed_agents_number;
-        if (offlineAgentsAfter === offlineExpected) {
-            console.log('Number of offline agents is ', offlineAgentsAfter, ' - as should');
-        } else {
-            saveErrorAndResume('After switched off agent number offline is ', offlineAgentsAfter, ' instead ', offlineExpected);
-            failures_in_test = true;
-        }
+        stopped_agents = res;
+        //waiting for rebuild files by chunks and parts
+        return P.each(files, file => waitForRebuildObjects(file));
     })
-    .then(() => af.list_optimal_agents(server_ip, ...oses))
-    .then(res => {
-        const onlineAgents = res.length;
-        const expectedOnlineAgents = agents_number - failed_agents_number;
-        if (onlineAgents === expectedOnlineAgents) {
-            console.log('Number online agents is ', onlineAgents, ' - as should');
-        } else {
-            saveErrorAndResume('After switching off some agents number agents online ', onlineAgents, ' instead ', expectedOnlineAgents);
-            failures_in_test = true;
-        }
-    })
+    //Read and verify the read
+    .then(() => P.each(files, file => getFileHealthStatus(file)
+        .then(res => {
+            if (res === true) {
+                console.log('File ' + file + ' rebuild successfully');
+            } else {
+                saveErrorAndResume('File ' + file + ' didn\'t rebuild');
+            }
+        })))
     .then(readFiles)
-    .then(uploadAndVerify)
-    .then(() => {
-        P.each(stopped_agents, agent => {
-            af.start_agent(azf, agent);
-            oses.push(agent);
-        });
-    })
-    .then(() => waitForAgentsAmount(agents_number))
-    .then(() => af.list_nodes(server_ip))
-    .then(res => {
-        let onlineAgentsOn = res.length;
-        if (onlineAgentsOn === agents_number) {
-            console.log('Number of online agents is ', onlineAgentsOn, ' - as should');
-        } else {
-            saveErrorAndResume('After switching on agents number online is ' + onlineAgentsOn + ' instead ', agents_number);
-            failures_in_test = true;
-        }
-    })
-    .then(() => af.list_optimal_agents(server_ip, ...oses))
-    .then(res => {
-        let onlineAgentsOn = res.length;
-        if (onlineAgentsOn === agents_number) {
-            console.log('Number of online agents is ', onlineAgentsOn, ' - as should');
-        } else {
-            saveErrorAndResume('After switching on agents number online is ', onlineAgentsOn, ' instead ', agents_number);
-            failures_in_test = true;
-        }
-    })
-    .then(uploadAndVerify)
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;
     })
-    .finally(() => af.clean_agents(azf, ...oses))
+    .finally(() => af.clean_agents(azf, oses)
+        .then(clean_up_dataset))
     .then(() => {
         if (failures_in_test) {
-            console.error(':( :( Errors during connectivity test ): ):' + errors);
+            console.error(':( :( Errors during data available test (replicas) ): ):' + errors);
             process.exit(1);
         }
-        console.log(':) :) :) connectivity test were successful! (: (: (:');
+        console.log(':) :) :) data available test (replicas files) were successful! (: (: (:');
         process.exit(0);
     });

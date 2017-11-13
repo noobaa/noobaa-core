@@ -81,15 +81,6 @@ let osesSet = [
 
 let oses = [];
 
-function getRandomAgentsOses() {
-    for (let i = 0; i < agents_number; i++) {
-        let rand = Math.floor(Math.random() * osesSet.length);
-        oses.push(osesSet[rand]);
-        osesSet.splice(rand, 1);
-    }
-    console.log('Random oses for creating agents ', oses);
-}
-
 function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
@@ -324,23 +315,6 @@ function createCluster(requestedServes, masterIndex, clusterIndex) {
         .then(() => delayInSec(90));
 }
 
-function runCreateAgents() {
-    return af.createAgents(azf, master_ip, storage, vnet, 'undefined', ...oses)
-        .then(() => af.list_nodes(master_ip)
-            .then(res => {
-                let node_number_after_create = res.length;
-                console.log(`${YELLOW}Num nodes after create is: ${node_number_after_create}${NC}`);
-                console.warn(`Node names are ${res.map(node => node.name)}`);
-            }));
-}
-
-function deleteAgents() {
-    return P.map(oses, osname => azf.deleteVirtualMachine(osname))
-        .catch(err => {
-            console.warn(`Deleting agents is FAILED `, err);
-        });
-}
-
 function verifyS3Server() {
     console.log(`starting the verify s3 server on `, master_ip);
     let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
@@ -365,7 +339,7 @@ function verifyS3Server() {
 function cleanEnv() {
     return P.map(servers, server => azf.deleteVirtualMachine(server.name)
         .catch(err => console.log(`Can't delete old server ${err.message}`)))
-        .then(() => deleteAgents())
+        .then(() => af.clean_agents(azf, oses)())
         .then(() => clean && process.exit(0));
 }
 
@@ -481,10 +455,11 @@ return azf.authenticate()
     .then(() => createCluster(servers, masterIndex, 2))
     .then(() => delayInSec(90))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
-    .then(getRandomAgentsOses)
-    .then(() => af.getAgentConf(master_ip))
-    .then(runCreateAgents)
-    .then(verifyS3Server)
+    .then(() => af.createRandomAgents(azf, master_ip, storage, vnet, agents_number, [], osesSet))
+    .then(res => {
+        oses = res;
+        return verifyS3Server();
+    })
     .then(() => checkClusterStatus(servers, masterIndex))
     .then(runFirstFlow)
     .then(runSecondFlow)

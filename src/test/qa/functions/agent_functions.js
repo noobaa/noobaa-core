@@ -6,6 +6,7 @@ const _ = require('lodash');
 const crypto = require('crypto');
 const pool = 'first.pool';
 const api = require('../../../api');
+const promise_utils = require('../../../util/promise_utils');
 
 // Environment Setup
 require('../../../util/dotenv').load();
@@ -257,6 +258,99 @@ function clean_agents(azf, ...oses) {
             })));
 }
 
+function getRandomOsesFromList(amount, oses) {
+    let listOses = [];
+    for (let i = 0; i < amount; i++) {
+        let rand = Math.floor(Math.random() * oses.length);
+        listOses.push(oses[rand]);
+        oses.splice(rand, 1);
+    }
+    console.log('Random oses chosen oses ', listOses);
+    return listOses;
+}
+
+function stopRandomAgents(azf, server_ip, amount, oses) {
+    let offlineAgents;
+    let stopped_agents = [];
+    return number_offline_nodes(server_ip)
+        .then(res => {
+            offlineAgents = res;
+            stopped_agents = getRandomOsesFromList(amount, oses);
+            return P.each(stopped_agents, agent => stop_agent(azf, agent));
+        })
+        .then(() => number_offline_nodes(server_ip))
+        .then(res => {
+            const offlineAgentsAfter = res;
+            const offlineExpected = offlineAgents + amount;
+            if (offlineAgentsAfter === offlineExpected) {
+                console.log('Number of offline agents is ', offlineAgentsAfter, ' - as should');
+            } else {
+                console.error('After switched off agent number offline is ', offlineAgentsAfter, ' instead ', offlineExpected);
+            }
+        })
+        .then(() => list_optimal_agents(server_ip, oses))
+        .then(res => {
+            const onlineAgents = res.length;
+            const expectedOnlineAgents = oses.length - amount;
+            if (onlineAgents === expectedOnlineAgents) {
+                console.log('Number online agents is ', onlineAgents, ' - as should');
+            } else {
+                console.error('After switching off some agents number agents online ', onlineAgents, ' instead' +
+                    ' ', expectedOnlineAgents);
+            }
+            return stopped_agents;
+        });
+}
+
+function waitForAgentsAmount(server_ip, numberAgents) {
+    let agents;
+    let retries = 0;
+    console.log('Waiting for server getting up all agents ' + numberAgents);
+    return promise_utils.pwhile(
+        () => agents !== numberAgents && retries !== 36,
+        () => P.resolve(list_nodes(server_ip))
+            .then(res => {
+                if (res) {
+                    agents = res.length;
+                } else {
+                    retries += 1;
+                    console.log('Current agents : ' + agents + ' waiting for: ' + numberAgents + ' - will wait for extra 5 seconds');
+                }
+            })
+            .delay(5000));
+}
+
+function startOfflineAgents(azf, server_ip, oses) {
+    let agentsExpected;
+    return list_nodes(server_ip)
+        .then(res => {
+            agentsExpected = res.length + oses.length;
+            return P.each(oses, agent => start_agent(azf, agent));
+        })
+        .then(() => waitForAgentsAmount(server_ip, agentsExpected))
+        .then(() => list_nodes(server_ip))
+        .then(res => {
+            let onlineAgentsOn = res.length;
+            if (onlineAgentsOn === agentsExpected) {
+                console.log('Number of online agents is ', onlineAgentsOn, ' - as should');
+            } else {
+                console.error('After switching on agents number online is ' + onlineAgentsOn + ' instead ', agentsExpected);
+            }
+        });
+}
+
+function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, exclude_drives = [], oses) {
+    let createdAgents = getRandomOsesFromList(amount, oses);
+    return createAgents(azf, server_ip, storage, resource_vnet, exclude_drives, createdAgents)
+        .then(() => list_nodes(server_ip)
+            .then(res => {
+                let node_number_after_create = res.length;
+                console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
+                console.warn(`Node names are ${res.map(node => node.name)}`);
+                return createdAgents;
+            }));
+}
+
 exports.list_nodes = list_nodes;
 exports.getTestNodes = getTestNodes;
 exports.getAgentConf = getAgentConf;
@@ -270,5 +364,6 @@ exports.stop_agent = stop_agent;
 exports.start_agent = start_agent;
 exports.createAgents = createAgents;
 exports.isIncluded = isIncluded;
-
-
+exports.createRandomAgents = createRandomAgents;
+exports.stopRandomAgents = stopRandomAgents;
+exports.startOfflineAgents = startOfflineAgents;

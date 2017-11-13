@@ -13,7 +13,7 @@ export default {
         ],
         properties: {
             name: {
-                type: 'string',
+                type: 'string'
             },
             mode: {
                 type: 'string',
@@ -58,24 +58,38 @@ export default {
             },
             placement: {
                 type: 'object',
-                required: ['tierName', 'policyType', 'resources'],
+                required: [
+                    'tierName',
+                    'policyType',
+                    'resources'
+                ],
                 properties: {
                     tierName: {
                         type: 'string'
                     },
                     policyType: {
                         type: 'string',
-                        enum: ['SPREAD', 'MIRROR']
+                        enum: [
+                            'SPREAD',
+                            'MIRROR'
+                        ]
                     },
                     resources: {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['type', 'name', 'usage'],
+                            required: [
+                                'type',
+                                'name',
+                                'usage'
+                            ],
                             properties: {
                                 type: {
                                     type: 'string',
-                                    enum: ['HOSTS', 'CLOUD']
+                                    enum: [
+                                        'HOSTS',
+                                        'CLOUD'
+                                    ]
                                 },
                                 name: {
                                     type: 'string'
@@ -86,11 +100,16 @@ export default {
                             }
                         }
                     }
-                },
+                }
             },
             io: {
                 type: 'object',
-                required: [ 'readCount', 'writeCount', 'lastRead', 'lastWrite' ],
+                required: [
+                    'readCount',
+                    'writeCount',
+                    'lastRead',
+                    'lastWrite'
+                ],
                 properties: {
                     readCount: {
                         type: 'integer'
@@ -108,11 +127,17 @@ export default {
             },
             spillover: {
                 type: 'object',
-                required: ['type', 'name', 'usage'],
+                required: [
+                    'type',
+                    'name',
+                    'usage'
+                ],
                 properties: {
                     type: {
                         type: 'string',
-                        enum: ['INTERNAL']
+                        enum: [
+                            'INTERNAL'
+                        ]
                     },
                     name: {
                         type: 'string'
@@ -124,30 +149,47 @@ export default {
             },
             quota: {
                 type: 'object',
-                required: ['size', 'unit'],
+                required: [
+                    'size',
+                    'unit'
+                ],
                 properties: {
                     size: {
                         type: 'integer'
                     },
                     unit: {
                         type: 'string',
-                        enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
-                    },
+                        enum: [
+                            'GIGABYTE',
+                            'TERABYTE',
+                            'PETABYTE'
+                        ]
+                    }
                 }
             },
             cloudSync: {
                 type: 'object',
-                required: ['state'],
+                required: [
+                    'state'
+                ],
                 properties: {
                     state: {
                         type: 'string',
-                        enum: ['PENDING', 'SYNCING', 'UNABLE', 'SYNCED']
+                        enum: [
+                            'PENDING',
+                            'SYNCING',
+                            'UNABLE',
+                            'SYNCED'
+                        ]
                     }
                 }
             },
             undeletable: {
                 type: 'string',
-                enum: ['LAST_BUCKET', 'NOT_EMPTY'],
+                enum: [
+                    'LAST_BUCKET',
+                    'NOT_EMPTY'
+                ]
             },
             writable: {
                 type: 'boolean'

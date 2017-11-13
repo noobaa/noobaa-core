@@ -17,7 +17,7 @@ export default {
                 ],
                 properties: {
                     id: {
-                        type: 'string',
+                        type: 'string'
                     },
                     name: {
                         type: 'string'

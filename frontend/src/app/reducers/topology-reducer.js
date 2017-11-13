@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { keyByProperty, flatMap, pick, } from 'utils/core-utils';
+import { keyByProperty, flatMap, pick } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { mapApiStorage } from 'utils/state-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
@@ -75,7 +75,7 @@ function _mapServer(masterSecret, server) {
                 list: server.dns_servers,
                 status: dnsCheck
             },
-            searchDomains: server.search_domains,
+            searchDomains: server.search_domains
         },
         proxy: proxyCheck && {
             status: proxyCheck.status

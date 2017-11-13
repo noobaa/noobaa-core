@@ -5,7 +5,7 @@ import { flatMap } from 'utils/core-utils';
 import {
     FETCH_HOST_OBJECTS,
     COMPLETE_FETCH_HOST_OBJECTS,
-    FAIL_FETCH_HOST_OBJECTS,
+    FAIL_FETCH_HOST_OBJECTS
  } from 'action-types';
 
 // ------------------------------

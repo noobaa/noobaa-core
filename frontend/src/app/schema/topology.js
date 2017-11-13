@@ -27,7 +27,11 @@ const server = {
         },
         mode: {
             type: 'string',
-            enum: ['CONNECTED', 'DISCONNECTED', 'IN_PROGRESS']
+            enum: [
+                'CONNECTED',
+                'DISCONNECTED',
+                'IN_PROGRESS'
+            ]
         },
         version: {
             type: 'string'
@@ -59,7 +63,7 @@ const server = {
                 },
                 used: {
                     type: 'number'
-                },
+                }
             }
         },
         cpus: {
@@ -70,7 +74,7 @@ const server = {
             ],
             properties: {
                 count: {
-                    type: 'integer',
+                    type: 'integer'
                 },
                 usage: {
                     type: 'number'
@@ -211,11 +215,11 @@ export default {
                 },
                 cpus: {
                     type: 'integer'
-                },
+                }
             }
         },
         supportHighAvailability: {
-            type: 'boolean',
+            type: 'boolean'
         },
         isHighlyAvailable: {
             type: 'boolean'

@@ -100,7 +100,7 @@ function onChangeLocation(modals, { payload: location }) {
             options: {
                 size: 'xsmall',
                 severity: 'success',
-                title: 'Upgrade was successful',
+                title: 'Upgrade was successful'
             }
         });
     } else if (welcome) {

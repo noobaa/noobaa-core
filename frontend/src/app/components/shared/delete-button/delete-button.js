@@ -12,7 +12,7 @@ class DeleteButtonViewModel {
         onDelete,
         subject,
         tooltip,
-        disabled = false,
+        disabled = false
     }) {
         this.id = id;
         this.onDelete = isFunction(onDelete) ? onDelete : noop;

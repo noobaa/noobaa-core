@@ -8,18 +8,27 @@ export default {
             type: 'array',
             items: {
                 type: 'object',
-                required : ['name'],
+                required : [
+                    'name'
+                ],
                 properties: {
                     name: {
-                        type: 'string',
+                        type: 'string'
                     },
                     usedBy: {
                         type: 'object',
-                        required :['kind', 'name'],
+                        required :[
+                            'kind',
+                            'name'
+                        ],
                         properties: {
                             kind: {
                                 type: 'string',
-                                enum: ['CLOUD_SYNC', 'CLOUD_RESOURCE', 'NAMESPACE_RESOURCE'],
+                                enum: [
+                                    'CLOUD_SYNC',
+                                    'CLOUD_RESOURCE',
+                                    'NAMESPACE_RESOURCE'
+                                ]
                             },
                             name: {
                                 type: 'string'

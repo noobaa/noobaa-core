@@ -47,7 +47,7 @@ const spilloverColumns = deepFreeze([
         type: 'icon'
     },
     {
-        name: 'resourceName',
+        name: 'resourceName'
     },
     {
         name: 'bucketUsage',

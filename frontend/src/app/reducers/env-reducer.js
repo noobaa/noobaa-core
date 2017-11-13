@@ -3,7 +3,7 @@ import {
     TOGGLE_PREVIEW_CONTENT,
     SETUP_ENV,
     DISSMISS_BROWSER_STICKY,
-    COMPLETE_FETCH_SYSTEM_INFO,
+    COMPLETE_FETCH_SYSTEM_INFO
 } from 'action-types';
 
 // ------------------------------

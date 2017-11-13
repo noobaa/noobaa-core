@@ -17,7 +17,7 @@ const formName = 'editBucketQuota';
 const unitOptions = deepFreeze([
     {
         label: 'GB',
-        value: 'GIGABYTE',
+        value: 'GIGABYTE'
     },
     {
         label: 'TB',

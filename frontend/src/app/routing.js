@@ -27,7 +27,7 @@ function registerRouteHandler(page, route, extra = noop) {
                 pathname: ctx.pathname,
                 route: route !== '*' ? route : undefined,
                 params: decodedParams,
-                query,
+                query
             }));
 
             // Do extra work if authorized

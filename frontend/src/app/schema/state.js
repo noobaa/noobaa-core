@@ -35,5 +35,5 @@ export default {
         system: {
             $ref: '#/def/system'
         }
-    },
+    }
 };

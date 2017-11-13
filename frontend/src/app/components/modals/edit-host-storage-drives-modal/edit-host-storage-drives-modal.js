@@ -22,8 +22,8 @@ const columns = deepFreeze([
     {
         name: 'capacity',
         label: 'used capacity',
-        type: 'capacity',
-    },
+        type: 'capacity'
+    }
 ]);
 
 const disabledModes = deepFreeze([
@@ -82,7 +82,7 @@ class EditHostStorageDrivesModalViewModel extends Observer {
                         storage.nodes,
                         'name',
                         node => !disabledModes.includes(node.mode)
-                    ),
+                    )
                 },
                 onValidate: this.onValidate.bind(this),
                 onSubmit: this.onSubmit.bind(this)

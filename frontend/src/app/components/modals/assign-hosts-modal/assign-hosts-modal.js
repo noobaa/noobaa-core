@@ -22,7 +22,7 @@ const columns = deepFreeze([
     {
         name: 'state',
         type: 'icon',
-        sortable: 'mode',
+        sortable: 'mode'
     },
     {
         name: 'displayName',

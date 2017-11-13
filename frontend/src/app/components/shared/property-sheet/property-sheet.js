@@ -12,14 +12,14 @@ function _mapProperty(prop, templates) {
         disabled = false,
         multiline = false,
         allowCopy = false,
-        template: templateName,
+        template: templateName
     } = ko.deepUnwrap(prop);
 
     const labelText = `${label}:`;
     const template = templates[templateName] || value || '';
     const css = {
         'push-next': allowCopy,
-        disabled: disabled,
+        disabled: disabled
     };
 
     return { labelText, value, css, visible, disabled,

@@ -135,7 +135,7 @@ const trustToIcon = deepFreeze({
     false: {
         name: 'problem',
         css: 'error',
-        tooltip: 'Untrusted',
+        tooltip: 'Untrusted'
     }
 });
 
@@ -229,7 +229,7 @@ const modeToAccessibilityIcon = deepFreeze({
         name: 'healthy',
         css: 'success',
         tooltip: 'Readable & Writable'
-    },
+    }
 });
 
 const stateToModes = deepFreeze({

@@ -53,11 +53,11 @@ export default class ConnectionRowViewModel {
         this.usageColumns = [
             {
                 name: 'externalEntity',
-                label: ko.observable(),
+                label: ko.observable()
             },
             {
                 name: 'usageType',
-                label: 'usage',
+                label: 'usage'
             },
             {
                 name: 'entity',

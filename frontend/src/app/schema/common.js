@@ -7,10 +7,10 @@ export const size = {
             type: 'object',
             properties: {
                 n: {
-                    type: 'integer',
+                    type: 'integer'
                 },
                 peta: {
-                    type: 'integer',
+                    type: 'integer'
                 }
             }
         }
@@ -49,5 +49,10 @@ export const storage = {
 
 export const serviceCheckResult = {
     type: 'string',
-    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+    enum: [
+        'UNKNOWN',
+        'FAULTY',
+        'UNREACHABLE',
+        'OPERATIONAL'
+    ]
 };

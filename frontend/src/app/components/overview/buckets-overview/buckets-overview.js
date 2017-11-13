@@ -50,19 +50,19 @@ const chartDatasets = deepFreeze([
         key: 'hosts',
         label: 'Used on nodes',
         labelPadding: 10,
-        color: style['color8'],
+        color: style['color8']
     },
     {
         key: 'cloud',
         label: 'Used on cloud',
         labelPadding: 10,
-        color: style['color6'],
+        color: style['color6']
     },
     {
         key: 'internal',
         label: 'Used on internal',
         labelPadding: 10,
-        color: style['color16'],
+        color: style['color16']
     }
 ]);
 
@@ -230,8 +230,7 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
             data: filteredSamples
                 .map(sample => ({
                     x: sample.timestamp,
-                    y: toBytes(sample[key]),
-                    // radius: 10
+                    y: toBytes(sample[key])
                 }))
         })
     );

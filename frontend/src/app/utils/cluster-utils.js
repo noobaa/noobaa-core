@@ -214,5 +214,3 @@ export function getClusterStateIcon(topology, systemVersion) {
 
     return clsuterModeToIcon[mode];
 }
-
-

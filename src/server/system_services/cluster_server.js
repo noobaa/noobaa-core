@@ -38,6 +38,16 @@ const { RpcError, RPC_BUFFERS } = require('../../rpc');
 let upgrade_in_process = false;
 let add_member_in_process = false;
 
+const VERIFY_RESPONSE = [
+    'OKAY',
+    'SECRET_MISMATCH',
+    'VERSION_MISMATCH',
+    'ALREADY_A_MEMBER',
+    'HAS_OBJECTS',
+    'UNREACHABLE',
+    'ADDING_SELF',
+    'NO_NTP_SET'
+];
 
 function _init() {
     return P.resolve(MongoCtrl.init());
@@ -125,6 +135,7 @@ function pre_add_member_to_cluster(req) {
             timeout: 60000 //60s
         }))
         .then(response => {
+            if (response.result !== 'OKAY') throw new Error(`Verify join conditions check returned ${response.result}`);
             dbg.log0('validating succeeded, got this caller_address', response.caller_address);
             my_address = response.caller_address || os_utils.get_local_ipv4_ips()[0];
             if (!is_clusterized && response && response.caller_address) {
@@ -278,6 +289,11 @@ function verify_join_conditions(req) {
                 throw new Error('No connection on request for verify_join_conditions');
             }
             return _verify_join_preconditons(req)
+                .catch(err => {
+                    dbg.error('verify_join_conditions: HAD ERROR', err, err.message);
+                    if (_.includes(VERIFY_RESPONSE, err.message)) return err.message;
+                    throw err;
+                })
                 .then(result => ({
                     result,
                     caller_address,
@@ -364,7 +380,12 @@ function join_to_cluster(req) {
         'existing topology is:', cutil.pretty_topology(cutil.get_topology()));
 
     return P.resolve()
-        .then(() => _verify_join_preconditons(req))
+        .then(() => _verify_join_preconditons(req)
+            .catch(err => {
+                dbg.error('join_to_cluster: HAD ERROR', err);
+                return err.message;
+            })
+        )
         .then(verify_res => {
             if (verify_res !== 'OKAY') {
                 throw new Error('Verify join preconditions failed with result', verify_res);
@@ -1484,7 +1505,7 @@ function _verify_join_preconditons(req) {
                 })
                 .catch(err => {
                     dbg.warn('failed _verify_join_preconditons on', err.message);
-                    return err.message;
+                    throw err;
                 });
         });
 }

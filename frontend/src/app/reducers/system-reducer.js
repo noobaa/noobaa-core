@@ -11,7 +11,7 @@ const initialState = undefined;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onCompleteFetchSystemInfo(_ , { payload }) {
+function onCompleteFetchSystemInfo(_, { payload }) {
     return {
         version: payload.version
     };

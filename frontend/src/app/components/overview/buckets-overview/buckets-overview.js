@@ -116,7 +116,6 @@ function _getChartOptions(selectedDatasets, samples, durationSettings, start, en
     const useFixedMax = samples.every(sample => datasetKeys.every(key => sample[key] === 0));
 
     return {
-        // animation: false
         responsive: true,
         padding: 0,
         maintainAspectRatio: false,

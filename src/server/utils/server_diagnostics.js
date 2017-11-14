@@ -139,6 +139,12 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('finished get_system_collections_dump successfully'))
                 .catch(err => diag_log('get_system_collections_dump failed with error: ' + err)),
 
+                () => promise_utils.exec('rndc dumpdb -cache')
+                .then(() => promise_utils.exec(`cp -fp /var/named/data/* ${TMP_WORK_DIR}`))
+                .then(() => promise_utils.exec(`cp -fp /etc/noobaa_configured_dns.conf ${TMP_WORK_DIR}`))
+                .then(() => promise_utils.exec(`cp -fp /etc/named.conf ${TMP_WORK_DIR}`))
+                .catch(err => diag_log('getting named (dns cache) diagnostics failed with error: ' + err)),
+
             ];
 
 

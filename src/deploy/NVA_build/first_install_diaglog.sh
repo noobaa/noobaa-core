@@ -8,20 +8,16 @@ NOOBAANET="/etc/noobaa_network"
 
 function prepare_ifcfg() {
   local interface=${1}
-  local curmac=$(ifconfig -a | grep ${interface} | awk '{print $5}')
+  local curmac=$(cat /sys/class/net/${interface}/address)
   local uuid=$(uuidgen)
-  if [ -f "/etc/sysconfig/network-scripts/ifcfg-${interface}" ]; then
-    sudo sed -i 's:.*IPADDR=.*::' /etc/sysconfig/network-scripts/ifcfg-${interface}
-    sudo sed -i 's:.*NETMASK=.*::' /etc/sysconfig/network-scripts/ifcfg-${interface}
-    sudo sed -i 's:.*GATEWAY=.*::' /etc/sysconfig/network-scripts/ifcfg-${interface}
-    sudo sed -i 's:.*BOOTPROTO=.*::' /etc/sysconfig/network-scripts/ifcfg-${interface}
-  else
-    sudo bash -c "echo 'DEVICE=${interface}'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
-    sudo bash -c "echo 'HWADDR=${curmac}'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
-    sudo bash -c "echo 'TYPE=Ethernet'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
-    sudo bash -c "echo 'UUID=${uuid}'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
-    sudo bash -c "echo 'ONBOOT=yes'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
-  fi
+  # reset ifcfg file to an initial state
+  sudo bash -c "echo 'DEVICE=${interface}'> /etc/sysconfig/network-scripts/ifcfg-${interface}"
+  sudo bash -c "echo 'HWADDR=${curmac}'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
+  sudo bash -c "echo 'TYPE=Ethernet'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
+  sudo bash -c "echo 'UUID=${uuid}'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
+  sudo bash -c "echo 'ONBOOT=yes'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
+  sudo bash -c "echo 'DNS1=127.0.0.1'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
+  sudo bash -c "echo 'DOMAIN=\"\"'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
   sudo ifconfig ${interface} up
 }
 
@@ -77,6 +73,7 @@ function configure_interface_ip() {
       sudo bash -c "echo 'IPADDR=${ip}'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
       sudo bash -c "echo 'NETMASK=${mask}'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
       sudo bash -c "echo 'GATEWAY=${gw}'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
+      sudo bash -c "echo 'BOOTPROTO=none' >> /etc/sysconfig/network-scripts/ifcfg-${interface}"
 
     elif [ "${dynamic}" -eq "2" ]; then #Dynamic IP
       prepare_ifcfg $interface
@@ -137,9 +134,10 @@ function configure_ips_dialog {
 }
 
 function configure_dns_dialog {
-    local cur_dns1=$(grep "prepend.*#NooBaa Configured DNS Servers" /etc/dhclient.conf | sed 's:prepend domain-name-servers \(.*\) ; #.*:\1:' | awk -F',' '{print $1}')
-    local cur_dns2=$(grep "prepend.*#NooBaa Configured DNS Servers" /etc/dhclient.conf | sed 's:prepend domain-name-servers \(.*\) ; #.*:\1:' | awk -F',' '{print $2}')
-    dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 80 4 "Primary DNS:" 1 1 "${cur_dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${cur_dns2}" 2 25 25 30 2> answer_dns
+    local cur_dns=($(grep forwarders /etc/noobaa_configured_dns.conf | awk -F "{" '{print $2}' | awk -F "}" '{print $1}' | awk -F ";" '{print $1" " $2}'))
+    local cur_dns0=${cur_dns[0]}
+    local cur_dns1=${cur_dns[1]}
+    dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 80 4 "Primary DNS:" 1 1 "${cur_dns0}" 1 25 25 30 "Secondary DNS:" 2 1 "${cur_dns1}" 2 25 25 30 2> answer_dns
 
     if test $? -eq 1 ; then #cancel pressed
       return
@@ -155,18 +153,15 @@ function configure_dns_dialog {
     done
 
     # sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
-    sudo bash -c "rm -rf /etc/resolv.conf"
-    sudo bash -c "echo 'DNS1=${dns1}' > /etc/sysconfig/network"
     if [ "${dns2}" != "" ]; then
-      sudo sed -i "s/.*NooBaa Configured DNS Servers/prepend domain-name-servers ${dns1},${dns2} ; #NooBaa Configured DNS Servers/" /etc/dhclient.conf
-      sudo bash -c "echo 'DNS2=${dns2}' >> /etc/sysconfig/network"
+      sudo bash -c "echo \"forwarders { ${dns1}; ${dns2}; };\" > /etc/noobaa_configured_dns.conf"
     else
-      sudo sed -i "s/.*NooBaa Configured DNS Servers/prepend domain-name-servers ${dns1} ; #NooBaa Configured DNS Servers/" /etc/dhclient.conf
+      sudo bash -c "echo \"forwarders { ${dns1}; };\" > /etc/noobaa_configured_dns.conf"
     fi
+    sudo bash -c "echo \"forward only;\" >> /etc/noobaa_configured_dns.conf"
     sudo dmesg -n 1 # need to restart network to update /etc/resolv.conf - supressing too much logs
-    sudo service network restart &> /dev/null
+    sudo systemctl restart named &> /dev/null
     sudo dmesg -n 3
-    sudo supervisorctl restart all > /dev/null 2>&1
 }
 
 function configure_hostname_dialog {

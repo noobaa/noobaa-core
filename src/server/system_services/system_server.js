@@ -258,7 +258,7 @@ function create_system(req) {
             cluster_server.new_cluster_info({ address: "127.0.0.1" }),
             os_utils.get_ntp(),
             os_utils.get_time_config(),
-            os_utils.get_dns_servers()
+            os_utils.get_dns_and_search_domains()
         ))
         .spread((cluster_info, ntp_server, time_config, dns_config) => {
             if (cluster_info) {

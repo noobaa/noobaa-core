@@ -51,7 +51,7 @@ function _ping_ip(session, ip) {
 
 function dns_resolve(target, options) {
     const modified_target = url.parse(target).hostname || target;
-    return os_utils.get_dns_servers()
+    return os_utils.get_dns_and_search_domains()
         .then(dns_config => {
             if (dns_config.search_domains.length) {
                 let resolved_successfully = false;

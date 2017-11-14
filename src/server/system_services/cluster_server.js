@@ -856,10 +856,7 @@ function update_dns_servers(req) {
 
 
 function apply_updated_dns_servers(req) {
-    return P.fcall(function() {
-            return os_utils.set_dns_server(req.rpc_params.dns_servers, req.rpc_params.search_domains);
-        })
-        .then(() => os_utils.restart_services())
+    return os_utils.set_dns_and_search_domains(req.rpc_params.dns_servers, req.rpc_params.search_domains)
         .return();
 }
 
@@ -1670,7 +1667,7 @@ function _add_new_server_to_replica_set(params) {
         .then(() => P.join(
             os_utils.get_ntp(),
             os_utils.get_time_config(),
-            os_utils.get_dns_servers(),
+            os_utils.get_dns_and_search_domains(),
             (ntp_server, time_config, dns_config) => {
                 // insert an entry for this server in clusters collection.
                 new_topology._id = system_store.generate_id();
@@ -1779,7 +1776,7 @@ function _attach_server_configuration(cluster_server) {
         return cluster_server;
     }
     return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
-            os_utils.get_time_config(), os_utils.get_dns_servers())
+            os_utils.get_time_config(), os_utils.get_dns_and_search_domains())
         .spread(function(ntp_line, time_config, dns_config) {
             cluster_server.ntp = {
                 timezone: time_config.timezone

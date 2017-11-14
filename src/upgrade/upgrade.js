@@ -168,6 +168,7 @@ function packages_upgrade() {
                 'iperf3',
                 'python-setuptools',
                 'bind-utils',
+                'bind',
                 'screen',
                 'strace',
                 'vim'

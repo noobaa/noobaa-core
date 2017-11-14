@@ -1,6 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<form class="column greedy" ko.if="isFormInitialized" ko.submit="form.submit">
+<!-- ko if: areFormsReady -->
+<form class="column greedy" ko.submit="submitForms">
     <editor params="label: 'Connection Name'">
         <input type="text"
             placeholder="Enter name"
@@ -14,57 +15,21 @@
     <editor params="label: 'Service'">
         <dropdown params="
             options: serviceOptions,
-             selected: form.service
+            selected: form.service,
+            disabled: form.isValidating
         "></dropdown>
     </editor>
 
-    <editor params="label: 'Endpoint'">
-        <div class="row">
-            <input type="text"
-                class="push-next-half"
-                placeholder="Enter endpoint"
-                ko.value="form.endpoint"
-                ko.validationCss="form.endpoint"
-            />
-            <validation-indicator params="field: form.endpoint"></validation-indicator>
-        </div>
-        <validation-message params="field: form.endpoint"></validation-message>
-    </editor>
-
-    <editor params="label: identityLabel">
-        <div class="row">
-            <input type="text"
-                class="push-next-half"
-                ko.value="form.identity"
-                ko.attr.placeholder="identityPlaceholder"
-                ko.validationCss="form.identity"
-            />
-            <validation-indicator params="field: form.identity"></validation-indicator>
-        </div>
-
-        <validation-message params="field: form.identity"></validation-message>
-    </editor>
-
-    <editor params="label: secretLabel">
-        <div class="row">
-            <input type="password"
-                class="push-next-half"
-                autocomplete="off"
-                ko.value="form.secret"
-                ko.attr.placeholder="secretPlaceholder"
-                ko.validationCss="form.secret"
-            />
-            <validation-indicator params="field: form.secret"></validation-indicator>
-        </div>
-        <validation-message params="field: form.secret"></validation-message>
-    </editor>
+    <!-- ko with: subTemplate -->
+    <!-- ko template: $data --><!-- /ko -->
+    <!-- /ko -->
 
     <div class="row greedy content-middle push-prev">
         <div class="greedy">
-            <p class="row content-middle error" ko.visible="form.errors().global">
+            <p class="row content-middle error" ko.visible="showGlobalError">
                 Somthing went wrong
                 <svg-icon class="icon-small push-prev-half"
-                    ko.tooltip="form.errors().global"
+                    ko.tooltip="{ text: globalError, breakWords: true }",
                     params="name: 'notif-info'"
                 ></svg-icon>
             </p>
@@ -72,8 +37,9 @@
         <button type="button" class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!areFormsValid()">
             Save
         </button>
     </div>
 </form>
+<!-- /ko -->

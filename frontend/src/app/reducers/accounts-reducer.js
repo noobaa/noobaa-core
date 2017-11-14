@@ -61,18 +61,23 @@ function onCompleteFetchSystemInfo(_, { payload }) {
 // Local util functions
 // ------------------------------
 function _mapExternalConnections(externalConnections) {
-    return externalConnections
-        .connections.map(conn => ({
+    return externalConnections.connections.map(conn => {
+        const endpoint = conn.cp_code ?
+            `${conn.endpoint} at ${conn.cp_code}` :
+            conn.endpoint;
+
+        return {
             name: conn.name,
             service: conn.endpoint_type,
-            endpoint: conn.endpoint,
+            endpoint: endpoint,
             identity: conn.identity,
             usage: conn.usage.map(record => ({
                 entity: record.entity,
                 externalEntity: record.external_entity,
                 usageType: record.usage_type
             }))
-        }));
+        };
+    });
 }
 
 // ------------------------------

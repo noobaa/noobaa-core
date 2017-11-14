@@ -26,6 +26,7 @@ export const TOUCH_FORM = 'TOUCH_FORM';
 export const SET_FORM_VALIDITY = 'SET_FORM_VALIDITY';
 export const LOCK_FORM = 'LOCK_FORM';
 export const UNLOCK_FORM = 'UNLOCK_FORM';
+export const SUBMIT_FORM = 'SUBMIT_FORM';
 export const DROP_FROM = 'DROP_FROM';
 
 // Modals related actions.

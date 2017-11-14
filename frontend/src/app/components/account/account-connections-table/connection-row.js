@@ -10,55 +10,75 @@ const columns = deepFreeze([
     {
         name: 'externalEntity',
         label: 'Azure Containers Under Connection',
-        remark: 'AZURE'
+        visibleFor: 'AZURE'
 
     },
     {
         name: 'externalEntity',
         label: 'AWS S3 Buckets Under Connection',
-        remark: 'AWS'
+        visibleFor: 'AWS'
     },
     {
         name: 'externalEntity',
         label: 'S3 Buckets Under Connection',
-        remark: 'S3_COMPATIBLE'
+        visibleFor: 'S3_COMPATIBLE'
     },
     {
-        name: 'usageType',
+        name: 'externalEntity',
+        label: 'NetStorage Folders Under Connection',
+        visibleFor: 'NET_STORAGE'
+    },
+    {
+        name: 'usage',
         label: 'usage'
     },
     {
         name: 'noobaaBuckets',
-        label: 'NooBaa Bucket',
-        type: 'noobaaBuckets'
+        label: 'NooBaa Buckets',
+        type: 'newLink'
     }
 ]);
 
-const resourceToBuckets = deepFreeze({
-    CLOUD_SYNC: (resource) => resource,
-    CLOUD_RESOURCE: (resource, buckets) =>
-        _filterBucketsList(resource, buckets, _filterBucketsUsedByCloudResource),
-    NAMESPACE_RESOURCE: (resource, buckets) =>
-        _filterBucketsList(resource, buckets, _getBucketsUsedByGatewayResource)
-});
-
-function _filterBucketsUsedByCloudResource(cloudResource, bucket) {
-    return bucket.placement.resources
-        .some(resource => resource.type === 'CLOUD' && resource.name === cloudResource);
+export function _isBucketUsingResource(bucket, resource) {
+    return bucket.placement.resources.some(another => {
+        return another.name === resource;
+    });
 }
 
-function _getBucketsUsedByGatewayResource(gatewayResource, bucket) {
-    const usedForWriting = bucket.placement.readFrom === gatewayResource;
-    const usedForReading = bucket.placement.readFrom
-        .some(entity => entity === gatewayResource);
-
-    return usedForReading || usedForWriting;
+export function _isGatewayBucketUsingResource(bucket, resource) {
+    const { writeTo, readFrom } = bucket.placement;
+    return (writeTo === resource) || readFrom.includes(resource);
 }
 
-function _filterBucketsList(resource, buckets, filterFunc) {
-    return buckets
-        .filter(bucket => filterFunc(resource, bucket))
-        .map(bucket => bucket.name);
+function _getBucketsRelatedToUsage(usage, buckets, gatewayBuckets) {
+    const { usageType, entity } = usage;
+    switch (usageType) {
+        case 'CLOUD_SYNC': {
+            return [entity];
+        }
+
+        case 'CLOUD_RESOURCE': {
+            return buckets
+                .filter(bucket => _isBucketUsingResource(bucket, entity))
+                .map(bucket => bucket.name);
+        }
+
+        case 'NAMESPACE_RESOURCE': {
+            return gatewayBuckets
+                .filter(bucket => _isGatewayBucketUsingResource(bucket, entity))
+                .map(bucket => bucket.name);
+        }
+    }
+}
+
+function _getEndpointTooltip(service, endpoint) {
+    if (service === 'NET_STORAGE') {
+        const [ hostname, cpCode ] = endpoint.split(' at ');
+        return `Connection hostname:<br>${hostname}<br><br>CP Code:<br>${cpCode}`;
+
+    } else {
+        return endpoint;
+    }
 }
 
 export default class ConnectionRowViewModel {
@@ -94,6 +114,10 @@ export default class ConnectionRowViewModel {
             name: icon,
             tooltip: displayName
         };
+        const endpointInfo = {
+            text: endpoint,
+            tooltip: _getEndpointTooltip(service, endpoint)
+        };
         const externalTargetsInfo = {
             text: stringifyAmount(subject, usage.length, 'No'),
             tooltip: hasExternalConnections ? {
@@ -105,13 +129,10 @@ export default class ConnectionRowViewModel {
             'Cannot delete currently used connection' :
             'Delete Connection';
 
-        const connectionUsage = usage.map(item => ({
-            ...item,
-            buckets: resourceToBuckets[item.usageType](
-                item.entity,
-                item.usageType === 'CLOUD_RESOURCE'? bucketsList : gatewayBucketsList
-            )
-        }));
+        const connectionUsage = usage.map(item => {
+            const buckets = _getBucketsRelatedToUsage(item, bucketsList, gatewayBucketsList);
+            return { ...item, buckets };
+        });
 
         const rows = connectionUsage.map((item, i) => {
             const row = this.rows.get(i) || new UsageRowViewModel();
@@ -119,13 +140,13 @@ export default class ConnectionRowViewModel {
             return row;
         });
         const usageColumns = columns
-            .filter(col => !col.marker || col.marker === service);
+            .filter(col => !col.visibleFor || col.visibleFor === service);
 
         this.usageColumns(usageColumns);
         this.rows(rows);
         this.name(name);
         this.service(serviceInfo);
-        this.endpoint(endpoint);
+        this.endpoint(endpointInfo);
         this.identity(identity);
         this.externalTargets(externalTargetsInfo);
         this.deleteButton.id(name);

@@ -117,7 +117,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
                     _connection(value);
                 } else {
                     _connection(_connection() || null);
-                    action$.onNext(openAddCloudConnectionModal());
+                    action$.onNext(openAddCloudConnectionModal(allowedServices));
                 }
             }
         })
@@ -154,7 +154,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
         );
 
         this.targetBucketsOptions.subscribe(
-            options => this.fetchingTargetBucketsOptions(!options.length)
+            options => this.fetchingTargetBucketsOptions(!options || !options.length)
         );
 
         this.targetBucket = ko.observable()

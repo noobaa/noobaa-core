@@ -4,26 +4,25 @@ const serviceToMeta = deepFreeze({
     AWS: {
         displayName: 'AWS S3 service',
         subject: 'Bucket',
-        icon: 'aws-s3-resource-dark',
-        selectedIcon: 'aws-s3-resource-colored'
+        icon: 'aws-s3-dark',
+        selectedIcon: 'aws-s3-colored'
     },
     AZURE: {
         displayName: 'Azure Blob Service',
         subject: 'Container',
-        icon: 'azure-resource-dark',
-        selectedIcon: 'azure-resource-colored'
+        icon: 'azure-dark',
+        selectedIcon: 'azure-colored'
     },
     S3_COMPATIBLE: {
         displayName: 'S3 Compatible service',
         subject: 'Bucket',
-        icon: 'cloud-resource-dark',
-        selectedIcon: 'cloud-resource-colored'
+        icon: 'cloud-dark',
+        selectedIcon: 'cloud-colored'
     },
     NET_STORAGE: {
-        displayName: 'Net Storage service',
+        displayName: 'NetStorage service',
         subject: 'Bucket',
-        icon: 'cloud-resource-dark',
-        selectedIcon: 'cloud-resource-colored'
+        icon: 'net-storage'
     }
 });
 

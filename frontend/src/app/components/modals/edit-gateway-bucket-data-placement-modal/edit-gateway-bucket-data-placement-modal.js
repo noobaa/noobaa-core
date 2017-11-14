@@ -7,6 +7,7 @@ import ResourceRowViewModel from './resource-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getFieldValue } from 'utils/form-utils';
 import { state$, action$ } from 'state';
 import { closeModal, updateGatewayBucketPlacement } from 'action-creators';
 
@@ -66,7 +67,7 @@ class EditGatewayBucketDataPlacementModalViewModel extends Observer {
         if (!bucket || !resources) return;
 
         const { readFrom, writeTo } = bucket.placement;
-        const readPolicy = form ? form.fields.readPolicy.value : readFrom;
+        const readPolicy = form ? getFieldValue(form, 'readPolicy') : readFrom;
         const resourceList = Object.values(resources);
         const readPolicyRows = resourceList
             .map((resource, i) => {

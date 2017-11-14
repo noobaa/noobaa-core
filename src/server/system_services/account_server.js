@@ -632,7 +632,7 @@ function add_external_connection(req) {
 
 function check_external_connection(req) {
     const { endpoint_type } = req.rpc_params;
-    const params = _.pick(req.rpc_params, 'endpoint', 'identity', 'secret');
+    const params = req.rpc_params;
     const system = req.system;
     const proxy = system.phone_home_proxy_address;
     params.proxy = proxy;
@@ -799,7 +799,7 @@ function check_net_storage_connection(params) {
                 return {
                     status,
                     error: {
-                        code: err.code,
+                        code: err.code || '',
                         message: err.message
                     }
                 };
@@ -1039,6 +1039,7 @@ function _list_connection_usage(account, credentials) {
     let cloud_sync_usage = _.map(
         _.filter(system_store.data.buckets, bucket => (
             bucket.cloud_sync &&
+            bucket.cloud_sync.endpoint_type === credentials.endpoint_type &&
             bucket.cloud_sync.endpoint === credentials.endpoint &&
             bucket.cloud_sync.access_keys.account_id._id === account._id &&
             bucket.cloud_sync.access_keys.access_key === credentials.access_key
@@ -1051,6 +1052,7 @@ function _list_connection_usage(account, credentials) {
         _.filter(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
             !pool.cloud_pool_info.pending_delete &&
+            pool.cloud_pool_info.endpoint_type === credentials.endpoint_type &&
             pool.cloud_pool_info.endpoint === credentials.endpoint &&
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
             pool.cloud_pool_info.access_keys.access_key === credentials.access_key
@@ -1061,6 +1063,7 @@ function _list_connection_usage(account, credentials) {
         })) || [];
     let namespace_resource_usage = _.map(
         _.filter(system_store.data.namespace_resources, ns => (
+            ns.connection.endpoint_type === credentials.endpoint_type &&
             ns.connection.endpoint === credentials.endpoint &&
             ns.account._id === account._id &&
             ns.connection.access_key === credentials.access_key

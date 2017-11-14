@@ -147,10 +147,10 @@ export function failChangeAccountPassword(accountName, error) {
     };
 }
 
-export function addExternalConnection(name, service, endpoint, identity, secret) {
+export function addExternalConnection(name, service, params) {
     return {
         type: ADD_EXTERNAL_CONNECTION,
-        payload: { name, service, endpoint, identity, secret }
+        payload: { name, service, params }
     };
 }
 

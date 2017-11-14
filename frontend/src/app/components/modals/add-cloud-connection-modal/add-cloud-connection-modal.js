@@ -4,27 +4,34 @@ import template from './add-cloud-connection-modal.html';
 import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
+import { isDefined, mapValues, filterValues } from 'utils/core-utils';
+import { getFormValues, getFieldValue, isFormValid, getFieldError } from 'utils/form-utils';
 import { addExternalConnection } from 'action-creators';
 import services from './services';
 import { state$, action$ } from 'state';
-import { isURI } from 'validations';
-import api from 'services/api';
 
 const formName = 'addCloudConnection';
 const nameRegExp = /^Connection (\d+)$/;
 const defaultService = 'AWS';
-const allServices = Object.keys(services);
+const formTemplates = mapValues(services, spec => spec.template);
 
-function _mapServiceOption(service) {
-    const { option, defaultEndpoint = 'No default endpoint' } = services[service];
-    return {
-        ...option,
-        value: service,
-        remark: defaultEndpoint
-    };
+function _getAllowedServices(allowedServices) {
+    if (!allowedServices) return services;
+    return filterValues(
+        services,
+        (_, service) => allowedServices.includes(service)
+    );
 }
 
-function _generateConnectionName(existing) {
+function _getServiceOptions(services) {
+    return Object.entries(services)
+        .map(pair => ({
+            ...pair[1].option,
+            value: pair[0]
+        }));
+}
+
+function _suggestConnectionName(existing) {
     const suffix = existing
         .map(({ name }) => {
             const match = name.match(nameRegExp);
@@ -40,143 +47,132 @@ function _generateConnectionName(existing) {
     return `Connection ${suffix + 1}`;
 }
 
+function _getServiceFormName(service) {
+    return `${formName}.${service}`;
+}
+
 class addCloudConnectionModalViewModel extends Observer {
-    constructor({ onClose, allowedServices = allServices }){
+    constructor({ onClose, allowedServices = Object.keys(services) }){
         super();
 
         this.close = onClose;
-        this.serviceOptions = allowedServices.map(_mapServiceOption);
-        this.serviceMeta = null;
-        this.identityLabel = ko.observable();
-        this.identityPlaceholder = ko.observable();
-        this.blackList = ko.observableArray();
-        this.secretLabel = ko.observable();
-        this.secretPlaceholder = ko.observable();
+        this.allowedServices = _getAllowedServices(allowedServices);
+        this.serviceOptions = _getServiceOptions(this.allowedServices);
+        this.fieldsTemplate = ko.observable();
         this.existingConnections = null;
-        this.form = null;
-        this.isFormInitialized = ko.observable(false);
+        this.selectedService = '';
+        this.formVM = null;
+        this.serviceForm = null;
+        this.subTemplate = ko.observable();
+        this.areFormsReady = ko.observable();
+        this.areFormsValid = ko.observable();
+        this.showGlobalError = ko.observable();
+        this.globalError = ko.observable();
 
         this.observe(
-            state$.getMany('accounts', ['session', 'user']),
-            this.onAccounts
+            state$.getMany(
+                'accounts',
+                ['session', 'user'],
+                'forms'
+            ),
+            this.onState
         );
     }
 
-    onAccounts([ accounts, user ]) {
-        if (this.isFormInitialized() || !accounts || !user) return;
+    onState([ accounts, user, forms ]) {
+        if (!accounts || !user) {
+            this.areFormsReady(false);
+            this.areFormsValid(false);
+            return;
+        }
 
-        const { externalConnections } = accounts[user];
-        const name = _generateConnectionName(externalConnections);
+        this.existingConnections = accounts[user].externalConnections;
 
-        this.existingConnections = externalConnections;
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                connectionName: name,
-                service: defaultService,
-                endpoint: services[defaultService].defaultEndpoint,
-                identity: '',
-                secret: ''
-            },
-            onForm: this.onForm.bind(this),
-            onValidate: this.onValidate.bind(this),
-            onValidateAsync: this.onValidateAsync.bind(this),
-            asyncTriggers: ['service', 'endpoint', 'identity', 'secret'],
-            onSubmit: this.onSubmit.bind(this)
-        });
-        this.isFormInitialized(true);
+        const formState = forms[formName];
+        const service = formState ? getFieldValue(formState, 'service') : defaultService;
+        const serviceFormName = _getServiceFormName(service);
+        const serviceFormState = formState && forms[serviceFormName];
+
+        if (formState && serviceFormState) {
+            const globalError = getFieldError(serviceFormState, 'global');
+            this.areFormsValid(isFormValid(formState) && isFormValid(serviceFormState));
+            this.showGlobalError(isDefined(globalError));
+            this.globalError(globalError);
+
+            // Change the sub template only if the service actualy changed
+            // preventing unnecessary subTree DOM changes.
+            if (!this.subTemplate() || this.subTemplate().service !== service) {
+                this.subTemplate({
+                    service: service,
+                    html: formTemplates[service],
+                    data: this.serviceForms[service]
+                });
+            }
+
+            if (formState.submitted && serviceFormState.submitted) {
+                this.onSubmit({
+                    ...getFormValues(formState),
+                    ...getFormValues(serviceFormState)
+                });
+            }
+
+        } else {
+            this.areFormsValid(false);
+            this.globalError('');
+
+            this.form = new FormViewModel({
+                name: formName,
+                fields: {
+                    connectionName: _suggestConnectionName(this.existingConnections),
+                    service: defaultService
+                },
+                onValidate: this.onValidate.bind(this)
+            });
+
+            this.serviceForms = mapValues(
+                this.allowedServices,
+                ({ form }, service) => new FormViewModel({
+                    name: _getServiceFormName(service),
+                    ...form,
+                    onValidate: values => form.onValidate(
+                        values,
+                        this.existingConnections
+                    )
+                })
+            );
+        }
+
+        this.areFormsReady(true);
     }
 
-    onValidate({ connectionName, service, endpoint, identity, secret }) {
-        const { existingConnections, serviceMeta: meta } = this;
+    onValidate(params) {
+        const { connectionName } = params;
+        const { existingConnections } = this;
         const errors = {};
 
         if (!connectionName) {
             errors.connectionName = 'Please enter valid connection name';
+        }
 
-        } else if (existingConnections
+        if (existingConnections
             .map(connection => connection.name)
             .includes(connectionName)
         ) {
             errors.connectionName = 'Name already in use';
         }
 
-        if (!endpoint) {
-            errors.endpoint = 'Please enter valid endpoint URI';
-
-        } else if (!isURI(endpoint)) {
-            errors.endpoint = 'Please enter valid endpoint URI';
-        }
-
-        if (!identity) {
-            errors.identity = meta.identity.requiredMessage;
-
-        } else if (existingConnections
-            .some(connection =>
-                connection.service === service &&
-                connection.endpoint === endpoint &&
-                connection.identity === identity)
-        ) {
-            errors.identity = 'A similar connection already exists';
-        }
-
-        if (!secret) {
-            errors.secret = meta.secret.requiredMessage;
-        }
-
         return errors;
     }
 
-    async onValidateAsync({ service, endpoint, identity, secret }) {
-        const { status, error } = await api.account.check_external_connection({
-            endpoint_type: service,
-            endpoint: endpoint,
-            identity: identity,
-            secret: secret
-        });
-
-        const errors = {};
-
-        if (status === 'TIMEOUT') {
-            errors.endpoint = 'Endpoint communication timed out';
-
-        } else if (status === 'INVALID_ENDPOINT') {
-            errors.endpoint = 'Please enter a valid endpoint';
-
-        } else if (status === 'INVALID_CREDENTIALS') {
-            errors.secret = errors.identity = 'Credentials does not match';
-
-        } else if (status === 'NOT_SUPPORTED') {
-            errors.identity = 'Account type is not supported';
-
-        } else if (status === 'TIME_SKEW') {
-            errors.endpoint = 'Time difference with the server is too large';
-        }
-        else if (status === 'UNKNOWN_FAILURE') {
-            // Using empty message to mark the fields as invalid.
-            errors.identity = errors.endpoint = errors.secret = '';
-            errors.global = error.message;
-        }
-
-        return errors;
+    submitForms() {
+        const { form, serviceForms } = this;
+        form.submit();
+        serviceForms[form.service()].submit();
     }
 
-    onForm() {
-        const { service, endpoint } = this.form;
-        const meta = this.serviceMeta = services[service()];
-
-        this.identityLabel(meta.identity.label);
-        this.identityPlaceholder(meta.identity.placeholder);
-        this.secretLabel(meta.secret.label);
-        this.secretPlaceholder(meta.secret.placeholder);
-
-        if (!endpoint.wasTouched()) {
-            endpoint.set(meta.defaultEndpoint);
-        }
-    }
-
-    onSubmit({ connectionName, service, endpoint, identity, secret }) {
-        action$.onNext(addExternalConnection(connectionName, service, endpoint, identity, secret));
+    onSubmit(values) {
+        const { connectionName, service, ...params } = values;
+        action$.onNext(addExternalConnection(connectionName, service, params));
         this.close();
     }
 
@@ -185,7 +181,11 @@ class addCloudConnectionModalViewModel extends Observer {
     }
 
     dispose() {
-        this.form.dispose();
+        this.form && this.form.dispose();
+
+        Object.values(this.serviceForms || {})
+            .forEach(form => form.dispose());
+
         super.dispose();
     }
 }

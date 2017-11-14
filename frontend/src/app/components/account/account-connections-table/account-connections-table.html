@@ -26,27 +26,11 @@
 ">
     <template name="connectionUsage">
         <div class="pad">
-            <data-table class="column greedy usage-table" params="
+            <data-table class="column greedy alt-bg usage-table" params="
                 columns: usageColumns,
                 data: rows,
                 emptyMessage: emptyMessage
-            ">
-                <template name="noobaaBuckets">
-                    <!-- ko ifnot: $data().href  -->
-                    <span class="remark cell-tooltip"
-                          ko.text="$data().text"
-                          ko.tooltip="$data().tooltip"
-                    ></span>
-                    <!-- /ko -->
-                    <!-- ko if: $data().href -->
-                    <a class="link cell-tooltip"
-                       ko.attr.href="$data().href"
-                       ko.text="$data().text"
-                       ko.tooltip="$data().tooltip"
-                    ></a>
-                    <!-- /ko -->
-                </template>
-            </data-table>
+            "></data-table>
         </div>
     </template>
 </data-table>

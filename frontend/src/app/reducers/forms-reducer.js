@@ -10,6 +10,7 @@ import {
     SET_FORM_VALIDITY,
     LOCK_FORM,
     UNLOCK_FORM,
+    SUBMIT_FORM,
     DROP_FROM
 } from 'action-types';
 
@@ -25,7 +26,8 @@ const initialFormState = {
     asyncErrors: {},
     validatingAsync: null,
     validated: false,
-    locked: false
+    locked: false,
+    submitted: false
 };
 
 // ------------------------------
@@ -73,7 +75,8 @@ function onUpdateForm(forms, { payload }) {
         [payload.form]: {
             ...form,
             fields,
-            validated: false
+            validated: false,
+            submitted: false
         }
     };
 }
@@ -181,6 +184,29 @@ function onUnlockForm(forms, { payload }) {
     };
 }
 
+function onSubmitForm(forms, { payload }) {
+    const form = forms[payload.form];
+    if (!form) return forms;
+
+    // Touch all the fields.
+    const fields = mapValues(
+        form.fields,
+        field => ({ ...field, touched: true })
+    );
+
+    const isValid = form.validated && Object.values(form.fields)
+        .every(field => field.validity === 'VALID');
+
+    return {
+        ...forms,
+        [payload.form]: {
+            ...form,
+            fields,
+            submitted: isValid
+        }
+    };
+}
+
 function onDropForm(forms, { payload }) {
     const { [payload.form]: _, ...other } = forms;
     return other;
@@ -209,6 +235,7 @@ export default createReducer(initialState, {
     [SET_FORM_VALIDITY]: onSetFormValidity,
     [LOCK_FORM]: onLockForm,
     [UNLOCK_FORM]: onUnlockForm,
+    [SUBMIT_FORM]: onSubmitForm,
     [DROP_FROM]: onDropForm
 });
 

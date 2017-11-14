@@ -5,6 +5,7 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import { state$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
+import { getFieldValue } from 'utils/form-utils';
 import ko from 'knockout';
 import * as routes from 'routes';
 
@@ -61,7 +62,7 @@ class ConnectAppModalViewModel extends Observer {
             .filter(account => account.hasS3Access);
         this.accountOptions = accountList.map(account => account.name);
         const { name: selectedAccount } = form ?
-            accountList.find(account => account.name === form.fields.selectedAccount.value) :
+            accountList.find(account => account.name === getFieldValue(form, selectedAccount)) :
             accountList.find(account => account.isOwner);
 
         this.accessKey(accounts[selectedAccount].accessKeys.accessKey);

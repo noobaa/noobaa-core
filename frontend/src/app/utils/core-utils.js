@@ -328,6 +328,14 @@ export function hashCode(value) {
     );
 }
 
+export function filterValues(obj, filter) {
+    return mapValues(
+        obj,
+        (value, key) => filter(value, key) ? value : undefined,
+        true
+    );
+}
+
 export function omitUndefined(obj) {
     return mapValues(obj, echo, true);
 }

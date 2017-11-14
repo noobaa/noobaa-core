@@ -1,0 +1,41 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<editor params="label: 'Endpoint'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter endpoint"
+            ko.value="endpoint"
+            ko.validationCss="endpoint"
+        />
+        <validation-indicator params="field: endpoint"></validation-indicator>
+    </div>
+    <validation-message params="field: endpoint"></validation-message>
+</editor>
+
+<editor params="label: 'Access Key'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter Key"
+            ko.value="accessKey"
+            ko.validationCss="accessKey"
+        />
+        <validation-indicator params="field: accessKey"></validation-indicator>
+    </div>
+    <validation-message params="field: accessKey"></validation-message>
+</editor>
+
+<editor params="label: 'Secret Key'">
+    <div class="row">
+        <input type="password"
+            class="push-next-half"
+            placeholder="Enter Secret"
+            autocomplete="off"
+            ko.value="secretKey"
+            ko.validationCss="secretKey"
+        />
+        <validation-indicator params="field: secretKey"></validation-indicator>
+    </div>
+    <validation-message params="field: secretKey"></validation-message>
+</editor>

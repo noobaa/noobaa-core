@@ -22,7 +22,7 @@ const resourceGroupMetadata = deepFreeze({
         tooltipTitle: 'Nodes pool resources'
     },
     CLOUD: {
-        icon: 'cloud-resource',
+        icon: 'cloud-hollow',
         tooltipTitle: 'Cloud resources'
     }
 });

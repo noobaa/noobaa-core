@@ -6,6 +6,7 @@ import FormViewModel from 'components/form-view-model';
 import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
 import { deepFreeze, pick } from 'utils/core-utils';
+import { getFieldValue } from 'utils/form-utils';
 import ko from 'knockout';
 import {
     openEmptyBucketPlacementWarningModal,
@@ -85,7 +86,7 @@ class EditBucketPlacementModalViewModel extends Observer {
         ];
 
         const selectedResources = form ?
-            form.fields.selectedResources.value :
+            getFieldValue(form, 'selectedResources') :
             [];
 
         const rowParams = {

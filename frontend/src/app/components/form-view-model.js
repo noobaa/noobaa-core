@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { isDefined, mapValues, noop, runAsync, pick } from 'utils/core-utils';
+import { isDefined, mapValues, noop, pick } from 'utils/core-utils';
+import { getFormValues } from 'utils/form-utils';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
@@ -12,12 +13,10 @@ import {
     setFormValidity,
     lockForm,
     unlockForm,
+    submitForm,
     dropForm
 } from 'action-creators';
 
-function _selectValues(state) {
-    return state && mapValues(state.fields, field => field.value, false);
-}
 
 export default class FormViewModel extends Observer {
     constructor({
@@ -98,17 +97,7 @@ export default class FormViewModel extends Observer {
     }
 
     submit() {
-        // TODO: Need to replace a dispatching of a START_SUBMIT_FORM
-        // that will be act upon in the onState handler.
-        runAsync(() => {
-            if (!this.isValid()) {
-                action$.onNext(touchForm(this.name));
-                return;
-            }
-
-            const values = _selectValues(this._state());
-            this._submitHandler(values);
-        });
+        action$.onNext(submitForm(this.name));
     }
 
     reset() {
@@ -210,8 +199,8 @@ export default class FormViewModel extends Observer {
     _onState(state){
         if (!state) return;
 
-        const prevValues =_selectValues(this._state());
-        const values = _selectValues(state);
+        const prevValues = this._state() && getFormValues(this._state());
+        const values = getFormValues(state);
         const changes = prevValues ?
             Object.keys(prevValues).filter(name =>  prevValues[name] !== values[name]) :
             Object.keys(values);
@@ -221,6 +210,9 @@ export default class FormViewModel extends Observer {
 
         if (changes.length > 0) {
             this._validate(values, changes);
+
+        } else if (state.submitted) {
+            this._submitHandler(values);
         }
     }
 

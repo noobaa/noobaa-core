@@ -49,11 +49,14 @@ export function openAddCloudResrouceModal() {
     };
 }
 
-export function openAddCloudConnectionModal() {
+export function openAddCloudConnectionModal(allowedServices) {
     return {
         type: OPEN_MODAL,
         payload: {
-            component: 'add-cloud-connection-modal',
+            component: {
+                name: 'add-cloud-connection-modal',
+                params: { allowedServices }
+            },
             options: {
                 title: 'Add Cloud Connection',
                 size: 'medium'

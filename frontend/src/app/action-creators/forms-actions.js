@@ -8,6 +8,7 @@ import {
     SET_FORM_VALIDITY,
     LOCK_FORM,
     UNLOCK_FORM,
+    SUBMIT_FORM,
     DROP_FROM
 } from 'action-types';
 
@@ -53,6 +54,13 @@ export function setFormValidity(form, validity) {
             confirmValidity: validity.confirmValidity,
             touch: validity.touch
         }
+    };
+}
+
+export function submitForm(form) {
+    return {
+        type: SUBMIT_FORM,
+        payload: { form }
     };
 }
 

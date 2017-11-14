@@ -93,20 +93,20 @@ const resourceTypeOptions = [
     {
         value: 'AWS',
         label: 'AWS S3',
-        icon: 'aws-s3-resource-dark',
-        selectedIcon: 'aws-s3-resource-colored'
+        icon: 'aws-s3-dark',
+        selectedIcon: 'aws-s3-colored'
     },
     {
         value: 'AZURE',
         label: 'Azure Blob',
-        icon: 'azure-resource-dark',
-        selectedIcon: 'azure-resource-colored'
+        icon: 'azure-dark',
+        selectedIcon: 'azure-colored'
     },
     {
         value: 'S3_COMPATIBLE',
         label: 'S3 Compatible',
-        icon: 'cloud-resource-dark',
-        selectedIcon: 'cloud-resource-colored'
+        icon: 'cloud-dark',
+        selectedIcon: 'cloud-colored'
     }
 ];
 

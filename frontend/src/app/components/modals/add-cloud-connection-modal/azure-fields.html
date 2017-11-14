@@ -1,0 +1,41 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<editor params="label: 'Endpoint'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter endpoint"
+            ko.value="endpoint"
+            ko.validationCss="endpoint"
+        />
+        <validation-indicator params="field: endpoint"></validation-indicator>
+    </div>
+    <validation-message params="field: endpoint"></validation-message>
+</editor>
+
+<editor params="label: 'Account Name'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter name"
+            ko.value="accountName"
+            ko.validationCss="accountName"
+        />
+        <validation-indicator params="field: accountName"></validation-indicator>
+    </div>
+    <validation-message params="field: accountName"></validation-message>
+</editor>
+
+<editor params="label: 'Account Key'">
+    <div class="row">
+        <input type="password"
+            class="push-next-half"
+            placeholder="Enter key"
+            autocomplete="off"
+            ko.value="accountKey"
+            ko.validationCss="accountKey"
+        />
+        <validation-indicator params="field: accountKey"></validation-indicator>
+    </div>
+    <validation-message params="field: accountKey"></validation-message>
+</editor>

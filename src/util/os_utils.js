@@ -547,120 +547,134 @@ function set_yum_proxy(proxy_url) {
     }
 }
 
-function get_dns_servers() {
-    let dns_config = {
-        dns_servers: [],
-        search_domains: []
-    };
 
-    if (os.type() === 'Linux') {
-        return promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured DNS Servers'", {
-                ignore_rc: true,
-                return_stdout: true,
-            })
-            .then(res => {
-                let regex_res = (/prepend domain-name-servers (.*) ; #NooBaa Configured DNS Servers/).exec(res);
-                return regex_res ? regex_res[1] : "";
-            })
-            .then(regex_res => {
-                dns_config.dns_servers = _.isEmpty(regex_res) ? [] : regex_res.trim().split(',');
-            })
-            .then(() => promise_utils.exec("cat /etc/dhclient.conf | grep '#NooBaa Configured Search'", {
-                ignore_rc: true,
-                return_stdout: true,
-            }))
-            .then(res => {
-                let regex_res = (/prepend domain-search (.*) ; #NooBaa Configured Search/).exec(res);
-                return regex_res ? regex_res[1] : "";
-            })
-            .then(regex_res => {
-                const search = _.isEmpty(regex_res) ? [] : regex_res.trim().split(',');
-                dns_config.search_domains = search.map(domain => domain.replace(/"/g, ''));
-                return dns_config;
-            });
-    } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return P.resolve(dns_config);
-    }
-    throw new Error('DNS not supported on non-Linux platforms');
-}
-
-function get_dns_servers_for_static() {
-    let dns_config = {
-        dns_servers: [],
-        search_domains: []
-    };
-
-    if (os.type() === 'Linux') {
-        return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DNS1')
-            .then(line => {
-                if (line) dns_config.dns_servers[0] = line.trim().slice(5); // DNS1=
-                return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DNS2');
-            })
-            .then(line => {
-                if (line) dns_config.dns_servers[1] = line.trim().slice(5); // DNS2=
-                return fs_utils.find_line_in_file('/etc/sysconfig/network', 'DOMAIN');
-            })
-            .then(line => {
-                if (line) {
-                    dns_config.search_domains = line.trim().slice(8, line.trim.length - 1)
-                        .split(' '); // DOMAIN=""
-                }
-                return dns_config;
-            });
-    } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return P.resolve(dns_config);
-    }
-    throw new Error('DNS not supported on non-Linux platforms');
-}
-
-function set_dns_server(servers, search_domains) {
-    if (os.type() === 'Linux') {
-        var commands_to_exec = [];
-        if (servers[0] && servers[1]) {
-            commands_to_exec.push("sed -i 's/.*#NooBaa Configured DNS Servers.*/prepend domain-name-servers " +
-                servers[0] + "," + servers[1] + " ; #NooBaa Configured DNS Servers/' /etc/dhclient.conf");
-            commands_to_exec.push("echo 'DNS1=" + servers[0] + "' > /etc/sysconfig/network");
-            commands_to_exec.push("echo 'DNS2=" + servers[1] + "' >> /etc/sysconfig/network");
-        } else if (servers[0]) {
-            commands_to_exec.push("sed -i 's/.*#NooBaa Configured DNS Servers.*/prepend domain-name-servers " +
-                servers[0] + " ; #NooBaa Configured DNS Servers/' /etc/dhclient.conf");
-            commands_to_exec.push("echo 'DNS1=" + servers[0] + "' > /etc/sysconfig/network");
-        } else {
-            commands_to_exec.push("sed -i 's/.*#NooBaa Configured DNS Servers.*/#NooBaa Configured DNS Servers/' /etc/dhclient.conf");
-            commands_to_exec.push("sed -i '/.*DNS1=.*/d' /etc/sysconfig/network");
-            commands_to_exec.push("sed -i '/.*DNS2=.*/d' /etc/sysconfig/network");
-        }
-
-        if (search_domains && search_domains.length) {
-            let command = "sed -i 's/.*#NooBaa Configured Search.*/prepend domain-search \"" + search_domains[0] + "\"";
-            let command2 = "echo 'DOMAIN=\"" + search_domains[0];
-            for (let i = 1; i < search_domains.length; ++i) {
-                command += ",\"" + search_domains[i] + "\"";
-                command2 += " " + search_domains[i];
-            }
-            command += " ; #NooBaa Configured Search/' /etc/dhclient.conf";
-            command2 += "\"' >> /etc/sysconfig/network";
-            commands_to_exec.push(command);
-            commands_to_exec.push(command2);
-        } else {
-            commands_to_exec.push("sed -i 's/.*#NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/dhclient.conf");
-            commands_to_exec.push("sed -i '/.*DOMAIN=.*/d' /etc/sysconfig/network");
-        }
-
-        if (commands_to_exec.length) {
-            commands_to_exec.push("rm -rf /etc/resolv.conf");
-            commands_to_exec.push("service network restart");
-        }
-
-        return P.each(commands_to_exec, function(command) {
-            return promise_utils.exec(command);
+// 
+function _get_dns_servers_in_forwarders_file() {
+    if (os.type() !== 'Linux') return [];
+    return fs_utils.find_line_in_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, 'forwarders')
+        .then(line => {
+            if (!line) return [];
+            const dns_servers = line.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g);
+            return dns_servers || [];
         });
-    } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return P.resolve();
+}
+
+
+function _get_search_domains(file, options) {
+    if (os.type() !== 'Linux') return [];
+    const { dhcp } = options || {};
+    if (dhcp) {
+        // for dhcp configuration we look for "#NooBaa Configured Search"
+        return fs_utils.find_line_in_file(file, '#NooBaa Configured Search')
+            .then(line => {
+                if (!line) return [];
+                let domains_regx_res = line.match(/".*?"/g);
+                // if null return empty array
+                if (!domains_regx_res) return [];
+                // remove double quotes from the strings 
+                return domains_regx_res.map(domain => domain.replace(/"/g, ''));
+            });
     } else {
-        throw new Error('setting DNS not supported on non-Linux platforms');
+        // in static ip configuration files we look for "DOMAIN=" as a marker
+        return fs_utils.find_line_in_file(file, 'DOMAIN=')
+            .then(line => {
+                if (!line) return [];
+                const domains_str = line.split('"')[1];
+                if (!domains_str) return [];
+                return domains_str.split(' ');
+            });
     }
 }
+
+function get_dns_and_search_domains() {
+    // return dns configuration set in /etc/sysconfig/network
+    return P.join(_get_dns_servers_in_forwarders_file(), _get_search_domains('/etc/sysconfig/network'))
+        .spread((dns_servers, search_domains) => ({ dns_servers, search_domains }));
+}
+
+function ensure_dns_and_search_domains(server_config) {
+    const ensure_dns = _get_dns_servers_in_forwarders_file()
+        .then(dns_servers => {
+            // compare dns in server_config to the one written in forwarders file
+            if (!_.isEqual(dns_servers, server_config.dns_servers)) {
+                dbg.warn(`ensure_dns_and_search_domains: found mismatch in dns servers. db has`,
+                    server_config.dns_servers,
+                    `${config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE} has`, dns_servers,
+                    `resetting according to db`);
+                return _set_dns_server(server_config.dns_servers);
+            }
+        });
+
+    const static_search_domain_files = Object.keys(os.networkInterfaces())
+        .filter(nic => nic.startsWith('eth'))
+        .map(nic => '/etc/sysconfig/network-scripts/ifcfg-' + nic);
+
+    const ensure_search_domains = P.join(
+            P.map(static_search_domain_files, file => _get_search_domains(file)
+                .then(search_domains => ({ search_domains, file }))),
+            _get_search_domains('/etc/dhclient.conf', { dhcp: true })
+            .then(search_domains => ({ search_domains, file: '/etc/dhclient.conf' }))
+        )
+        .spread((static_domains, dhcp_domains) => {
+            const domain_configs = static_domains.concat(dhcp_domains);
+            const invalid_config = domain_configs.find(conf => !_.isEqual(conf.search_domains, server_config.search_domains));
+            if (invalid_config) {
+                dbg.warn(`found mismatch in search domains. db has`, server_config.search_domains,
+                    `${invalid_config.file} has `, invalid_config.search_domains, ' resetting according to db');
+                return _set_search_domains(server_config.search_domains);
+            }
+        });
+
+    return P.join(ensure_dns, ensure_search_domains);
+}
+
+function set_dns_and_search_domains(dns_servers, search_domains) {
+    if (os.type() !== 'Linux') return;
+    return P.join(_set_dns_server(dns_servers), _set_search_domains(search_domains));
+}
+
+function _set_dns_server(servers) {
+    if (!servers) return;
+    const forwarders_str = `forwarders { ${servers.join('; ')}; };\nforward only;\n`;
+    dbg.log0('setting dns servers in named forwarders configuration');
+    dbg.log0('writing', forwarders_str, 'to', config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE);
+    return fs_utils.replace_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, forwarders_str)
+        .then(() => promise_utils.exec('systemctl restart named'));
+}
+
+
+function _set_search_domains(search_domains) {
+    if (!search_domains) return;
+
+    dbg.log0(`_set_search_domains: got these search domais to set:`, search_domains);
+
+    const commands_to_exec = [];
+
+    // prepare command for setting search domains in dhclient
+    if (search_domains.length) {
+        commands_to_exec.push(`sed -i 's/.*#NooBaa Configured Search.*/prepend domain-search "${search_domains.join('", "')}";\
+        #NooBaa Configured Search/' /etc/dhclient.conf`);
+    } else {
+        commands_to_exec.push(`sed -i 's/.*#NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/dhclient.conf`);
+    }
+
+    // prepare command for setting search domains in network configuration scripts
+    // updating /etc/sysconfig/network does not propagate to resolve.conf, but writing to ifcfg files does
+    // we will write to all of them including /etc/sysconfig/network
+    let domain_command = `sed -i 's/DOMAIN=.*/DOMAIN="${search_domains.join(' ')}"/' `;
+
+    const network_scripts_files = Object.keys(os.networkInterfaces())
+        .filter(nic => nic.startsWith('eth'))
+        .map(nic => '/etc/sysconfig/network-scripts/ifcfg-' + nic)
+        .concat('/etc/sysconfig/network');
+
+    dbg.log0(`setting search domains in the following files:`, network_scripts_files);
+    network_scripts_files.forEach(file => commands_to_exec.push(domain_command + file));
+
+    return P.map(commands_to_exec, command => promise_utils.exec(command), { concurrency: 5 })
+        .then(() => promise_utils.exec('systemctl restart network'));
+}
+
 
 function restart_rsyslogd() {
     return promise_utils.exec('/etc/init.d/rsyslog restart');
@@ -883,6 +897,8 @@ function restart_services() {
     if (os.type() !== 'Linux') {
         return;
     }
+
+    dbg.warn('RESTARTING SERVICES!!!', (new Error()).stack);
 
     var fname = '/tmp/spawn.log';
     var stdout = fs.openSync(fname, 'a');
@@ -1192,9 +1208,8 @@ exports.is_supervised_env = is_supervised_env;
 exports.is_folder_permissions_set = is_folder_permissions_set;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
-exports.set_dns_server = set_dns_server;
-exports.get_dns_servers = get_dns_servers;
-exports.get_dns_servers_for_static = get_dns_servers_for_static;
+exports.set_dns_and_search_domains = set_dns_and_search_domains;
+exports.get_dns_and_search_domains = get_dns_and_search_domains;
 exports.restart_services = restart_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
@@ -1204,3 +1219,4 @@ exports.handle_unreleased_fds = handle_unreleased_fds;
 exports.calc_cpu_usage = calc_cpu_usage;
 exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
 exports.get_iptables_rules = get_iptables_rules;
+exports.ensure_dns_and_search_domains = ensure_dns_and_search_domains;

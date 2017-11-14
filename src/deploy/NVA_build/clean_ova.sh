@@ -4,11 +4,8 @@ eval {isAzure,isEsx,isAlyun,isAws}="false"
 platform="on_prem"
 
 function clean_ifcfg() {
-    interfaces=$(ifconfig | grep ^eth | awk '{print $1}')
-    for int in ${interfaces//:/}; do
-        sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
-    done
-    sudo echo "HOSTNAME=noobaa" > /etc/sysconfig/network
+    # remove all non loopback interfaces (eth\ens are those we know of)
+    sudo rm /etc/sysconfig/network-scripts/ifcfg-e*
 }
 
 function aws_specific(){
@@ -101,8 +98,28 @@ rm -f /etc/noobaa_network
 unlink /etc/localtime
 ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
 date -s "21 Aug 2017 00:00:00"
-sed -i "s:.*#NooBaa Configured DNS Servers.*:#NooBaa Configured DNS Servers:" /etc/dhclient.conf
-sed -i "s:.*#NooBaa Configured Search.*:#NooBaa Configured Search:" /etc/dhclient.conf
+
+#Configure 127.0.0.1 as the dns server - we will use named as a dns cache server
+echo "prepend domain-name-servers 127.0.0.1 ;" > /etc/dhclient.conf
+echo "#NooBaa Configured Search" >> /etc/dhclient.conf
+# restore resolve.conf, although NetworkManager will probably reqwrite it
+echo "nameserver 127.0.0.1" > /etc/resolve.conf
+# reset /etc/sysconfig/network
+echo "HOSTNAME=noobaa" > /etc/sysconfig/network
+echo "DNS1=127.0.0.1" >> /etc/sysconfig/network
+echo "DOMAIN=\"\"" >> /etc/sysconfig/network
+
+
+#restore /etc/noobaa_configured_dns.conf
+echo "forwarders { 8.8.8.8; 8.8.4.4; };" > /etc/noobaa_configured_dns.conf
+echo "forward only;" >> /etc/noobaa_configured_dns.conf
+
+cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/named.conf /etc/named.conf
+
+#make sure NetworkManager and named start on boot
+sudo systemctl enable NetworkManager
+sudo systemctl enable named
+
 sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc/ntp.conf
 
 #Clean /tmp old files

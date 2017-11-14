@@ -25,6 +25,8 @@ function clean_ifcfg() {
         sudo rm /etc/sysconfig/network-scripts/ifcfg-${int}
     done
     sudo echo -n > /etc/sysconfig/network
+    sudo echo "HOSTNAME=noobaa" > /etc/sysconfig/network
+    sudo echo "DNS1=127.0.0.1" >> /etc/sysconfig/network
 }
 
 function install_platform {
@@ -54,6 +56,7 @@ function install_platform {
 		iperf3 \
 		python-setuptools \
         bind-utils \
+        bind \
         screen \
         strace \
         vim \
@@ -64,8 +67,8 @@ function install_platform {
     systemctl disable firewalld
     systemctl enable iptables
 
-    # make network run on boot instead of NetworkManager
-    systemctl disable NetworkManager
+    # make network and NetworkManager run on boot
+    systemctl enable NetworkManager
     systemctl enable network
 
 	# make crontab start on boot
@@ -94,8 +97,6 @@ function install_platform {
     # By Default, NTP is disabled, set local TZ to US Pacific
     echo "#NooBaa Configured NTP Server"     >> /etc/ntp.conf
     echo "#NooBaa Configured Proxy Server"     >> /etc/yum.conf
-    echo "#NooBaa Configured DNS Servers" >> /etc/dhclient.conf
-    echo "#NooBaa Configured Search" >> /etc/dhclient.conf
     sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
     ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
 
@@ -393,6 +394,18 @@ function setup_syslog {
 	deploy_log "setup_syslog done"
 }
 
+function setup_named {
+    #Configure 127.0.0.1 as the dns server - we will use named as a dns cache server
+    echo "prepend domain-name-servers 127.0.0.1 ;" > /etc/dhclient.conf
+    echo "#NooBaa Configured Search" >> /etc/dhclient.conf
+    echo "nameserver 127.0.0.1" > /etc/resolve.conf
+
+    #restore /etc/noobaa_configured_dns.conf
+    echo "forwarders { 8.8.8.8; 8.8.4.4; };" > /etc/noobaa_configured_dns.conf
+    echo "forward only;" >> /etc/noobaa_configured_dns.conf
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/named.conf /etc/named.conf
+}
+
 function setup_mongodb {
 	deploy_log "setup_mongodb start"
 
@@ -422,6 +435,7 @@ function runinstall {
     general_settings
     setup_supervisors
     setup_syslog
+    setup_named
     #Make sure the OVA is created with no DHCP or previous IP configuration
     clean_ifcfg
 	deploy_log "runinstall done"

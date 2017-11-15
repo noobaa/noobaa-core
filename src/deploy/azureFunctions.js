@@ -146,7 +146,8 @@ class AzureFunctions {
             .then(res => res.ipAddress);
     }
 
-    createAgent(vmName, storage, vnet, os, server_name, agent_conf) {
+    createAgent(params) {
+        const { vmName, storage, vnet, os, serverName, agentConf } = params;
         return this.getSubnetInfo(vnet)
             .then(subnetInfo => this.createPublicIp(vmName + '_pip')
                 .then(ipInfo => [subnetInfo, ipInfo])
@@ -177,7 +178,7 @@ class AzureFunctions {
                     autoUpgradeMinorVersion: true,
                     settings: {
                         fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/init_agent.sh'],
-                        commandToExecute: 'bash init_agent.sh ' + server_name + ' ' + agent_conf
+                        commandToExecute: 'bash init_agent.sh ' + serverName + ' ' + agentConf
                     },
                     protectedSettings: {
                         storageAccountName: 'pluginsstorage',
@@ -191,8 +192,8 @@ class AzureFunctions {
                     extension.typeHandlerVersion = '1.7';
                     extension.settings = {
                         fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/init_agent.ps1'],
-                        commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + server_name +
-                        ' ' + agent_conf
+                        commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + serverName +
+                            ' ' + agentConf
                     };
                 }
                 return this.createVirtualMachineExtension(vmName, extension);

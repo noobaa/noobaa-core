@@ -19,7 +19,8 @@ var shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 
 const dbg = require('../../util/debug_module')(__filename);
-dbg.set_process_name('agents_matrix');
+const testName = 'agents_matrix';
+dbg.set_process_name(testName);
 
 // Sample Config
 var argv = require('minimist')(process.argv);
@@ -127,16 +128,20 @@ function createAgents(isInclude, excludeList) {
         .then(res => {
             agentConf = res;
         })
-        .then(() => af.getTestNodes(server_ip, ...oses))
+        .then(() => af.getTestNodes(server_ip, oses))
         .then(res => {
             test_nodes_names = res;
         })
         .then(() => {
             if (isInclude) {
-                return P.map(oses, osname => azf.createAgent(
-                    osname, storage, vnet,
-                    azf.getImagesfromOSname(osname), server_ip, agentConf)
-                )
+                return P.map(oses, osname => azf.createAgent({
+                    vmName: osname + '_' + testName,
+                    storage,
+                    vnet,
+                    os: azf.getImagesfromOSname(osname),
+                    serverName: server_ip,
+                    agentConf
+                }))
                     .catch(saveErrorAndResume);
             } else {
                 return runExtensions('init_agent', `${server_ip} ${agentConf}`)
@@ -145,7 +150,13 @@ function createAgents(isInclude, excludeList) {
         })
         .tap(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
         .delay(120000)
-        .then(() => af.isIncluded(server_ip, test_nodes_names.length, oses.length, 'create agent', ...oses));
+        .then(() => af.isIncluded({
+            server_ip,
+            previous_agent_number: test_nodes_names.length,
+            additional_agents: oses.length,
+            print: 'create agent',
+            oses
+        }));
 }
 
 function runCreateAgents(isInclude, excludeList) {
@@ -296,14 +307,19 @@ function addDisksToMachine(diskSize) {
 // }
 
 function checkIncludeDisk() {
-    return af.getTestNodes(server_ip, ...oses)
+    return af.getTestNodes(server_ip, oses)
         .then(number_befor_adding_disks => {
             console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`);
             return addDisksToMachine(size)
                 //map the disks
                 .then(() => runExtensions('map_new_disk'))
                 .delay(120000)
-                .then(() => af.isIncluded(server_ip, number_befor_adding_disks.length, oses.length, 'undefined', ...oses));
+                .then(() => af.isIncluded({
+                    server_ip,
+                    previous_agent_number: number_befor_adding_disks.length,
+                    additional_agents: oses.length,
+                    oses
+                }));
         });
 }
 
@@ -319,13 +335,25 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
         .then(() => addDisksToMachine(15))
         .then(() => runExtensions('map_new_disk'))
         .delay(120000)
-        .then(() => af.isIncluded(server_ip, number_befor_adding_disks, 0, 'exluding small disks', ...oses))
+        .then(() => af.isIncluded({
+            server_ip,
+            previous_agent_number: number_befor_adding_disks,
+            additional_agents: 0,
+            print: 'exluding small disks',
+            oses
+        }))
         //adding disk to check that it is not getting exclude
         .then(() => addDisksToMachine(size))
         .then(() => runExtensions('map_new_disk'))
         .delay(120000)
         .then(() => {
-            af.isIncluded(server_ip, number_befor_adding_disks, oses.length, 'exlude', ...oses);
+            af.isIncluded({
+                server_ip,
+                previous_agent_number: number_befor_adding_disks,
+                additional_agents: oses.length,
+                print: 'exlude',
+                oses
+            });
             const number_of_disks = number_befor_adding_disks + oses.length;
             return number_of_disks;
         });
@@ -333,13 +361,13 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
 
 function checkExcludeDisk(excludeList) {
     let number_befor_adding_disks;
-    return af.getTestNodes(server_ip, ...oses)
+    return af.getTestNodes(server_ip, oses)
         .then(nodes_befor_adding_disks => addExcludeDisks(excludeList, nodes_befor_adding_disks.length))
         .then(res => number_befor_adding_disks)
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //activate a deactivated node
-        .then(() => af.getTestNodes(server_ip, ...oses)
+        .then(() => af.getTestNodes(server_ip, oses)
             .then(test_nodes_names => {
                 const includesE = test_nodes_names.filter(node => node.name.includes('-E-'));
                 const includes_exclude1 = test_nodes_names.filter(node => node.name.includes('exclude1'));
@@ -358,11 +386,17 @@ function checkExcludeDisk(excludeList) {
         .then(() => addDisksToMachine(size))
         .then(() => runExtensions('map_new_disk'))
         .delay(120000)
-        .then(() => af.isIncluded(server_ip, number_befor_adding_disks, oses.length, 'disable and enable entire host', ...oses))
+        .then(() => af.isIncluded({
+            server_ip,
+            previous_agent_number: number_befor_adding_disks,
+            additional_agents: oses.length,
+            print: 'disable and enable entire host',
+            oses
+        }))
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //deactivate agents (mounts)
-        .then(() => af.getTestNodes(server_ip, ...oses)
+        .then(() => af.getTestNodes(server_ip, oses)
             .then(test_nodes_names => {
                 const excludeE = test_nodes_names.filter(node => node.name.includes('-E-'));
                 const excludeF = test_nodes_names.filter(node => node.name.includes('-F-'));

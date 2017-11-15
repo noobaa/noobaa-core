@@ -123,8 +123,14 @@ function vmOperations(operationCallback) {
                     if (os2.osType === 'Windows') {
                         machine_name = machine_name.substring(0, 15);
                     }
-                    return azf.createAgent(machine_name, storageAccountName, vnetName,
-                            os2, serverName, agentConf)
+                    return azf.createAgent({
+                        vmName: machine_name,
+                        storage: storageAccountName,
+                        vnet: vnetName,
+                        os: os2,
+                        serverName,
+                        agentConf
+                    })
                         .catch(err => console.log('got error with agent', err));
                 });
             }
@@ -138,15 +144,15 @@ function vmOperations(operationCallback) {
                     });
                 }
                 return P.map(servers, server => azf.createServer(server.name, vnetName, storageAccountName)
-                        .then(new_secret => {
-                            server.secret = new_secret;
-                            return azf.getIpAddress(server.name + '_pip');
-                        })
-                        .then(ip => {
-                            server.ip = ip;
-                            return ip;
-                        })
-                    )
+                    .then(new_secret => {
+                        server.secret = new_secret;
+                        return azf.getIpAddress(server.name + '_pip');
+                    })
+                    .then(ip => {
+                        server.ip = ip;
+                        return ip;
+                    })
+                )
                     .then(() => {
                         if (argv.servers > 1) {
                             var slaves = Array.from(servers);
@@ -163,7 +169,14 @@ function vmOperations(operationCallback) {
                 var os = azf.getImagesfromOSname(argv.os);
                 machines = args_builder(machineCount - old_machines.length, os);
                 console.log('adding ', (machineCount - old_machines.length), 'machines');
-                return P.map(machines, machine => azf.createAgent(machine, storageAccountName, vnetName, os, serverName, agentConf)
+                return P.map(machines, machine => azf.createAgent({
+                    vmName: machine,
+                    storage: storageAccountName,
+                    vnet: vnetName,
+                    os,
+                    serverName,
+                    agentConf
+                })
                     .catch(err => console.log('got error with agent', err)));
             }
             console.log('removing ', (old_machines.length - machineCount), 'machines');

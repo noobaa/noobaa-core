@@ -1,11 +1,13 @@
 <p class="row contnet-middle push-next">
     <span class="highlight push-next-half">Cloud Storage:</span>
-    {{cloudResourceCount}}
-
+    <span>{{cloudResourceCount}}</span>
     <vr class="push-both"></vr>
-
     <span class="highlight push-next-half">Services:</span>
-    {{cloudServiceCount}}
+    <span class="greedy">{{cloudServiceCount}}</span>
+    <svg-icon class="icon-small"
+        params="name: 'question'"
+        ko.tooltip="cloudTooltip"
+    ></svg-icon>
 </p>
 
 <chart-legend params="items: cloudCounters"></chart-legend>
@@ -16,9 +18,13 @@
     secondaryText: 'cloud resources'
 "></pie-chart>
 
-<p class="greedy push-next align-middle highlight">
-    Estimated Cloud Storage: {{cloudCapacity}}
-    </p>
+<p class="row greddy push-both contnet-middle align-middle">
+    <span class="highlight push-next-half">Estimated Cloud Storage: {{cloudCapacity}}</span>
+    <svg-icon class="icon-small"
+        params="name: 'question'"
+        ko.tooltip="cloudStorageTooltip"
+    ></svg-icon>
+</p>
 
 <button class="btn overview-btn" ko.click="onAddCloudResource">
     Add Cloud Resource

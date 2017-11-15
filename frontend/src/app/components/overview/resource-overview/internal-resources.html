@@ -1,6 +1,10 @@
 <p class="row contnet-middle push-next">
     <span class="highlight push-next-half">Internal Storage:</span>
-    {{internalResourceUsage}}
+    <span class="greedy">{{internalResourceUsage}}</span>
+    <svg-icon class="icon-small"
+        params="name: 'question'"
+        ko.tooltip="internalTooltip"
+    ></svg-icon>
 </p>
 
 <chart-legend params="

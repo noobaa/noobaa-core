@@ -111,7 +111,7 @@ const clsuterModeToIcon = deepFreeze({
     WITH_ISSUES: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Has a high number of issues'
+        tooltip: 'High number of issues'
     },
     HEALTHY: {
         name: 'healthy',
@@ -183,7 +183,7 @@ export function getClsuterHAState(topology) {
     const { supportHighAvailability, isHighlyAvailable }= topology;
     return supportHighAvailability ?
         (isHighlyAvailable ? 'Not highly available' : 'Highly Available') :
-        'High availability was never configured';
+        'Not configured for high availability';
 }
 
 export function getClusterStateIcon(topology, systemVersion) {

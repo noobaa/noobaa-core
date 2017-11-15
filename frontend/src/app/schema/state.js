@@ -40,6 +40,12 @@ export default {
         },
         alerts: {
             $ref: '#/def/alerts'
+        },
+        drawer: {
+            $ref: '#/def/drawer'
+        },
+        modals: {
+            $ref: '#/def/modals'
         }
     }
 };

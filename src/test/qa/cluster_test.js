@@ -13,7 +13,9 @@ const _ = require('lodash');
 
 require('../../util/dotenv').load();
 const dbg = require('../../util/debug_module')(__filename);
-dbg.set_process_name('cluster_test');
+const testName = 'cluster_test';
+const suffix = testName.replace(/_test/g, '');
+dbg.set_process_name(testName);
 
 //define colors
 const YELLOW = "\x1b[33;1m";
@@ -324,23 +326,6 @@ function createCluster(requestedServes, masterIndex, clusterIndex) {
         .then(() => delayInSec(90));
 }
 
-function runCreateAgents() {
-    return af.createAgents(azf, master_ip, storage, vnet, 'undefined', ...oses)
-        .then(() => af.list_nodes(master_ip)
-            .then(res => {
-                let node_number_after_create = res.length;
-                console.log(`${YELLOW}Num nodes after create is: ${node_number_after_create}${NC}`);
-                console.warn(`Node names are ${res.map(node => node.name)}`);
-            }));
-}
-
-function deleteAgents() {
-    return P.map(oses, osname => azf.deleteVirtualMachine(osname))
-        .catch(err => {
-            console.warn(`Deleting agents is FAILED `, err);
-        });
-}
-
 function verifyS3Server() {
     console.log(`starting the verify s3 server on `, master_ip);
     let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
@@ -362,10 +347,10 @@ function verifyS3Server() {
         });
 }
 
-function cleanEnv() {
+function cleanEnv(osToClean) {
     return P.map(servers, server => azf.deleteVirtualMachine(server.name)
         .catch(err => console.log(`Can't delete old server ${err.message}`)))
-        .then(() => deleteAgents())
+        .then(() => af.clean_agents(azf, osToClean, suffix))
         .then(() => clean && process.exit(0));
 }
 
@@ -472,7 +457,7 @@ return azf.authenticate()
             });
         }
     })
-    .then(cleanEnv)
+    .then(() => cleanEnv(osesSet))
     .then(() => prepareServers(servers))
     .then(checkAddClusterRules)
     .then(() => setNTPConfig(1))
@@ -482,15 +467,22 @@ return azf.authenticate()
     .then(() => delayInSec(90))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
     .then(getRandomAgentsOses)
-    .then(() => af.getAgentConf(master_ip))
-    .then(runCreateAgents)
+    .then(() => af.createAgentsWithList({
+        azf,
+        server_ip: master_ip,
+        storage,
+        vnet,
+        exclude_drives: undefined,
+        suffix,
+        oses
+    }))
     .then(verifyS3Server)
     .then(() => checkClusterStatus(servers, masterIndex))
     .then(runFirstFlow)
     .then(runSecondFlow)
     .then(runThirdFlow)
     .then(runForthFlow)
-    .then(cleanEnv)
+    .then(() => cleanEnv(oses))
 
     /*
       .then(() => {

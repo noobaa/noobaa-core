@@ -10,14 +10,14 @@
             ko.css.selected="selectedTab.eq('cloud')">
             Cloud Storage
         </a>
-        <a ko.attr.href="tabHref('internal')"
-            ko.css.selected="selectedTab.eq('internal')">
-            Internal Storage
-        </a>
         <a ko.attr.href="tabHref('namespace')"
             ko.css.selected="selectedTab.eq('namespace')"
         >
             Namespace Resources
+        </a>
+        <a ko.attr.href="tabHref('internal')"
+            ko.css.selected="selectedTab.eq('internal')">
+            Internal Storage
         </a>
     </nav>
 
@@ -34,13 +34,13 @@
             ko.css.selected="selectedTab.eq('internal')"
         ></internal-resources-table>
 
-        <namespace-resources-table class="tab column"
-            ko.css.selected="selectedTab.eq('namespace')"
-        ></namespace-resources-table>
-
         <external-resources-table class="tab column preview-only"
             ko.css.selected="selectedTab.eq('external')"
         ></external-resources-table>
+
+        <namespace-resources-table class="tab column"
+            ko.css.selected="selectedTab.eq('namespace')"
+        ></namespace-resources-table>
     </div>
 </section>
 

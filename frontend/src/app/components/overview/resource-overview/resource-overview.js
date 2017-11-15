@@ -36,6 +36,12 @@ const resourceTypes = deepFreeze([
     }
 ]);
 
+const hostPoolTooltip = 'Nodes pool is a group of nodes that can be used for NooBaa\'s bucket data placement policy.';
+const hostStorageTooltip = 'This number is calculated from the total capacity of all installed nodes in the system regardless to current usage or availability';
+const cloudTooltip = 'Cloud resource can be an Azure blob storage, AWS bucket or any S3 compatible service and can be used for NooBaa\'s bucket data placement policy';
+const cloudStorageTooltip = 'This number is an estimated aggregation of all public cloud resources connected to the system. Any cloud resource is defined as 1PB of raw storage';
+const internalTooltip = 'Internal storage is a resource which resides on the local VM’s disks.  It can only be used for spilled-over data from buckets';
+
 class ResourceOverviewViewModel extends Observer {
     constructor() {
         super();
@@ -49,6 +55,8 @@ class ResourceOverviewViewModel extends Observer {
         this.selectedResourceType = ko.observable();
 
         // Host pools observables
+        this.hostPoolTooltip = hostPoolTooltip;
+        this.hostStorageTooltip= hostStorageTooltip;
         this.poolCount = ko.observable();
         this.hostCount = ko.observable();
         this.hostPiePrimaryText = ko.observable();
@@ -72,6 +80,8 @@ class ResourceOverviewViewModel extends Observer {
         ];
 
         // Cloud resources observables
+        this.cloudTooltip = cloudTooltip;
+        this.cloudStorageTooltip = cloudStorageTooltip;
         this.cloudResourceCount = ko.observable();
         this.cloudServiceCount = ko.observable();
         this.cloudCapacity = ko.observable();
@@ -95,6 +105,7 @@ class ResourceOverviewViewModel extends Observer {
 
 
         // Internal resources observables
+        this.internalTooltip = internalTooltip;
         this.internalResourceUsage = ko.observable();
         this.internalCapacity = ko.observable();
         this.internalCounters = [

@@ -1,11 +1,13 @@
 <p class="row contnet-middle push-next">
     <span class="highlight push-next-half">Pools:</span>
-    {{poolCount}}
-
+    <span>{{poolCount}}</span>
     <vr class="push-both"></vr>
-
     <span class="highlight push-next-half">Nodes in pools:</span>
-    {{hostCount}}
+    <span class="greedy">{{hostCount}}</span>
+    <svg-icon class="icon-small"
+        params="name: 'question'"
+        ko.tooltip="hostPoolTooltip"
+    ></svg-icon>
 </p>
 
 <chart-legend params="items: hostCounters"></chart-legend>
@@ -16,7 +18,14 @@
     secondaryText: 'Total'
 "></pie-chart>
 
-<p class="greedy push-next align-middle highlight">Node Storage: {{poolsCapacity}}</p>
+<p class="row greedy push-both contnet-middle align-middle">
+    <span class="highlight push-next-half">Nodes Storage: {{poolsCapacity}}</span>
+    <svg-icon class="icon-small"
+        params="name: 'question'"
+        ko.tooltip="hostStorageTooltip"
+    ></svg-icon>
+</p>
+
 
 <button class="btn overview-btn" ko.click="onInstallNodes">
     Install Nodes

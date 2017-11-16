@@ -6,9 +6,6 @@ const path = require('path');
 const util = require('util');
 const fs = require('fs');
 const _ = require('lodash');
-const os = require('os');
-const dns = require('dns');
-const url = require('url');
 
 const system_store = require('../server/system_services/system_store').get_instance();
 const auth_server = require('../server/common_services/auth_server');
@@ -19,9 +16,6 @@ const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
 const promise_utils = require('../util/promise_utils');
 const config = require('../../config');
-
-
-const ENDPOINT_DNS_CACHE_TTL = 60000;
 
 
 class HostedAgents {
@@ -48,7 +42,6 @@ class HostedAgents {
                         .then(() => {
                             dbg.log0('Started hosted_agents');
                             this._monitor_stats();
-                            this._refresh_hosts_addresses();
                         });
                 }
                 dbg.log1(`What is started may never start`);
@@ -102,43 +95,6 @@ class HostedAgents {
         });
     }
 
-    _refresh_hosts_addresses() {
-        if (os.type() !== 'Linux') return;
-        let resolved_hosts = [];
-        promise_utils.pwhile(() => true, () => {
-            const cloud_endpoints = _.values(this._started_agents)
-                .filter(entry => Boolean(entry.pool.cloud_pool_info))
-                .map(entry => {
-                    const endpoint_host = url.parse(entry.pool.cloud_pool_info.endpoint).host;
-                    if (entry.pool.cloud_pool_info.endpoint_type === 'AZURE') {
-                        return entry.pool.cloud_pool_info.access_keys.access_key + '.' + endpoint_host;
-                    } else {
-                        return endpoint_host;
-                    }
-                });
-            return P.map(cloud_endpoints, endpoint =>
-                    P.fromCallback(callback => dns.resolve4(endpoint, callback))
-                    .then(addresses => ({ endpoint, address: addresses[0] }))
-                    .catch(err => {
-                        dbg.warn(`failed resolving endpoint ${endpoint} with error`, err);
-                        return;
-                    }))
-                .then(hosts => {
-                    dbg.log0(`got these addresses from dns queries:`, hosts);
-                    // filter out unresolved endpoints
-                    resolved_hosts = hosts.filter(Boolean);
-                    let etc_hosts_string = '127.0.0.1\t\tlocalhost localhost.localdomain localhost4 localhost4.localdomain4\n' +
-                        '::1\t\tlocalhost localhost.localdomain localhost6 localhost6.localdomain6\n\n#resolved cloud resources\n';
-                    etc_hosts_string += resolved_hosts.map(host => host.address + '\t\t' + host.endpoint).join('\n');
-                    const tmp_etc_hosts = '/tmp/etc_hosts' + Date.now();
-                    return fs.writeFileAsync(tmp_etc_hosts, etc_hosts_string)
-                        .then(() => fs.renameAsync(tmp_etc_hosts, '/etc/hosts'))
-                        .then(() => dbg.log0('/etc/hosts updated with', resolved_hosts));
-                })
-                .catch(err => dbg.error('got error in _refresh_hosts_addresses:', err))
-                .delay(ENDPOINT_DNS_CACHE_TTL);
-        });
-    }
 
 
     _start_pool_agent(pool) {

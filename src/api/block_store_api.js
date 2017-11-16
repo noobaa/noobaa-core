@@ -94,14 +94,12 @@ module.exports = {
                 properties: {
                     cached_data: {
                         type: 'object',
-                        required: ['block_md', 'data'],
+                        required: ['block_md'],
                         properties: {
                             block_md: {
                                 $ref: 'common_api#/definitions/block_md'
                             },
-                            data: {
-                                buffer: true
-                            },
+                            // [RPC_BUFFERS].data
                         },
                     }
                 }

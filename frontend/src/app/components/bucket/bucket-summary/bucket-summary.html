@@ -67,8 +67,8 @@
             <!-- ko if: selectedView.eq('RAW_USAGE') -->
             <pie-chart class="align-end  push-prev" params="
                 values: rawUsage,
-                primaryText: totalCapacity,
-                secondaryText: 'Total'
+                sumLabel: 'Total',
+                format: 'size'
             "></pie-chart>
             <!-- /ko -->
         </div>

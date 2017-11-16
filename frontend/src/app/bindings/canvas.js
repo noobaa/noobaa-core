@@ -18,6 +18,9 @@ export default {
 
         canvas.width = width;
         canvas.height = height;
+
+        // TODO: Need to draw inside request animation frame while still creating
+        // a dependency on observables touched inside the draw call.
         draw.call(viewModel, canvas.getContext('2d'), { width, height });
     }
 };

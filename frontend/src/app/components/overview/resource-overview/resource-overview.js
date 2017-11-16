@@ -59,8 +59,8 @@ class ResourceOverviewViewModel extends Observer {
         this.hostStorageTooltip= hostStorageTooltip;
         this.poolCount = ko.observable();
         this.hostCount = ko.observable();
-        this.hostPiePrimaryText = ko.observable();
         this.poolsCapacity = ko.observable();
+        this.hostCountFormatter = nodes => stringifyAmount('node', nodes);
         this.hostCounters = [
             {
                 label: 'Healthy',
@@ -107,7 +107,6 @@ class ResourceOverviewViewModel extends Observer {
         // Internal resources observables
         this.internalTooltip = internalTooltip;
         this.internalResourceUsage = ko.observable();
-        this.internalCapacity = ko.observable();
         this.internalCounters = [
             {
                 label: 'Available',
@@ -174,7 +173,6 @@ class ResourceOverviewViewModel extends Observer {
             this.hostCounters[0].value(hostCounters.healthy);
             this.hostCounters[1].value(hostCounters.hasIssues);
             this.hostCounters[2].value(hostCounters.offline);
-            this.hostPiePrimaryText(`${this.hostCount()} Nodes`);
             this.poolsCapacity(formatSize(poolsCapacity));
         }
 
@@ -211,7 +209,6 @@ class ResourceOverviewViewModel extends Observer {
             );
 
             this.internalResourceUsage(usage);
-            this.internalCapacity(formatSize(aggregated.total));
             this.internalCounters[0].value(aggregated.free);
             this.internalCounters[1].value(aggregated.used);
         }

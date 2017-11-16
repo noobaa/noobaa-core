@@ -37,8 +37,9 @@ let ph_proxy_port = argv.ph_proxy_port || 5003;
 
 let errors = [];
 
+
 function saveErrorAndResume(message) {
-    console.log(message);
+    console.error(message);
     errors.push(message);
 }
 // Create an HTTP tunneling proxy
@@ -80,15 +81,15 @@ rsyslog_udp_server.on('message', (msg, rinfo) => {
 });
 
 P.fcall(function() {
-    rpc = api.new_rpc('wss://' + serverName + ':8443');
-    client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
-    return client.create_auth_token(auth_params);
-})
+        rpc = api.new_rpc('wss://' + serverName + ':8443');
+        client = rpc.new_client({});
+        let auth_params = {
+            email: 'demo@noobaa.com',
+            password: 'DeMo1',
+            system: 'demo'
+        };
+        return client.create_auth_token(auth_params);
+    })
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
         secret = result.cluster.shards[0].servers[0].secret;
@@ -116,7 +117,7 @@ P.fcall(function() {
             system: 'demo'
         };
         return client.create_auth_token(auth_params);
-    })//#3216 dns configuration
+    }) //#3216 dns configuration
     .then(() => {
         console.log('Setting DNS', configured_dns);
         return P.resolve(client.cluster_server.update_dns_servers({
@@ -129,8 +130,8 @@ P.fcall(function() {
         let retries = 6;
         let final_result;
         return promise_utils.pwhile(function() {
-            return retries > 0;
-        },
+                return retries > 0;
+            },
             function() {
                 return P.resolve(client.cluster_server.read_server_config({}))
                     .then(res => {
@@ -153,13 +154,31 @@ P.fcall(function() {
             failures_in_test = true;
         }
     })
-    .then(() => P.resolve(client.system.read_system({})))
+    .then(() => {
+        console.log('Waiting on Read system to verify DNS status');
+        let time_waiting = 0;
+        let final_result;
+        return promise_utils.pwhile(function() {
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
+            function() {
+                return P.resolve(client.system.read_system({}))
+                    .then(res => {
+                        if (res.cluster.shards[0].servers[0].services_status.dns_servers) final_result = res;
+                    })
+                    .catch(() => {
+                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
+                        time_waiting += 15;
+                        return P.delay(15000);
+                    });
+            }).then(() => final_result);
+    })
     .then(result => {
         let dns_status = result.cluster.shards[0].servers[0].services_status.dns_servers;
         if (dns_status === 'OPERATIONAL') {
             console.log('The service monitor see the dns status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the dns status as', dns_status, '- failure!!!');
+            saveErrorAndResume('The service monitor see the dns status as' + dns_status + '- failure!!!');
             failures_in_test = true;
         }
     })
@@ -188,7 +207,7 @@ P.fcall(function() {
         if (new_time > old_time + (30 * 60)) {
             console.log('New time moved more then 30 minutes forward', new Date(new_time * 1000), '- as should');
         } else {
-            saveErrorAndResume('New time moved less then 30 minutes forward', new Date(new_time * 1000), '- failure!!!');
+            saveErrorAndResume('New time moved less then 30 minutes forward' + new Date(new_time * 1000) + '- failure!!!');
             failures_in_test = true;
         }
     })
@@ -225,17 +244,34 @@ P.fcall(function() {
             ntp_server: configured_ntp
         }));
     })
-    .delay(10000)
-    .then(() => P.resolve(client.system.read_system({})))
+    .then(() => {
+        console.log('Waiting on Read system to verify NTP status');
+        let time_waiting = 0;
+        let final_result;
+        return promise_utils.pwhile(function() {
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
+            function() {
+                return P.resolve(client.system.read_system({}))
+                    .then(res => {
+                        if (res.cluster.shards[0].servers[0].services_status.ntp_server) final_result = res;
+                    })
+                    .catch(() => {
+                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
+                        time_waiting += 15;
+                        return P.delay(15000);
+                    });
+            }).then(() => final_result);
+    })
     .then(result => {
         let ntp_status = result.cluster.shards[0].servers[0].services_status.ntp_server;
         if (ntp_status === 'OPERATIONAL') {
             console.log('The service monitor see the ntp status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the ntp status as', ntp_status, '- failure!!!');
+            saveErrorAndResume('The service monitor see the ntp status as' + ntp_status + '- failure!!!');
             failures_in_test = true;
         }
-    })// 3559
+    }) // 3559
     .then(() => P.resolve(client.cluster_server.read_server_config({})))
     .then(result => {
         console.log('after setting ntp cluster config is:' + JSON.stringify(result));
@@ -243,7 +279,7 @@ P.fcall(function() {
         if (ntp === configured_ntp) {
             console.log('The defined ntp is', ntp, '- as should');
         } else {
-            saveErrorAndResume('The defined ntp is', ntp, '- failure!!!');
+            saveErrorAndResume('The defined ntp is' + ntp + '- failure!!!');
             failures_in_test = true;
         }
     })
@@ -266,20 +302,21 @@ P.fcall(function() {
     })
     .then(() => phone_home_proxy_server.listen(ph_proxy_port))
     .then(() => promise_utils.pwhile(
-        function() {
-            return !received_phonehome_proxy_connection;
-        },
-        function() {
-            console.warn('Didn\'t get phone home message yet');
-            return P.delay(5000);
-        }).timeout(1 * 60000)
+            function() {
+                return !received_phonehome_proxy_connection;
+            },
+            function() {
+                console.warn('Didn\'t get phone home message yet');
+                return P.delay(5000);
+            }).timeout(1 * 90000)
         .then(() => {
             console.log('Just received phone home message - as should');
         })
         .catch(() => {
             saveErrorAndResume('Didn\'t receive phone home message for 1 minute - failure!!!');
             failures_in_test = true;
-        }))
+        })
+    )
     .delay(10000)
     .then(() => {
         console.log('Doing Read system to verify Proxy settings');
@@ -294,17 +331,31 @@ P.fcall(function() {
             failures_in_test = true;
         }
     })
-    .delay(30000)
     .then(() => {
-        console.log('Doing Read system to verify Proxy settings');
-        return P.resolve(client.system.read_system({}));
+        console.log('Waiting on Read system to verify Proxy status');
+        let time_waiting = 0;
+        let final_result;
+        return promise_utils.pwhile(function() {
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
+            function() {
+                return P.resolve(client.system.read_system({}))
+                    .then(res => {
+                        if (res.cluster.shards[0].servers[0].services_status.phonehome_proxy) final_result = res;
+                    })
+                    .catch(() => {
+                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
+                        time_waiting += 15;
+                        return P.delay(15000);
+                    });
+            }).then(() => final_result);
     })
     .then(res => {
         let ph_status = res.cluster.shards[0].servers[0].services_status.phonehome_proxy;
         if (ph_status === 'OPERATIONAL') {
             console.log('The service monitor see the phone home proxy status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the phone home proxy status as', ph_status, '- failure!!!');
+            saveErrorAndResume('The service monitor see the phone home proxy status as' + ph_status + '- failure!!!');
             failures_in_test = true;
         }
     })
@@ -316,13 +367,13 @@ P.fcall(function() {
     })
     .then(() => phone_home_proxy_server.listen(ph_proxy_port))
     .then(() => promise_utils.pwhile(
-        function() {
-            return !received_phonehome_proxy_connection;
-        },
-        function() {
-            console.warn('Didn\'t get phone home message yet');
-            return P.delay(5000);
-        }).timeout(1 * 60000)
+            function() {
+                return !received_phonehome_proxy_connection;
+            },
+            function() {
+                console.warn('Didn\'t get phone home message yet');
+                return P.delay(5000);
+            }).timeout(1 * 60000)
         .then(() => {
             console.log('Just received phone home message - as should');
         })
@@ -352,7 +403,7 @@ P.fcall(function() {
         if (ph_status === 'OPERATIONAL') {
             console.log('The service monitor see the phone home proxy status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the phone home proxy after disable status as', ph_status, '- failure!!!');
+            saveErrorAndResume('The service monitor see the phone home proxy after disable status as' + ph_status + '- failure!!!');
             failures_in_test = true;
         }
     })
@@ -396,13 +447,31 @@ P.fcall(function() {
             failures_in_test = true;
         }
     })
-    .then(() => P.resolve(client.system.read_system({})))
+    .then(() => {
+        console.log('Waiting on Read system to verify Rsyslog status');
+        let time_waiting = 0;
+        let final_result;
+        return promise_utils.pwhile(function() {
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
+            function() {
+                return P.resolve(client.system.read_system({}))
+                    .then(res => {
+                        if (res.cluster.shards[0].servers[0].services_status.remote_syslog) final_result = res;
+                    })
+                    .catch(() => {
+                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
+                        time_waiting += 15;
+                        return P.delay(15000);
+                    });
+            }).then(() => final_result);
+    })
     .then(result => {
         let syslog_status = result.cluster.shards[0].servers[0].services_status.remote_syslog.status;
         if (syslog_status === 'OPERATIONAL') {
             console.log('The service monitor see the syslog status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the syslog status as', syslog_status, '- failure!!!');
+            saveErrorAndResume('The service monitor see the syslog status as' + syslog_status + '- failure!!!');
             failures_in_test = true;
         }
     })
@@ -446,13 +515,31 @@ P.fcall(function() {
             failures_in_test = true;
         }
     })
-    .then(() => P.resolve(client.system.read_system({})))
+    .then(() => {
+        console.log('Waiting on Read system to verify Rsyslog status');
+        let time_waiting = 0;
+        let final_result;
+        return promise_utils.pwhile(function() {
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
+            function() {
+                return P.resolve(client.system.read_system({}))
+                    .then(res => {
+                        if (res.cluster.shards[0].servers[0].services_status.remote_syslog) final_result = res;
+                    })
+                    .catch(() => {
+                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
+                        time_waiting += 15;
+                        return P.delay(15000);
+                    });
+            }).then(() => final_result);
+    })
     .then(result => {
         let syslog_status = result.cluster.shards[0].servers[0].services_status.remote_syslog.status;
         if (syslog_status === 'OPERATIONAL') {
             console.log('The service monitor see the syslog status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the syslog status as', syslog_status, '- failure!!!');
+            saveErrorAndResume('The service monitor see the syslog status as' + syslog_status + '- failure!!!');
             failures_in_test = true;
         }
     })
@@ -472,6 +559,7 @@ P.fcall(function() {
         }
     })
     .delay(61000)
+    .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
         let mode = result.maintenance_mode.state;
         if (mode === false) {

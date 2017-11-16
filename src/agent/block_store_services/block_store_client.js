@@ -10,6 +10,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
 const config = require('../../../config');
+const { RPC_BUFFERS } = require('../../rpc');
 
 
 class BlockStoreClient {
@@ -47,7 +48,8 @@ class BlockStoreClient {
 
     _delegate_write_block_azure(rpc_client, params, options) {
         const { timeout = config.IO_WRITE_BLOCK_TIMEOUT } = options;
-        const { block_md, data } = params;
+        const { block_md } = params;
+        const data = params[RPC_BUFFERS].data;
         return rpc_client.block_store.delegate_write_block({ block_md, data_length: data.length }, options)
             .catch(err => {
                 dbg.error('failed to get signed access information from cloud agent', err);
@@ -95,7 +97,7 @@ class BlockStoreClient {
                         return rpc_client.block_store.handle_delegator_error({ error }, options);
                     })
                     .then(info => ({
-                        data: buffer_utils.join(writable.buffers, writable.total_length),
+                        [RPC_BUFFERS]: { data: buffer_utils.join(writable.buffers, writable.total_length) },
                         block_md: JSON.parse(Buffer.from(info.metadata.noobaa_block_md, 'base64'))
                     }));
             })
@@ -104,7 +106,8 @@ class BlockStoreClient {
 
     _delegate_write_block_s3(rpc_client, params, options) {
         const { timeout = config.IO_WRITE_BLOCK_TIMEOUT } = options;
-        const { block_md, data } = params;
+        const { block_md } = params;
+        const data = params[RPC_BUFFERS].data;
         return rpc_client.block_store.delegate_write_block({ block_md, data_length: data.length }, options)
             .then(delegation_info => {
                 const { usage, signed_url } = delegation_info;
@@ -154,7 +157,7 @@ class BlockStoreClient {
                     .spread((res, body) => {
                         if (res.statusCode === 200) {
                             const ret = {
-                                data: body,
+                                [RPC_BUFFERS]: { data: body },
                                 block_md: JSON.parse(Buffer.from(res.headers['x-amz-meta-noobaa_block_md'], 'base64'))
                             };
                             return ret;

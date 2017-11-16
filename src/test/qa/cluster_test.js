@@ -83,15 +83,6 @@ let osesSet = [
 
 let oses = [];
 
-function getRandomAgentsOses() {
-    for (let i = 0; i < agents_number; i++) {
-        let rand = Math.floor(Math.random() * osesSet.length);
-        oses.push(osesSet[rand]);
-        osesSet.splice(rand, 1);
-    }
-    console.log('Random oses for creating agents ', oses);
-}
-
 function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
@@ -466,17 +457,11 @@ return azf.authenticate()
     .then(() => createCluster(servers, masterIndex, 2))
     .then(() => delayInSec(90))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
-    .then(getRandomAgentsOses)
-    .then(() => af.createAgentsWithList({
-        azf,
-        server_ip: master_ip,
-        storage,
-        vnet,
-        exclude_drives: undefined,
-        suffix,
-        oses
-    }))
-    .then(verifyS3Server)
+    .then(() => af.createRandomAgents(azf, master_ip, storage, vnet, agents_number, suffix, osesSet))
+    .then(res => {
+        oses = res;
+        return verifyS3Server();
+    })
     .then(() => checkClusterStatus(servers, masterIndex))
     .then(runFirstFlow)
     .then(runSecondFlow)

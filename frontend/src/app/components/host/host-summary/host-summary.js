@@ -5,7 +5,7 @@ import Observer from 'observer';
 import ko from 'knockout';
 import { state$ } from 'state';
 import { isNumber } from 'utils/core-utils';
-import { formatSize, toBytes } from 'utils/size-utils';
+import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import style from 'style';
 import moment from 'moment';
@@ -44,7 +44,6 @@ class HostSummaryViewModel extends Observer {
         this.usedByNoobaaCapacity = ko.observable(0);
         this.usedByOthersCapacity = ko.observable(0);
         this.reservedCapacity = ko.observable(0);
-        this.totalCapacity = ko.observable(0);
         this.pieValues = [
             {
                 label: 'Available',
@@ -117,14 +116,13 @@ class HostSummaryViewModel extends Observer {
         }
 
         { // Update host stroage and usage
-            const { free, unavailableFree, used, usedOther, reserved, total } = host.storage;
+            const { free, unavailableFree, used, usedOther, reserved } = host.storage;
 
             this.availableCapacity(toBytes(free));
             this.unavailableCapacity(toBytes(unavailableFree));
             this.usedByNoobaaCapacity(toBytes(used));
             this.usedByOthersCapacity(toBytes(usedOther));
             this.reservedCapacity(toBytes(reserved));
-            this.totalCapacity(formatSize(total));
         }
 
         { // Update host data activity summary

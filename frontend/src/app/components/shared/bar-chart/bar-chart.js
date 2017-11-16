@@ -3,9 +3,8 @@
 import template from './bar-chart.html';
 import ko from 'knockout';
 import style from 'style';
-import { deepFreeze, echo, isFunction, clamp, isString } from 'utils/core-utils';
-import { formatSize } from 'utils/size-utils';
-import numeral from 'numeral';
+import { deepFreeze, clamp, isString } from 'utils/core-utils';
+import { getFormatter } from 'utils/chart-utils';
 
 const height = 168;
 const minWidth = 168;
@@ -27,12 +26,6 @@ const defaultOptions = deepFreeze({
     background: false,
     format: 'none',
     spacing: gutter / 2
-});
-
-const namedFormats = deepFreeze({
-    none: echo,
-    size: formatSize,
-    percentage: value => numeral(value).format('%')
 });
 
 class BarChartViewModel {
@@ -85,9 +78,7 @@ class BarChartViewModel {
     }
 
     format(value) {
-        const { format = 'none' } = this.options();
-        const formatter = isFunction(format) ? format : namedFormats[format];
-        return formatter(value);
+        return getFormatter(this.options().format)(value);
     }
 
     calcCanvasWidth(barCount, spacing) {

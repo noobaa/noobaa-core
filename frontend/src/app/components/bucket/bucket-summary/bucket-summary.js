@@ -57,7 +57,6 @@ class BucketSummrayViewModel extends Observer {
         this.lastAccess = ko.observable();
         this.chartValues = ko.observableArray();
         this.legendCss = ko.observable();
-        this.totalCapacity = ko.observable();
         this.lastRawUsageTime = ko.observable();
         this.lastDataUsageTime = ko.observable();
 
@@ -210,7 +209,6 @@ class BucketSummrayViewModel extends Observer {
         this.rawUsage[2].value(toBytes(storage.used));
         this.rawUsage[3].value(toBytes(storage.usedOther));
         this.lastDataUsageTime(lastDataUsageTime);
-        this.totalCapacity(formatSize(storage.total));
         this.lastAccess(lastAccessText);
         this.bucketLoaded(true);
         this.chartValues(chartValues);

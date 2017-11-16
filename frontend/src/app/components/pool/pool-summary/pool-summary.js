@@ -6,7 +6,7 @@ import { state$ } from 'state';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { isNumber } from 'utils/core-utils';
-import { toBytes, formatSize } from 'utils/size-utils';
+import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getHostsPoolStateIcon } from 'utils/resource-utils';
 import { getActivityName, formatActivityListTooltipHtml } from 'utils/host-utils';
@@ -44,7 +44,6 @@ class PoolSummaryViewModel extends Observer {
         ];
 
         // Capacity observables.
-        this.totalCapacity = ko.observable();
         this.availableCapacity = ko.observable();
         this.unavailableCapacity = ko.observable();
         this.usedByNoobaaCapacity = ko.observable();
@@ -125,7 +124,6 @@ class PoolSummaryViewModel extends Observer {
 
         { // Update pool stroage and usage
             const { total, free, unavailableFree, used, usedOther, reserved } = storage;
-            this.totalCapacity(formatSize(total));
             this.availableCapacity(toBytes(free));
             this.unavailableCapacity(toBytes(unavailableFree));
             this.usedByNoobaaCapacity(toBytes(used));

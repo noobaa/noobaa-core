@@ -19,7 +19,8 @@ const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-let stopped_agents = [];
+const suffix = 'replica';
+let stopped_oses = [];
 let failures_in_test = false;
 let errors = [];
 let files = [];
@@ -186,16 +187,16 @@ function clean_up_dataset() {
 }
 
 return azf.authenticate()
-    .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, [], osesSet))
+    .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {
         oses = res;
         //Create a dataset on it (1 GB per agent)
         return uploadAndVerifyFiles(agents_number);
     })
     //Power down agents (random number between 1 to the max amount)
-    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, oses))
+    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses))
     .then(res => {
-        stopped_agents = res;
+        stopped_oses = res;
         //waiting for rebuild files by chunks and parts
         return P.each(files, file => waitForRebuildObjects(file));
     })
@@ -210,11 +211,11 @@ return azf.authenticate()
         })))
     .then(readFiles)
     //Power on the powered off agents and wait for them to be on
-    .then(() => af.startOfflineAgents(azf, server_ip, stopped_agents))
+    .then(() => af.startOfflineAgents(azf, server_ip, suffix, stopped_oses))
     //Power down agents (random number between 1 to the max amount)
-    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, oses))
+    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses))
     .then(res => {
-        stopped_agents = res;
+        stopped_oses = res;
         //waiting for rebuild files by chunks and parts
         return P.each(files, file => waitForRebuildObjects(file));
     })
@@ -232,7 +233,7 @@ return azf.authenticate()
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;
     })
-    .finally(() => af.clean_agents(azf, oses)
+    .finally(() => af.clean_agents(azf, oses, suffix)
         .then(clean_up_dataset))
     .then(() => {
         if (failures_in_test) {

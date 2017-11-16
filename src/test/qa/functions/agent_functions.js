@@ -297,14 +297,14 @@ function getRandomOsesFromList(amount, oses) {
     return listOses;
 }
 
-function stopRandomAgents(azf, server_ip, amount, oses) {
+function stopRandomAgents(azf, server_ip, amount, suffix, oses) {
     let offlineAgents;
     let stopped_agents = [];
     return number_offline_nodes(server_ip)
         .then(res => {
             offlineAgents = res;
             stopped_agents = getRandomOsesFromList(amount, oses);
-            return P.each(stopped_agents, agent => stop_agent(azf, agent));
+            return P.each(stopped_agents, agent => stop_agent(azf, agent + suffix));
         })
         .then(() => number_offline_nodes(server_ip))
         .then(res => {
@@ -316,7 +316,7 @@ function stopRandomAgents(azf, server_ip, amount, oses) {
                 console.error('After switched off agent number offline is ', offlineAgentsAfter, ' instead ', offlineExpected);
             }
         })
-        .then(() => list_optimal_agents(server_ip, oses))
+        .then(() => list_optimal_agents(server_ip, oses, suffix))
         .then(res => {
             const onlineAgents = res.length;
             const expectedOnlineAgents = oses.length - amount;
@@ -348,12 +348,13 @@ function waitForAgentsAmount(server_ip, numberAgents) {
             .delay(5000));
 }
 
-function startOfflineAgents(azf, server_ip, oses) {
+function startOfflineAgents(azf, server_ip, suffix, oses) {
     let agentsExpected;
+    let agentName = oses + suffix;
     return list_nodes(server_ip)
         .then(res => {
             agentsExpected = res.length + oses.length;
-            return P.each(oses, agent => start_agent(azf, agent));
+            return P.each(oses, agent => start_agent(azf, agentName));
         })
         .then(() => waitForAgentsAmount(server_ip, agentsExpected))
         .then(() => list_nodes(server_ip))
@@ -367,9 +368,10 @@ function startOfflineAgents(azf, server_ip, oses) {
         });
 }
 
-function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, exclude_drives = [], oses) {
+function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suffix, oses) {
+    let exclude_drives = [];
     let createdAgents = getRandomOsesFromList(amount, oses);
-    return createAgents(azf, server_ip, storage, resource_vnet, exclude_drives, createdAgents)
+    return createAgents(azf, server_ip, storage, resource_vnet, exclude_drives, suffix, createdAgents)
         .then(() => list_nodes(server_ip)
             .then(res => {
                 let node_number_after_create = res.length;

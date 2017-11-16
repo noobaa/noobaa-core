@@ -457,7 +457,7 @@ return azf.authenticate()
     .then(() => createCluster(servers, masterIndex, 2))
     .then(() => delayInSec(90))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
-    .then(() => af.createRandomAgents(azf, master_ip, storage, vnet, agents_number, [], osesSet))
+    .then(() => af.createRandomAgents(azf, master_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {
         oses = res;
         return verifyS3Server();

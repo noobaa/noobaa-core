@@ -12,6 +12,8 @@ import cloudTargets from './cloud-targets';
 import storageHistory from './storage-history';
 import topology from './topology';
 import system from './system';
+import notifications from './notifications';
+import alerts from './alerts';
 import state from './state.js';
 
 const schemas = {
@@ -27,6 +29,8 @@ const schemas = {
     storageHistory,
     topology,
     system,
+    notifications,
+    alerts,
     state
 };
 

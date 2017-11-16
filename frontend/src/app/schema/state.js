@@ -34,6 +34,12 @@ export default {
         },
         system: {
             $ref: '#/def/system'
+        },
+        notifications: {
+            $ref: '#/def/notifications'
+        },
+        alerts: {
+            $ref: '#/def/alerts'
         }
     }
 };

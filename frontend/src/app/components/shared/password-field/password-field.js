@@ -35,11 +35,14 @@ class PasswordFieldViewModel {
             () => iconMapping[this.type()].tooltip
         );
 
-        this.isStrengthVisible = isFunction(strengthCalc);
+        this.isStrengthVisible = ko.pureComputed(
+            () => isFunction(strengthCalc) && ko.unwrap(value)
+        );
+
         this.passwordStrength = ko.pureComputed (
             () => {
                 let naked = ko.unwrap(value);
-                return (this.isStrengthVisible && naked) ? strengthCalc(naked) : 0;
+                return (this.isStrengthVisible()) ? strengthCalc(naked) : 0;
             }
         ).extend({
             tween: {

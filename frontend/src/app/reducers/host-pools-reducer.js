@@ -24,26 +24,28 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 // Local util functions
 // ------------------------------
 function _mapPoolsToBuckets(buckets, tiers) {
-    const dataBuckets = buckets.filter(bucket => bucket.bucket_type === 'REGULAR');
-
     const bucketsByTierName = keyBy(
-        dataBuckets,
-        bucket => bucket.tiering.tiers[0].tier,
-        bucket => bucket.name
+        buckets,
+        bucket => bucket.tiering.tiers[0].tier
     );
 
+    const relevantTiers = tiers
+        .filter(tier =>
+            bucketsByTierName[tier.name] && bucketsByTierName[tier.name].bucket_type === 'REGULAR'
+        );
+
     const pairs = flatMap(
-        tiers,
+        relevantTiers,
         tier => tier.attached_pools.map(pool => ({
             bucket: bucketsByTierName[tier.name],
             pool
-        })).filter(item => Boolean(item.bucket))
+        }))
     );
 
     return groupBy(
         pairs,
         pair => pair.pool,
-        pair => pair.bucket
+        pair => pair.bucket.name
     );
 }
 

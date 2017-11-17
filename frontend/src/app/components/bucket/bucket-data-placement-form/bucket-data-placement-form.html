@@ -35,7 +35,23 @@
         data: placementRows,
         loading: !infoLoaded(),
         emptyMessage: 'No resources participate in policy'
-    "></data-table>
+    ">
+        <template name="resourceName">
+            <!-- ko ifnot: $data().href  -->
+            <span class="remark cell-tooltip"
+                  ko.text="$data().text"
+                  ko.tooltip="$data().tooltip"
+            ></span>
+            <!-- /ko -->
+            <!-- ko if: $data().href -->
+            <a class="link cell-tooltip"
+               ko.attr.href="$data().href"
+               ko.text="$data().text"
+               ko.tooltip="$data().tooltip"
+            ></a>
+            <!-- /ko -->
+        </template>
+    </data-table>
 </section>
 
 <section class="column greedy">

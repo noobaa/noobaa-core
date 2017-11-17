@@ -24,7 +24,7 @@ const placementColumns = deepFreeze([
     },
     {
         name: 'resourceName',
-        type: 'newLink'
+        type: 'resourceName'
     },
     {
         name: 'onlineHostCount',

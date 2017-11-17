@@ -43,13 +43,13 @@ export default class PlacementRowViewModel {
         const { hostCount, hostsByMode } = pool;
         const onlineHostCount = numeral(hostCount - (hostsByMode.OFFLINE || 0)).format('0,0');
         const poolUri = realizeUri(routes.pool, { system, pool: pool.name });
-
-        this.resourceName({
+        const resourceName = {
             text: pool.name,
-            tooltip: pool.name,
+            tooltip: { text: pool.name, breakWords: true },
             href: poolUri
-        });
+        };
 
+        this.resourceName(resourceName);
         this.state(getHostsPoolStateIcon(pool));
         this.type(nodesPoolType);
         this.onlineHostCount(onlineHostCount);
@@ -60,7 +60,12 @@ export default class PlacementRowViewModel {
     }
 
     _onCloudResource(resource, bucketUsage) {
-        this.resourceName(resource.name);
+        const resourceName = {
+            text: resource.name,
+            tooltip: { text: resource.name, breakWords: true }
+        };
+
+        this.resourceName(resourceName);
         this.state(getCloudResourceStateIcon(resource));
         this.type(getCloudResourceTypeIcon(resource));
         this.onlineHostCount('---');

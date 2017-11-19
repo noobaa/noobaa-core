@@ -135,7 +135,7 @@ function createAgents(isInclude, excludeList) {
         .then(() => {
             if (isInclude) {
                 return P.map(oses, osname => azf.createAgent({
-                    vmName: osname + '_' + testName,
+                    vmName: osname,
                     storage,
                     vnet,
                     os: azf.getImagesfromOSname(osname),

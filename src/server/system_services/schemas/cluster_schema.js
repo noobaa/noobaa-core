@@ -111,11 +111,35 @@ module.exports = {
                 },
                 status: {
                     type: 'string',
-                    enum: ['PENDING', 'FAILED', 'CAN_UPGRADE', 'DB_READY', 'COMPLETED']
+                    enum: [
+                        'PENDING',
+                        'FAILED',
+                        'CAN_UPGRADE',
+                        'UPGRADING',
+                        'COMPLETED',
+                        'PRE_UPGRADE_PENDING',
+                        'PRE_UPGRADE_READY'
+                    ]
+                },
+                stage: {
+                    type: 'string',
+                    enum: ['DB_READY']
                 },
                 error: {
                     type: 'string'
                 },
+                initiator_email: {
+                    type: 'string'
+                },
+                tested_date: {
+                    idate: true
+                },
+                staged_package: {
+                    type: 'string'
+                },
+                package_uploaded: {
+                    idate: true
+                }
             },
         },
 

@@ -646,19 +646,12 @@ module.exports = {
                 upgrade: {
                     type: 'object',
                     properties: {
-                        status: {
-                            type: 'string',
-                            enum: ['CAN_UPGRADE', 'FAILED', 'PENDING', 'UNAVAILABLE']
-                        },
-                        message: {
-                            type: 'string',
-                        },
                         last_upgrade: {
                             idate: true
                         },
-                        unavailable: {
+                        can_upload_upgrade_package: {
                             type: 'string',
-                            enum: ['NOT_ALL_MEMBERS_UP', 'NOT_ENOUGH_SPACE']
+                            enum: ['NOT_ALL_MEMBERS_UP', 'NOT_ENOUGH_SPACE', 'CAN_UPLOAD_PACKAGE']
                         }
                     },
                 },
@@ -825,7 +818,49 @@ module.exports = {
                 },
                 services_status: {
                     $ref: '#/definitions/services_status'
-                }
+                },
+                upgrade: {
+                    type: 'object',
+                    properties: {
+                        path: {
+                            type: 'string'
+                        },
+                        mongo_upgrade: {
+                            type: 'boolean'
+                        },
+                        status: {
+                            type: 'string',
+                            enum: [
+                                'PENDING',
+                                'FAILED',
+                                'CAN_UPGRADE',
+                                'UPGRADING',
+                                'COMPLETED',
+                                'PRE_UPGRADE_PENDING',
+                                'PRE_UPGRADE_READY'
+                            ]
+                        },
+                        stage: {
+                            type: 'string',
+                            enum: ['DB_READY']
+                        },
+                        error: {
+                            type: 'string'
+                        },
+                        initiator_email: {
+                            type: 'string'
+                        },
+                        tested_date: {
+                            idate: true
+                        },
+                        staged_package: {
+                            type: 'string'
+                        },
+                        package_uploaded: {
+                            idate: true
+                        },
+                    },
+                },
             }
         },
 

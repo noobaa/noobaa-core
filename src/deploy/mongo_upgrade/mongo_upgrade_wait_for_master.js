@@ -31,7 +31,7 @@ function sync_cluster_upgrade() {
             owner_secret: param_secret
         }, {
             $set: {
-                "upgrade.status": "DB_READY"
+                "upgrade.stage": "DB_READY"
             }
         });
         var max_iterations = 400; // ~1 hour (multiplied with the 10 seconds sleep)
@@ -66,7 +66,9 @@ function mark_completed() {
         owner_secret: param_secret
     }, {
         $set: {
-            "upgrade.status": "COMPLETED"
+            upgrade: {
+                status: 'COMPLETED'
+            }
         }
     });
 }

@@ -40,10 +40,11 @@ const config = require('../../config.js');
 const license_info = require('./license_info');
 const mongo_client = require('../util/mongo_client');
 const system_store = require('./system_services/system_store').get_instance();
-const upgrade_utils = require('../upgrade/upgrade_utils');
 const SupervisorCtl = require('./utils/supervisor_ctrl');
+const cutil = require('./utils/clustering_utils');
 const system_server = require('./system_services/system_server');
 const account_server = require('./system_services/account_server');
+const auth_server = require('./common_services/auth_server');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -187,35 +188,6 @@ app.use(express_compress());
 ////////////
 
 // setup pages
-
-app.post('/upgrade',
-    multer({
-        storage: multer.diskStorage({
-            destination: function(req, file, cb) {
-                cb(null, '/tmp');
-            },
-            filename: function(req, file, cb) {
-                dbg.log0('UPGRADE upload', file);
-                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname.replace(/ /g, ''));
-            }
-        })
-    })
-    .single('upgrade_file'),
-    function(req, res) {
-        const upgrade_file = req.file;
-        return upgrade_utils.test_major_version_change(upgrade_file.path)
-            .then(() => {
-                dbg.log0('got upgrade file:', upgrade_file, 'calling cluster.upgrade_cluster()');
-                server_rpc.client.cluster_internal.upgrade_cluster({
-                    filepath: upgrade_file.path
-                });
-                res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
-            })
-            .catch(err => {
-                res.status(500).send(err.message);
-            });
-    });
-
 app.post('/upload_certificate',
     multer({
         storage: multer.diskStorage({
@@ -245,7 +217,27 @@ app.post('/upload_certificate',
     }
 );
 
-app.post('/upload_package',
+app.post('/upload_package', function(req, res, next) {
+        if (!system_store.is_finished_initial_load) res.status(503).end();
+        const system = system_store.data.systems[0];
+        if (!system) {
+            dbg.log0(`/upload_package without system returning error`);
+            res.status(503).end();
+        }
+
+        const curr_server = system_store.get_local_cluster_info();
+        dbg.log0('/upload_package returning', system);
+        const NOT_ALLOW_TO_UPLOAD_IN_MODES = [
+            'PENDING',
+            'UPGRADING',
+            'PRE_UPGRADE_PENDING',
+            'PRE_UPGRADE_READY'
+        ];
+        if (_.includes(NOT_ALLOW_TO_UPLOAD_IN_MODES, curr_server.upgrade.status)) {
+            res.status(503).end();
+        }
+        next();
+    },
     multer({
         storage: multer.diskStorage({
             destination: function(req, file, cb) {
@@ -262,7 +254,44 @@ app.post('/upload_package',
         var upgrade_file = req.file;
         server_rpc.client.cluster_internal.member_pre_upgrade({
             filepath: upgrade_file.path,
-            mongo_upgrade: false
+            mongo_upgrade: false,
+            stage: 'UPLOAD_STAGE'
+        }); //Async
+        res.end('<html><head></head>Upgrade file uploaded successfully');
+    });
+
+app.post('/upgrade', function(req, res, next) {
+        if (!system_store.is_finished_initial_load) res.status(503).end();
+        const system = system_store.data.systems[0];
+        if (!system) {
+            dbg.log0(`/upgrade without system returning error`);
+            res.status(503).end();
+        }
+
+        const can_upload = cutil.can_upload_package_in_cluster();
+        dbg.log0('/upgrade returning', system, can_upload);
+
+        if (!can_upload) {
+            res.status(503).end();
+        }
+        next();
+    },
+    multer({
+        storage: multer.diskStorage({
+            destination: function(req, file, cb) {
+                cb(null, '/tmp');
+            },
+            filename: function(req, file, cb) {
+                dbg.log0('UPGRADE upload', file);
+                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname);
+            }
+        })
+    })
+    .single('upgrade_file'),
+    function(req, res) {
+        var upgrade_file = req.file;
+        server_rpc.client.cluster_internal.cluster_pre_upgrade({
+            filepath: upgrade_file.path,
         }); //Async
         res.end('<html><head></head>Upgrade file uploaded successfully');
     });
@@ -347,9 +376,20 @@ app.get('/version', function(req, res) {
 
     return (server_rpc.client.cluster_internal.get_upgrade_status())
         .then(status => {
-            if (started && registered && !status.in_process) {
-                return server_rpc.client.account.accounts_status(undefined, {
-                        address: 'http://127.0.0.1:' + http_port
+            if (started && registered && !status.in_process &&
+                system_store.is_finished_initial_load) {
+                const system = system_store.data.systems[0];
+                if (!system) {
+                    dbg.log0(`/version without system returning ${pkg.version}, service registered and upgrade is not in progress`);
+                    res.send(pkg.version);
+                    res.end();
+                }
+                return server_rpc.client.system.read_system({}, {
+                        address: 'http://127.0.0.1:' + http_port,
+                        auth_token: auth_server.make_auth_token({
+                            system_id: system._id,
+                            role: 'admin',
+                        })
                     })
                     .then(sys => {
                         dbg.log0(`/version returning ${pkg.version}, service registered and upgrade is not in progress`);

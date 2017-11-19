@@ -38,6 +38,22 @@ module.exports = {
             }
         },
 
+        change_upgrade_status: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                // required: ['secret'],
+                properties: {
+                    secret: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
         add_memeber_to_cluster: {
             method: 'POST',
             params: {

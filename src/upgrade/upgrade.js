@@ -114,81 +114,6 @@ function disable_supervisord() {
         });
 }
 
-function packages_upgrade() {
-    dbg.log0(`fix SCL issue (centos-release-SCL)`);
-    return promise_utils.exec(`yum -y remove centos-release-SCL`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        })
-        .then(() => {
-            dbg.log0('packages_upgrade: Removed centos-release-SCL');
-        })
-        .then(() => promise_utils.exec(`cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => promise_utils.exec(`cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/RPM-GPG-KEY-Adiscon ${CORE_DIR}/src/deploy/NVA_build/RPM-GPG-KEY-Adiscon`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => promise_utils.exec(`yum update rsyslog -y`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('packages_upgrade: Updated rsyslog');
-        })
-        .then(() => promise_utils.exec(`yum -y install centos-release-scl`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('packages_upgrade: Installed centos-release-scl');
-        })
-        .then(() => {
-            const packages_to_install = [
-                'sudo',
-                'lsof',
-                'wget',
-                'curl',
-                'ntp',
-                'rsyslog',
-                'cronie',
-                'openssh-server',
-                'dialog',
-                'expect',
-                'nc',
-                'tcpdump',
-                'iperf',
-                'iperf3',
-                'python-setuptools',
-                'bind-utils',
-                'bind',
-                'screen',
-                'strace',
-                'vim'
-            ];
-            dbg.log0(`install additional packages`);
-            return promise_utils.exec(`yum install -y ${packages_to_install.join(' ')}`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                })
-                .then(res => {
-                    dbg.log0(res);
-                });
-        })
-        .catch(err => {
-            dbg.error('packages_upgrade: Failure', err);
-            throw err;
-        });
-}
-
 function mongo_upgrade() {
     dbg.log0('mongo_upgrade: Called');
     let secret;
@@ -284,44 +209,6 @@ function mongo_upgrade() {
         });
 }
 
-function extract_package() {
-    dbg.log0('extract_package: Called');
-    // Clean previous extracted package
-    return fs_utils.create_fresh_path(EXTRACTION_PATH)
-        .then(() => {
-            dbg.log0(`extract_package: Path ${EXTRACTION_PATH} was created`);
-        })
-        .then(() => promise_utils.exec(`cp ${TMP_PATH}/${PACKAGE_FILE_NAME} ${EXTRACTION_PATH}`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(function() {
-            return promise_utils.exec(`cd ${EXTRACTION_PATH}/;tar -xzvf ${EXTRACTION_PATH}/${PACKAGE_FILE_NAME} >& /dev/null`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                })
-                .then(res => {
-                    dbg.log0(`extract_package: ${EXTRACTION_PATH}/${PACKAGE_FILE_NAME} was extracted`, res);
-                })
-                .catch(function(err) {
-                    dbg.error(`Corrupted package file, could not open`, err);
-                    return fs_utils.folder_delete(EXTRACTION_PATH)
-                        .finally(() => {
-                            throw new Error(`extract_package: Corrupted package file, could not open`);
-                        });
-                });
-        })
-        .then(() => {
-            dbg.log0('extract_package: Success');
-        })
-        .catch(err => {
-            dbg.error('extract_package: Failure', err);
-            throw err;
-        });
-}
-
 function do_upgrade() {
     dbg.log0('do_upgrade: Called', argv);
     let upgrade_wrapper;
@@ -331,8 +218,7 @@ function do_upgrade() {
         return P.reject(`do_upgrade: Could not require ${WRAPPER_FILE_NAME}`);
     }
     // #Update packages before we stop services, minimize downtime, limit run time for yum update so it won't get stuck
-    return packages_upgrade()
-        .timeout(360000, 'do_upgrade: packages_upgrade timeout')
+    return P.resolve()
         .then(() => disable_supervisord())
         .then(() => {
             dbg.log0(`do_upgrade: Running pre upgrade`);
@@ -463,12 +349,7 @@ function run_upgrade() {
                     var stdout;
                     var stderr;
                     dbg.log0(`upgrade.js called for package extraction`);
-                    return promise_utils.exec(`cp -f ${argv.from_file} ${TMP_PATH}/${PACKAGE_FILE_NAME}`, {
-                            ignore_rc: false,
-                            return_stdout: true,
-                            trim_stdout: true
-                        })
-                        .then(() => extract_package())
+                    return P.resolve()
                         .then(() => {
                             var fname = '/var/log/noobaa_deploy_out_' + argv.fsuffix + '.log';
                             stdout = fs.openSync(fname, 'a');

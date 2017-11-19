@@ -64,6 +64,9 @@ function publish_fe_notifications(req) {
         )
         .then(() => {
             dbg.log3('published');
+        })
+        .catch(err => {
+            dbg.error('could not publish', err);
         });
 }
 

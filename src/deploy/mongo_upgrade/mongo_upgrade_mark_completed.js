@@ -32,8 +32,17 @@ function mongo_upgrade_mark_completed() {
         owner_secret: param_secret
     }, {
         $set: {
-            "upgrade.status": "COMPLETED"
+            upgrade: {
+                status: 'COMPLETED',
+            }
         }
     });
+
+    db.systems.update({}, {
+        $set: {
+            upgrade_date: Date.now()
+        }
+    });
+
     print('\nMONGO UPGRADE MARK COMPLETED - DONE.');
 }

@@ -143,16 +143,10 @@ function new_system_defaults(name, owner_account_id) {
             udp_port: true,
         },
         debug_level: 0,
-        upgrade: {
-            path: '',
-            status: 'UNAVAILABLE',
-            error: '',
-        },
         mongo_upgrade: {
             blocks_to_buckets: true
         },
         last_stats_report: 0,
-        upgrade_date: Date.now(),
         freemium_cap: {
             phone_home_upgraded: false,
             phone_home_notified: false,
@@ -429,6 +423,7 @@ function read_system(req) {
         deletable_buckets,
         rs_status
     }) => {
+        const cluster_info = cutil.get_cluster_info(rs_status);
         const objects_sys = {
             count: size_utils.BigInteger.zero,
             size: size_utils.BigInteger.zero,
@@ -444,11 +439,6 @@ function read_system(req) {
         const n2n_config = system.n2n_config;
         const debug_level = system.debug_level;
 
-        const upgrade = {
-            last_upgrade: system.upgrade_date || undefined,
-            status: system.upgrade ? system.upgrade.status : 'UNAVAILABLE',
-            message: system.upgrade ? system.upgrade.error : undefined
-        };
         const maintenance_mode = {
             state: system_utils.system_in_maintenance(system._id)
         };
@@ -529,20 +519,14 @@ function read_system(req) {
             phone_home_config: phone_home_config,
             version: pkg.version,
             debug_level: debug_level,
-            upgrade: upgrade,
             system_cap: system_cap,
             has_ssl_cert: has_ssl_cert,
+            cluster: cluster_info,
+            upgrade: {
+                last_upgrade: system.upgrade_date,
+                can_upload_upgrade_package: _get_upgrade_availability_status(cluster_info)
+            }
         };
-
-        // fill cluster information if we have a cluster.
-        const cluster_info = cutil.get_cluster_info(rs_status);
-        response.cluster = cluster_info;
-        const all_connected = _.every(cluster_info.shards[0].servers, server => server.status === 'CONNECTED'); // must be connected
-        const enough_disk = _.every(cluster_info.shards[0].servers, server => server.storage.free > 3 * 1024 * 1024 * 1024); // must have at least 3GB free
-        response.upgrade.unavailable =
-            (!all_connected && 'NOT_ALL_MEMBERS_UP') ||
-            (!enough_disk && 'NOT_ENOUGH_SPACE') ||
-            undefined;
 
         const res = _get_ip_and_dns(system);
         response.ip_address = res.ip_address;
@@ -553,6 +537,16 @@ function read_system(req) {
     });
 }
 
+function _get_upgrade_availability_status(cluster_info) {
+    // fill cluster information if we have a cluster.
+    const all_connected = _.every(cluster_info.shards[0].servers, server => server.status === 'CONNECTED'); // must be connected
+    const enough_disk = _.every(cluster_info.shards[0].servers, server => server.storage.free > 300 * 1024 * 1024); // must have at least 300MB free
+    return (
+        (!all_connected && 'NOT_ALL_MEMBERS_UP') ||
+        (!enough_disk && 'NOT_ENOUGH_SPACE') ||
+        'CAN_UPLOAD_PACKAGE'
+    );
+}
 
 function update_system(req) {
     var updates = _.pick(req.rpc_params, 'name');

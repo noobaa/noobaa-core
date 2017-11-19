@@ -286,6 +286,9 @@ config.SERVER_MIN_REQUIREMENTS = {
     CPU_COUNT: 8
 };
 
+// TODO: Maybe we should change that value to something else?
+config.MIN_MEMORY_FOR_UPGRADE = 5 * 1024 * 1024 * 1024;
+
 //////////////////////////////
 // ALERTING & EVENTS CONFIG //
 //////////////////////////////

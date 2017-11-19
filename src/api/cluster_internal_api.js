@@ -278,17 +278,8 @@ module.exports = {
 
         upgrade_cluster: {
             method: 'POST',
-            params: {
-                type: 'object',
-                required: ['filepath'],
-                properties: {
-                    filepath: {
-                        type: 'string'
-                    }
-                }
-            },
             auth: {
-                system: false,
+                system: 'admin',
             }
         },
 
@@ -303,6 +294,29 @@ module.exports = {
                     },
                     mongo_upgrade: {
                         type: 'boolean'
+                    },
+                    stage: {
+                        type: 'string',
+                        enum: [
+                            'UPGRADE_STAGE',
+                            'UPLOAD_STAGE',
+                            'RETEST_STAGE'
+                        ]
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+
+        cluster_pre_upgrade: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    filepath: {
+                        type: 'string'
                     }
                 }
             },

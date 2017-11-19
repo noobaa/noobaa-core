@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 2000] */
+/* eslint max-lines: ['error', 2500] */
 'use strict';
 
 const DEV_MODE = (process.env.DEV_MODE === 'true');
@@ -31,7 +31,6 @@ const net_utils = require('../../util/net_utils');
 const upgrade_utils = require('../../upgrade/upgrade_utils');
 const phone_home_utils = require('../../util/phone_home');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
-
 
 // TODO: maybe we need to change it to use upgrade status in DB.
 // currently use this memory only flag to indicate if upgrade is still in process
@@ -79,8 +78,10 @@ function new_cluster_info(params) {
                     }],
                 }],
                 config_servers: [],
+                upgrade: {
+                    status: 'COMPLETED',
+                }
             };
-
             return cluster;
         })
         .then(cluster => _attach_server_configuration(cluster));
@@ -96,7 +97,6 @@ function add_member_to_cluster(req) {
         throw new Error('Already in process of adding a member to the cluster');
     }
     add_member_in_process = true;
-
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
 
@@ -178,7 +178,6 @@ function add_member_to_cluster_invoke(req, my_address) {
             if (!is_clusterized) {
                 dbg.log0('Current server is first on cluster and has single mongo running, updating');
                 return _initiate_replica_set('shard1');
-
                 //TODO:: when adding shard, the first server should also have its single mongo replaced to shard
                 /*return _add_new_shard_on_server('shard1', myip, {
                     first_shard: true,
@@ -379,7 +378,6 @@ function get_version(req) {
 function join_to_cluster(req) {
     dbg.log0('Got join_to_cluster request with topology', cutil.pretty_topology(req.rpc_params.topology),
         'existing topology is:', cutil.pretty_topology(cutil.get_topology()));
-
     return P.resolve()
         .then(() => _verify_join_preconditons(req)
             .catch(err => {
@@ -479,7 +477,6 @@ function join_to_cluster(req) {
         .return();
 }
 
-
 function verify_new_ip(req) {
     const address = server_rpc.get_base_address(req.rpc_params.address);
     console.log('verify_new_ip', address);
@@ -517,7 +514,6 @@ function verify_new_ip(req) {
 function update_member_of_cluster(req) {
     let topology = cutil.get_topology();
     const is_clusterized = topology.is_clusterized;
-
     // Shouldn't do anything if there is not cluster
     if (!(is_clusterized && system_store.is_cluster_master)) {
         dbg.log0(`update_member_of_cluster: is_clusterized:${is_clusterized}, 
@@ -607,7 +603,6 @@ function news_config_servers(req) {
     dbg.log0('Recieved news: news_config_servers', cutil.pretty_topology(req.rpc_params));
     //Verify we recieved news on the cluster we are joined to
     cutil.verify_cluster_id(req.rpc_params.cluster_id);
-
     //If config servers changed, update
     //Only the first server in the cfg array does so
     return P.resolve(_update_rs_if_needed(req.rpc_params.IPs, config.MONGO_DEFAULTS.CFG_RSET_NAME, true))
@@ -621,7 +616,6 @@ function news_config_servers(req) {
                 MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
                     cutil.get_topology().config_servers
                 ))
-
                 //TODO:: Update connection string for our mongo connections, currently only seems needed for
                 //Replica sets =>
                 //Need to close current connections and re-open (bg_worker, all webservers)
@@ -646,7 +640,6 @@ function news_updated_topology(req) {
     };
     //Verify we recieved news on the cluster we are joined to
     cutil.verify_cluster_id(req.rpc_params.new_topology.cluster_id);
-
     if (req.rpc_params.cluster_member_edit) {
         const current_clustering = system_store.get_local_cluster_info();
         if (String(current_clustering.owner_address) ===
@@ -1148,12 +1141,12 @@ function member_pre_upgrade(req) {
         'this server should not preform mongo_upgrade');
     let server = system_store.get_local_cluster_info(); //Update path in DB
     dbg.log0('update upgrade for server: ', cutil.get_cluster_info().owner_address);
-    let upgrade = {
+    let upgrade = _.omitBy({
         path: req.rpc_params.filepath,
         mongo_upgrade: req.rpc_params.mongo_upgrade,
-        status: 'PENDING',
-        error: ''
-    };
+        status: req.rpc_params.stage !== 'UPGRADE_STAGE' ? 'PENDING' : 'PRE_UPGRADE_PENDING',
+        package_uploaded: req.rpc_params.stage === 'UPLOAD_STAGE' ? Date.now() : server.upgrade.package_uploaded
+    }, _.isUndefined);
 
     dbg.log0('UPGRADE:', 'updating cluster for server._id', server._id, 'with upgrade =', upgrade);
 
@@ -1165,16 +1158,27 @@ function member_pre_upgrade(req) {
                 }]
             }
         })
-        .then(() => upgrade_utils.pre_upgrade())
+        .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'))
+        .then(() => upgrade_utils.pre_upgrade({
+            upgrade_path: upgrade.path,
+            testing_stage: Boolean(req.rpc_params.stage !== 'UPGRADE_STAGE')
+        }))
         .then(res => {
             //Update result of pre_upgrade and message in DB
             if (res.result) {
                 dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to CAN_UPGRADE');
-                upgrade.status = 'CAN_UPGRADE';
+                upgrade.status = req.rpc_params.stage === 'UPGRADE_STAGE' ? 'PRE_UPGRADE_READY' : 'CAN_UPGRADE';
             } else {
                 dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to FAILED');
                 upgrade.status = 'FAILED';
-                upgrade.error = res.message;
+                dbg.error('UPGRADE HAD ERROR: ', res.error);
+                // TODO: Change that shit to more suitable error handler
+                upgrade.error = res.error;
+            }
+
+            if (req.rpc_params.stage !== 'UPGRADE_STAGE') {
+                upgrade.staged_package = res.staged_package || 'UNKNOWN';
+                upgrade.tested_date = res.tested_date || 'UNKNOWN';
             }
 
             dbg.log0('UPGRADE:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
@@ -1188,14 +1192,15 @@ function member_pre_upgrade(req) {
                 }
             });
         })
+        .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'))
         .return();
 }
 
 function do_upgrade(req) {
     dbg.log0('UPGRADE:', 'got do_upgrade');
     let server = system_store.get_local_cluster_info();
-    if (server.upgrade.status !== 'CAN_UPGRADE') {
-        throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '');
+    if (server.upgrade.status !== 'UPGRADING') {
+        throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '', ' State Is: ', server.upgrade.status || 'NO_STATUS');
     }
     if (server.upgrade.path === '') {
         throw new Error('No package path supplied');
@@ -1214,10 +1219,66 @@ function get_upgrade_status(req) {
     return { in_process: upgrade_in_process };
 }
 
+function cluster_pre_upgrade(req) {
+    dbg.log0('cluster_pre_upgrade:', cutil.pretty_topology(cutil.get_topology()));
+    // get all cluster members other than the master
+    const cinfo = system_store.get_local_cluster_info();
+    const upgrade_path = req.rpc_params.filepath || _get_upgrade_path();
+
+    return P.resolve()
+        .then(() => {
+            if (!upgrade_path) {
+                throw new Error('cluster_pre_upgrade: must include path');
+            }
+            const secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== cinfo.owner_address);
+            dbg.log0('cluster_pre_upgrade:', 'secondaries =', secondary_members);
+
+            return P.fcall(() => {
+                    if (cinfo.is_clusterized) {
+                        return MongoCtrl.is_master()
+                            .then(res => res.ismaster);
+                    }
+                    return true;
+                })
+                .then(is_master => {
+                    if (!is_master) {
+                        throw new Error('cluster_pre_upgrade: upgrade must be done on master node');
+                    }
+
+                    dbg.log0('cluster_pre_upgrade:', 'calling member_pre_upgrade');
+                    server_rpc.client.cluster_internal.member_pre_upgrade({
+                            filepath: upgrade_path,
+                            mongo_upgrade: false,
+                            stage: req.rpc_params.filepath ? 'UPLOAD_STAGE' : 'RETEST_STAGE'
+                        })
+                        .catch(err => {
+                            dbg.error('cluster_pre_upgrade:', 'pre_upgrade failed on master - aborting upgrade', err);
+                            throw err;
+                        });
+                })
+                .then(() => {
+                    // upload package to secondaries
+                    dbg.log0('cluster_pre_upgrade:', 'uploading package to all cluster members');
+                    // upload package to cluster members
+                    return P.all(secondary_members.map(ip =>
+                        _upload_package(upgrade_path, ip)
+                        .catch(err => {
+                            dbg.error('upgrade_cluster failed uploading package', err);
+                            return _handle_cluster_upgrade_failure(new Error('DISTRIBUTION_FAILED'), ip);
+                        })
+                    ));
+                });
+        });
+}
+
 function upgrade_cluster(req) {
     dbg.log0('UPGRADE got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
     // get all cluster members other than the master
     let cinfo = system_store.get_local_cluster_info();
+    if (cinfo.upgrade.status !== 'CAN_UPGRADE') {
+        throw new Error('Not in upgrade state:', cinfo.upgrade.error ? cinfo.upgrade.error : '');
+    }
+    const upgrade_path = _get_upgrade_path();
     let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== cinfo.owner_address);
     dbg.log0('UPGRADE:', 'secondaries =', secondary_members);
     // upgrade can only be called from master. throw error otherwise
@@ -1228,26 +1289,53 @@ function upgrade_cluster(req) {
                     .then(res => res.ismaster);
             }
             return true;
-
         })
         .then(is_master => {
             if (!is_master) {
                 throw new Error('UPGRADE upgrade must be done on master node');
             }
+        })
+        .then(() => {
+            const update = {
+                _id: {
+                    $in: system_store.data.clusters.map(cluster => cluster._id)
+                },
+                $set: {
+                    "upgrade.initiator_email": req.account.email
+                }
+            };
+            return system_store.make_changes({
+                update: {
+                    clusters: [update]
+                }
+            });
+        })
+        // .then(() => Dispatcher.instance().publish_fe_notifications({}, 'change_upgrade_status'))
+        .then(() => {
             // upload package to secondaries
-            dbg.log0('UPGRADE:', 'uploading package to all cluster members');
+            dbg.log0('UPGRADE:', 'testing package in all secondary cluster members');
             // upload package to cluster members
-            return P.all(secondary_members.map(member => _upload_package(req.rpc_params.filepath, member)))
+            return P.all(secondary_members.map(ip =>
+                server_rpc.client.cluster_internal.member_pre_upgrade({
+                    filepath: system_store.data.clusters.find(cluster =>
+                        (String(cluster.owner_address) === String(ip))).upgrade.path,
+                    mongo_upgrade: false,
+                    stage: 'UPGRADE_STAGE'
+                }, {
+                    address: server_rpc.get_base_address(ip),
+                })
                 .catch(err => {
-                    dbg.error('UPGRADE:', 'failed uploading upgrade package to secondaries - aborting upgrade', err);
-                    throw err;
-                });
+                    dbg.error('upgrade_cluster failed uploading package', err);
+                    return _handle_cluster_upgrade_failure(new Error('DISTRIBUTION_FAILED'), ip);
+                })
+            ));
         })
         .then(() => {
             dbg.log0('UPGRADE:', 'calling member_pre_upgrade');
             return server_rpc.client.cluster_internal.member_pre_upgrade({
-                    filepath: req.rpc_params.filepath,
-                    mongo_upgrade: true
+                    filepath: upgrade_path,
+                    mongo_upgrade: true,
+                    stage: 'UPGRADE_STAGE'
                 })
                 .catch(err => {
                     dbg.error('UPGRADE:', 'pre_upgrade failed on master - aborting upgrade', err);
@@ -1258,7 +1346,7 @@ function upgrade_cluster(req) {
             //wait for all secondaries to reach CAN_UPGRADE. if one failed fail the upgrade
             dbg.log0('UPGRADE:', 'waiting for secondaries to reach CAN_UPGRADE');
             // TODO: on multiple shards we can upgrade one at the time in each shard
-            return P.all(secondary_members, ip => {
+            return P.all(cutil.get_all_cluster_members(), ip => {
                 // for each server, wait for it to reach CAN_UPGRADE, then call do_upgrade
                 // wait for UPGRADED status before continuing to next one
                 dbg.log0('UPGRADE:', 'waiting for server', ip, 'to reach CAN_UPGRADE');
@@ -1269,47 +1357,104 @@ function upgrade_cluster(req) {
                     });
             });
         })
+        .then(() => {
+            const update = {
+                _id: {
+                    $in: system_store.data.clusters.map(cluster => cluster._id)
+                },
+                $set: {
+                    "upgrade.status": 'UPGRADING'
+                },
+                $unset: {
+                    "upgrade.error": true,
+                    "upgrade.stage": true
+                }
+            };
+            return system_store.make_changes({
+                update: {
+                    clusters: [update]
+                }
+            });
+        })
+        // TODO: I've currently relying that this will not fail
+        .then(() => Dispatcher.instance().publish_fe_notifications({}, 'change_upgrade_status'))
         // after all servers reached CAN_UPGRADE, start upgrading secondaries one by one
-        .then(() => P.each(secondary_members, ip => {
+        .then(() => _handle_upgrade_stage({ secondary_members, upgrade_path }));
+}
+
+function _handle_cluster_upgrade_failure(err, ip) {
+    return P.resolve()
+        .then(() => {
+            dbg.error('_handle_cluster_upgrade_failure: got error on cluster upgrade', err);
+            upgrade_in_process = false;
+            const fe_notif_params = {};
+            const id_query = ip ? system_store.data.clusters.find(cluster => {
+                if (String(cluster.owner_address) === String(ip)) {
+                    fe_notif_params.secret = cluster.owner_secret;
+                    return true;
+                }
+                return false;
+            })._id : {
+                $in: system_store.data.clusters.map(cluster => cluster._id)
+            };
+            const update = {
+                _id: id_query,
+                $set: {
+                    "upgrade.status": 'FAILED',
+                    "upgrade.error": err.message
+                },
+                $unset: {
+                    "upgrade.stage": true
+                }
+            };
+            return system_store.make_changes({
+                    update: {
+                        clusters: [update]
+                    }
+                })
+                .then(() => Dispatcher.instance().publish_fe_notifications(fe_notif_params, 'change_upgrade_status'))
+                .finally(() => {
+                    throw err;
+                });
+        });
+}
+
+function _handle_upgrade_stage(params) {
+    const cinfo = system_store.get_local_cluster_info();
+    // We do not return on purpose!
+    P.each(params.secondary_members, ip => {
             dbg.log0('UPGRADE:', 'sending do_upgrade to server', ip, 'and and waiting for DB_READY state');
             return server_rpc.client.cluster_internal.do_upgrade({}, {
                     address: server_rpc.get_base_address(ip)
                 })
-                .then(() => _wait_for_upgrade_state(ip, 'DB_READY'))
+                .then(() => _wait_for_upgrade_stage(ip, 'DB_READY'))
+                .then(() => Dispatcher.instance().publish_fe_notifications({
+                    secret: system_store.data.clusters.find(cluster =>
+                        (String(cluster.owner_address) === String(ip))).owner_secret
+                }, 'change_upgrade_status'))
                 .catch(err => {
                     dbg.error('UPGRADE:', 'got error on upgrade of server', ip, 'aborting upgrade process', err);
-                    throw err;
+                    return _handle_cluster_upgrade_failure(err, ip);
                 });
-        }))
-        .then(() => {
-            let update = {
-                _id: system_store.data.systems[0]._id,
-                upgrade_date: Date.now(),
-            };
-            return system_store.make_changes({
-                update: {
-                    systems: [update]
-                }
-            });
         })
         // after all secondaries are upgraded it is safe to upgrade the primary.
         // secondaries should wait (in upgrade.js) for primary to complete upgrade and perform mongo_upgrade
         .then(() => {
             dbg.log0('UPGRADE:', 'calling do_upgrade on master');
             return server_rpc.client.cluster_internal.do_upgrade({
-                filepath: req.rpc_params.filepath
-            });
+                    filepath: params.upgrade_path
+                })
+                .catch(err => _handle_cluster_upgrade_failure(err, cinfo.owner_address));
         })
+        .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'))
         .catch(err => {
-            dbg.error('got error on cluster upgrade', err);
+            dbg.error('_handle_upgrade_stage got error on cluster upgrade', err);
             upgrade_in_process = false;
-            throw err;
         });
 }
 
-
 function _wait_for_upgrade_state(ip, state) {
-    const max_retries = 60;
+    let max_retries = 60;
     const upgrade_retry_delay = 10 * 1000; // the delay between testing upgrade status
     return promise_utils.retry(max_retries, upgrade_retry_delay, () => system_store.load()
         .then(() => {
@@ -1318,7 +1463,25 @@ function _wait_for_upgrade_state(ip, state) {
             dbg.log0('UPGRADE:', 'got status:', status);
             if (status !== state) {
                 dbg.error('UPGRADE:', 'timedout waiting for ' + ip + ' to reach ' + state);
+                if (status === 'FAILED') max_retries = 0;
                 throw new Error('timedout waiting for ' + ip + ' to reach ' + state);
+            }
+        })
+    );
+}
+
+function _wait_for_upgrade_stage(ip, stage_req) {
+    let max_retries = 60;
+    const upgrade_retry_delay = 10 * 1000; // the delay between testing upgrade status
+    return promise_utils.retry(max_retries, upgrade_retry_delay, () => system_store.load()
+        .then(() => {
+            dbg.log0('UPGRADE:', 'wating for', ip, 'to reach', stage_req);
+            let stage = cutil.get_member_upgrade_stage(ip);
+            dbg.log0('UPGRADE:', 'got stage:', stage);
+            if (stage !== stage_req) {
+                dbg.error('UPGRADE:', 'timedout waiting for ' + ip + ' to reach ' + stage_req);
+                // if (stage === 'FAILED') max_retries = 0;
+                throw new Error('timedout waiting for ' + ip + ' to reach ' + stage_req);
             }
         })
     );
@@ -1465,7 +1628,6 @@ function set_hostname_internal(req) {
 //
 //Internals Cluster Control
 //
-
 function _validate_member_request(req) {
     if (!os_utils.is_supervised_env()) {
         console.warn('Environment is not a supervised one, currently not allowing clustering operations');
@@ -1555,7 +1717,6 @@ function _verify_join_preconditons(req) {
         });
 }
 
-
 function _add_new_shard_on_server(shardname, ip, params) {
     // "cache" current topology until all changes take affect, since we are about to lose mongo
     // until the process is done
@@ -1576,7 +1737,6 @@ function _add_new_shard_on_server(shardname, ip, params) {
                 ));
             } else { // < 3 since we don't add once we reach 3, add this server as config as well
                 dbg.log0('Adding a new config server', ip, 'to the config array', current_topology.config_servers);
-
                 config_updates.config_servers = current_topology.config_servers;
                 config_updates.config_servers.push({
                     address: ip
@@ -1617,7 +1777,6 @@ function _initiate_replica_set(shardname) {
     dbg.log0('Adding first RS server to', shardname);
     var new_topology = cutil.get_topology();
     var shard_idx;
-
     shard_idx = cutil.find_shard_index(shardname);
     //No Such shard
     if (shard_idx === -1) {
@@ -1650,7 +1809,6 @@ function _update_cluster_info(params) {
             update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
             update.owner_address = params.owner_address || current_clustering.owner_address;
             update._id = current_clustering._id;
-
             dbg.log0('Updating local cluster info for owner', update.owner_secret, 'previous cluster info',
                 cutil.pretty_topology(current_clustering), 'new cluster info', cutil.pretty_topology(update));
 
@@ -1681,8 +1839,6 @@ function _update_cluster_info(params) {
         });
 }
 
-
-
 // add a new server to an existing replica set
 function _add_new_server_to_replica_set(params) {
     const shardname = params.shardname;
@@ -1698,7 +1854,6 @@ function _add_new_server_to_replica_set(params) {
     }
 
     new_topology.is_clusterized = true;
-
     // add server's ip to servers list in topology
     new_topology.shards[shard_idx].servers.push({
         address: ip
@@ -1730,7 +1885,6 @@ function _add_new_server_to_replica_set(params) {
                     dbg.log0(`_add_new_server_to_replica_set: using existing DNS servers configuration: `, dns_config.dns_servers);
                     new_topology.dns_servers = dns_config.dns_servers;
                 }
-
 
                 dbg.log0('inserting topology for new server to clusters collection:', new_topology);
                 return system_store.make_changes({
@@ -1908,6 +2062,16 @@ function ping() {
     return "PONG";
 }
 
+function _get_upgrade_path() {
+    let server = system_store.get_local_cluster_info();
+    // if (server.upgrade.status !== 'CAN_UPGRADE') {
+    //     throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '');
+    // }
+    if (server.upgrade.path === '') {
+        throw new Error('No package path supplied');
+    }
+    return server.upgrade.path;
+}
 
 // EXPORTS
 exports._init = _init;
@@ -1944,3 +2108,4 @@ exports.get_version = get_version;
 exports.get_secret = get_secret;
 exports.get_upgrade_status = get_upgrade_status;
 exports.update_member_of_cluster = update_member_of_cluster;
+exports.cluster_pre_upgrade = cluster_pre_upgrade;

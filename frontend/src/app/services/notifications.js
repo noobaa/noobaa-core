@@ -22,3 +22,7 @@ export function remove_host(req) {
     const { name: host } = req.rpc_params;
     action$.onNext(removeHost(host));
 }
+
+export function change_upgrade_status(req) {
+    console.warn('req', req);
+}

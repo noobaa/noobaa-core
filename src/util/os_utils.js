@@ -548,42 +548,48 @@ function set_yum_proxy(proxy_url) {
 }
 
 
-// 
+//
 function _get_dns_servers_in_forwarders_file() {
-    if (os.type() !== 'Linux') return [];
-    return fs_utils.find_line_in_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, 'forwarders')
-        .then(line => {
-            if (!line) return [];
-            const dns_servers = line.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g);
-            return dns_servers || [];
+    return P.resolve()
+        .then(() => {
+            if (os.type() !== 'Linux') return [];
+            return fs_utils.find_line_in_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, 'forwarders')
+                .then(line => {
+                    if (!line) return [];
+                    const dns_servers = line.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g);
+                    return dns_servers || [];
+                });
         });
 }
 
 
 function _get_search_domains(file, options) {
-    if (os.type() !== 'Linux') return [];
-    const { dhcp } = options || {};
-    if (dhcp) {
-        // for dhcp configuration we look for "#NooBaa Configured Search"
-        return fs_utils.find_line_in_file(file, '#NooBaa Configured Search')
-            .then(line => {
-                if (!line) return [];
-                let domains_regx_res = line.match(/".*?"/g);
-                // if null return empty array
-                if (!domains_regx_res) return [];
-                // remove double quotes from the strings 
-                return domains_regx_res.map(domain => domain.replace(/"/g, ''));
-            });
-    } else {
-        // in static ip configuration files we look for "DOMAIN=" as a marker
-        return fs_utils.find_line_in_file(file, 'DOMAIN=')
-            .then(line => {
-                if (!line) return [];
-                const domains_str = line.split('"')[1];
-                if (!domains_str) return [];
-                return domains_str.split(' ');
-            });
-    }
+    return P.resolve()
+        .then(() => {
+            if (os.type() !== 'Linux') return [];
+            const { dhcp } = options || {};
+            if (dhcp) {
+                // for dhcp configuration we look for "#NooBaa Configured Search"
+                return fs_utils.find_line_in_file(file, '#NooBaa Configured Search')
+                    .then(line => {
+                        if (!line) return [];
+                        let domains_regx_res = line.match(/".*?"/g);
+                        // if null return empty array
+                        if (!domains_regx_res) return [];
+                        // remove double quotes from the strings
+                        return domains_regx_res.map(domain => domain.replace(/"/g, ''));
+                    });
+            } else {
+                // in static ip configuration files we look for "DOMAIN=" as a marker
+                return fs_utils.find_line_in_file(file, 'DOMAIN=')
+                    .then(line => {
+                        if (!line) return [];
+                        const domains_str = line.split('"')[1];
+                        if (!domains_str) return [];
+                        return domains_str.split(' ');
+                    });
+            }
+        });
 }
 
 function get_dns_and_search_domains() {

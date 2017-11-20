@@ -9,6 +9,7 @@ const AWS = require('aws-sdk');
 const azure_storage = require('../../util/azure_storage_wrap');
 const s3ops = require('../qa/s3ops');
 const api = require('../../api');
+const crypto = require('crypto');
 
 require('../../util/dotenv').load();
 
@@ -21,7 +22,7 @@ let client;
 
 //defining the required parameters
 const {
-    server_ip, // = '52.247.206.235',
+    server_ip,
     help = false
 } = argv;
 
@@ -53,7 +54,11 @@ const connections_mapping = {
         secret: "UsMgM/8uX2FMAwW765fSBATLjROZn+JbxxHLYXDUfBmV0vtpiYkGnRrB8hkSvVcV92pbSxG4J1j/q0IFy3nb6g=="
     }
 };
-const blobService = azure_storage.createBlobService(connections_mapping.AZURE.identity, connections_mapping.AZURE.secret, connections_mapping.AZURE.endpoint);
+const blobService = azure_storage.createBlobService(
+    connections_mapping.AZURE.identity,
+    connections_mapping.AZURE.secret,
+    connections_mapping.AZURE.endpoint);
+
 //variables for using creating namespace resource
 const namespace_mapping = {
     AWS: {
@@ -183,11 +188,64 @@ function uploadFileToAzure(container, file_name, size) {
     let streamFile = new RandStream(size, {
         highWaterMark: 1024 * 1024,
     });
-    return P.fromCallback(callback => blobService.createBlockBlobFromStream(container, file_name, streamFile, size, callback))
+    let options = {
+        storeBlobContentMD5: true,
+        useTransactionalMD5: true,
+        transactionalContentMD5: true
+    };
+    return P.fromCallback(callback => blobService.createBlockBlobFromStream(container, file_name, streamFile, size, options, callback))
         .catch(err => {
             saveErrorAndResume('Uploading to AZURE file ' + file_name + ' with error ' + err);
             failures_in_test = true;
             throw err;
+        });
+}
+
+function getMD5Blob(container, file_name) {
+    console.log('Getting md5 of azure blob from properties');
+    return P.fromCallback(callback => blobService.getBlobProperties(container, file_name, callback))
+        .then(res => {
+            console.log(JSON.stringify(res));
+            return res.contentSettings.contentMD5;
+        })
+        .catch(err => {
+            saveErrorAndResume('Uploading to AZURE file ' + file_name + ' with error ' + err);
+            failures_in_test = true;
+            throw err;
+        });
+}
+
+function getMD5Aws(bucket, file_name) {
+    return s3ops.get_object(server_ip, bucket, file_name)
+        .then(res => {
+            console.log('Getting md5 data from aws noobaa server from file ' + file_name);
+            return crypto.createHash('md5').update(res.Body)
+                .digest('base64');
+        })
+        .catch(err => {
+            saveErrorAndResume('Getting md5 from aws noobaa server from file ' + file_name + ' with error ' + err);
+            failures_in_test = true;
+            throw err;
+        });
+}
+
+function checkAzureMd5OnNoobaaAWSServer(container, noobaa_bucket, file_name) {
+    let azureMD5;
+    let noobaaMD5;
+    console.log('Checking azure bucket file on noobaa aws server');
+    return getMD5Blob(container, file_name)
+        .then(res => {
+            azureMD5 = res;
+            return getMD5Aws(noobaa_bucket, file_name);
+        })
+        .then(res => {
+            noobaaMD5 = res;
+            if (azureMD5 === noobaaMD5) {
+                console.log('Noobaa aws bucket contains the md5 ' + noobaaMD5 + ' as azure md5 ' + azureMD5 + ' for file ' + file_name);
+            } else {
+                saveErrorAndResume('Noobaa aws bucket contains the md5 ' + noobaaMD5 + ' instead ' + azureMD5 + ' for file ' + file_name);
+                failures_in_test = true;
+            }
         });
 }
 
@@ -218,32 +276,38 @@ function getListFilesAzure(bucket) {
         });
 }
 
-function uploadFileToAWS(bucket, file_name, size) {
-    const s3 = new AWS.S3({
+function uploadFileToAWS(bucket, file_name, size, multiplier) {
+    const s3bucket = new AWS.S3({
         endpoint: connections_mapping.AWS.endpoint,
         accessKeyId: connections_mapping.AWS.identity,
         secretAccessKey: connections_mapping.AWS.secret,
         s3ForcePathStyle: true,
-        signatureVersion: 's3',
-        computeChecksums: false,
-        s3DisableBodySigning: true,
+        sslEnabled: false,
         region: 'us-east-1',
-        params: {
-            Bucket: bucket
-        },
     });
-    let streamFile = new RandStream(size, {
-        highWaterMark: 1024 * 1024,
-    });
-    console.log('Uploading file ' + file_name + ' to AWS S3 bucket ' + bucket);
-    return P.fromCallback(callback => s3.putObject({
+    const actual_size = size * multiplier;
+
+    let data = crypto.randomBytes(actual_size);
+    let md5 = crypto.createHash('md5').update(data)
+        .digest('hex');
+
+    let params = {
+        Bucket: bucket,
         Key: file_name,
-        ContentLength: size,
-        Body: streamFile
-    }, callback))
+        Body: data,
+        Metadata: {
+            md5: md5
+        },
+    };
+    console.log(`>>> UPLOAD - About to upload object... ${file_name}, md5: ${md5}, size: ${data.length}`);
+    let start_ts = Date.now();
+    return P.ninvoke(s3bucket, 'putObject', params)
+        .then(res => {
+            console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
+            return md5;
+        })
         .catch(err => {
-            saveErrorAndResume('Failed upload file ' + file_name + err);
-            failures_in_test = true;
+            console.error(`Put failed ${file_name}!`, err);
             throw err;
         });
 }
@@ -252,9 +316,8 @@ function uploadDataSetToAWS(bucket) {
     return P.each(dataSet, size => {
         let { data_multiplier } = unit_mapping[size.size_units.toUpperCase()];
         let file_name = 'file_' + size.data_size + size.size_units + (Math.floor(Date.now() / 1000));
-        const actual_size = size.data_size * data_multiplier;
         files_aws.push(file_name);
-        return uploadFileToAWS(bucket, file_name, actual_size);
+        return uploadFileToAWS(bucket, file_name, size.data_size, data_multiplier);
     });
 }
 
@@ -364,15 +427,16 @@ P.fcall(function() {
         const actual_size = 15 * data_multiplier;
         files_aws.push(file_name);
         files_azure.push(file_name);
-        return uploadFileToAWS(namespace_mapping.AWS.bucket2, file_name, actual_size)
+        return uploadFileToAWS(namespace_mapping.AWS.bucket2, file_name, 15, data_multiplier)
             .then(() => uploadFileToAzure(namespace_mapping.AZURE.bucket2, file_name, actual_size));
     })
     //list the files in the namespace bucket on noobaa server, verify all the unique files appear, and only 1 of the duplicate names
     .then(() => isUploadedSetAvailable(namespace_mapping.AZURE.gateway, files_azure))
     .then(() => isUploadedSetAvailable(namespace_mapping.AWS.gateway, files_aws))
     //Try to read a file from noobaa server s3 which is on the AWS bucket and azure container
-    .then(() => P.each(files_azure, file => s3ops.get_object(server_ip, namespace_mapping.AZURE.gateway, file)))
-    .then(() => P.each(files_aws, file => s3ops.get_object(server_ip, namespace_mapping.AWS.gateway, file)))
+    .then(() => P.each(
+        files_azure, file => checkAzureMd5OnNoobaaAWSServer(namespace_mapping.AZURE.bucket2, namespace_mapping.AZURE.gateway, file)))
+    .then(() => P.each(files_aws, file => s3ops.get_file_check_md5(server_ip, namespace_mapping.AWS.gateway, file)))
     //Try to upload a file to noobaa s3 server, verify it was uploaded to the Azure container
     .then(() => {
         let file_name = 'file_azure_15KB';

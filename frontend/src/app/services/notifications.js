@@ -17,3 +17,7 @@ export function add_memeber_to_cluster(req) {
 
     action$.onNext(action);
 }
+
+export function remove_host(/*req*/) {
+    // console.warn('Host', req.rpc_params.name, 'is deleted');
+}

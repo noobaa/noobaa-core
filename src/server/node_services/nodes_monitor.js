@@ -395,7 +395,11 @@ class NodesMonitor extends EventEmitter {
         return P.map(host_nodes, node => this._delete_node(node))
             .then(() => this._dispatch_node_event(host_item, 'deleted',
                 `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was deleted by ${req.account && req.account.email}`,
-                req.account && req.account._id));
+                req.account && req.account._id))
+            .then(() => Dispatcher.instance().publish_fe_notifications({
+                    name: req.rpc_params.name,
+                }, 'remove_host') //send notification API on deleted member
+            );
     }
 
     hide_host(req) {
@@ -406,7 +410,11 @@ class NodesMonitor extends EventEmitter {
         return P.map(host_nodes, node => this._hide_node(node))
             .then(() => this._dispatch_node_event(host_item, 'force_deleted',
                 `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was force deleted by ${req.account && req.account.email}`,
-                req.account && req.account._id));
+                req.account && req.account._id))
+            .then(() => Dispatcher.instance().publish_fe_notifications({
+                    name: req.rpc_params.name,
+                }, 'remove_host') //send notification API on deleted member
+            );
     }
 
     delete_node(node_identity) {

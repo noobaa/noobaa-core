@@ -22,6 +22,22 @@ module.exports = {
             }
         },
 
+        remove_host: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
         add_memeber_to_cluster: {
             method: 'POST',
             params: {

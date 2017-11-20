@@ -24,9 +24,10 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 // Local util functions
 // ------------------------------
 function _mapPoolsToBuckets(buckets, tiers) {
-    const filteredBuckets = buckets.filter(bucket => bucket.bucket_type === 'REGULAR');
+    const dataBuckets = buckets.filter(bucket => bucket.bucket_type === 'REGULAR');
+
     const bucketsByTierName = keyBy(
-        filteredBuckets,
+        dataBuckets,
         bucket => bucket.tiering.tiers[0].tier,
         bucket => bucket.name
     );

@@ -47,7 +47,6 @@ const {
     upgrade_pack,
     agents_number = 3,
     clean = false,
-    help = false
 } = argv;
 
 function usage() {
@@ -69,7 +68,7 @@ function usage() {
     `);
 }
 
-if (help) {
+if (argv.help) {
     usage();
     process.exit(1);
 }
@@ -108,24 +107,55 @@ function isSecretChanged(isMasterDown, oldSecret, masterSecret) {
     }
 }
 
-function checkClusterHAReport(read_system_res, serversByStatus, servers) {
+function checkClusterHAReport(serversByStatus, servers) {
+    console.log(`Checking if the cluster is Highly Available`);
     const serversUp = serversByStatus.length;
-    if (serversUp > (servers.length / 2) + 1) {
-        if (read_system_res.cluster.shards[0].high_availabilty) {
-            console.log(`Cluster is highly available as should!!`);
-        } else {
-            console.warn(`Error! Cluster is not highly available although most servers are up!!`);
-        }
-    } else if (read_system_res.cluster.shards[0].high_availabilty) {
-        console.warn(`Error! Cluster is highly available when most servers are down!!`);
-    } else {
-        console.log(`Cluster is not highly available as should!!`);
-    }
+    return client.system.read_system({})
+        .then(res => {
+            if (serversUp > (servers.length / 2) + 1) {
+                if (res.cluster.shards[0].high_availabilty) {
+                    console.log(`Cluster is highly available as should!!`);
+                } else {
+                    let done = false;
+                    let timeOut = 0;
+                    let timeInSec = 10;
+                    return promise_utils.pwhile(
+                        () => !done,
+                        () => client.system.read_system({})
+                            .then(read_system => {
+                                if (read_system.cluster.shards[0].high_availabilty) {
+                                    done = true;
+                                    //setting time out of 300 sec
+                                } else if (timeOut > 300) {
+                                    done = true;
+                                    return P.resolve()
+                                        .then(() => {
+                                            console.log(`Number of live servers is: ${serversUp}, out of ${servers.length}`);
+                                            console.log('read_system high_availabilty status is: ', res.cluster.shards[0].high_availabilty);
+                                            saveErrorAndResume(`Error! Cluster is not highly available although most servers are up!!`);
+                                            failures_in_test = true;
+                                        });
+                                } else {
+                                    timeOut += timeInSec;
+                                    return P.delay(timeInSec * 1000);
+                                }
+                            })
+                    );
+                }
+            } else if (res.cluster.shards[0].high_availabilty) {
+                console.log(`Number of live servers is: ${serversUp}, out of ${servers.length}`);
+                console.log('read_system_res high_availabilty status is: ', res.cluster.shards[0].high_availabilty);
+                saveErrorAndResume(`Error! Cluster is highly available when most servers are down!!`);
+                failures_in_test = true;
+            } else {
+                console.log(`Cluster is not highly available as should!!`);
+            }
+        });
 }
 
 function checkServersStatus(read_system_res, servers, masterSecret, masterIndex) {
+    console.log(`Checking the servers status`);
     const serversBySecret = _.groupBy(read_system_res.cluster.shards[0].servers, 'secret');
-    console.log(serversBySecret);
     servers.forEach(server => {
         if (serversBySecret[server.secret].length > 1) {
             console.log(`Read system returned more than one server with the same secret!! ${
@@ -147,7 +177,7 @@ function checkServersStatus(read_system_res, servers, masterSecret, masterIndex)
             console.log(`${role}${server.name} (${server.ip}) secret ${
                 server.secret} is of Status ${
                 serversBySecret[server.secret][0].status} ${server.status}`);
-            console.log(read_system_res.cluster.shards[0]);
+            // console.log(read_system_res.cluster.shards[0]);
         }
         return masterIndex;
     });
@@ -174,32 +204,28 @@ function checkClusterStatus(servers, oldMasterNumber) {
         })
         .then(() => {
             console.log('Is master changed: ', isMasterDown);
-            if (isMasterDown === true) {
-                return azf.listVirtualMachines('Server', 'VM running')
-                    .then(res => {
-                        connectedServers = res;
+            return azf.listVirtualMachines('Server', 'VM running') //Not sure why we do this (LM 27/11/2017)
+                .then(res => {
+                    if (isMasterDown === true) {
                         const connectedMaster = res[0];
                         masterIndex = servers.findIndex(server => server.name === connectedMaster);
+                    } else {
+                        console.log(servers);
+                        masterIndex = oldMasterNumber;
+                    }
+                    servers.forEach(server => {
+                        if (server.status === 'CONNECTED') {
+                            connectedServers.push(server.name);
+                        }
                     });
-            } else {
-                console.log(servers);
-                masterIndex = oldMasterNumber;
-                servers.forEach(server => {
-                    connectedServers.push(server.name);
                 });
-            }
         })
         .then(() => {
             console.log('Master index is ', masterIndex, 'Master ip is ', servers[masterIndex].ip);
             if (connectedServers.length > 0) {
-                return promise_utils.exec('curl http://' + servers[masterIndex].ip + ':8080 2> /dev/null ' +
-                    '| grep -o \'[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\'', false, true)
-                    .catch(() => azf.getIpAddress(servers[masterIndex].name + '_pip')
-                        .then(res => {
-                            master_ip = res;
-                        }))
-                    .then(ip => {
-                        master_ip = master_ip || ip.trim();
+                return P.resolve()
+                    .then(() => {
+                        master_ip = servers[masterIndex].ip.trim();
                         console.log('Master ip', master_ip);
                         rpc = api.new_rpc('wss://' + master_ip + ':8443');
                         client = rpc.new_client({});
@@ -219,7 +245,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
                     .then(res => {
                         let masterSecret = res.cluster.master_secret;
                         isSecretChanged(isMasterDown, oldSecret, masterSecret);
-                        checkClusterHAReport(res, connectedServers, servers);
+                        checkClusterHAReport(connectedServers, servers);
                         checkServersStatus(res, servers, masterSecret);
                         if (failures_in_test && breakonerror) {
                             throw new Error('Error in test - breaking the test');
@@ -227,7 +253,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
                         return masterIndex;
                     })
                     .then(() => {
-                        master_ip = servers[masterIndex].ip;
+                        // master_ip = servers[masterIndex].ip;
                         rpc.disconnect_all();
                         return master_ip;
                     })
@@ -243,6 +269,48 @@ function checkClusterStatus(servers, oldMasterNumber) {
 }
 
 let servers = [];
+
+function startVirtualMachineWithStatus(index, time) {
+    return azf.startVirtualMachine(servers[index].name)
+        .then(() => {
+            let done = false;
+            return promise_utils.pwhile(
+                () => !done,
+                () => azf.getMachineStatus(servers[index].name)
+                    .then(status => {
+                        console.log(status);
+                        if (status === 'VM running') {
+                            done = true;
+                            servers[index].status = 'CONNECTED';
+                            delayInSec(time);
+                        } else {
+                            return P.delay(10 * 1000);
+                        }
+                    })
+            );
+        });
+}
+
+function stopVirtualMachineWithStatus(index, time) {
+    return azf.stopVirtualMachine(servers[index].name)
+        .then(() => {
+            let done = false;
+            return promise_utils.pwhile(
+                () => !done,
+                () => azf.getMachineStatus(servers[index].name)
+                    .then(status => {
+                        console.log(status);
+                        if (status === 'VM stopped') {
+                            done = true;
+                            servers[index].status = 'DISCONNECTED';
+                            delayInSec(time);
+                        } else {
+                            return P.delay(10 * 1000);
+                        }
+                    })
+            );
+        });
+}
 
 function setNTPConfig(serverIndex) {
     rpc = api.new_rpc('wss://' + servers[serverIndex].ip + ':8443');
@@ -284,7 +352,7 @@ function setNTPConfig(serverIndex) {
 function prepareServers(requestedServers) {
     return P.map(requestedServers, server => azf.createServer(server.name, vnet, storage, 'Static')
         .then(new_secret => {
-            console.log(`server.secret: ${new_secret}`);
+            console.log(`${YELLOW}${server.name} secret is: ${new_secret}${NC}`);
             server.secret = new_secret;
             return azf.getIpAddress(server.name + '_pip');
         })
@@ -372,33 +440,27 @@ function checkAddClusterRules() {
 
 function runFirstFlow() {
     console.log(`${RED}<======= Starting first flow =======>${NC}`);
-    return azf.stopVirtualMachine(servers[1].name)
-        .then(() => delayInSec(90))
+    return stopVirtualMachineWithStatus(1, 90)
         .then(verifyS3Server)
-        .then(() => azf.startVirtualMachine(servers[1].name))
-        .then(() => delayInSec(180))
+        .then(() => startVirtualMachineWithStatus(1, 180))
         .then(verifyS3Server)
         .then(() => checkClusterStatus(servers, masterIndex));
 }
 
 function runSecondFlow() {
     console.log(`${RED}<==== Starting second flow ====>${NC}`);
-    return azf.stopVirtualMachine(servers[1].name)
-        .then(() => delayInSec(90))
+    return stopVirtualMachineWithStatus(1, 90)
         .then(() => checkClusterStatus(servers, masterIndex))
         .then(verifyS3Server)
-        .then(() => azf.stopVirtualMachine(servers[2].name))
-        .then(() => delayInSec(90))
+        .then(() => stopVirtualMachineWithStatus(2, 180))
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
             return s3ops.create_bucket(master_ip, bucket)
                 .catch(err => console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`));
         })
-        .then(() => azf.startVirtualMachine(servers[1].name))
-        .then(() => delayInSec(180))
+        .then(() => startVirtualMachineWithStatus(1, 180))
         .then(verifyS3Server)
-        .then(() => azf.startVirtualMachine(servers[2].name))
-        .then(() => delayInSec(180))
+        .then(() => startVirtualMachineWithStatus(2, 180))
         .then(() => checkClusterStatus(servers, masterIndex))
         .then(verifyS3Server);
 }
@@ -407,32 +469,40 @@ function runThirdFlow() {
     console.log(`${RED}<==== Starting third flow ====>${NC}`);
     return azf.stopVirtualMachine(servers[1].name)
         .then(() => azf.stopVirtualMachine(servers[2].name))
-        .then(() => delayInSec(180))
+        .then(() => {
+            servers[1].status = 'DISCONNECTED';
+            servers[2].status = 'DISCONNECTED';
+            delayInSec(180);
+        })
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
             return s3ops.create_bucket(master_ip, bucket)
                 .catch(err => console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`));
         })
-        .then(() => azf.stopVirtualMachine(servers[0].name))
+        .then(() => {
+            azf.stopVirtualMachine(servers[0].name);
+            servers[0].status = 'DISCONNECTED';
+        })
         .then(() => azf.startVirtualMachine(servers[1].name))
         .then(() => azf.startVirtualMachine(servers[2].name))
-        .then(() => delayInSec(180))
+        .then(() => {
+            servers[1].status = 'CONNECTED';
+            servers[2].status = 'CONNECTED';
+            delayInSec(180);
+        })
         .then(() => checkClusterStatus(servers, masterIndex))
         .then(verifyS3Server)
-        .then(() => azf.startVirtualMachine(servers[0].name))
-        .then(() => delayInSec(180))
+        .then(() => startVirtualMachineWithStatus(0, 180))
         .then(() => checkClusterStatus(servers, masterIndex))
         .then(verifyS3Server);
 }
 
 function runForthFlow() {
     console.log(`${RED}<==== Starting forth flow ====>${NC}`);
-    return azf.stopVirtualMachine(servers[masterIndex].name)
-        .then(() => delayInSec(180))
+    return stopVirtualMachineWithStatus(masterIndex, 90)
         .then(() => checkClusterStatus(servers, masterIndex))
         .then(verifyS3Server)
-        .then(() => azf.startVirtualMachine(servers[masterIndex].name))
-        .then(() => delayInSec(180))
+        .then(() => startVirtualMachineWithStatus(masterIndex, 180))
         .then(() => checkClusterStatus(servers, masterIndex))
         .then(verifyS3Server);
 }

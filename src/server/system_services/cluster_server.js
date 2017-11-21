@@ -1314,11 +1314,9 @@ function read_server_config(req) {
                 return 'CONNECTED';
             }
 
-            return phone_home_utils.verify_connection_to_phonehome({ proxy },
-                test_ph_connectivity
-            );
+            return phone_home_utils.verify_connection_to_phonehome({ proxy }, test_ph_connectivity);
         })
-        .then(function(connection_reply) {
+        .then(connection_reply => {
             const phone_home_connectivity_status =
                 (test_ph_connectivity && connection_reply) ||
                 (connection_reply !== 'CONNECTED' && 'WAS_NOT_TESTED') ||
@@ -1335,15 +1333,17 @@ function read_server_config(req) {
             const { timezone, ntp_server } = ntp;
             const used_proxy = ph_proxy;
 
-            return {
-                phone_home_connectivity_status,
-                using_dhcp,
-                dns_servers,
-                search_domains,
-                timezone,
-                ntp_server,
-                used_proxy
-            };
+            return _get_aws_owner()
+                .then(owner => ({
+                    phone_home_connectivity_status,
+                    using_dhcp,
+                    dns_servers,
+                    search_domains,
+                    timezone,
+                    ntp_server,
+                    used_proxy,
+                    owner
+                }));
         });
 }
 
@@ -1749,6 +1749,35 @@ function _update_rs_if_needed(IPs, name, is_config) {
             });
     }
     return P.resolve();
+}
+
+function _get_aws_owner() {
+    return P.resolve()
+        .then(() => {
+            if (process.env.PLATFORM !== 'aws') return;
+            const email = `${process.env.AWS_INSTANCE_ID}@noobaa.com`;
+            return promise_utils.retry(10, 30000, () =>
+                    P.fromCallback(callback => request({ method: 'GET', url: `https://store.zapier.com/api/records?secret=${email}` }, callback))
+                    .then(res => {
+                        dbg.log0(`got activation code for ${email} from zappier. body=`, res.body);
+                        const { code } = JSON.parse(res.body);
+                        if (!code) {
+                            throw new Error('expected returned json to have a code property but it doesnt');
+                        }
+                        return {
+                            activation_code: code,
+                            email
+                        };
+                    })
+                    .catch(err => {
+                        dbg.error(`got error when trying to get activation code for ${email} from zappier:`, err);
+                        throw err;
+                    })
+                )
+                .catch(err => {
+                    dbg.error(`FAILED GETTING ACTIVATION CODE FROM ZAPPIER FOR ${email}`, err);
+                });
+        });
 }
 
 

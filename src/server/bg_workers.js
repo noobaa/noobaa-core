@@ -34,6 +34,7 @@ var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
 var cluster_master = require('./bg_services/cluster_master');
 var stats_aggregator = require('./system_services/stats_aggregator');
+var aws_usage_metering = require('./system_services/aws_usage_metering');
 var usage_aggregator = require('./bg_services/usage_aggregator');
 var md_aggregator = require('./bg_services/md_aggregator');
 var background_scheduler = require('../util/background_scheduler').get_instance();
@@ -44,7 +45,8 @@ const MASTER_BG_WORKERS = [
     'cloud_sync_refresher',
     'system_server_stats_aggregator',
     'md_aggregator',
-    'usage_aggregator'
+    'usage_aggregator',
+    'aws_usage_metering'
 ];
 
 dbg.set_process_name('BGWorkers');
@@ -128,6 +130,13 @@ function run_master_workers() {
             name: 'statistics_collector',
             delay: config.STATISTICS_COLLECTOR_INTERVAL
         }, stats_collector.collect_all_stats);
+    }
+
+    if (config.AWS_METERING_ENABLED && process.env.PLATFORM === 'aws') {
+        register_bg_worker({
+            name: 'aws_usage_metering',
+            delay: config.AWS_METERING_INTERVAL
+        }, aws_usage_metering.background_worker);
     }
 }
 

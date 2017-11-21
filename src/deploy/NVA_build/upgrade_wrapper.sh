@@ -343,6 +343,26 @@ function post_upgrade {
       echo "${devmode}" >> ${CORE_DIR}/.env
   fi
 
+  if grep -q "PLATFORM=" /backup/.env; then
+      local platform=$(grep "PLATFORM=" /backup/.env)
+      echo "${platform}" >> ${CORE_DIR}/.env
+  fi
+
+  if grep -q "AWS_REGION=" /backup/.env; then
+      local region=$(grep "AWS_REGION=" /backup/.env)
+      echo "${region}" >> ${CORE_DIR}/.env
+  fi
+
+  if grep -q "AWS_PRODUCT_CODE=" /backup/.env; then
+      local code=$(grep "AWS_PRODUCT_CODE=" /backup/.env)
+      echo "${code}" >> ${CORE_DIR}/.env
+  fi
+
+  if grep -q "AWS_INSTANCE_ID=" /backup/.env; then
+      local instance_id=$(grep "AWS_INSTANCE_ID=" /backup/.env)
+      echo "${instance_id}" >> ${CORE_DIR}/.env
+  fi
+
   #copy MONGO_RS_URL from previous .env
   if grep -q MONGO_RS_URL /backup/.env; then
       local mongo_url=$(grep MONGO_RS_URL /backup/.env)

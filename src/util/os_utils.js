@@ -16,12 +16,20 @@ const promise_utils = require('./promise_utils');
 const fs_utils = require('./fs_utils');
 const dbg = require('./debug_module')(__filename);
 const os_detailed_info = require('getos');
+const dotenv = require('./dotenv');
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 const ADMIN_WIN_USERS = Object.freeze([
     'NT AUTHORITY\\SYSTEM',
     'BUILTIN\\Administrators'
 ]);
+
+
+if (!process.env.PLATFORM) {
+    console.log('loading .env file...');
+    dotenv.load();
+}
+
 
 function os_info(count_mongo_reserved_as_free) {
 
@@ -100,7 +108,18 @@ function get_raw_storage() {
     if (os.type() === 'Linux') {
         return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
             .then(res => _.find(res, function(disk) {
-                return disk.NAME === 'sda';
+                let expected_name = 'sda';
+                switch (process.env.PLATFORM) {
+                    case 'alyun':
+                        expected_name = 'vda';
+                        break;
+                    case 'aws':
+                        expected_name = 'xvda';
+                        break;
+                    default:
+                        expected_name = 'sda';
+                }
+                return disk.NAME === expected_name;
             }))
             .then(disk => parseInt(disk.SIZE, 10));
     } else {

@@ -93,13 +93,14 @@ const S3_CEPH_TEST_WHITELIST = [
     's3tests.functional.test_s3:test_object_set_get_unicode_metadata',
     's3tests.functional.test_s3:test_object_metadata_replaced_on_put',
     's3tests.functional.test_s3:test_object_write_file',
-    's3tests.functional.test_s3:test_post_object_authenticated_request_bad_access_key',
-    's3tests.functional.test_s3:test_post_object_invalid_signature',
-    's3tests.functional.test_s3:test_post_object_invalid_access_key',
-    's3tests.functional.test_s3:test_post_object_missing_policy_condition',
-    's3tests.functional.test_s3:test_post_object_request_missing_policy_specified_field',
-    's3tests.functional.test_s3:test_post_object_expired_policy',
-    's3tests.functional.test_s3:test_post_object_invalid_request_field_value',
+    //// POST Object is not implemented
+    // 's3tests.functional.test_s3:test_post_object_authenticated_request_bad_access_key',
+    // 's3tests.functional.test_s3:test_post_object_invalid_signature',
+    // 's3tests.functional.test_s3:test_post_object_invalid_access_key',
+    // 's3tests.functional.test_s3:test_post_object_missing_policy_condition',
+    // 's3tests.functional.test_s3:test_post_object_request_missing_policy_specified_field',
+    // 's3tests.functional.test_s3:test_post_object_expired_policy',
+    // 's3tests.functional.test_s3:test_post_object_invalid_request_field_value',
     's3tests.functional.test_s3:test_get_object_ifmatch_failed',
     's3tests.functional.test_s3:test_get_object_ifnonematch_failed',
     's3tests.functional.test_s3:test_get_object_ifmodifiedsince_good',
@@ -306,7 +307,8 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .catch(function() {
+        .catch(function(err) {
+            console.error(`Ceph Test Failed: ${err}`);
             process.exit(1);
         });
 }

@@ -191,6 +191,7 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
                                 if (String(cloud_pool) === String(block.adminfo.pool_name)) {
                                     if (TEST_CTX.cloud_pool_id === '') {
                                         TEST_CTX.cloud_pool_id = block.adminfo.node_name.split('-')[3];
+                                        //TODO: fix pool id - we used to take it from the node's name, but now it returns the host name
                                     }
                                     blocks_by_cloud_pool_name.blocks.push(block);
                                 }

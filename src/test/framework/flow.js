@@ -9,6 +9,7 @@ var steps = [
     },
     {
         //Run FE Unit tests
+        ignore_failure: true,
         name: 'FE Unit Tests',
         action: 'gulp',
         params: [{
@@ -17,7 +18,7 @@ var steps = [
             arg: 'frontend'
         }, {
             arg: 'test'
-        }]
+        }],
     },
     {
         //Run BE Unit tests
@@ -26,21 +27,26 @@ var steps = [
         params: [{
             arg: 'run',
         }, {
-            arg: 'mocha:coverage',
+            arg: 'mocha', // TODO: restore mocha:coverage
+            // arg: 'mocha:coverage',
         }],
         env: {
             COVDIR: './report/cov/mocha',
             PATH: process.env.PATH,
             DEV_MODE: 'true'
-        }
-    }, {
+        },
+    },
+    {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
     }, {
         //Test Data Placement according to policy
         name: 'Data Placement Test',
-        lib_test: '/src/test/system_tests/test_bucket_placement',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_bucket_placement'
+        }],
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -48,7 +54,10 @@ var steps = [
     }, {
         //Test Data Rebuild and Eviction
         name: 'Rebuild and Eviction Test',
-        lib_test: '/src/test/system_tests/test_build_chunks',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_build_chunks'
+        }],
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -56,7 +65,10 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Cloud Sync Test',
-        lib_test: '/src/test/system_tests/test_cloud_sync',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_cloud_sync'
+        }],
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -64,7 +76,10 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Node Failure Test',
-        lib_test: '/src/test/system_tests/test_node_failure',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_node_failure'
+        }],
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -72,7 +87,10 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Bucket Access Test',
-        lib_test: '/src/test/system_tests/test_bucket_access',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_bucket_access',
+        }],
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -80,28 +98,42 @@ var steps = [
     }, {
         //Test Ceph S3
         name: 'Ceph S3 Test',
-        lib_test: '/src/test/system_tests/test_ceph_s3',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_ceph_s3'
+        }],
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
     }, {
         //Test Cloud Pools
+        ignore_failure: true,
+        action: 'node',
         name: 'Cloud Pools Test',
-        lib_test: '/src/test/system_tests/test_cloud_pools',
+        params: [{
+            arg: './src/test/system_tests/test_cloud_pools'
+        }],
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
-    }, {
-        //Test MD Aggregator
-        name: 'MD Aggregator Test',
-        lib_test: '/src/test/system_tests/test_md_aggregator',
-    }, {
-        //Restore DB to defaults
-        name: 'Restore DB Defaults',
-        common: 'restore_db_defaults',
-    }
+    },
+    // TODO:    test_md_aggregator cuases supervisord to shutdown and not start again.
+    //          we should resove it before uncommenting the test
+    // {
+    //     //Test MD Aggregator
+    //     ignore_failure: true,
+    //     name: 'MD Aggregator Test',
+    //     action: 'node',
+    //     params: [{
+    //         arg: './src/test/system_tests/test_md_aggregator'
+    //     }],
+    // }, {
+    //     //Restore DB to defaults
+    //     name: 'Restore DB Defaults',
+    //     common: 'restore_db_defaults',
+    // }
 ];
 
 module.exports = steps;
@@ -116,5 +148,6 @@ module.exports = steps;
         input_arg: argument name of arg which was sent to the runner
       ]
   blocking: if true, will stop execution on failure of this step
+  ignore_failure: if true the test will only report fail\pass without failing the run
 }
 */

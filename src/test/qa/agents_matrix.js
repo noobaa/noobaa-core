@@ -362,7 +362,13 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
 function checkExcludeDisk(excludeList) {
     let number_befor_adding_disks;
     return af.getTestNodes(server_ip, oses)
-        .then(nodes_befor_adding_disks => addExcludeDisks(excludeList, nodes_befor_adding_disks.length))
+        .then(nodes_befor_adding_disks => {
+            const includesE = nodes_befor_adding_disks.filter(node => node.name.includes('-E-'));
+            const includesF = nodes_befor_adding_disks.filter(node => node.name.includes('-F-'));
+            const includes_exclude1 = nodes_befor_adding_disks.filter(node => node.name.includes('exclude1'));
+            const prevNum = nodes_befor_adding_disks - includesE.concat(includesF.concat(includes_exclude1));
+            return addExcludeDisks(excludeList, prevNum);
+        })
         .then(res => number_befor_adding_disks)
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
@@ -371,9 +377,10 @@ function checkExcludeDisk(excludeList) {
             .then(test_nodes_names => {
                 const includesE = test_nodes_names.filter(node => node.name.includes('-E-'));
                 const includes_exclude1 = test_nodes_names.filter(node => node.name.includes('exclude1'));
-                return includesE.concat(includes_exclude1);
-            })
-            .then(res => af.activeAgents(server_ip, res)))
+                // return includesE.concat(includes_exclude1);
+                return af.activeAgents(server_ip, includesE.concat(includes_exclude1));
+            }))
+        // .then(res => af.activeAgents(server_ip, res)))
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //disabling the entire host

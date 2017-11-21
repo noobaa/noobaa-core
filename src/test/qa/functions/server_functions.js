@@ -6,7 +6,10 @@ const promise_utils = require('../../../util/promise_utils');
 const ssh = require('./ssh_functions');
 const ssh2 = require('ssh2');
 const api = require('../../../api');
-const activation_code = 'pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6ek&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQayzLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd';
+const activation_code = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
+    "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +
+    "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +
+    "3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd";
 
 //will enable noobaa user login via ssh
 function enable_nooba_login(server_ip, secret) {
@@ -60,7 +63,7 @@ function wait_server_recoonect(server_ip) {
         function() {
             return P.resolve(client.account.accounts_status({}))
                 .then(res => {
-                    console.log(`The server is ready: ${res}`);
+                    console.log('The server is ready:', res);
                     retries = 0;
                     final_result = res;
                 })

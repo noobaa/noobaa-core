@@ -38,6 +38,22 @@ var machineCount = 4;
 
 var azf;
 
+function print_usage() {
+    console.log(`
+Usage:
+  --help                      show this usage
+  --app <noobaa-ip>           the IP of noobaa server to add agents to
+  --scale <agents-number>     the number of agents to add
+  --agent_conf <agent_conf>   the base64 configuration from the server
+  --location <location>       the azure location you want to use (default: ${location})
+  --resource <resource-group> the azure resource group to use (default: ${resourceGroupName})
+  --storage <storage-account> the azure storage account to use (default: ${storageAccountName})
+  --vnet <vnet>               the azure virtual network to use (default: ${vnetName})
+  --os <name>                 the desired os for the agent (default is linux - ubuntu14)
+                              ubuntu16/ubuntu14/centos6/win2012/win2008/win2016
+`);
+}
+
 ///////////////////////////////////////
 //Entrypoint for the vm-sample script//
 ///////////////////////////////////////
@@ -48,7 +64,10 @@ if (argv.help) {
 }
 
 var oses = [
-    'ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2008', 'win2012', 'win2016'
+    'ubuntu14', 'ubuntu16', 'ubuntu12',
+    'centos6', 'centos7',
+    'redhat6', 'redhat7',
+    'win2008', 'win2012', 'win2016'
 ];
 
 function args_builder(count, os) {
@@ -204,20 +223,4 @@ function _validateEnvironmentVariables() {
     if (envs.length > 0) {
         throw new Error(util.format('please set/export the following environment variables: %s', envs.toString()));
     }
-}
-
-function print_usage() {
-    console.log(`
-Usage:
-  --help                      show this usage
-  --app <noobaa-ip>           the IP of noobaa server to add agents to
-  --scale <agents-number>     the number of agents to add
-  --agent_conf <agent_conf>   the base64 configuration from the server
-  --location <location>       the azure location you want to use (default is eastus)
-  --resource <resource-group> the azure resource group to use (default is capacity)
-  --storage <storage-account> the azure storage account to use (default is capacitystorage)
-  --vnet <vnet>               the azure virtual network to use (default is capacity-vnet)
-  --os <name>                 the desired os for the agent (default is linux - ubuntu14)
-                              ubuntu16/ubuntu14/centos6/win2012/win2008/win2016
-`);
 }

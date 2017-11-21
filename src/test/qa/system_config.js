@@ -32,7 +32,7 @@ let failures_in_test = false;
 let my_external_ip = argv.my_ip;
 let external_server_ip = argv.external_server_ip;
 let udp_rsyslog_port = argv.udp_syslog_port || 5001;
-let tcp_rsyslog_port = argv.tcp_syslog_port || 5002;
+let tcp_rsyslog_port = argv.tcp_syslog_port || 514;
 let ph_proxy_port = argv.ph_proxy_port || 5003;
 
 let errors = [];
@@ -81,15 +81,15 @@ rsyslog_udp_server.on('message', (msg, rinfo) => {
 });
 
 P.fcall(function() {
-        rpc = api.new_rpc('wss://' + serverName + ':8443');
-        client = rpc.new_client({});
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    })
+    rpc = api.new_rpc('wss://' + serverName + ':8443');
+    client = rpc.new_client({});
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params);
+})
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
         secret = result.cluster.shards[0].servers[0].secret;
@@ -130,8 +130,8 @@ P.fcall(function() {
         let retries = 6;
         let final_result;
         return promise_utils.pwhile(function() {
-                return retries > 0;
-            },
+            return retries > 0;
+        },
             function() {
                 return P.resolve(client.cluster_server.read_server_config({}))
                     .then(res => {
@@ -140,7 +140,7 @@ P.fcall(function() {
                         final_result = res;
                     })
                     .catch(() => {
-                        console.log('waiting for read server config, will retry extra', retries, 'times');
+                        console.log(`waiting for read server config, will retry extra ${retries} times`);
                         return P.delay(15000);
                     });
             }).then(() => final_result);
@@ -148,9 +148,9 @@ P.fcall(function() {
     .then(result => {
         let dns = result.dns_servers;
         if (_.isEqual(dns, configured_dns)) {
-            console.log('The defined dns is', dns, '- as should');
+            console.log(`The defined dns is ${dns} - as should`);
         } else {
-            saveErrorAndResume('The defined dns is', dns, '- failure!!!');
+            saveErrorAndResume(`The defined dns is ${dns} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -159,8 +159,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
+            return (time_waiting < 65 && !final_result); // HB + something
+        },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -178,7 +178,7 @@ P.fcall(function() {
         if (dns_status === 'OPERATIONAL') {
             console.log('The service monitor see the dns status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the dns status as' + dns_status + '- failure!!!');
+            saveErrorAndResume(`The service monitor see the dns status as ${dns_status} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -223,14 +223,14 @@ P.fcall(function() {
     .then(result => {
         let timezone = result.timezone;
         if (timezone === second_timezone) {
-            console.log('The defined timezone is', timezone, '- as should');
+            console.log(`The defined timezone is ${timezone} - as should`);
         } else {
-            saveErrorAndResume('The defined timezone is', timezone, '- failure!!!');
+            saveErrorAndResume(`The defined timezone is ${timezone} - failure!!!`);
             failures_in_test = true;
         }
     })
     .then(() => { // time configuration - ntp
-        console.log('Checking connection before setup ntp', configured_ntp);
+        console.log(`Checking connection before setup ntp ${configured_ntp}`);
         return P.resolve(client.system.attempt_server_resolve({
             server_name: configured_ntp
         }));
@@ -249,8 +249,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
+            return (time_waiting < 65 && !final_result); // HB + something
+        },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -268,7 +268,7 @@ P.fcall(function() {
         if (ntp_status === 'OPERATIONAL') {
             console.log('The service monitor see the ntp status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the ntp status as' + ntp_status + '- failure!!!');
+            saveErrorAndResume(`The service monitor see the ntp status as ${ntp_status} - failure!!!`);
             failures_in_test = true;
         }
     }) // 3559
@@ -277,9 +277,9 @@ P.fcall(function() {
         console.log('after setting ntp cluster config is:' + JSON.stringify(result));
         let ntp = result.ntp_server;
         if (ntp === configured_ntp) {
-            console.log('The defined ntp is', ntp, '- as should');
+            console.log(`The defined ntp is ${ntp} - as should`);
         } else {
-            saveErrorAndResume('The defined ntp is' + ntp + '- failure!!!');
+            saveErrorAndResume(`The defined ntp is ${ntp} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -302,13 +302,13 @@ P.fcall(function() {
     })
     .then(() => phone_home_proxy_server.listen(ph_proxy_port))
     .then(() => promise_utils.pwhile(
-            function() {
-                return !received_phonehome_proxy_connection;
-            },
-            function() {
-                console.warn('Didn\'t get phone home message yet');
-                return P.delay(5000);
-            }).timeout(1 * 90000)
+        function() {
+            return !received_phonehome_proxy_connection;
+        },
+        function() {
+            console.warn('Didn\'t get phone home message yet');
+            return P.delay(5000);
+        }).timeout(1 * 90000)
         .then(() => {
             console.log('Just received phone home message - as should');
         })
@@ -325,9 +325,9 @@ P.fcall(function() {
     .then(result => {
         let proxy = result.phone_home_config.proxy_address;
         if (proxy === 'http://' + my_external_ip + ':' + ph_proxy_port) {
-            console.log('The defined phone home proxy is', proxy, '- as should');
+            console.log(`The defined phone home proxy is ${proxy} - as should`);
         } else {
-            saveErrorAndResume('The defined phone home proxy is', proxy, '- failure');
+            saveErrorAndResume(`The defined phone home proxy is ${proxy} - failure`);
             failures_in_test = true;
         }
     })
@@ -336,8 +336,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
+            return (time_waiting < 65 && !final_result); // HB + something
+        },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -355,7 +355,7 @@ P.fcall(function() {
         if (ph_status === 'OPERATIONAL') {
             console.log('The service monitor see the phone home proxy status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the phone home proxy status as' + ph_status + '- failure!!!');
+            saveErrorAndResume(`The service monitor see the phone home proxy status as ${ph_status} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -367,13 +367,13 @@ P.fcall(function() {
     })
     .then(() => phone_home_proxy_server.listen(ph_proxy_port))
     .then(() => promise_utils.pwhile(
-            function() {
-                return !received_phonehome_proxy_connection;
-            },
-            function() {
-                console.warn('Didn\'t get phone home message yet');
-                return P.delay(5000);
-            }).timeout(1 * 60000)
+        function() {
+            return !received_phonehome_proxy_connection;
+        },
+        function() {
+            console.warn('Didn\'t get phone home message yet');
+            return P.delay(5000);
+        }).timeout(1 * 60000)
         .then(() => {
             console.log('Just received phone home message - as should');
         })
@@ -391,19 +391,36 @@ P.fcall(function() {
         if (JSON.stringify(proxy).includes('proxy_address') === false) {
             console.log('The defined phone home proxy is no use proxy - as should');
         } else {
-            saveErrorAndResume('The defined phone home with disable proxy is', proxy, '- failure');
+            saveErrorAndResume(`The defined phone home with disable proxy is ${proxy} - failure`);
             failures_in_test = true;
         }
     })
-    .delay(50000)
-    .then(() => P.resolve(client.system.read_system({})))
+    .then(() => {
+        console.log('Waiting on Read system to verify Proxy status');
+        let time_waiting = 0;
+        let final_result;
+        return promise_utils.pwhile(function() {
+            return (time_waiting < 65 && !final_result); // HB + something
+        },
+            function() {
+                return P.resolve(client.system.read_system({}))
+                    .then(res => {
+                        if (res.cluster.shards[0].servers[0].services_status.phonehome_proxy) final_result = res;
+                    })
+                    .catch(() => {
+                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
+                        time_waiting += 15;
+                        return P.delay(15000);
+                    });
+            }).then(() => final_result);
+    })
     .then(result => {
         console.log(JSON.stringify(result.cluster.shards[0].servers[0].services_status));
         let ph_status = result.cluster.shards[0].servers[0].services_status.phonehome_server.status;
         if (ph_status === 'OPERATIONAL') {
             console.log('The service monitor see the phone home proxy status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the phone home proxy after disable status as' + ph_status + '- failure!!!');
+            saveErrorAndResume(`The service monitor see the phone home proxy after disable status as ${ph_status} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -441,9 +458,9 @@ P.fcall(function() {
         let protocol = result.remote_syslog_config.protocol;
         let port = result.remote_syslog_config.port;
         if (address === my_external_ip && protocol === 'TCP' && port === tcp_rsyslog_port) {
-            console.log('The defined syslog is', address + ':' + port, '- as should');
+            console.log(`The defined syslog is ${address}: ${port} - as should`);
         } else {
-            saveErrorAndResume('The defined syslog is', address + ':' + port, '- failure!!!');
+            saveErrorAndResume(`The defined syslog is ${address}: ${port} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -452,8 +469,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
+            return (time_waiting < 65 && !final_result); // HB + something
+        },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -471,7 +488,7 @@ P.fcall(function() {
         if (syslog_status === 'OPERATIONAL') {
             console.log('The service monitor see the syslog status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the syslog status as' + syslog_status + '- failure!!!');
+            saveErrorAndResume(`The service monitor see the syslog status as ${syslog_status} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -509,9 +526,9 @@ P.fcall(function() {
         let protocol = result.remote_syslog_config.protocol;
         let port = result.remote_syslog_config.port;
         if (address === my_external_ip && protocol === 'UDP' && port === udp_rsyslog_port) {
-            console.log('The defined syslog is', address + ':' + port, '- as should');
+            console.log(`The defined syslog is ${address}: ${port} - as should`);
         } else {
-            saveErrorAndResume('The defined syslog is', address + ':' + port, '- failure!!!');
+            saveErrorAndResume(`The defined syslog is ${address}: ${port} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -520,8 +537,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
+            return (time_waiting < 65 && !final_result); // HB + something
+        },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -539,7 +556,7 @@ P.fcall(function() {
         if (syslog_status === 'OPERATIONAL') {
             console.log('The service monitor see the syslog status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume('The service monitor see the syslog status as' + syslog_status + '- failure!!!');
+            saveErrorAndResume(`The service monitor see the syslog status as ${syslog_status} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -554,7 +571,7 @@ P.fcall(function() {
         if (mode === true) {
             console.log('The maintenance mode is true - as should');
         } else {
-            saveErrorAndResume('The maintenance mode is ', mode, '- failure!!!');
+            saveErrorAndResume(`The maintenance mode is ${mode} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -565,7 +582,7 @@ P.fcall(function() {
         if (mode === false) {
             console.log('The maintenance mode is false - as should');
         } else {
-            saveErrorAndResume('The maintenance mode after turn finished time is ', mode, '- failure!!!');
+            saveErrorAndResume(`The maintenance mode after turn finished time is ${mode} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -583,7 +600,7 @@ P.fcall(function() {
         if (mode === false) {
             console.log('The maintenance mode is false - as should');
         } else {
-            saveErrorAndResume('The maintenance mode after turn off is ', mode, '- failure!!!');
+            saveErrorAndResume(`The maintenance mode after turn off is ${mode} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -600,7 +617,7 @@ P.fcall(function() {
         if (tcp_port === 60100) {
             console.log('The single tcp port is : ', 60100, ' - as should');
         } else {
-            saveErrorAndResume('The single tcp port is ', n2n_config, '- failure!!!');
+            saveErrorAndResume(`The single tcp port is ${n2n_config} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -619,7 +636,7 @@ P.fcall(function() {
         if (tcp_port_min === 60200 && tcp_port_max === 60500) {
             console.log('The tcp port range is : ', 60100, ' to ', 60500, ' - as should');
         } else {
-            saveErrorAndResume('The tcp port range is ', n2n_config, '- failure!!!');
+            saveErrorAndResume(`The tcp port range is ${n2n_config} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -632,7 +649,7 @@ P.fcall(function() {
         if (debug_level === 5) {
             console.log('The debug level is : ', 5, ' - as should');
         } else {
-            saveErrorAndResume('The debug level is ', debug_level, '- failure!!!');
+            saveErrorAndResume(`The debug level is ${debug_level} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -645,7 +662,7 @@ P.fcall(function() {
         if (debug_level === 0) {
             console.log('The debug level after turn off is : ', 0, ' - as should');
         } else {
-            saveErrorAndResume('The debug level after turn off is ', debug_level, '- failure!!!');
+            saveErrorAndResume(`The debug level after turn off is ${debug_level} - failure!!!`);
             failures_in_test = true;
         }
     })
@@ -653,9 +670,9 @@ P.fcall(function() {
     .delay(40000)
     .then(result => {
         if (result.includes('/public/demo_cluster_diagnostics.tgz')) {
-            console.log('The diagnose system file is  : ', result, ' - as should');
+            console.log(`The diagnose system file is: ${result} - as should`);
         } else {
-            saveErrorAndResume('The diagnose system file is  : ', result, '- failure!!!');
+            saveErrorAndResume(`The diagnose system file is: ${result} - failure!!!`);
             failures_in_test = true;
         }
     })

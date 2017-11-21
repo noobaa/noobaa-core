@@ -114,6 +114,7 @@ function _verify_proxy_cluster_config() {
 }
 
 function _verify_dns_cluster_config() {
+    if (os.type() === 'Darwin') return;
     dbg.log2('Verifying dns configuration in relation to cluster config');
     let cluster_conf = {
         dns_servers: _.compact(server_conf.dns_servers),

@@ -60,7 +60,7 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     NO_SUCH_BUCKET: S3Error.NoSuchBucket,
     NO_SUCH_OBJECT: S3Error.NoSuchKey,
     INVALID_BUCKET_NAME: S3Error.InvalidBucketName,
-    BUCKET_NOT_EMPTY: S3Error.BucketNotEmpty,
+    NOT_EMPTY: S3Error.BucketNotEmpty,
     BUCKET_ALREADY_EXISTS: S3Error.BucketAlreadyExists,
     NO_SUCH_UPLOAD: S3Error.NoSuchUpload,
     BAD_DIGEST_MD5: S3Error.BadDigest,

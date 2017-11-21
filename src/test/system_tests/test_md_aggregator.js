@@ -121,7 +121,7 @@ function init_system_to_ntp() {
             })
         )
         .delay(10000)
-        .then(() => {
+        .finally(() => {
             console.log('shutdown supervisorctl');
             return promise_utils.exec('supervisorctl shutdown', {
                 ignore_rc: false,
@@ -259,7 +259,7 @@ function run_test() {
                 storage_by_bucket
             );
         })
-        .then(() => init_system_to_ntp());
+        .finally(() => init_system_to_ntp());
 }
 
 function main() {
@@ -271,11 +271,8 @@ function main() {
         })
         .catch(function(err) {
             console.error('TEST FAILED: ', err.stack || err);
-            return init_system_to_ntp()
-                .finally(() => {
-                    rpc.disconnect_all();
-                    process.exit(1);
-                });
+            rpc.disconnect_all();
+            process.exit(1);
         });
 }
 
@@ -355,7 +352,7 @@ function wait_for_server_to_start(max_seconds_to_wait, port) {
                         console.log('waiting for server to start(2)');
                         wait_counter += 1;
                         if (wait_counter >= MAX_RETRIES) {
-                            console.Error('Too many retries after restart server', err);
+                            console.error('Too many retries after restart server', err);
                             throw new Error('Too many retries');
                         }
                         return P.delay(1000);

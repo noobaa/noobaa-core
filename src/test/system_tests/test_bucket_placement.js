@@ -27,7 +27,7 @@ module.exports = {
 };
 
 // Does the Auth and returns the nodes in the system
-function get_nodes_auth() {
+function get_hosts_auth() {
     var auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
@@ -37,10 +37,10 @@ function get_nodes_auth() {
             return client.create_auth_token(auth_params);
         })
         .then(function() {
-            return client.node.list_nodes({
+            return client.host.list_hosts({
                 query: {
-                    online: true,
-                    skip_mongo_nodes: true
+                    mode: ['OPTIMAL'],
+                    pools: ['first.pool']
                 }
             });
         });
@@ -48,26 +48,26 @@ function get_nodes_auth() {
 
 function run_test() {
     // Used in order to get the nodes of the system
-    var sys_nodes;
+    var sys_hosts;
     // Used in order to get the key of the file
     var fkey = null;
 
     // Starting the test chain
-    return get_nodes_auth()
+    return get_hosts_auth()
         .then(function(res) {
-            sys_nodes = res;
-            if (sys_nodes.total_count < 6) {
+            sys_hosts = res;
+            if (sys_hosts.total_count < 6) {
                 return P.reject("Not Enough Nodes For 2 Pools");
             }
 
-            return client.pool.create_nodes_pool({
+            return client.pool.create_hosts_pool({
                 name: "pool1",
-                nodes: _.map(sys_nodes.nodes.slice(0, 3), node => _.pick(node, 'name'))
+                hosts: sys_hosts.hosts.map(host => host.name).slice(0, 3)
             });
         })
-        .then(() => client.pool.create_nodes_pool({
+        .then(() => client.pool.create_hosts_pool({
             name: "pool2",
-            nodes: _.map(sys_nodes.nodes.slice(3, 6), node => _.pick(node, 'name'))
+            hosts: sys_hosts.hosts.map(host => host.name).slice(3, 6)
         }))
         .then(() => client.tier.create_tier({
             name: 'tier1',
@@ -266,6 +266,8 @@ function check_file_validity_on_spillover(fkey) {
         },
         function() {
             blocks_correct = true;
+            let not_in_spillover_pool_error = false;
+            let replicas_not_correct_error = false;
             return client.object.read_object_mappings({
                     bucket: TEST_BUCKET_NAME,
                     key: fkey,
@@ -280,13 +282,13 @@ function check_file_validity_on_spillover(fkey) {
                                 if (!block.adminfo.pool_name
                                     .includes(config.INTERNAL_STORAGE_POOL_NAME)) {
                                     blocks_correct = false;
-                                    console.error("check_file_validity_on_spillover BLOCK NOT IN SPILLOVER POOL");
+                                    not_in_spillover_pool_error = true;
                                 }
                             });
                         });
                         if (blocks_per_chunk_count !== 1) {
                             blocks_correct = false;
-                            console.error("check_file_validity_on_spillover REPLICAS ON SPILLOVER NOT CORRECT!");
+                            replicas_not_correct_error = true;
                         }
                     });
                     if (blocks_correct) {
@@ -299,11 +301,19 @@ function check_file_validity_on_spillover(fkey) {
 
                         let diff = Date.now() - start_ts;
                         if (diff > abort_timeout_sec * 1000) {
+                            console.error('Failed check_file_validity_on_spillover!!! aborting after ' + abort_timeout_sec + ' seconds');
+                            if (not_in_spillover_pool_error) {
+                                console.error("check_file_validity_on_spillover BLOCK NOT IN SPILLOVER POOL");
+                            }
+                            if (replicas_not_correct_error) {
+                                console.error("check_file_validity_on_spillover REPLICAS ON SPILLOVER NOT CORRECT!");
+                            }
                             throw new Error('aborted check_file_validity_on_spillover after ' + abort_timeout_sec + ' seconds');
                         }
                         return P.delay(500);
                     }
-                });
+                })
+                .delay(1000);
         });
 }
 

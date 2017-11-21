@@ -32,15 +32,20 @@ function main() {
         return;
     }
 
-    console.log('Upgrading MD server at', argv.target_ip);
-    return P.resolve(ops.upload_and_upgrade(argv.target_ip, argv.upgrade_pack))
+    return upgrade_and_test(argv.target_ip, argv.upgrade_pack)
+        .then(() => process.exit(0));
+}
+
+function upgrade_and_test(target_ip, upgrade_pack) {
+    console.log('Upgrading MD server at', target_ip);
+    return P.resolve(ops.upload_and_upgrade(target_ip, upgrade_pack))
         .catch(function(error) {
             console.warn('Upgrading failed with', error, error.stack);
             stop();
         })
         .then(function() {
             console.log('Upgrade successful, waiting on agents to upgrade');
-            return P.resolve(ops.wait_on_agents_upgrade(argv.target_ip))
+            return P.resolve(ops.wait_on_agents_upgrade(target_ip))
                 .catch(function(error) {
                     console.warn('Agents failed to upgrade', error, error.stack);
                     stop();
@@ -51,7 +56,7 @@ function main() {
             return ops.generate_random_file(1)
                 .then(function(path) {
                     console.log('Verifying ul/dl of 1MB file', path);
-                    return ops.verify_upload_download(argv.target_ip, path);
+                    return ops.verify_upload_download(target_ip, path);
                 })
                 .catch(function(error) {
                     console.warn('Verifying ul/dl 1MB file failed with', error, error.stack);
@@ -63,7 +68,7 @@ function main() {
             return ops.generate_random_file(20)
                 .then(function(path) {
                     console.log('Verifying ul/dl of 20MB file', path);
-                    return ops.verify_upload_download(argv.target_ip, path);
+                    return ops.verify_upload_download(target_ip, path);
                 })
                 .catch(function(error) {
                     console.warn('Verifying ul/dl 20MB file failed with', error, error.stack);
@@ -72,7 +77,7 @@ function main() {
         })
         .then(function() {
             console.log('ul/dl 20MB file successful, verifying agent download');
-            return ops.get_agent_setup(argv.target_ip)
+            return ops.get_agent_setup(target_ip)
                 .catch(function(error) {
                     console.warn('Verifying agent download failed with', error, error.stack);
                     stop();
@@ -80,11 +85,11 @@ function main() {
         })
         .then(function() {
             console.log('Basic sanity test passed!');
-            process.exit(0);
-            return;
         });
 }
 
 if (require.main === module) {
     main();
 }
+
+exports.upgrade_and_test = upgrade_and_test;

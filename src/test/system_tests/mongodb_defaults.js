@@ -89,7 +89,15 @@ db.pools.updateMany({}, {
 });
 
 // We assign all of the nodes to the first.pool, because we've removed all of the pools
-db.nodes.update({}, {
+db.nodes.update({
+    pool: {
+        $nin: [db.pools.find({
+            name: {
+                $regex: 'system-internal-storage-pool.*'
+            }
+        })[0]._id]
+    }
+}, {
     $set: {
         pool: db.pools.find({
             name: 'first.pool'

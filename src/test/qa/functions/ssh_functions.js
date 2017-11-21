@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../../util/promise');
 const fs = require('fs');
+const ssh2 = require('ssh2');
+const P = require('../../../util/promise');
 
 //will connect the ssh session
 function ssh_connect(client, options) {
+    client = client || new ssh2.Client();
     return new P((resolve, reject) => client
-        .once('ready', resolve)
+        .once('ready', () => resolve(client))
         .once('error', reject)
         .connect(options));
 }
@@ -21,17 +23,26 @@ function ssh_disconnect(client) {
 }
 
 //will execute command via ssh
-function ssh_exec(client, command) {
+function ssh_exec(client, command, reject_on_exit_code) {
     console.log('Execute ssh command ' + command);
     return P.fromCallback(callback => client.exec(command, { pty: true }, callback))
         .then(stream => new P((resolve, reject) => {
-            stream.on('data', data => console.log('ssh_exec: output', data.toString()))
-                .on('error', reject)
-                .on('end', () => {
-                    console.log('ssh_exec: Done');
-                    resolve();
+            stream.on('data', data => console.log(data.toString()))
+                .once('error', reject)
+                .once('close', code => {
+                    if (reject_on_exit_code && (code !== 0)) {
+                        console.log(`ssh_exec: Failed. ${command} exited with code ${code}`);
+                        reject(new Error(`${command} exited with code ${code}`));
+                    } else {
+                        console.log(`ssh_exec: Done. command ${command} successful`);
+                        resolve();
+                    }
                 });
-        }));
+        }))
+        .catch(err => {
+            console.log(err);
+            throw err;
+        });
 }
 
 //will do ssh stick which will relese the need to enter password for each ssh session

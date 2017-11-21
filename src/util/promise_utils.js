@@ -199,7 +199,7 @@ function run_background_worker(worker) {
 /*
  * Run child process spawn wrapped by a promise
  */
-function spawn(command, args, options, ignore_rc, unref) {
+function spawn(command, args, options, ignore_rc, unref, timeout) {
     return new P((resolve, reject) => {
         options = options || {};
         args = args || [];
@@ -228,6 +228,13 @@ function spawn(command, args, options, ignore_rc, unref) {
                     ' exited with error ' + error));
             }
         });
+        if (timeout) {
+            setTimeout(() => {
+                const pid = proc.pid;
+                proc.kill();
+                reject(new Error(`Timeout: Execution of ${command + args.join(' ')} took longer than ${timeout} ms. killed process (${pid})`));
+            }, timeout);
+        }
         if (unref) proc.unref();
     });
 }

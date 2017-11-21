@@ -379,7 +379,7 @@ InternalDebugLogger.prototype.log_internal = function(level) {
                         name: 'file_transport',
                         level: 'ERROR',
                         showLevel: false,
-                        filename: self._file_path.name + '-report.log',
+                        filename: self._file_path.base,
                         dirname: self._file_path.dir,
                         json: false, //Must be otherwise formatter is not working
                         //maxsize: (10 * 1024 * 1024), //10 MB
@@ -600,6 +600,14 @@ DebugLogger.prototype.set_log_to_file = function(log_file) {
     } else {
         int_dbg._file_path = undefined;
     }
+};
+
+DebugLogger.prototype.set_console_output = function(is_enabled) {
+    int_dbg._log.transports.console_transp.silent = !is_enabled;
+};
+
+DebugLogger.prototype.original_console = function() {
+    console_wrapper.original_console();
 };
 
 if (console_wrapper) {

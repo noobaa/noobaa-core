@@ -60,6 +60,21 @@ function _getAlertsIcon(unreadCounters) {
 
 }
 
+function _getAlertsTooltip(unreadCounters) {
+    const { crit, major, info } = unreadCounters;
+    return {
+        text: {
+            title: 'Uread alerts',
+            list: [
+                `${crit} Critical`,
+                `${major} Important`,
+                `${info} Minor`
+            ]
+        }
+    };
+
+}
+
 class SystemHealthViewModel extends Observer {
     constructor() {
         super();
@@ -100,6 +115,7 @@ class SystemHealthViewModel extends Observer {
 
         // Alerts observables.
         this.alertsIcon = ko.observable();
+        this.alertsTooltip = ko.observable();
         this.alertsSummary = ko.observable();
 
 
@@ -166,6 +182,7 @@ class SystemHealthViewModel extends Observer {
 
         const alertSummary = stringifyAmount('unread critical alert', unreadAlertsCounters.crit, 'No');
         this.alertsIcon(_getAlertsIcon(unreadAlertsCounters));
+        this.alertsTooltip(_getAlertsTooltip(unreadAlertsCounters));
         this.alertsSummary(alertSummary);
 
         this.dataLoaded(true);

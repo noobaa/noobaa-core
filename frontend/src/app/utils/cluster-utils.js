@@ -182,7 +182,7 @@ function _summrizeServerIssues(server, systemVersion, minRequirements) {
 export function getClsuterHAState(topology) {
     const { supportHighAvailability, isHighlyAvailable }= topology;
     return supportHighAvailability ?
-        (isHighlyAvailable ? 'Not highly available' : 'Highly Available') :
+        (isHighlyAvailable ? 'Highly Available' : 'Not highly available') :
         'Not configured for high availability';
 }
 

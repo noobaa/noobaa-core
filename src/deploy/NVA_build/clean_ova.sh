@@ -145,6 +145,8 @@ sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/no
 echo "PLATFORM=${platform}" >> /root/node_modules/noobaa-core/.env
 supervisorctl reread
 supervisorctl reload
+echo "PLATFORM=${platform}" >> /root/node_modules/noobaa-core/.env
+
 if [ -d /root/node_modules/noobaa-core/agent_storage/ ]; then
     rm -rf /root/node_modules/noobaa-core/agent_storage/
 fi

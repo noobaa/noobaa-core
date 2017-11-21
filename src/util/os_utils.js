@@ -29,6 +29,13 @@ if (!process.env.PLATFORM) {
     dotenv.load();
 }
 
+
+if (!process.env.PLATFORM) {
+    console.log('loading .env file...');
+    dotenv.load();
+}
+
+
 function os_info(count_mongo_reserved_as_free) {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys

@@ -16,3 +16,8 @@ if [ ! -f ${NOOBAASEC} ]; then
   fi
 fi
 
+# if running on AWS then write\fix the region in .env
+if grep -q "PLATFORM=aws" /root/node_modules/noobaa-core/.env; then
+  cd /root/node_modules/noobaa-core/
+  /usr/local/bin/node /root/node_modules/noobaa-core/src/deploy/NVA_build/prepare_aws_platform.js
+fi

@@ -482,6 +482,7 @@ module.exports = {
             type: 'string',
             enum: [
                 'OFFLINE',
+                'DELETING',
                 'DECOMMISSIONED',
                 'DECOMMISSIONING',
                 'UNTRUSTED',
@@ -507,6 +508,7 @@ module.exports = {
             type: 'string',
             enum: [
                 'OFFLINE',
+                'DELETING',
                 'DECOMMISSIONED',
                 'UNTRUSTED',
                 'HTTP_SRV_ERRORS',
@@ -519,6 +521,7 @@ module.exports = {
             type: 'string',
             enum: [
                 'OFFLINE',
+                'DELETING',
                 'STORAGE_OFFLINE',
                 'S3_OFFLINE',
                 'DECOMMISSIONED',
@@ -602,6 +605,9 @@ module.exports = {
             type: 'object',
             properties: {
                 OFFLINE: {
+                    type: 'integer'
+                },
+                DELETING: {
                     type: 'integer'
                 },
                 S3_OFFLINE: {

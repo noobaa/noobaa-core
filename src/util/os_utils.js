@@ -641,7 +641,7 @@ function set_dns_and_search_domains(dns_servers, search_domains) {
 
 function _set_dns_server(servers) {
     if (!servers) return;
-    const forwarders_str = `forwarders { ${servers.join('; ')}; };\nforward only;\n`;
+    const forwarders_str = (servers.length ? `forwarders { ${servers.join('; ')}; };` : `forwarders { };`) + '\nforward only;\n';
     dbg.log0('setting dns servers in named forwarders configuration');
     dbg.log0('writing', forwarders_str, 'to', config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE);
     return fs_utils.replace_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, forwarders_str)

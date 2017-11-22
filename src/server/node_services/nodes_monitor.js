@@ -394,12 +394,8 @@ class NodesMonitor extends EventEmitter {
         const host_item = this._consolidate_host(host_nodes);
         return P.map(host_nodes, node => this._delete_node(node))
             .then(() => this._dispatch_node_event(host_item, 'deleted',
-                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was deleted by ${req.account && req.account.email}`,
-                req.account && req.account._id))
-            .then(() => Dispatcher.instance().publish_fe_notifications({
-                    name: req.rpc_params.name,
-                }, 'remove_host') //send notification API on deleted member
-            );
+                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} set to be deleted by ${req.account && req.account.email}`,
+                req.account && req.account._id));
     }
 
     hide_host(req) {
@@ -1247,6 +1243,8 @@ class NodesMonitor extends EventEmitter {
         if (!item.node_from_store) return;
 
         const host_nodes = this._get_nodes_by_host_id(item.node.host_id);
+        const host = this._consolidate_host(host_nodes);
+
         const first_item = host_nodes[0]; // TODO ask Danny if we can trust the first to be stable
         if (!first_item.connection) return;
         if (first_item.uninstalling) return;
@@ -1256,16 +1254,23 @@ class NodesMonitor extends EventEmitter {
 
         first_item.uninstalling = true;
         dbg.log0('_uninstall_deleting_node: uninstalling host', item.node.host_id, 'all nodes are deleted');
+        const host_name = this._item_hostname(host) + '#' + host.node.host_sequence;
         return P.resolve()
             .then(() => server_rpc.client.agent.uninstall(undefined, {
                 connection: first_item.connection,
             }))
             .then(() => {
-                dbg.log0('_uninstall_deleting_node: host', item.node.host_id, 'is uninstalled - all nodes will be removed');
-                // Dispatcher.instance().alert('INFO', first_item.node.system, `Node ${first_item.node.os_info.hostname} is successfully deleted`);
+                dbg.log0('_uninstall_deleting_node: host', host_name, 'is uninstalled - all nodes will be removed');
                 host_nodes.forEach(host_item => {
                     host_item.ready_to_be_deleted = true;
                 });
+            }) // maybe we need some delay here to make sure DB changed to deleted before sending notification to UI
+            .then(() => {
+                this._dispatch_node_event(host, 'deleted',
+                    `Node ${this._item_hostname(host)} in pool ${this._item_pool_name(host)} is successfully deleted`);
+                Dispatcher.instance().publish_fe_notifications({
+                    name: host_name,
+                }, 'remove_host'); //send notification API on deleted member
             })
             .finally(() => {
                 first_item.uninstalling = false;
@@ -2455,6 +2460,7 @@ class NodesMonitor extends EventEmitter {
             const {
                 DECOMMISSIONED = 0,
                     OFFLINE = 0,
+                    DELETING = 0,
                     UNTRUSTED = 0,
                     STORAGE_NOT_EXIST = 0,
                     IO_ERRORS = 0,
@@ -2471,6 +2477,7 @@ class NodesMonitor extends EventEmitter {
             host_item.storage_nodes_mode =
                 (!enabled_nodes_count && 'DECOMMISSIONED') || // all decommissioned
                 (OFFLINE === enabled_nodes_count && 'OFFLINE') || // all offline
+                (DELETING && 'DELETING') ||
                 (UNTRUSTED && 'UNTRUSTED') ||
                 (STORAGE_NOT_EXIST === enabled_nodes_count && 'STORAGE_NOT_EXIST') || // all unmounted
                 (DETENTION === enabled_nodes_count && 'DETENTION') || // all detention
@@ -2496,6 +2503,7 @@ class NodesMonitor extends EventEmitter {
 
         const s3_node_modes = [
             'OFFLINE',
+            'DELETING',
             'UNTRUSTED',
             'INITIALIZING',
             'DECOMMISSIONED',
@@ -2517,6 +2525,8 @@ class NodesMonitor extends EventEmitter {
             host_item.mode = storage_mode;
         } else if (storage_mode === 'DECOMMISSIONED') {
             host_item.mode = s3_mode;
+        } else if (s3_mode === 'DELETING' || storage_mode === 'DELETING') {
+            host_item.mode = 'DELETING';
         } else if (s3_mode === storage_mode) {
             host_item.mode = s3_mode;
         } else if (s3_priority > storage_priority) {

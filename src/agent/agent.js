@@ -1034,12 +1034,15 @@ class Agent {
     }
 
     uninstall() {
-        const dbg = this.dbg;
-        dbg.log1('Recieved unintsall req');
-        if (os_utils.get_distro() === 'OSX - Darwin') return;
-        P.delay(30 * 1000) // this._disable_service()
+        return P.resolve()
             .then(() => {
-                process.exit(85); // 85 is 'U' in ascii
+                const dbg = this.dbg;
+                dbg.log1('Recieved unintsall req');
+                if (os.type() === 'Darwin') return;
+                P.delay(30 * 1000) // this._disable_service()
+                    .then(() => {
+                        process.exit(85); // 85 is 'U' in ascii
+                    });
             });
     }
 

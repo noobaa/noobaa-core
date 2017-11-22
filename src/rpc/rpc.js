@@ -9,6 +9,7 @@ const EventEmitter = require('events').EventEmitter;
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
 const RpcError = require('./rpc_error');
 const url_utils = require('../util/url_utils');
 const RpcRequest = require('./rpc_request');
@@ -25,11 +26,6 @@ const RpcNudpConnection = require('./rpc_nudp');
 const RpcNtcpConnection = require('./rpc_ntcp');
 const RpcFcallConnection = require('./rpc_fcall');
 const RPC_BUFFERS = RpcRequest.RPC_BUFFERS;
-
-const RPC_PING_INTERVAL_MS = 20000;
-const RECONN_BACKOFF_BASE = 250;
-const RECONN_BACKOFF_MAX = 5000;
-const RECONN_BACKOFF_FACTOR = 1.2;
 
 // dbg.set_level(5, __dirname);
 
@@ -262,11 +258,9 @@ RPC.prototype._request = function(api, method_api, params, options) {
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
             this._release_connection(req));
 
-    if (options.timeout) {
-        request_promise.timeout(options.timeout, 'RPC REQUEST TIMEOUT');
-    }
-
-    return request_promise;
+    return options.timeout ?
+        request_promise.timeout(options.timeout, new RpcError('RPC_REQUEST_TIMEOUT', 'RPC REQUEST TIMEOUT')) :
+        request_promise;
 };
 
 
@@ -428,6 +422,7 @@ RPC.prototype._assign_connection = function(req, options) {
         conn = this._get_connection(addr_url, req.srv);
     }
     if (conn) {
+        conn._connect_timeout_ms = options.connect_timeout || config.RPC_CONNECT_TIMEOUT;
         req.connection = conn;
         req.reqid = conn._alloc_reqid();
         conn._sent_requests.set(req.reqid, req);
@@ -558,7 +553,8 @@ RPC.prototype._accept_new_connection = function(conn) {
             const reqid = conn._alloc_reqid();
             conn._ping_reqid_set = conn._ping_reqid_set || new Set();
             conn._ping_reqid_set.add(reqid);
-            if (conn._ping_reqid_set.size > 3) {
+            // TODO instead of setting the ping exhausted count so high we better start pings only once connected
+            if (conn._ping_reqid_set.size > config.RPC_PING_EXHAUSTED_COUNT) {
                 const err = new Error(`RPC PINGPONG EXHAUSTED pings ${
                     Array.from(conn._ping_reqid_set).join(',')
                 } connid ${conn.connid}`);
@@ -573,7 +569,7 @@ RPC.prototype._accept_new_connection = function(conn) {
                 })))
                 .catch(_.noop); // already means the conn is closed
             return null;
-        }, RPC_PING_INTERVAL_MS);
+        }, config.RPC_PING_INTERVAL_MS);
     }
 };
 
@@ -584,14 +580,14 @@ RPC.prototype._accept_new_connection = function(conn) {
  */
 RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
     // use the previous backoff for delay
-    reconn_backoff = reconn_backoff || RECONN_BACKOFF_BASE;
+    reconn_backoff = reconn_backoff || config.RECONN_BACKOFF_BASE;
 
     const conn = this._get_connection(addr_url, 'called from reconnect');
     // increase the backoff for the new connection,
     // so that if it closes the backoff will keep increasing up to max.
     if (conn._reconnect_timeout) return;
     conn._reconn_backoff = Math.min(
-        reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
+        reconn_backoff * config.RECONN_BACKOFF_FACTOR, config.RECONN_BACKOFF_MAX);
     conn._reconnect_timeout = setTimeout(() => {
         conn._reconnect_timeout = undefined;
         const conn2 = this._get_connection(addr_url, 'called from reconnect2');

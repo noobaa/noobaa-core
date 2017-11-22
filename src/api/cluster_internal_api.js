@@ -106,6 +106,23 @@ module.exports = {
             }
         },
 
+        get_secret: {
+            doc: 'get server secret',
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['secret'],
+                properties: {
+                    secret: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
         get_version: {
             doc: 'get server version',
             method: 'GET',

@@ -50,7 +50,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['old_address', 'new_address', 'shard', 'hostname'],
+                required: ['old_address', 'new_address', 'shard', 'target_secret'],
                 properties: {
                     old_address: {
                         type: 'string',
@@ -61,7 +61,7 @@ module.exports = {
                     shard: {
                         type: 'string'
                     },
-                    hostname: {
+                    target_secret: {
                         type: 'string'
                     }
                 },
@@ -303,6 +303,35 @@ module.exports = {
             }
         },
 
+        verify_new_ip: {
+            doc: 'check join conditions to the cluster for specified server and return its hostname',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['address', 'secret'],
+                properties: {
+                    address: {
+                        type: 'string',
+                    },
+                    secret: {
+                        type: 'string'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['result'],
+                properties: {
+                    result: {
+                        $ref: '#/definitions/verify_new_ip_result'
+                    },
+                }
+            },
+            auth: {
+                system: false
+            }
+        },
+
         ping: {
             method: 'GET',
             reply: {
@@ -323,6 +352,11 @@ module.exports = {
 
         verify_new_member_result: {
             enum: ['OKAY', 'SECRET_MISMATCH', 'VERSION_MISMATCH', 'ALREADY_A_MEMBER', 'HAS_OBJECTS', 'UNREACHABLE', 'ADDING_SELF', 'NO_NTP_SET'],
+            type: 'string'
+        },
+
+        verify_new_ip_result: {
+            enum: ['OKAY', 'SECRET_MISMATCH', 'UNREACHABLE'],
             type: 'string'
         }
     },

@@ -80,7 +80,7 @@ class RpcBaseConnection extends EventEmitter {
                 // set a timer to limit how long we are waiting for connect
                 this._connect_timeout = setTimeout(
                     () => this.emit_error(new RpcError('RPC_CONNECT_TIMEOUT', 'RPC CONNECT TIMEOUT')),
-                    config.RPC_CONNECT_TIMEOUT);
+                    this._connect_timeout_ms);
                 this._connect();
                 return this.connecting_defer.promise;
             case STATE_CONNECTING:

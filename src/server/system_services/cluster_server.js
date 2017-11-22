@@ -478,10 +478,43 @@ function join_to_cluster(req) {
         .return();
 }
 
+
+function verify_new_ip(req) {
+    const address = server_rpc.get_base_address(req.rpc_params.address);
+    console.log('verify_new_ip', address);
+    return server_rpc.client.cluster_internal.get_secret({}, {
+            address,
+            timeout: 20000,
+            connect_timeout: 20000,
+        })
+        .then(res => {
+            if (res.secret === req.rpc_params.secret) {
+                return {
+                    result: 'OKAY'
+                };
+            } else {
+                return {
+                    result: 'SECRET_MISMATCH'
+                };
+            }
+        })
+        .catch(err => {
+            dbg.warn('received', err, ' on verify_new_ip');
+            if (err.rpc_code === 'RPC_CONNECT_TIMEOUT' ||
+                err.rpc_code === 'RPC_REQUEST_TIMEOUT') {
+                return {
+                    result: 'UNREACHABLE'
+                };
+            } else {
+                throw err;
+            }
+        });
+}
+
 // Currently only updates server's IP
 // This function runs only at the master of cluster
 function update_member_of_cluster(req) {
-    const topology = cutil.get_topology();
+    let topology = cutil.get_topology();
     const is_clusterized = topology.is_clusterized;
 
     // Shouldn't do anything if there is not cluster
@@ -491,16 +524,19 @@ function update_member_of_cluster(req) {
         return P.resolve();
     }
 
-    return _validate_member_request(_.defaults(req, {
+    return _validate_member_request(_.defaults({
             rpc_params: {
                 address: req.rpc_params.new_address,
                 new_hostname: req.rpc_params.hostname
-            }
+            },
+            req
         }))
-        .then(() => _check_candidate_version(_.defaults(req, {
+        .then(() => _check_candidate_version(_.defaults({
             rpc_params: {
-                address: req.rpc_params.new_address
-            }
+                address: req.rpc_params.new_address,
+                new_hostname: req.rpc_params.hostname
+            },
+            req
         })))
         .then(version_check_res => {
             if (version_check_res.result !== 'OKAY') throw new Error('Verify member version check returned', version_check_res);
@@ -533,6 +569,7 @@ function update_member_of_cluster(req) {
         // Update current topology of the server
         .then(() => _update_cluster_info(topology))
         .then(() => {
+            topology = cutil.get_topology();
             var topology_to_send = _.omit(topology, 'dns_servers', 'ntp');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             // Mongo servers are up, update entire cluster with the new topology
@@ -1444,7 +1481,7 @@ function _validate_member_request(req) {
 
     //Check mongo port 27000
     //TODO on sharding will also need to add verification to the cfg port
-    return promise_utils.exec(`nc -z ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT}`)
+    return promise_utils.exec(`echo -n | nc -w1 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} >/dev/null 2>&1`)
         .then(() => P.resolve())
         .catch(() => P.resolve()) //Error in this case still means no FW dropped us on the way
         .timeout(30 * 1000)
@@ -1457,6 +1494,16 @@ function _validate_member_request(req) {
             if (!platform_ntp) {
                 throw new Error('Could not add members when NTP is not set');
             }
+        });
+}
+
+function get_secret(req) {
+    return P.resolve()
+        .then(() => {
+            dbg.log0('_get_secret');
+            return {
+                secret: system_store.get_server_secret()
+            };
         });
 }
 
@@ -1625,7 +1672,6 @@ function _update_cluster_info(params) {
             return system_store.make_changes(changes)
                 .then(() => {
                     dbg.log0('local cluster info updates successfully');
-
                 })
                 .catch(err => {
                     console.error('failed on local cluster info update with', err.message);
@@ -1861,8 +1907,10 @@ exports.check_cluster_status = check_cluster_status;
 exports.ping = ping;
 exports.verify_candidate_join_conditions = verify_candidate_join_conditions;
 exports.verify_join_conditions = verify_join_conditions;
+exports.verify_new_ip = verify_new_ip;
 exports.update_server_conf = update_server_conf;
 exports.set_hostname_internal = set_hostname_internal;
 exports.get_version = get_version;
+exports.get_secret = get_secret;
 exports.get_upgrade_status = get_upgrade_status;
 exports.update_member_of_cluster = update_member_of_cluster;

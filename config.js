@@ -37,6 +37,15 @@ config.HOSTED_AGENTS_HOST_ID = 'hosted_agents';
 
 config.RPC_CONNECT_TIMEOUT = 120 * 1000;
 config.RPC_SEND_TIMEOUT = 120 * 1000;
+
+config.RPC_PING_INTERVAL_MS = 20000;
+// setting number of pings above the time it takes to get connect timeout
+config.RPC_PING_EXHAUSTED_COUNT = (config.RPC_CONNECT_TIMEOUT / config.RPC_PING_INTERVAL_MS) + 2;
+
+config.RECONN_BACKOFF_BASE = 250;
+config.RECONN_BACKOFF_MAX = 5000;
+config.RECONN_BACKOFF_FACTOR = 1.2;
+
 config.CLOUD_AGENTS_N2N_PORT = 60100;
 // TODO: Should check what PORT we are interested in taking
 config.MONGO_AGENTS_N2N_PORT = 60100;

@@ -4,7 +4,9 @@
 const _ = require('lodash');
 const P = require('../../util/promise');
 const fs = require('fs');
+const util = require('util');
 const s3ops = require('../qa/s3ops');
+const readline = require('readline');
 const promise_utils = require('../../util/promise_utils');
 const argv = require('minimist')(process.argv);
 
@@ -45,6 +47,8 @@ const UNIT_MAPPING = {
 
 const DATASET_NAME = 'DataSet_' + (Math.floor(Date.now() / 1000));
 const JOURNAL_FILE = `./${DATASET_NAME}_journal.log`;
+const CFG_MARKER = 'DATASETCFG-';
+const ACTION_MARKER = 'ACT-';
 
 //define colors
 const Yellow = "\x1b[33;1m";
@@ -175,6 +179,10 @@ function usage() {
     --file_size_low     -   lowest file size (min 50 MB) (default: ${TEST_CFG_DEFAULTS.file_size_low})
     --file_size_high    -   highest file size (max 200 MB) (default: ${TEST_CFG_DEFAULTS.file_size_high})
     --dataset_size      -   dataset size (default: ${TEST_CFG_DEFAULTS.dataset_size})
+
+    --replay            -   replays a given scenario, requires a path to the journal file. 
+                            server and bucket are the only applicable parameters when running in replay mode  
+
     --help              -   show this help
     `);
 }
@@ -206,7 +214,8 @@ function act_and_log(action_type) {
         .then(() => chosen.randomizer())
         .then(res => {
             randomized_params = res;
-            return log_journal_file(`ACT-${chosen.action.name}-${JSON.stringify(randomized_params)}`);
+            randomized_params.action = chosen.name;
+            return log_journal_file(`${ACTION_MARKER}${JSON.stringify(randomized_params)}`);
         })
         .then(() => chosen.action(randomized_params));
 }
@@ -500,7 +509,7 @@ function run_delete(params) {
  *********/
 function run_test() {
     return P.resolve()
-        .then(() => log_journal_file(`Dataset:: ${DATASET_NAME}-${JSON.stringify(TEST_CFG)}`))
+        .then(() => log_journal_file(`${CFG_MARKER}${DATASET_NAME}-${JSON.stringify(TEST_CFG)}`))
         .then(() => {
             promise_utils.pwhile(() => TEST_STATE.current_size < TEST_CFG.dataset_size, () => act_and_log('UPLOAD_NEW'))
                 // aging
@@ -540,14 +549,76 @@ function run_test() {
         .done();
 }
 
+function run_replay() {
+    let journal = [];
+    const readfile = readline.createInterface({
+        input: fs.createReadStream(argv.replay),
+        terminal: false
+    });
+    return new P((resolve, reject) => {
+            readfile
+                .on('line', line => journal.push(line))
+                .once('error', reject)
+                .once('close', resolve);
+        })
+        .then(() => {
+            //first line should contain the TEST_CFG
+            console.log(`journal[0] ${journal[0]}`);
+            if (!journal[0].startsWith(`${CFG_MARKER}`)) {
+                console.error('Expected CFG as first line of replay');
+                process.exit(5);
+            }
+            TEST_CFG = JSON.parse(journal[0].slice(CFG_MARKER.length + DATASET_NAME.length + 1));
+            let iline = 1;
+            let idx;
+            let current_action;
+            let current_params;
+            return promise_utils.pwhile(
+                () => iline < journal.length,
+                () => P.resolve()
+                .then(() => {
+                    //split action from params
+                    current_params = JSON.parse(journal[iline].slice(ACTION_MARKER.length));
+                    current_action = current_params.action;
+                    delete current_params.action;
+                    console.log(`Calling ${current_action} with parameters ${util.inspect(current_params)}`);
+                    //run single selected activity
+                    idx = _.findIndex(ACTION_TYPES, ac => ac.name === current_action);
+                    if (idx === -1) {
+                        console.error(`Cannot find action ${current_action}`);
+                        process.exit(1);
+                    } else {
+                        return ACTION_TYPES[idx].action(current_params);
+                    }
+
+                })
+                .catch(err => console.error(`Failed replaying action ${current_action} with ${err}`))
+                .finally(() => {
+                    iline += 1;
+                })
+            );
+        })
+        .catch(err => {
+            console.error('Failed replaying journal file ', err);
+            process.exit(5);
+        });
+}
+
 function main() {
-    return run_test()
-        .then(function() {
+    return P.resolve()
+        .then(() => {
+            if (argv.replay) {
+                return run_replay();
+            } else {
+                return run_test();
+            }
+        })
+        .then(() => {
             process.exit(0);
         })
         .catch(function(err) {
-            console.warn('error while running test. ', err);
-            process.exit(1);
+            console.warn('error while running test ', err);
+            process.exit(6);
         });
 }
 

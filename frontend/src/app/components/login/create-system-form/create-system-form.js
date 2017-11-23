@@ -29,9 +29,14 @@ class CreateSystemFormViewModel extends BaseViewModel {
         this.wasValidated = ko.observable(false);
         this.creatingSystem = ko.observable(false);
 
-        let serverConfig = ko.pureComputed(
+        const serverConfig = ko.pureComputed(
             () => serverInfo() ? serverInfo().config : {}
         );
+
+        const ownerAccount = ko.pureComputed(
+            () => serverConfig().owner || {}
+        );
+
 
         this.isUnableToActivateModalVisible = ko.pureComputed(
             () => serverConfig().phone_home_connectivity_status !== 'CONNECTED'
@@ -39,26 +44,40 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
         // First step fields:
         // -------------------
+        this.isActivationCodeDisabled = ko.pureComputed(
+            () => Boolean(ownerAccount().activation_code)
+        );
+        this.isActivationCodeSpinnerVisible = ko.pureComputed(
+            () => !ownerAccount().activation_code && this.activationCode.isValidating()
+        );
+        this.activationCode = ko.observableWithDefault(
+            () => ownerAccount().activation_code
+        ).extend({
+            required: { message: 'Please enter your activation code' },
+            validation: {
+                async: true,
+                validator: (code, _, callback) => {
+                    validateActivation(code);
 
-        this.activationCode = ko.observable()
-            .extend({
-                required: { message: 'Please enter your activation code' },
-                validation: {
-                    async: true,
-                    validator: (code, _, callback) => {
-                        validateActivation(code);
-
-                        activationState.once(
-                            ({ valid, reason }) => callback({
-                                isValid: valid || reason === 'ACTIVATION_CODE_EMAIL_MISMATCH',
-                                message: reason && activationFaliureReasonMapping[reason]
-                            })
-                        );
-                    }
+                    activationState.once(
+                        ({ valid, reason }) => callback({
+                            isValid: valid || reason === 'ACTIVATION_CODE_EMAIL_MISMATCH',
+                            message: reason && activationFaliureReasonMapping[reason]
+                        })
+                    );
                 }
-            });
+            }
+        });
 
-        this.email = ko.observable()
+        this.isEmailDisabled = ko.pureComputed(
+            () => Boolean(ownerAccount().email)
+        );
+        this.isEmailSpinnerVisible = ko.pureComputed(
+            () => !ownerAccount().email && this.email.isValidating()
+        );
+        this.email = ko.observableWithDefault(
+            () => ownerAccount().email
+        )
             .extend({
                 required: { message: 'Please enter an email address' },
                 email: true,

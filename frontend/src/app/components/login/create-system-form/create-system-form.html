@@ -3,29 +3,41 @@
 <section class="row create-system-form">
     <div class="row double-pad alt-bg push-next">
         <div class="column align-middle">
-            <svg-icon class="logo icon-xbig align-middle" params="name: 'logo'"></svg-icon>
+            <svg-icon class="logo icon-xbig align-middle"
+                params="name: 'logo'"
+            ></svg-icon>
 
-           <h1 class="heading1">Welcome to NooBaa</h1>
+            <h1 class="heading1">Welcome to NooBaa</h1>
             <p>Two quick steps and we are ready to go</p>
         </div>
     </div>
 
-    <div class="steps double-pad alt-bg column" ko.css="`step${step()}`">
-        <stepper class="push-next" params="steps: steps, current: step" ></stepper>
+    <div class="steps double-pad alt-bg column"
+        ko.css="`step${step()}`"
+    >
+        <stepper class="push-next"
+            params="steps: steps, current: step"
+        ></stepper>
 
         <div class="row pages">
-            <div class="page column" ko.css.selected="step() === 0">
+            <div class="page column"
+                ko.css.selected="step() === 0"
+            >
                 <p class="heading3">Create your owner account</p>
 
                 <editor params="label: 'Activation code'">
                     <div class="row content-middle"
                         data-bind="validationOptions: { insertMessages: false }"
                     >
-                        <input type="text" placeholder="Your activation code"
-                            ko.value="activationCode">
+                        <input type="text"
+                            ko.disable="isActivationCodeDisabled"
+                            placeholder="Your activation code"
+                            ko.value="activationCode" />
+
                         <svg-icon class="spin push-prev-half"
-                            ko.visible="activationCode.isValidating"
-                            params="name: 'in-progress'"></svg-icon>
+                            ko.visible="isActivationCodeSpinnerVisible"
+                            params="name: 'in-progress'"
+                        ></svg-icon>
                     </div>
                     <span class="val-msg" data-bind="validationMessage: activationCode"></span>
                 </editor>
@@ -34,27 +46,30 @@
                     <div class="row content-middle"
                         data-bind="validationOptions: { insertMessages: false }"
                     >
-                        <input type="text" placeholder="Your email address"
-                               ko.value="email">
+                        <input type="text"
+                            placeholder="Your email address"
+                            ko.disable="isEmailDisabled"
+                            ko.value="email" />
+
                         <svg-icon class="spin push-prev-half"
-                                  ko.visible="email.isValidating"
-                                  params="name: 'in-progress'"></svg-icon>
+                            ko.visible="isEmailSpinnerVisible"
+                            params="name: 'in-progress'"></svg-icon>
                     </div>
-                    <span class="val-msg" data-bind="validationMessage: email"></span>
+                   <span class="val-msg" data-bind="validationMessage: email"></span>
                 </editor>
 
                 <editor class="push-next" params="
                     label: 'Password',
                     insertValMessages: false
                 ">
-                    <password-field class="push-next-half"
-                        ko.css="{ 'no-validation-highlight': !wasValidated() }"
-                        params="
-                            value: password,
-                            placeholder: 'Enter password',
-                            strengthCalc: calcPasswordStrength
+                    <password-field class="push-next-half" params="
+                        value: password,
+                        placeholder: 'Enter password',
+                        strengthCalc: calcPasswordStrength
                     "></password-field>
-                    <validation-rules-list params="field: password, highlightErrors: wasValidated"></validation-rules-list>
+
+                    <validation-rules-list params="field: password, highlightErrors: wasValidated">
+                    </validation-rules-list>
                 </editor>
             </div>
 
@@ -66,17 +81,22 @@
                 </p>
 
                 <editor params="label: 'NooBaa System name'">
-                    <input type="text" placeholder="Name your system" ko.value="systemName">
+                    <input type="text"
+                        placeholder="Name your system"
+                        ko.value="systemName" />
                 </editor>
 
                 <editor params="label: 'Server DNS name'">
                     <div class="row content-middle"
                         data-bind="validationOptions: { insertMessages: false }"
                     >
-                        <input type="text" ko.value="serverDNSName">
+                        <input type="text"
+                            ko.value="serverDNSName" />
+
                         <svg-icon class="spin push-prev-half"
-                                  ko.visible="serverDNSName.isValidating"
-                                  params="name: 'in-progress'"></svg-icon>
+                            ko.visible="serverDNSName.isValidating"
+                            params="name: 'in-progress'"
+                        ></svg-icon>
                     </div>
                     <span class="val-msg" data-bind="validationMessage: serverDNSName"></span>
                     <p class="hint" ko.visible="serverDNSName.isValid">optional</p>
@@ -84,17 +104,27 @@
 
                 <p class="remark push-prev">
                     By clicking the Create system button, I accept NooBaa's
-                    <a class="link" target="_blank" href="/public/eula">Terms &amp; Conditions</a>
+                    <a class="link"
+                        target="_blank"
+                        href="/public/eula">
+                        Terms &amp; Conditions
+                    </a>
                 </p>
             </div>
         </div>
 
         <div class="row content-middle align-end push-prev">
-            <button class="link alt-colors push-next" ko.visible="isPrevVisible" ko.click="prev">
+            <button class="link alt-colors push-next"
+                ko.visible="isPrevVisible"
+                ko.click="prev"
+            >
                 Previous
             </button>
 
-            <button class="btn " ko.visible="isNextVisible" ko.click="next">
+            <button class="btn "
+                ko.visible="isNextVisible"
+                ko.click="next"
+            >
                 Next
             </button>
 

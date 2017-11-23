@@ -2,160 +2,105 @@ import { deepFreeze, ensureArray, isDefined } from 'utils/core-utils';
 import { getHostDisplayName, getHostServiceDisplayName } from 'utils/host-utils';
 import { showNotification } from 'action-creators';
 import Rx from 'rx';
-import {
-    FAIL_CREATE_ACCOUNT,
-    COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
-    FAIL_UPDATE_ACCOUNT_S3_ACCESS,
-    COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
-    FAIL_SET_ACCOUNT_IP_RESTRICTIONS,
-    COMPLETE_CHANGE_ACCOUNT_PASSWORD,
-    FAIL_CHANGE_ACCOUNT_PASSWORD,
-    COMPLETE_ADD_EXTERNAL_CONNECTION,
-    FAIL_ADD_EXTERNAL_CONNECTION,
-    COMPLETE_DELETE_RESOURCE,
-    FAIL_DELETE_RESOURCE,
-    COLLECT_HOST_DIAGNOSTICS,
-    FAIL_COLLECT_HOST_DIAGNOSTICS,
-    COMPLETE_SET_HOST_DEBUG_MODE,
-    FAIL_SET_HOST_DEBUG_MODE,
-    COMPLETE_CREATE_HOSTS_POOL,
-    FAIL_CREATE_HOSTS_POOL,
-    COMPLETE_ASSIGN_HOSTS_TO_POOL,
-    FAIL_ASSIGN_HOSTS_TO_POOL,
-    COMPLETE_TOGGLE_HOST_SERVICES,
-    FAIL_TOGGLE_HOST_SERVICES,
-    COMPLETE_TOGGLE_HOST_NODES,
-    FAIL_TOGGLE_HOST_NODES,
-    COMPLETE_DELETE_ACCOUNT,
-    FAIL_DELETE_ACCOUNT,
-    COMPLETE_DELETE_EXTERNAL_CONNECTION,
-    FAIL_DELETE_EXTERNAL_CONNECTION,
-    COMPLETE_CREATE_NAMESPACE_RESOURCE,
-    FAIL_CREATE_NAMSPACE_RESOURCE,
-    COMPLETE_DELETE_NAMESPACE_RESOURCE,
-    FAIL_DELETE_NAMSPACE_RESOURCE,
-    COMPLETE_UPDATE_BUCKET_QUOTA,
-    FAIL_UPDATE_BUCKET_QUOTA,
-    COMPLETE_TOGGLE_BUCKET_SPILLOVER,
-    FAIL_TOGGLE_BUCKET_SPILLOVER,
-    COMPLETE_TOGGLE_BUCKETS_SPILLOVER,
-    FAIL_TOGGLE_BUCKETS_SPILLOVER,
-    COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
-    FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
-    COMPLETE_DELETE_BUCKET,
-    FAIL_DELETE_BUCKET,
-    COMPLETE_CREATE_GATEWAY_BUCKET,
-    FAIL_CREATE_GATEWAY_BUCKET,
-    COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT,
-    FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT,
-    COMPLETE_DELETE_GATEWAY_BUCKET,
-    FAIL_DELETE_GATEWAY_BUCKET,
-    COMPLETE_RETRUST_HOST,
-    FAIL_RETRUST_HOST,
-    COMPLETE_DELETE_BUCKET_OBJECT,
-    FAIL_DELETE_BUCKET_OBJECT,
-    COMPLETE_ABORT_OBJECT_UPLOAD,
-    FAIL_ABORT_OBJECT_UPLOAD
-
-} from 'action-types';
+import * as types from 'action-types';
 
 const actionToNotification = deepFreeze({
-    [FAIL_CREATE_ACCOUNT]: ({ accountName }) => ({
+    [types.FAIL_CREATE_ACCOUNT]: ({ accountName }) => ({
         message: `Creating account ${accountName} failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_UPDATE_ACCOUNT_S3_ACCESS]: ({ accountName }) => ({
+    [types.COMPLETE_UPDATE_ACCOUNT_S3_ACCESS]: ({ accountName }) => ({
         message: `${accountName} S3 access updated successfully`,
         severity: 'success'
     }),
 
-    [FAIL_UPDATE_ACCOUNT_S3_ACCESS]: ({ accountName }) => ({
+    [types.FAIL_UPDATE_ACCOUNT_S3_ACCESS]: ({ accountName }) => ({
         message: `Updating ${accountName} S3 access failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS]: ({ accountName }) => ({
+    [types.COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS]: ({ accountName }) => ({
         message: `IP restrictions for ${accountName} set successfully`,
         severity: 'success'
     }),
 
-    [FAIL_SET_ACCOUNT_IP_RESTRICTIONS]: ({ accountName }) => ({
+    [types.FAIL_SET_ACCOUNT_IP_RESTRICTIONS]: ({ accountName }) => ({
         message: `Setting IP restrictions for ${accountName} failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_CHANGE_ACCOUNT_PASSWORD]: ({ accountName }) => ({
+    [types.COMPLETE_CHANGE_ACCOUNT_PASSWORD]: ({ accountName }) => ({
         message: `${accountName} password changed successfully`,
         severity: 'success'
     }),
 
-    [FAIL_CHANGE_ACCOUNT_PASSWORD]: ({ accountName }) => ({
+    [types.FAIL_CHANGE_ACCOUNT_PASSWORD]: ({ accountName }) => ({
         message: `Changing ${accountName} password failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
+    [types.COMPLETE_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
         message: `Adding ${connection} completed successfully`,
         severity: 'success'
     }),
 
-    [FAIL_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
+    [types.FAIL_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
         message: `Adding ${connection} failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_DELETE_RESOURCE]: ({ resource }) => ({
+    [types.COMPLETE_DELETE_RESOURCE]: ({ resource }) => ({
         message: `Resource ${resource} deleted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_DELETE_RESOURCE]: ({ resource }) => ({
+    [types.FAIL_DELETE_RESOURCE]: ({ resource }) => ({
         message: `Resource ${resource} deletion failed`,
         severity: 'error'
     }),
 
-    [COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
+    [types.COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
         message: `Collecting diagnostic for ${getHostDisplayName(host)}, it may take a few seconds`,
         severity: 'success'
     }),
 
-    [FAIL_COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
+    [types.FAIL_COLLECT_HOST_DIAGNOSTICS]: ({ host }) => ({
         message: `Collecting diagnostic file for ${getHostDisplayName(host)} failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
+    [types.COMPLETE_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
         message: `Debug mode was turned ${on ? 'on' : 'off'} for node ${getHostDisplayName(host)}`,
         severity: 'success'
     }),
 
-    [FAIL_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
+    [types.FAIL_SET_HOST_DEBUG_MODE]: ({ host, on }) => ({
         message: `Could not turn ${on ? 'on' : 'off'} debug mode for node ${getHostDisplayName(host)}`,
         severity: 'error'
     }),
 
-    [COMPLETE_CREATE_HOSTS_POOL]: ({ name }) => ({
+    [types.COMPLETE_CREATE_HOSTS_POOL]: ({ name }) => ({
         message: `Pool ${name} created successfully`,
         severity: 'success'
     }),
 
-    [FAIL_CREATE_HOSTS_POOL]: ({ name }) => ({
+    [types.FAIL_CREATE_HOSTS_POOL]: ({ name }) => ({
         message: `Pool ${name} creation failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_ASSIGN_HOSTS_TO_POOL]: ({ pool, hosts }) => ({
+    [types.COMPLETE_ASSIGN_HOSTS_TO_POOL]: ({ pool, hosts }) => ({
         message: `${hosts.length} nodes has been assigend to pool ${pool}`,
         severity: 'success'
     }),
 
-    [FAIL_ASSIGN_HOSTS_TO_POOL]: ({ pool }) => ({
+    [types.FAIL_ASSIGN_HOSTS_TO_POOL]: ({ pool }) => ({
         message: `Assinging nodes to pool ${pool} failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_TOGGLE_HOST_SERVICES]: ({ host, services }) => {
+    [types.COMPLETE_TOGGLE_HOST_SERVICES]: ({ host, services }) => {
         return Object.entries(services)
             .filter(pair => {
                 const [ /* service */, state ] = pair;
@@ -174,7 +119,7 @@ const actionToNotification = deepFreeze({
             });
     },
 
-    [FAIL_TOGGLE_HOST_SERVICES]: ({ host, services }) => {
+    [types.FAIL_TOGGLE_HOST_SERVICES]: ({ host, services }) => {
         return Object.entries(services)
             .filter(pair => {
                 const [ /* service */, state ] = pair;
@@ -193,163 +138,173 @@ const actionToNotification = deepFreeze({
             });
     },
 
-    [COMPLETE_TOGGLE_HOST_NODES]: ({ host }) => ({
+    [types.COMPLETE_TOGGLE_HOST_NODES]: ({ host }) => ({
         message: `${getHostDisplayName(host)} storage drives updated successfully`,
         severity: 'success'
     }),
 
-    [FAIL_TOGGLE_HOST_NODES]: ({ host }) => ({
+    [types.FAIL_TOGGLE_HOST_NODES]: ({ host }) => ({
         message: `Updating ${getHostDisplayName(host)} storage drives failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_DELETE_ACCOUNT]: ({ email }) => ({
+    [types.COMPLETE_DELETE_ACCOUNT]: ({ email }) => ({
         message: `Account ${email} deleted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_DELETE_ACCOUNT]: ({ email }) => ({
+    [types.FAIL_DELETE_ACCOUNT]: ({ email }) => ({
         message: `Account ${email} deletion failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_DELETE_EXTERNAL_CONNECTION]: ({ connection }) => ({
+    [types.COMPLETE_DELETE_EXTERNAL_CONNECTION]: ({ connection }) => ({
         message: `Connection ${connection} deleted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_DELETE_EXTERNAL_CONNECTION]: ({ connection }) => ({
+    [types.FAIL_DELETE_EXTERNAL_CONNECTION]: ({ connection }) => ({
         message: `Connection ${connection} deletion failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_CREATE_NAMESPACE_RESOURCE]: ({ name }) => ({
+    [types.COMPLETE_CREATE_NAMESPACE_RESOURCE]: ({ name }) => ({
         message: `Namespace resource ${name} created successfully`,
         severity: 'success'
     }),
 
-    [FAIL_CREATE_NAMSPACE_RESOURCE]: ({ name }) => ({
+    [types.FAIL_CREATE_NAMSPACE_RESOURCE]: ({ name }) => ({
         message: `Namespace resource ${name} creation failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_DELETE_NAMESPACE_RESOURCE]: ({ name }) => ({
+    [types.COMPLETE_DELETE_NAMESPACE_RESOURCE]: ({ name }) => ({
         message: `Namespace resource ${name} deleted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_DELETE_NAMSPACE_RESOURCE]: ({ name }) => ({
+    [types.FAIL_DELETE_NAMSPACE_RESOURCE]: ({ name }) => ({
         message: `Namespace resource ${name} deletion failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
+    [types.COMPLETE_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
         message: `${bucket} quota updated successfully`,
         severity: 'success'
     }),
 
-    [FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
+    [types.FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
         message: `Updating quota for ${bucket} failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_TOGGLE_BUCKET_SPILLOVER]: ({ bucket, state }) => ({
+    [types.COMPLETE_TOGGLE_BUCKET_SPILLOVER]: ({ bucket, state }) => ({
         message: `Spillover ${state ? 'enabled' : 'disabled'} successfully for ${bucket}`,
         severity: 'success'
     }),
 
-    [FAIL_TOGGLE_BUCKET_SPILLOVER]: ({ bucket, state }) => ({
+    [types.FAIL_TOGGLE_BUCKET_SPILLOVER]: ({ bucket, state }) => ({
         message: `${state ? 'Enabling' : 'Disabling'} spillover for ${bucket} failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_TOGGLE_BUCKETS_SPILLOVER]: () => ({
+    [types.COMPLETE_TOGGLE_BUCKETS_SPILLOVER]: () => ({
         message: 'Spillover targets updated successfully',
         severity: 'success'
     }),
 
-    [FAIL_TOGGLE_BUCKETS_SPILLOVER]: () => ({
+    [types.FAIL_TOGGLE_BUCKETS_SPILLOVER]: () => ({
         message: 'Updating spillover targets failed',
         severity: 'error'
     }),
 
-    [COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
+    [types.COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
         message: `${bucket} placement policy updated successfully`,
         severity: 'success'
     }),
 
-    [FAIL_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
+    [types.FAIL_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
         message: `Updating ${bucket} placement policy failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_DELETE_BUCKET]: ({ bucket }) => ({
+    [types.COMPLETE_DELETE_BUCKET]: ({ bucket }) => ({
         message: `Bucket ${bucket} deleted successfully`,
         severity:'success'
     }),
 
-    [FAIL_DELETE_BUCKET]: ({ bucket }) => ({
+    [types.FAIL_DELETE_BUCKET]: ({ bucket }) => ({
         message: `Bucket ${bucket} deletion failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_CREATE_GATEWAY_BUCKET]: ({ name }) =>({
+    [types.COMPLETE_CREATE_GATEWAY_BUCKET]: ({ name }) =>({
         message: `Gateway bucket ${name} created successfully`,
         severity: 'success'
     }),
 
-    [FAIL_CREATE_GATEWAY_BUCKET]: ({ name }) => ({
+    [types.FAIL_CREATE_GATEWAY_BUCKET]: ({ name }) => ({
         message: `Gateway bucket ${name} creation failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT]: ({ name }) => ({
+    [types.COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT]: ({ name }) => ({
         message: `Gateway bucket ${name} placement policy updated successfully`,
         severity: 'success'
     }),
 
-    [FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT]: ({ name }) => ({
+    [types.FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT]: ({ name }) => ({
         message: `Updating gateway bucket ${name} placement policy failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
+    [types.COMPLETE_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
         message: `Gateway bucket ${name} deleted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
+    [types.FAIL_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
         message: `Gateway bucket ${name} deletion failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_RETRUST_HOST]: ({ host }) => ({
-        message: `Host ${host} is trusted again`,
+    [types.COMPLETE_RETRUST_HOST]: ({ host }) => ({
+        message: `Node ${host} retursted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_RETRUST_HOST]: ({ host }) => ({
-        message: `Host ${host} re-trust action is failed`,
+    [types.FAIL_RETRUST_HOST]: ({ host }) => ({
+        message: `Retrusting node ${host} failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_DELETE_BUCKET_OBJECT]: ({ object }) => ({
+    [types.COMPLETE_DELETE_BUCKET_OBJECT]: ({ object }) => ({
         message: `File ${object} deleted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_DELETE_BUCKET_OBJECT]: ({ object }) => ({
+    [types.FAIL_DELETE_BUCKET_OBJECT]: ({ object }) => ({
         message: `File ${object} deletion failed`,
         severity: 'error'
     }),
 
-    [COMPLETE_ABORT_OBJECT_UPLOAD]: ({ object }) => ({
+    [types.COMPLETE_ABORT_OBJECT_UPLOAD]: ({ object }) => ({
         message: `File ${object} deleted successfully`,
         severity: 'success'
     }),
 
-    [FAIL_ABORT_OBJECT_UPLOAD]: ({ object }) => ({
+    [types.FAIL_ABORT_OBJECT_UPLOAD]: ({ object }) => ({
         message: `File ${object} deletion failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_DELETE_HOST]: () => ({
+        message: 'Node deletion process has started, The node will be removed once all stored data is secured',
+        severity: 'info'
+    }),
+
+    [types.FAIL_DELETE_HOST]: ({ host }) => ({
+        message: `Host ${host} deletion failed`,
         severity: 'error'
     })
 });

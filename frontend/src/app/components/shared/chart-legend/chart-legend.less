@@ -55,8 +55,12 @@ chart-legend {
         }
     }
 
-    &.disabled .legend-item::before {
+    &.disabled {
         opacity: .3;
+
+        .legend-label {
+            color: @color7;
+        }
     }
 
     &.legend-row {

@@ -3,7 +3,7 @@
 import template from './set-node-as-trusted-modal.html';
 import Observer from 'observer';
 import { deepFreeze, flatMap } from 'utils/core-utils';
-import { retrustHost } from 'action-creators';
+import { retrustHost, closeModal } from 'action-creators';
 import { action$ } from 'state';
 import { timeShortFormat } from 'config';
 import moment from 'moment';
@@ -35,11 +35,10 @@ const eventMapping = deepFreeze({
 });
 
 class SetNodeAsTrustedModalViewModel extends Observer {
-    constructor({ onClose, host, untrustedReasons }) {
+    constructor({ host, untrustedReasons }) {
         super();
 
         this.columns = columns;
-        this.close = onClose;
         this.host = host;
 
         this.rows = flatMap(untrustedReasons,
@@ -54,11 +53,11 @@ class SetNodeAsTrustedModalViewModel extends Observer {
 
     onRetrust() {
         action$.onNext(retrustHost(this.host));
-        this.close();
+        action$.onNext(closeModal());
     }
 
     onCancel() {
-        this.close();
+        action$.onNext(closeModal());
     }
 }
 

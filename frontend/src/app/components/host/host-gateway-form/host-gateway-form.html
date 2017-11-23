@@ -2,11 +2,13 @@
 
 <div class="row pad alt-bg content-middle">
     <h2 class="heading3 greedy push-next">S3 Gateway Details</h2>
-    <button class="btn"
-        ko.text="toggleGatewayButtonText"
-        ko.click="onToggleGateway"
-        ko.enable="hostLoaded"
-    ></button>
+    <div ko.tooltip="toggleGatewayTooltip">
+        <button class="btn"
+            ko.text="toggleGatewayButtonText"
+            ko.click="onToggleGateway"
+            ko.disable="isToggleGatewayDisabled"
+        ></button>
+    </div>
 </div>
 
 <property-sheet class="pad" params="

@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { action$ } from 'state';
-import { fetchUnreadAlertsCount, showNotification } from 'action-creators';
+import { fetchUnreadAlertsCount, showNotification, removeHost } from 'action-creators';
 
 export function alert() {
     action$.onNext(fetchUnreadAlertsCount());
@@ -18,6 +18,7 @@ export function add_memeber_to_cluster(req) {
     action$.onNext(action);
 }
 
-export function remove_host(/*req*/) {
-    // console.warn('Host', req.rpc_params.name, 'is deleted');
+export function remove_host(req) {
+    const { name: host } = req.rpc_params;
+    action$.onNext(removeHost(host));
 }

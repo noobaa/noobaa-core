@@ -51,6 +51,7 @@ import fetchBucketObjects from './fetch-bucket-objects';
 import deleteBucketObject from './delete-bucket-object';
 import abortObjectUpload from './abort-object-upload';
 import fetchSystemStorageHistory from './fetch-system-storage-history';
+import deleteHost from './delete-host';
 
 const generalEpics = [
     handleLocationRequests,
@@ -124,7 +125,8 @@ const hostRelatedEpics = [
     setHostDebugMode,
     toggleHostServices,
     toggleHostNodes,
-    retrustHost
+    retrustHost,
+    deleteHost
 ];
 
 const namespaceRelatedEpics = [

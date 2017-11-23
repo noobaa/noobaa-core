@@ -13,9 +13,14 @@
             OS Type: {{os}}
         </p>
     </div>
-    <button class="btn" ko.click="onEditDrives">
-        Edit Storage Drives
-    </button>
+    <div ko.tooltip="editDrivesTooltip">
+        <button class="btn"
+            ko.click="onEditDrives"
+            ko.disable="isEditDrivesDisabled"
+        >
+            Edit Storage Drives
+        </button>
+    </div>
 </div>
 
 <data-table class="node-table" params="

@@ -1,15 +1,14 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<button class="btn" data-bind="
-    click: $data.click && click.bind($parent),
-    css: { inactive: working },
-    disable: disabled
+<button class="btn"
+    ko.click="onClick"
+    ko.css.inactive="working"
+    ko.disable="disabled"
 ">
-    <div class="content-wrapper" data-bind="template: {
-        nodes: $componentTemplateNodes, data: $parent
-    }"></div>
-    <div class="working-label" data-bind="visible: working">
+    <div class="content-wrapper" ko.template="{ nodes: $componentTemplateNodes, data: $parent }">
+    </div>
+    <div class="working-label" ko.visible="working">
         <svg-icon class="spin" params="name: 'in-progress'"></svg-icon>
-        <span data-bind="text: label"></span>
+        {{label}}
     </div>
 </button>

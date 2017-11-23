@@ -1,16 +1,16 @@
 #!groovy​
 def branch = 'master'
-//dataset, account
-def noobaa_ip = '52.191.130.61'
-def values = noobaa_ip.tokenize('.')
-def dataset_size = '1024' // 10GB of dataset (changed to 1GB)
-def aging_time = '10' // run for 5 hours (changed to 10 min)
+//dataset
+def noobaa_ip = '51.141.165.24'
+def noobaa_server = 'datasetpipeline.westus2.cloudapp.azure.com'
+def dataset_size = '51200' //MB
+def aging_time = '300' //min
 //machinekiller
 def start_killing_time = '30' // start killing after 30 minutes
 def service = 'azure'
 def resource = 'pipeline-dataset'
 def zone = 'westus2'
-def prefix = 'ubuntu-node-'
+def prefix = 'qa-dataset-agent'
 def min_machines = '0' // minimum 3 machine
 def max_machines = '3' // maximum 10 machines
 //cluster
@@ -18,151 +18,176 @@ def clusterResource = 'pipelie-cluster'
 def clusterVnet = 'pipelie-cluster-vnet'
 def clusterStorage = 'pipelieclusterdisks'
 //agentMatrix
-def azureName = 'agents-server'
-def serverName = '52.183.81.85'
+def azureName = 'QaAgentMatrixServer0'
+def serverName = 'agentmatrix.westus2.cloudapp.azure.com'
+def serverIP = '51.143.92.213'
 def agentsResource = 'pipeline-agents'
-def agentsVnet = 'agents-vnet'
-def agentsStorage = 'agentsserverstorage'
-def serverImage = 'https://jenkinsnoobaastorage.blob.core.windows.net/vhd-images/NooBaa-1.0.0-demo.vhd'
+def agentsVnet = 'pipeline-agents-vnet'
+def agentsStorage = 'pipelineagentsdisks'
 //systemConfig
 def nodeLocalIP = '10.0.0.21'
-def serverLocalIP = '10.0.0.5'
-def severExternalIP = '52.191.134.178'
+def serverLocalIP = 'agentmatrix.westus2.cloudapp.azure.com'
+def severExternalIP = 'agentmatrix.westus2.cloudapp.azure.com'
 
-
-node('jenkins-slave1-centos') {
-   def buildResult = "SUCCESS"
-   try {
-    stage('Get code from GIT') {
-        echo 'node name: jenkins-slave1-centos, ip: 13.66.228.207'
-        echo 'Checkouting from git!'
-        checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '7df4e257-eb85-4243-9dc3-568d6127f752', url: 'https://tamireran@github.com/noobaa/noobaa-core']]])
-    }
-    stage('Preparing environment') {
-        echo 'copying the env file'
-        sh script: """
-                    yes | cp /usr/local/noobaa/.env $WORKSPACE/
-                """
-        echo 'Installing all needed npm packages!'
-        // sh script: """
-        //       export NVM_DIR=/usr/local/nvm
-        //       . /opt/nvm/nvm.sh
-        //       nvm install 6.11.5
-        //       nvm alias default 6
-        //       nvm use default
-        //       cd $WORKSPACE
-        //       npm install
-        //       npm install azure cloud-cd
-        // """
-        // // npm install bluebird lodash winston setimmediate aws-sdk minimist azure dotenv googleapis request moment performance-now ws ip
-        echo 'Deleting log file'
-        sh script: """
-                    cd $WORKSPACE/logs
-                    rm -rf noobaa.log
-                """
-        }
-    stage('Upgrading noobaa server') {
-      echo 'NO UPGRADING!'
-      sh script: """
-    #           export NVM_DIR=/usr/local/nvm
-    #           . /opt/nvm/nvm.sh            
-              curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/mdserver/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
-              isMaster=\$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<displayName>" '{print \$2}' | awk -F "</displayName>" '{print \$1}')
-              if [[ "\${isMaster}" =~ "master" ]]
-              then
-                curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/mdserver/lastSuccessfulBuild/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
-    #             # cp -R /root/node_modules/noobaa-core/build $WORKSPACE
-    #             # cp -R /root/node_modules/noobaa-core/node_modules $WORKSPACE/
-                fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
-    #             node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $noobaa_ip  # dataset test
-    #             node $WORKSPACE/src/deploy/azureSnapshots.js --resource $agentsResource --source $azureName --image $serverImage
-    #             sleep 1m
-    #             node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $serverName # agent_metrix test
-    #             node $WORKSPACE/src/test/system_tests/upgradeonly.js --upgrade_pack \$fname --target_ip $serverLocalIP # system-configuration test
-              else
-                echo "not master"
-              fi
-           """
-    }
-    stage('Tests') {
-      // Run the maven build
-      parallel (
-          "dataset": {
-                echo 'Running delete dataset'
+node('pipeline') {
+	def buildResult = "SUCCESS"
+	try {
+		stage('Get code from GIT') {
+			echo 'node name: pipeline, ip: 52.183.114.248'
+			echo 'Checkouting from git!'
+			checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '22686b32-d2c1-4a6f-9248-d89614dd8a3f', url: 'git@github.com:noobaa/noobaa-core.git']]])
+		}
+		stage('Preparing environment') {
+		    sh script: """
+                yes | cp /usr/local/noobaa/.env $WORKSPACE/
+            """
+			echo 'Installing all needed npm packages!'
+			sh script: """
+			export NVM_DIR=/opt/nvm
+			. /opt/nvm/nvm.sh
+			 #nvm install 6.11.5
+			 #nvm alias default 6
+			 #nvm use default
+			 #cd $WORKSPACE
+			 #npm install
+			 #npm install azure cloud-cd
+			 #npm install minimist
+			 nvm --version
+			 node -v
+			 npm -v
+			 """
+			 echo 'Deleting log file'
+			 sh script: """
+			 rm -rf $WORKSPACE/logs/noobaa.log
+			 """
+            //    echo 'Getting last successful package build'
+            //    sh script: """
+            //    curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/Build/job/Build-Package/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
+            //    isMaster=\$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<displayName>" '{print \$2}' | awk -F "</displayName>" '{print \$1}')
+             //        if [[ "\${isMaster}" =~ "master" ]]
+             //        then
+             //        curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/Build/job/Build-Package/lastSuccessfulBuild/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
+             //    """
+		}
+		stage('Tests') {
+			parallel (
+			"dataset": {
+				echo 'Running delete dataset'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+				node $WORKSPACE/src/test/qa/delete_dataset.js --server '${noobaa_ip}'
+				"""
+				echo 'Running some dataset!'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
+				"""
+			},
+			"machinekill": {
+                echo 'Killing some nodes!'
                 sh script: """
-                        export NVM_DIR=/usr/local/nvm
-                        . /opt/nvm/nvm.sh
-                        node $WORKSPACE/src/test/qa/delete_dataset.js --server '${noobaa_ip}'
-                """
-                echo 'Running some dataset!'
-                sh script: """
-                    export NVM_DIR=/usr/local/nvm
-                    . /opt/nvm/nvm.sh
-                    node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
-                """
-          },
-          "machinekill": {
-            echo 'Killing some nodes!'
-            sh script: """
-                export NVM_DIR=/usr/local/nvm
+				export NVM_DIR=/opt/nvm
                 . /opt/nvm/nvm.sh
                 sleep '${start_killing_time}'m
                 node $WORKSPACE/src/test/qa/machine_killer.js --service '${service}' --project '${resource}' --zone '${zone}' --prefix '${prefix}' --timeout \$((${aging_time}-${start_killing_time})) --min_machines '${min_machines}' --max_machines '${max_machines}'
-            """
-          },
-        //   "agents-matrix": {
-        //     echo 'Adding some agents!'
-        //     sh script: """
-        //         export NVM_DIR=/usr/local/nvm
-        //         . /opt/nvm/nvm.sh
-        //         node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverName}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --upgrade_pack \$fname
-        //     """
-        //   },
-          "system-configurations": {
-            echo 'Adding some system configurations!'
-            sh script: """
-                export NVM_DIR=/usr/local/nvm
+                """
+            },
+			"agents-matrix": {
+				echo 'Adding some agents!'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+				#fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
+				node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverIP}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}'
+				"""
+			},
+			"system-configurations": {
+                echo 'Adding some system configurations!'
+                sh script: """
+				export NVM_DIR=/opt/nvm
                 . /opt/nvm/nvm.sh
-               node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}' --external_server_ip '${severExternalIP}'
-            """
-          },
-          "account": {
-            echo 'Doing account tests!'
-            sh script: """
-                export NVM_DIR=/usr/local/nvm
+                node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}' --external_server_ip '${severExternalIP}'
+                """
+            },
+            "account": {
+                echo 'Doing account tests!'
+                sh script: """
+				export NVM_DIR=/opt/nvm
                 . /opt/nvm/nvm.sh
                 node $WORKSPACE/src/test/qa/account_test.js --server_ip '${noobaa_ip}' --system_ip '${noobaa_ip}'
-            """
-          },
-        //   "upgrades": {
-        //     echo 'Doing some upgrades!'
-        //     sh script: """
-        //         export NVM_DIR=/usr/local/nvm
-        //         . /opt/nvm/nvm.sh
-        //         node $WORKSPACE/src/test/qa/upgrade_test.js
-        //     """
-        //   },
-          "cluster": {
-            echo 'Doing some clusterisation!'
-            sh script: """
-                export NVM_DIR=/usr/local/nvm
-                . /opt/nvm/nvm.sh
-                fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
-                node $WORKSPACE/src/test/qa/cluster_test.js --servers 3 --upgrade_pack \$fname --timeout '${aging_time}' --storage '${clusterStorage}' --resource '${clusterResource}' --vnet '${clusterVnet}' --breakonerror
-            """
-          }
-      )
-	}
+                """
+            },
+            //"upgrades": {
+            //    echo 'Doing some upgrades!'
+            //    sh script: """
+			//	export NVM_DIR=/opt/nvm
+            //     . /opt/nvm/nvm.sh
+            //     node $WORKSPACE/src/test/qa/upgrade_test.js
+            //     """
+            // },
+			"cluster": {
+				echo 'Doing some clusterisation!'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+				#fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
+                node $WORKSPACE/src/test/qa/cluster_test.js --servers 3 --timeout '${aging_time}' --storage '${clusterStorage}' --resource '${clusterResource}' --vnet '${clusterVnet}' --breakonerror
+				"""
+			},
+			"namespace": {
+				echo 'Loading data to namespace resources!'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/namespace_test.js --server_ip '${noobaa_ip}'
+				"""
+			},
+			"data_availability_test": {
+				echo 'Uploading data with switching off agents and checking data availability'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/data_availability_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${serverIP}'
+				"""
+			},
+			"rebuild_replicas_test": {
+				echo 'Uploading data with switching off agents and checking replicas parts'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${serverIP}'
+				"""
+			},
+			"spillover_test": {
+				echo 'Uploading data without healthy agents and check spillover ability'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/spillover_test.js --server_ip '${serverIP}'
+				"""
+			},
+			"test-TUI": {
+				echo 'Doing some TUI!'
+				sh script: """
+				export NVM_DIR=/opt/nvm
+				. /opt/nvm/nvm.sh
+                node $WORKSPACE/src/test/qa/test-TUI.js --server_ip '${serverIP}'
+				"""
+			},
+			)
+		}
 	} catch (e) {
-        buildResult = "FAILED"
+		buildResult = "FAILED"
         echo 'build failed with error ' + e
         throw e
-            } finally {
-                    def subject = "Job '${JOB_NAME}' (${BUILD_NUMBER}) version is " + buildResult
-                    def appLog = readFile("${WORKSPACE}/logs/noobaa.log")
-                    def details = "Please go to ${BUILD_URL} and verify the build. noobaa logs: " + appLog
-                    mail subject: subject,
-                        body: details,
-                        to:  'yuliia.kovalenko@noobaa.com, liran.mauda@noobaa.com, nimrod.becker@noobaa.com'
-            }
-    }
+	} finally {
+			def subject = "Job '${JOB_NAME}' (${BUILD_NUMBER}) version is " + buildResult
+			def appLog = readFile("${WORKSPACE}/logs/noobaa.log")
+			def details = "Please go to ${BUILD_URL} and verify the build. noobaa logs: " + appLog
+			mail subject: subject,
+			body: details,
+			to:  'yuliia.kovalenko@noobaa.com, liran.mauda@noobaa.com, nimrod.becker@noobaa.com'
+	}
+}

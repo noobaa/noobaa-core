@@ -14,13 +14,17 @@ import {
     openDisableHostLastServiceWarningModal
 } from 'action-creators';
 
+const operationsDisabledTooltip = 'This operation is not available during node’s deletion';
+
 class HostGatewayFormViewModel extends Observer {
     constructor({ name }) {
         super();
 
         this.hostName = ko.unwrap(name);
-        this.hostLoaded = ko.observable(false);
+        this.hostLoaded = ko.observable();
         this.isDisabled = ko.observable();
+        this.isToggleGatewayDisabled = ko.observable();
+        this.toggleGatewayTooltip = ko.observable();
         this.toggleGatewayButtonText = ko.observable();
         this.state = ko.observable();
         this.wasUsed = false;
@@ -64,6 +68,7 @@ class HostGatewayFormViewModel extends Observer {
     onHost([ host, servers ]) {
         if (!host || !servers) {
             this.isDisabled(false);
+            this.isToggleGatewayDisabled(true);
             this.toggleGatewayButtonText('Disable S3 Gateway');
             return;
         }
@@ -72,8 +77,13 @@ class HostGatewayFormViewModel extends Observer {
         const { mode, usage } = gateway;
         const isDisabled = mode === 'DECOMMISSIONED';
         const isLastService = storage.mode === 'DECOMMISSIONED' || storage.mode === 'DECOMMISSIONING';
+        const isHostBeingDeleted = host.mode === 'DELETING';
+        const toggleGatewayTooltip = isHostBeingDeleted ? operationsDisabledTooltip : '';
+        const toggleGatewayButtonText = `${isDisabled ? 'Enable' : 'Disable'} S3 Gateway`;
 
-        this.toggleGatewayButtonText(`${isDisabled ? 'Enable' : 'Disable'} S3 Gateway`);
+        this.isToggleGatewayDisabled(isHostBeingDeleted);
+        this.toggleGatewayTooltip(toggleGatewayTooltip);
+        this.toggleGatewayButtonText(toggleGatewayButtonText);
         this.state(getGatewayServiceStateIcon(host));
         this.isDisabled(isDisabled);
         this.restEndpoint(host.ip);

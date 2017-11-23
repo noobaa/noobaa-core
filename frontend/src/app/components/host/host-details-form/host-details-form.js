@@ -9,7 +9,7 @@ import { getHostDisplayName } from 'utils/host-utils';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
-import { openSetNodeAsTrustedModal } from 'action-creators';
+import { openSetNodeAsTrustedModal, openConfirmDeleteHostModal } from 'action-creators';
 
 const protocolMapping = deepFreeze({
     UNKNOWN: 'Unknown',
@@ -66,6 +66,10 @@ class HostDetailsFormViewModel extends Observer {
         super();
 
         this.hostLoaded = ko.observable(false);
+        this.isDeleteButtonWorking = ko.observable();
+        this.isRetrustButtonVisible = ko.observable();
+
+        // Daemon information observables.
         this.name = ko.observable();
         this.version = ko.observable();
         this.services = ko.observable();
@@ -114,12 +118,12 @@ class HostDetailsFormViewModel extends Observer {
             }
         ];
 
+        // System information observables.
         this.hostname = ko.observable();
         this.upTime = ko.observable();
         this.os = ko.observable();
         this.cpus = ko.observable();
         this.memory = ko.observable();
-        this.isRetrustButtonVisible = ko.observable();
         this.systemInfo = [
             {
                 label: 'Host Name',
@@ -151,6 +155,7 @@ class HostDetailsFormViewModel extends Observer {
     onHost(host) {
         if (!host) {
             this.isRetrustButtonVisible(false);
+            this.isDeleteButtonWorking(false);
             return;
         }
 
@@ -162,6 +167,8 @@ class HostDetailsFormViewModel extends Observer {
             utilization: `${numeral(cpus.usage).format('%')} utilization`
         };
 
+        const hostIsBeingDeleted = host.mode === 'DELETING';
+
         if(!host.trusted) {
             this.untrustedReasons = flatMap(
                 services.storage.nodes,
@@ -171,6 +178,8 @@ class HostDetailsFormViewModel extends Observer {
 
         this.host = name;
         this.hostLoaded(true);
+        this.isDeleteButtonWorking(hostIsBeingDeleted);
+        this.isRetrustButtonVisible(!host.trusted);
         this.name(getHostDisplayName(name));
         this.version(version);
         this.services(_getServicesString(host));
@@ -185,11 +194,14 @@ class HostDetailsFormViewModel extends Observer {
         this.os(os);
         this.cpus(cpusInfo);
         this.memory(_getMemoryInfo(host));
-        this.isRetrustButtonVisible(!host.trusted);
     }
 
     onRetrust() {
         action$.onNext(openSetNodeAsTrustedModal(this.host, this.untrustedReasons));
+    }
+
+    onDeleteNode() {
+        action$.onNext(openConfirmDeleteHostModal(this.host));
     }
 }
 

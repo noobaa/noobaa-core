@@ -13,7 +13,8 @@ import {
     COMPLETE_COLLECT_HOST_DIAGNOSTICS,
     FAIL_COLLECT_HOST_DIAGNOSTICS,
     COMPLETE_SET_HOST_DEBUG_MODE,
-    DROP_HOSTS_VIEW
+    DROP_HOSTS_VIEW,
+    REMOVE_HOST
 } from 'action-types';
 
 const inMemoryQueryLimit = 10;
@@ -175,6 +176,22 @@ function onDropHostsView(state, { payload }) {
     return {
         ...state,
         views
+    };
+}
+
+function onRemoveHost(state, { payload } ) {
+    const { [payload.host]: host, ...items } = state.items;
+    if (!host) return state;
+
+    const queries = mapValues(
+        state.queries,
+        query => _removeHostFromQuery(query, host)
+    );
+
+    return {
+        ...state,
+        items,
+        queries
     };
 }
 
@@ -370,6 +387,29 @@ function _clearOverallocated(state, queryLimit, hostLimit) {
     }
 }
 
+function _removeHostFromQuery(query, host) {
+    const { items, counters } = query.result;
+    const updatedItems = items.filter(item => item !== host.name);
+    if (updatedItems.length === items.length) return query;
+
+    const { nonPaginated, byMode } = counters;
+    const updatedCoutners = {
+        nonPaginated: nonPaginated - 1,
+        byMode: {
+            ...byMode,
+            [host.mode]: byMode[host.mode] - 1
+        }
+    };
+
+    return {
+        ...query,
+        result: {
+            items: updatedItems,
+            counters: updatedCoutners
+        }
+    };
+}
+
 // ------------------------------
 // Exported reducer function
 // ------------------------------
@@ -381,5 +421,6 @@ export default createReducer(initialState, {
     [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: onCompleteCollectHostDiagnostics,
     [FAIL_COLLECT_HOST_DIAGNOSTICS]: onFailCollectHostDiagnostics,
     [COMPLETE_SET_HOST_DEBUG_MODE]: onCompleteSetHostDebugMode,
-    [DROP_HOSTS_VIEW]: onDropHostsView
+    [DROP_HOSTS_VIEW]: onDropHostsView,
+    [REMOVE_HOST]: onRemoveHost
 });

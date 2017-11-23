@@ -9,6 +9,8 @@ import ko from 'knockout';
 import { deepFreeze, compare } from 'utils/core-utils';
 import { getStorageServiceStateIcon } from 'utils/host-utils';
 
+const operationsDisabledTooltip = 'This operation is not available during node’s deletion';
+
 const columns = deepFreeze([
     {
         name: 'state',
@@ -51,20 +53,27 @@ class HostStorageFormViewModel extends Observer {
 
         this.hostName = ko.unwrap(name);
         this.columns = columns;
-        this.hostLoaded = ko.observable(false);
+        this.hostLoaded = ko.observable();
         this.driveCount = ko.observable('');
         this.mode = ko.observable('');
         this.os = ko.observable('');
+        this.isEditDrivesDisabled = ko.observable();
+        this.editDrivesTooltip = ko.observable();
         this.rows = ko.observableArray();
 
         this.observe(state$.get('hosts', 'items', this.hostName), this.onHost);
     }
 
     onHost(host) {
-        if (!host) return;
+        if (!host) {
+            this.isEditDrivesDisabled(true);
+            return;
+        }
 
         const { nodes } = host.services.storage;
         const enabledNodesCount = nodes.filter(node => node.mode !== 'DECOMMISSIONED').length;
+        const isHostBeingDeleted = host.mode === 'DELETING';
+        const editDrivesTooltip = isHostBeingDeleted ? operationsDisabledTooltip : '';
         const rows = Array.from(nodes)
             .sort(_compareNodes)
             .map((node, i) => {
@@ -74,8 +83,10 @@ class HostStorageFormViewModel extends Observer {
             });
 
         this.mode(getStorageServiceStateIcon(host));
-        this.os(host.os);
         this.driveCount(`${enabledNodesCount} of ${nodes.length}`);
+        this.os(host.os);
+        this.isEditDrivesDisabled(isHostBeingDeleted);
+        this.editDrivesTooltip(editDrivesTooltip);
         this.rows(rows);
         this.hostLoaded(true);
     }

@@ -4,12 +4,20 @@
     <section class="column push-next">
         <div class="row pad alt-bg content-middle">
             <h3 class="heading3 greedy">Daemon Information</h3>
-            <button class="btn"
+            <button class="btn push-next"
                 ko.click="onRetrust"
                 ko.visible="isRetrustButtonVisible"
             >
                 Set As Trusted
             </button>
+            <working-button params="
+                click: () => onDeleteNode(),
+                disabled: !hostLoaded(),
+                working: isDeleteButtonWorking,
+                workingLabel: 'Deleting'
+            ">
+                Delete Node
+            </working-button>
         </div>
         <property-sheet class="pad" params="
             properties: daemonInfo,

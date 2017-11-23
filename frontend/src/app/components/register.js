@@ -91,6 +91,7 @@ export default function register(ko) {
     ko.components.register('empty-bucket-placement-warning-modal',      require('./modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal').default);
     ko.components.register('edit-spillover-targets-modal',              require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
     ko.components.register('set-node-as-trusted-modal',                 require('./modals/set-node-as-trusted-modal/set-node-as-trusted-modal').default);
+    ko.components.register('confirm-delete-host-modal', require('./modals/confirm-delete-host-modal/confirm-delete-host-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------

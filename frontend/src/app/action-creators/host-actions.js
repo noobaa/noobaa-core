@@ -22,7 +22,11 @@ import {
     FAIL_FETCH_HOST_OBJECTS,
     RETRUST_HOST,
     COMPLETE_RETRUST_HOST,
-    FAIL_RETRUST_HOST
+    FAIL_RETRUST_HOST,
+    DELETE_HOST,
+    COMPLETE_DELETE_HOST,
+    FAIL_DELETE_HOST,
+    REMOVE_HOST
 } from 'action-types';
 
 
@@ -186,5 +190,33 @@ export function failRetrustHost(host, error) {
     return {
         type: FAIL_RETRUST_HOST,
         payload: { host, error }
+    };
+}
+
+export function deleteHost(host) {
+    return {
+        type: DELETE_HOST,
+        payload: { host }
+    };
+}
+
+export function completeDeleteHost(host) {
+    return {
+        type: COMPLETE_DELETE_HOST,
+        payload: { host }
+    };
+}
+
+export function failDeleteHost(host, error) {
+    return {
+        type: FAIL_DELETE_HOST,
+        payload: { host, error }
+    };
+}
+
+export function removeHost(host) {
+    return {
+        type: REMOVE_HOST,
+        payload: { host }
     };
 }

@@ -256,18 +256,18 @@ class BucketsOverviewViewModel extends Observer{
         this.bucketsLinkText = ko.observable();
         this.bucketsLinkHref = ko.observable();
         this.selectedDuration = ko.observable();
-        this.chartParams = ko.observable();
+        this.hiddenDatasets = null;
         this.hideHosts = ko.observable();
         this.hideCloud = ko.observable();
         this.hideInternal = ko.observable();
-
+        this.chartParams = ko.observable();
         this.usedValues = [
             {
                 label: 'Used on nodes',
                 value: ko.observable(),
                 disabled: ko.pc(
                     this.hideHosts,
-                    val => this.onToggleDataset('hosts', val)
+                    val => this.onToggleDataset('hosts', !val)
                 ),
                 color : style['color8']
             },
@@ -276,7 +276,7 @@ class BucketsOverviewViewModel extends Observer{
                 value: ko.observable(),
                 disabled: ko.pc(
                     this.hideCloud,
-                    val => this.onToggleDataset('cloud', val)
+                    val => this.onToggleDataset('cloud', !val)
                 ),
                 color : style['color6']
             },
@@ -285,7 +285,7 @@ class BucketsOverviewViewModel extends Observer{
                 value: ko.observable(),
                 disabled: ko.pc(
                     this.hideInternal,
-                    val => this.onToggleDataset('internal', val)
+                    val => this.onToggleDataset('internal', !val)
                 ),
                 color : style['color16']
             }
@@ -306,8 +306,9 @@ class BucketsOverviewViewModel extends Observer{
     }
 
     onLocation(location) {
+        // Should move inside onState without creating an
+        // multipule chart redraws
         this.location = location;
-        // TODO move into onState
         action$.onNext(fetchSystemStorageHistory());
     }
 
@@ -327,12 +328,10 @@ class BucketsOverviewViewModel extends Observer{
             storageHistory
         ] = state;
 
-        const {
-            selectedDuration = this.durationOptions[0].value,
-            visibleDatasets = 'hosts,cloud,internal'
-        } = this.location.query;
-
-        const { system } = this.location.params;
+        const { query, params } = this.location;
+        const selectedDuration = query.selectedDuration || this.durationOptions[0].value;
+        const hiddenDatasets = query.hiddenDatasets ? query.hiddenDatasets.split(',') : [];
+        const { system } = params;
         const bucketList = Object.values(buckets);
         const bucketsLinkText = stringifyAmount('bucket', bucketList.length);
         const bucketsLinkHref = realizeUri(routes.buckets, { system });
@@ -345,16 +344,16 @@ class BucketsOverviewViewModel extends Observer{
         );
         const now = Date.now();
         const { timezone } = Object.values(servers).find(server => server.isMaster);
-
-        const datasets = chartDatasets.filter(({ key }) => visibleDatasets.split(',').includes(key));
+        const datasets = chartDatasets.filter(({ key }) => !hiddenDatasets.includes(key));
         const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
 
         this.bucketsLinkText(bucketsLinkText);
         this.bucketsLinkHref(bucketsLinkHref);
         this.selectedDuration(selectedDuration);
-        this.hideHosts(false);
-        this.hideCloud(false);
-        this.hideInternal(false);
+        this.hiddenDatasets = hiddenDatasets;
+        this.hideHosts(hiddenDatasets.includes('hosts'));
+        this.hideCloud(hiddenDatasets.includes('cloud'));
+        this.hideInternal(hiddenDatasets.includes('internal'));
         this.usedValues[0].value(used.hostPools);
         this.usedValues[1].value(used.cloudResources);
         this.usedValues[2].value(used.internalResources);
@@ -376,12 +375,14 @@ class BucketsOverviewViewModel extends Observer{
         action$.onNext(openConnectAppModal());
     }
 
-    onToggleDataset(key, value) {
-        const query = {
-            ...this.location.query,
-            [`hide-${key}`]: value
-        };
-        const url = realizeUri(this.location.pathname, {}, query);
+    onToggleDataset(name, value) {
+        const { query } = this.location;
+        const set = new Set(this.hiddenDatasets);
+        value ? set.delete(name) : set.add(name);
+        const hiddenDatasets = set.size > 0 ? Array.from(set.values()) : undefined;
+        const updatedQuery = { ...query, hiddenDatasets };
+
+        const url = realizeUri(this.location.pathname, {}, updatedQuery);
         action$.onNext(requestLocation(url, true));
     }
 }

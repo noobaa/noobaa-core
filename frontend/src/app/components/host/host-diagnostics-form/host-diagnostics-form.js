@@ -69,10 +69,15 @@ class HostDiagnosticsFormViewModel extends Observer{
 
         const { mode, debugMode, rpcAddress, diagnostics } = host;
         const isOffline = mode === 'OFFLINE';
+        const isBeingDeleted = mode === 'DELETING';
+        const actionsTooltip =
+            (isOffline && 'Node must be online for diagnostics operations') ||
+            (isBeingDeleted && 'This operation is not available during node’s deletion') ||
+            '';
 
         this.rpcAddress = rpcAddress;
-        this.actionsTooltip(isOffline ? 'Node must be online for diagnostics operations' : '');
-        this.areActionsDisabled(isOffline);
+        this.actionsTooltip(actionsTooltip);
+        this.areActionsDisabled(isOffline || isBeingDeleted);
         this.isCollectingDiagnostics(diagnostics.collecting);
 
         this.debugState = debugMode.state;

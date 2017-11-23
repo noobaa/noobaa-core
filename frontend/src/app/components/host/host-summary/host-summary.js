@@ -128,8 +128,8 @@ class HostSummaryViewModel extends Observer {
         { // Update host data activity summary
             const list = host.activities;
             if (list.length > 0) {
-                const { type, nodeCount, progress, eta } = list[0] || {};
-                const activityText = `${getActivityName(type)} ${stringifyAmount('drive', nodeCount)}`;
+                const { kind, nodeCount, progress, eta } = list[0] || {};
+                const activityText = `${getActivityName(kind)} ${stringifyAmount('drive', nodeCount)}`;
                 const etaText =  isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
 
                 this.hasActivities(true);

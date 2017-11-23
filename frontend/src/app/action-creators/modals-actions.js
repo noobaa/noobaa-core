@@ -587,3 +587,20 @@ export function openSetNodeAsTrustedModal(host, untrustedReasons) {
         }
     };
 }
+
+export function openConfirmDeleteHostModal(host) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'confirm-delete-host-modal',
+                params: { host }
+            },
+            options: {
+                title: 'Delete Node',
+                size: 'xsmall',
+                severity: 'warning'
+            }
+        }
+    };
+}

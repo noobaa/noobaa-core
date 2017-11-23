@@ -18,20 +18,24 @@
                 <p class="heading3">Create your owner account</p>
 
                 <editor params="label: 'Activation code'">
-                    <input type="text" placeholder="Your activation code"
+                    <input type="text"
+                        ko.disable="isActivationCodeDisabled"
+                        placeholder="Your activation code"
                         ko.value="activationCode">
 
                     <svg-icon class="validating-indicator spin"
-                        ko.visible="activationCode.isValidating"
+                        ko.visible="isActivationCodeSpinnerVisible"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
                 <editor params="label: 'Email address'">
-                    <input type="text" placeholder="Your email address"
+                    <input type="text"
+                        placeholder="Your email address"
+                        ko.disable="isEmailDisabled"
                         ko.value="email">
 
                     <svg-icon class="validating-indicator spin"
-                        ko.visible="email.isValidating"
+                        ko.visible="isEmailSpinnerVisible"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
@@ -40,7 +44,6 @@
                     insertValMessages: false
                 ">
                     <password-field class="push-next-half"
-                        ko.css="{ 'no-validation-highlight': !wasValidated() }"
                         params="
                             value: password,
                             placeholder: 'Enter password',

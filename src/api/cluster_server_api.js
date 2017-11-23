@@ -216,6 +216,18 @@ module.exports = {
                         ],
                         type: 'string',
                     },
+                    owner: {
+                        type: 'object',
+                        required: ['email', 'activation_code'],
+                        properties: {
+                            email: {
+                                type: 'string'
+                            },
+                            activation_code: {
+                                type: 'string'
+                            }
+                        }
+                    }
                 }
             },
             auth: {

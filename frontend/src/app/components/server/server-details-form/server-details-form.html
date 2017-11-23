@@ -5,6 +5,11 @@
         <h2 class="greedy heading3  push-next">
             Server Details
         </h2>
+        <button class="btn push-next"
+            ko.click="onChangeClusterConnectivityIp"
+        >
+            Change Cluster Connectivity IP
+        </button>
         <button class="btn"
             ko.disable="!isConnected()"
             ko.click="onEditServerDetails"

@@ -734,5 +734,18 @@ export function replaceWithAfterUpgradeModal(version, user, upgradeInitiator, re
     };
 }
 
-
-
+export function openChangeClusterConnectivityIpModal(secret) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'change-cluster-connectivity-ip-modal',
+                params: { secret }
+            },
+            options: {
+                title: 'Change Cluster Connectivity IP',
+                size: 'small'
+            }
+        }
+    };
+}

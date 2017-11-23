@@ -398,19 +398,24 @@ class NodesMonitor extends EventEmitter {
                 req.account && req.account._id));
     }
 
-    hide_host(req) {
-        this._throw_if_not_started_and_loaded();
-        const host_nodes = this._get_host_nodes_by_name(req.rpc_params.name);
-        if (!this._is_host_hideable(host_nodes)) throw new RpcError('BAD_REQUEST', 'Host can\'t be hidden' + req.rpc_params.name);
+    _hide_host(host_nodes) {
         const host_item = this._consolidate_host(host_nodes);
-        return P.map(host_nodes, node => this._hide_node(node))
-            .then(() => this._dispatch_node_event(host_item, 'force_deleted',
-                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was force deleted by ${req.account && req.account.email}`,
-                req.account && req.account._id))
-            .then(() => Dispatcher.instance().publish_fe_notifications({
-                    name: req.rpc_params.name,
-                }, 'remove_host') //send notification API on deleted member
-            );
+        if (_.some(host_nodes, node => node.force_hide)) return;
+        return P.resolve()
+            .then(() => _.each(host_nodes, node => this._hide_node(node)))
+            .then(() => this._update_nodes_store('force'))
+            .then(() => {
+                this._dispatch_node_event(host_item, 'deleted',
+                    `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} is successfully deleted`);
+                Dispatcher.instance().publish_fe_notifications({
+                    name: this._item_hostname(host_item) + '#' + host_item.node.host_sequence,
+                }, 'remove_host'); //send notification API on deleted member
+                if (!host_item.online) {
+                    Dispatcher.instance().alert('INFO',
+                        system_store.data.systems[0]._id,
+                        `Node  ${this._item_hostname(host_item)} was marked for deletion, data on it could not be wiped since the node was offline`);
+                }
+            });
     }
 
     delete_node(node_identity) {
@@ -957,6 +962,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => dbg.log0('_run_node:', item.node.name))
             .then(() => this._get_agent_info(item))
             .then(() => this._uninstall_deleting_node(item))
+            .then(() => this._remove_hideable_nodes(item))
             .then(() => this._update_node_service(item))
             .then(() => this._update_create_node_token(item))
             .then(() => this._update_rpc_config(item))
@@ -1071,14 +1077,9 @@ class NodesMonitor extends EventEmitter {
     }
 
     _hide_node(item) {
-        return P.resolve()
-            .then(() => {
-                item.node.force_hide = Date.now();
-                this._set_need_update.add(item);
-                this._update_status(item);
-            })
-            .then(() => this._update_nodes_store('force'))
-            .return();
+        item.node.force_hide = Date.now();
+        this._set_need_update.add(item);
+        this._update_status(item);
     }
 
 
@@ -1232,6 +1233,15 @@ class NodesMonitor extends EventEmitter {
         return item.node.endpoint_stats;
     }
 
+    _remove_hideable_nodes(item) {
+        dbg.log0('_remove_hideable_nodes: start running', item.node.host_id);
+        if (item.node.force_hide) return;
+        const host_nodes = this._get_nodes_by_host_id(item.node.host_id);
+        if (this._is_host_hideable(host_nodes)) {
+            this._hide_host(host_nodes);
+        }
+    }
+
     _uninstall_deleting_node(item) {
         dbg.log0('_uninstall_deleting_node: start running', item.node.host_id);
         if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true; // S3 won't WIPE so will go directly to uninstall
@@ -1254,23 +1264,16 @@ class NodesMonitor extends EventEmitter {
 
         first_item.uninstalling = true;
         dbg.log0('_uninstall_deleting_node: uninstalling host', item.node.host_id, 'all nodes are deleted');
-        const host_name = this._item_hostname(host) + '#' + host.node.host_sequence;
         return P.resolve()
             .then(() => server_rpc.client.agent.uninstall(undefined, {
                 connection: first_item.connection,
             }))
             .then(() => {
-                dbg.log0('_uninstall_deleting_node: host', host_name, 'is uninstalled - all nodes will be removed');
+                dbg.log0('_uninstall_deleting_node: host', this._item_hostname(host) + '#' + host.node.host_sequence, 'is uninstalled - all nodes will be removed');
                 host_nodes.forEach(host_item => {
                     host_item.ready_to_be_deleted = true;
                 });
-            }) // maybe we need some delay here to make sure DB changed to deleted before sending notification to UI
-            .then(() => {
-                this._dispatch_node_event(host, 'deleted',
-                    `Node ${this._item_hostname(host)} in pool ${this._item_pool_name(host)} is successfully deleted`);
-                Dispatcher.instance().publish_fe_notifications({
-                    name: host_name,
-                }, 'remove_host'); //send notification API on deleted member
+                if (!item.node.force_hide) return this._hide_host(host_nodes);
             })
             .finally(() => {
                 first_item.uninstalling = false;
@@ -1976,10 +1979,10 @@ class NodesMonitor extends EventEmitter {
 
         return (item.node.decommissioned && 'DECOMMISSIONED') ||
             (item.node.decommissioning && 'DECOMMISSIONING') ||
+            (item.node.deleting && 'DELETING') ||
             (!item.online && 'OFFLINE') ||
             (!item.node.rpc_address && 'INITIALIZING') ||
             (!item.trusted && 'UNTRUSTED') ||
-            (item.node.deleting && 'DELETING') ||
             (item.node.deleted && 'DELETED') ||
             (item.storage_not_exist && 'STORAGE_NOT_EXIST') ||
             ((item.node.node_type === 'ENDPOINT_S3' && item.node.srv_error) && 'HTTP_SRV_ERRORS') ||
@@ -2294,6 +2297,7 @@ class NodesMonitor extends EventEmitter {
             if (!item) continue;
             // skip new nodes
             if (!item.node_from_store) continue;
+            if (item.node.force_hide) continue;
             // update the status of every node we go over
             this._update_status(item);
             if (!filter_item_func(item)) continue;
@@ -2436,7 +2440,6 @@ class NodesMonitor extends EventEmitter {
         host_item.node.storage = host_aggragate.storage;
         host_item.storage_nodes.data_activities = host_aggragate.data_activities;
         host_item.node.drives = _.flatMap(host_nodes, item => item.node.drives);
-        host_item.hideable = this._is_host_hideable(host_nodes);
 
         this._calculate_host_mode(host_item);
 
@@ -2476,8 +2479,8 @@ class NodesMonitor extends EventEmitter {
 
             host_item.storage_nodes_mode =
                 (!enabled_nodes_count && 'DECOMMISSIONED') || // all decommissioned
-                (OFFLINE === enabled_nodes_count && 'OFFLINE') || // all offline
                 (DELETING && 'DELETING') ||
+                (OFFLINE === enabled_nodes_count && 'OFFLINE') || // all offline
                 (UNTRUSTED && 'UNTRUSTED') ||
                 (STORAGE_NOT_EXIST === enabled_nodes_count && 'STORAGE_NOT_EXIST') || // all unmounted
                 (DETENTION === enabled_nodes_count && 'DETENTION') || // all detention
@@ -2502,8 +2505,8 @@ class NodesMonitor extends EventEmitter {
         const storage_mode = host_item.storage_nodes_mode;
 
         const s3_node_modes = [
-            'OFFLINE',
             'DELETING',
+            'OFFLINE',
             'UNTRUSTED',
             'INITIALIZING',
             'DECOMMISSIONED',
@@ -3058,6 +3061,7 @@ class NodesMonitor extends EventEmitter {
 
     _is_host_hideable(host_nodes) {
         if (!_.every(host_nodes, item => item.node.deleting)) return false;
+        if (_.some(host_nodes, item => item.online)) return false; // node is online
         const nodes_activity_stage = _.flatMap(host_nodes, node => node.data_activity && node.data_activity.stage.name);
         if (_.some(nodes_activity_stage, node_stage => (node_stage === STAGE_OFFLINE_GRACE) || (node_stage === STAGE_REBUILDING))) return false;
         return true;

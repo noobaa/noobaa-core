@@ -15,7 +15,8 @@ import * as routes from 'routes';
 import {
     openEditServerDetailsModal,
     openEditServerDNSSettingsModal,
-    openEditServerTimeSettingsModal
+    openEditServerTimeSettingsModal,
+    openChangeClusterConnectivityIpModal
 } from 'action-creators';
 
 const icons = deepFreeze({
@@ -64,7 +65,6 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         );
 
         this.secret = serverSecret;
-
         this.server = ko.pureComputed(
             () => {
                 if (!systemInfo()) {
@@ -572,6 +572,10 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         const configurationHref = this.phoneHomeConfigurationHref();
 
         return { icon, tooltip, proxy, lastPhoneHomeSync, configurationHref };
+    }
+
+    onChangeClusterConnectivityIp() {
+        action$.onNext(openChangeClusterConnectivityIpModal(this.secret));
     }
 
     onEditServerDetails() {

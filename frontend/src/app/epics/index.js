@@ -57,6 +57,7 @@ import fetchVersionReleaseNotes from './fetch-version-release-notes';
 import invokeUpgradeSystem from './invoke-upgrade-system';
 import upgradeSystem from './upgrade-system';
 import reloadAfterSystemUpgrade from './reload-after-system-upgrade';
+import updateServerAddress from './update-server-address';
 
 const generalEpics = [
     handleLocationRequests,
@@ -83,6 +84,10 @@ const systemRelatedEpics = [
     fetchVersionReleaseNotes,
     invokeUpgradeSystem,
     upgradeSystem
+];
+
+const topologyRelatedEpics = [
+    updateServerAddress
 ];
 
 const alertsRelatedEpics = [
@@ -158,6 +163,7 @@ export default _combineEpics([
     ...generalEpics,
     ...sessionRelatedEpics,
     ...systemRelatedEpics,
+    ...topologyRelatedEpics,
     ...alertsRelatedEpics,
     ...accountRelatedEpics,
     ...bucketRelatedEpics,

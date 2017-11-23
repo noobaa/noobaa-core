@@ -1,0 +1,35 @@
+<!-- Copyright (C) 2017 NooBaa -->
+
+<!-- ko if: isServerLoaded -->
+<form class="column greedy" ko.submit="form.submit">
+    <p class="push-next">
+        Before updating the following fields, go to the linux installer or local DNS server and change the server IP. Once done, fill the following fields:
+    </p>
+    <section class="greedy">
+        <editor class="push-prev" params="
+            label: 'Old Server IP'
+        ">
+            <input disabled type="text"
+                ko.value="oldAddress"
+            />
+        </editor>
+        <editor class="push-next" params="
+            label: 'New Server IP'
+        ">
+            <div class="row">
+                <input type="text"
+                    class="push-next-half"
+                    ko.value="form.newAddress"
+                    ko.validationCss="form.newAddress"
+                />
+                <validation-indicator params="field: form.newAddress"></validation-indicator>
+            </div>
+            <validation-message params="field: form.newAddress"></validation-message>
+        </editor>
+    </section>
+    <div class="row content-middle align-end">
+        <button class="link alt-colors push-next" ko.click="onCancel">Cancel</button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">update</button>
+    </div>
+</form>
+<!-- /ko -->

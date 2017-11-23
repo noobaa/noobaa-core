@@ -2,6 +2,7 @@
 
 import { deepFreeze, ensureArray, isDefined } from 'utils/core-utils';
 import { getHostDisplayName, getHostServiceDisplayName } from 'utils/host-utils';
+import { getServerDisplayName } from 'utils/cluster-utils';
 import { showNotification } from 'action-creators';
 import Rx from 'rx';
 import * as types from 'action-types';
@@ -307,6 +308,16 @@ const actionToNotification = deepFreeze({
 
     [types.FAIL_DELETE_HOST]: ({ host }) => ({
         message: `Host ${host} deletion failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_SERVER_ADDRESS]: ({ secret, hostname }) => ({
+        message: `${getServerDisplayName({ secret, hostname })} cluster connectivity IP updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_SERVER_ADDRESS]: ({ secret, hostname }) => ({
+        message: `Updating cluster connectivity IP for ${getServerDisplayName({ secret, hostname })} failed`,
         severity: 'error'
     })
 });

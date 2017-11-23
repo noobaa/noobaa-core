@@ -99,6 +99,7 @@ export default function register(ko) {
     ko.components.register('finalize-upgrade-modal',                        require('./modals/finalize-upgrade-modal/finalize-upgrade-modal').default);
     ko.components.register('edit-bucket-data-resiliency-modal',             require('./modals/edit-bucket-data-resiliency-modal/edit-bucket-data-resiliency-modal').default);
     ko.components.register('risky-bucket-data-resiliency-warning-modal',    require('./modals/risky-bucket-data-resiliency-warning-modal/risky-bucket-data-resiliency-warning-modal').default);
+    ko.components.register('change-cluster-connectivity-ip-modal',          require('./modals/change-cluster-connectivity-ip-modal/change-cluster-connectivity-ip-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------

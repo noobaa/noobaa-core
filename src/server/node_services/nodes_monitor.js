@@ -787,11 +787,17 @@ class NodesMonitor extends EventEmitter {
 
     _remove_node_to_hosts_map(host_id, item) {
         let host_nodes = this._map_host_id.get(host_id);
+        const host = this._consolidate_host(host_nodes);
         if (host_nodes) {
             _.pull(host_nodes, item);
             if (!host_nodes.length) {
                 this._map_host_id.delete(host_id);
                 this._map_host_seq_num.delete(String(item.node.host_sequence));
+                this._dispatch_node_event(host, 'deleted',
+                    `Node ${this._item_hostname(host)} in pool ${this._item_pool_name(host)} is successfully deleted`);
+                Dispatcher.instance().publish_fe_notifications({
+                    name: this._item_hostname(host) + '#' + host.node.host_sequence,
+                }, 'remove_host'); //send notification API on deleted member
             }
         }
     }
@@ -1254,23 +1260,15 @@ class NodesMonitor extends EventEmitter {
 
         first_item.uninstalling = true;
         dbg.log0('_uninstall_deleting_node: uninstalling host', item.node.host_id, 'all nodes are deleted');
-        const host_name = this._item_hostname(host) + '#' + host.node.host_sequence;
         return P.resolve()
             .then(() => server_rpc.client.agent.uninstall(undefined, {
                 connection: first_item.connection,
             }))
             .then(() => {
-                dbg.log0('_uninstall_deleting_node: host', host_name, 'is uninstalled - all nodes will be removed');
+                dbg.log0('_uninstall_deleting_node: host', this._item_hostname(host) + '#' + host.node.host_sequence, 'is uninstalled - all nodes will be removed');
                 host_nodes.forEach(host_item => {
                     host_item.ready_to_be_deleted = true;
                 });
-            }) // maybe we need some delay here to make sure DB changed to deleted before sending notification to UI
-            .then(() => {
-                this._dispatch_node_event(host, 'deleted',
-                    `Node ${this._item_hostname(host)} in pool ${this._item_pool_name(host)} is successfully deleted`);
-                Dispatcher.instance().publish_fe_notifications({
-                    name: host_name,
-                }, 'remove_host'); //send notification API on deleted member
             })
             .finally(() => {
                 first_item.uninstalling = false;

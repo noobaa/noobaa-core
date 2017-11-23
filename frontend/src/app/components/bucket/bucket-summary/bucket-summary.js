@@ -3,7 +3,7 @@
 import template from './bucket-summary.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { isSizeZero, formatSize, toBytes } from 'utils/size-utils';
@@ -91,18 +91,38 @@ class BucketSummrayViewModel extends Observer {
             }
         ];
 
-        this.dataUsage = [
+        this.barChartData  = [
             {
                 label: 'Total Original Size',
                 color: style['color7'],
-                value: ko.observable()
+                parts: [
+                    {
+                        value: ko.observable(),
+                        color: style['color7']
+
+                    }
+                ]
+
             },
             {
                 label: 'Compressed & Deduped',
                 color: style['color13'],
-                value: ko.observable()
+                parts: [
+                    {
+                        value: ko.observable(),
+                        color: style['color13']
+
+                    }
+                ]
+
             }
         ];
+
+        this.dataUsage = this.barChartData.map(({ label, color, parts }) => ({
+            label,
+            color: color,
+            value: ko.pureComputed(() => sumBy(parts, ({ value }) => value()))
+        }));
 
         this.rawUsage = [
             {
@@ -201,8 +221,8 @@ class BucketSummrayViewModel extends Observer {
         this.availablity[4].value(toBytes(availablity.overallocated));
         this.availablity[4].visible(!isSizeZero(availablity.overallocated));
         this.availablityMarkers(availablityMarkers);
-        this.dataUsage[0].value(toBytes(data.size));
-        this.dataUsage[1].value(toBytes(data.sizeReduced));
+        this.barChartData[0].parts[0].value(toBytes(data.size));
+        this.barChartData[1].parts[0].value(toBytes(data.sizeReduced));
         this.lastRawUsageTime(lastRawUsageTime);
         this.rawUsage[0].value(toBytes(storage.free));
         this.rawUsage[1].value(toBytes(storage.spilloverFree));

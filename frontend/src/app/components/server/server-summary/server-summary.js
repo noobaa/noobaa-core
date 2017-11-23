@@ -186,10 +186,14 @@ class ServerSummaryViewModel extends BaseViewModel {
                         this.isConnected() ? numeral(cpus().usage).format('%') : '-'
                     }`
                 ),
-                value: ko.pureComputed(
-                    () => cpus().count ? cpus().usage / cpus().count : 0
-                ),
-                color: style['color13']
+                parts: [
+                    {
+                        value: ko.pureComputed(
+                            () => cpus().count ? cpus().usage / cpus().count : 0
+                        ),
+                        color: style['color13']
+                    }
+                ]
             },
             {
                 label: ko.pureComputed(
@@ -197,8 +201,12 @@ class ServerSummaryViewModel extends BaseViewModel {
                         this.isConnected() ? numeral(diskUsage()).format('%') : '-'
                     }`
                 ),
-                value: diskUsage,
-                color: style['color13']
+                parts: [
+                    {
+                        value: diskUsage,
+                        color: style['color13']
+                    }
+                ]
             },
             {
                 label: ko.pureComputed(
@@ -206,8 +214,12 @@ class ServerSummaryViewModel extends BaseViewModel {
                         this.isConnected() ? numeral(memoryUsage()).format('%') : '-'
                     }`
                 ),
-                value: memoryUsage,
-                color: style['color13']
+                parts: [
+                    {
+                        value: memoryUsage,
+                        color: style['color13']
+                    }
+                ]
             }
         ];
     }

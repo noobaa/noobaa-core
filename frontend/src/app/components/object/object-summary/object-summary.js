@@ -5,6 +5,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import { toBytes } from 'utils/size-utils';
+import { sumBy } from 'utils/core-utils';
 
 class ObjectSummaryViewModel extends BaseViewModel {
     constructor({ obj }) {
@@ -38,22 +39,36 @@ class ObjectSummaryViewModel extends BaseViewModel {
             () => obj() ? obj().stats.reads : 0
         );
 
-        this.barsValues = [
+        this.barChartData  = [
             {
                 label: 'Original size',
-                value: ko.pureComputed(
-                    () => toBytes(obj().size)
-                ),
-                color: style['color7']
+                color: style['color7'],
+                parts: [
+                    {
+                        value: ko.pureComputed(() => toBytes(obj().size)),
+                        color: style['color7']
+                    }
+                ]
+
             },
             {
                 label: 'Size on Disk (with replicas)',
-                value: ko.pureComputed(
-                    () => toBytes(obj().capacity_size)
-                ),
-                color: style['color13']
+                color: style['color13'],
+                parts: [
+                    {
+                        value: ko.pureComputed(() => toBytes(obj().capacity_size)),
+                        color: style['color13']
+                    }
+                ]
+
             }
         ];
+
+        this.barsValues = this.barChartData.map(({ label, color, parts }) => ({
+            label,
+            color: color,
+            value: sumBy(parts, ({ value }) => value())
+        }));
     }
 }
 

@@ -3,8 +3,9 @@
 import template from './bar-chart.html';
 import ko from 'knockout';
 import style from 'style';
-import { deepFreeze, clamp, isString } from 'utils/core-utils';
 import { getFormatter } from 'utils/chart-utils';
+import { deepFreeze, clamp, isString, decimalRound, sumBy } from 'utils/core-utils';
+
 
 const height = 168;
 const minWidth = 168;
@@ -12,6 +13,7 @@ const gutter = 19;
 const barWidth = 45;
 const maxBarHeight = height - 2.2 * gutter;
 const minBarHeight = 2;
+const changeResilience = 3;
 
 const labelFont = `${style['font-size1']} ${style['font-family1']}`;
 const underlineColor = style['color7'];
@@ -27,6 +29,18 @@ const defaultOptions = deepFreeze({
     format: 'none',
     spacing: gutter / 2
 });
+
+function _normalizeBars(values, options) {
+    const bars = values.map(value => sumBy(value.parts, bar => bar.value));
+    const max = options.scale || bars.reduce((a, b) => Math.max(a, b));
+    return bars.map(value => {
+        if (value === 0) return 0;
+        const ratio = max > 0 ?
+            decimalRound(value / max, changeResilience) :
+            0;
+        return clamp(ratio, minBarHeight / maxBarHeight, 1);
+    });
+}
 
 class BarChartViewModel {
     constructor({ values, options = {} }) {
@@ -49,32 +63,23 @@ class BarChartViewModel {
 
         this.canvasHeight = height;
 
-        this.normalized = ko.pureComputed(
-            () => {
-                const max = this.options().scale || this.values().reduce(
-                    (max, { value }) => Math.max(max, value),
-                    0
-                );
+        const normalized = ko.pureComputed(
+            () => _normalizeBars(ko.deepUnwrap(values), this.options())
+        );
 
-                return this.values().map(
-                    ({ value }) => ko.pureComputed(
-                        () => {
-                            if (value === 0) {
-                                return 0;
-                            }
+        this.barValues = ko.pureComputed(() => {
+            const curr = this.barValues.peek() || [];
 
-                            return clamp(value / max, minBarHeight / maxBarHeight, 1);
-                        }
-                    )
+            return normalized().map((_, i) => {
+                return curr[i] || ko.pureComputed(() => normalized()[i])
                     .extend({
                         tween: {
                             resetOnChange: true,
                             resetValue: 0
                         }
-                    })
-                );
-            }
-        );
+                    });
+            });
+        });
     }
 
     format(value) {
@@ -97,18 +102,30 @@ class BarChartViewModel {
             options.background :
             backgroundColor;
 
-        this.normalized().reduce(
+        this.barValues().reduce(
             (offset, size, i) => {
-                const { color, label, value } = values[i];
-                const top = gutter + (1 - size()) * maxBarHeight + .5|0;
+                const { label, parts } = values[i];
+                const total = sumBy(parts, bar => bar.value);
+                const nakedSize = size();
 
                 if (options.background) {
                     this.drawBar(ctx, offset, gutter, bgColor);
                 }
 
-                this.drawBar(ctx, offset, top, color);
+                if (total !== 0) {
+                    parts.reduceRight(
+                        (drawSize, part) => {
+                            const top = gutter + (1 - drawSize) * maxBarHeight + .5|0;
+                            this.drawBar(ctx, offset, top, part.color);
+                            return drawSize - (part.value / total * nakedSize);
+                        },
+                        nakedSize
+                    );
+                }
 
                 if (options.values) {
+                    const top = gutter + (1 - nakedSize) * maxBarHeight + .5|0;
+                    const value = sumBy(parts, ({ value }) => value);
                     this.drawValue(ctx, offset, top, value);
                 }
 

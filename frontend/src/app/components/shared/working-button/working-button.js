@@ -12,10 +12,10 @@ class WorkingBtnViewModel {
         this.disabled = disabled;
     }
 
-    onClick() {
+    onClick(parentViewModel) {
         const { working, clickHandler } = this;
         if (isFunction(clickHandler) && !ko.unwrap(working)) {
-            clickHandler();
+            clickHandler.call(parentViewModel);
         }
     }
 }

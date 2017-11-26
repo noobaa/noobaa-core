@@ -120,9 +120,9 @@ const modeToStateIcon = deepFreeze({
         tooltip: 'Services has Issues'
     },
     N2N_PORTS_BLOCKED: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some ports might be blocked'
     },
     OPTIMAL: {
         name: 'healthy',
@@ -235,6 +235,11 @@ const modeToAccessibilityIcon = deepFreeze({
         css: 'success',
         tooltip: 'Readable & Writable'
     },
+    N2N_PORTS_BLOCKED: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Readable & Writable'
+    },
     OPTIMAL: {
         name: 'healthy',
         css: 'success',
@@ -268,7 +273,8 @@ const stateToModes = deepFreeze({
         'LOW_CAPACITY',
         'HTTP_SRV_ERRORS',
         'HAS_ERRORS',
-        'HAS_ISSUES'
+        'HAS_ISSUES',
+        'N2N_PORTS_BLOCKED'
     ],
     OFFLINE: [
         'OFFLINE'
@@ -371,6 +377,11 @@ const storageServiceModeToIcon = deepFreeze({
         css: 'warning',
         tooltip: 'Low available capacity'
     },
+    N2N_PORTS_BLOCKED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some ports might be blocked'
+    },
     OPTIMAL: {
         name: 'healthy',
         css: 'success',
@@ -438,6 +449,11 @@ const storageNodeModeToStateIcon = deepFreeze({
         name: 'problem',
         css: 'warning',
         tooltip: 'No available capacity'
+    },
+    N2N_PORTS_BLOCKED: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Some ports might be blocked'
     },
     OPTIMAL: {
         name: 'healthy',

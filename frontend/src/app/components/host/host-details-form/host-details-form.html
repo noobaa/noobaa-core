@@ -22,7 +22,29 @@
         <property-sheet class="pad" params="
             properties: daemonInfo,
             loading: !hostLoaded()
-        "></property-sheet>
+        ">
+            <tempalte name="protocol">
+                <p ko.if="$data">
+                    {{text}}
+                    <span class="warning" ko.visible="warning">
+                        (Not optimized for performance)
+                    </span>
+                </p>
+            </tempalte>
+
+            <template name="portRange">
+                <!-- ko if: $data -->
+                <p class="row content-middle" ko.css.warning="warning">
+                    {{text}}
+                    <svg-icon params="name: 'problem'"
+                        class="icon-small push-prev-half"
+                        ko.visible="warning"
+                        ko.tooltip="tooltip"
+                    ></svg-icon>
+                </p>
+                <!-- /ko -->
+            </template>
+        </property-sheet>
     </section>
 
     <section class="column push-next">

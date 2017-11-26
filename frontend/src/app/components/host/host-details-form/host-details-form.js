@@ -11,24 +11,28 @@ import moment from 'moment';
 import numeral from 'numeral';
 import { openSetNodeAsTrustedModal, openConfirmDeleteHostModal } from 'action-creators';
 
-const protocolMapping = deepFreeze({
-    UNKNOWN: 'Unknown',
-    TCP: 'TCP',
-    UDP: 'UDP <span class="warning">(Not optimized for performance)</span>'
-});
-
-const memoryPressureTooltip = {
+const memoryPressureTooltip = deepFreeze({
     text: 'High Memory Pressure',
     position: 'above'
-};
+});
 
-function _getPortRageString({ ports }) {
-    if (!ports) {
-        return 'Initializing';
-    }
+const portsBlockedTooltip = `Some ports might be blocked. Check the firewall settings
+    and make sure that the ports range of 60100-60600 is open for inbound traffix.
+    These ports are used to communicate between the storage nodes.`;
 
-    const { min, max } = ports;
-    return  min === max ? min : `${min} - ${max}`;
+function _getProtocol({ protocol }) {
+    const text = protocol === 'UNKNOWN' ? 'Unknown protocol' : protocol;
+    const warning = protocol === 'UDP';
+    return { text, warning };
+}
+
+function _getPortRage({ mode, ports }) {
+    const { min, max } = ports || {};
+    const warning = mode === 'N2N_PORTS_BLOCKED';
+    const text = ports ? (min === max ? min : `${min}-${max}`) : 'Initializing';
+    const tooltip = portsBlockedTooltip;
+
+    return { text, warning, tooltip };
 }
 
 function _getServicesString({ services }) {
@@ -102,11 +106,13 @@ class HostDetailsFormViewModel extends Observer {
             },
             {
                 label: 'Peer to Peer Connectivity',
-                value: this.protocol
+                value: this.protocol,
+                template: 'protocol'
             },
             {
                 label: 'Port Range',
-                value: this.portRange
+                value: this.portRange,
+                template: 'portRange'
             },
             {
                 label: 'Server Endpoint',
@@ -159,8 +165,18 @@ class HostDetailsFormViewModel extends Observer {
             return;
         }
 
-        const { name, version, lastCommunication, ip, protocol,
-            endpoint, rtt, hostname, upTime, os, cpus, services } = host;
+        const {
+            name,
+            version,
+            lastCommunication,
+            ip,
+            endpoint,
+            rtt,
+            hostname,
+            upTime, os,
+            cpus,
+            services
+        } = host;
 
         const cpusInfo = {
             count: cpus.units.length,
@@ -185,8 +201,8 @@ class HostDetailsFormViewModel extends Observer {
         this.services(_getServicesString(host));
         this.lastCommunication(moment(lastCommunication).fromNow());
         this.ip(ip);
-        this.protocol(protocolMapping[protocol]);
-        this.portRange(_getPortRageString(host));
+        this.protocol(_getProtocol(host));
+        this.portRange(_getPortRage(host));
         this.endpoint(endpoint);
         this.rtt(`${rtt.toFixed(2)}ms`);
         this.hostname(hostname);

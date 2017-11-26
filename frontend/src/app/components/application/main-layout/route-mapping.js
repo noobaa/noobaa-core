@@ -21,10 +21,10 @@ export default deepFreeze({
         area: 'buckets',
         crumbsGenerator: _generateDataBucketCrumbs
     },
-    [routes.gatewayBucket]: {
-        panel: 'gateway-bucket',
+    [routes.namespaceBucket]: {
+        panel: 'namespace-bucket',
         area: 'buckets',
-        crumbsGenerator: _generateGatewayBucketCrumbs
+        crumbsGenerator: _generateNamespaceBucketCrumbs
     },
     [routes.object]: {
         area: 'buckets',
@@ -115,12 +115,12 @@ function _generateDataBucketCrumbs(params) {
     ];
 }
 
-function _generateGatewayBucketCrumbs(params) {
+function _generateNamespaceBucketCrumbs(params) {
     return [
         ..._generateBucketsCrumbs(params),
         {
             url: realizeUri(
-                routes.gatewayBucket,
+                routes.namespaceBucket,
                 pick(params, ['system', 'bucket'])
             ),
             label: params.bucket

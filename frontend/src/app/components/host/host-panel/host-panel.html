@@ -16,10 +16,10 @@
             Storage &amp; Drives
         </a>
 
-        <a ko.css.selected="selectedTab.eq('gateway')"
-            ko.attr.href="tabHref('gateway')"
+        <a ko.css.selected="selectedTab.eq('endpoint')"
+            ko.attr.href="tabHref('endpoint')"
         >
-            S3 Gateway
+            S3 Endpoint
         </a>
 
         <a ko.css.selected="selectedTab.eq('diagnostics')"
@@ -46,10 +46,10 @@
             params="name: host"
         ></host-storage-form>
 
-        <host-gateway-form class="tab"
-            ko.css.selected="selectedTab.eq('gateway')"
+        <host-endpoint-form class="tab"
+            ko.css.selected="selectedTab.eq('endpoint')"
             params="name: host"
-        ></host-gateway-form>
+        ></host-endpoint-form>
 
         <host-diagnostics-form class="tab"
             ko.css.selected="selectedTab.eq('diagnostics')"

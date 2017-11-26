@@ -6,7 +6,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
 
 const undeletableReasonToTooltip = deepFreeze({
-    IN_USE: 'Cannot delete a resource which is used by a gateway bucket'
+    IN_USE: 'Cannot delete a resource which is used by a namespace bucket'
 });
 
 export default class ResourceRowViewModel {

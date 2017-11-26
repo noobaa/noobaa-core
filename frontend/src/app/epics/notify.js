@@ -238,33 +238,33 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_CREATE_GATEWAY_BUCKET]: ({ name }) =>({
-        message: `Gateway bucket ${name} created successfully`,
+    [types.COMPLETE_CREATE_NAMESPACE_BUCKET]: ({ name }) =>({
+        message: `Namespace bucket ${name} created successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_CREATE_GATEWAY_BUCKET]: ({ name }) => ({
-        message: `Gateway bucket ${name} creation failed`,
+    [types.FAIL_CREATE_NAMESPACE_BUCKET]: ({ name }) => ({
+        message: `Namespace bucket ${name} creation failed`,
         severity: 'error'
     }),
 
-    [types.COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT]: ({ name }) => ({
-        message: `Gateway bucket ${name} placement policy updated successfully`,
+    [types.COMPLETE_UPDATE_NAMESPACE_BUCKET_PLACEMENT]: ({ name }) => ({
+        message: `Namespace bucket ${name} placement policy updated successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT]: ({ name }) => ({
-        message: `Updating gateway bucket ${name} placement policy failed`,
+    [types.FAIL_UPDATE_NAMESPACE_BUCKET_PLACEMENT]: ({ name }) => ({
+        message: `Updating namespace bucket ${name} placement policy failed`,
         severity: 'error'
     }),
 
-    [types.COMPLETE_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
-        message: `Gateway bucket ${name} deleted successfully`,
+    [types.COMPLETE_DELETE_NAMESPACE_BUCKET]: ({ name }) => ({
+        message: `Namespace bucket ${name} deleted successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_DELETE_GATEWAY_BUCKET]: ({ name }) => ({
-        message: `Gateway bucket ${name} deletion failed`,
+    [types.FAIL_DELETE_NAMESPACE_BUCKET]: ({ name }) => ({
+        message: `Namespace bucket ${name} deletion failed`,
         severity: 'error'
     }),
 

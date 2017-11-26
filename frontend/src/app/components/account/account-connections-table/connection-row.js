@@ -45,12 +45,12 @@ export function _isBucketUsingResource(bucket, resource) {
     });
 }
 
-export function _isGatewayBucketUsingResource(bucket, resource) {
+export function _isNamespaceBucketUsingResource(bucket, resource) {
     const { writeTo, readFrom } = bucket.placement;
     return (writeTo === resource) || readFrom.includes(resource);
 }
 
-function _getBucketsRelatedToUsage(usage, buckets, gatewayBuckets) {
+function _getBucketsRelatedToUsage(usage, buckets, namespaceBuckets) {
     const { usageType, entity } = usage;
     switch (usageType) {
         case 'CLOUD_SYNC': {
@@ -64,8 +64,8 @@ function _getBucketsRelatedToUsage(usage, buckets, gatewayBuckets) {
         }
 
         case 'NAMESPACE_RESOURCE': {
-            return gatewayBuckets
-                .filter(bucket => _isGatewayBucketUsingResource(bucket, entity))
+            return namespaceBuckets
+                .filter(bucket => _isNamespaceBucketUsingResource(bucket, entity))
                 .map(bucket => bucket.name);
         }
     }
@@ -104,10 +104,10 @@ export default class ConnectionRowViewModel {
         };
     }
 
-    onConnection(connection, buckets, gatewayBuckets, system, isExpanded) {
+    onConnection(connection, buckets, namespaceBuckets, system, isExpanded) {
         const { name, service, endpoint, identity, usage } = connection;
         const bucketsList = Object.values(buckets);
-        const gatewayBucketsList = Object.values(gatewayBuckets);
+        const namespaceBucketsList = Object.values(namespaceBuckets);
         const hasExternalConnections = Boolean(usage.length);
         const { icon, displayName, subject } = getCloudServiceMeta(service);
         const serviceInfo = {
@@ -130,7 +130,7 @@ export default class ConnectionRowViewModel {
             'Delete Connection';
 
         const connectionUsage = usage.map(item => {
-            const buckets = _getBucketsRelatedToUsage(item, bucketsList, gatewayBucketsList);
+            const buckets = _getBucketsRelatedToUsage(item, bucketsList, namespaceBucketsList);
             return { ...item, buckets };
         });
 

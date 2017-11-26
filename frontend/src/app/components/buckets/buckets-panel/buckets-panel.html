@@ -8,10 +8,10 @@
             Data Buckets
         </a>
         <a
-            ko.attr.href="tabHref('gateway-buckets')"
-            ko.css.selected="selectedTab.eq('gateway-buckets')"
+            ko.attr.href="tabHref('namespace-buckets')"
+            ko.css.selected="selectedTab.eq('namespace-buckets')"
         >
-            Gateway Buckets
+            Namespace Buckets
         </a>
     </nav>
 
@@ -20,9 +20,9 @@
             ko.css.selected="selectedTab.eq('data-buckets')"
         ></buckets-table>
 
-        <gateway-buckets-table class="tab column"
-            ko.css.selected="selectedTab.eq('gateway-buckets')"
-        ></gateway-buckets-table>
+        <namespace-buckets-table class="tab column"
+            ko.css.selected="selectedTab.eq('namespace-buckets')"
+        ></namespace-buckets-table>
     </div>
 </section>
 

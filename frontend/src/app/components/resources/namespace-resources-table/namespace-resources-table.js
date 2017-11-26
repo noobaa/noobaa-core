@@ -35,7 +35,7 @@ const columns = deepFreeze([
     },
     {
         name: 'connectedBuckets',
-        label: 'Gateway Buckets Using Resource',
+        label: 'Namespace Buckets Using Resource',
         sortable: true,
         compareKey: (resource, connectedBucketsMap) => {
             const { name } = resource;
@@ -82,7 +82,7 @@ class NamespaceResourceTableViewModel extends Observer {
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
-            state$.getMany('namespaceResources', 'gatewayBuckets', 'location'),
+            state$.getMany('namespaceResources', 'namespaceBuckets', 'location'),
             this.onResources
         );
     }

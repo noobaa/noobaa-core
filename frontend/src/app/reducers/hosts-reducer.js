@@ -19,7 +19,7 @@ import {
 
 const inMemoryQueryLimit = 10;
 const inMemoryHostLimit = paginationPageSize * inMemoryQueryLimit;
-const gatewayUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseconds */
+const endpointUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseconds */
 const eventToReasonCode = deepFreeze({
     permission_event: 'TEMPERING',
     data_event: 'CORRUPTION'
@@ -247,7 +247,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         activities: activities,
         services: {
             storage: _mapStorageService(storage_nodes_info, reasonByMount),
-            gateway: _mapGatewayService(s3_nodes_info, fetchTime)
+            endpoint: _mapEndpointService(s3_nodes_info, fetchTime)
         },
         upTime: os_info.uptime,
         os: os_info.ostype,
@@ -295,15 +295,15 @@ function _mapStorageService({ mode, enabled, nodes }, reasonByMount) {
     };
 }
 
-function _mapGatewayService(gatewayData, fetchTime) {
-    const { mode, enabled, stats } = gatewayData;
+function _mapEndpointService(endpointData, fetchTime) {
+    const { mode, enabled, stats } = endpointData;
     const serviceState = {
         mode,
         enabled: Boolean(enabled)
     };
 
     if (stats) {
-        const sevenDaysAgo  = fetchTime - gatewayUsageStatsTimeSpan;
+        const sevenDaysAgo  = fetchTime - endpointUsageStatsTimeSpan;
         const last7Days = stats.daily_stats
             .filter(record => record.time >= sevenDaysAgo)
             .reduce(

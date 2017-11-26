@@ -55,13 +55,13 @@ class EditAccountS3AccessModalViewModel extends Observer {
                 'hostPools',
                 'cloudResources',
                 'buckets',
-                'gatewayBuckets'
+                'namespaceBuckets'
             ),
             this.onState
         );
     }
 
-    onState([ account, hostPools, cloudResources, buckets, gatewayBuckets ]) {
+    onState([ account, hostPools, cloudResources, buckets, namespaceBuckets ]) {
         if(!account) {
             this.isFormInitialized(false);
             return;
@@ -74,7 +74,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
 
         const allBuckets = [
             ...Object.keys(buckets),
-            ...Object.keys(gatewayBuckets)
+            ...Object.keys(namespaceBuckets)
         ];
 
         const bucketOptions = allBuckets

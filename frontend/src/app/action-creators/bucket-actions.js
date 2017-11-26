@@ -14,15 +14,15 @@ import {
     DELETE_BUCKET,
     COMPLETE_DELETE_BUCKET,
     FAIL_DELETE_BUCKET,
-    CREATE_GATEWAY_BUCKET,
-    COMPLETE_CREATE_GATEWAY_BUCKET,
-    FAIL_CREATE_GATEWAY_BUCKET,
-    UPDATE_GATEWAY_BUCKET_PLACEMENT,
-    COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT,
-    FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT,
-    DELETE_GATEWAY_BUCKET,
-    COMPLETE_DELETE_GATEWAY_BUCKET,
-    FAIL_DELETE_GATEWAY_BUCKET
+    CREATE_NAMESPACE_BUCKET,
+    COMPLETE_CREATE_NAMESPACE_BUCKET,
+    FAIL_CREATE_NAMESPACE_BUCKET,
+    UPDATE_NAMESPACE_BUCKET_PLACEMENT,
+    COMPLETE_UPDATE_NAMESPACE_BUCKET_PLACEMENT,
+    FAIL_UPDATE_NAMESPACE_BUCKET_PLACEMENT,
+    DELETE_NAMESPACE_BUCKET,
+    COMPLETE_DELETE_NAMESPACE_BUCKET,
+    FAIL_DELETE_NAMESPACE_BUCKET
 } from 'action-types';
 
 export function updateBucketQuota(bucket, quota) {
@@ -128,65 +128,65 @@ export function failDeleteBucket(bucket, error) {
     };
 }
 
-export function createGatewayBucket(name, readFrom, writeTo) {
+export function createNamespaceBucket(name, readFrom, writeTo) {
     return {
-        type: CREATE_GATEWAY_BUCKET,
+        type: CREATE_NAMESPACE_BUCKET,
         payload: { name, readFrom, writeTo }
     };
 }
 
-export function completeCreateGatewayBucket(name) {
+export function completeCreateNamespaceBucket(name) {
     return {
-        type: COMPLETE_CREATE_GATEWAY_BUCKET,
+        type: COMPLETE_CREATE_NAMESPACE_BUCKET,
         payload: { name }
     };
 }
 
-export function failCreateGatewayBucket(name, error) {
+export function failCreateNamespaceBucket(name, error) {
     return {
-        type: FAIL_CREATE_GATEWAY_BUCKET,
+        type: FAIL_CREATE_NAMESPACE_BUCKET,
         payload: { name, error }
     };
 }
 
-export function updateGatewayBucketPlacement(name, readFrom, writeTo) {
+export function updateNamespaceBucketPlacement(name, readFrom, writeTo) {
     return {
-        type: UPDATE_GATEWAY_BUCKET_PLACEMENT,
+        type: UPDATE_NAMESPACE_BUCKET_PLACEMENT,
         payload: { name, readFrom, writeTo }
     };
 }
 
-export function completeUpdateGatewayBucketPlacement(name) {
+export function completeUpdateNamespaceBucketPlacement(name) {
     return {
-        type: COMPLETE_UPDATE_GATEWAY_BUCKET_PLACEMENT,
+        type: COMPLETE_UPDATE_NAMESPACE_BUCKET_PLACEMENT,
         payload: { name }
     };
 }
 
-export function failGatewayBucketPlacement(name, error) {
+export function failNamespaceBucketPlacement(name, error) {
     return {
-        type: FAIL_UPDATE_GATEWAY_BUCKET_PLACEMENT,
+        type: FAIL_UPDATE_NAMESPACE_BUCKET_PLACEMENT,
         payload: { name, error }
     };
 }
 
-export function deleteGatewayBucket(name) {
+export function deleteNamespaceBucket(name) {
     return {
-        type: DELETE_GATEWAY_BUCKET,
+        type: DELETE_NAMESPACE_BUCKET,
         payload: { name }
     };
 }
 
-export function completeDeleteGatewayBucket(name) {
+export function completeDeleteNamespaceBucket(name) {
     return {
-        type: COMPLETE_DELETE_GATEWAY_BUCKET,
+        type: COMPLETE_DELETE_NAMESPACE_BUCKET,
         payload: { name }
     };
 }
 
-export function failCompleteDeleteGatewayBucket(name, error) {
+export function failCompleteDeleteNamespaceBucket(name, error) {
     return {
-        type: FAIL_DELETE_GATEWAY_BUCKET,
+        type: FAIL_DELETE_NAMESPACE_BUCKET,
         payload: { name, error }
     };
 }

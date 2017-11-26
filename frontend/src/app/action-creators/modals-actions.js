@@ -454,18 +454,18 @@ export function openEditHostStorageDrivesModal(host) {
     };
 }
 
-export function openDisableHostGatewayWarningModal(host, isLastService) {
+export function openDisableHostEndpointWarningModal(host, isLastService) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'disable-host-gateway-warning-modal',
+                name: 'disable-host-endpoint-warning-modal',
                 params: { host, isLastService }
             },
             options: {
                 size: 'xsmall',
                 severity: 'warning',
-                title: 'Disable Node S3 Gateway Service'
+                title: 'Disable Node S3 Endpoint Service'
             }
         }
     };
@@ -530,25 +530,25 @@ export function openCreateNamespaceResourceModal() {
     };
 }
 
-export function openCreateGatewayBucketModal() {
+export function openCreateNamespaceBucketModal() {
     return {
         type: OPEN_MODAL,
         payload: {
-            component: 'create-gateway-bucket-modal',
+            component: 'create-namespace-bucket-modal',
             options: {
-                title: 'Create Gateway Bucket',
+                title: 'Create Namespace Bucket',
                 size: 'medium'
             }
         }
     };
 }
 
-export function openEditGatewayBucketDataPlacementModal(bucket) {
+export function openEditNamespaceBucketDataPlacementModal(bucket) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'edit-gateway-bucket-data-placement-modal',
+                name: 'edit-namespace-bucket-data-placement-modal',
                 params: { bucket }
             },
             options: {

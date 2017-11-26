@@ -59,7 +59,7 @@ class EditHostStorageDrivesModalViewModel extends Observer {
     onHostStorageService([ services, formFields ]) {
         if (!services) return;
 
-        const { gateway, storage } = services;
+        const { endpoint, storage } = services;
         const nodesState = formFields ? formFields.nodesState.value : {};
         const rows = storage.nodes
             .map((node, i) => {
@@ -68,7 +68,7 @@ class EditHostStorageDrivesModalViewModel extends Observer {
                 return row;
             });
 
-        this.isLastService = disabledModes.includes(gateway.mode);
+        this.isLastService = disabledModes.includes(endpoint.mode);
         this.rows(rows);
         this.formReady(Boolean(formFields));
 

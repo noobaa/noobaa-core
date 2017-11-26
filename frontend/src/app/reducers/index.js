@@ -8,7 +8,7 @@ import drawerReducer from './drawer-reducer';
 import modalsReducer from './modals-reducer';
 import formsReducer from './forms-reducer';
 import bucketsReducer from './buckets-reducer';
-import gatewayBucketsReducer from './gateway-buckets-reducer';
+import namespaceBucketsReducer from './namespace-buckets-reducer';
 import hostPoolsReducer from './host-pools-reducer';
 import cloudResourcesReducer from './cloud-resources-reducer';
 import internalResourcesReducer from './internal-resources-reducer';
@@ -35,7 +35,7 @@ export default combineReducers({
     notifications: notificationsReducer,
     alerts: alertsReducer,
     buckets: bucketsReducer,
-    gatewayBuckets: gatewayBucketsReducer,
+    namespaceBuckets: namespaceBucketsReducer,
     cloudResources: cloudResourcesReducer,
     internalResources: internalResourcesReducer,
     namespaceResources: namespaceResourcesReducer,

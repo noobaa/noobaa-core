@@ -15,7 +15,7 @@ const usageTypeMapping = deepFreeze({
     },
     NAMESPACE_RESOURCE: {
         text: 'Namespace Resource',
-        route: routes.gatewayBucket
+        route: routes.namespaceBucket
     }
 });
 

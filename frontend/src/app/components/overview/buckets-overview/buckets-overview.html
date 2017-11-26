@@ -25,11 +25,18 @@
         format: 'size'
     "></chart-legend>
 
-    <chartjs class="greedy push-both" params="
-        type: 'line',
-        options: chartParams().options,
-        data: chartParams().data
-    "></chartjs>
+    <div class="greedy push-both chart-wrapper">
+        <chartjs class="fill" params="
+            type: 'line',
+            options: chartParams().options,
+            data: chartParams().data
+        "></chartjs>
+        <div class="fill column content-middle" ko.visible="noChartData">
+            <p class="row greedy content-middle">
+                No data uploaded yet
+            </p>
+        </div>
+    </div>
 
     <button class="btn overview-btn" ko.click="onConnectApplication">
         Connect Application

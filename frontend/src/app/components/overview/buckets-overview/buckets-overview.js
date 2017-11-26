@@ -212,7 +212,8 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
             cloud: record.cloud.used || 0,
             internal: record.internal.used || 0
         }));
-    const filteredSamples = _filterSamples([...historySamples, currSample], start, end);
+    const allSamples = historySamples.length > 0 ? [...historySamples, currSample] : [];
+    const filteredSamples = _filterSamples(allSamples, start, end);
     const options = _getChartOptions(selectedDatasets, filteredSamples, durationSettings, start, end, timezone);
     const datasets = selectedDatasets
         .map(({ key, color }) => ({
@@ -261,6 +262,7 @@ class BucketsOverviewViewModel extends Observer{
         this.hideCloud = ko.observable();
         this.hideInternal = ko.observable();
         this.chartParams = ko.observable();
+        this.noChartData = ko.observable();
         this.usedValues = [
             {
                 label: 'Used on nodes',
@@ -345,6 +347,7 @@ class BucketsOverviewViewModel extends Observer{
         const now = Date.now();
         const { timezone } = Object.values(servers).find(server => server.isMaster);
         const datasets = chartDatasets.filter(({ key }) => !hiddenDatasets.includes(key));
+        const hasStorageHistory = storageHistory.length > 0;
         const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
 
         this.bucketsLinkText(bucketsLinkText);
@@ -357,6 +360,7 @@ class BucketsOverviewViewModel extends Observer{
         this.usedValues[0].value(used.hostPools);
         this.usedValues[1].value(used.cloudResources);
         this.usedValues[2].value(used.internalResources);
+        this.noChartData(!hasStorageHistory);
         this.chartParams(chartParams);
         this.dataLoaded(true);
     }

@@ -17,7 +17,7 @@ const modeToStateIcon = deepFreeze({
     S3_OFFLINE: {
         name: 'problem',
         css: 'error',
-        tooltip: 'S3 Gateway Offline'
+        tooltip: 'S3 Endpoint Offline'
     },
     STORAGE_OFFLINE: {
         name: 'problem',
@@ -277,7 +277,7 @@ const stateToModes = deepFreeze({
 
 const serviceToDisplayName = deepFreeze({
     storage: 'Storage',
-    gateway: 'S3 Gateway'
+    endpoint: 'S3 Endpoint'
 });
 
 const storageServiceModeToIcon = deepFreeze({
@@ -446,7 +446,7 @@ const storageNodeModeToStateIcon = deepFreeze({
     }
 });
 
-const gatewayServiceModeToIcon = deepFreeze({
+const endpointServiceModeToIcon = deepFreeze({
     OFFLINE: {
         name: 'problem',
         css: 'error',
@@ -550,9 +550,9 @@ export function getStorageNodeStateIcon(host) {
     return storageNodeModeToStateIcon[host.mode];
 }
 
-export function getGatewayServiceStateIcon(host) {
-    const { mode } = host.services.gateway;
-    return gatewayServiceModeToIcon[mode];
+export function getEndpointServiceStateIcon(host) {
+    const { mode } = host.services.endpoint;
+    return endpointServiceModeToIcon[mode];
 }
 
 export function getActivityName(activityType) {

@@ -43,9 +43,9 @@ import updateBucketPlacementPolicy from './update-bucket-placement-policy';
 import fetchCloudTargets from './fetch-cloud-targets';
 import createNamespaceResource from './create-namespace-resource';
 import deleteNamespaceResource from './delete-namespace-resource';
-import createGatewayBucket from './create-gateway-bucket';
-import updateGatewayBucketPlacement from './update-gateway-bucket-placement';
-import deleteGatewayBucket from './delete-gateway-bucket';
+import createNamespaceBucket from './create-namespace-bucket';
+import updateNamespaceBucketPlacement from './update-namespace-bucket-placement';
+import deleteNamespaceBucket from './delete-namespace-bucket';
 import retrustHost from './retrust-host';
 import fetchBucketObjects from './fetch-bucket-objects';
 import deleteBucketObject from './delete-bucket-object';
@@ -100,9 +100,9 @@ const bucketRelatedEpics = [
     toggleBucketsSpillover,
     updateBucketPlacementPolicy,
     deleteBucket,
-    createGatewayBucket,
-    updateGatewayBucketPlacement,
-    deleteGatewayBucket
+    createNamespaceBucket,
+    updateNamespaceBucketPlacement,
+    deleteNamespaceBucket
 ];
 
 const objectRelatedEpics = [

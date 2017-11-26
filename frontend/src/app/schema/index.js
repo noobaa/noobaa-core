@@ -6,7 +6,7 @@ import session from './session';
 import internalResources from './internal-resources';
 import namespaceResources from './namespace-resources';
 import buckets from './buckets';
-import gatewayBuckets from './gateway-buckets';
+import namespaceBuckets from './namespace-buckets';
 import objectUploads from './object-uploads';
 import cloudTargets from './cloud-targets';
 import storageHistory from './storage-history';
@@ -28,7 +28,7 @@ const schemas = {
     namespaceResources,
     buckets,
     objectUploads,
-    gatewayBuckets,
+    namespaceBuckets,
     cloudTargets,
     storageHistory,
     topology,

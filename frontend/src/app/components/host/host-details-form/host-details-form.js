@@ -32,19 +32,19 @@ function _getPortRageString({ ports }) {
 }
 
 function _getServicesString({ services }) {
-    const { storage, gateway } = mapValues(
+    const { storage, endpoint } = mapValues(
         services,
         service => service.mode !== 'DECOMMISSIONED'
     );
 
-    if (storage && gateway) {
-        return 'Used for storage and as a S3 gateway';
+    if (storage && endpoint) {
+        return 'Used for storage and as a S3 endpoint';
 
     } else if (storage) {
         return 'Used for storage';
 
-    } else if (gateway) {
-        return 'Used as a S3 gateway';
+    } else if (endpoint) {
+        return 'Used as a S3 endpoint';
 
     } else {
         return 'All services are disabled';

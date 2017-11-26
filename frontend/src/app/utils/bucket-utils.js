@@ -86,7 +86,7 @@ const placementTypeToDisplayName = deepFreeze({
     MIRROR: 'Mirror'
 });
 
-const gatewayBucketToStateIcon = deepFreeze({
+const namespaceBucketToStateIcon = deepFreeze({
     OPTIMAL: {
         name: 'healthy',
         css: 'success',
@@ -107,9 +107,9 @@ export function getPlacementTypeDisplayName(type) {
     return placementTypeToDisplayName[type];
 }
 
-export function getGatewayBucketStateIcon(bucket) {
+export function getNamespaceBucketStateIcon(bucket) {
     const { mode } = bucket;
-    return gatewayBucketToStateIcon[mode];
+    return namespaceBucketToStateIcon[mode];
 }
 
 export function getDataBreakdown(data, qouta) {

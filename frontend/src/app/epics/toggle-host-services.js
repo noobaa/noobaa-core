@@ -14,7 +14,7 @@ export default function(action$, { api }) {
                     name: host,
                     services: {
                         storage: services.storage,
-                        s3: services.gateway
+                        s3: services.endpoint
                     }
                 });
 

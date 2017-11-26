@@ -11,8 +11,8 @@ export default {
         buckets: {
             $ref: '#/def/buckets'
         },
-        gatewayBuckets: {
-            $ref: '#/def/gatewayBuckets'
+        namespaceBuckets: {
+            $ref: '#/def/namespaceBuckets'
         },
         internalResources: {
             $ref: '#/def/internalResources'

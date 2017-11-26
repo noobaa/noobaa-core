@@ -53,7 +53,6 @@ export default function(action$, { api }) {
 
             try {
                 const requestParams = _getApiRequestParams(action.payload);
-                console.warn(requestParams);
                 await api.account.add_external_connection(requestParams);
                 return completeAddExternalConnection(name);
 

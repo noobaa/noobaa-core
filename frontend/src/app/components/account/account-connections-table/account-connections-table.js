@@ -76,15 +76,15 @@ class AccountConnectionsTableViewModel extends Observer {
             state$.getMany(
                 ['accounts', ko.unwrap(accountName), 'externalConnections'],
                 'buckets',
-                'gatewayBuckets',
+                'namespaceBuckets',
                 'location'
             ),
             this.onConnections
         );
     }
 
-    onConnections([connections, buckets, gatewayBuckets, location]) {
-        if(!connections || !buckets || !gatewayBuckets) {
+    onConnections([connections, buckets, namespaceBuckets, location]) {
+        if(!connections || !buckets || !namespaceBuckets) {
             this.connectionsLoading(true);
             return;
         }
@@ -111,7 +111,7 @@ class AccountConnectionsTableViewModel extends Observer {
             .map((connection, i) => {
                 const row = this.rows.get(i) || new ConnectionRowViewModel(rowParams);
                 const isExpanded = expandedRow === connection.name;
-                row.onConnection(connection, buckets, gatewayBuckets, system, isExpanded);
+                row.onConnection(connection, buckets, namespaceBuckets, system, isExpanded);
                 return row;
             });
 

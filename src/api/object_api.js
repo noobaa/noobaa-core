@@ -503,6 +503,12 @@ module.exports = {
                             type: 'object',
                             // required: [],
                             properties: {
+                                obj_id: {
+                                    objectid: true
+                                },
+                                upload_started: {
+                                    idate: true
+                                },
                                 key: {
                                     type: 'string'
                                 },
@@ -559,6 +565,12 @@ module.exports = {
                             type: 'object',
                             // required: [],
                             properties: {
+                                obj_id: {
+                                    objectid: true
+                                },
+                                upload_started: {
+                                    idate: true
+                                },
                                 key: {
                                     type: 'string'
                                 },

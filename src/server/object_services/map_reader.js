@@ -79,6 +79,8 @@ function read_node_mappings(params) {
                 return obj._id;
             });
             const objects_reply = _.map(objects_by_id, (obj, obj_id) => ({
+                obj_id,
+                upload_started: obj.upload_started ? obj.upload_started.getTimestamp().getTime() : undefined,
                 key: obj.key,
                 bucket: system_store.data.get_by_id(obj.bucket).name,
                 parts: parts_per_obj_id[obj_id],

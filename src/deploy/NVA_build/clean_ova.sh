@@ -1,5 +1,6 @@
 set -e
 # TODO copied from first_install_diaglog.sh
+export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
 eval {isAzure,isEsx,isAlyun,isAws}="false"
 platform="on_prem"
 
@@ -13,8 +14,6 @@ function aws_specific(){
     sed -i 's/ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/g' /etc/ssh/sshd_config
     sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
     yum install -y cloud-init
-    sudo passwd -l root
-    sudo passwd -l noobaaroot
     echo "removing root user from /etc/shadow"
     sed -i "/\<root/d" /etc/shadow
     echo "removing Password from all users in /etc/shadow"
@@ -25,6 +24,15 @@ function aws_specific(){
             echo > /${user}/.ssh/authorized_keys
         fi
         sudo passwd -d ${user}
+    done
+
+    truncate -s 0 /root/.ssh/known_hosts
+    for folder in $(find / -name authorized_keys|grep .ssh/authorized_keys)
+    do
+        if [ -f ${folder} ]
+        then
+            echo > ${folder}
+        fi
     done
 
     shred -u ~/.*history

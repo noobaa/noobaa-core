@@ -15,7 +15,6 @@ import { action$ } from 'state';
 import {
     fetchSystemInfo,
     showNotification,
-    closeModal,
     requestLocation
 } from 'action-creators';
 
@@ -1029,11 +1028,7 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, 
         dns_servers: [primaryDNS, secondaryDNS].filter(Boolean),
         search_domains: searchDomains
     })
-        .then(() => sleep(config.serverRestartWaitInterval))
-        .then(() => httpWaitForResponse('/version', 200))
-        .then(reload)
         .catch(() => {
-            action$.onNext(closeModal());
             notify('Updating server DNS setting failed, Please try again later', 'error');
         })
         .done();

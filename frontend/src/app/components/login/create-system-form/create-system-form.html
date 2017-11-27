@@ -69,7 +69,7 @@
                     <input type="text" placeholder="Name your system" ko.value="systemName">
                 </editor>
 
-                <editor class="preview-only" params="label: 'Server DNS name'">
+                <editor params="label: 'Server DNS name'">
                     <div class="row content-middle"
                         data-bind="validationOptions: { insertMessages: false }"
                     >
@@ -79,7 +79,7 @@
                                   params="name: 'in-progress'"></svg-icon>
                     </div>
                     <span class="val-msg" data-bind="validationMessage: serverDNSName"></span>
-                    <p class="hint">optional</p>
+                    <p class="hint" ko.visible="serverDNSName.isValid">optional</p>
                 </editor>
 
                 <p class="remark push-prev">

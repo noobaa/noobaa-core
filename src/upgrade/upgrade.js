@@ -589,16 +589,8 @@ function set_mongo_cluster_mode() {
             trim_stdout: true
         })
         .then(rs_servers => {
-            dbg.log0(`set_mongo_cluster_mode: MONGO_RS_URL`, rs_servers);
-            return promise_utils.exec(`/usr/bin/mongors --host mongodb://${rs_servers}/nbcore?replicaSet=shard1`, {
-                ignore_rc: false,
-                return_stdout: true,
-                trim_stdout: true
-            });
-        })
-        .then(res => {
-            dbg.log0(`set_mongo_cluster_mode: MONGO_SHELL`, res);
-            MONGO_SHELL = res;
+            dbg.log0(`set_mongo_cluster_mode: MONGO_SHELL`, rs_servers);
+            MONGO_SHELL = `/usr/bin/mongors --host mongodb://${rs_servers}/nbcore?replicaSet=shard1`;
         });
 }
 

@@ -194,6 +194,7 @@ mocha.describe('object_io', function() {
             self.timeout(60000);
 
             let obj_id;
+            let test_nodes;
             let key = KEY + Date.now();
             let part_size = 1024;
             let num_parts = 10;
@@ -202,6 +203,12 @@ mocha.describe('object_io', function() {
                 data[i] = chance.integer(CHANCE_BYTE);
             }
             return P.resolve()
+                .then(() => client.node.list_nodes({}))
+                .then(nodes => {
+                    test_nodes = nodes.nodes;
+                    console.log("list_nodes in use", nodes);
+
+                })
                 .then(() => client.object.create_object_upload({
                     bucket: BKT,
                     key: key,
@@ -210,6 +217,7 @@ mocha.describe('object_io', function() {
                 .then(create_reply => {
                     obj_id = create_reply.obj_id;
                 })
+                .then(() => attempt_read_mappings(test_nodes))
                 .then(() => client.object.list_multiparts({
                     obj_id: obj_id,
                     bucket: BKT,
@@ -243,6 +251,7 @@ mocha.describe('object_io', function() {
                         etag: p.etag,
                     }))
                 }))
+                .then(() => attempt_read_mappings(test_nodes))
                 .then(() => object_io.read_entire_object({
                     client: client,
                     bucket: BKT,
@@ -258,4 +267,16 @@ mocha.describe('object_io', function() {
 
     });
 
+    function attempt_read_mappings(nodes) {
+        return P.resolve()
+            .then(() => P.map(nodes, node => P.join(
+                client.object.read_node_mappings({
+                    name: node.name,
+                    adminfo: true
+                }),
+                client.object.read_host_mappings({
+                    name: node.os_info.hostname,
+                    adminfo: true
+                }))));
+    }
 });

@@ -217,6 +217,16 @@ function init_mock_nodes(client, system, count) {
                 nodes: _.map(this._nodes, node => this._get_node_info(node))
             };
         },
+        get_node_ids(req) {
+            let ids = [];
+            if (req.params.by_host) {
+                ids = _.filter(_.map(this._nodes, n => this._get_node_info(n)), node =>
+                    String(node.os_info.hostname) === String(req.params.identity));
+            } else {
+                ids = [_.find(this._nodes, node => String(node.name) === String(req.params.identity))];
+            }
+            return _.map(ids, id => String(id._id));
+        },
         allocate_nodes(params) {
             return {
                 nodes: _.map(this._nodes, node => this._get_node_info(node))

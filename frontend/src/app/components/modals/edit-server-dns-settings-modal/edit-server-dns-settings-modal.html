@@ -1,53 +1,45 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="warning-msg warning row pad alt-bg content-middle push-next">
-    <svg-icon class="push-next warning" params="name: 'notif-warning'">
-    </svg-icon>
-    <span class="greedy" ko.text="warning"></span>
-</div>
-
-<p class="push-next" ko.css.disabled="isUpdating">
+<p class="push-next">
     Setup the server to use the following DNS servers for name resolution
 </p>
 
 <section class="greedy">
     <editor class="push-prev" params="
-        label: 'Primary DNS',
-        disabled: isUpdating
+        label: 'Primary DNS'
     ">
         <input type="text"
             ko.value="primaryDNS"
-            ko.disable="isUpdating"
         />
     </editor>
     <editor class="push-next" params="
         label: 'Secondary DNS',
-        disabled: isUpdatingOrPrimaryDNS
+        disabled: hasNoPrimaryDNS
     ">
         <input type="text"
             ko.value="secondaryDNS"
-            ko.disable="isUpdatingOrPrimaryDNS"
+            ko.disable="hasNoPrimaryDNS"
         />
     </editor>
     <editor class="push-next" params="
         label: 'Search Domains',
-        disabled: isUpdatingOrPrimaryDNS
+        disabled: hasNoPrimaryDNS
     ">
         <div class="row">
             <input type="text"
                 placeholder="E.g. noobaa, dev.lab"
                 ko.value="searchDomains"
-                ko.disable="isUpdatingOrPrimaryDNS"
+                ko.disable="hasNoPrimaryDNS"
             />
             <svg-icon class="icon-small push-prev-half align-middle"
                       params="name: 'question'"
                       ko.tooltip="searchDomainTooltip"
-                      ko.css.disabled="isUpdatingOrPrimaryDNS"
+                      ko.css.disabled="hasNoPrimaryDNS"
             >
             </svg-icon>
         </div>
-        <p class="remark" ko.css.disabled="isUpdatingOrPrimaryDNS">
-            Type Domain names seperated by a comma
+        <p class="remark" ko.css.disabled="hasNoPrimaryDNS">
+            Type Domain names separated by a comma
         </p>
     </editor>
 </section>
@@ -55,16 +47,11 @@
 <div class="row content-middle align-end push-prev">
     <button class="link push-next alt-colors"
         ko.click="cancel"
-        ko.disable="isUpdating"
     >
         Cancel
     </button>
 
-    <working-button ko.shakeOnClick="errors().length" params="
-        click: update,
-        working: isUpdating,
-        workingLabel: 'Restarting...'
-    ">
-        Update and restart system
-    </working-button>
+    <button class="btn" ko.shakeOnClick="errors().length" ko.click="update">
+        Update
+    </button>
 </div>

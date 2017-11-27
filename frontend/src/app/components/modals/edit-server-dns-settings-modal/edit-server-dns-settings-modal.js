@@ -5,20 +5,6 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateServerDNSSettings } from 'actions';
-import { deepFreeze } from 'utils/core-utils';
-import { action$ } from 'state';
-import { lockModal } from 'action-creators';
-
-const warnings = deepFreeze({
-    master: `Updating the master's DNS settings will cause a restart of the NooBaa
-             service and may cause a change in the cluster master server.
-             This could take a few moments and you might be automatically logged
-             out from management console`,
-
-    server: `Updating the server's DNS settings will cause a restart of the NooBaa
-             service. This could take a few moments and you might be automatically
-             logged out from the management console`
-});
 
 const searchDomainTooltip = 'If configured, search domains will be added to the fully qualified domain names when trying to resolve host names';
 
@@ -27,7 +13,7 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
         super();
 
         this.serverSecret = ko.unwrap(serverSecret);
-        this.onClose = onClose;
+        this.close = onClose;
 
         const server = ko.pureComputed(
             () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
@@ -41,18 +27,6 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
 
         this.searchDomains = ko.observableWithDefault(
             () => (server() ? server().search_domains : []).join(',')
-        );
-
-        this.warning = ko.pureComputed(
-
-            () => {
-                if (!server()) {
-                    return '';
-                }
-
-                const isMaster = server().secret === systemInfo().cluster.master_secret;
-                return isMaster ? warnings.master : warnings.server;
-            }
         );
 
         this.primaryDNS = ko.observableWithDefault(
@@ -69,11 +43,10 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
                 }
             });
 
-        this.isUpdatingOrPrimaryDNS = ko.pureComputed(
-            () => !this.primaryDNS() || this.isUpdating()
+        this.hasNoPrimaryDNS = ko.pureComputed(
+            () => !this.primaryDNS()
         );
 
-        this.isUpdating = ko.observable(false);
         this.errors = ko.validation.group(this);
         this.searchDomainTooltip = searchDomainTooltip;
     }
@@ -93,13 +66,12 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
                 updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), searchDomains);
             }
 
-            action$.onNext(lockModal());
-            this.isUpdating(true);
+            this.close();
         }
     }
 
     cancel() {
-        this.onClose();
+        this.close();
     }
 }
 

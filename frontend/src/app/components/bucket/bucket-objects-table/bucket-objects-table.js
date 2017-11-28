@@ -123,7 +123,7 @@ class BucketObjectsTableViewModel extends Observer {
     }
 
     onBucketObjects([bucket, bucketObjects, user, accounts, location, hasSslCert]) {
-        if(!bucket || !bucketObjects || !accounts) {
+        if(!bucket || !bucketObjects || !accounts || !accounts[user]) {
             this.stateFilterOptions(_getStateFilterOptions(0, 0, 0));
             this.uploadDisabled(true);
             this.objectsLoaded(false);
@@ -193,7 +193,6 @@ class BucketObjectsTableViewModel extends Observer {
     }
 
     onFilterByState(state) {
-        console.warn('state', state);
         this._query({
             state: state,
             page: 0,

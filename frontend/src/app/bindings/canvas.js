@@ -3,12 +3,22 @@
 import ko from 'knockout';
 import { noop } from 'utils/core-utils';
 
+const domDataKey = 'canvasBackBuffer';
+
 export default {
+    init: function(canvas) {
+        const backbuffer = document.createElement('canvas');
+        backbuffer.width = canvas.width;
+        backbuffer.height = canvas.height;
+        ko.utils.domData.set(canvas, domDataKey, backbuffer);
+    },
+
     update: function(canvas, valueAccessor, allBindings, viewModel) {
         if (canvas.tagName.toUpperCase() !== 'CANVAS') {
             throw new Error('Invalid binding target');
         }
 
+        const backbuffer = ko.utils.domData.get(canvas, domDataKey);
         const rect = canvas.getBoundingClientRect();
         const {
             draw = noop,
@@ -16,11 +26,14 @@ export default {
             height = rect.height | 0
         } = ko.deepUnwrap(valueAccessor());
 
-        canvas.width = width;
-        canvas.height = height;
+        backbuffer.width = width;
+        backbuffer.height = height;
+        draw.call(viewModel, backbuffer.getContext('2d'), { width, height });
 
-        // TODO: Need to draw inside request animation frame while still creating
-        // a dependency on observables touched inside the draw call.
-        draw.call(viewModel, canvas.getContext('2d'), { width, height });
+        requestAnimationFrame(() => {
+            canvas.width = backbuffer.width;
+            canvas.height = backbuffer.height;
+            canvas.getContext('2d').drawImage(backbuffer, 0, 0);
+        });
     }
 };

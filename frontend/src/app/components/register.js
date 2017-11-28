@@ -15,6 +15,7 @@ export default function register(ko) {
     ko.components.register('main-layout',   require('./application/main-layout/main-layout').default);
     ko.components.register('login-layout',  require('./application/login-layout/login-layout').default);
     ko.components.register('modal-manager', require('./application/modal-manager/modal-manager').default);
+    ko.components.register('exit-confirmation-message', require('./application/exit-confirmation-message/exit-confirmation-message').default);
     /** INJECT:application **/
 
     // -------------------------------

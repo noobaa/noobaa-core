@@ -635,8 +635,11 @@ function ensure_dns_and_search_domains(server_config) {
 }
 
 function set_dns_and_search_domains(dns_servers, search_domains) {
-    if (os.type() !== 'Linux') return;
-    return P.join(_set_dns_server(dns_servers), _set_search_domains(search_domains));
+    return P.resolve()
+        .then(() => {
+            if (os.type() !== 'Linux') return;
+            return P.join(_set_dns_server(dns_servers), _set_search_domains(search_domains));
+        });
 }
 
 function _set_dns_server(servers) {

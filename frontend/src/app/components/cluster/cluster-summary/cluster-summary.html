@@ -52,7 +52,7 @@
         <div class="row greedy content-middle">
             <canvas class="cluster-graph" data-bind="
                 canvas: { draw: drawChart.bind($data), height: 50 },
-                globalEvent: { resize: () => triggerRedraw() }
+                globalEvent: { resize: triggerRedraw }
             "></canvas>
         </div>
     </section>

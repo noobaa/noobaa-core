@@ -13,7 +13,7 @@ export default {
     init: function(element, valueAccessor) {
         let pos = valueAccessor();
         if (!ko.isWritableObservable(pos)) {
-            pos = ko.purecomputed({ read: pos, write: noop });
+            pos = ko.pureComputed({ read: pos, write: noop });
         }
 
         ko.utils.registerEventHandler(

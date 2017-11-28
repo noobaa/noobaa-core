@@ -35,7 +35,7 @@ class UploadsIndicatorViewModel extends Observer {
         this.uploadCount(stats.uploading);
         this.uploadProgress(stats.batchLoaded / stats.batchSize);
 
-        if (!this.lastUploadTime() || lastUpload.time > this.lastUploadTime()) {
+        if (!lastUpload.time || lastUpload.time > this.lastUploadTime()) {
             this.animatedCount(lastUpload.objectCount);
         }
 

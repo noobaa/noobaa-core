@@ -2,17 +2,16 @@
 
 <button class="icon-btn no-outline column content-middle"
     tabindex="-1"
-    data-bind="
-        tooltip: { text: 'Upload transactions', position: 'after' },
-        click: onClick,
-        css: { 'uploading': uploadCount },
-        attr: { 'data-count': uploadCount }
-    ">
+    ko.tooltip="{ text: 'Upload transactions', position: 'after' }"
+    ko.click="onClick"
+    ko.css.uploading="uploadCount"
+    ko.attr="{ 'data-count': uploadCount }"
+>
     <svg-icon params="name: 'upload'"></svg-icon>
     <bar params="values: uploadBarValues"></bar>
-    <span class="anim shrink-in" data-bind="
-        visible: animatedCount,
-        event: { animationend: onUploadAnimationEnd },
-        text: animatedCount
+    <span class="anim shrink-in"
+        ko.visible="animatedCount"
+        ko.event.animationend="onUploadAnimationEnd"
+        ko.text="animatedCount"
     "></span>
 </button>

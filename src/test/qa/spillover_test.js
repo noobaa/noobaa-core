@@ -6,6 +6,8 @@ const P = require('../../util/promise');
 const s3ops = require('../qa/s3ops');
 const api = require('../../api');
 const promise_utils = require('../../util/promise_utils');
+const AzureFunctions = require('../../deploy/azureFunctions');
+const af = require('../qa/functions/agent_functions');
 
 require('../../util/dotenv').load();
 
@@ -16,6 +18,13 @@ let bucket;
 //defining the required parameters
 const {
     server_ip,
+    location = 'westus2',
+    resource,
+    storage,
+    vnet,
+    agents_number = 3,
+    failed_agents_number = 1,
+    help = false
 } = argv;
 
 let rpc;
@@ -23,6 +32,40 @@ let client;
 let pool_files = [];
 let over_files = [];
 let healthy_pool;
+const clientId = process.env.CLIENT_ID;
+const domain = process.env.DOMAIN;
+const secret = process.env.APPLICATION_SECRET;
+const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
+const suffix = 'spill';
+
+function usage() {
+    console.log(`
+    --location              -   azure location (default: ${location})
+    --bucket                -   bucket to run on (default: ${bucket})
+    --resource              -   azure resource group
+    --storage               -   azure storage on the resource group
+    --vnet                  -   azure vnet on the resource group
+    --agents_number         -   number of agents to add (default: ${agents_number})
+    --failed_agents_number  -   number of agents to fail (default: ${failed_agents_number})
+    --server_ip             -   noobaa server ip.
+    --help                  -   show this help.
+    `);
+}
+
+if (help) {
+    usage();
+    process.exit(1);
+}
+
+console.log(`resource: ${resource}, storage: ${storage}, vnet: ${vnet}`);
+const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
+
+let osesSet = [
+    'ubuntu12', 'ubuntu14', 'ubuntu16',
+    'centos6', 'centos7',
+    'redhat6', 'redhat7',
+    'win2008', 'win2012', 'win2016'
+];
 
 const baseUnit = 1024;
 const unit_mapping = {
@@ -278,23 +321,38 @@ function deletePool(pool) {
         });
 }
 
-P.fcall(function() {
-    rpc = api.new_rpc('wss://' + server_ip + ':8443');
-    client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
-    return client.create_auth_token(auth_params);
-})
+function clean_env() {
+    console.log('Running cleaning data from ' + bucket);
+    return s3ops.get_list_files(server_ip, bucket, '')
+        .then(res => s3ops.delete_folder(server_ip, bucket, ...res))
+        .delay(10000)
+        .then(() => s3ops.delete_bucket(server_ip, bucket))
+        .delay(10000)
+        .then(() => assignNodesToPool('first.pool'))
+        .then(() => deletePool(healthy_pool))
+        .then(() => af.clean_agents(azf, osesSet, suffix));
+}
+
+return azf.authenticate()
+    .then(() => af.clean_agents(azf, osesSet, suffix))
+    .then(() => P.fcall(function() {
+            rpc = api.new_rpc('wss://' + server_ip + ':8443');
+            client = rpc.new_client({});
+            let auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo1',
+                system: 'demo'
+            };
+            return client.create_auth_token(auth_params);
+    }))
     //On a system, create a bucket and before adding capacity to it (use an empty pool), enable spillover and see that the files are written into the internal storage
-    .then(() => createHealthyPool())
     .then(() => createBucketWithEnableSpillover())
     .then(() => checkIsSpilloverHasStatus(bucket, true))
     .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file', 10, data_multiplier))
     .then(() => checkFileInPool('spillover_file', 'system-internal-storage-pool'))
     //Add pool with resources to the bucket and see that all the files are moving from the internal storage to the pool (pullback)
+    .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
+    .then(res => createHealthyPool())
     .then(() => editBucketDataPlacement(healthy_pool, bucket))
     .then(() => checkFileInPool('spillover_file', healthy_pool))
     //Set Quota of X on the bucket, X should be smaller then the available space on the bucket
@@ -359,26 +417,20 @@ P.fcall(function() {
     .then(() => P.each(pool_files, file => s3ops.delete_file(server_ip, bucket, file)))
     //Monitor the over uploaded objects , see that they start to be moved into the pool from the internal storage
     .then(() => checkFileInPool(over_files[1], healthy_pool))
-    //cleaning pool
-    .then(() => {
-        console.log('Running cleaning data from ' + bucket);
-        return s3ops.get_list_files(server_ip, bucket, '')
-            .then(res => s3ops.delete_folder(server_ip, bucket, ...res));
-    })
-    .delay(10000)
-    .then(() => s3ops.delete_bucket(server_ip, bucket))
-    .delay(10000)
-    .then(() => assignNodesToPool('first.pool'))
-    .then(() => deletePool(healthy_pool))
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;
+        throw err;
     })
     .then(() => {
         if (failures_in_test) {
             console.error(':( :( Errors during spillover test ): ):' + errors);
             process.exit(1);
+        } else {
+                return clean_env()
+                .then(() => {
+                    console.log(':) :) :) spillover test were successful! (: (: (:');
+                    process.exit(0);
+                });
         }
-        console.log(':) :) :) spillover tests were successful! (: (: (:');
-        process.exit(0);
     });

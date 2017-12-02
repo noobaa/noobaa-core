@@ -25,6 +25,7 @@ let failures_in_test = false;
 let errors = [];
 let files = [];
 let oses = [];
+let current_size = 0;
 
 //defining the required parameters
 const {
@@ -35,6 +36,10 @@ const {
     agents_number = 5,
     failed_agents_number = 1,
     server_ip,
+    dataset_size = agents_number * 1024, //MB
+    max_size = 250, //MB
+    min_size = 50, //MB
+    iterationsNumber = 9999,
     bucket = 'first.bucket',
     help = false
 } = argv;
@@ -49,6 +54,10 @@ function usage() {
     --agents_number         -   number of agents to add (default: ${agents_number})
     --failed_agents_number  -   number of agents to fail (default: ${failed_agents_number})
     --server_ip             -   noobaa server ip.
+    --dataset_size          -   size uploading data for checking rebuild
+    --max_size              -   max size of uploading files
+    --min_size              -   min size of uploading files
+    --iterationsNumber      -   number iterations of switch off/switch on agents with checking files
     --help                  -   show this help.
     `);
 }
@@ -89,19 +98,27 @@ function saveErrorAndResume(message) {
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-function uploadAndVerifyFiles(dataset_size_GB) {
+function set_fileSize() {
+    let rand_size = Math.floor((Math.random() * (max_size - min_size)) + min_size);
+    if (dataset_size - current_size === 0) {
+        rand_size = 1;
+        //if we choose file size grater then the remaining space for the dataset,
+        //set it to be in the size that complet the dataset size.
+    } else if (rand_size > dataset_size - current_size) {
+        rand_size = dataset_size - current_size;
+    }
+    return rand_size;
+}
+
+function uploadAndVerifyFiles() {
     let { data_multiplier } = unit_mapping.MB;
-    let dataset_size = dataset_size_GB * 1024;
-    let parts = 20;
-    let partSize = dataset_size / parts;
-    let file_size = Math.floor(partSize);
-    let part = 0;
-    console.log('Writing and deleting data till size amount to grow ' + dataset_size_GB + ' GB');
-    return promise_utils.pwhile(() => part < parts, () => {
-        let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
+    console.log('Writing and deleting data till size amount to grow ' + dataset_size + ' MB');
+    return promise_utils.pwhile(() => current_size < dataset_size, () => {
+        console.log('Uploading files till data size grow to ' + dataset_size + ', current size is ' + current_size);
+        let file_size = set_fileSize();
+        let file_name = 'file_part_' + file_size + (Math.floor(Date.now() / 1000));
         files.push(file_name);
-        console.log('files list is ' + files);
-        part += 1;
+        current_size += file_size;
         console.log('Uploading file with size ' + file_size + ' MB');
         return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
             .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
@@ -180,52 +197,45 @@ function clean_up_dataset() {
         .catch(err => console.error(`Errors during deleting `, err));
 }
 
+function stopAgentsAndCheckFiles() {
+    //Power down agents (random number between 1 to the max amount)
+    stopped_oses = [];
+    return af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses)
+        .then(res => {
+            stopped_oses = res;
+            //waiting for rebuild files by chunks and parts
+            return P.each(files, file => waitForRebuildObjects(file));
+        })
+        //Read and verify the read
+        .then(() => P.each(files, file => getFileHealthStatus(file)
+            .then(res => {
+                if (res === true) {
+                    console.log('File ' + file + ' rebuild successfully');
+                } else {
+                    saveErrorAndResume('File ' + file + ' didn\'t rebuild');
+                }
+            })))
+        .then(readFiles);
+}
+
 return azf.authenticate()
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {
         oses = res;
-        //Create a dataset on it (1 GB per agent)
-        return uploadAndVerifyFiles(agents_number);
+        return uploadAndVerifyFiles();
     })
-    //Power down agents (random number between 1 to the max amount)
-    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses))
-    .then(res => {
-        stopped_oses = res;
-        //waiting for rebuild files by chunks and parts
-        return P.each(files, file => waitForRebuildObjects(file));
-    })
-    //Read and verify the read
-    .then(() => P.each(files, file => getFileHealthStatus(file)
-        .then(res => {
-            if (res === true) {
-                console.log('File ' + file + ' rebuild successfully');
-            } else {
-                saveErrorAndResume('File ' + file + ' didn\'t rebuild');
-            }
-        })))
-    .then(readFiles)
-    //Power on the powered off agents and wait for them to be on
-    .then(() => af.startOfflineAgents(azf, server_ip, suffix, stopped_oses))
-    //Power down agents (random number between 1 to the max amount)
-    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses))
-    .then(res => {
-        stopped_oses = res;
-        //waiting for rebuild files by chunks and parts
-        return P.each(files, file => waitForRebuildObjects(file));
-    })
-    //Read and verify the read
-    .then(() => P.each(files, file => getFileHealthStatus(file)
-        .then(res => {
-            if (res === true) {
-                console.log('File ' + file + ' rebuild successfully');
-            } else {
-                saveErrorAndResume('File ' + file + ' didn\'t rebuild');
-            }
-        })))
-    .then(readFiles)
+    .then(() => promise_utils.loop(iterationsNumber, cycle => {
+        console.log(`starting cycle number: ${cycle}`);
+        return stopAgentsAndCheckFiles()
+            .then(() => {
+                oses.push(stopped_oses);
+                return af.startOfflineAgents(azf, server_ip, suffix, stopped_oses);
+        });
+    }))
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;
+        throw err;
     })
     .finally(() => af.clean_agents(azf, oses, suffix)
         .then(clean_up_dataset))

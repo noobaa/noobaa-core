@@ -37,6 +37,8 @@ class RpcBaseConnection extends EventEmitter {
         this.connecting_defer = P.defer();
         this.connecting_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
 
+        this._connect_timeout_ms = config.RPC_CONNECT_TIMEOUT;
+
         // the 'connect' event is emitted by the inherited type (http/ws/tcp/n2n)
         // and is expected after calling _connect() or when a connection is accepted
         // and already considered connected.

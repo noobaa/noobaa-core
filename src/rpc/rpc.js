@@ -422,7 +422,7 @@ RPC.prototype._assign_connection = function(req, options) {
         conn = this._get_connection(addr_url, req.srv);
     }
     if (conn) {
-        conn._connect_timeout_ms = options.connect_timeout || config.RPC_CONNECT_TIMEOUT;
+        if (options.connect_timeout) conn._connect_timeout_ms = options.connect_timeout;
         req.connection = conn;
         req.reqid = conn._alloc_reqid();
         conn._sent_requests.set(req.reqid, req);

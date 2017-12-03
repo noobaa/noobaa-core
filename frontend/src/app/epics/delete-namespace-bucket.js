@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { DELETE_NAMESPACE_BUCKET } from 'action-types';
 import { completeDeleteNamespaceBucket, failDeleteNamespaceBucket } from 'action-creators';
 

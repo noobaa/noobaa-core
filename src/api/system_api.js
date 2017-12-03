@@ -837,7 +837,8 @@ module.exports = {
                                 'UPGRADING',
                                 'COMPLETED',
                                 'PRE_UPGRADE_PENDING',
-                                'PRE_UPGRADE_READY'
+                                'PRE_UPGRADE_READY',
+                                'UPGRADE_FAILED'
                             ]
                         },
                         stage: {

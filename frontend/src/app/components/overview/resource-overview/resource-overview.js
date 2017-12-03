@@ -114,7 +114,7 @@ class ResourceOverviewViewModel extends Observer {
                 value: ko.observable()
             },
             {
-                label: 'Used for spilleover',
+                label: 'Used for spillover',
                 color: style['color8'],
                 value: ko.observable()
             }

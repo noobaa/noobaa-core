@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { FETCH_CLOUD_TARGETS } from 'action-types';
 import { completeFetchCloudTargets, failFetchCloudTargets } from 'action-creators';
 

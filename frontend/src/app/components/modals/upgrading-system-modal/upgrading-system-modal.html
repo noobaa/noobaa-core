@@ -1,0 +1,33 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<p class="push-next">
+    We are upgrading NooBaa console, this might take a while.
+</p>
+
+<section class="column push-next">
+    <h2 class="heading3 push-next-half">{{upgradingMessage}}</h2>
+    <div class="row content-middle">
+        <bar class="greedy push-next" params="
+            values: barValues,
+            height: 4
+        "></bar>
+        <span class="push-prev">{{progress}}</span>
+    </div>
+</section>
+
+<section class="column greedy push-prev">
+    <span class="highlight push-next-half">
+        Server details:
+    </span>
+    <ul class="list-no-style column alt-bg greedy pad" ko.foreach="serverRows">
+        <li class="row content-middle push-both-half">
+            <svg-icon class="push-next" ko.css="icon().css" params="name: icon().name"></svg-icon>
+            {{name}}
+            <span class="master-marking push-prev-half"
+                ko.visible="markAsMaster"
+            >
+                Master
+            </span>
+        </li>
+    </ul>
+</section>

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { UPDATE_NAMESPACE_BUCKET_PLACEMENT } from 'action-types';
 import { completeUpdateNamespaceBucketPlacement, failUpdateNamespaceBucketPlacement } from 'action-creators';
 

@@ -187,6 +187,45 @@ const server = {
         },
         isMaster: {
             type: 'boolean'
+        },
+        upgrade:{
+            type: 'object',
+            properties: {
+                progress: {
+                    type: 'number'
+                },
+                error: {
+                    type: 'string'
+                },
+                package: {
+                    type: 'object',
+                    required: [
+                        'state'
+                    ],
+                    properties: {
+                        state: {
+                            type: 'string',
+                            enum: [
+                                'UPLOADING',
+                                'TESTING',
+                                'TESTED'
+                            ]
+                        },
+                        progress: {
+                            type: 'number'
+                        },
+                        testedAt: {
+                            type: 'integer'
+                        },
+                        version: {
+                            type: 'string'
+                        },
+                        error: {
+                            type: 'string'
+                        }
+                    }
+                }
+            }
         }
     }
 };

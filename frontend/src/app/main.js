@@ -18,7 +18,7 @@ import devCLI from 'dev-cli';
 import actionsModelBridge from 'actions-model-bridge';
 import rootEpic from 'epics';
 import installStateSideEffects from 'state-side-effects';
-import { downloadFile } from 'utils/browser-utils';
+import { downloadFile, reloadBrowser, httpRequest, httpWaitForResponse } from 'utils/browser-utils';
 import { recognizeBrowser } from 'utils/browser-utils';
 
 function configureKnockout(ko) {
@@ -43,6 +43,14 @@ function configureKnockout(ko) {
 }
 
 function registerSideEffects(action$, state$) {
+    const borwser = {
+        reload: reloadBrowser,
+        downloadFile: downloadFile,
+        httpRequest: httpRequest,
+        httpWaitForResponse: httpWaitForResponse
+    };
+
+
     const injectedServices = {
         random: Math.random,
         getTime: Date.now,
@@ -52,7 +60,7 @@ function registerSideEffects(action$, state$) {
         S3: AWS.S3,
         api: api,
         router: page,
-        downloadFile: downloadFile
+        browser: borwser
     };
 
     rootEpic(action$, injectedServices)

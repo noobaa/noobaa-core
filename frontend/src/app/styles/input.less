@@ -40,6 +40,35 @@
     }
 }
 
+.ripple(@color) {
+    position: relative;
+    overflow: hidden;
+
+    &::after {
+        content: '';
+        display: block;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        background-image: radial-gradient(circle, @color 10%, transparent 10.01%);
+        background-repeat: no-repeat;
+        background-position: 50%;
+        transform: scale(10,10);
+        opacity: 0;
+        transition: transform .5s, opacity 1s;
+    }
+
+    &:active::after {
+        transform: scale(0,0);
+        opacity: .2;
+        transition: 0s;
+    }
+
+}
+
 
 .input {
     @width: 274px;
@@ -116,6 +145,8 @@ textarea {
 }
 
 .icon-btn {
+    .ripple(@color6);
+
     display: inline-block;
     border: none;
     background: none;
@@ -162,6 +193,7 @@ textarea {
 }
 
 .btn {
+    .ripple(@color17);
     @height: 40px;
 
     font-family: @font-family1;
@@ -181,30 +213,28 @@ textarea {
     transition: all 350ms ease-out;
     border-radius: 0;
 
-    &.inactive {
+
+    &:disabled, &.disabled{
         .no-outline();
 
-        opacity: .5;
-        cursor: @cursor-not-allowed;
-    }
-
-    &.disabled, &:disabled {
         opacity: .3;
+        color: @color8;
         cursor: @cursor-not-allowed;
         transition: unset;
     }
 
-    &:hover:not(:disabled):not(.inactive):not(.disabled) {
+    &:hover:not(:disabled):not(.disabled) {
         color: @color6;
         background-color: @color8;
     }
+
 
     &.alt-colors {
         color: @color6;
         border-color: @color6;
         background-color: fadeout(@color6, 90%);
 
-        &:hover:not(:disabled):not(.inactive):not(.disabled) {
+        &:hover:not(:disabled):not(.disabled) {
             color: @color15;
             background-color: @color6;
         }

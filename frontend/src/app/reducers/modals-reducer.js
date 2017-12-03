@@ -8,7 +8,6 @@ import {
     REPLACE_MODAL,
     LOCK_MODAL,
     CLOSE_MODAL,
-    UPGRADE_SYSTEM,
     CHANGE_LOCATION,
     COMPLETE_FETCH_SYSTEM_INFO
 } from 'action-types';
@@ -79,18 +78,6 @@ function onCloseModal(modals) {
     return modals.slice(0, -1);
 }
 
-function onUpgradeSystem(modals) {
-    return _openModal(modals, {
-        component: {
-            name: 'system-upgrade-modal'
-        },
-        options: {
-            size: 'xsmall',
-            backdropClose: false
-        }
-    });
-}
-
 function onChangeLocation(modals, { payload: location }) {
     const { afterupgrade, welcome } = location.query;
 
@@ -103,7 +90,9 @@ function onChangeLocation(modals, { payload: location }) {
                 title: 'Upgrade was successful'
             }
         });
-    } else if (welcome) {
+    }
+
+    if (welcome) {
         return _openModal(modals, {
             component: 'welcome-modal',
             options: {
@@ -114,9 +103,9 @@ function onChangeLocation(modals, { payload: location }) {
                 closeButton: 'hidden'
             }
         });
-    } else {
-        return initialState;
     }
+
+    return initialState;
 }
 
 function onCompleteFetchSystemInfo(modals, { payload }) {
@@ -125,9 +114,26 @@ function onCompleteFetchSystemInfo(modals, { payload }) {
             component: 'upgraded-capacity-notification-modal'
         });
 
-    } else {
-        return modals;
     }
+
+    const topMostModal = last(modals);
+    if(
+        _isSystemUpgrading(payload) &&
+        (!topMostModal || topMostModal.component !== 'upgrade-system-modal')
+    ) {
+        // Close all upgrading modals and open the upgrade system modal.
+        return _openModal([], {
+            component: 'upgrading-system-modal',
+            options: {
+                title: 'Upgrading NooBaa Version',
+                size: 'small',
+                backdropClose: false,
+                closeButton: 'hidden'
+            }
+        });
+    }
+
+    return modals;
 }
 
 // ------------------------------
@@ -150,6 +156,17 @@ function _openModal(modals, { component = 'empty', options = {} }) {
     ];
 }
 
+function _isSystemUpgrading(sysInfo) {
+    return sysInfo.cluster.shards
+        .some(shard => shard.servers
+            .some(server => {
+                const { status } = server.upgrade;
+                return status === 'PRE_UPGRADE_PENDING' ||
+                    status === 'PRE_UPGRADE_READY';
+            })
+        );
+}
+
 // ------------------------------
 // Exported reducer function.
 // ------------------------------
@@ -159,7 +176,6 @@ export default createReducer(initialState, {
     [REPLACE_MODAL]: onReplaceModal,
     [LOCK_MODAL]: onLockModal,
     [CLOSE_MODAL]: onCloseModal,
-    [UPGRADE_SYSTEM]: onUpgradeSystem,
     [CHANGE_LOCATION]: onChangeLocation,
     [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
 });

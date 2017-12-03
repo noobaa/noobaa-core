@@ -51,8 +51,13 @@ export default deepFreeze({
         panel: 'management',
         crumbsGenerator: _generateManagementCrumbs
     },
+    [routes.accounts]: {
+        area: 'accounts',
+        panel: 'accounts',
+        crumbsGenerator: _generateAccountsCrumbs
+    },
     [routes.account]: {
-        area: 'management',
+        area: 'accounts',
         panel: 'account',
         crumbsGenerator: _generateAccountCrumbs
     },
@@ -191,9 +196,21 @@ function _generateManagementCrumbs(params) {
     ];
 }
 
+function _generateAccountsCrumbs(params) {
+    return [
+        {
+            url: realizeUri(
+                routes.accounts,
+                pick(params, ['system'])
+            ),
+            label: 'Accounts'
+        }
+    ];
+}
+
 function _generateAccountCrumbs(params) {
     return [
-        ..._generateManagementCrumbs(params),
+        ..._generateAccountsCrumbs(params),
         {
             url: realizeUri(
                 routes.account,

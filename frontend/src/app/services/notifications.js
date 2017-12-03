@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { action$ } from 'state';
-import { fetchUnreadAlertsCount, showNotification, removeHost } from 'action-creators';
+import { fetchUnreadAlertsCount, showNotification, removeHost, fetchSystemInfo } from 'action-creators';
 
 export function alert() {
     action$.onNext(fetchUnreadAlertsCount());
@@ -23,6 +23,6 @@ export function remove_host(req) {
     action$.onNext(removeHost(host));
 }
 
-export function change_upgrade_status(req) {
-    console.warn('req', req);
+export function change_upgrade_status() {
+    action$.onNext(fetchSystemInfo());
 }

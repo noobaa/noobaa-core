@@ -305,15 +305,6 @@ ko.bindingProvider.instance.preprocessNode = function(node) {
     return preprocess && preprocess(node);
 };
 
-ko.bindingHandlers[magicBindingName] = {
-    preprocess(key, _, addBinding) {
-        for (const [name, value] of magicBindings.get(key)) {
-            addBinding(name, value);
-        }
-        magicBindings.delete(key);
-    }
-};
-
 ko.getBindingHandler = function(name) {
     let handler = bindingHandlers.get(name);
     if (handler) return handler;
@@ -325,6 +316,22 @@ ko.getBindingHandler = function(name) {
 
     return handler;
 };
+
+ko.bindingHandlers[magicBindingName] = {
+    preprocess(key, _, addBinding) {
+        for (const [name, value] of magicBindings.get(key)) {
+            addBinding(name, value);
+        }
+        magicBindings.delete(key);
+    }
+};
+
+// Add lowercased copies of build-in bindings (to support the ko.<binding> attribute notation).
+Object.entries(ko.bindingHandlers)
+    .forEach(([name, binding]) => {
+        const lcName = name.toLowerCase();
+        if (lcName !== name) ko.bindingHandlers[lcName] = binding;
+    });
 
 // -----------------------------------------
 // Export knokcout object for dev purposes

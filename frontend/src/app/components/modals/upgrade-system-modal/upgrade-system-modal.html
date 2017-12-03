@@ -1,0 +1,37 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<property-sheet class="push-next" params="
+    loading: !stateLoaded(),
+    properties: upgradeSummary
+"></property-sheet>
+
+<section class="column greedy push-next" ko.with="releaseNotes">
+    <h2 class="heading3 push-next-half">Verison Info: </h2>
+    <div class="column greedy pad alt-bg release-notes">
+        <loading-indicator class="align-start"
+            ko.visible="fetching"
+        ></loading-indicator>
+        <sapn class="error"
+            ko.visible="error"
+            ko.text="text"
+        ></sapn>
+        <pre class="align-stretch"
+            ko.visible="!fetching && !error"
+            ko.text="text"
+        ></pre>
+    </div>
+</section>
+
+<div class="row align-end">
+    <button type="button"
+        class="link alt-colors push-next"
+        ko.click="onCancel"
+    >
+        Cancel
+    </button>
+    <button class="btn"
+        ko.click="onStartUpgrade"
+    >
+        Start Upgrade
+    </button>
+</div>

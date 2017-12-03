@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { CREATE_NAMESPACE_BUCKET } from 'action-types';
 import { completeCreateNamespaceBucket, failCreateNamespaceBucket } from 'action-creators';
 

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { DELETE_NAMESPACE_RESOURCE } from 'action-types';
 import { completeDeleteNamespaceResource, failDeleteNamespaceResource } from 'action-creators';
 

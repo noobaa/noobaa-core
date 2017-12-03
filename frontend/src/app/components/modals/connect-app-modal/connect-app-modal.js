@@ -70,7 +70,7 @@ class ConnectAppModalViewModel extends Observer {
         this.endpoint(hostname);
         this.accountsSettingsHref(
             realizeUri(
-                routes.management,
+                routes.accounts,
                 {
                     system: params.system,
                     tab: 'accounts'

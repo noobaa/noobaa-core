@@ -9,7 +9,9 @@ export default {
             'internal'
         ],
         properties: {
-            timestamp: 'integer',
+            timestamp: {
+                type: 'integer'
+            },
             hosts: {
                 $ref: '#/def/common/storage'
             },

@@ -1,13 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="drop-area text-center"
-    ko.css.dragover="!!dragCounter()"
-    ko.css.disabled="disabled"
-    ko.event.dragenter="onDragEnter"
-    ko.event.dragleave="onDragLeave"
-    ko.event.dragover="() => false"
-    ko.event.drop="onDrop"
->
+<drop-area params="onDrop: onDrop, disabled: disabled">
     <p class="drop-message">{{message}} or</p>
     <label class="btn alt-colors" ko.css.disabled="disabled">
         Browse
@@ -19,4 +12,5 @@
             ko.disable="disabled"
         />
     </label>
-</div>
+</drop-area>
+

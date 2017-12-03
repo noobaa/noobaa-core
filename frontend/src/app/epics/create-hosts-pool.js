@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { CREATE_HOSTS_POOL } from 'action-types';
 import { completeCreateHostsPool, failCreateHostsPool } from 'action-creators';
 

@@ -24,20 +24,21 @@ const SPAWN_SCRIPT = `${NEW_TMP_ROOT}/src/deploy/NVA_build/two_step_upgrade_chec
 const ERRORS_PATH = `${TMP_PATH}/new_tests_errors.json`;
 
 const ERROR_MAPPING = {
-    'COULD_NOT_COPY_PACKAGE': 'Failed to prepare package for extraction',
-    'COULD_NOT_RUN_TESTS': 'Failed to perform new version tests',
-    'PACKAGE_JSON_NOT_EXISTS': 'Failed to recognize NooBaa package',
-    'COULD_NOT_EXTRACT_VERSION': 'Failed to extract NooBaa version from package',
-    'MAJOR_VERSION_CHANGE': 'Upgrade not supported to staged version',
-    'CANNOT_DOWNGRADE': 'Downgrade to older version not supported',
-    'INTERNET_CONNECTIVITY': 'Failed verifying internet connectivity',
-    'COULD_NOT_GET_RAW_STORAGE': 'Failed to read storage capacity of hard drive',
-    'LOCAL_HARDDRIVE_MEMORY': 'Not enough hard drive space required for upgrade',
-    'PACKAGE_EXTRACTION': 'Failed to extract NooBaa package',
-    'PACKAGE_INSTALLATION_TIMEOUT': 'Reached timeout on linux package installations',
-    'COULD_NOT_EXTRACT_PARAMS': 'Failed gather information for tests to run',
-    'CANNOT_UPGRADE_WITHOUT_SYSTEM': 'Cannot upgrade without system',
-    'COULD_NOT_INSTALL_PACKAGES': 'Failed to install linux packages'
+    COULD_NOT_COPY_PACKAGE: 'Failed to prepare the package for extraction, try to re-download the upgrade package and upload again.',
+    COULD_NOT_RUN_TESTS: 'Failed to perform pre-upgrade tests, try to re-download the upgrade package and upload again.',
+    PACKAGE_JSON_NOT_EXISTS: 'Uploaded package is not a NooBaa upgrade package, try to re-download the upgrade package and upload again.',
+    COULD_NOT_EXTRACT_VERSION: 'Uploaded package is not a NooBaa upgrade package, try to re-download the upgrade package and upload again.',
+    MAJOR_VERSION_CHANGE: 'Upgrade from the current version to the uploaded version is not supported.',
+    CANNOT_DOWNGRADE: 'Downgrade to an older version is not supported.',
+    INTERNET_CONNECTIVITY: 'Failed to verify internet connectivity. Check network connectivity or set a proxy address.',
+    COULD_NOT_GET_RAW_STORAGE: 'Failed to perform pre-upgrade tests.',
+    LOCAL_HARDDRIVE_MEMORY: 'Not enough hard drive space on server required for upgrade, at leaset 300MB is required per server. Please increase local disk.',
+    PACKAGE_EXTRACTION: 'Failed to extract NooBaa upload package. try to re-download the upgrade package and upload again.',
+    PACKAGE_INSTALLATION_TIMEOUT: 'Failed on pre-upgrade packages.',
+    COULD_NOT_EXTRACT_PARAMS: 'Failed to perform pre-upgrade tests.',
+    CANNOT_UPGRADE_WITHOUT_SYSTEM: 'Failed to perform pre-upgrade tests due to no system on the server.',
+    COULD_NOT_INSTALL_PACKAGES: 'Failed on pre-upgrade packages.',
+    UNKNOWN: 'Failed with an internal error.'
 };
 
 let staged_package = 'UNKNOWN';
@@ -57,7 +58,7 @@ function pre_upgrade(params) {
         .then(() => pre_upgrade_checkups())
         .then(() => {
             dbg.log0('new_pre_upgrade spawn');
-            // TODO: Should probably do some sort of timeout on the spawn or something 
+            // TODO: Should probably do some sort of timeout on the spawn or something
             // Since we already had problems of it just getting stuck and not returning
             return promise_utils.exec(`chmod 777 ${SPAWN_SCRIPT}; ${SPAWN_SCRIPT}`, {
                     ignore_rc: false,
@@ -86,7 +87,7 @@ function pre_upgrade(params) {
             dbg.error('pre_upgrade: HAD ERRORS', error);
             return _.omitBy({
                 result: false,
-                error: ERROR_MAPPING[error.message] || 'UNKNOWN',
+                error: ERROR_MAPPING[error.message] || ERROR_MAPPING.UNKNOWN,
                 tested_date: params.testing_stage && Date.now(),
                 staged_package: params.testing_stage && (staged_package || 'UNKNOWN')
             }, _.isUndefined);
@@ -133,41 +134,45 @@ function pre_upgrade(params) {
 // }
 
 function do_upgrade(upgrade_file, is_clusterized, err_handler) {
-    err_handler = err_handler || dbg.error;
-    dbg.log0('UPGRADE file', upgrade_file, 'upgrade.js path:', process.cwd() + '/src/deploy/NVA_build');
-    var fsuffix = new Date()
-        .toISOString()
-        .replace(/T/, '-')
-        .substr(5, 11);
-    var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
-    var stdout = fs.openSync(fname, 'a');
-    var stderr = fs.openSync(fname, 'a');
-    let cluster_str = is_clusterized ? 'cluster' : ' ';
-    dbg.log0('command: /usr/local/bin/node ', process.cwd() + '/src/upgrade/upgrade.js --from_file ' + upgrade_file, '--fsuffix', fsuffix, '--cluster_str', cluster_str);
-    let upgrade_proc = spawn('nohup', [
-        '/usr/local/bin/node',
-        process.cwd() + '/src/upgrade/upgrade.js',
-        '--from_file', upgrade_file,
-        '--fsuffix', fsuffix,
-        '--cluster_str', cluster_str
-    ], {
-        detached: true,
-        stdio: ['ignore', stdout, stderr],
-        cwd: process.cwd()
-    });
-    upgrade_proc.on('exit', (code, signal) => {
-        // upgrade.js is supposed to kill this node process, so it should not exit while
-        // this node process is still running. treat exit as error.
-        if (code) {
-            const err_msg = `upgrade.js process was closed with code ${code} and signal ${signal}`;
-            err_handler(err_msg);
-        }
-    });
-    upgrade_proc.on('error', err_handler);
+    try {
+        err_handler = err_handler || dbg.error;
+        dbg.log0('UPGRADE file', upgrade_file, 'upgrade.js path:', process.cwd() + '/src/deploy/NVA_build');
+        var fsuffix = new Date()
+            .toISOString()
+            .replace(/T/, '-')
+            .substr(5, 11);
+        var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
+        var stdout = fs.openSync(fname, 'a');
+        var stderr = fs.openSync(fname, 'a');
+        let cluster_str = is_clusterized ? 'cluster' : ' ';
+        dbg.log0('command: /usr/local/bin/node ', process.cwd() + '/src/upgrade/upgrade.js --from_file ' + upgrade_file, '--fsuffix', fsuffix, '--cluster_str', cluster_str);
+        let upgrade_proc = spawn('nohup', [
+            '/usr/local/bin/node',
+            process.cwd() + '/src/upgrade/upgrade.js',
+            '--from_file', upgrade_file,
+            '--fsuffix', fsuffix,
+            '--cluster_str', cluster_str
+        ], {
+            detached: true,
+            stdio: ['ignore', stdout, stderr],
+            cwd: process.cwd()
+        });
+        upgrade_proc.on('exit', (code, signal) => {
+            // upgrade.js is supposed to kill this node process, so it should not exit while
+            // this node process is still running. treat exit as error.
+            if (code) {
+                const err_msg = `upgrade.js process was closed with code ${code} and signal ${signal}`;
+                err_handler(err_msg);
+            }
+        });
+        upgrade_proc.on('error', err_handler);
+    } catch (err) {
+        err_handler(err);
+    }
 }
 
 function test_major_version_change() {
-    const get_version = `tar -zxvf ${TMP_PATH}/${PACKAGE_FILE_NAME} noobaa-core/package.json -O | grep version | awk '{print $2}'`;
+    const get_version = `tar -zxvOf ${TMP_PATH}/${PACKAGE_FILE_NAME} noobaa-core/package.json | grep version | awk '{print $2}'`;
     const check_exists = `tar -tf ${TMP_PATH}/${PACKAGE_FILE_NAME} | grep noobaa-core/package.json`;
     return promise_utils.exec(check_exists, {
             ignore_rc: false,
@@ -411,7 +416,7 @@ if (require.main === module) {
             .catch(err => {
                 dbg.error('new_pre_upgrade: FAILED:', err);
                 // This is done because the new spawn only knowns the new errors
-                err.message = ERROR_MAPPING[err.message] || 'UNKNOWN';
+                err.message = ERROR_MAPPING[err.message] || ERROR_MAPPING.UNKNOWN;
                 return fs.writeFileAsync(ERRORS_PATH, JSON.stringify({
                         error: err
                     }))

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { FETCH_BUCKET_OBJECTS } from 'action-types';
 import { completeFetchBucketObjects, failFetchBucketObjects } from 'action-creators';
 

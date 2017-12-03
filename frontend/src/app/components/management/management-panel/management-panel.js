@@ -19,7 +19,7 @@ class ManagementPanelViewModel extends Observer {
     }
 
     onLocation({ route, params }) {
-        const { system, tab = 'accounts', section } = params;
+        const { system, tab = 'settings', section } = params;
 
         this.baseRoute = realizeUri(route, { system }, {}, true);
         this.selectedTab(tab);

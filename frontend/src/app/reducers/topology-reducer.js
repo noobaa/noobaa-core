@@ -1,9 +1,15 @@
+
 /* Copyright (C) 2016 NooBaa */
 
-import { keyByProperty, flatMap, pick } from 'utils/core-utils';
+import { keyByProperty, flatMap, pick, omitUndefined, get } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { mapApiStorage } from 'utils/state-utils';
-import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
+import {
+    COMPLETE_FETCH_SYSTEM_INFO,
+    UPLOAD_UPGRADE_PACKAGE,
+    UPDATE_UPGRADE_PACKAGE_UPLOAD,
+    ABORT_UPGRADE_PACKAGE_UPLOAD
+} from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -18,8 +24,12 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 
     const serverList = flatMap(
         cluster.shards,
-        shard => shard.servers.map(server =>
-            _mapServer(cluster.master_secret, server)
+        shard => shard.servers
+            .map(server => {
+                const { servers = {} } = state || {};
+                const { [server.secret]: serverState = {} } = servers;
+                return _mapServer(serverState, server, cluster.master_secret);
+            }
         )
     );
 
@@ -37,64 +47,108 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     };
 }
 
+function onUploadUpgradePackage(state) {
+    const master = Object.values(state.servers)
+        .find(server => server.isMaster);
+
+    const { package: pkg } = master.upgrade || {};
+    if (pkg && (pkg.state === 'TESTING' || pkg.state === 'UPLOADING')) {
+        return state;
+    }
+
+    const upgrade = {
+        package: {
+            state: 'UPLOADING',
+            progress: 0
+        }
+    };
+
+    return {
+        ...state,
+        servers: {
+            ...state.servers,
+            [master.secret]: {
+                ...master,
+                upgrade
+            }
+        }
+    };
+}
+
+function onUpdateUpgradePackageUpload(state, { payload }) {
+    const master = Object.values(state.servers)
+        .find(server => server.isMaster);
+
+    const { package: pkg } = master.upgrade || {};
+    if (!pkg || pkg.state !== 'UPLOADING') {
+        return state;
+    }
+
+    const upgrade = {
+        package: {
+            state: 'UPLOADING',
+            progress: payload.progress
+        }
+    };
+
+    return {
+        ...state,
+        servers: {
+            ...state.servers,
+            [master.secret]: {
+                ...master,
+                upgrade
+            }
+        }
+    };
+}
+
+function onAbortUpgradePackageUpload(state) {
+    const master = Object.values(state.servers)
+        .find(server => server.isMaster);
+
+    const { package: pkg } = master.upgrade || {};
+    if (!pkg || pkg.state !== 'UPLOADING') {
+        return state;
+    }
+
+    return {
+        ...state,
+        servers: {
+            ...state.servers,
+            [master.secret]: {
+                ...master,
+                upgrade: {}
+            }
+        }
+    };
+}
+
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _mapServer(masterSecret, server) {
-    const {
-        dns_servers: dnsCheck,
-        dns_name_resolution: nameResolutionCheck,
-        phonehome_server: phonehomeCheck,
-        phonehome_proxy: proxyCheck,
-        ntp_server: ntpCheck,
-        remote_syslog: syslogCheck,
-        cluster_communication: connectivityCheck
-    } = server.services_status;
-
+function _mapServer(serverState, update, masterSecret) {
     return {
-        hostname: server.hostname,
-        secret: server.secret,
-        mode: server.status,
-        version: server.version,
-        addresses: server.addresses,
-        timezone: server.timezone,
-        locationTag: server.location,
-        storage: mapApiStorage(server.storage),
-        memory: pick(server.memory, ['total', 'used']),
-        cpus: pick(server.cpus, ['count', 'usage']),
-        time: server.time_epoch * 1000,
-        ntp: server.ntp_server && {
-            server: server.ntp_server,
-            status: ntpCheck
-        },
-        dns: {
-            nameResolution: nameResolutionCheck && {
-                status: nameResolutionCheck
-            },
-            servers: {
-                list: server.dns_servers,
-                status: dnsCheck
-            },
-            searchDomains: server.search_domains
-        },
-        proxy: proxyCheck && {
-            status: proxyCheck.status
-        },
-        phonehome: {
-            status: phonehomeCheck.status,
-            lastStatusCheck: phonehomeCheck.test_time
-        },
-        remoteSyslog: syslogCheck && {
-            status: syslogCheck.status,
-            lastStatusCheck: syslogCheck.test_time
-        },
-        clusterConnectivity: keyByProperty(
-            connectivityCheck.results || {},
-            'secret',
-            result => result.status
-        ),
-        debugMode: Boolean(server.debug_level),
-        isMaster: server.secret === masterSecret
+        hostname: update.hostname,
+        secret: update.secret,
+        mode: update.status,
+        version: update.version,
+        addresses: update.addresses,
+        timezone: update.timezone,
+        locationTag: update.location,
+        storage: mapApiStorage(update.storage),
+        memory: pick(update.memory, ['total', 'used']),
+        cpus: pick(update.cpus, ['count', 'usage']),
+        time: update.time_epoch * 1000,
+        ntp: _mapNTP(update),
+        dns: _mapDNS(update),
+        proxy: _mapProxy(update),
+        phonehome: _mapPhonehome(update),
+        remoteSyslog: _mapRemoteSyslog(update),
+        clusterConnectivity: _mapClusterConnectivity(update),
+        debugMode: Boolean(update.debug_level),
+        isMaster: update.secret === masterSecret,
+        upgrade: _mapUpgradeState(serverState.upgrade, update.upgrade)
     };
 }
 
@@ -103,9 +157,132 @@ function _mapMinRequirements(requirements) {
     return { storage, memory, cpus };
 }
 
+function _mapNTP(server) {
+    if (!server.ntp_server) return;
+
+    return {
+        server: server.ntp_server,
+        status: server.services_status.ntp_server
+    };
+}
+
+function _mapDNS(server) {
+    const { dns_name_resolution, dns_servers } = server.services_status;
+
+    return {
+        nameResolution: dns_name_resolution && {
+            status: dns_name_resolution
+        },
+        servers: {
+            list: server.dns_servers,
+            status: dns_servers
+        },
+        searchDomains: server.search_domains
+    };
+}
+
+function _mapProxy(server) {
+    const { phonehome_proxy } = server.services_status;
+    if (!phonehome_proxy) return;
+
+    return {
+        status: phonehome_proxy.status
+    };
+}
+
+function _mapPhonehome(server) {
+    const { phonehome_server } = server.services_status;
+    return {
+        status: phonehome_server.status,
+        lastStatusCheck: phonehome_server.test_time
+    };
+}
+
+function _mapRemoteSyslog(server) {
+    const { remote_syslog } = server.services_status;
+    if (!remote_syslog) return;
+
+    return {
+        status: remote_syslog.status,
+        lastStatusCheck: remote_syslog.test_time
+    };
+}
+
+function _mapClusterConnectivity(server) {
+    const { cluster_communication } = server.services_status;
+
+    return keyByProperty(
+        cluster_communication.results || {},
+        'secret',
+        result => result.status
+    );
+}
+
+function _mapUpgradeState(state, upgrade) {
+    const { status, staged_package, tested_date, error } = upgrade;
+    const testedPkg = omitUndefined({
+        state: 'TESTED',
+        testedAt: tested_date,
+        version: staged_package
+    });
+
+    switch(status) {
+        case 'COMPLETED': {
+            const pkgState = get(state, ['package', 'state']);
+            return pkgState === 'UPLOADING' ?
+                state :
+                {};
+        }
+        case 'PENDING': {
+            return {
+                package: {
+                    state: 'TESTING'
+                }
+            };
+        }
+        case 'FAILED': {
+            return {
+                package: {
+                    ...testedPkg,
+                    error
+                }
+            };
+        }
+        case 'CAN_UPGRADE': {
+            return {
+                package: testedPkg
+            };
+        }
+        case 'PRE_UPGRADE_PENDING': {
+            return {
+                progress: 0,
+                package: testedPkg
+            };
+        }
+        case 'PRE_UPGRADE_READY': {
+            return {
+                progress: .5,
+                package: testedPkg
+            };
+        }
+        case 'UPGRADE_FAILED': {
+            return {
+                error,
+                package: testedPkg
+            };
+        }
+        default: {
+            return state;
+        }
+    }
+}
+
 // ------------------------------
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
+    [UPLOAD_UPGRADE_PACKAGE]: onUploadUpgradePackage,
+    [UPDATE_UPGRADE_PACKAGE_UPLOAD]: onUpdateUpgradePackageUpload,
+    [ABORT_UPGRADE_PACKAGE_UPLOAD]: onAbortUpgradePackageUpload
 });

@@ -11,10 +11,10 @@ export default function register(ko) {
     // -------------------------------
     // Application
     // -------------------------------
-    ko.components.register('app',           require('./application/app/app').default);
-    ko.components.register('main-layout',   require('./application/main-layout/main-layout').default);
-    ko.components.register('login-layout',  require('./application/login-layout/login-layout').default);
-    ko.components.register('modal-manager', require('./application/modal-manager/modal-manager').default);
+    ko.components.register('app',                       require('./application/app/app').default);
+    ko.components.register('main-layout',               require('./application/main-layout/main-layout').default);
+    ko.components.register('login-layout',              require('./application/login-layout/login-layout').default);
+    ko.components.register('modal-manager',             require('./application/modal-manager/modal-manager').default);
     ko.components.register('exit-confirmation-message', require('./application/exit-confirmation-message/exit-confirmation-message').default);
     /** INJECT:application **/
 
@@ -53,46 +53,49 @@ export default function register(ko) {
     // -------------------------------
     // Modals
     // -------------------------------
-    ko.components.register('install-nodes-modal',                       require('./modals/install-nodes-modal/install-nodes-modal').default);
-    ko.components.register('upgraded-capacity-notification-modal',      require('./modals/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal').default);
-    ko.components.register('welcome-modal',                             require('./modals/welcome-modal/welcome-modal').default);
-    ko.components.register('after-upgrade-modal',                       require('./modals/after-upgrade-modal/after-upgrade-modal').default);
-    ko.components.register('add-cloud-resource-modal',                  require('./modals/add-cloud-resource-modal/add-cloud-resource-modal').default);
-    ko.components.register('add-cloud-connection-modal',                require('./modals/add-cloud-connection-modal/add-cloud-connection-modal').default);
-    ko.components.register('set-cloud-sync-modal',                      require('./modals/set-cloud-sync-modal/set-cloud-sync-modal').default);
-    ko.components.register('edit-cloud-sync-modal',                     require('./modals/edit-cloud-sync-modal/edit-cloud-sync-modal').default);
-    ko.components.register('s3-access-details-modal',                   require('./modals/s3-access-details-modal/s3-access-details-modal').default);
-    ko.components.register('bucket-s3-access-modal',                    require('./modals/bucket-s3-access-modal/bucket-s3-access-modal').default);
-    ko.components.register('start-maintenance-modal',                   require('./modals/start-maintenance-modal/start-maintenance-modal').default);
-    ko.components.register('file-uploads-modal',                        require('./modals/file-uploads-modal/file-uploads-modal').default);
-    ko.components.register('delete-current-account-warning-modal',      require('./modals/delete-current-account-warning-modal/delete-current-account-warning-modal').default);
-    ko.components.register('object-preview-modal',                      require('./modals/object-preview-modal/object-preview-modal').default);
-    ko.components.register('test-node-modal',                           require('./modals/test-node-modal/test-node-modal').default);
-    ko.components.register('edit-server-dns-settings-modal',            require('./modals/edit-server-dns-settings-modal/edit-server-dns-settings-modal').default);
-    ko.components.register('edit-server-time-settings-modal',           require('./modals/edit-server-time-settings-modal/edit-server-time-settings-modal').default);
-    ko.components.register('edit-account-s3-access-modal',              require('./modals/edit-account-s3-access-modal/edit-account-s3-access-modal').default);
-    ko.components.register('edit-server-details-modal',                 require('./modals/edit-server-details-modal/edit-server-details-modal').default);
-    ko.components.register('assign-hosts-modal',                        require('./modals/assign-hosts-modal/assign-hosts-modal').default);
-    ko.components.register('update-system-name-modal',                  require('./modals/update-system-name-modal/update-system-name-modal').default);
-    ko.components.register('system-upgrade-modal',                      require('./modals/system-upgrade-modal/system-upgrade-modal').default);
-    ko.components.register('create-account-modal',                      require('./modals/create-account-modal/create-account-modal').default);
-    ko.components.register('account-created-modal',                     require('./modals/account-created-modal/account-created-modal').default);
-    ko.components.register('edit-bucket-quota-modal',                   require('./modals/edit-bucket-quota-modal/edit-bucket-quota-modal').default);
-    ko.components.register('set-account-ip-restrictions-modal',         require('./modals/set-account-ip-restrictions-modal/set-account-ip-restrictions-modal').default);
-    ko.components.register('create-pool-modal',                         require('./modals/create-pool-modal/create-pool-modal').default);
-    ko.components.register('edit-host-storage-drives-modal',            require('./modals/edit-host-storage-drives-modal/edit-host-storage-drives-modal').default);
-    ko.components.register('disable-host-endpoint-warning-modal',        require('./modals/disable-host-endpoint-warning-modal/disable-host-endpoint-warning-modal').default);
-    ko.components.register('disable-host-storage-warning-modal',        require('./modals/disable-host-storage-warning-modal/disable-host-storage-warning-modal').default);
-    ko.components.register('disable-host-last-service-warning-modal',   require('./modals/disable-host-last-service-warning-modal/disable-host-last-service-warning-modal').default);
-    ko.components.register('connect-app-modal',                         require('./modals/connect-app-modal/connect-app-modal').default);
-    ko.components.register('create-namespace-resource-modal',           require('./modals/create-namespace-resource-modal/create-namespace-resource-modal').default);
-    ko.components.register('create-namespace-bucket-modal',               require('./modals/create-namespace-bucket-modal/create-namespace-bucket-modal').default);
-    ko.components.register('edit-namespace-bucket-data-placement-modal',  require('./modals/edit-namespace-bucket-data-placement-modal/edit-namespace-bucket-data-placement-modal').default);
-    ko.components.register('edit-bucket-placement-modal',               require('./modals/edit-bucket-placement-modal/edit-bucket-placement-modal').default);
-    ko.components.register('empty-bucket-placement-warning-modal',      require('./modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal').default);
-    ko.components.register('edit-spillover-targets-modal',              require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
-    ko.components.register('set-node-as-trusted-modal',                 require('./modals/set-node-as-trusted-modal/set-node-as-trusted-modal').default);
-    ko.components.register('confirm-delete-host-modal', require('./modals/confirm-delete-host-modal/confirm-delete-host-modal').default);
+    ko.components.register('install-nodes-modal',                           require('./modals/install-nodes-modal/install-nodes-modal').default);
+    ko.components.register('upgraded-capacity-notification-modal',          require('./modals/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal').default);
+    ko.components.register('welcome-modal',                                 require('./modals/welcome-modal/welcome-modal').default);
+    ko.components.register('after-upgrade-modal',                           require('./modals/after-upgrade-modal/after-upgrade-modal').default);
+    ko.components.register('add-cloud-resource-modal',                      require('./modals/add-cloud-resource-modal/add-cloud-resource-modal').default);
+    ko.components.register('add-cloud-connection-modal',                    require('./modals/add-cloud-connection-modal/add-cloud-connection-modal').default);
+    ko.components.register('set-cloud-sync-modal',                          require('./modals/set-cloud-sync-modal/set-cloud-sync-modal').default);
+    ko.components.register('edit-cloud-sync-modal',                         require('./modals/edit-cloud-sync-modal/edit-cloud-sync-modal').default);
+    ko.components.register('s3-access-details-modal',                       require('./modals/s3-access-details-modal/s3-access-details-modal').default);
+    ko.components.register('bucket-s3-access-modal',                        require('./modals/bucket-s3-access-modal/bucket-s3-access-modal').default);
+    ko.components.register('start-maintenance-modal',                       require('./modals/start-maintenance-modal/start-maintenance-modal').default);
+    ko.components.register('file-uploads-modal',                            require('./modals/file-uploads-modal/file-uploads-modal').default);
+    ko.components.register('delete-current-account-warning-modal',          require('./modals/delete-current-account-warning-modal/delete-current-account-warning-modal').default);
+    ko.components.register('object-preview-modal',                          require('./modals/object-preview-modal/object-preview-modal').default);
+    ko.components.register('test-node-modal',                               require('./modals/test-node-modal/test-node-modal').default);
+    ko.components.register('edit-server-dns-settings-modal',                require('./modals/edit-server-dns-settings-modal/edit-server-dns-settings-modal').default);
+    ko.components.register('edit-server-time-settings-modal',               require('./modals/edit-server-time-settings-modal/edit-server-time-settings-modal').default);
+    ko.components.register('edit-account-s3-access-modal',                  require('./modals/edit-account-s3-access-modal/edit-account-s3-access-modal').default);
+    ko.components.register('edit-server-details-modal',                     require('./modals/edit-server-details-modal/edit-server-details-modal').default);
+    ko.components.register('assign-hosts-modal',                            require('./modals/assign-hosts-modal/assign-hosts-modal').default);
+    ko.components.register('update-system-name-modal',                      require('./modals/update-system-name-modal/update-system-name-modal').default);
+    ko.components.register('create-account-modal',                          require('./modals/create-account-modal/create-account-modal').default);
+    ko.components.register('account-created-modal',                         require('./modals/account-created-modal/account-created-modal').default);
+    ko.components.register('edit-bucket-quota-modal',                       require('./modals/edit-bucket-quota-modal/edit-bucket-quota-modal').default);
+    ko.components.register('set-account-ip-restrictions-modal',             require('./modals/set-account-ip-restrictions-modal/set-account-ip-restrictions-modal').default);
+    ko.components.register('create-pool-modal',                             require('./modals/create-pool-modal/create-pool-modal').default);
+    ko.components.register('edit-host-storage-drives-modal',                require('./modals/edit-host-storage-drives-modal/edit-host-storage-drives-modal').default);
+    ko.components.register('disable-host-endpoint-warning-modal',           require('./modals/disable-host-endpoint-warning-modal/disable-host-endpoint-warning-modal').default);
+    ko.components.register('disable-host-storage-warning-modal',            require('./modals/disable-host-storage-warning-modal/disable-host-storage-warning-modal').default);
+    ko.components.register('disable-host-last-service-warning-modal',       require('./modals/disable-host-last-service-warning-modal/disable-host-last-service-warning-modal').default);
+    ko.components.register('connect-app-modal',                             require('./modals/connect-app-modal/connect-app-modal').default);
+    ko.components.register('create-namespace-resource-modal',               require('./modals/create-namespace-resource-modal/create-namespace-resource-modal').default);
+    ko.components.register('create-namespace-bucket-modal',                 require('./modals/create-namespace-bucket-modal/create-namespace-bucket-modal').default);
+    ko.components.register('edit-namespace-bucket-data-placement-modal',    require('./modals/edit-namespace-bucket-data-placement-modal/edit-namespace-bucket-data-placement-modal').default);
+    ko.components.register('edit-bucket-placement-modal',                   require('./modals/edit-bucket-placement-modal/edit-bucket-placement-modal').default);
+    ko.components.register('empty-bucket-placement-warning-modal',          require('./modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal').default);
+    ko.components.register('edit-spillover-targets-modal',                  require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
+    ko.components.register('set-node-as-trusted-modal',                     require('./modals/set-node-as-trusted-modal/set-node-as-trusted-modal').default);
+    ko.components.register('confirm-delete-host-modal',                     require('./modals/confirm-delete-host-modal/confirm-delete-host-modal').default);
+    ko.components.register('upgrade-system-modal',                          require('./modals/upgrade-system-modal/upgrade-system-modal').default);
+    ko.components.register('upgrading-system-modal',                        require('./modals/upgrading-system-modal/upgrading-system-modal').default);
+    ko.components.register('upgrade-system-failed-modal',                   require('./modals/upgrade-system-failed-modal/upgrade-system-failed-modal').default);
+    ko.components.register('pre-upgrade-system-failed-modal',               require('./modals/pre-upgrade-system-failed-modal/pre-upgrade-system-failed-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -107,10 +110,10 @@ export default function register(ko) {
     // -------------------------------
     // Buckets
     // -------------------------------
-    ko.components.register('buckets-panel',         require('./buckets/buckets-panel/buckets-panel').default);
-    ko.components.register('buckets-table',         require('./buckets/buckets-table/buckets-table').default);
-    ko.components.register('create-bucket-wizard',  require('./buckets/create-bucket-wizard/create-bucket-wizard').default);
-    ko.components.register('namespace-buckets-table', require('./buckets/namespace-buckets-table/namespace-buckets-table').default);
+    ko.components.register('buckets-panel',             require('./buckets/buckets-panel/buckets-panel').default);
+    ko.components.register('buckets-table',             require('./buckets/buckets-table/buckets-table').default);
+    ko.components.register('create-bucket-wizard',      require('./buckets/create-bucket-wizard/create-bucket-wizard').default);
+    ko.components.register('namespace-buckets-table',   require('./buckets/namespace-buckets-table/namespace-buckets-table').default);
     /** INJECT:buckets **/
 
     // -------------------------------
@@ -167,7 +170,7 @@ export default function register(ko) {
     ko.components.register('host-panel',            require('./host/host-panel/host-panel').default);
     ko.components.register('host-summary',          require('./host/host-summary/host-summary').default);
     ko.components.register('host-details-form',     require('./host/host-details-form/host-details-form').default);
-    ko.components.register('host-endpoint-form',     require('./host/host-endpoint-form/host-endpoint-form').default);
+    ko.components.register('host-endpoint-form',    require('./host/host-endpoint-form/host-endpoint-form').default);
     ko.components.register('host-storage-form',     require('./host/host-storage-form/host-storage-form').default);
     ko.components.register('host-diagnostics-form', require('./host/host-diagnostics-form/host-diagnostics-form').default);
     ko.components.register('host-parts-table',      require('./host/host-parts-table/host-parts-table').default);
@@ -177,7 +180,6 @@ export default function register(ko) {
     // Management
     // -------------------------------
     ko.components.register('management-panel',          require('./management/management-panel/management-panel').default);
-    ko.components.register('accounts-table',            require('./management/accounts-table/accounts-table').default);
     ko.components.register('p2p-form',                  require('./management/p2p-form/p2p-form').default);
     ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form').default);
     ko.components.register('version-form',              require('./management/version-form/version-form').default);
@@ -189,6 +191,13 @@ export default function register(ko) {
     ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form').default);
     ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form').default);
     /** INJECT:management **/
+
+    // -------------------------------
+    // Accounts
+    // -------------------------------
+    ko.components.register('accounts-panel',    require('./accounts/accounts-panel/accounts-panel').default);
+    ko.components.register('accounts-table',    require('./accounts/accounts-table/accounts-table').default);
+    /** INJECT:accounts **/
 
     // -------------------------------
     // Account
@@ -292,5 +301,6 @@ export default function register(ko) {
     ko.components.register('validation-rules-list',     require('./shared/validation-rules-list/validation-rules-list').default);
     ko.components.register('validation-indicator',      require('./shared/validation-indicator/validation-indicator').default);
     ko.components.register('loading-indicator',         require('./shared/loading-indicator/loading-indicator').default);
+    ko.components.register('drop-area',                 require('./shared/drop-area/drop-area').default);
     /** INJECT:shared **/
 }

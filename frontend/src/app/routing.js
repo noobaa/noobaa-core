@@ -53,6 +53,7 @@ export default function routing(page) {
     registerRouteHandler(page, routes.host);
     registerRouteHandler(page, routes.account);
     registerRouteHandler(page, routes.management);
+    registerRouteHandler(page, routes.accounts);
     registerRouteHandler(page, routes.cluster);
     registerRouteHandler(page, routes.server);
     registerRouteHandler(page, routes.funcs, actions.showFuncs);

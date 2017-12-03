@@ -129,7 +129,7 @@ export function httpRequest(url, options = {}) {
         (resolve, reject) =>  {
             xhr.open(verb, url, true);
             xhr.onerror = reject;
-            xhr.onabort = reject;
+            xhr.onabort = resolve;
             xhr.onload = resolve;
 
             if (payload) {
@@ -204,4 +204,8 @@ export function isUri(str) {
     );
 
     return regExp.test(value);
+}
+
+export function reloadBrowser() {
+    global.location.reload();
 }

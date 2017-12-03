@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { FETCH_HOST_OBJECTS } from 'action-types';
 import { completeFetchHostObjects, failFetchHostObjects } from 'action-creators';
 

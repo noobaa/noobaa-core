@@ -604,3 +604,44 @@ export function openConfirmDeleteHostModal(host) {
         }
     };
 }
+
+export function openUpgradeSystemModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'upgrade-system-modal',
+            options: {
+                title: 'Upgrade NooBaa Version',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function replaceToPreUpgradeSystemFailedModal() {
+    return {
+        type: REPLACE_MODAL,
+        payload: {
+            component: 'pre-upgrade-system-failed-modal',
+            options: {
+                severity: 'error',
+                title: 'System Upgrade Failed',
+                size: 'small'
+            }
+        }
+    };
+}
+
+export function replaceToUpgradeSystemFailedModal() {
+    return {
+        type: REPLACE_MODAL,
+        payload: {
+            component: 'upgrade-system-failed-modal',
+            options: {
+                severity: 'error',
+                title: 'System Upgrade Failed',
+                size: 'xsmall'
+            }
+        }
+    };
+}

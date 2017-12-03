@@ -516,7 +516,7 @@ function update_member_of_cluster(req) {
     const is_clusterized = topology.is_clusterized;
     // Shouldn't do anything if there is not cluster
     if (!(is_clusterized && system_store.is_cluster_master)) {
-        dbg.log0(`update_member_of_cluster: is_clusterized:${is_clusterized}, 
+        dbg.log0(`update_member_of_cluster: is_clusterized:${is_clusterized},
             is_master:${system_store.is_cluster_master}`);
         return P.resolve();
     }
@@ -1176,10 +1176,8 @@ function member_pre_upgrade(req) {
                 upgrade.error = res.error;
             }
 
-            if (req.rpc_params.stage !== 'UPGRADE_STAGE') {
-                upgrade.staged_package = res.staged_package || 'UNKNOWN';
-                upgrade.tested_date = res.tested_date || 'UNKNOWN';
-            }
+            upgrade.staged_package = res.staged_package || 'UNKNOWN';
+            upgrade.tested_date = res.tested_date || 'UNKNOWN';
 
             dbg.log0('UPGRADE:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
 
@@ -1210,6 +1208,7 @@ function do_upgrade(req) {
     const on_err = err => {
         dbg.error('upgrade scripted failed. Aborting upgrade:', err);
         upgrade_in_process = false;
+        _handle_cluster_upgrade_failure(err, server.owner_address);
     };
     upgrade_utils.do_upgrade(filepath, server.is_clusterized, on_err);
 }
@@ -1275,7 +1274,7 @@ function upgrade_cluster(req) {
     dbg.log0('UPGRADE got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
     // get all cluster members other than the master
     let cinfo = system_store.get_local_cluster_info();
-    if (cinfo.upgrade.status !== 'CAN_UPGRADE') {
+    if (cinfo.upgrade.status !== 'CAN_UPGRADE' && cinfo.upgrade.status !== 'UPGRADE_FAILED') {
         throw new Error('Not in upgrade state:', cinfo.upgrade.error ? cinfo.upgrade.error : '');
     }
     const upgrade_path = _get_upgrade_path();
@@ -1366,8 +1365,7 @@ function upgrade_cluster(req) {
                     "upgrade.status": 'UPGRADING'
                 },
                 $unset: {
-                    "upgrade.error": true,
-                    "upgrade.stage": true
+                    "upgrade.error": true
                 }
             };
             return system_store.make_changes({
@@ -1400,11 +1398,8 @@ function _handle_cluster_upgrade_failure(err, ip) {
             const update = {
                 _id: id_query,
                 $set: {
-                    "upgrade.status": 'FAILED',
-                    "upgrade.error": err.message
-                },
-                $unset: {
-                    "upgrade.stage": true
+                    "upgrade.status": 'UPGRADE_FAILED',
+                    "upgrade.error": 'Upgrade has failed with an interal error'
                 }
             };
             return system_store.make_changes({
@@ -1442,9 +1437,8 @@ function _handle_upgrade_stage(params) {
         .then(() => {
             dbg.log0('UPGRADE:', 'calling do_upgrade on master');
             return server_rpc.client.cluster_internal.do_upgrade({
-                    filepath: params.upgrade_path
-                })
-                .catch(err => _handle_cluster_upgrade_failure(err, cinfo.owner_address));
+                filepath: params.upgrade_path
+            });
         })
         .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'))
         .catch(err => {

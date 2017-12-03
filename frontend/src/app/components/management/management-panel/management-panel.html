@@ -2,11 +2,6 @@
 
 <div class="greedy tabs">
     <nav>
-        <a ko.css.selected="selectedTab.eq('accounts')"
-            ko.attr.href="tabHref('accounts')"
-        >
-            Accounts
-        </a>
         <a ko.css.selected="selectedTab.eq('settings')"
             ko.attr.href="tabHref('settings')"
         >
@@ -30,10 +25,6 @@
     </nav>
 
     <div class="tabs-row">
-        <accounts-table class="tab"
-            ko.css.selected="selectedTab.eq('accounts')"
-        ></accounts-table>
-
         <section class="tab"
             ko.css.selected="selectedTab.eq('settings')"
         >

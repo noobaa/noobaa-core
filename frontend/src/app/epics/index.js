@@ -50,6 +50,10 @@ import fetchBucketObjects from './fetch-bucket-objects';
 import deleteBucketObject from './delete-bucket-object';
 import fetchSystemStorageHistory from './fetch-system-storage-history';
 import deleteHost from './delete-host';
+import uploadUpgradePackage from './upload-upgrade-package';
+import runUpgradePackageTests from './run-upgrade-package-tests';
+import fetchVersionReleaseNotes from './fetch-version-release-notes';
+import upgradeSystem from './upgrade-system';
 
 const generalEpics = [
     handleLocationRequests,
@@ -69,7 +73,11 @@ const systemRelatedEpics = [
     refresh,
     fetchNodeInstallationCommands,
     updateInstallNodesFormCommandsField,
-    fetchSystemStorageHistory
+    fetchSystemStorageHistory,
+    uploadUpgradePackage,
+    runUpgradePackageTests,
+    fetchVersionReleaseNotes,
+    upgradeSystem
 ];
 
 const alertsRelatedEpics = [

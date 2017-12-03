@@ -7,7 +7,7 @@ import * as routes from 'routes';
 import JSZip from 'jszip';
 import { last, makeArray } from 'utils/core-utils';
 import { all, sleep, execInOrder } from 'utils/promise-utils';
-import { realizeUri, downloadFile, httpRequest, httpWaitForResponse, toFormData } from 'utils/browser-utils';
+import { realizeUri, downloadFile, httpRequest, toFormData } from 'utils/browser-utils';
 import { Buffer } from 'buffer';
 
 // Action dispathers from refactored code.
@@ -634,54 +634,6 @@ export function updateHostname(hostname) {
             }
         )
         .done();
-}
-
-export function upgradeSystem(upgradePackage) {
-    logAction('upgradeSystem', { upgradePackage });
-
-    const { upgradeStatus } = model;
-    upgradeStatus({
-        step: 'UPLOAD',
-        progress: 0,
-        state: 'IN_PROGRESS'
-    });
-
-    const xhr = new XMLHttpRequest();
-    xhr.upload.onprogress = function(evt) {
-        upgradeStatus.assign({
-            progress: evt.lengthComputable && evt.loaded / evt.total
-        });
-    };
-
-    const payload = toFormData({ 'upgrade_file': upgradePackage });
-    httpRequest('/upgrade', {  verb: 'POST', xhr, payload })
-        .then(
-            evt => {
-                if (evt.target.status !== 200) {
-                    throw evt;
-                }
-
-                upgradeStatus({
-                    step: 'INSTALL',
-                    progress: 1,
-                    state: 'IN_PROGRESS'
-                });
-            }
-        )
-        .then(
-            () => sleep(config.serverRestartWaitInterval)
-        )
-        .then(
-            () => httpWaitForResponse('/version', 200)
-        )
-        .then(
-            () => reloadTo(routes.system, undefined, { afterupgrade: true })
-        )
-        .catch(
-            ({ type }) => upgradeStatus.assign({
-                state: type === 'abort' ? 'CANCELED' : 'FAILED'
-            })
-        );
 }
 
 // TODO: Notificaitons - remove message

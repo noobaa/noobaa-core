@@ -7,7 +7,7 @@ const actionToUriAccessor = deepFreeze({
     [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: payload => payload.packageUri
 });
 
-export default function(action$, { downloadFile }) {
+export default function(action$, { browser }) {
     return action$
         .map(action => {
             const uriAccessor = actionToUriAccessor[action.type];
@@ -16,6 +16,6 @@ export default function(action$, { downloadFile }) {
             const uri = uriAccessor(action.payload);
             if (!uri) return;
 
-            downloadFile(uri);
+            browser.downloadFile(uri);
         });
 }

@@ -1,12 +1,12 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row toggle-options" data-bind="foreach: options">
+<div class="row toggle-options" ko.foreach="options">
     <label class="toggle-option">
-        <input type="radio" data-bind="
-            attr: { name: $component.group },
-            checked: $component.selected,
-            checkedValue: value
-        "/>
-        <div class="toggle-btn" data-bind="text: label"></div>
+        <input type="radio"
+            ko.attr.name="$component.group"
+            ko.checkedValue="value"
+            ko.checked="$component.selected"
+        />
+        <div class="toggle-btn" ko.text="label"></div>
     </label>
 </div>

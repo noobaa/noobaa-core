@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-import { deepFreeze, omitUndefined } from 'utils/core-utils';
+import { deepFreeze, omitUndefined, groupBy, get } from 'utils/core-utils';
 
 export function getServerIssues(server, systemVersion, minRequirements) {
     const { debug_level, services_status = {} } = server;
@@ -128,6 +128,13 @@ const majorIssues = deepFreeze([
     'clusterConnectivity'
 ]);
 
+const upgradePackageStateToPriority = deepFreeze({
+    TESTED: 1,
+    TESTING: 2,
+    NO_PACKAGE: 3,
+    UPLOADING: 4
+});
+
 function _formatIssueMessage(subject, status, plural = false) {
     switch (status) {
         case 'FAULTY':
@@ -179,6 +186,12 @@ function _summrizeServerIssues(server, systemVersion, minRequirements) {
     });
 }
 
+export function getServerDisplayName(server) {
+    const { hostname, secret } = server;
+    return `${hostname}-${secret}`;
+
+}
+
 export function getClsuterHAState(topology) {
     const { supportHighAvailability, isHighlyAvailable }= topology;
     return supportHighAvailability ?
@@ -213,4 +226,56 @@ export function getClusterStateIcon(topology, systemVersion) {
         'HEALTHY';
 
     return clsuterModeToIcon[mode];
+}
+
+export function aggregateUpgradePackageInfo(serverList) {
+    const byPkgState = groupBy(
+        serverList,
+        server => get(
+            server,
+            ['upgrade', 'package', 'state'],
+            'NO_PACKAGE'
+        ),
+        server => ({
+            ...get(server, ['upgrade', 'package'], {}),
+            server: server.secret
+        })
+    );
+
+    const state = Object.keys(byPkgState)
+        .reduce((state1, state2) => {
+            const pri1 = upgradePackageStateToPriority[state1];
+            const pri2 = upgradePackageStateToPriority[state2];
+            return pri1 > pri2 ? state1 : state2;
+        });
+
+    switch (state) {
+        case 'NO_PACKAGE': {
+            return { state };
+        }
+        case 'UPLOADING': {
+            const { progress } = byPkgState.UPLOADING[0];
+            return { state, progress };
+        }
+        case 'TESTING': {
+            const testedCount = (byPkgState.TESTED || []).length;
+            const progress = testedCount / serverList.length;
+            return { state,progress };
+        }
+        case 'TESTED': {
+            return byPkgState.TESTED
+                .reduce(
+                    (aggr, pkg) => {
+                        aggr.version = aggr.version || pkg.version;
+                        aggr.testedAt = Math.max(aggr.testedAt, pkg.testedAt);
+                        if (pkg.error) aggr.errors.push({
+                            server: pkg.server,
+                            message: pkg.error
+                        });
+                        return aggr;
+                    },
+                    { state, testedAt: -Infinity, errors: [] }
+                );
+        }
+    }
 }

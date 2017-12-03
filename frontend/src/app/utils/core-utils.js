@@ -287,12 +287,13 @@ export function reverse(iterable) {
     return Array.from(iterable).reverse();
 }
 
-export function get(val, path) {
+export function get(val, path, defaultValue) {
     for (const part of path) {
         if (val == null) break;
         val = val[part];
     }
-    return val;
+
+    return isDefined(val) ? val : defaultValue;
 }
 
 export function equalItems(arr1, arr2) {

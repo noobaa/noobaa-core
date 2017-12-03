@@ -17,42 +17,24 @@ class FileSelectorViewModel {
         this.filter = filter;
         this.message = message;
         this.disabled = disabled;
-        this.dragCounter = ko.observable(0);
     }
 
-    onDragEnter() {
-        this.dragCounter(this.dragCounter() + 1);
-        return false;
+    onDrop(_, evt) {
+        const { files } = evt.dataTransfer;
+        const payload = ko.unwrap(this.allowMultiSelect) ? files : files[0];
+        this.onFilesReady(payload);
     }
 
-    onDragLeave() {
-        this.dragCounter(this.dragCounter() - 1);
-        return false;
+    onChange(_, evt) {
+        const { files } = evt.target;
+        const payload = ko.unwrap(this.allowMultiSelect) ? files : files[0];
+        this.onFilesReady(payload);
     }
 
-    onDragOver() {
-        return false;
-    }
-
-    onDrop(_, { dataTransfer }) {
-        const files = dataTransfer.files;
-        this.dragCounter(0);
-        this.onFilesReady(
-            ko.unwrap(this.allowMultiSelect) ? files : files[0]
-        );
-    }
-
-    onChange(_, { target }) {
-        const files = target.files;
-        this.onFilesReady(
-            ko.unwrap(this.allowMultiSelect) ? files : files[0]
-        );
-    }
-
-    onClick(_, { target }) {
+    onClick(_, evt) {
         // Fixes the problem of traiying to select a file with the same name
         // twice in a row.
-        target.value = '';
+        evt.target.value = '';
         return true;
     }
 }

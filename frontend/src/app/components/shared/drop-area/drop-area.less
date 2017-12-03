@@ -1,0 +1,29 @@
+/* Copyright (C) 2016 NooBaa */
+
+drop-area {
+    display: block;
+
+    .drop-container {
+        border: 1px dashed @color7;
+        font-size: @font-size3;
+
+
+        &.dragover {
+            border-color: @color14;
+
+            &.active, &.disabled {
+                .shake();
+
+                cursor: no-drop;
+            }
+        }
+
+        &.active {
+            border-color: @color14;
+        }
+
+        &.disabled, &.disabled.dragover {
+            border-color: @color15;
+        }
+    }
+}

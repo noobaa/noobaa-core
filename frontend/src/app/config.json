@@ -46,6 +46,11 @@
         "email": "support@noobaa.com",
         "helpDesk": "https://noobaa.desk.com",
         "upgradeToEnterpriseMailSubject": "Application for upgrade from Community Edition to Enterprise Edition license",
-        "missingOVAMailSubject": "Please help me find my original OVA"
+        "missingOVAMailSubject": "Please help me find my original OVA",
+        "upgradeFailedSubject": "My system upgrade has failed"
+    },
+    "releaseNotes": {
+        "baseUrl": "https://storage.googleapis.com/noobaa-fe-assets/release-notes",
+        "suffix": "txt"
     }
 }

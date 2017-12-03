@@ -10,10 +10,17 @@ import {
     FETCH_NODE_INSTALLATION_COMMANDS,
     COMPLETE_FETCH_NODE_INSTALLATION_COMMANDS,
     FAIL_FETCH_NODE_INSTALLATION_COMMANDS,
-    UPGRADE_SYSTEM,
     FETCH_SYSTEM_STORAGE_HISTORY,
     COMPLETE_FETCH_SYSTEM_STORAGE_HISTORY,
-    FAIL_FETCH_SYSTEM_STORAGE_HISTORY
+    FAIL_FETCH_SYSTEM_STORAGE_HISTORY,
+    UPGRADE_SYSTEM,
+    UPLOAD_UPGRADE_PACKAGE,
+    UPDATE_UPGRADE_PACKAGE_UPLOAD,
+    ABORT_UPGRADE_PACKAGE_UPLOAD,
+    RUN_UPGRADE_PACKAGE_TESTS,
+    FETCH_VERSION_RELEASE_NOTES,
+    COMPLETE_FETCH_VERSION_RELEASE_NOTES,
+    FAIL_FETCH_VERSION_RELEASE_NOTES
 } from 'action-types';
 
 export function createSystem(
@@ -98,10 +105,6 @@ export function failFetchNodeInstallationCommands(error) {
     };
 }
 
-export function upgradeSystem() {
-    return { type: UPGRADE_SYSTEM };
-}
-
 export function fetchSystemStorageHistory() {
     return { type: FETCH_SYSTEM_STORAGE_HISTORY };
 }
@@ -117,5 +120,53 @@ export function failFetchSystemStorageHistory(error) {
     return {
         type: FAIL_FETCH_SYSTEM_STORAGE_HISTORY,
         payload: { error }
+    };
+}
+
+export function upgradeSystem() {
+    return { type: UPGRADE_SYSTEM };
+}
+
+
+export function uploadUpgradePackage(packageFile) {
+    return {
+        type: UPLOAD_UPGRADE_PACKAGE,
+        payload: { packageFile }
+    };
+}
+
+export function updateUpgradePackageUpload(progress) {
+    return {
+        type: UPDATE_UPGRADE_PACKAGE_UPLOAD,
+        payload: { progress }
+    };
+}
+
+export function abortUpgradePackageUpload() {
+    return { type: ABORT_UPGRADE_PACKAGE_UPLOAD };
+}
+
+export function runUpgradePackageTests() {
+    return { type: RUN_UPGRADE_PACKAGE_TESTS };
+}
+
+export function fetchVersionReleaseNotes(version) {
+    return {
+        type: FETCH_VERSION_RELEASE_NOTES,
+        payload: { version }
+    };
+}
+
+export function completeFetchVersionReleaseNotes(version, notes) {
+    return {
+        type: COMPLETE_FETCH_VERSION_RELEASE_NOTES,
+        payload: { version, notes }
+    };
+}
+
+export function failFetchVersionReleaseNotes(version, error) {
+    return {
+        type: FAIL_FETCH_VERSION_RELEASE_NOTES,
+        payload: { version, error }
     };
 }

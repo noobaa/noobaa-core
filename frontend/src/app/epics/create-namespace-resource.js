@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { CREATE_NAMESPACE_RESOURCE } from 'action-types';
 import { completeCreateNamespaceResource, failCreateNamespaceResource } from 'action-creators';
 

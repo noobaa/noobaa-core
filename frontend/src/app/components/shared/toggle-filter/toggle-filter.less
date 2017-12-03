@@ -28,6 +28,8 @@ toggle-filter {
     }
 
     .toggle-btn {
+        .ripple(@color17);
+
         line-height: 28px;
         min-width: 52px;
         padding: 0 @gutter/2;
@@ -37,6 +39,6 @@ toggle-filter {
         text-transform: capitalize;
         cursor: @cursor-pointer;
         background-color: fadeout(@color7, 90%);
-        transition: all 250ms ease-out;
+        transition: all 500ms ease-out;
     }
 }

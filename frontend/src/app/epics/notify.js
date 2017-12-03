@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { deepFreeze, ensureArray, isDefined } from 'utils/core-utils';
 import { getHostDisplayName, getHostServiceDisplayName } from 'utils/host-utils';
 import { showNotification } from 'action-creators';

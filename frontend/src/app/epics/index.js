@@ -9,7 +9,6 @@ import signIn from './sign-in';
 import fetchSystemInfo from './fetch-system-info';
 import createAccount from './create-account';
 import refresh from './refresh';
-import lockCreateAccountModal from './lock-create-account-modal';
 import showAccountCreatedMessage from './show-account-created-message';
 import closeCreateAccountOnFaliure from './close-create-account-on-faliure';
 import updateAccountS3Access from './update-account-s3-access';

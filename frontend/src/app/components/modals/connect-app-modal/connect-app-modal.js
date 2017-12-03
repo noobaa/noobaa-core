@@ -62,7 +62,7 @@ class ConnectAppModalViewModel extends Observer {
             .filter(account => account.hasS3Access);
         this.accountOptions = accountList.map(account => account.name);
         const { name: selectedAccount } = form ?
-            accountList.find(account => account.name === getFieldValue(form, selectedAccount)) :
+            accountList.find(account => account.name === getFieldValue(form, 'selectedAccount')) :
             accountList.find(account => account.isOwner);
 
         this.accessKey(accounts[selectedAccount].accessKeys.accessKey);

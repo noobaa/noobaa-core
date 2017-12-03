@@ -8,8 +8,6 @@ import {
     RESET_FORM,
     TOUCH_FORM,
     SET_FORM_VALIDITY,
-    LOCK_FORM,
-    UNLOCK_FORM,
     SUBMIT_FORM,
     DROP_FROM
 } from 'action-types';
@@ -26,7 +24,6 @@ const initialFormState = {
     asyncErrors: {},
     validatingAsync: null,
     validated: false,
-    locked: false,
     submitted: false
 };
 
@@ -164,26 +161,6 @@ function onSetFormValidity(forms, { payload }) {
     };
 }
 
-function onLockForm(forms, { payload }) {
-    const form = forms[payload.form];
-    if (!form) return forms;
-
-    return {
-        ...forms,
-        [payload.form]: { ...form, locked: true }
-    };
-}
-
-function onUnlockForm(forms, { payload }) {
-    const form = forms[payload.form];
-    if (!form) return forms;
-
-    return {
-        ...forms,
-        [payload.form]: { ...form, locked: false }
-    };
-}
-
 function onSubmitForm(forms, { payload }) {
     const form = forms[payload.form];
     if (!form) return forms;
@@ -233,8 +210,6 @@ export default createReducer(initialState, {
     [RESET_FORM]: onResetForm,
     [TOUCH_FORM]: onTouchForm,
     [SET_FORM_VALIDITY]: onSetFormValidity,
-    [LOCK_FORM]: onLockForm,
-    [UNLOCK_FORM]: onUnlockForm,
     [SUBMIT_FORM]: onSubmitForm,
     [DROP_FROM]: onDropForm
 });

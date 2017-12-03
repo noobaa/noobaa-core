@@ -6,8 +6,6 @@ import {
     RESET_FORM,
     TOUCH_FORM,
     SET_FORM_VALIDITY,
-    LOCK_FORM,
-    UNLOCK_FORM,
     SUBMIT_FORM,
     DROP_FROM
 } from 'action-types';
@@ -60,20 +58,6 @@ export function setFormValidity(form, validity) {
 export function submitForm(form) {
     return {
         type: SUBMIT_FORM,
-        payload: { form }
-    };
-}
-
-export function lockForm(form){
-    return {
-        type: LOCK_FORM,
-        payload: { form }
-    };
-}
-
-export function unlockForm(form){
-    return {
-        type: UNLOCK_FORM,
         payload: { form }
     };
 }

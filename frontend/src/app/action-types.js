@@ -24,8 +24,6 @@ export const UPDATE_FORM = 'UPDATE_FORM';
 export const RESET_FORM = 'RESET_FORM';
 export const TOUCH_FORM = 'TOUCH_FORM';
 export const SET_FORM_VALIDITY = 'SET_FORM_VALIDITY';
-export const LOCK_FORM = 'LOCK_FORM';
-export const UNLOCK_FORM = 'UNLOCK_FORM';
 export const SUBMIT_FORM = 'SUBMIT_FORM';
 export const DROP_FROM = 'DROP_FROM';
 

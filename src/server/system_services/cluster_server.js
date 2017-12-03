@@ -357,7 +357,8 @@ function verify_candidate_join_conditions(req) {
                 }));
         })
         .catch(RpcError, err => {
-            if (err.rpc_code === 'RPC_CONNECT_TIMEOUT') {
+            if (err.rpc_code === 'RPC_CONNECT_TIMEOUT' ||
+                err.rpc_code === 'RPC_REQUEST_TIMEOUT') {
                 dbg.warn('received', err, ' on verify_candidate_join_conditions');
                 return {
                     result: 'UNREACHABLE'

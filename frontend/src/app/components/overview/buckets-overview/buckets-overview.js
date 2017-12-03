@@ -66,6 +66,8 @@ const chartDatasets = deepFreeze([
     }
 ]);
 
+const firstSampleHideDuration = moment.duration(1, 'hours').asMilliseconds();
+
 function _getTimespanBounds(unit, timespan, now) {
     const t = moment(now).add(1, unit).startOf(unit);
     const end = t.valueOf();
@@ -212,7 +214,9 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
             cloud: record.cloud.used || 0,
             internal: record.internal.used || 0
         }));
-    const allSamples = historySamples.length > 0 ? [...historySamples, currSample] : [];
+    const [firstSample, secondSample] = historySamples;
+    const showSamples = secondSample ||(firstSample && (now - firstSample.timestamp > firstSampleHideDuration));
+    const allSamples = showSamples ? [...historySamples, currSample] : [];
     const filteredSamples = _filterSamples(allSamples, start, end);
     const options = _getChartOptions(selectedDatasets, filteredSamples, durationSettings, start, end, timezone);
     const datasets = selectedDatasets
@@ -347,8 +351,9 @@ class BucketsOverviewViewModel extends Observer{
         const now = Date.now();
         const { timezone } = Object.values(servers).find(server => server.isMaster);
         const datasets = chartDatasets.filter(({ key }) => !hiddenDatasets.includes(key));
-        const hasStorageHistory = storageHistory.length > 0;
         const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
+        const hasChartData = chartParams.data.datasets
+            .some(dataset => Boolean(dataset.data.length));
 
         this.bucketsLinkText(bucketsLinkText);
         this.bucketsLinkHref(bucketsLinkHref);
@@ -360,7 +365,7 @@ class BucketsOverviewViewModel extends Observer{
         this.usedValues[0].value(used.hostPools);
         this.usedValues[1].value(used.cloudResources);
         this.usedValues[2].value(used.internalResources);
-        this.noChartData(!hasStorageHistory);
+        this.noChartData(!hasChartData);
         this.chartParams(chartParams);
         this.dataLoaded(true);
     }

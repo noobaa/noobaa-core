@@ -5,10 +5,10 @@
         steps: steps,
         step: form.step,
         actionLabel: 'Create',
-        disabled: form.isLocked,
+        disabled: form.isSubmitted,
         onBeforeStep: onBeforeStep.bind($component),
         onComplete: form.submit,
-        onCancel: close.bind($component)
+        onCancel: onCancel.bind($component)
     ">
         <section class="column greedy">
             <editor params="label: 'Login Access'">
@@ -23,13 +23,13 @@
                 </p>
             </editor>
 
-            <editor params="label: accountNameLabel">
+            <editor params="label: accountNameProps().label">
                 <input type="text"
                     ko.validationCss="form.accountName"
                     ko.value="form.accountName"
-                    ko.attr.placeholder="accountNamePlaceholder"
+                    ko.attr.placeholder="accountNameProps().placeholder"
                 />
-                <p class="remark" ko.visible="isAccountNameRemarkVisible">
+                <p class="remark" ko.visible="accountNameProps().isRemarkVisible">
                     3 - 32 characters
                 </p>
                 <validation-message params="field: form.accountName"></validation-message>
@@ -37,26 +37,26 @@
         </section>
 
         <section class="column greedy">
-            <editor params="label: 'S3 Access', disabled: form.isLocked">
+            <editor params="label: 'S3 Access', disabled: form.isSubmitted">
                 <toggle-switch params="
                     value: form.hasS3Access,
                     onLabel: 'Enabled',
                     offLabel: 'Disabled',
-                    disabled: form.isLocked
+                    disabled: form.isSubmitted
                 "></toggle-switch>
-                <p class="remark push-prev-half" ko.css.disabled="form.isLocked">
+                <p class="remark push-prev-half" ko.css.disabled="form.isSubmitted">
                     Granting S3 access will allow this account to connect S3 client <br>
                     applications by generating security credentials (key set).
                 </p>
                 <validation-message params="field: form.hasS3Access"></validation-message>
             </editor>
 
-            <editor params="label: 'S3 default placement', disabled: !form.hasS3Access() || form.isLocked()">
+            <editor params="label: 'S3 default placement', disabled: isS3AccessDisabled">
                 <div class="row">
                     <dropdown params="
                         options: resourceOptions,
                         selected: form.defaultResource,
-                        disabled: !form.hasS3Access() || form.isLocked(),
+                        disabled: isS3AccessDisabled,
                         placeholder: 'Choose Resources',
                         invalid: form.defaultResource.isInvalidTouched,
                     ">
@@ -74,7 +74,7 @@
                 options: bucketPermissionModes,
                 selected: form.hasAccessToAllBuckets,
                 multiline: true,
-                disabled: !form.hasS3Access() || form.isLocked()
+                disabled: isS3AccessDisabled
             "></radio-group>
 
             <div class="align-end push-next-half" ko.css.disabled="isBucketSelectionDisabled">

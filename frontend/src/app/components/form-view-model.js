@@ -11,8 +11,6 @@ import {
     touchForm,
     resetForm,
     setFormValidity,
-    lockForm,
-    unlockForm,
     submitForm,
     dropForm
 } from 'action-creators';
@@ -63,8 +61,8 @@ export default class FormViewModel extends Observer {
             )
         );
 
-        this.isLocked = ko.pureComputed(
-            () => Boolean(state()) && state().locked
+        this.isSubmitted = ko.pureComputed(
+            () => Boolean(state()) && state().submitted
         );
 
         this.warnings = ko.pureComputed(
@@ -76,7 +74,7 @@ export default class FormViewModel extends Observer {
         );
 
         // Bind form action to the form view model.
-        ['submit', 'reset', 'lock', 'unlock'].forEach(
+        ['submit', 'reset'].forEach(
             method => this[method] = this[method].bind(this)
         );
 
@@ -104,14 +102,6 @@ export default class FormViewModel extends Observer {
         action$.onNext(resetForm(this.name));
     }
 
-    lock() {
-        action$.onNext(lockForm(this.name));
-    }
-
-    unlock() {
-        action$.onNext(unlockForm(this.name));
-    }
-
     touch(group) {
         if (isDefined(group)) {
             const fields = this._groups[group];
@@ -136,7 +126,7 @@ export default class FormViewModel extends Observer {
         );
 
         const set = function(value, touch = true) {
-            if (_state() && !_state.locked) {
+            if (_state()) {
                 action$.onNext(updateForm(formName, { [fieldName]: value }, touch));
             }
         };

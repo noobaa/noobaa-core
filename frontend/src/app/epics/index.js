@@ -82,7 +82,6 @@ const alertsRelatedEpics = [
 
 const accountRelatedEpics = [
     createAccount,
-    lockCreateAccountModal,
     showAccountCreatedMessage,
     closeCreateAccountOnFaliure,
     updateAccountS3Access,

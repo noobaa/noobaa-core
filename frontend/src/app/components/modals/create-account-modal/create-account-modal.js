@@ -9,8 +9,9 @@ import { deepFreeze, flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { randomString } from 'utils/string-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getFormValues, getFieldValue, isFieldTouched, isFieldValid } from 'utils/form-utils';
 import { isEmail } from 'validations';
-import { createAccount } from 'action-creators';
+import { closeModal, lockModal, createAccount } from 'action-creators';
 
 const s3PlacementToolTip = `The selected resource will be associated to this account as it’s default
     data placement for each new bucket that will be created via an S3 application.`;
@@ -41,20 +42,40 @@ const bucketPermissionModes = deepFreeze([
 
 const formName = 'createAccount';
 
+function _getAccountNameFieldProps(form) {
+    const hasLoginAccess = getFieldValue(form, 'hasLoginAccess');
+
+    if (hasLoginAccess) {
+        return {
+            label: 'Email Address',
+            placeholder: 'Enter account email address',
+            isRemarkVisible: false
+        };
+
+    } else {
+        const touched = isFieldTouched(form, 'accountName');
+        const valid = isFieldValid(form, 'accountName');
+
+        return {
+            label: 'Account Name',
+            placeholder: 'Name this account',
+            isRemarkVisible: !touched || valid
+        };
+    }
+}
+
 class CreateAccountWizardViewModel extends Observer {
-    constructor({ onClose }) {
+    constructor() {
         super();
 
-        this.close = onClose;
         this.steps = steps;
         this.bucketPermissionModes = bucketPermissionModes;
         this.accountNames = null;
         this.resourceOptions = ko.observable();
         this.bucketOptions = ko.observable();
         this.password = randomString();
-        this.accountNameLabel = ko.observable();
-        this.accountNamePlaceholder = ko.observable();
-        this.isAccountNameRemarkVisible = ko.observable();
+        this.accountNameProps = ko.observable();
+        this.isS3AccessDisabled = ko.observable();
         this.isBucketSelectionDisabled = ko.observable();
         this.s3PlacementToolTip = s3PlacementToolTip;
 
@@ -73,53 +94,44 @@ class CreateAccountWizardViewModel extends Observer {
                 0: [ 'accountName' ],
                 1: [ 'defaultResource' ]
             },
-            onForm: this.onForm.bind(this),
             onValidate: this.onValidate.bind(this),
             onSubmit: this.onSubmit.bind(this)
         });
 
         this.observe(
-            state$.getMany('accounts', 'hostPools', 'cloudResources', 'buckets'),
+            state$.getMany(
+                'accounts',
+                'hostPools',
+                'cloudResources',
+                'buckets',
+                ['forms', formName]
+            ),
             this.onState
         );
     }
 
-    onState([accounts, hostPools, cloudResources, buckets]) {
-        if(!accounts) return;
-        this.accountNames = Object.keys(accounts);
-
-        this.resourceOptions(flatMap(
-            [ hostPools, cloudResources ],
-            resources => Object.values(resources).map(mapResourceToOptions)
-        ));
-
-        this.bucketOptions(Object.keys(buckets));
-    }
-
-    onForm(form) {
-        if (!form) return;
-        const {
-            hasLoginAccess,
-            accountName,
-            hasS3Access,
-            hasAccessToAllBuckets
-        } = form.fields;
-
-        if (hasLoginAccess.value) {
-            this.accountNameLabel('Email Address');
-            this.accountNamePlaceholder('Enter account email address');
-            this.isAccountNameRemarkVisible(false);
-        } else {
-            this.accountNameLabel('Account Name');
-            this.accountNamePlaceholder('Name this account');
-            this.isAccountNameRemarkVisible(!accountName.touched || accountName.validity !== 'INVALID');
+    onState([accounts, hostPools, cloudResources, buckets, form]) {
+        if(!accounts || !form) {
+            this.accountNameProps({});
+            return;
         }
 
-        this.isBucketSelectionDisabled(
-            form.locked ||
-            !hasS3Access.value ||
-            hasAccessToAllBuckets.value
+        const { hasS3Access, hasAccessToAllBuckets } = getFormValues(form);
+        const accountNames = Object.keys(accounts);
+        const resourceOptions = flatMap(
+            [ hostPools, cloudResources ],
+            resources => Object.values(resources).map(mapResourceToOptions)
         );
+        const bucketOptions = Object.keys(buckets);
+        const isS3AccessDisabled = form.submitted || !hasS3Access;
+        const isBucketSelectionDisabled = isS3AccessDisabled || hasAccessToAllBuckets;
+
+        this.accountNames = accountNames;
+        this.resourceOptions(resourceOptions);
+        this.bucketOptions(bucketOptions);
+        this.accountNameProps(_getAccountNameFieldProps(form));
+        this.isS3AccessDisabled(isS3AccessDisabled);
+        this.isBucketSelectionDisabled(isBucketSelectionDisabled);
     }
 
     onValidate(values) {
@@ -182,7 +194,7 @@ class CreateAccountWizardViewModel extends Observer {
         this.form.allowedBuckets([]);
     }
 
-    async onSubmit(values) {
+    onSubmit(values) {
         action$.onNext(createAccount(
             values.accountName.trim(),
             values.hasLoginAccess,
@@ -192,6 +204,12 @@ class CreateAccountWizardViewModel extends Observer {
             values.hasAccessToAllBuckets,
             values.allowedBuckets
         ));
+
+        action$.onNext(lockModal());
+    }
+
+    onCancel() {
+        action$.onNext(closeModal);
     }
 
     dispose() {

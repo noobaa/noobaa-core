@@ -181,6 +181,14 @@ export default {
             generate_credentials: {
                 message: 'Account Credentials Generated',
                 entityId: ({ account }) => account && account.email
+            },
+            connection_create: {
+                message: 'Connection Created',
+                entityId: ({ account }) => account && account.email
+            },
+            connection_delete: {
+                message: 'Connection Deleted',
+                entityId: ({ account }) => account && account.email
             }
         }
     },

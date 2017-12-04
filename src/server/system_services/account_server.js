@@ -606,25 +606,16 @@ function add_external_connection(req) {
         }).then(
             val => {
                 Dispatcher.instance().activity({
-                    event: 'account.connection.add',
+                    event: 'account.connection_create',
                     level: 'info',
                     system: req.system && req.system._id,
                     actor: req.account && req.account._id,
                     account: req.account._id,
-                    desc: `${info.name} was added by ${req.account && req.account.email}`,
+                    desc: `Connection "${info.name}" was created by ${req.account && req.account.email}.
+                    \nEndpoint: ${req.rpc_params.endpoint}
+                    \nAccess key: ${req.rpc_params.identity}`,
                 });
                 return val;
-            },
-            err => {
-                Dispatcher.instance().activity({
-                    event: 'account.connection.add',
-                    level: 'alert',
-                    system: req.system && req.system._id,
-                    actor: req.account && req.account._id,
-                    account: req.account._id,
-                    desc: `Error: ${info.name} failed to add by ${req.account && req.account.email}`,
-                });
-                throw err;
             }
         )
         .return();
@@ -841,25 +832,14 @@ function delete_external_connection(req) {
         .then(
             val => {
                 Dispatcher.instance().activity({
-                    event: 'account.connection.delete',
+                    event: 'account.connection_delete',
                     level: 'info',
                     system: req.system && req.system._id,
                     actor: req.account && req.account._id,
                     account: account._id,
-                    desc: `${connection_to_delete.name} was deleted by ${req.account && req.account.email}`,
+                    desc: `Connection "${connection_to_delete.name}" was deleted by ${req.account && req.account.email}`,
                 });
                 return val;
-            },
-            err => {
-                Dispatcher.instance().activity({
-                    event: 'account.connection.delete',
-                    level: 'alert',
-                    system: req.system && req.system._id,
-                    actor: req.account && req.account._id,
-                    account: account._id,
-                    desc: `Error: ${connection_to_delete.name} failed to delete by ${req.account && req.account.email}`,
-                });
-                throw err;
             }
         )
         .return();

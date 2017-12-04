@@ -2122,11 +2122,14 @@ class NodesMonitor extends EventEmitter {
             act.stage.size.remaining = Math.max(0,
                 act.stage.size.total - act.stage.size.completed) || 0;
             const completed_time = now - act.stage.time.start;
-            const remaining_time = Math.ceil(
-                act.stage.size.remaining *
-                completed_time / act.stage.size.completed
-            );
-            act.stage.time.end = now + remaining_time;
+            let end_calc;
+            if (act.stage.size.completed) {
+                end_calc = now + Math.ceil(
+                    act.stage.size.remaining *
+                    completed_time / act.stage.size.completed
+                );
+            }
+            act.stage.time.end = end_calc;
         }
 
         act.time = act.time || {};

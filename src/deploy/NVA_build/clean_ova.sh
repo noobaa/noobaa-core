@@ -157,6 +157,9 @@ mongo nbcore --eval 'db.dropDatabase()'
 sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40mNONE\x1b[0m.:" /etc/issue
 sudo sed -i "s:This server's secret is.*:No Server Secret:" /etc/issue
 sudo sysctl kernel.hostname=noobaa
+
+#Generate entropy for /dev/random (openssl and such)
+find /dev/disk/by-uuid/ -type l | xargs md5sum
 #reduce VM size
 set +e
 /sbin/swapoff -a

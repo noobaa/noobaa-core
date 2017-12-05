@@ -4,12 +4,14 @@
 const _ = require('lodash');
 const P = require('../../util/promise');
 const fs = require('fs');
+const dbg = require('../../util/debug_module')(__filename);
 const util = require('util');
 const s3ops = require('../qa/s3ops');
 const readline = require('readline');
 const promise_utils = require('../../util/promise_utils');
 const argv = require('minimist')(process.argv);
 
+dbg.set_process_name('dataset');
 
 module.exports = {
     run_test: run_test
@@ -510,43 +512,41 @@ function run_delete(params) {
 function run_test() {
     return P.resolve()
         .then(() => log_journal_file(`${CFG_MARKER}${DATASET_NAME}-${JSON.stringify(TEST_CFG)}`))
-        .then(() => {
-            promise_utils.pwhile(() => TEST_STATE.current_size < TEST_CFG.dataset_size, () => act_and_log('UPLOAD_NEW'))
-                // aging
-                .then(() => {
-                    TEST_STATE.aging = true;
-                    const start = Date.now();
-                    if (TEST_CFG.aging_timeout !== 0) {
-                        console.log(`will run aging for ${TEST_CFG.aging_timeout} minutes`);
-                    }
-                    return promise_utils.pwhile(() =>
-                        (TEST_CFG.aging_timeout === 0 || ((Date.now() - start) / (60 * 1000)) < TEST_CFG.aging_timeout), () => {
-                            console.log(`Aging... currently uploaded ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired 
+        .then(() => promise_utils.pwhile(() => TEST_STATE.current_size < TEST_CFG.dataset_size, () => act_and_log('UPLOAD_NEW'))
+            // aging
+            .then(() => {
+                console.log('NBNB after pwhile');
+                TEST_STATE.aging = true;
+                const start = Date.now();
+                if (TEST_CFG.aging_timeout !== 0) {
+                    console.log(`will run aging for ${TEST_CFG.aging_timeout} minutes`);
+                }
+                return promise_utils.pwhile(() =>
+                    (TEST_CFG.aging_timeout === 0 || ((Date.now() - start) / (60 * 1000)) < TEST_CFG.aging_timeout), () => {
+                        console.log(`Aging... currently uploaded ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired 
                         ${TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
 
-                            let action_type;
-                            if (TEST_STATE.current_size > TEST_CFG.dataset_size) {
-                                console.log(`${Yellow}the current dataset size is
+                        let action_type;
+                        if (TEST_STATE.current_size > TEST_CFG.dataset_size) {
+                            console.log(`${Yellow}the current dataset size is
                                 ${TEST_STATE.current_size}${TEST_CFG.size_units} and the reqested dataset size is
                                 ${TEST_CFG.dataset_size}${TEST_CFG.size_units}, going to delete${NC}`);
-                                action_type = 'DELETE';
-                            } else {
-                                action_type = 'RANDOM';
-                            }
-                            return P.resolve()
-                                .then(() => act_and_log(action_type));
-                        });
-                })
-                .then(() => {
-                    console.log(`Everything finished with success!`);
-                    process.exit(0);
-                })
-                .catch(err => {
-                    console.error(`Errors during test`, err);
-                    process.exit(4);
-                });
-        })
-        .done();
+                            action_type = 'DELETE';
+                        } else {
+                            action_type = 'RANDOM';
+                        }
+                        return P.resolve()
+                            .then(() => act_and_log(action_type));
+                    });
+            })
+            .then(() => {
+                console.log(`Everything finished with success!`);
+                process.exit(0);
+            })
+            .catch(err => {
+                console.error(`Errors during test`, err);
+                process.exit(4);
+            }));
 }
 
 function run_replay() {

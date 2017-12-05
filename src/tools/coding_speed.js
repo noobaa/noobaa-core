@@ -96,7 +96,9 @@ function main() {
         highWaterMark: 50,
         transform(chunk, encoding, callback) {
             if (argv.verbose) console.log(chunk);
-            if (argv.compare) assert(Buffer.concat(chunk.original_data).equals(chunk.data));
+            if (argv.compare && chunk.original_data) {
+                assert(Buffer.concat(chunk.original_data).equals(chunk.data));
+            }
             total_size += chunk.size;
             num_parts += 1;
             speedometer.update(chunk.size);

@@ -105,8 +105,12 @@ function create_bucket(req) {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
         const default_pool = req.account.default_pool;
-        const { chunk_config, insert_chunk_configs } = chunk_config_utils.resolve_chunk_config(
+        const chunk_config = chunk_config_utils.resolve_chunk_config(
             req.rpc_params.chunk_coder_config, req.account, req.system);
+        if (!chunk_config._id) {
+            chunk_config._id = system_store.generate_id();
+            changes.insert.chunk_configs = [chunk_config];
+        }
         const bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
         const mirrors = [{ spread_pools: [default_pool._id] }];
         const tier = tier_server.new_tier_defaults(
@@ -131,7 +135,6 @@ function create_bucket(req) {
 
         changes.insert.tieringpolicies = [tiering_policy];
         changes.insert.tiers = [tier];
-        changes.insert.chunk_configs = insert_chunk_configs;
     }
 
     const bucket = new_bucket_defaults(

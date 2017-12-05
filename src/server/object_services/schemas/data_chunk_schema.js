@@ -49,6 +49,11 @@ module.exports = {
 
         // size in bytes
         size: { type: 'integer' },
+        // the compressed size of the data
+        compress_size: { type: 'integer' },
+        // the frag size is saved although can be computed from size and chunk_config
+        // because the calculation requires padding and is easier to share this way
+        frag_size: { type: 'integer' },
 
         // Used in extra replication for video type chunks
         // Currently only the first and the last chunks of the video
@@ -60,14 +65,11 @@ module.exports = {
 
         // data digest (hash) - computed on the plain data before compression and encryption
         digest: { binary: true },
-        // the compressed size of the data
-        compress_size: { type: 'integer' },
+
         // cipher used to provide confidentiality - computed on the compressed data
         cipher_key: { binary: true },
         cipher_iv: { binary: true },
         cipher_auth_tag: { binary: true },
-
-        frag_size: { type: 'integer' },
 
         frags: {
             type: 'array',

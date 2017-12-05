@@ -289,7 +289,9 @@ _nb_coder_update_chunk(
         }
         if (chunk->cipher_type[0]) {
             nb_napi_set_buf_b64(env, v_chunk, "cipher_key_b64", &chunk->cipher_key);
-            nb_napi_set_buf_b64(env, v_chunk, "cipher_auth_tag_b64", &chunk->cipher_auth_tag);
+            if (chunk->cipher_auth_tag.len) {
+                nb_napi_set_buf_b64(env, v_chunk, "cipher_auth_tag_b64", &chunk->cipher_auth_tag);
+            }
         }
 
         napi_value v_frag = 0;

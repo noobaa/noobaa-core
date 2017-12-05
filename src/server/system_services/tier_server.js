@@ -48,12 +48,18 @@ function new_policy_defaults(name, system_id, tiers_orders) {
  *
  */
 function create_tier(req) {
+    const changes = { insert: {} };
+
     const policy_pool_ids = _.map(req.rpc_params.attached_pools, function(pool_name) {
         return req.system.pools_by_name[pool_name]._id;
     });
 
-    const { chunk_config, insert_chunk_configs } = chunk_config_utils.resolve_chunk_config(
+    const chunk_config = chunk_config_utils.resolve_chunk_config(
         req.rpc_params.chunk_coder_config, req.account, req.system);
+    if (!chunk_config._id) {
+        chunk_config._id = system_store.generate_id();
+        changes.insert.chunk_configs = [chunk_config];
+    }
 
     const mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
 
@@ -64,14 +70,10 @@ function create_tier(req) {
         mirrors
     );
     if (req.rpc_params.data_placement) tier.data_placement = req.rpc_params.data_placement;
+    changes.insert.tiers = [tier];
 
     dbg.log0('Creating new tier', tier);
-    return system_store.make_changes({
-            insert: {
-                tiers: [tier],
-                chunk_configs: insert_chunk_configs,
-            }
-        })
+    return system_store.make_changes(changes)
         .then(function() {
             req.load_auth();
             var created_tier = find_tier_by_name(req);
@@ -127,8 +129,15 @@ function _convert_pools_to_data_placement_structure(pool_ids, data_placement) {
  *
  */
 function update_tier(req) {
-    var tier = find_tier_by_name(req);
-    var updates = {};
+    const tier = find_tier_by_name(req);
+    const updates = {
+        _id: tier._id
+    };
+    const changes = {
+        insert: {},
+        update: { tiers: [updates] },
+    };
+
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
     }
@@ -136,9 +145,12 @@ function update_tier(req) {
         updates.data_placement = req.rpc_params.data_placement;
     }
 
-    const { chunk_config, insert_chunk_configs } = chunk_config_utils.resolve_chunk_config(
+    const chunk_config = chunk_config_utils.resolve_chunk_config(
         req.rpc_params.chunk_coder_config, req.account, req.system);
-
+    if (!chunk_config._id) {
+        chunk_config._id = system_store.generate_id();
+        changes.insert.chunk_configs = [chunk_config];
+    }
     if (chunk_config !== tier.chunk_config) {
         updates.chunk_config = chunk_config._id;
     }
@@ -164,15 +176,7 @@ function update_tier(req) {
         updates.mirrors = _convert_pools_to_data_placement_structure(pool_ids, req.rpc_params.data_placement);
     }
 
-    updates._id = tier._id;
-    return system_store.make_changes({
-            update: {
-                tiers: [updates]
-            },
-            insert: {
-                chunk_configs: insert_chunk_configs,
-            },
-        })
+    return system_store.make_changes(changes)
         .then(res => {
             var bucket = find_bucket_by_tier(req);
             let desc_string = [];

@@ -27,6 +27,10 @@ namespace noobaa
 #define MAX_TOTAL_FRAGS (MAX_DATA_FRAGS + MAX_PARITY_FRAGS)
 #define MAX_MATRIX_SIZE (MAX_DATA_FRAGS * MAX_TOTAL_FRAGS)
 
+// for now just ignore the auth tag to save performance
+// our chunk digest is already covering for data integrity
+#define USE_GCM_AUTH_TAG false
+
 static void _nb_encode(struct NB_Coder_Chunk* chunk);
 static void _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher);
 static void _nb_no_encrypt(struct NB_Coder_Chunk* chunk);
@@ -374,7 +378,7 @@ _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher)
     }
     assert(!out_len);
 
-    if (EVP_CIPHER_CTX_mode(&ctx) == EVP_CIPH_GCM_MODE) {
+    if (USE_GCM_AUTH_TAG && EVP_CIPHER_CTX_mode(&ctx) == EVP_CIPH_GCM_MODE) {
         nb_buf_free(&chunk->cipher_auth_tag);
         nb_buf_init_alloc(&chunk->cipher_auth_tag, 16);
         evp_ret = EVP_CIPHER_CTX_ctrl(
@@ -905,7 +909,7 @@ _nb_decrypt(
     }
 
     if (EVP_CIPHER_CTX_mode(&ctx) == EVP_CIPH_GCM_MODE) {
-        if (chunk->cipher_auth_tag.len) {
+        if (USE_GCM_AUTH_TAG && chunk->cipher_auth_tag.len) {
             evp_ret = EVP_CIPHER_CTX_ctrl(
                 &ctx,
                 EVP_CTRL_GCM_SET_TAG,

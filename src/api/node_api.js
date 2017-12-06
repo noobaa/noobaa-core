@@ -572,14 +572,21 @@ module.exports = {
                     $ref: '#/definitions/node_mode'
                 },
                 untrusted_reasons: {
-                    type: 'object',
-                    properties: {
-                        permission_event: {
-                            idate: true,
-                        },
-                        data_event: {
-                            idate: true,
-                        },
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            event: {
+                                type: 'string',
+                                enum: [
+                                    'DATA_EVENT',
+                                    'PERMISSION_EVENT'
+                                ]
+                            },
+                            time: {
+                                idate: true
+                            }
+                        }
                     }
                 }
             }

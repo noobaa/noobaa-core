@@ -21,8 +21,8 @@ const inMemoryQueryLimit = 10;
 const inMemoryHostLimit = paginationPageSize * inMemoryQueryLimit;
 const endpointUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseconds */
 const eventToReasonCode = deepFreeze({
-    permission_event: 'TEMPERING',
-    data_event: 'CORRUPTION'
+    PERMISSION_EVENT: 'TEMPERING',
+    DATA_EVENT: 'CORRUPTION'
 });
 
 // ------------------------------
@@ -209,12 +209,11 @@ function _mapDataToHost(host = {}, data, fetchTime) {
     const reasonByMount = groupBy(
         data.untrusted_reasons || [],
         reason => reason.drive.drive_id,
-        reason => Object.entries(reason.events)
-            .map(pair => {
-                const [event, time] = pair;
-                const reason = eventToReasonCode[event];
-                return { reason, time };
-            })
+        reason => reason.events.map(item => {
+            const { event, time } = item;
+            const reason = eventToReasonCode[event];
+            return { reason, time };
+        })
     );
 
     const activities = (storage_nodes_info.data_activities || [])

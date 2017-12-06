@@ -29,8 +29,8 @@ const eventMapping = deepFreeze({
         results: 'Data was changed'
     },
     TEMPERING: {
-        type: 'Node tempering',
-        results: 'missing data'
+        type: 'Permission tampering',
+        results: 'Directory permissions were changed'
     }
 });
 

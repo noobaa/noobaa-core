@@ -97,10 +97,6 @@ const NODE_INFO_FIELDS = [
     'deleting',
     'deleted',
 ];
-const UNTRUTED_REASONS_FIELD = [
-    'permission_event',
-    'data_event',
-];
 const NODE_INFO_DEFAULTS = {
     ip: '0.0.0.0',
     version: '',
@@ -2436,9 +2432,26 @@ class NodesMonitor extends EventEmitter {
             host_item.untrusted_reasons = _.map(
                 _.filter(host_nodes, item => (!item.trusted && item.node.node_type !== 'ENDPOINT_S3')),
                 untrusted_item => {
-                    let reason = {};
-                    reason.events = _.pick(untrusted_item, UNTRUTED_REASONS_FIELD);
-                    reason.drive = untrusted_item.node.drives[0];
+                    let reason = {
+                        events: [],
+                        drive: untrusted_item.node.drives[0]
+                    };
+                    if (untrusted_item.node.permission_tempering) {
+                        reason.events.push({
+                            event: 'PERMISSION_EVENT',
+                            time: untrusted_item.node.permission_tempering
+                        });
+                    }
+                    if (untrusted_item.node.issues_report) {
+                        for (const issue of untrusted_item.node.issues_report) {
+                            if (issue.reason === 'TAMPERING') {
+                                reason.events.push({
+                                    event: 'DATA_EVENT',
+                                    time: issue.time
+                                });
+                            }
+                        }
+                    }
                     return reason;
                 });
         }
@@ -3143,7 +3156,23 @@ class NodesMonitor extends EventEmitter {
         info.host_seq = String(item.node.host_sequence);
 
         if (!node.trusted) {
-            info.untrusted_reasons = _.pick(node, UNTRUTED_REASONS_FIELD);
+            info.untrusted_reasons = [];
+            if (node.permission_tempering) {
+                info.untrusted_reasons.push({
+                    event: 'PERMISSION_EVENT',
+                    time: node.permission_tempering
+                });
+            }
+            if (node.issues_report) {
+                for (const issue of node.issues_report) {
+                    if (issue.reason === 'TAMPERING') {
+                        info.untrusted_reasons.push({
+                            event: 'DATA_EVENT',
+                            time: issue.time
+                        });
+                    }
+                }
+            }
         }
 
         return fields ? _.pick(info, '_id', fields) : info;

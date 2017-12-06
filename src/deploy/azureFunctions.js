@@ -14,8 +14,10 @@ const azure_storage = require('../util/azure_storage_wrap');
 require('../util/dotenv').load();
 
 const adminUsername = 'notadmin';
-const adminPassword = 'Passw0rd123!';
-const DEFAULT_SIZE = 'Standard_A2_v2';
+const adminPassword = '0bj3ctSt0r3';
+const DEFAULT_SIZE = 'Standard_B2s';
+// const adminPassword = 'Passw0rd123!';
+// const DEFAULT_SIZE = 'Standard_A2_v2';
 
 const DEV_ACTIVATION_KEY = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +

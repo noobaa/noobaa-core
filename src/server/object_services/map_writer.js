@@ -32,7 +32,13 @@ class MapAllocator {
         this.parts = parts;
     }
 
-    run() {
+    run_select_tier() {
+        return P.resolve()
+            .then(() => this.prepare_tiering_for_alloc())
+            .then(() => mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status));
+    }
+
+    run_allocate_parts() {
         const millistamp = time_utils.millistamp();
         dbg.log1('MapAllocator: start');
         return P.resolve()
@@ -133,6 +139,13 @@ class MapAllocator {
 
 }
 
+function select_tier_for_write(bucket, obj) {
+    return new MapAllocator(bucket, obj).run_select_tier();
+}
+
+function allocate_object_parts(bucket, obj, parts) {
+    return new MapAllocator(bucket, obj, parts).run_allocate_parts();
+}
 
 /**
  *
@@ -305,6 +318,7 @@ function complete_object_parts(obj, multiparts_req) {
 
 
 // EXPORTS
-exports.MapAllocator = MapAllocator;
+exports.select_tier_for_write = select_tier_for_write;
+exports.allocate_object_parts = allocate_object_parts;
 exports.finalize_object_parts = finalize_object_parts;
 exports.complete_object_parts = complete_object_parts;

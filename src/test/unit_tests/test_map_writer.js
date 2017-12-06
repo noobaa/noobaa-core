@@ -32,7 +32,7 @@ mocha.describe('map_writer', function() {
             }));
     });
 
-    mocha.describe('MapAllocator', function() {
+    mocha.describe('allocate_object_parts', function() {
         mocha.it('works', function() {
             const bucket = system_store.data.systems[0].buckets_by_name[BKT];
             const obj = {};
@@ -43,15 +43,15 @@ mocha.describe('map_writer', function() {
                     chunk_coder_config: {},
                     size: 100,
                     frag_size: 100,
+                    digest_b64: Buffer.from('abcdefg').toString('base64'),
                     frags: [{
                         data_index: 0,
                     }]
                 }
             }];
-            const map_allocator = new map_writer.MapAllocator(bucket, obj, parts);
-            return map_allocator.run()
+            return map_writer.allocate_object_parts(bucket, obj, parts)
                 .then(res => {
-                    console.log('MapAllocator =>>>>', util.inspect(res, true, null, true));
+                    console.log('allocate_object_parts =>>>>', util.inspect(res, true, null, true));
                     assert.strictEqual(res.parts.length, 1);
                     const part = res.parts[0];
                     const frag = part.chunk.frags[0];

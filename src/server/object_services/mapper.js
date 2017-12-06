@@ -384,7 +384,7 @@ class TierMapper {
     /**
      * @returns true if tier_mapping is best, false if best_mapping is best.
      */
-    is_best_tier(tier_mapping, chunk_mapper, best_mapper, best_mapping) {
+    is_best_tier(tier_mapping, best_mapper, best_mapping) {
 
         // PREFERED TIER PICKING DECISION TABLE
         // NOTICE:
@@ -435,8 +435,10 @@ class TierMapper {
         // TODO rebuild effort considerations - number of allocations / replica vs erasure coding
         // - Example A: 2 allocations is less attractive than 1 allocation
         // - Example B: 2 allocations is more attractive than 1 allocation of EC decode (maybe?)
-        if (!tier_mapping.allocations && best_mapping.allocations) return true;
-        if (tier_mapping.allocations && !best_mapping.allocations) return false;
+        if (tier_mapping) {
+            if (!tier_mapping.allocations && best_mapping.allocations) return true;
+            if (tier_mapping.allocations && !best_mapping.allocations) return false;
+        }
 
         // Space considerations:
         // Prefer tiers that have more room
@@ -493,13 +495,27 @@ class TieringMapper {
         for (let i = 0; i < tier_mappers.length; ++i) {
             const tier_mapper = tier_mappers[i];
             const tier_mapping = tier_mapper.map_tier(chunk_mapper, best_mapper, best_mapping);
-            if (!best_mapper || tier_mapper.is_best_tier(tier_mapping, chunk_mapper, best_mapper, best_mapping)) {
+            if (!best_mapper || tier_mapper.is_best_tier(tier_mapping, best_mapper, best_mapping)) {
                 best_mapper = tier_mapper;
                 best_mapping = tier_mapping;
             }
         }
 
         return best_mapping;
+    }
+
+    select_tier_for_write() {
+        const { tier_mappers } = this;
+        let best_mapper;
+
+        for (let i = 0; i < tier_mappers.length; ++i) {
+            const tier_mapper = tier_mappers[i];
+            if (!best_mapper || tier_mapper.is_best_tier(null, best_mapper, null)) {
+                best_mapper = tier_mapper;
+            }
+        }
+
+        return best_mapper;
     }
 }
 
@@ -508,6 +524,21 @@ const tiering_mapper_cache = {
     miss: 0,
     map: new WeakMap(),
 };
+
+function _get_cached_tiering_mapper(tiering) {
+    let tiering_mapper = tiering_mapper_cache.map.get(tiering);
+    if (tiering_mapper) {
+        tiering_mapper_cache.hits += 1;
+    } else {
+        tiering_mapper_cache.miss += 1;
+        tiering_mapper = new TieringMapper(tiering);
+        tiering_mapper_cache.map.set(tiering, tiering_mapper);
+    }
+    if ((tiering_mapper_cache.hits + tiering_mapper_cache.miss + 1) % 50 === 0) {
+        dbg.log0('tiering_mapper_cache:', tiering_mapper_cache);
+    }
+    return tiering_mapper;
+}
 
 /**
  * 
@@ -522,19 +553,7 @@ const tiering_mapper_cache = {
 function map_chunk(chunk, tiering, tiering_status) {
 
     // const tiering_mapper = new TieringMapper(tiering);
-
-    let tiering_mapper = tiering_mapper_cache.map.get(tiering);
-    if (tiering_mapper) {
-        tiering_mapper_cache.hits += 1;
-    } else {
-        tiering_mapper_cache.miss += 1;
-        tiering_mapper = new TieringMapper(tiering);
-        tiering_mapper_cache.map.set(tiering, tiering_mapper);
-    }
-    if ((tiering_mapper_cache.hits + tiering_mapper_cache.miss + 1) % 50 === 0) {
-        dbg.log0('tiering_mapper_cache:', tiering_mapper_cache);
-    }
-
+    const tiering_mapper = _get_cached_tiering_mapper(tiering);
     tiering_mapper.update_status(tiering_status);
 
     const chunk_mapper = new ChunkMapper(chunk);
@@ -549,6 +568,13 @@ function map_chunk(chunk, tiering, tiering_status) {
     }
 
     return mapping;
+}
+
+function select_tier_for_write(tiering, tiering_status) {
+    const tiering_mapper = _get_cached_tiering_mapper(tiering);
+    tiering_mapper.update_status(tiering_status);
+    const tier_mapper = tiering_mapper.select_tier_for_write();
+    return tier_mapper.tier;
 }
 
 
@@ -736,6 +762,7 @@ function _pool_has_redundancy(pool) {
 exports.ChunkMapper = ChunkMapper;
 exports.TieringMapper = TieringMapper;
 exports.map_chunk = map_chunk;
+exports.select_tier_for_write = select_tier_for_write;
 exports.is_chunk_good_for_dedup = is_chunk_good_for_dedup;
 exports.assign_node_to_block = assign_node_to_block;
 exports.get_num_blocks_per_chunk = get_num_blocks_per_chunk;

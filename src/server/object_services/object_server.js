@@ -57,14 +57,19 @@ function create_object_upload(req) {
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
-    // TODO GUY GAP select preferred tier, what about changing preferred tier during streaming?
-    const tier = req.bucket.tiering.tiers[0].tier;
-    return MDStore.instance().insert_object(info)
-        .return({
+
+    let tier;
+    return P.resolve()
+        .then(() => map_writer.select_tier_for_write(req.bucket, info))
+        .then(tier1 => {
+            tier = tier1;
+        })
+        .then(() => MDStore.instance().insert_object(info))
+        .then(() => ({
             obj_id: info._id,
             chunk_split_config: req.bucket.tiering.chunk_split_config,
             chunk_coder_config: tier.chunk_config.chunk_coder_config,
-        });
+        }));
 }
 
 
@@ -241,14 +246,7 @@ function abort_object_upload(req) {
 function allocate_object_parts(req) {
     throw_if_maintenance(req);
     return find_cached_object_upload(req)
-        .then(obj => {
-            const allocator = new map_writer.MapAllocator(
-                req.bucket,
-                obj,
-                req.rpc_params.parts
-            );
-            return allocator.run();
-        });
+        .then(obj => map_writer.allocate_object_parts(req.bucket, obj, req.rpc_params.parts));
 }
 
 
@@ -272,22 +270,23 @@ function finalize_object_parts(req) {
 function create_multipart(req) {
     const multipart = _.pick(req.rpc_params, 'num', 'size', 'md5_b64', 'sha256_b64');
     multipart._id = MDStore.instance().make_md_id();
+    let tier;
     return find_object_upload(req)
         .then(obj => {
             multipart.system = req.system._id;
             multipart.bucket = req.bucket._id;
             multipart.obj = obj._id;
         })
+        .then(() => map_writer.select_tier_for_write(req.bucket, multipart.obj))
+        .then(tier1 => {
+            tier = tier1;
+        })
         .then(() => MDStore.instance().insert_multipart(multipart))
-        .then(() => {
-            // TODO GUY GAP select preferred tier, what about changing preferred tier during streaming?
-            const tier = req.bucket.tiering.tiers[0].tier;
-            return {
-                multipart_id: multipart._id,
-                chunk_split_config: req.bucket.tiering.chunk_split_config,
-                chunk_coder_config: tier.chunk_config.chunk_coder_config,
-            };
-        });
+        .then(() => ({
+            multipart_id: multipart._id,
+            chunk_split_config: req.bucket.tiering.chunk_split_config,
+            chunk_coder_config: tier.chunk_config.chunk_coder_config,
+        }));
 }
 
 /**

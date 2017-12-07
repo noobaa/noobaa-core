@@ -160,7 +160,7 @@ function getRebuildReplicasStatus(key) {
         .then(() => result);
 }
 
-function waitForRebuildObjects(file) {
+function waitForRebuildReplicasParts(file) {
     let retries = 0;
     let rebuild = false;
     console.log('Waiting for rebuild object ' + file);
@@ -172,7 +172,58 @@ function waitForRebuildObjects(file) {
                     rebuild = res;
                 } else {
                     retries += 1;
-                    console.log('Waiting for rebuild object ' + file + ' - will wait for extra 5 seconds retries ' + retries);
+                    console.log('Waiting for rebuild replicas parts' + file + ' - will wait for extra 5 seconds retries ' + retries);
+                }
+            })
+            .catch(e => console.warn('Waiting for rebuild replicas parts ' + file + 'with error ' + e))
+            .delay(5000));
+}
+
+function getFilesChunksHealthStatus(key) {
+    let result = false;
+    let parts = [];
+    const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
+    const client = rpc.new_client({});
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params)
+        .then(() => P.resolve(client.object.read_object_mappings({
+            bucket,
+            key,
+            adminfo: true
+        })))
+        .then(res => {
+            parts = res.parts;
+            let chunkAvailable = parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
+            let chunkNum = parts.length;
+            if (chunkAvailable === chunkNum) {
+                console.log('Available chunks number ' + chunkAvailable + ' all amount chunks ' + chunkNum);
+                result = true;
+            } else {
+                console.warn('Some chunk of file ' + key + ' has non available status');
+                result = false;
+            }
+        })
+        .catch(err => console.warn('Read chunk with error ' + err))
+        .then(() => result);
+}
+
+function waitForRebuildChunks(file) {
+    let retries = 0;
+    let rebuild = false;
+    console.log('Waiting for rebuild object ' + file);
+    return promise_utils.pwhile(
+        () => rebuild === false && retries !== 36,
+        () => P.resolve(getFilesChunksHealthStatus(file))
+            .then(res => {
+                if (res) {
+                    rebuild = res;
+                } else {
+                    retries += 1;
+                    console.log('Waiting for rebuild object' + file + ' - will wait for extra 5 seconds retries ' + retries);
                 }
             })
             .catch(e => console.warn('Waiting for rebuild file ' + file + 'with error ' + e))
@@ -187,6 +238,7 @@ function clean_up_dataset() {
 }
 
 return azf.authenticate()
+    .then(() => af.clean_agents(azf, osesSet, suffix))
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {
         oses = res;
@@ -198,17 +250,26 @@ return azf.authenticate()
     .then(res => {
         stopped_oses = res;
         //waiting for rebuild files by chunks and parts
-        return P.each(files, file => waitForRebuildObjects(file));
+        return P.each(files, file => waitForRebuildReplicasParts(file));
     })
     //Read and verify the read
     .then(() => P.each(files, file => getRebuildReplicasStatus(file)
         .then(res => {
             if (res === true) {
-                console.log('File ' + file + ' rebuild successfully');
+                console.log('File ' + file + ' rebuild replicas parts successfully');
             } else {
-                saveErrorAndResume('File ' + file + ' didn\'t rebuild');
+                saveErrorAndResume('File ' + file + ' didn\'t rebuild replicas parts');
             }
         })))
+    .then(() => P.each(files, file => waitForRebuildChunks(file))
+        .then(() => P.each(files, file => getFilesChunksHealthStatus(file)
+            .then(res => {
+                if (res === true) {
+                    console.log('File ' + file + ' rebuild files chunks successfully');
+                } else {
+                    saveErrorAndResume('File ' + file + ' didn\'t rebuild files chunks');
+                }
+            }))))
     .then(readFiles)
     //Power on the powered off agents and wait for them to be on
     .then(() => af.startOfflineAgents(azf, server_ip, suffix, stopped_oses))
@@ -217,29 +278,41 @@ return azf.authenticate()
     .then(res => {
         stopped_oses = res;
         //waiting for rebuild files by chunks and parts
-        return P.each(files, file => waitForRebuildObjects(file));
+        return P.each(files, file => waitForRebuildReplicasParts(file));
     })
     //Read and verify the read
     .then(() => P.each(files, file => getRebuildReplicasStatus(file)
         .then(res => {
             if (res === true) {
-                console.log('File ' + file + ' rebuild successfully');
+                console.log('File ' + file + ' rebuild replicas parts successfully');
             } else {
-                saveErrorAndResume('File ' + file + ' didn\'t rebuild');
+                saveErrorAndResume('File ' + file + ' didn\'t rebuild replicas parts');
             }
         })))
+    .then(() => P.each(files, file => waitForRebuildChunks(file))
+        .then(() => P.each(files, file => getFilesChunksHealthStatus(file)
+            .then(res => {
+                if (res === true) {
+                    console.log('File ' + file + ' rebuild files chunks successfully');
+                } else {
+                    saveErrorAndResume('File ' + file + ' didn\'t rebuild files chunks');
+                }
+            }))))
     .then(readFiles)
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;
     })
-    .finally(() => af.clean_agents(azf, oses, suffix)
-        .then(clean_up_dataset))
     .then(() => {
         if (failures_in_test) {
             console.error(':( :( Errors during rebuild replicas parts test (replicas) ): ):' + errors);
             process.exit(1);
+        } else {
+            return af.clean_agents(azf, oses, suffix)
+                .then(clean_up_dataset)
+                .then(() => {
+                    console.log(':) :) :) rebuild replicas parts test (replicas) were successful! (: (: (:');
+                    process.exit(0);
+                });
         }
-        console.log(':) :) :) rebuild replicas parts test (replicas) were successful! (: (: (:');
-        process.exit(0);
     });

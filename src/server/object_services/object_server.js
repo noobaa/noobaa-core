@@ -704,6 +704,11 @@ function list_objects(req) {
     } else if (req.rpc_params.key_glob) {
         key = glob_to_regexp(req.rpc_params.key_glob);
     }
+
+    let sort = req.rpc_params.sort;
+    if (req.rpc_params.sort === 'state') {
+        sort = 'upload_started';
+    }
     return MDStore.instance().find_objects({
             bucket_id: req.bucket._id,
             key: key,
@@ -711,7 +716,7 @@ function list_objects(req) {
             max_create_time: req.rpc_params.create_time,
             limit: req.rpc_params.limit,
             skip: req.rpc_params.skip,
-            sort: req.rpc_params.sort,
+            sort,
             order: req.rpc_params.order,
             pagination: req.rpc_params.pagination,
         })

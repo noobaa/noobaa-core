@@ -1,6 +1,6 @@
 ### Environment info
 - Version: **VERSION**
-- Deployment: **AZURE|ESX|AWS|GCLOUD|DEV|VBOX**
+- Deployment: **AZURE | AWS | GCLOUD | ESX | VBOX | DEV**
 - Customer: **NAME**
 
 ### Actual behavior
@@ -13,4 +13,4 @@
 1.
 
 ### Screenshots or Logs or other output that would be helpful
-(If large, please upload as attachment)
+

@@ -401,3 +401,19 @@ pre {
         }
     }
 }
+
+.count-indicator(@color, @bgColor) {
+    @size : 10px;
+    content: attr(data-count);
+    display: block;
+    min-width: @size;
+    height: @size;
+    line-height: 100%;
+    padding: 2px;
+    background-color: @bgColor;
+    border-radius: @size;
+    color: @color;
+    text-align: center;
+    font-size: 11px;
+    z-index: 1;
+}

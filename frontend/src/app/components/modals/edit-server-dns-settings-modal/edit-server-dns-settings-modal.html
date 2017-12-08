@@ -4,15 +4,15 @@
     Setup the server to use the following DNS servers for name resolution
 </p>
 
-<section class="greedy">
-    <editor class="push-prev" params="
+<section class="column greedy">
+    <editor params="
         label: 'Primary DNS'
     ">
         <input type="text"
             ko.value="primaryDNS"
         />
     </editor>
-    <editor class="push-next" params="
+    <editor params="
         label: 'Secondary DNS',
         disabled: hasNoPrimaryDNS
     ">
@@ -21,26 +21,32 @@
             ko.disable="hasNoPrimaryDNS"
         />
     </editor>
-    <editor class="push-next" params="
+
+    <editor class="greedy" params="
         label: 'Search Domains',
-        disabled: hasNoPrimaryDNS
+        disabled: hasNoPrimaryDNS,
+        insertValMessages: false
     ">
-        <div class="row">
-            <input type="text"
-                placeholder="E.g. noobaa, dev.lab"
-                ko.value="searchDomains"
-                ko.disable="hasNoPrimaryDNS"
-            />
-            <svg-icon class="icon-small push-prev-half align-middle"
+        <div class="row greedy">
+            <token-field params="
+                disabled: hasNoPrimaryDNS,
+                placeholder: 'E.g. noobaa, dev.lab',
+                tokens: searchDomains
+            "></token-field>
+            <svg-icon class="icon-small push-prev-half align-start"
                       params="name: 'question'"
                       ko.tooltip="searchDomainTooltip"
                       ko.css.disabled="hasNoPrimaryDNS"
             >
             </svg-icon>
         </div>
-        <p class="remark" ko.css.disabled="hasNoPrimaryDNS">
-            Type Domain names separated by a comma
-        </p>
+        <span class="remark"
+              ko.css.disabled="hasNoPrimaryDNS"
+              ko.visible="searchDomains.isValid"
+        >
+            Optional. Click enter after each domain name
+        </span>
+        <span class="val-msg" ko.validationMessage="searchDomains"></span>
     </editor>
 </section>
 

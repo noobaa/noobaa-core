@@ -38,21 +38,10 @@ uploads-indicator {
         overflow: visible;
 
         &.uploading::before {
-            @size : 10px;
-            content: attr(data-count);
+            .count-indicator(@color8, @color6);
             position: absolute;
-            top: -5px;
-            left: 5px;
-            display: block;
-            min-width: @size;
-            height: @size;
-            line-height: 100%;
-            padding: 2px;
-            background-color: @color6;
-            border-radius: @size;
-            color: @color8;
-            text-align: center;
-            z-index: 1;
+            top: -7px;
+            left: 0;
         }
     }
 }

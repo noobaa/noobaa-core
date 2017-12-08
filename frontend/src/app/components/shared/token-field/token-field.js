@@ -20,7 +20,7 @@ class TokenFieldViewModel {
             () => this.hasFocus() ? '' : ko.unwrap(placeholder)
         );
 
-        this.list = ko.observableArray(tokens() ? Array.from(tokens) : []);
+        this.list = ko.observableArray(Array.from(ko.unwrap(tokens) || []));
         this.selection = ko.observable(0);
         this.hasFocus = ko.observable(false);
         this.hasFocus.subscribe(f => !f && this.onBlur());

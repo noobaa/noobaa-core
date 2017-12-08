@@ -9,16 +9,28 @@
             ko.attr.href="tabHref('details')"
         >
             Services &amp; Information
+            <span class="issue-counter"
+                  ko.attr.data-count="detailsIssues"
+                  ko.visible="detailsIssues"
+            ></span>
         </a>
         <a ko.css.selected="selectedTab.eq('communication')"
             ko.attr.href="tabHref('communication')"
         >
             Internal Cluster Communication
+            <span class="issue-counter"
+                  ko.attr.data-count="communicationIssues"
+                  ko.visible="communicationIssues"
+            ></span>
         </a>
         <a ko.css.selected="selectedTab.eq('diagnostics')"
             ko.attr.href="tabHref('diagnostics')"
         >
             Diagnostics
+            <span class="issue-counter"
+                  ko.attr.data-count="diagnosticsIssues"
+                  ko.visible="diagnosticsIssues"
+            ></span>
         </a>
     </nav>
 

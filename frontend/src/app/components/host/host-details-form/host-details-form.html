@@ -57,7 +57,14 @@
                 <p class="row content-middle" ko.if="$data">
                     <span class="push-next-half" ko.text="count"></span>
                     |
-                    <span class="push-both-half" ko.text="utilization"></span>
+                    <span class="push-both-half"
+                          ko.css="css"
+                          ko.text="utilization"></span>
+                    <svg-icon class="icon-small"
+                              ko.css="css"
+                              ko.tooltip="tooltip"
+                              params="name: 'problem'"
+                    ></svg-icon>
                 </p>
             </template>
 
@@ -69,8 +76,8 @@
                         ko.css="css"
                         ko.text="utilization"
                     ></span>
-                    <svg-icon class="warning icon-small"
-                        ko.visible="hasWarning"
+                    <svg-icon class="icon-small"
+                        ko.css="css"
                         ko.tooltip="tooltip"
                         params="name: 'problem'"
                     ></svg-icon>

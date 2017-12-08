@@ -5,6 +5,7 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updateServerDNSSettings } from 'actions';
+import { isDNSName } from 'utils/net-utils';
 
 const searchDomainTooltip = 'If configured, search domains will be added to the fully qualified domain names when trying to resolve host names';
 
@@ -26,8 +27,13 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
         );
 
         this.searchDomains = ko.observableWithDefault(
-            () => (server() ? server().search_domains : []).join(',')
-        );
+                () => (server() && server().search_domains) || []
+            ).extend({
+                validation: {
+                    validator: domains => domains.every(domain => isDNSName(domain)),
+                    message: 'All values must be a valid domain names'
+                }
+            });
 
         this.primaryDNS = ko.observableWithDefault(
                 () => dnsServers()[0]
@@ -58,12 +64,7 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
             if(!this.primaryDNS()) {
                 updateServerDNSSettings(this.serverSecret, '', '', []);
             } else {
-                const searchDomains = (this.searchDomains() || '')
-                        .split(',')
-                        .map(domain => domain.trim())
-                        .filter(Boolean);
-
-                updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), searchDomains);
+                updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), this.searchDomains());
             }
 
             this.close();

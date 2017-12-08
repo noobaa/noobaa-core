@@ -252,11 +252,13 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         os: os_info.ostype,
         cpus: {
             units: os_info.cpus,
-            usage: os_info.cpu_usage
+            usedByOther: os_info.cpu_usage - data.process_cpu_usage,
+            usedByNoobaa: data.process_cpu_usage
         },
         memory: {
-            total: os_info.totalmem,
-            used: os_info.totalmem - os_info.freemem
+            free: os_info.freemem,
+            usedByNoobaa: data.process_mem_usage,
+            usedByOther: os_info.totalmem - os_info.freemem
         },
         debugMode: {
             state: Boolean(debug.level),

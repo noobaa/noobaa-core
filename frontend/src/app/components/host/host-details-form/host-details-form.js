@@ -3,7 +3,7 @@
 import template from './host-details-form.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { deepFreeze, mapValues, flatMap } from 'utils/core-utils';
+import { mapValues, flatMap, decimalRound } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { getHostDisplayName } from 'utils/host-utils';
 import ko from 'knockout';
@@ -11,14 +11,35 @@ import moment from 'moment';
 import numeral from 'numeral';
 import { openSetNodeAsTrustedModal, openConfirmDeleteHostModal } from 'action-creators';
 
-const memoryPressureTooltip = deepFreeze({
-    text: 'High Memory Pressure',
-    position: 'above'
-});
-
 const portsBlockedTooltip = `Some ports might be blocked. Check the firewall settings
     and make sure that the ports range of 60100-60600 is open for inbound traffix.
     These ports are used to communicate between the storage nodes.`;
+const errorLevel = 0.95;
+const warningLevel = 0.8;
+
+function _getCssByUsage(usage) {
+    return usage > errorLevel ?
+        'error' :
+        (usage > warningLevel) ? 'warning' : 'highlight';
+}
+
+function _getTooltipByUsage(subject, used, usedByNoobaa, usedByOther) {
+    const usageLevel = used > errorLevel ?
+        'Very High' :
+        (used > warningLevel) ? 'High' : '';
+    const title = `${usageLevel} ${subject} Pressure`.trim();
+
+    return {
+        text: {
+            title,
+            list: [
+                `NooBaa utilization: ${numeral(usedByNoobaa).format('%')}`,
+                `Server local utilization: ${numeral(usedByOther).format('%')}`
+            ]
+        },
+        position: 'after'
+    };
+}
 
 function _getProtocol({ protocol }) {
     const text = protocol === 'UNKNOWN' ? 'Unknown protocol' : protocol;
@@ -55,14 +76,30 @@ function _getServicesString({ services }) {
     }
 }
 
-function _getMemoryInfo({ mode, memory }) {
-    const hasWarning = mode === 'MEMORY_PRESSURE';
-    const usage = `${formatSize(memory.used)} of ${formatSize(memory.total)}`;
-    const css = hasWarning ? 'warning' : '';
-    const utilization = `${numeral(memory.used/memory.total).format('%')} utilization`;
-    const tooltip = memoryPressureTooltip;
+function _getMemoryInfo({ memory }) {
+    const usedMemory = memory.usedByNoobaa + memory.usedByOther;
+    const totalMemory = usedMemory + memory.free;
+    const used = decimalRound(usedMemory/totalMemory, 2);
+    const usedByNoobaa = (memory.usedByNoobaa/totalMemory).toFixed(2);
+    const usedByOther = used - usedByNoobaa;
+    const usage = `${formatSize(usedMemory)} of ${formatSize(totalMemory)}`;
+    const utilization = `${numeral(used).format('%')} utilization`;
+    const css = _getCssByUsage(used);
+    const tooltip = _getTooltipByUsage('Memory', used,  usedByNoobaa, usedByOther);
 
-    return { usage, utilization, css, hasWarning, tooltip };
+    return { usage, utilization, css, tooltip };
+}
+
+function _getCpusInfo({ cpus }) {
+    const used = decimalRound(cpus.usedByNoobaa + cpus.usedByOther, 2);
+    const usedByNoobaa = cpus.usedByNoobaa.toFixed(2);
+    const usedByOther = used - usedByNoobaa;
+    const count = cpus.units.length;
+    const utilization = `${numeral(used).format('%')} utilization`;
+    const css = _getCssByUsage(used);
+    const tooltip = _getTooltipByUsage('CPU', used, usedByNoobaa, usedByOther);
+
+    return { count, utilization, css, tooltip };
 }
 
 class HostDetailsFormViewModel extends Observer {
@@ -174,14 +211,8 @@ class HostDetailsFormViewModel extends Observer {
             rtt,
             hostname,
             upTime, os,
-            cpus,
             services
         } = host;
-
-        const cpusInfo = {
-            count: cpus.units.length,
-            utilization: `${numeral(cpus.usage).format('%')} utilization`
-        };
 
         const hostIsBeingDeleted = host.mode === 'DELETING';
 
@@ -208,7 +239,7 @@ class HostDetailsFormViewModel extends Observer {
         this.hostname(hostname);
         this.upTime(moment(upTime).fromNow(true));
         this.os(os);
-        this.cpus(cpusInfo);
+        this.cpus(_getCpusInfo(host));
         this.memory(_getMemoryInfo(host));
     }
 

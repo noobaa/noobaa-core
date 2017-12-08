@@ -149,7 +149,7 @@ function _formatIssueMessage(subject, status, plural = false) {
     }
 }
 
-function _summrizeServerIssues(server, systemVersion, minRequirements) {
+export function summarizeServerIssues(server, systemVersion, minRequirements) {
     const dnsServerStatus = server.dns.servers.status;
     const dnsNameResolutionStatus = (server.dns.nameResolution || {}).status;
     const proxyStatus = (server.proxy || {}).status;
@@ -204,7 +204,7 @@ export function getClusterStateIcon(topology, systemVersion) {
     const connected = servers.filter(server => server.mode === 'CONNECTED');
     const issueCount = connected.reduce(
         (count, server) => {
-            const serverIssues = _summrizeServerIssues(
+            const serverIssues = summarizeServerIssues(
                 server,
                 systemVersion,
                 topology.serverMinRequirements

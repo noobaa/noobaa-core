@@ -1,5 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 
-server-panel {
-    display: block;
+.server-panel {
+    .issue-counter {
+        position: relative;
+
+        &::before {
+            .count-indicator(@color7, @color11);
+            position: absolute;
+            top: -4px;
+            left: -4px;
+        }
+    }
 }

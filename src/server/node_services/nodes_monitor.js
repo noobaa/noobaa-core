@@ -186,11 +186,11 @@ const WAIT_SYSTEM_MAINTENANCE = 'SYSTEM_MAINTENANCE';
 
 
 // host modes consts
-const ERROR_PRI = 5;
-const IN_PROCESS_PRI = 4;
-const HAS_ISSUES_PRI = 3;
-const OPTIMAL_PRI = 2;
-const DECOMMISSIONED_PRI = 1;
+const ERROR_PRI = 4;
+const IN_PROCESS_PRI = 3;
+const HAS_ISSUES_PRI = 2;
+const OPTIMAL_PRI = 1;
+const DECOMMISSIONED_PRI = 0;
 const mode_priority = Object.freeze({
     OFFLINE: ERROR_PRI,
     UNTRUSTED: ERROR_PRI,
@@ -213,14 +213,7 @@ const mode_priority = Object.freeze({
     N2N_PORTS_BLOCKED: OPTIMAL_PRI,
     DECOMMISSIONED: DECOMMISSIONED_PRI,
 });
-const mode_by_priority = Object.freeze({
-    ERROR_PRI: 'HAS_ERRORS',
-    IN_PROCESS_PRI: 'IN_PROCESS',
-    HAS_ISSUES_PRI: 'HAS_ISSUES',
-    OPTIMAL_PRI: 'OPTIMAL',
-    DECOMMISSIONED_PRI: 'DECOMMISIONED'
-});
-
+const mode_by_priority = ['DECOMMISIONED', 'OPTIMAL', 'HAS_ISSUES', 'IN_PROCESS', 'HAS_ERRORS'];
 
 class NodesMonitor extends EventEmitter {
 
@@ -582,7 +575,7 @@ class NodesMonitor extends EventEmitter {
                 this._dispatch_node_event(
                     host_nodes[0],
                     s3_enabled ? 'endpoint_enabled' : 'endpoint_disabled',
-                    `S3 Endpoint service was ${storage_enabled ? 'enabled' : 'disabled'} on node ${this._item_hostname(host_nodes[0])} by ${req.account && req.account.email}`,
+                    `S3 Endpoint service was ${s3_enabled ? 'enabled' : 'disabled'} on node ${this._item_hostname(host_nodes[0])} by ${req.account && req.account.email}`,
                     req.account && req.account._id
                 );
             }

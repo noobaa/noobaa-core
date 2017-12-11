@@ -528,12 +528,12 @@ function set_file_attribute_with_copy(ip, bucket, file_name) {
         });
 }
 
-function get_list_buckets(ip) {
+function get_list_buckets(ip, accessKeyId = accessKeyDefault, secretAccessKey = secretKeyDefault) {
     const rest_endpoint = 'http://' + ip + ':80';
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
-        accessKeyId: accessKeyDefault,
-        secretAccessKey: secretKeyDefault,
+        accessKeyId,
+        secretAccessKey,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });

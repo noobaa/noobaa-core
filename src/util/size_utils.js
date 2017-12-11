@@ -40,9 +40,22 @@ const SOTRAGE_OBJ_KEYS = [
 
 BigInteger.PETABYTE = new BigInteger(PETABYTE);
 
-BigInteger.prototype.toJSON = function() {
+// We are overriding BigInteger.prototype.toJSON to make sure that JSON.stringify({ size: bigint }) will behave nicely
+// however BigInteger creates 3 prototypes internally (Integer, SmallInteger, BigInteger)
+// and writes the 'toJSON' property explicitly for all of them, we have to overwrite all 3.
+const IntegerPrototype = BigInteger.prototype;
+const BigIntegerPrototype = Object.getPrototypeOf(BigInteger.PETABYTE.multiply(BigInteger.PETABYTE));
+const SmallIntegerPrototype = Object.getPrototypeOf(BigInteger.zero);
+IntegerPrototype.toJSON = bigint_to_json_method;
+BigIntegerPrototype.toJSON = bigint_to_json_method;
+SmallIntegerPrototype.toJSON = bigint_to_json_method;
+
+/**
+ * @this {BigInteger}
+ */
+function bigint_to_json_method() {
     return bigint_to_json(this);
-};
+}
 
 /**
  * take a BigInteger object and convert to json {peta:.., n: ..} format if needed
@@ -289,7 +302,7 @@ function human_offset(offset) {
             res = mod + SIZE_UNITS[i];
         }
         n = Math.floor(n / 1024);
-        i++;
+        i += 1;
     } while (n);
 
     i = 5;
@@ -297,7 +310,7 @@ function human_offset(offset) {
         mod = peta % 1024;
         res = mod + SIZE_UNITS[i] + '.' + res;
         peta = Math.floor(peta / 1024);
-        i++;
+        i += 1;
     }
 
     return sign + res || '0';

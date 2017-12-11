@@ -121,13 +121,13 @@ class MirrorMapper {
         this.weight = redundant_weight || regular_weight;
     }
 
-    is_best_write_mapper(best_mapper) {
-        if (!best_mapper) return true;
-        if (this.weight > best_mapper.weight) return true;
-        if (this.weight < best_mapper.weight) return false;
+    /**
+     * @return >0 if mapper1 is best for write, <0 if mapper2 is best for write.
+     */
+    static compare_mapper_for_write(mapper1, mapper2) {
         // when equal weight, pick at random to spread the writes load
-        // we should add more data to this decosion such as pools available space and load factor.
-        return Math.random() < 0.5;
+        // we should add more data to this decision such as pools available space and load factor.
+        return (mapper1.weight - mapper2.weight) || (Math.random() - 0.5);
     }
 
     map_mirror(chunk_mapper, tier_mapping) {
@@ -333,7 +333,7 @@ class TierMapper {
         for (let i = 0; i < mirror_mappers.length; ++i) {
             const mirror_mapper = mirror_mappers[i];
             mirror_mapper.update_status(tier_status);
-            if (mirror_mapper.is_best_write_mapper(this.write_mapper)) {
+            if (!this.write_mapper || MirrorMapper.compare_mapper_for_write(mirror_mapper, this.write_mapper) > 0) {
                 this.write_mapper = mirror_mapper;
             }
         }
@@ -382,77 +382,75 @@ class TierMapper {
     }
 
     /**
-     * @returns true if tier_mapping is best, false if best_mapping is best.
+     * Compare tier based on space, effort, and policy.
+     * 
+     * Regular vs Spillover Decision Table:
+     * -----------------------------------
+     * The following table describes how we mix the considerations of space and effort to compare regular vs spillover tiers.
+     * The row/column titles are matching the test_mapper.js cases.
+     * 
+     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
+     * |                               | all_tiers_have_chunk | all_tiers_dont_have_chunk | only_regular_tier_has_chunk | only_spillover_tier_has_chunk |
+     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
+     * | all_tiers_have_space          |       Regular        |          Regular          |           Regular           |            Regular            |
+     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
+     * | all_tiers_dont_have_space     |       Regular        |          Regular          |           Regular           |           Spillover           |
+     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
+     * | only_spillover_tier_has_space |       Regular        |         Spillover         |           Regular           |           Spillover           |
+     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
+     * | only_regular_tier_has_space   |       Regular        |          Regular          |           Regular           |            Regular            |
+     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
+     *
+     * @param {TierMapper} mapper1 The first tier to compare
+     * @param {Object} mapping1 The result of mapper1.map_tier(...)
+     * @param {TierMapper} mapper2 The second tier to compare
+     * @param {Object} mapping2 The result of mapper2.map_tier(...)
+     *
+     * @returns >0 if (mapper1,mapping1) is best, <0 if (mapper2,mapping2) is best.
+     *
      */
-    is_best_tier(tier_mapping, best_mapper, best_mapping) {
+    static compare_tier(mapper1, mapping1, mapper2, mapping2) {
 
-        // PREFERED TIER PICKING DECISION TABLE
-        // NOTICE:
-        // Prior to the decision table below, we do a sortBy using several properties
-        // The sortBy massively affects the outcome regarding which tier will be chosen
-        // The below table hints the sorted array which type we shall choose
-        // 
-        // ST - Stands for SPILLOVER tier.
-        // NT - Stands for NORMAL tier which means not spill over.
-        // VC -  Stands for VALID chunk status on tier.
-        // NVC - Stands for NOT VALID chunk status on tier.
-        // VU -  Stands for tier which is VALID to upload (has free space).
-        // NVU - Stands for tier which is NOT VALID to upload (has no free space).
-        // 
-        // Options for Normal Tier and Spillover Tier:
-        // NT = { spillover_order: 1, chunk_good_order: VC/NVC, valid_order: VU/NVU, order: 1 },
-        // ST = { spillover_order: 2, chunk_good_order: VC/NVC, valid_order: VU/NVU, order: 2 },
-        // 
-        // TODO: Current algorithm was developed for two tiers maximum
-        // It may behave differently for more complex cases
-        // 
-        // +-------------------------------+-------------------+------------------+------------------+-----------------+
-        // | Availability / Chunk Validity | NT: NVC - ST: NVC | NT: VC - ST: NVC | NT: NVC - ST: VC | NT: VC - ST: VC |
-        // +-------------------------------+-------------------+------------------+------------------+-----------------+
-        // | NT:   VU                      |    Normal Tier    |    Normal Tier   |    Normal Tier   |    Normal Tier  |
-        // | ST:   VU                      |                   |                  |                  |                 |
-        // +-------------------------------+-------------------+------------------+------------------+-----------------+
-        // | NT:   NVU                     |    Normal Tier    |    Normal Tier   |                  |    Normal Tier  |
-        // | ST:   NVU                     |                   |                  |  Spillover Tier  |                 |
-        // +-------------------------------+-------------------+------------------+------------------+-----------------+
-        // | NT:   NVU                     |                   |    Normal Tier   |                  |    Normal Tier  |
-        // | ST:   VU                      |  Spillover Tier   |                  |  Spillover Tier  |                 |
-        // +-------------------------------+-------------------+------------------+------------------+-----------------+
-        // | NT:   VU                      |    Normal Tier    |    Normal Tier   |    Normal Tier   |    Normal Tier  |
-        // | ST:   NVU                     |                   |                  |                  |                 |
-        // +-------------------------------+-------------------+------------------+------------------+-----------------+
+        const { valid_for_allocation: has_space1, spillover: spillover1, order: order1 } = mapper1;
+        const { valid_for_allocation: has_space2, spillover: spillover2, order: order2 } = mapper2;
+        const allocs1 = mapping1 && mapping1.allocations ? mapping1.allocations.length : 0;
+        const allocs2 = mapping2 && mapping2.allocations ? mapping2.allocations.length : 0;
+        const can_use1 = !allocs1 || has_space1;
+        const can_use2 = !allocs2 || has_space2;
 
-        // TODO GUY GAP do we need the case of no_good_tier?
-        // no_good_tier = _.every(tiering_alloc_sorted_by_order, alloc => !_is_chunk_good_alloc(alloc) && !_is_valid_for_allocation_alloc(alloc));
+        // 1st consideration - Space / Spillover
+        // =====================================
+        // Choose tier which can be used over a tier that can't.
+        // This handles spillover, but also non spillover space tiering.
 
-        // Spillback considerations:
-        // We change from a spillover tier to a non-spillover target tier
-        // when the target tier has room, even if it might require allocations
-        if (!this.spillover && best_mapper.spillover && this.valid_for_allocation) return true;
-        if (this.spillover && !best_mapper.spillover && best_mapper.valid_for_allocation) return false;
+        if (can_use1 && !can_use2) return 1;
+        if (can_use2 && !can_use1) return -1;
 
-        // Allocation effort considerations:
-        // TODO rebuild effort considerations - number of allocations / replica vs erasure coding
-        // - Example A: 2 allocations is less attractive than 1 allocation
-        // - Example B: 2 allocations is more attractive than 1 allocation of EC decode (maybe?)
-        if (tier_mapping) {
-            if (!tier_mapping.allocations && best_mapping.allocations) return true;
-            if (tier_mapping.allocations && !best_mapping.allocations) return false;
-        }
+        // 2nd consideration - Spillback
+        // =============================
+        // Choose a non-spillover tier over spillover tier,
+        // even if it requires allocations effort.
 
-        // Space considerations:
-        // Prefer tiers that have more room
-        if (this.valid_for_allocation && !best_mapper.valid_for_allocation) return true;
-        if (!this.valid_for_allocation && best_mapper.valid_for_allocation) return false;
+        if (can_use1 && !spillover1 && spillover2) return 1;
+        if (can_use2 && !spillover2 && spillover1) return -1;
 
-        // Spillover considerations:
-        // only chose spillover if no other option
-        if (!this.spillover && best_mapper.spillover) return true;
-        if (this.spillover && !best_mapper.spillover) return false;
+        // 3rd consideration - Effort
+        // ==========================
+        // Number of allocations is used to estimate effort.
+        // TODO improve effort estimation - replica vs erasure coding, etc.
 
-        // Default: prefer lower order as defined in the tiering policy
-        return this.order <= best_mapper.order;
+        if (can_use1 && allocs1 < allocs2) return 1;
+        if (can_use2 && allocs2 < allocs1) return -1;
+
+        // 4th consideration - Policy Order
+        // ================================
+        // Prefer lower policy order as defined in the tiering policy.
+
+        if (can_use1 && order1 <= order2) return 1;
+        if (can_use2 && order2 <= order1) return -1;
+        return order2 - order1;
     }
+
 }
 
 
@@ -495,7 +493,7 @@ class TieringMapper {
         for (let i = 0; i < tier_mappers.length; ++i) {
             const tier_mapper = tier_mappers[i];
             const tier_mapping = tier_mapper.map_tier(chunk_mapper, best_mapper, best_mapping);
-            if (!best_mapper || tier_mapper.is_best_tier(tier_mapping, best_mapper, best_mapping)) {
+            if (!best_mapper || TierMapper.compare_tier(tier_mapper, tier_mapping, best_mapper, best_mapping) > 0) {
                 best_mapper = tier_mapper;
                 best_mapping = tier_mapping;
             }
@@ -510,7 +508,7 @@ class TieringMapper {
 
         for (let i = 0; i < tier_mappers.length; ++i) {
             const tier_mapper = tier_mappers[i];
-            if (!best_mapper || tier_mapper.is_best_tier(null, best_mapper, null)) {
+            if (!best_mapper || TierMapper.compare_tier(tier_mapper, null, best_mapper, null) > 0) {
                 best_mapper = tier_mapper;
             }
         }

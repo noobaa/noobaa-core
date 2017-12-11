@@ -114,7 +114,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/data_availability_test.js --resource '${yulia_resource}' --vnet '${yulia-test-rg-vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}'
+            node $WORKSPACE/src/test/qa/data_availability_test.js --resource '${yulia_resource}' --vnet '${yulia-test-rg-vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}' --iterationsNumber 2
             """
         }
         stage('Rebuild replicas test') {

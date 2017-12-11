@@ -67,12 +67,12 @@ const modeToStateIcon = deepFreeze({
     SOME_STORAGE_INITIALIZING: {
         name: 'working',
         css: 'warning',
-        tooltip: 'Some drives are Initializing'
+        tooltip: 'Some Drives are Initializing'
     },
     SOME_STORAGE_DECOMMISSIONING: {
         name: 'working',
         css: 'warning',
-        tooltip: 'Some drives are Decommissioning'
+        tooltip: 'Some Drives are Deactivating'
     },
     DELETING: {
         name: 'working',
@@ -82,27 +82,27 @@ const modeToStateIcon = deepFreeze({
     SOME_STORAGE_OFFLINE: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Some drives are Offline'
+        tooltip: 'Some Drives are Offline'
     },
     SOME_STORAGE_NOT_EXIST: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Some drives are Unmounted'
+        tooltip: 'Some Drives are Unmounted'
     },
     SOME_STORAGE_DETENTION: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Some drives has No Access'
+        tooltip: 'Some Drives has No Access'
     },
     NO_CAPACITY: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'No available capacity'
+        tooltip: 'No Available Capacity'
     },
     LOW_CAPACITY: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Low available capacity'
+        tooltip: 'Low Available Capacity'
     },
     HTTP_SRV_ERRORS: {
         name: 'problem',
@@ -122,7 +122,7 @@ const modeToStateIcon = deepFreeze({
     N2N_PORTS_BLOCKED: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Some ports might be blocked'
+        tooltip: 'Some Ports Might be Blocked'
     },
     OPTIMAL: {
         name: 'healthy',

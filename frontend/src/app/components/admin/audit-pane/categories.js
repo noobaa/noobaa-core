@@ -50,7 +50,7 @@ export default {
             },
 
             connected: {
-                message: 'Node Connected',
+                message: 'Drive Connected',
                 entityId: ({ node }) => node && node.name
             },
 
@@ -59,8 +59,8 @@ export default {
                 entityId: ({ node }) => node && node.name
             },
 
-            force_deleted: {
-                message: 'Node Force Deleted',
+            delete_started: {
+                message: 'Node Deletion Started',
                 entityId: ({ node }) => node && node.name
             },
 
@@ -75,7 +75,7 @@ export default {
             },
 
             disconnected: {
-                message: 'Node Disconnected',
+                message: 'Drive Disconnected',
                 entityId: ({ node }) => node && node.name
             }
         }

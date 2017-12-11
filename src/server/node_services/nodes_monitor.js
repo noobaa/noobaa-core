@@ -382,8 +382,9 @@ class NodesMonitor extends EventEmitter {
         const host_nodes = this._get_host_nodes_by_name(req.rpc_params.name);
         const host_item = this._consolidate_host(host_nodes);
         return P.map(host_nodes, node => this._delete_node(node))
-            .then(() => this._dispatch_node_event(host_item, 'deleted',
-                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} set to be deleted by ${req.account && req.account.email}`,
+            .then(() => this._dispatch_node_event(host_item, 'delete_started',
+                `Node ${this._item_hostname(host_item)} deletion process was initiated by ${req.account && req.account.email}. 
+                The node will be deleted from ${this._item_pool_name(host_item)} once all stored data is secured`,
                 req.account && req.account._id));
     }
 

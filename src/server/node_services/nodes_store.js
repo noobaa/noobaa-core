@@ -157,6 +157,16 @@ class NodesStore {
             .then(nodes => this._validate_all(nodes, 'warn'));
     }
 
+    get_hidden_by_id(id) {
+        return this._nodes.col().findOne({
+            _id: id,
+            $or: [
+                { 'deleted': { $ne: null } },
+                { 'force_hide': { $ne: null } },
+            ]
+        });
+    }
+
 
     ///////////
     // utils //

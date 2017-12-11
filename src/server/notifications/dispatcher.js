@@ -12,6 +12,7 @@ const nb_native = require('../../util/nb_native');
 const alerts_rules = require('./alerts_rules');
 const ActivityLogStore = require('../analytic_services/activity_log_store').ActivityLogStore;
 const system_store = require('../system_services/system_store').get_instance();
+const nodes_store = require('../node_services/nodes_store').NodesStore.instance();
 const nodes_client = require('../node_services/nodes_client');
 
 const SYSLOG_INFO_LEVEL = 5;
@@ -165,7 +166,7 @@ class Dispatcher {
     _resolve_activity_item(log_item, l) {
         return P.resolve()
             .then(() => nodes_client.instance().populate_nodes(
-                log_item.system, log_item, 'node', NODE_POPULATE_FIELDS))
+                log_item.system, log_item, 'node', NODE_POPULATE_FIELDS, true))
             .then(() => MDStore.instance().populate_objects(
                 log_item, 'obj', OBJECT_POPULATE_FIELDS))
             .then(() => {
@@ -176,7 +177,6 @@ class Dispatcher {
                         l.node.linkable = true;
                     } else {
                         l.node.linkable = false;
-                        l.node.name = '(deleted node)';
                     }
                 }
 
@@ -191,6 +191,13 @@ class Dispatcher {
                     l.server = log_item.server;
                 }
 
+                return P.resolve(log_item.node && !l.node.linkable && nodes_store.get_hidden_by_id(log_item.node));
+            })
+            .then(node => {
+                if (node) {
+                    l.node.name = `${node.host_name}#${node.host_sequence}`;
+                }
+                if (log_item.node) dbg.log0('JAJA', node);
                 return P.resolve(log_item.tier && system_store.data.get_by_id_include_deleted(log_item.tier, 'tiers'));
             })
             .then(tier => {

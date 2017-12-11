@@ -6,9 +6,6 @@
 const argv = require('minimist')(process.argv);
 
 const dbg = require('../../util/debug_module')(__filename);
-// disable all dbg.log output
-dbg.set_console_output(false);
-dbg.original_console();
 
 const AzureFunctions = require('../../deploy/azureFunctions');
 const agent_functions = require('../../test/qa/functions/agent_functions');
@@ -74,7 +71,7 @@ function main() {
             exit_code = 1;
         })
         .finally(() => {
-            if (cleanup) clean_test_env();
+            if (cleanup) return clean_test_env();
         })
         .then(() => process.exit(exit_code));
 }
@@ -151,6 +148,9 @@ function upgrade_test_env() {
 }
 
 function run_tests() {
+    // disable all dbg.log output before running tests
+    dbg.set_console_output(false);
+    dbg.original_console();
     if (js_script) {
         console.log(`running js script ${js_script} on ${server.name}`);
         return promise_utils.fork(js_script, ['--server_name', server.name, '--server_ip', server.ip, '--server_secret', server.secret])

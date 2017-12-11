@@ -53,14 +53,17 @@ mocha.describe('mapper', function() {
             // 4,
         ];
 
-        _.forEach(PLACEMENTS, data_placement =>
-            _.forEach(NUM_POOLS, num_pools =>
-                _.forEach(REPLICAS, replicas =>
-                    _.forEach(DATA_FRAGS, data_frags =>
-                        _.forEach(PARITY_FRAGS, parity_frags =>
-                            make_tests(num_pools, replicas, data_placement, data_frags, parity_frags)
-                        )))));
-
+        for (const data_placement of PLACEMENTS) {
+            for (const num_pools of NUM_POOLS) {
+                for (const replicas of REPLICAS) {
+                    for (const data_frags of DATA_FRAGS) {
+                        for (const parity_frags of PARITY_FRAGS) {
+                            make_tests(num_pools, replicas, data_placement, data_frags, parity_frags);
+                        }
+                    }
+                }
+            }
+        }
 
         function make_tests(num_pools, replicas, data_placement, data_frags, parity_frags) {
 
@@ -76,6 +79,7 @@ mocha.describe('mapper', function() {
             const regular_pools = _.times(num_pools, i => ({ _id: new mongodb.ObjectId(), name: 'regular_pool' + i, }));
             const spill_pools = _.times(num_pools, i => ({ _id: new mongodb.ObjectId(), name: 'spill_pool' + i, }));
             const external_pools = _.times(num_pools, i => ({ _id: new mongodb.ObjectId(), name: 'external_pool' + i, }));
+            const pool_by_id = _.keyBy(_.concat(regular_pools, spill_pools, external_pools), '_id');
             const regular_mirrors = data_placement === 'MIRROR' ?
                 regular_pools.map(pool => ({ spread_pools: [pool] })) : [{ spread_pools: regular_pools }];
             const spill_mirrors = data_placement === 'MIRROR' ?
@@ -113,8 +117,8 @@ mocha.describe('mapper', function() {
             const pools_by_tier_id = _.fromPairs(_.map(tiering.tiers,
                 ({ tier }) => [tier._id, _.flatMap(tier.mirrors, 'spread_pools')]
             ));
-            const regular_tiering_status = _.fromPairs(_.map(tiering.tiers,
-                ({ tier }) => [tier._id, {
+            const default_tiering_status = _.fromPairs(_.map(tiering.tiers,
+                ({ tier, spillover }) => [tier._id, {
                     pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
                         pool => [pool._id, { valid_for_allocation: true, num_nodes: config.NODES_MIN_COUNT }]
                     )),
@@ -129,6 +133,22 @@ mocha.describe('mapper', function() {
                     mirrors_storage: tier.mirrors.map(mirror => ({ free: spillover ? { peta: 1, n: 0 } : 0 }))
                 }]
             ));
+            const empty_tiering_status = _.fromPairs(_.map(tiering.tiers,
+                ({ tier, spillover }) => [tier._id, {
+                    pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
+                        pool => [pool._id, { valid_for_allocation: true, num_nodes: config.NODES_MIN_COUNT }]
+                    )),
+                    mirrors_storage: tier.mirrors.map(mirror => ({ free: 0 }))
+                }]
+            ));
+            const regular_tiering_status = _.fromPairs(_.map(tiering.tiers,
+                ({ tier, spillover }) => [tier._id, {
+                    pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
+                        pool => [pool._id, { valid_for_allocation: true, num_nodes: config.NODES_MIN_COUNT }]
+                    )),
+                    mirrors_storage: tier.mirrors.map(mirror => ({ free: spillover ? 0 : { peta: 1, n: 0 } }))
+                }]
+            ));
 
             const test_name = `num_pools=${num_pools} replicas=${replicas} ${data_placement} data_frags=${data_frags} parity_frags=${parity_frags}`;
 
@@ -141,7 +161,7 @@ mocha.describe('mapper', function() {
                             frags,
                             chunk_coder_config,
                         };
-                        const mapping = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                        const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
                         assert(!mapping.accessible, '!accessible');
                         assert.strictEqual(mapping.allocations.length, replicas * total_frags);
                         assert.strictEqual(mapping.deletions, undefined);
@@ -171,7 +191,7 @@ mocha.describe('mapper', function() {
                             chunk_coder_config,
                             blocks: make_blocks(),
                         };
-                        const mapping = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                        const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
                         assert(mapping.accessible, 'accessible');
                         assert.strictEqual(mapping.allocations, undefined);
                         assert.strictEqual(mapping.deletions, undefined);
@@ -187,7 +207,7 @@ mocha.describe('mapper', function() {
                                 make_blocks({ pool: external_pools[0] })
                             ),
                         };
-                        const mapping = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                        const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
                         assert(mapping.accessible, 'accessible');
                         assert.strictEqual(mapping.allocations, undefined);
                         assert.strictEqual(mapping.deletions.length, total_blocks);
@@ -203,7 +223,7 @@ mocha.describe('mapper', function() {
                                 make_blocks()
                             ),
                         };
-                        const mapping = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                        const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
                         assert(mapping.accessible, 'accessible');
                         assert.strictEqual(mapping.allocations, undefined);
                         assert.strictEqual(mapping.deletions.length, 1);
@@ -221,7 +241,7 @@ mocha.describe('mapper', function() {
                             chunk_coder_config,
                             blocks: make_blocks({ count: total_frags }),
                         };
-                        const mapping = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                        const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
                         assert(mapping.accessible, 'accessible');
                         assert.strictEqual(mapping.deletions, undefined);
                         if (total_blocks === total_frags) {
@@ -242,7 +262,7 @@ mocha.describe('mapper', function() {
                                 make_blocks({ count: total_frags })
                             ),
                         };
-                        const mapping = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                        const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
                         assert(mapping.accessible, 'accessible');
                         if (total_blocks === total_frags) {
                             assert.strictEqual(mapping.allocations, undefined);
@@ -255,7 +275,7 @@ mocha.describe('mapper', function() {
                             // "allocate" the requested blocks and try again
                             chunk.blocks = _.concat(chunk.blocks, make_blocks({ allocations: mapping.allocations }));
                             assert.strictEqual(chunk.blocks.length, total_blocks + 1);
-                            const mapping2 = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                            const mapping2 = mapper.map_chunk(chunk, tiering, default_tiering_status);
                             assert(mapping2.accessible, 'accessible');
                             assert.strictEqual(mapping2.allocations, undefined);
                             assert.strictEqual(mapping2.deletions.length, 1);
@@ -302,7 +322,7 @@ mocha.describe('mapper', function() {
                             chunk_coder_config,
                             blocks: make_blocks({ tier: spillover_tier }),
                         };
-                        const mapping = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                        const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
                         assert(mapping.accessible, 'accessible');
                         assert.strictEqual(mapping.allocations.length, total_blocks);
                         assert.strictEqual(mapping.deletions, undefined);
@@ -319,12 +339,81 @@ mocha.describe('mapper', function() {
                                 make_blocks({ tier: spillover_tier })
                             ),
                         };
-                        const mapping = mapper.map_chunk(chunk, tiering, regular_tiering_status);
+                        const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
                         assert(mapping.accessible, 'accessible');
                         assert.strictEqual(mapping.allocations, undefined);
                         assert.strictEqual(mapping.deletions.length, total_blocks);
                         assert_deletions_in_tier(mapping.deletions, spillover_tier);
                     });
+
+                });
+
+                mocha.describe('tiering', function() {
+
+                    const REGULAR = 'regular';
+                    const SPILLOVER = 'spillover';
+                    const TIERING_STATUS = Symbol('tiering_status_symbol');
+                    const tiering_tests = {
+                        all_tiers_have_space: {
+                            [TIERING_STATUS]: default_tiering_status,
+                            all_tiers_have_chunk: REGULAR,
+                            all_tiers_dont_have_chunk: REGULAR,
+                            only_regular_tier_has_chunk: REGULAR,
+                            only_spillover_tier_has_chunk: REGULAR,
+                        },
+                        all_tiers_dont_have_space: {
+                            [TIERING_STATUS]: empty_tiering_status,
+                            all_tiers_have_chunk: REGULAR,
+                            all_tiers_dont_have_chunk: REGULAR,
+                            only_regular_tier_has_chunk: REGULAR,
+                            only_spillover_tier_has_chunk: SPILLOVER,
+                        },
+                        only_spillover_tier_has_space: {
+                            [TIERING_STATUS]: spillover_tiering_status,
+                            all_tiers_have_chunk: REGULAR,
+                            all_tiers_dont_have_chunk: SPILLOVER,
+                            only_regular_tier_has_chunk: REGULAR,
+                            only_spillover_tier_has_chunk: SPILLOVER,
+                        },
+                        only_regular_tier_has_space: {
+                            [TIERING_STATUS]: regular_tiering_status,
+                            all_tiers_have_chunk: REGULAR,
+                            all_tiers_dont_have_chunk: REGULAR,
+                            only_regular_tier_has_chunk: REGULAR,
+                            only_spillover_tier_has_chunk: REGULAR,
+                        },
+                    };
+
+                    _.forEach(tiering_tests, (chunk_tests, tiering_test) => {
+                        mocha.describe(tiering_test, function() {
+                            const tiering_status = chunk_tests[TIERING_STATUS];
+                            _.forEach(chunk_tests, (map_result, chunk_test) => {
+                                mocha.it(chunk_test, function() {
+                                    const expected_tier = map_result === SPILLOVER ? spillover_tier : regular_tier;
+                                    const unexpected_tier = map_result === SPILLOVER ? regular_tier : spillover_tier;
+                                    const chunk = {
+                                        _id: 1,
+                                        frags,
+                                        chunk_coder_config,
+                                        blocks: _.concat(
+                                            (
+                                                chunk_test === 'all_tiers_have_chunk' ||
+                                                chunk_test === 'only_regular_tier_has_chunk'
+                                            ) ? make_blocks({ tier: regular_tier }) : [],
+                                            (
+                                                chunk_test === 'all_tiers_have_chunk' ||
+                                                chunk_test === 'only_spillover_tier_has_chunk'
+                                            ) ? make_blocks({ tier: spillover_tier }) : []
+                                        ),
+                                    };
+                                    const mapping = mapper.map_chunk(chunk, tiering, tiering_status);
+                                    assert_allocations_in_tier(mapping.allocations, expected_tier);
+                                    assert_deletions_in_tier(mapping.deletions, unexpected_tier);
+                                });
+                            });
+                        });
+                    });
+
 
                 });
 
@@ -391,19 +480,18 @@ mocha.describe('mapper', function() {
 
             function assert_allocations_in_tier(allocations, tier) {
                 const tier_pools = pools_by_tier_id[tier._id];
-                _.forEach(allocations, ({ pools }) =>
-                    _.forEach(pools, pool =>
-                        assert(_.includes(tier_pools, pool), 'assert_allocations_in_tier')
-                    )
-                );
+                _.forEach(allocations, ({ pools }) => (
+                    _.forEach(pools, pool => (
+                        assert(_.includes(tier_pools, pool), `assert_allocations_in_tier expected tier ${tier.name} found pool ${pool.name}`)
+                    ))
+                ));
             }
 
             function assert_deletions_in_tier(deletions, tier) {
                 const tier_pools = pools_by_tier_id[tier._id].map(pool => pool._id);
-                _.forEach(deletions, block =>
-                    assert(_.includes(tier_pools, block.pool), 'assert_deletions_in_tier')
-                );
-
+                _.forEach(deletions, block => (
+                    assert(_.includes(tier_pools, block.pool), `assert_deletions_in_tier expected tier ${tier.name} found pool ${pool_by_id[block.pool].name}`)
+                ));
             }
         }
 

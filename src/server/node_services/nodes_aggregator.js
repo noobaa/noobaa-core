@@ -1,8 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
-
 const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
 const mapper = require('../object_services/mapper');
@@ -52,19 +50,20 @@ function _aggregate_data_free_for_tier(tier_id, system) {
                 })
             })
             .then(res_nodes => {
-                const on_prem_storage = res_nodes.nodes
-                    .filter(node => !node.is_cloud_node && !node.is_mongo_node)
-                    .map(node => node.storage);
-                const on_mongo_or_cloud_storage = res_nodes.nodes
-                    .filter(node => node.is_cloud_node || node.is_mongo_node)
-                    .map(node => node.storage);
-
-                mirror_available_storage.push({
-                    free: size_utils.reduce_sum('free', _.concat(
-                        on_mongo_or_cloud_storage.map(storage => (storage.free || 0)),
-                        calculate_total_spread_storage(on_prem_storage, num_blocks_per_chunk, 'free')
-                    ))
-                });
+                let free = BigInteger.zero;
+                const spread_free = [];
+                for (let i = 0; i < res_nodes.nodes.length; ++i) {
+                    const node = res_nodes.nodes[i];
+                    const node_free = size_utils.json_to_bigint(node.storage.free || 0);
+                    if (!node_free.greater(BigInteger.zero)) continue;
+                    if (node.is_cloud_node || node.is_mongo_node) {
+                        free = free.plus(node_free);
+                    } else {
+                        spread_free.push(node_free);
+                    }
+                }
+                free = free.plus(_calculate_spread_free(spread_free, num_blocks_per_chunk));
+                mirror_available_storage.push({ free: size_utils.bigint_to_json(free) });
             }))
         .return(mirror_available_storage);
 }
@@ -76,29 +75,20 @@ function compare_bigint(bigint_a, bigint_b) {
 
 
 /**
- * storage_arr - array of storage records
- * num_blocks_per_chunk - the number of blocks including replicas and parity in the tier policy
- * key_to_sort - key of storage record that is required to work on
+ * @param {BigInteger[]} free_list Array of free storage per node
+ * @param {Integer} num_blocks_per_chunk The number of blocks including replicas and parity in the tier policy
  */
-function calculate_total_spread_storage(storage_arr, num_blocks_per_chunk, key_to_sort) {
-    let key_storage_array = storage_arr.map(storage_obj =>
-            size_utils.json_to_bigint(storage_obj[key_to_sort] || 0))
-        .filter(big_int_size => big_int_size.greater(BigInteger.zero));
-
-    key_storage_array.sort(compare_bigint);
-
-    let requested_key_total = BigInteger.zero;
-
-    while (key_storage_array.length >= num_blocks_per_chunk) {
-        const smallest = key_storage_array.shift();
-        requested_key_total = requested_key_total.plus(smallest);
-
+function _calculate_spread_free(free_list, num_blocks_per_chunk) {
+    free_list.sort(compare_bigint);
+    let total = BigInteger.zero;
+    while (free_list.length >= num_blocks_per_chunk) {
+        const smallest = free_list.shift();
+        total = total.plus(smallest);
         for (let i = 0; i < num_blocks_per_chunk - 1; ++i) {
-            key_storage_array[i] = key_storage_array[i].minus(smallest);
+            free_list[i] = free_list[i].minus(smallest);
         }
     }
-
-    return requested_key_total.toJSON();
+    return total;
 }
 
 

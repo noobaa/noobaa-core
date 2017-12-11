@@ -36,7 +36,7 @@ function get_accounts_emails() {
     return client.system.read_system()
         .then(res => res.accounts)
         .then(accounts => {
-            var emails = [];
+            let emails = [];
             accounts.forEach(function(acc) {
                 emails.push(acc.email);
             });
@@ -53,7 +53,7 @@ function get_s3_account_access(email) {
     return client.system.read_system()
         .then(res => res.accounts)
         .then(accounts => {
-            for (var i = 0; i < accounts.length; i++) {
+            for (let i = 0; i < accounts.length; i++) {
                 if (accounts[i].email === email) {
                     s3AccessKeys = {
                         accessKeyId: accounts[i].access_keys[0].access_key,

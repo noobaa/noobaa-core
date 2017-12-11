@@ -90,7 +90,7 @@ node('pipeline') {
             . /opt/nvm/nvm.sh
             node $WORKSPACE/src/test/qa/namespace_test.js --server_ip '${dataset_ip}'
             """
-        },
+        }
         stage('TUI test') {
             echo 'Doing some TUI!'
             sh script: """

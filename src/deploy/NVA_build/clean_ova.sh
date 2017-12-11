@@ -1,7 +1,7 @@
 set -e
 # TODO copied from first_install_diaglog.sh
 export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
-eval {isAzure,isEsx,isAlyun,isAws}="false"
+eval {isAzure,isEsx,isAlyun,isAws,dev}="false"
 platform="on_prem"
 
 function clean_ifcfg() {
@@ -38,7 +38,15 @@ function aws_specific(){
     shred -u ~/.*history
 }
 
-OPTIONS=$( getopt -o 'h,e,a,l,w' --long "help,esx,azure,alyun,aws" -- "$@" )
+function generate_entropy(){
+    echo "Generate entropy for /dev/random (openssl and such) for 5m"
+    find /dev/disk/by-uuid/ -type l | xargs md5sum &
+    pid=$!
+    sleep 300
+    kill -9 ${pid}
+}
+
+OPTIONS=$( getopt -o 'h,e,a,l,w,d' --long "help,esx,azure,alyun,aws,dev" -- "$@" )
 eval set -- "${OPTIONS}"
 
 function usage(){
@@ -65,6 +73,8 @@ do
                         shift 1;;
         -w|--aws)       isAws=true
                         platform=aws
+                        shift 1;;
+        -d|--dev)       dev=true
                         shift 1;;
 		-h|--help)	    usage;;
 		--)			    shift 1;
@@ -160,8 +170,12 @@ sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBa
 sudo sed -i "s:This server's secret is.*:No Server Secret:" /etc/issue
 sudo sysctl kernel.hostname=noobaa
 
-#Generate entropy for /dev/random (openssl and such)
-find /dev/disk/by-uuid/ -type l | xargs md5sum
+if ! ${dev}
+then
+    #Generate entropy for /dev/random (openssl and such)
+    generate_entropy
+fi
+
 #reduce VM size
 set +e
 /sbin/swapoff -a
@@ -175,8 +189,13 @@ if ! ${isEsx}
 then
    echo "${platform} - will not try to compress HD"
 else
-    dd if=/dev/zero of=zeroFile.tmp bs=1M
-    rm -f zeroFile.tmp
+    if ${dev}
+    then
+        echo "using --dev, skipping zeroFile"
+    else
+        dd if=/dev/zero of=zeroFile.tmp bs=1M
+        rm -f zeroFile.tmp
+    fi
 fi
 history -c
 history -w

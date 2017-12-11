@@ -1,7 +1,7 @@
 #!groovy​
 def branch = 'master'
 //dataset
-def noobaa_ip = '51.143.17.34'
+def dataset_ip = '51.143.9.62'
 def noobaa_server = 'datasetpipeline.westus2.cloudapp.azure.com'
 def dataset_size = '51200' //MB
 def aging_time = '300' //min
@@ -26,8 +26,14 @@ def agentsVnet = 'pipeline-agents-vnet'
 def agentsStorage = 'pipelineagentsdisks'
 //systemConfig
 def nodeLocalIP = '10.0.0.21'
-def serverLocalIP = 'agentmatrix.westus2.cloudapp.azure.com'
-def severExternalIP = 'agentmatrix.westus2.cloudapp.azure.com'
+def serverLocalIP = '52.250.109.40'
+def severExternalIP = '52.250.109.40'
+//yulia rg
+def yulia_ip = '51.143.17.34'
+def yulia_resource = 'yulia-test-rg'
+def yulia_vnet = 'yulia-test-rg-vnet'
+def yulia_storage = 'yuliastorage'
+def ip = '51.143.13.209'
 
 node('pipeline') {
 	def buildResult = "SUCCESS"
@@ -74,7 +80,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/account_test.js --server_ip '${noobaa_ip}' --system_ip '${noobaa_ip}'
+            node $WORKSPACE/src/test/qa/account_test.js --server_ip '${ip}' --system_ip '${dataset_ip}'
             """
 		}
 		stage('Namespace test') {
@@ -82,7 +88,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/namespace_test.js --server_ip '${noobaa_ip}'
+            node $WORKSPACE/src/test/qa/namespace_test.js --server_ip '${dataset_ip}'
             """
         },
         stage('TUI test') {
@@ -90,7 +96,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/test-TUI.js --server_ip '${serverIP}'
+            node $WORKSPACE/src/test/qa/test-TUI.js --server_ip '${dataset_ip}'
             """
         }
         stage('Data availability test') {
@@ -108,7 +114,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/data_availability_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${serverIP}'
+            node $WORKSPACE/src/test/qa/data_availability_test.js --resource '${yulia_resource}' --vnet '${yulia-test-rg-vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}'
             """
         }
         stage('Rebuild replicas test') {
@@ -116,15 +122,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${serverIP}'
-            """
-        }
-        stage('Spillover test') {
-            echo 'Uploading data without healthy agents and check spillover ability'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/spillover_test.js --server_ip '${serverIP}'
+            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia-test-rg-vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}'
             """
         }
         stage('Agent matrix') {
@@ -146,60 +144,6 @@ node('pipeline') {
             node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverIP}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}'
             """
         }
-        /*
-        stage('Dataset test') {
-            echo 'Running delete dataset'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/delete_dataset.js --server '${noobaa_ip}'
-            """
-            echo 'Running some dataset!'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/dataset.js --server '${noobaa_ip}' --aging_timeout '${aging_time}' --dataset_size '${dataset_size}'
-            """
-        }
-		stage('Tests') {
-			parallel (
-			"machinekill": {
-                echo 'Killing some nodes!'
-                sh script: """
-				export NVM_DIR=/opt/nvm
-                . /opt/nvm/nvm.sh
-                sleep '${start_killing_time}'m
-                node $WORKSPACE/src/test/qa/machine_killer.js --service '${service}' --project '${resource}' --zone '${zone}' --prefix '${prefix}' --timeout \$((${aging_time}-${start_killing_time})) --min_machines '${min_machines}' --max_machines '${max_machines}'
-                """
-            },
-			"system-configurations": {
-                echo 'Adding some system configurations!'
-                sh script: """
-				export NVM_DIR=/opt/nvm
-                . /opt/nvm/nvm.sh
-                node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}' --external_server_ip '${severExternalIP}'
-                """
-            },
-            //"upgrades": {
-            //    echo 'Doing some upgrades!'
-            //    sh script: """
-			//	export NVM_DIR=/opt/nvm
-            //     . /opt/nvm/nvm.sh
-            //     node $WORKSPACE/src/test/qa/upgrade_test.js
-            //     """
-            // },
-			"cluster": {
-				echo 'Doing some clusterisation!'
-				sh script: """
-				export NVM_DIR=/opt/nvm
-				. /opt/nvm/nvm.sh
-				#fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
-                node $WORKSPACE/src/test/qa/cluster_test.js --servers 3 --timeout '${aging_time}' --storage '${clusterStorage}' --resource '${clusterResource}' --vnet '${clusterVnet}' --breakonerror
-				"""
-			},
-			)
-		}
-		*/
 	} catch (e) {
 		buildResult = "FAILED"
         echo 'build failed with error ' + e

@@ -80,7 +80,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/account_test.js --server_ip '${ip}' --system_ip '${dataset_ip}'
+            node $WORKSPACE/src/test/qa/account_test.js --server_ip '${dataset_ip}' --system_ip '${dataset_ip}'
             """
 		}
 		stage('Namespace test') {

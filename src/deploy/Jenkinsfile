@@ -1,5 +1,5 @@
 #!groovy​
-def branch = 'yulia-jenkins-pipeline'
+def branch = 'master'
 //dataset
 def dataset_ip = '51.143.9.62'
 def noobaa_server = 'datasetpipeline.westus2.cloudapp.azure.com'
@@ -116,25 +116,6 @@ node('pipeline') {
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
             node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}'
-            """
-        }
-        stage('Agent matrix') {
-        echo 'Setting agents env file'
-            sh script: """
-            rm .env
-            touch .env
-            echo 'AZURE_SUBSCRIPTION_ID=a3556050-2d88-42a4-a4e3-f0a2087edc60' >> .env
-            echo 'DOMAIN=noobaa.com' >> .env
-            echo 'APPLICATION_SECRET=JRqvAUh95fF+3aBaz0SJcB21ocTO8+MCtjJ7adg9fhE=' >> .env
-            echo 'AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=pipelineagentsdisks;AccountKey=p9Ed8m+87P5ZwcOcvXqfvCJ9NExeZBRutsDdSCkXU2JKj9wPIV60e1yYaZ4UIKuSLvedMhVS2dSKUtDYSbujKQ==;EndpointSuffix=core.windows.net"' >> .env
-            echo 'CLIENT_ID=199522b3-407d-45eb-b7fb-023d21ab6406' >> .env
-            """
-            echo 'Adding some agents!'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            #fname=\$(unzip -o /tmp/noobaa-NVA-latest.zip -d  /tmp/|grep "tar.gz"|awk '{ print \$2 }')
-            node $WORKSPACE/src/test/qa/agents_matrix.js --azure_name '${azureName}' --server_ip '${serverIP}' --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}'
             """
         }
 	} catch (e) {

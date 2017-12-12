@@ -91,14 +91,6 @@ node('pipeline') {
             node $WORKSPACE/src/test/qa/namespace_test.js --server_ip '${dataset_ip}'
             """
         }
-        stage('TUI test') {
-            echo 'Doing some TUI!'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/test-TUI.js --server_ip '${dataset_ip}'
-            """
-        }
         stage('Data availability test') {
             echo 'Setting yulias env file'
             sh script: """

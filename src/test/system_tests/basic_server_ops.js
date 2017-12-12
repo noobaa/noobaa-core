@@ -33,6 +33,9 @@ function disable_rpc_validation(ip, upgrade_pack) {
 
 function upload_and_upgrade(ip, upgrade_pack) {
     console.log('Upgrading the machine');
+    var client = rpc.new_client({
+        address: 'ws://' + ip + ':8080'
+    });
 
     var filename;
     if (upgrade_pack.indexOf('/') !== -1) {
@@ -56,7 +59,22 @@ function upload_and_upgrade(ip, upgrade_pack) {
             formData: formData,
             rejectUnauthorized: false,
         })
-        .then(res => console.log('Upload package successful', res.statusCode))
+        .then(() => {
+            let ready = false;
+            return promise_utils.pwhile(() => !ready, () => client.system.read_system()
+                .then(res => {
+                    if (res.cluster.shards[0].server[0].upgrade.status === 'CAN_UPGRADE') {
+                        ready = true;
+                    } else if (res.cluster.shards[0].server[0].upgrade.status === 'FAILED') {
+                        console.log('Failed on pre upgrade tests');
+                        throw new Error('Failed on pre upgrade tests');
+                    } else {
+                        return P.delay(5000);
+                    }
+                }));
+        })
+        .then(() => console.log('Upload package successful'))
+        .then(() => client.cluster_internal.upgrade_cluster())
         .then(() => P.delay(10000))
         .then(() => wait_for_server(ip))
         .then(() => P.delay(10000))
@@ -127,7 +145,7 @@ function get_agent_setup(ip) {
         })
         .then(function(response) {
             console.log('Download of noobaa-setup was successful');
-            return;
+
         })
         .then(null, function(err) {
             console.error('Download of noobaa-setup failed', err);
@@ -171,7 +189,7 @@ function download_file(ip, path) {
                 })
                 .then(function() {
                     console.log('Download file successfully');
-                    return;
+
                 })
                 .then(null, function(err) {
                     console.error('Error in download_file', err);

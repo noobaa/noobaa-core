@@ -1415,7 +1415,6 @@ function _handle_cluster_upgrade_failure(err, ip) {
 }
 
 function _handle_upgrade_stage(params) {
-    const cinfo = system_store.get_local_cluster_info();
     // We do not return on purpose!
     P.each(params.secondary_members, ip => {
             dbg.log0('UPGRADE:', 'sending do_upgrade to server', ip, 'and and waiting for DB_READY state');

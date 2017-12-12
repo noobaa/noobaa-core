@@ -15,6 +15,7 @@ const WIN_AGENT = os.type() === 'Windows_NT';
 
 const P = require('../util/promise');
 const fs_utils = require('../util/fs_utils');
+const os_utils = require('../util/os_utils');
 const promise_utils = require('../util/promise_utils');
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('agent_wrapper');
@@ -50,6 +51,8 @@ let new_backup_dir = CONFIGURATION.BACKUP_DIR;
 dbg.log0('deleting file', CONFIGURATION.SETUP_FILE);
 fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
     // clean previous backup folder
+    .then(() => os_utils.get_distro())
+    .then(res => dbg.log0('OS INFO:', res))
     .then(() => fs.readdirAsync(process.cwd()))
     .then(files => files.find(file => file.startsWith('backup_')))
     .then(backup_dir => {

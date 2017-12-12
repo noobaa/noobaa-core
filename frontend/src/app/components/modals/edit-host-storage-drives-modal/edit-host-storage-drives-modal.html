@@ -3,7 +3,7 @@
 <form class="column greedy" ko.submit="form.submit" ko.if="formReady">
     <p>
         An installed node might contain a number of drives, you can control which of this node's drives will
-        be used as NooBaa's storage resources. The more drives you add, more available storage will be added
+        be used as NooBaa's storage resources. The more drives you add, the more available storage will be added
         to the node's pool
     </p>
 
@@ -45,7 +45,7 @@
     <div class="row content-middle push-prev">
         <p class="greedy push-next remark row" ko.css.disabled="!form.serviceState()">
             <svg-icon class="push-next-half" params="name: 'notif-info'"></svg-icon>
-            After removing an existing drive, a rebuild will accure to saftly remove the data from the drive
+            After removing an existing drive, a rebuilding process will occur to safely remove the data from the drive
         </p>
 
         <button type="button" class="link alt-colors push-both" ko.click="onCancel">

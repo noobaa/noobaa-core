@@ -283,7 +283,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 value: totalStorage
             },
             {
-                label: 'Number or CPUs',
+                label: 'Number of CPUs',
                 value: cpusCount
             },
             {

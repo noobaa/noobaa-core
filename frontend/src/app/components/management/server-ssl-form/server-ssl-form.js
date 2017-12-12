@@ -18,7 +18,7 @@ class SSLFormViewModel extends BaseViewModel {
         this.sslStatus = ko.pureComputed(
             () => systemInfo() && systemInfo().has_ssl_cert ?
                 'Customer SSL certificate installed' :
-                'Using self signed SSL certificate'
+                'Using self-signed SSL certificate'
         );
 
         this.uploading = ko.pureComputed(

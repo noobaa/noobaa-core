@@ -210,7 +210,7 @@ function generate_account_keys(req) {
                 system: req.system && req.system._id,
                 actor: req.account && req.account._id,
                 account: account._id,
-                desc: `Credentials for ${account.email} were regenarated ${req.account && 'by ' + req.account.email}`,
+                desc: `Credentials for ${account.email} were regenerated ${req.account && 'by ' + req.account.email}`,
             });
         })
         .return();

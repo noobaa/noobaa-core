@@ -15,7 +15,7 @@ const screenTitleMapping = deepFreeze({
         title: 'Reset Account Password'
     },
     1: {
-        title: 'Password Reset Successfull',
+        title: 'Password Reset Successful',
         severity: 'success'
     },
     2: {

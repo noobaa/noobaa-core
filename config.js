@@ -287,7 +287,7 @@ config.SERVER_MIN_REQUIREMENTS = {
 };
 
 // TODO: Maybe we should change that value to something else?
-config.MIN_MEMORY_FOR_UPGRADE = 3 * 1024 * 1024;
+config.MIN_MEMORY_FOR_UPGRADE = 300 * 1024 * 1024;
 
 //////////////////////////////
 // ALERTING & EVENTS CONFIG //

@@ -23,7 +23,10 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     return {
         version,
         sslCert: has_ssl_cert ? {} : undefined,
-        lastUpgrade: upgrade.last_upgrade,
+        upgrade: {
+            lastUpgrade: upgrade.last_upgrade,
+            preconditionFailure: upgrade.can_upload_upgrade_package
+        },
         releaseNotes
     };
 }

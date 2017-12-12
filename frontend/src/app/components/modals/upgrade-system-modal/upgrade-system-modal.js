@@ -13,10 +13,10 @@ function _normalizeReleaseNotes(notes = {}) {
     const {
         fetching = false,
         error = false,
-        text = error ? 'Could not fetch release notes' : ''
+        text = error ? 'Minor bug fixes' : ''
     } = notes;
 
-    return { fetching, error, text };
+    return { fetching, text };
 }
 
 class UpgradeSystemModalViewModel extends Observer {

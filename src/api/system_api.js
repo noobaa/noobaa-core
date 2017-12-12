@@ -651,7 +651,7 @@ module.exports = {
                         },
                         can_upload_upgrade_package: {
                             type: 'string',
-                            enum: ['NOT_ALL_MEMBERS_UP', 'NOT_ENOUGH_SPACE', 'CAN_UPLOAD_PACKAGE']
+                            enum: ['NOT_ALL_MEMBERS_UP', 'NOT_ENOUGH_SPACE', 'VERSION_MISMATCH']
                         }
                     },
                 },

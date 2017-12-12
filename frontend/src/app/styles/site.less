@@ -42,6 +42,10 @@ ul, ol {
 
 label {
     cursor: @cursor-pointer;
+
+    &.disabled {
+        cursor: default;
+    }
 }
 
 hr {
@@ -275,10 +279,12 @@ pre {
 }
 
 .hide {
-    position: absolute;
+    position: fixed;
     z-index: -1;
     pointer-events: none;
     opacity: 0;
+    top: -9999px;
+
 }
 
 .pad {

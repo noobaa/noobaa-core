@@ -11,7 +11,7 @@ import { getCloudServiceMeta } from 'utils/cloud-utils';
 import ko from 'knockout';
 
 const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
-const hasS3AccessToggleToolTip = 'S3 access cannot be disabled for system owner';
+const systemOwnerS3AccessTooltip = 'S3 access cannot be disabled for system owner';
 
 const bucketPermissionModes = deepFreeze([
     {
@@ -39,13 +39,13 @@ class EditAccountS3AccessModalViewModel extends Observer {
         super();
 
         this.s3PlacementToolTip = s3PlacementToolTip;
-        this.hasS3AccessToggleToolTip = hasS3AccessToggleToolTip;
         this.bucketPermissionModes = bucketPermissionModes;
         this.close = onClose;
+        this.isBucketSelectionDisabled = ko.observable();
+        this.isS3AccessToggleDisabled = ko.observable();
+        this.s3AccessToggleTooltip = ko.observable();
         this.resourceOptions = ko.observable();
         this.bucketOptions = ko.observable();
-        this.isBucketSelectionDisabled = ko.observable();
-        this.isOwner = ko.observable();
         this.isFormInitialized = ko.observable(false);
         this.form = null;
 
@@ -84,7 +84,8 @@ class EditAccountS3AccessModalViewModel extends Observer {
                 return { value, tooltip };
             });
 
-        this.isOwner(account.isOwner);
+        this.isS3AccessToggleDisabled(account.isOwner);
+        this.s3AccessToggleTooltip(account.isOwner ? systemOwnerS3AccessTooltip : '');
         this.resourceOptions(resourceOptions);
         this.bucketOptions(bucketOptions);
 

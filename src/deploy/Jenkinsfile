@@ -115,7 +115,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js--resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}'
+            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}'
             """
         }
         stage('Agent matrix') {

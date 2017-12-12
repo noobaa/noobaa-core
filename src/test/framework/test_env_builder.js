@@ -73,7 +73,7 @@ function main() {
         .finally(() => {
             if (cleanup) return clean_test_env();
         })
-        .then(() => process.exit(exit_code));
+        .finally(() => process.exit(exit_code));
 }
 
 

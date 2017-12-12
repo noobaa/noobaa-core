@@ -604,6 +604,9 @@ module.exports = {
                     items: {
                         $ref: '#/definitions/host_mode'
                     }
+                },
+                include_all: { // also include non BLOCK_STORE_FS nodes
+                    type: 'boolean'
                 }
             },
         },

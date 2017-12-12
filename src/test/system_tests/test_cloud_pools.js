@@ -33,7 +33,6 @@ let TEST_CTX = {
     target_bucket: 'cloud-resource-jenkins-test',
     connection_name: 'unicorn',
     cloud_pool_name: 'majesticsloth',
-    cloud_pool_id: ''
 };
 
 var file_sizes = [1];
@@ -189,10 +188,6 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
                             }
                             _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
                                 if (String(cloud_pool) === String(block.adminfo.pool_name)) {
-                                    if (TEST_CTX.cloud_pool_id === '') {
-                                        TEST_CTX.cloud_pool_id = block.adminfo.node_name.split('-')[3];
-                                        //TODO: fix pool id - we used to take it from the node's name, but now it returns the host name
-                                    }
                                     blocks_by_cloud_pool_name.blocks.push(block);
                                 }
                             }));
@@ -280,6 +275,26 @@ function run_test() {
         .then(() => verify_object_parts_on_cloud_nodes(replicas_in_tier, TEST_CTX.source_bucket,
             file_names[0], TEST_CTX.cloud_pool_name))
         // This is used in order to test removal of blocks that are relevant to the bucket assosiated
+        .then(() => {
+            // get the cloud pool id in a way that will probably break some day ¯\_(ツ)_/¯
+            return client.host.list_hosts({ query: { pools: [TEST_CTX.cloud_pool_name], include_all: true } })
+                .then(list_reply => {
+                    const node_name = _.get(list_reply, 'hosts.0.storage_nodes_info.nodes.0.name');
+                    if (_.isUndefined(node_name)) {
+                        throw new Error('could not get cloud node name');
+                    } else {
+                        // we rely on the format of the node's name to be "noobaa-internal-agent-<pool id>" 
+                        // if that's changed the test will break
+                        TEST_CTX.cloud_pool_id = node_name.split('-')[3];
+                        const id_regexp = new RegExp(/^[a-f0-9]+$/);
+                        // validate that the id is in the correct format
+                        if (!id_regexp.test(TEST_CTX.cloud_pool_id)) {
+                            throw new Error('could not get cloud pool id');
+                        }
+                    }
+                    console.log(`TEST_CTX.cloud_pool_id = ${TEST_CTX.cloud_pool_id} `);
+                });
+        })
         .then(() => put_object(s3, TEST_CTX.target_bucket,
             `noobaa_blocks/${TEST_CTX.cloud_pool_id}/blocks_tree/j3n14.blocks/m4g1c4l5l0th`))
         .then(function(block_ids) {

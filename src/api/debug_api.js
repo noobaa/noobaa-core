@@ -30,13 +30,15 @@ module.exports = {
                 system: 'admin'
             }
         },
-        get_istanbul_collector: {
+        get_coverage_data: {
             method: 'GET',
             reply: {
                 type: 'object',
                 properties: {
-                    data: {
-                        type: 'string',
+                    coverage_data: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
                     },
                 },
             },

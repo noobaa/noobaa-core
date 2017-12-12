@@ -15,10 +15,11 @@ Arguments passed to Runner:
 2) --FLOW_FILE - Optional, provide an alternate scenario file. If not supplied will use flow.js
 
 
-## Istanbul_coverage
-Istanbul coverage hooks and instruments our code for the purpose of coverage reports. It is being required by each server (and each member of the node cluster) in cases TESTRUN is true (the Runner sets the supervisor to run services with --TESTRUN beginning and removes it upon completion and restarts the services)
-
-It defines the coverageVariable for istanbul to be 'NOOBAA_COV'
+## Coverage
+We use Istanbul.js for coverage reporting by using its require hook and code instrumentation - see src/util/coverage_utils.js for details.
+The Runner sets the supervisor to run services with --TESTRUN at the beginning of the test and removes it upon completion (restarting on change).
+When --TESTRUN is passed to the process our servers will setup coverage collection (global.NOOBAA_COV is used by istanbul for the collection).
+At the end of the test, the Runner will fetch the coverage data from all the servers (see debug_api get_coverage_data()) and merged all the data to create a combined report.
 
 ## Flow.js
 flow.js is the description of the run, it is build as an array of steps, running sequentially.

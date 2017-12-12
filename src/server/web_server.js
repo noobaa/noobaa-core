@@ -7,18 +7,7 @@ console.log('loading .env file');
 const dotenv = require('../util/dotenv');
 dotenv.load();
 
-//If test mode, use Istanbul for coverage
-for (let i = 0; i < process.argv.length; ++i) {
-    if (process.argv[i] === '--TESTRUN') {
-        process.env.TESTRUN = 'true'; // must be string
-    }
-}
-if (process.env.TESTRUN === 'true') {
-    // eslint-disable-next-line global-require
-    var ist = require('../test/framework/istanbul_coverage');
-    ist.start_istanbul_coverage();
-}
-
+require('../util/coverage_utils');
 require('../util/panic');
 
 const _ = require('lodash');

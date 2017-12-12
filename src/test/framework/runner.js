@@ -4,12 +4,11 @@
 require('../../util/dotenv').load();
 
 const _ = require('lodash');
+const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const argv = require('minimist')(process.argv);
 const request = require('request');
-const istanbul = require('istanbul');
-const os = require('os');
 
 const P = require('../../util/promise');
 const api = require('../../api');
@@ -17,6 +16,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const ops = require('../system_tests/basic_server_ops');
 const fs_utils = require('../../util/fs_utils');
 const promise_utils = require('../../util/promise_utils');
+const { CoverageReport } = require('../../util/coverage_utils');
 
 const COVERAGE_DIR = './report/cov';
 const REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
@@ -66,10 +66,9 @@ class TestRunner {
                         return P.delay(1000);
                     });
                 //one more delay for reconnection of other processes
-            }).delay(2000)
-            .then(function() {
-                return;
-            });
+            })
+            .delay(2000)
+            .return();
     }
 
     restore_db_defaults() {
@@ -204,7 +203,7 @@ class TestRunner {
     }
 
     print_conclusion() {
-        console.log(fs.readFileSync('./report/cov/regression_report.log').toString());
+        console.log(fs.readFileSync(REPORT_PATH).toString());
     }
 
     _print_curent_step(current_step) {
@@ -353,8 +352,7 @@ class TestRunner {
     }
 
     _write_coverage() {
-        var collector = new istanbul.Collector();
-        var reporter = new istanbul.Reporter(null, COVERAGE_DIR + '/istanbul');
+        const report = new CoverageReport();
         //Get all collectors data
         const rpc = api.new_rpc();
         const client = rpc.new_client();
@@ -365,38 +363,37 @@ class TestRunner {
             })
             .then(() => client.redirector.publish_to_cluster({
                 method_api: 'debug_api',
-                method_name: 'get_istanbul_collector',
+                method_name: 'get_coverage_data',
                 target: ''
             }, {
                 auth_token: client.options.auth_token,
             }))
             .then(function(res) {
-                //Add all recieved data to the collector
+
+                // Add all recieved data to the collector
                 _.each(res.redirect_reply.aggregated, function(r) {
-                    if (r.data) {
-                        var to_add = r.data;
-                        collector.add(JSON.parse(to_add));
+                    if (r.coverage_data) {
+                        report.add_data(r.coverage_data);
                     } else {
-                        console.warn('r.data is undefined, skipping');
+                        console.warn('no coverage_data');
                     }
                 });
-                //Add unit test coverage data if exists (on failure of unit test, does not exist)
-                if (fs.existsSync(COVERAGE_DIR + '/mocha/coverage-final.json')) {
-                    console.warn('No unit test coverage info, skipping');
-                    collector.add(JSON.parse(fs.readFileSync(COVERAGE_DIR + '/mocha/coverage-final.json', 'utf8')));
+
+                // Add unit test coverage data if exists (on failure of unit test, does not exist)
+                const unit_test_coverage_file = COVERAGE_DIR + '/mocha/coverage-final.json';
+                if (fs.existsSync(unit_test_coverage_file)) {
+                    const coverage_data = JSON.parse(fs.readFileSync(unit_test_coverage_file, 'utf8'));
+                    report.add_data(coverage_data);
+                } else {
+                    console.warn('No unit test coverage_data');
                 }
-                //Generate the report
-                reporter.add('lcov');
-                return P.fcall(function() {
-                        const REPORTER_SYNC = true;
-                        return reporter.write(collector, REPORTER_SYNC, function() {
-                            console.log('done reporter.write');
-                        });
-                    })
-                    .catch(function(err) {
-                        console.error('Error on write with', err, err.stack);
-                        throw err;
-                    });
+
+                report.write({
+                    report_dir: COVERAGE_DIR + '/istanbul',
+                    report_type: 'lcov',
+                });
+
+                console.log('done writing coverage report');
             })
             .catch(function(err) {
                 console.warn('Error on _write_coverage', err, err.stack);

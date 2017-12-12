@@ -34,6 +34,7 @@ class RpcRequest {
     get rpc_params() {
         return this.params;
     }
+
     set rpc_params(val) {
         this.params = val;
     }

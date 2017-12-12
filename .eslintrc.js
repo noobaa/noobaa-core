@@ -100,6 +100,8 @@ module.exports = {
         // allow short variable names like '_' or 'P' etc. use with care.
         'id-length': 'off',
 
+        'implicit-arrow-linebreak': ['warn', 'beside'],
+
         // indent of 4 spaces would be good to enforce, but it doesn't work well for promise chains
         // so hope no-mixed-spaces-and-tabs will be good enough
         'indent': ['off', 4],
@@ -112,6 +114,10 @@ module.exports = {
 
         // directive means 'use strict', we don't enforce lines around
         'lines-around-directive': 'off',
+
+        'lines-between-class-members': ['warn', 'always', {
+            exceptAfterSingleLine: true
+        }],
 
         // we don't enforce comments to above/after the line, both work ok
         'line-comment-position': 'off',
@@ -144,6 +150,9 @@ module.exports = {
         // ternary operator is better split to 3 lines for readability
         // TODO eslint multiline-ternary should be error
         'multiline-ternary': 'off',
+
+        // use any comment style, just write comments
+        'multiline-comment-style': 'off',
 
         // newlines to separate vars and return are not productive
         'newline-after-var': 'off',
@@ -233,6 +242,10 @@ module.exports = {
 
         // allowing (x ? y : z) it's a discouraged form but everyone are used to it
         'no-ternary': 'off',
+
+        'no-trailing-spaces': ['error', {
+            ignoreComments: true
+        }],
 
         // using undefined on nodejs is safe. you cannot override it. you can try. it won't work.
         'no-undefined': 'off',

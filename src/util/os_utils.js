@@ -156,7 +156,7 @@ function get_distro() {
         return P.resolve('OSX - Darwin');
     }
     if (os.type() === 'Windows_NT') {
-        return `${os.type()} (${os.release()})`;
+        return P.resolve(`${os.type()} (${os.release()})`);
     }
     return P.fromCallback(callback => os_detailed_info(callback))
         .then(distro => {

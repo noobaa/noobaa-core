@@ -8,6 +8,9 @@
     "node": "6.11.5"
   },
   "main": "index.js",
+  "config": {
+    "covdir" : "coverage"
+  },
   "scripts": {
     "preinstall": "npm install node-addon-api nan",
     "postinstall": "npm run build",
@@ -19,7 +22,7 @@
     "----": "-----------------------------------------------------------------",
     "lint": "eslint src --quiet",
     "mocha": "node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/unit_tests/index.js",
-    "mocha:coverage": "node --allow-natives-syntax ./node_modules/.bin/istanbul cover --include-all-sources --no-default-excludes -i 'src/**/*.js' -x 'src/util/mongo_functions.js' --dir $COVDIR -- ./node_modules/.bin/_mocha src/test/unit_tests/index.js",
+    "mocha:coverage": "nyc --all --include 'src/**/*.js' --exclude 'src/util/mongo_functions.js' --report-dir $npm_package_config_covdir --reporter lcov npm run mocha",
     "test:web": "mocha src/test/web/index.js",
     "test": "npm run lint && npm run mocha:coverage",
     "-----": "----------------------------------------------------------------",
@@ -53,7 +56,6 @@
     "nb_native": false,
     "nb_native_nan": false,
     "express": false,
-    "istanbul": false,
     "morgan": false,
     "compression": false,
     "bindings": false,
@@ -72,7 +74,7 @@
     "chance": "1.0.10",
     "compression": "1.6.2",
     "dclassify": "1.1.2",
-    "eslint": "4.8.0",
+    "eslint": "4.13.1",
     "eslint-plugin-header": "1.2.0",
     "event-stream": "3.3.4",
     "express": "4.15.3",
@@ -89,7 +91,6 @@
     "gulp-util": "3.0.7",
     "heapdump": "0.3.9",
     "ip": "1.1.5",
-    "istanbul": "0.4.5",
     "jsonwebtoken": "7.4.1",
     "linux-blockutils": "0.1.0",
     "lodash": "4.17.4",
@@ -129,9 +130,15 @@
   "devDependencies": {
     "babel-plugin-transform-runtime": "6.15.0",
     "babel-preset-es2015": "6.18.0",
-    "chromedriver": "2.33.0",
-    "phantomjs-prebuilt": "2.1.15",
-    "selenium-standalone": "6.9.0",
+    "chromedriver": "2.33.2",
+    "istanbul-lib-coverage": "1.1.1",
+    "istanbul-lib-hook": "1.1.0",
+    "istanbul-lib-instrument": "1.9.1",
+    "istanbul-lib-report": "1.1.2",
+    "istanbul-reports": "1.1.3",
+    "nyc": "11.3.0",
+    "phantomjs-prebuilt": "2.1.16",
+    "selenium-standalone": "6.12.0",
     "selenium-webdriver": "3.6.0"
   }
 }

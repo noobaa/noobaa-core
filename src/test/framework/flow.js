@@ -31,7 +31,7 @@ var steps = [
             // arg: 'mocha:coverage',
         }],
         env: {
-            COVDIR: './report/cov/mocha',
+            npm_package_config_covdir: './report/cov/mocha',
             PATH: process.env.PATH,
             DEV_MODE: 'true'
         },

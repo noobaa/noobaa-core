@@ -16,6 +16,7 @@ jsconfig.json
 
 ## istanbul coverage
 /coverage/
+/.nyc_output/
 
 ## testing agent storage
 /metadata_storage*

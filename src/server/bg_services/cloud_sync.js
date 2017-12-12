@@ -23,15 +23,19 @@ class PolicyMap extends Map {
     static create() {
         return Object.setPrototypeOf(new Map(), new PolicyMap());
     }
+
     set_policy(key, value) {
         this.set(_policy_identifier(key), value);
     }
+
     get_policy(key) {
         return this.get(_policy_identifier(key));
     }
+
     delete_policy(key) {
         this.delete(_policy_identifier(key));
     }
+
     to_array() {
         return Array.from(this.values());
     }

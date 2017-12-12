@@ -271,12 +271,12 @@ const actionToNotification = deepFreeze({
     }),
 
     [types.COMPLETE_RETRUST_HOST]: ({ host }) => ({
-        message: `Node ${host} retursted successfully`,
+        message: `Node ${host} was set as trusted successfully`,
         severity: 'success'
     }),
 
     [types.FAIL_RETRUST_HOST]: ({ host }) => ({
-        message: `Retrusting node ${host} failed`,
+        message: `Set node ${host} as trusted failed `,
         severity: 'error'
     }),
 

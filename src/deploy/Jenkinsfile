@@ -119,14 +119,6 @@ node('pipeline') {
                 node $WORKSPACE/src/test/qa/account_test.js --server_ip '${noobaa_ip}' --system_ip '${noobaa_ip}'
                 """
             },
-            //"upgrades": {
-            //    echo 'Doing some upgrades!'
-            //    sh script: """
-			//	export NVM_DIR=/opt/nvm
-            //     . /opt/nvm/nvm.sh
-            //     node $WORKSPACE/src/test/qa/upgrade_test.js
-            //     """
-            // },
 			"cluster": {
 				echo 'Doing some clusterisation!'
 				sh script: """

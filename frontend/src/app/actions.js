@@ -15,7 +15,8 @@ import { action$ } from 'state';
 import {
     fetchSystemInfo,
     showNotification,
-    requestLocation
+    requestLocation,
+    refreshLocation
 } from 'action-creators';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
@@ -980,6 +981,7 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, 
         dns_servers: [primaryDNS, secondaryDNS].filter(Boolean),
         search_domains: searchDomains
     })
+        .then(() => action$.onNext(refreshLocation()))
         .catch(() => {
             notify('Updating server DNS setting failed, Please try again later', 'error');
         })

@@ -3,18 +3,13 @@
 <form class="column greedy" ko.submit="form.submit" ko.if="isFormInitialized">
     <editor params="label: 'S3 Access'">
         <div class="row content-middle">
-            <toggle-switch params="
+            <toggle-switch ko.tooltip="s3AccessToggleTooltip" params="
                 value: form.hasS3Access,
                 onLabel: 'Enabled',
                 offLabel: 'Disabled',
-                disabled: isOwner
+                disabled: isS3AccessToggleDisabled
             ">
             </toggle-switch>
-            <svg-icon class="icon-small push-prev-half"
-                ko.visible="isOwner"
-                params="name: 'question'"
-                ko.tooltip="hasS3AccessToggleToolTip"
-            ></svg-icon>
         </div>
     </editor>
 

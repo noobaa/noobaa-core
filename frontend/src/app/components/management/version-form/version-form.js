@@ -53,6 +53,16 @@ const pkgTextResultToInfo = deepFreeze({
     }
 });
 
+const uploadBtnTooltips = {
+    NOT_ALL_MEMBERS_UP: 'All cluster members must be connected in order to start an package upload. Please make sure all servers are up.',
+    NOT_ENOUGH_SPACE: 'All cluster members must have at least 300MB of free space to start a package upload. Check and increase disk capacity in required servers.',
+    VERSION_MISMATCH: 'All cluster members must be of the same version in order to start an package upload.'
+};
+
+const upgradeBtnTooltips = {
+    NOT_ALL_MEMBERS_UP: 'All cluster members must be connected in order to start an upgrade. Please make sure all servers are up.'
+};
+
 function _getVersionStatus(servers, version) {
     const serverList = Object.values(servers);
     const upToDateCount = sumBy(
@@ -120,12 +130,10 @@ class VersionFormViewModel extends Observer {
                 template: 'licenseInfo'
             }
         ];
-
         this.stateLoaded = ko.observable();
-        this.isUploadAreaExpanded = ko.observable();
-        this.isUploadAreaActive = ko.observable();
-        this.isUploadDisabled = ko.observable();
-        this.isUpgradeDisabled = ko.observable();
+        this.uploadBtn = ko.observable();
+        this.uploadArea =  ko.observable();
+        this.upgradeBtn = ko.observable();
         this.pkgSuffix = upgradePackageSuffix;
         this.pkgState = ko.observable();
         this.pkgVersion = ko.observable();
@@ -165,28 +173,41 @@ class VersionFormViewModel extends Observer {
     onState([system, servers]) {
         if (!system || !servers) {
             this.stateLoaded(false);
-            this.isUploadAreaExpanded(false);
-            this.isUploadDisabled(true);
-            this.isUpgradeDisabled(true);
+            this.uploadBtn({});
+            this.upgradeBtn({});
+            this.uploadArea({});
             this.isPkgTestResultsVisible(false);
             return;
         }
 
-        const { version, lastUpgrade } = system;
+        const { version, upgrade } = system;
+        const serverList = Object.values(servers);
+
         const {
             state,
             version: pkgVersion,
             testedAt,
             progress = 0,
             errors: issues = []
-        } = aggregateUpgradePackageInfo(Object.values(servers));
+        } = aggregateUpgradePackageInfo(serverList);
 
         const pkgTestResult = _getPackageTestResult(state, issues.length);
         const isPkgUploadingOrTesting = state === 'UPLOADING' || state === 'TESTING';
-        const isUpgradeDisabled = pkgTestResult !== 'SUCCESS';
-        const isPkgTestResultsVisible = pkgTestResult === 'FAILURE';
+        const uploadBtn = {
+            disabled: Boolean(upgrade.preconditionFailure) || isPkgUploadingOrTesting,
+            tooltip: uploadBtnTooltips[upgrade.preconditionFailure]
+        };
+        const upgradeBtn = {
+            disabled: Boolean(upgrade.preconditionFailure) || pkgTestResult !== 'SUCCESS',
+            tooltip: upgradeBtnTooltips[upgrade.preconditionFailure]
+        };
+        const uploadArea = {
+            expanded: isPkgUploadingOrTesting,
+            active: isPkgUploadingOrTesting
+        };
         const pkgTestTime = testedAt ? moment(testedAt).format(timeShortFormat) : '';
         const pkgStateProgress = numeral(progress).format('%');
+        const isPkgTestResultsVisible = pkgTestResult === 'FAILURE';
         const pkgIssuesRows = issues
             .map((issue, i) => {
                 const row = this.pkgIssuesRows.get(i) || new IssueRowViewModel();
@@ -194,13 +215,13 @@ class VersionFormViewModel extends Observer {
                 return row;
             });
 
+
         this.version(version);
-        this.lastUpgrade(_getLastUpgradeText(lastUpgrade));
+        this.lastUpgrade(_getLastUpgradeText(upgrade.lastUpgrade));
         this.clusterVersionStatus(_getVersionStatus(servers, version));
-        this.isUploadAreaExpanded(isPkgUploadingOrTesting);
-        this.isUploadAreaActive(isPkgUploadingOrTesting);
-        this.isUploadDisabled(isPkgUploadingOrTesting);
-        this.isUpgradeDisabled(isUpgradeDisabled);
+        this.uploadBtn(uploadBtn);
+        this.upgradeBtn(upgradeBtn);
+        this.uploadArea(uploadArea);
         this.pkgState(state);
         this.pkgVersion(_getPackageVersionText(pkgVersion));
         this.pkgTestTime(pkgTestTime);
@@ -212,7 +233,11 @@ class VersionFormViewModel extends Observer {
     }
 
     onUploadPackage() {
-        this.isUploadAreaExpanded.toggle();
+        const { expanded, active } = this.uploadArea();
+        this.uploadArea({
+            active: active,
+            expanded: !expanded
+        });
     }
 
     onUpgradeNow() {

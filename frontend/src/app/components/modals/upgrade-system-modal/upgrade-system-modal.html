@@ -11,12 +11,8 @@
         <loading-indicator class="align-start"
             ko.visible="fetching"
         ></loading-indicator>
-        <sapn class="error"
-            ko.visible="error"
-            ko.text="text"
-        ></sapn>
         <pre class="align-stretch"
-            ko.visible="!fetching && !error"
+            ko.visible="!fetching"
             ko.text="text"
         ></pre>
     </div>

@@ -186,7 +186,7 @@ function _mapProxy(server) {
     if (!phonehome_proxy) return;
 
     return {
-        status: phonehome_proxy.status
+        status: phonehome_proxy
     };
 }
 

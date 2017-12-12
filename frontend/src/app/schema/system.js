@@ -10,8 +10,21 @@ export default {
         sslCert: {
             type: 'object'
         },
-        lastUpgrade: {
-            type: 'integer'
+        upgrade: {
+            type: 'object',
+            properties: {
+                lastUpgrade: {
+                    type: 'integer'
+                },
+                preconditionFailure:  {
+                    type: 'string',
+                    enum: [
+                        'NOT_ALL_MEMBERS_UP',
+                        'NOT_ENOUGH_SPACE',
+                        'VERSION_MISMATCH'
+                    ]
+                }
+            }
         },
         releaseNotes: {
             type: 'object',

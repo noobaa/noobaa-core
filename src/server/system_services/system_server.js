@@ -539,12 +539,15 @@ function read_system(req) {
 
 function _get_upgrade_availability_status(cluster_info) {
     // fill cluster information if we have a cluster.
-    const all_connected = _.every(cluster_info.shards[0].servers, server => server.status === 'CONNECTED'); // must be connected
-    const enough_disk = _.every(cluster_info.shards[0].servers, server => server.storage.free > 300 * 1024 * 1024); // must have at least 300MB free
+    const servers = _.flatMap(cluster_info.shards, shard => shard.servers);
+    const not_all_member_up = servers.some(server => server.status !== 'CONNECTED'); // Must be connected
+    const not_enough_space = servers.some(server => server.storage.free < config.MIN_MEMORY_FOR_UPGRADE); // Must have at least 300MB free
+    const version_mismatch = servers.some(server => server.version !== servers[0].version); // Must be of the same version.
     return (
-        (!all_connected && 'NOT_ALL_MEMBERS_UP') ||
-        (!enough_disk && 'NOT_ENOUGH_SPACE') ||
-        'CAN_UPLOAD_PACKAGE'
+        (not_all_member_up && 'NOT_ALL_MEMBERS_UP') ||
+        (not_enough_space && 'NOT_ENOUGH_SPACE') ||
+        (version_mismatch && 'VERSION_MISMATCH') ||
+        undefined
     );
 }
 

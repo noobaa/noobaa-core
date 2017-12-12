@@ -24,21 +24,25 @@
             <span class="greedy push-next">
                 System Upgrade
             </span>
-            <button class="btn push-next"
-                ko.click="onUploadPackage"
-                ko.disable="isUploadDisabled"
-            >
-                Upload Package
-            </button>
-            <button class="btn"
-                ko.click="onUpgradeNow"
-                ko.disable="isUpgradeDisabled"
-            >
-                Upgrade Now
-            </button>
+            <div ko.tooltip="uploadBtn().tooltip" class="push-next">
+                <button class="btn"
+                    ko.click="onUploadPackage"
+                    ko.disable="uploadBtn().disabled"
+                >
+                    Upload Package
+                </button>
+            </div>
+            <div ko.tooltip="upgradeBtn().tooltip">
+                <button class="btn"
+                    ko.click="onUpgradeNow"
+                    ko.disable="upgradeBtn().disabled"
+                >
+                    Upgrade Now
+                </button>
+            </div>
         </h2>
-        <div class="column" ko.expand="isUploadAreaExpanded">
-            <drop-area class="push-prev" params="onDrop: onDropPackage, active: isUploadAreaActive">
+        <div class="column" ko.expand="uploadArea().expanded">
+            <drop-area class="push-prev" params="onDrop: onDropPackage, active: uploadArea().disabled">
                 <!-- ko if: pkgState.oneOf('NO_PACKAGE') -->
                 <p class="push-next-half">Drag an upgrade package or</p>
                 <label class="btn alt-colors">

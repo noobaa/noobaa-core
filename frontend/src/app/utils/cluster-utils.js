@@ -129,6 +129,7 @@ const majorIssues = deepFreeze([
 ]);
 
 const upgradePackageStateToPriority = deepFreeze({
+    COMPLETED: 0,
     TESTED: 1,
     TESTING: 2,
     NO_PACKAGE: 3,

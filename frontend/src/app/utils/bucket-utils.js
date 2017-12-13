@@ -1,4 +1,4 @@
-import { deepFreeze } from './core-utils';
+import { deepFreeze, isUndefined } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
 
 const bucketStateToIcon = deepFreeze({
@@ -100,8 +100,19 @@ const writableStates = deepFreeze([
     'OPTIMAL'
 ]);
 
-export function getBucketStateIcon(bucket) {
-    return bucketStateToIcon[bucket.mode];
+export function getBucketStateIcon(bucket, align) {
+    if (isUndefined(align)) {
+        return bucketStateToIcon[bucket.mode];
+    } else {
+        const { tooltip, ...rest } = bucketStateToIcon[bucket.mode];
+        return {
+            ...rest,
+            tooltip: {
+                text: tooltip,
+                align
+            }
+        };
+    }
 }
 
 export function getCloudSyncState(bucket) {

@@ -126,7 +126,7 @@ export default class FormViewModel extends Observer {
         );
 
         const set = function(value, touch = true) {
-            if (_state()) {
+            if (_state() && field().value !== value) {
                 action$.onNext(updateForm(formName, { [fieldName]: value }, touch));
             }
         };

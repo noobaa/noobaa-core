@@ -28,6 +28,7 @@ class TestRunner {
         this.server_ip = args.server_ip || '127.0.0.1';
         this._argv = args;
         this._error = false;
+        this.tests_results = [];
         if (args.FLOW_FILE) {
             this._steps = require(args.FLOW_FILE); // eslint-disable-line global-require
         } else {
@@ -203,6 +204,13 @@ class TestRunner {
     }
 
     print_conclusion() {
+        for (const res of this.tests_results) {
+            if (res.success) {
+                console.log(`${res.name} Passed`);
+            } else {
+                console.log(`${res.name} Failed${res.ignored ? '. Result ignored' : ''}`);
+            }
+        }
         console.log(fs.readFileSync(REPORT_PATH).toString());
     }
 
@@ -266,42 +274,36 @@ class TestRunner {
     }
 
     _run_action(current_step, step_res) {
-        var self = this;
         var ts = new Date();
         //Build execution context from action and arguments
         var command = current_step.action;
-        var args = _.compact(_.map(current_step.params, function(p) {
+        var args = _.compact(_.map(current_step.params, p => {
             if (p.arg) {
                 return p.arg;
             } else if (p.input_arg) {
-                if (self._argv[p.input_arg]) {
-                    return self._argv[p.input_arg];
+                if (this._argv[p.input_arg]) {
+                    return this._argv[p.input_arg];
                 } else {
                     fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
                 }
             }
         }));
         var options = _.pick(current_step, 'env');
-        const logfile = path.join(process.cwd(), COVERAGE_DIR, current_step.name.replace(/ /g, '_'));
-        const output_file_stream = fs.createWriteStream(logfile + '.log');
-        dbg.set_log_to_file(logfile + '_runner.log');
-        options.stdio = [output_file_stream, output_file_stream, output_file_stream];
-        return promise_utils.wait_for_event(output_file_stream, 'open')
-            .then(() => promise_utils.spawn(command, args, options, false, false, current_step.timeout || DEFAULT_TEST_TIMEOUT))
-            .finally(() => {
-                dbg.set_log_to_file();
-                output_file_stream.end();
-            })
+        return promise_utils.spawn(command, args, options, false, false, current_step.timeout || DEFAULT_TEST_TIMEOUT)
             .then(res => {
+                this.tests_results.push({ name: current_step.name, success: true });
                 step_res = '        ' + step_res + ' - Successful running action  ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
                 console.log(step_res);
                 return step_res;
             })
             .catch(err => {
+                const result = { name: current_step.name, success: false };
                 if (!current_step.ignore_failure) {
-                    self._error = true;
+                    this._error = true;
+                    result.ignored = true;
                 }
+                this.tests_results.push(result);
                 if (current_step.blocking) {
                     fs.appendFileSync(REPORT_PATH, step_res + ' ' + err + '\n');
                     throw new Error('Blocking action failed');
@@ -318,24 +320,25 @@ class TestRunner {
     }
 
     _run_lib_test(current_step, step_res) {
-        var self = this;
         var ts = new Date();
         // Used in order to log inside a file instead of console prints
-        dbg.set_log_to_file(path.join(process.cwd(), COVERAGE_DIR, path.parse(current_step.lib_test).name) + '.log');
         var test = require(process.cwd() + current_step.lib_test); // eslint-disable-line global-require
         return P.resolve(test.run_test())
             .timeout(current_step.timeout || DEFAULT_TEST_TIMEOUT)
-            .finally(() => dbg.set_log_to_file())
-            .then(function(res) {
+            .then(res => {
+                this.tests_results.push({ name: current_step.name, success: true });
                 step_res = '        ' + step_res + ' - Successful ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
                 console.log(step_res);
                 return step_res;
             })
-            .catch(function(res) {
+            .catch(res => {
+                const result = { name: current_step.name, success: false };
                 if (!current_step.ignore_failure) {
-                    self._error = true;
+                    this._error = true;
+                    result.ignored = true;
                 }
+                this.tests_results.push(result);
                 if (current_step.blocking) {
                     fs.appendFileSync(REPORT_PATH, step_res + ' ' + res + '\n');
                     throw new Error('Blocking libtest failed');
@@ -457,7 +460,7 @@ function main() {
             run._restart_services(false);
             process.exit(4);
         })
-        .then(function() {
+        .finally(() => {
             run.print_conclusion();
             if (run._error) {
                 run._restart_services(false);

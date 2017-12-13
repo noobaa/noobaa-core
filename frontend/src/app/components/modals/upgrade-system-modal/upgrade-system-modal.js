@@ -38,11 +38,11 @@ class UpgradeSystemModalViewModel extends Observer {
                 value: this.stagedVersion
             },
             {
-                label: 'Tested at',
+                label: 'Validated at',
                 value: this.testedAt
             },
             {
-                label: 'Test Result',
+                label: 'Validation Result',
                 value: 'Successful'
             }
         ];

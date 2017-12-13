@@ -13,8 +13,14 @@ function get_bucket_acl(req) {
                 Owner: s3_utils.DEFAULT_S3_USER,
                 AccessControlList: [{
                     Grant: {
-                        Grantee: s3_utils.DEFAULT_S3_USER,
-                        Permission: 'FULL_CONTROL'
+                        Grantee: {
+                            _attr: {
+                                'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+                                'xsi:type': 'CanonicalUser',
+                            },
+                            _content: s3_utils.DEFAULT_S3_USER,
+                        },
+                        Permission: 'FULL_CONTROL',
                     }
                 }]
             }

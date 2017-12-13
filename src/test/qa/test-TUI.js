@@ -8,11 +8,20 @@ const server_ops = require('../qa/functions/server_functions');
 const promise_utils = require('../../util/promise_utils');
 let secret;
 let isSystemStarted = true;
+let strip_ansi_from_output;
 
 const {
     server_ip,
+    dont_strip = false,
     help = false
 } = argv;
+
+if (dont_strip) {
+    strip_ansi_from_output = false;
+} else {
+    strip_ansi_from_output = true;
+}
+
 
 const api = require('../../api');
 const rpc = api.new_rpc(`wss://${server_ip}:8443`);
@@ -21,6 +30,7 @@ const client = rpc.new_client({});
 function usage() {
     console.log(`
     --server_ip     -   noobaa server ip
+    --dont_strip    -   will show the TUI
     --help          -   show this help
     `);
 }
@@ -113,7 +123,6 @@ class Expect {
 const DOWN = '\x1BOB';
 // const RIGHT = '\x1BOC';
 // const LEFT = '\x1BOD';
-const strip_ansi_from_output = true;
 
 //clean the TUI from grafics
 function strip_ansi_escape_codes(str) {
@@ -149,7 +158,7 @@ function ntp_Configuration(configureTZ) {
     //runing with or without TZ
     let ntpString;
     if (configureTZ) {
-        ntpString = `pool.ntp.org${DOWN}US/Pacific\r`;
+        ntpString = `pool.ntp.org${DOWN}Asia/Jerusalem\r`;
     } else {
         ntpString = `pool.ntp.org\r`;
     }

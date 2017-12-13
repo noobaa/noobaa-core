@@ -37,7 +37,7 @@ let errors = [];
 const {
     location = 'westus2',
     configured_ntp = 'pool.ntp.org',
-    configured_timezone = 'US/Pacific',
+    configured_timezone = 'Asia/Jerusalem',
     prefix = 'Server',
     timeout = 10,
     breakonerror = false,
@@ -377,11 +377,13 @@ function delayInSec(sec) {
 }
 
 function createCluster(requestedServes, masterIndex, clusterIndex) {
-    let master = requestedServes[masterIndex].ip;
-    let cluster_ip = requestedServes[clusterIndex].ip;
-    let cluster_secret = requestedServes[clusterIndex].secret;
-    let cluster_name = requestedServes[clusterIndex].name;
-    return azf.addServerToCluster(master, cluster_ip, cluster_secret, cluster_name)
+    const master_ip = requestedServes[masterIndex].ip;
+    const slave_ip = requestedServes[clusterIndex].ip;
+    const slave_secret = requestedServes[clusterIndex].secret;
+    const slave_name = requestedServes[clusterIndex].name;
+    const master_name = requestedServes[masterIndex].name;
+    console.log(`${YELLOW}adding ${slave_name} to master: ${master_name}${NC}`);
+    return azf.addServerToCluster(master_ip, slave_ip, slave_secret, slave_name)
         .then(() => delayInSec(90));
 }
 

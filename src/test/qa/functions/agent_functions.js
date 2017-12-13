@@ -311,9 +311,9 @@ function stopRandomAgents(azf, server_ip, amount, suffix, oses) {
             const offlineAgentsAfter = res;
             const offlineExpected = offlineAgents + amount;
             if (offlineAgentsAfter === offlineExpected) {
-                console.log('Number of offline agents is ', offlineAgentsAfter, ' - as should');
+                console.log(`Number of offline agents is: ${offlineAgentsAfter} - as should`);
             } else {
-                console.error('After switched off agent number offline is ', offlineAgentsAfter, ' instead ', offlineExpected);
+                console.error(`Number of offline agents after stop is: ${offlineAgentsAfter}, expected: ${offlineExpected}`);
             }
         })
         .then(() => list_optimal_agents(server_ip, oses, suffix))
@@ -321,10 +321,9 @@ function stopRandomAgents(azf, server_ip, amount, suffix, oses) {
             const onlineAgents = res.length;
             const expectedOnlineAgents = oses.length - amount;
             if (onlineAgents === expectedOnlineAgents) {
-                console.log('Number online agents is ', onlineAgents, ' - as should');
+                console.log(`Number of online agents is: ${onlineAgents} - as should`);
             } else {
-                console.error('After switching off some agents number agents online ', onlineAgents, ' instead' +
-                    ' ', expectedOnlineAgents);
+                console.error(`Number of online agents after stop is: ${onlineAgents}, expected: ${expectedOnlineAgents}`);
             }
             return stopped_agents;
         });

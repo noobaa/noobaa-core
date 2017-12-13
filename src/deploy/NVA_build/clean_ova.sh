@@ -62,6 +62,7 @@ function usage(){
     echo "-a --azure run this script on azure"
     echo "-l --alyun run this script on alyun"
     echo "-w --aws   run this script on aws"
+    echo "-d --dev   will skip md5sum on all platform and dd in esx"
     echo "-h --help  will show this help"
     exit 0
 }

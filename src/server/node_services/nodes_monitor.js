@@ -373,7 +373,7 @@ class NodesMonitor extends EventEmitter {
         const host_item = this._consolidate_host(host_nodes);
         return P.map(host_nodes, node => this._retrust_node(node))
             .then(() => this._dispatch_node_event(host_item, 'retrust',
-                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was retrusted by ${req.account && req.account.email}`,
+                `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} was set as trusted by ${req.account && req.account.email}`,
                 req.account && req.account._id));
     }
 

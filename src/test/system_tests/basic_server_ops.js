@@ -12,7 +12,7 @@ var promise_utils = require('../../util/promise_utils');
 var api = require('../../api');
 
 var test_file = '/tmp/test_upgrade';
-var rpc = api.new_rpc();
+let rpc_validation_disabled = false;
 
 module.exports = {
     upload_and_upgrade: upload_and_upgrade,
@@ -28,20 +28,18 @@ module.exports = {
 };
 
 function disable_rpc_validation(ip, upgrade_pack) {
-    rpc.disable_validation();
+    rpc_validation_disabled = true;
 }
 
 function upload_and_upgrade(ip, upgrade_pack) {
     console.log('Upgrading the machine');
-    var client = rpc.new_client({
-        address: 'ws://' + ip + ':8080'
-    });
+    const client = get_rpc_client(ip);
 
     var filename;
-    if (upgrade_pack.indexOf('/') !== -1) {
-        filename = upgrade_pack.substring(upgrade_pack.indexOf('/'));
-    } else {
+    if (upgrade_pack.indexOf('/') === -1) {
         filename = upgrade_pack;
+    } else {
+        filename = upgrade_pack.substring(upgrade_pack.indexOf('/'));
     }
 
     var formData = {
@@ -54,18 +52,26 @@ function upload_and_upgrade(ip, upgrade_pack) {
         }
     };
 
-    return P.ninvoke(request, 'post', {
+    var auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params)
+        .then(() => P.ninvoke(request, 'post', {
             url: 'http://' + ip + ':8080/upgrade',
             formData: formData,
             rejectUnauthorized: false,
-        })
+        }))
         .then(() => {
             let ready = false;
             return promise_utils.pwhile(() => !ready, () => client.system.read_system()
                 .then(res => {
-                    if (res.cluster.shards[0].server[0].upgrade.status === 'CAN_UPGRADE') {
+                    const upgrade_status = _.get(res, 'cluster.shards.0.servers.0.upgrade.status');
+                    console.log(`waiting for upgrade status to be CAN_UPGRADE. current upgrade_status = ${upgrade_status}`);
+                    if (upgrade_status === 'CAN_UPGRADE') {
                         ready = true;
-                    } else if (res.cluster.shards[0].server[0].upgrade.status === 'FAILED') {
+                    } else if (upgrade_status === 'FAILED') {
                         console.log('Failed on pre upgrade tests');
                         throw new Error('Failed on pre upgrade tests');
                     } else {
@@ -255,10 +261,19 @@ function generate_random_file(size_mb, extension) {
         });
 }
 
-function wait_on_agents_upgrade(ip) {
-    var client = rpc.new_client({
+function get_rpc_client(ip) {
+    let rpc = api.new_rpc();
+    if (rpc_validation_disabled) {
+        rpc.disable_validation();
+    }
+    let client = rpc.new_client({
         address: 'ws://' + ip + ':8080'
     });
+    return client;
+}
+
+function wait_on_agents_upgrade(ip) {
+    const client = get_rpc_client(ip);
     var sys_ver;
 
     return P.fcall(function() {

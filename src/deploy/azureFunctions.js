@@ -625,8 +625,7 @@ class AzureFunctions {
     waitMachineState(machine, state) {
         var c_state;
         console.log('Waiting for machine state to be ' + state);
-        return promise_utils.pwhile(() => c_state !== state, () =>
-            P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
+        return promise_utils.pwhile(() => c_state !== state, () => P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
                 expand: 'instanceView',
             }, callback))
             .then(machine_info => {
@@ -662,8 +661,7 @@ class AzureFunctions {
             .then(() => P.fromCallback(callback => blobSvc.doesBlobExist(CONTAINER_NAME, 'image.vhd', callback)))
             .then(({ exists }) => !exists && P.fromCallback(
                     callback => blobSvc.startCopyBlob(NOOBAA_IMAGE, CONTAINER_NAME, 'image.vhd', callback))
-                .then(() => promise_utils.pwhile(() => !isDone, () =>
-                    P.fromCallback(callback => blobSvc.getBlobProperties(CONTAINER_NAME, 'image.vhd', callback))
+                .then(() => promise_utils.pwhile(() => !isDone, () => P.fromCallback(callback => blobSvc.getBlobProperties(CONTAINER_NAME, 'image.vhd', callback))
                     .then(result => {
                         if (result.copy) {
                             console.log('Copying Image...', result.copy.progress);
@@ -689,6 +687,7 @@ class AzureFunctions {
             .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
             .then(ip => {
                 rpc = api.new_rpc('wss://' + ip + ':8443');
+                rpc.disable_validation();
                 client = rpc.new_client({});
                 return client.system.create_system(system);
             })

@@ -35,7 +35,8 @@ export function isFieldDirty(form, field) {
 }
 
 export function getFormValues(form) {
-    return mapValues(form.fields, field => field.value, form);
+
+    return mapValues(form.fields, field => field.value, false);
 }
 
 export function isFormValid(form) {

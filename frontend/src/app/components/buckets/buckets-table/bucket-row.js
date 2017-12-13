@@ -74,7 +74,10 @@ export default class BucketRowViewModel {
         const name = {
             text: bucket.name,
             href: realizeUri(this.baseRoute, { bucket: bucket.name }),
-            tooltip: { text: bucket.name, breakWords: true }
+            tooltip: {
+                text: bucket.name,
+                breakWords: true
+            }
         };
 
         const resources  = ['HOSTS', 'CLOUD']
@@ -82,7 +85,9 @@ export default class BucketRowViewModel {
 
         const spillover = formatSize(bucket.spillover ? bucket.spillover.usage : 0);
 
-        this.state(getBucketStateIcon(bucket));
+        console.warn(getBucketStateIcon(bucket, 'start'));
+
+        this.state(getBucketStateIcon(bucket, 'start'));
         this.name(name);
         this.objectCount(numeral(bucket.objectCount).format('0,0'));
         this.placementPolicy(getPlacementTypeDisplayName(bucket.placement.policyType));

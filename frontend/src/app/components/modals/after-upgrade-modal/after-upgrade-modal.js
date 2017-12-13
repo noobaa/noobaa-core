@@ -2,18 +2,33 @@
 
 import template from './after-upgrade-modal.html';
 import ko from 'knockout';
-import { systemInfo } from 'model';
+import Observer from 'observer';
+import { state$, action$ } from 'state';
+import { closeModal, requestLocation } from 'action-creators';
 
-class AfterUpgradeModalViewModel {
-    constructor({ onClose }) {
-        this.close = onClose;
-        this.version = ko.pureComputed(
-            () => systemInfo() && systemInfo().version
+class AfterUpgradeModalViewModel extends Observer {
+    constructor() {
+        super();
+
+        this.version = ko.observable();
+
+        this.observe(
+            state$.getMany(
+                ['system', 'version'],
+                ['location', 'pathname']
+            ),
+            this.onState
         );
     }
 
-    onClose() {
-        this.close();
+    onState([version, pathname]) {
+        this.version(version);
+        this.pathname = pathname;
+    }
+
+    onDone() {
+        action$.onNext(closeModal());
+        action$.onNext(requestLocation(this.pathname));
     }
 }
 

@@ -16,7 +16,7 @@ const columns = deepFreeze([
     },
     {
         name: 'server',
-        label: 'Issue Location'
+        label: 'Server Name'
     },
     {
         name: 'message',

@@ -25,7 +25,7 @@ const pkgIssuesColumns = deepFreeze([
     },
     {
         name: 'server',
-        label: 'Issue Location'
+        label: 'Server Name'
     },
     {
         name: 'message',
@@ -36,7 +36,7 @@ const pkgIssuesColumns = deepFreeze([
 const pkgTextResultToInfo = deepFreeze({
     NO_RESULT: null,
     SUCCESS: {
-        dropAreaMessage: 'Package uploaded and tested successfully',
+        dropAreaMessage: 'Package uploaded and validated successfully',
         propertyText: 'Successful',
         icon: {
             name: 'healthy',
@@ -44,7 +44,7 @@ const pkgTextResultToInfo = deepFreeze({
         }
     },
     FAILURE: {
-        dropAreaMessage: 'Package failed testing',
+        dropAreaMessage: 'Package failed validation',
         propertyText: 'Failure',
         icon: {
             name: 'problem',
@@ -93,7 +93,7 @@ function _getPackageTestResult(state, numOfIssues) {
 
 function _getPackageVersionText(version) {
     if (!version) {
-        return 'No previously tested version';
+        return 'No previously validated version';
     }
 
     if (version === 'UNKNOWN') {
@@ -149,12 +149,12 @@ class VersionFormViewModel extends Observer {
                 value: this.pkgVersion
             },
             {
-                label: 'Uploaded and Tested at',
+                label: 'Uploaded and Validated at',
                 value: this.pkgTestTime,
                 visible: this.pkgTestTime
             },
             {
-                label: 'Test result',
+                label: 'Validation result',
                 template: 'testResult',
                 value: this.pkgTestResult,
                 visible: this.pkgTestResult

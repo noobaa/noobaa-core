@@ -1,4 +1,4 @@
-// /* Copyright (C) 2016 NooBaa */
+// Copyright (C) 2016 NooBaa
 
 import template from './version-form.html';
 import Observer from 'observer';

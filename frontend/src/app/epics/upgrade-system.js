@@ -6,7 +6,6 @@ import {
     UPGRADE_SYSTEM
 } from 'action-types';
 
-
 function _upgradeFailed(action) {
     return action.payload.cluster.shards
         .some(shard => shard.servers

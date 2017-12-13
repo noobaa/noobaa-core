@@ -189,7 +189,6 @@ function _summrizeServerIssues(server, systemVersion, minRequirements) {
 export function getServerDisplayName(server) {
     const { hostname, secret } = server;
     return `${hostname}-${secret}`;
-
 }
 
 export function getClsuterHAState(topology) {

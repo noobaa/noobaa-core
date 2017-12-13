@@ -50,7 +50,7 @@ class UpgradeSystemModalViewModel extends Observer {
         this.observe(
             state$.getMany(
                 'system',
-                ['topology', 'servers'],
+                ['topology', 'servers']
             ),
             this.onState
         );

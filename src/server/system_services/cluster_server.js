@@ -1144,7 +1144,7 @@ function member_pre_upgrade(req) {
     let upgrade = _.omitBy({
         path: req.rpc_params.filepath,
         mongo_upgrade: req.rpc_params.mongo_upgrade,
-        status: req.rpc_params.stage !== 'UPGRADE_STAGE' ? 'PENDING' : 'PRE_UPGRADE_PENDING',
+        status: req.rpc_params.stage === 'UPGRADE_STAGE' ? 'PRE_UPGRADE_PENDING' : 'PENDING',
         package_uploaded: req.rpc_params.stage === 'UPLOAD_STAGE' ? Date.now() : server.upgrade.package_uploaded
     }, _.isUndefined);
 
@@ -1177,7 +1177,7 @@ function member_pre_upgrade(req) {
             }
 
             upgrade.staged_package = res.staged_package || 'UNKNOWN';
-            upgrade.tested_date = res.tested_date || 'UNKNOWN';
+            upgrade.tested_date = res.tested_date;
 
             dbg.log0('UPGRADE:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
 

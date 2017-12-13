@@ -80,7 +80,7 @@ function pre_upgrade(params) {
         })
         .then(() => _.omitBy({
             result: true,
-            tested_date: params.testing_stage && Date.now(),
+            tested_date: Date.now(),
             staged_package: params.testing_stage && (staged_package || 'UNKNOWN')
         }, _.isUndefined))
         .catch(error => {
@@ -88,7 +88,7 @@ function pre_upgrade(params) {
             return _.omitBy({
                 result: false,
                 error: ERROR_MAPPING[error.message] || ERROR_MAPPING.UNKNOWN,
-                tested_date: params.testing_stage && Date.now(),
+                tested_date: Date.now(),
                 staged_package: params.testing_stage && (staged_package || 'UNKNOWN')
             }, _.isUndefined);
         });

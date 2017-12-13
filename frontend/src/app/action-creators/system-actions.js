@@ -127,7 +127,6 @@ export function upgradeSystem() {
     return { type: UPGRADE_SYSTEM };
 }
 
-
 export function uploadUpgradePackage(packageFile) {
     return {
         type: UPLOAD_UPGRADE_PACKAGE,

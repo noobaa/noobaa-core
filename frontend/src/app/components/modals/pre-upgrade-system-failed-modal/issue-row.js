@@ -6,7 +6,8 @@ import { getServerDisplayName } from 'utils/cluster-utils';
 
 const issueIcon = deepFreeze({
     name: 'problem',
-    css: 'error'
+    css: 'error',
+    tooltip: 'Failure'
 });
 
 export default class IssueRowViewModel {

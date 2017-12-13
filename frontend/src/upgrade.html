@@ -1,0 +1,52 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NooBaa Management Console</title>
+    <link rel="stylesheet" type="text/css" href="/fe/styles.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body class="column alt-bg">
+    <main class="c5 row align-middle">
+        <section class="column align-end text-center">
+            <h1 class="heading1">Upgrading System Version</h1>
+            <loading-indicator class="push-both-half">
+                <div>
+                    <span class="circle"></span>
+                    <span class="circle"></span>
+                    <span class="circle"></span>
+                </div>
+            </loading-indicator>
+
+            <p>
+                System upgrade is currently running on the NooBaa servers
+                <br>
+                This may take a few moments
+            </p>
+        </section>
+    </main>
+
+    <script>
+    (function(global) {
+        const pingUrl = '/version';
+        const redirectUrl = '/fe';
+        const delay = 3000;
+
+        (function tryGet() {
+            const xhr = new global.XMLHttpRequest();
+            xhr.open('GET', pingUrl, true);
+            xhr.onerror = () => setTimeout(tryGet, delay);
+            xhr.onload = evt => {
+                if (evt.target.status === 200) {
+                    global.location = redirectUrl;
+                } else {
+                    xhr.onerror();
+                }
+            };
+            xhr.send();
+        })();
+    })(window);
+    </script>
+</body>
+</html>

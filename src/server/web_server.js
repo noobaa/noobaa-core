@@ -348,59 +348,74 @@ app.get('/get_log_level', function(req, res) {
     });
 });
 
-// Get the current version
-app.get('/version', function(req, res) {
-    const registered = server_rpc.is_service_registered('system_api.read_system');
-    let current_clustering = system_store.get_local_cluster_info();
-    let started;
-    if (current_clustering && !current_clustering.is_clusterized) {
-        // if not clusterized then no need to wait.
-        started = true;
-    } else {
-        // if in a cluster then after upgrade the user should be redirected to the new master
-        // give the new master 10 seconds to start completely before ending the upgrade
-        const WEBSERVER_START_TIME = 10 * 1000;
-        started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
-    }
-
-    return (server_rpc.client.cluster_internal.get_upgrade_status())
-        .then(status => {
-            if (started && registered && !status.in_process &&
-                system_store.is_finished_initial_load) {
-                const system = system_store.data.systems[0];
-                if (!system) {
-                    dbg.log0(`/version without system returning ${pkg.version}, service registered and upgrade is not in progress`);
-                    res.send(pkg.version);
-                    res.end();
-                }
-                return server_rpc.client.system.read_system({}, {
-                        address: 'http://127.0.0.1:' + http_port,
-                        auth_token: auth_server.make_auth_token({
-                            system_id: system._id,
-                            role: 'admin',
-                        })
-                    })
-                    .then(sys => {
-                        dbg.log0(`/version returning ${pkg.version}, service registered and upgrade is not in progress`);
-                        res.send(pkg.version);
-                        res.end();
-                    })
-                    .catch(err => {
-                        dbg.log0(`/version caught ${err} on read system, returning 404`);
-                        res.status(404).end();
-                    });
+function getVersion(route) {
+    return P.resolve()
+        .then(() => {
+            const registered = server_rpc.is_service_registered('system_api.read_system');
+            let current_clustering = system_store.get_local_cluster_info();
+            let started;
+            if (current_clustering && !current_clustering.is_clusterized) {
+                // if not clusterized then no need to wait.
+                started = true;
             } else {
-                dbg.log0(`/version returning 404, service_registered ${registered}, status.in_progress ${status.in_progress}`);
-                res.status(404).end();
+                // if in a cluster then after upgrade the user should be redirected to the new master
+                // give the new master 10 seconds to start completely before ending the upgrade
+                const WEBSERVER_START_TIME = 10 * 1000;
+                started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
             }
-        })
-        .catch(err => {
-            dbg.error(`got error when checking upgrade status. returning 404`, err);
-            res.status(404).end();
+
+            return (server_rpc.client.cluster_internal.get_upgrade_status())
+                .then(status => {
+                    if (started && registered && !status.in_process &&
+                        system_store.is_finished_initial_load) {
+                        const system = system_store.data.systems[0];
+                        if (!system) {
+                            dbg.log0(`${route} without system returning ${pkg.version}, service registered and upgrade is not in progress`);
+                            return {
+                                status: 200,
+                                version: pkg.version,
+                            };
+                        }
+                        return server_rpc.client.system.read_system({}, {
+                                address: 'http://127.0.0.1:' + http_port,
+                                auth_token: auth_server.make_auth_token({
+                                    system_id: system._id,
+                                    role: 'admin',
+                                    account_id: system.owner._id,
+                                })
+                            })
+                            .then(sys => {
+                                dbg.log0(`${route} returning ${pkg.version}, service registered and upgrade is not in progress`);
+                                return {
+                                    status: 200,
+                                    version: pkg.version
+                                };
+                            })
+                            .catch(err => {
+                                dbg.log0(`${route} caught ${err} on read system, returning 404`);
+                                return { status: 404 };
+                            });
+                    } else {
+                        dbg.log0(`${route} returning 404, service_registered ${registered}, status.in_progress ${status.in_progress}`);
+                        return { status: 404 };
+                    }
+                })
+                .catch(err => {
+                    dbg.error(`got error when checking upgrade status. returning 404`, err);
+                    return { status: 404 };
+                });
         });
+}
 
-
-});
+// Get the current version
+app.get('/version', (req, res) =>
+    getVersion(req.url)
+        .then(({ status, version }) => {
+            if (version) res.send(version);
+            if (status !== 200) res.status(status);
+            res.end();
+        })
+);
 
 ////////////
 // STATIC //
@@ -416,6 +431,19 @@ function cache_control(seconds) {
         res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
         return next();
     };
+}
+
+function handleUpgrade(req, res, next) {
+    return getVersion(req.url)
+        .then(({ status }) => {
+            if (status === 200) {
+                next();
+                return;
+            }
+
+            const filePath = path.join(rootdir, 'frontend', 'dist', 'upgrade.html');
+            res.sendFile(filePath);
+        });
 }
 
 // setup static files
@@ -438,7 +466,7 @@ app.use('/public/license-info', license_info.serve_http);
 app.use('/fe/assets', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
 app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
-app.get('/fe/**/', function(req, res) {
+app.get('/fe/**/', handleUpgrade, function(req, res) {
     var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
     res.sendFile(filePath);
 });

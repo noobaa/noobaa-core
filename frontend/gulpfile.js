@@ -23,6 +23,15 @@ const uglify = !!argv.uglify;
 let buildErrors = 0;
 let lintErrors = 0;
 
+const staticAssetsSelector = [
+    'src/index.html',
+    'src/upgrade.html',
+    'src/preload.js',
+    'src/assets/**/*',
+    '!src/assets/icons',
+    '!src/assets/icons/*.svg'
+];
+
 const libs = [
     { name: 'knockout',             path: './src/lib/knockout/dist/knockout.debug.js' },
     { name: 'knockout-projections', path: './src/lib/knockout-projections/dist/knockout-projections.min.js' },
@@ -159,15 +168,7 @@ gulp.task('generate-svg-icons', () => {
 
 gulp.task('copy', () => {
     return gulp.src(
-        [
-            'src/index.html',
-            'src/preload.js',
-            'src/assets/**/*',
-            // Exclude the icons folder, icons.svg will be build
-            // using generate-svg-symbols
-            '!src/assets/icons',
-            '!src/assets/icons/*.svg'
-        ],
+        staticAssetsSelector,
         { base: 'src' }
     )
         .pipe(gulp.dest(buildPath));
@@ -256,13 +257,7 @@ gulp.task('watch-svg-icons', ['generate-svg-icons'], () => {
 
 gulp.task('watch-assets', ['copy'], () => {
     return $.watch(
-        [
-            'src/index.html',
-            'src/preload.js',
-            'src/assets/**/*',
-            '!src/assets/icons',
-            '!src/assets/icons/*.svg'
-        ],
+        staticAssetsSelector,
         vinyl => {
             // Copy the file that changed.
             gulp.src(vinyl.path, { base: 'src' })

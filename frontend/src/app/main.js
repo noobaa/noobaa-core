@@ -88,5 +88,3 @@ ko.applyBindings(null);
 
 action$.onNext(setupEnv(recognizeBrowser()));
 action$.onNext(restoreSession());
-
-

@@ -14,7 +14,8 @@ exports.encode_xml_str = encode_xml_str;
  *  - string/number/boolean/date will be converted to strings.
  *  - {key: null} will encode an empty tag - <key></key>
  *  - {key: undefined} will not encode the tag at all.
- *  - {key: {_attr:{k1=v1,k2=v2,...}} will encode xml attributes on the tag (_attr can be set on array values too)
+ *  - {key: { _attr:{k1:v1,k2:v2,...}, _content:value } will encode xml attributes on the tag
+ *      (_attr can be set on array values too)
  *
  * for example:
  *   { root: [{a:1,b:2}, {a:3}, {b:4}, [[[[{z:42}]]]], {c:{_attr:{d:5}}} ] }

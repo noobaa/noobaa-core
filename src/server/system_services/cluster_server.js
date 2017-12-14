@@ -438,13 +438,10 @@ function join_to_cluster(req) {
                     cluster_info.location = req.rpc_params.location;
                 }
                 return P.resolve(_update_cluster_info(cluster_info))
-                    .then(() =>
-                        //Add the new shard server
-                        _add_new_shard_on_server(req.rpc_params.shard, req.rpc_params.ip, {
-                            first_shard: false,
-                            remote_server: true
-                        })
-                    );
+                    .then(() => _add_new_shard_on_server(req.rpc_params.shard, req.rpc_params.ip, {
+                        first_shard: false,
+                        remote_server: true
+                    }));
             } else if (req.rpc_params.role === 'REPLICA') {
                 //Server is joining as a replica set member to an existing shard, update shard chain topology
                 //And add an appropriate server
@@ -606,14 +603,10 @@ function news_config_servers(req) {
     //If config servers changed, update
     //Only the first server in the cfg array does so
     return P.resolve(_update_rs_if_needed(req.rpc_params.IPs, config.MONGO_DEFAULTS.CFG_RSET_NAME, true))
-        .then(() =>
-            //Update our view of the topology
-            P.resolve(_update_cluster_info({
+        .then(() => P.resolve(_update_cluster_info({
                 config_servers: req.rpc_params.IPs
             }))
-            .then(() =>
-                //We have a valid config replica set, start the mongos service
-                MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
+            .then(() => MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
                     cutil.get_topology().config_servers
                 ))
                 //TODO:: Update connection string for our mongo connections, currently only seems needed for
@@ -1259,8 +1252,7 @@ function cluster_pre_upgrade(req) {
                     // upload package to secondaries
                     dbg.log0('cluster_pre_upgrade:', 'uploading package to all cluster members');
                     // upload package to cluster members
-                    return P.all(secondary_members.map(ip =>
-                        _upload_package(upgrade_path, ip)
+                    return P.all(secondary_members.map(ip => _upload_package(upgrade_path, ip)
                         .catch(err => {
                             dbg.error('upgrade_cluster failed uploading package', err);
                             return _handle_cluster_upgrade_failure(new Error('DISTRIBUTION_FAILED'), ip);
@@ -1314,10 +1306,8 @@ function upgrade_cluster(req) {
             // upload package to secondaries
             dbg.log0('UPGRADE:', 'testing package in all secondary cluster members');
             // upload package to cluster members
-            return P.all(secondary_members.map(ip =>
-                server_rpc.client.cluster_internal.member_pre_upgrade({
-                    filepath: system_store.data.clusters.find(cluster =>
-                        (String(cluster.owner_address) === String(ip))).upgrade.path,
+            return P.all(secondary_members.map(ip => server_rpc.client.cluster_internal.member_pre_upgrade({
+                    filepath: system_store.data.clusters.find(cluster => (String(cluster.owner_address) === String(ip))).upgrade.path,
                     mongo_upgrade: false,
                     stage: 'UPGRADE_STAGE'
                 }, {
@@ -1423,8 +1413,7 @@ function _handle_upgrade_stage(params) {
                 })
                 .then(() => _wait_for_upgrade_stage(ip, 'DB_READY'))
                 .then(() => Dispatcher.instance().publish_fe_notifications({
-                    secret: system_store.data.clusters.find(cluster =>
-                        (String(cluster.owner_address) === String(ip))).owner_secret
+                    secret: system_store.data.clusters.find(cluster => (String(cluster.owner_address) === String(ip))).owner_secret
                 }, 'change_upgrade_status'))
                 .catch(err => {
                     dbg.error('UPGRADE:', 'got error on upgrade of server', ip, 'aborting upgrade process', err);
@@ -1966,8 +1955,7 @@ function _get_aws_owner() {
         .then(() => {
             if (process.env.PLATFORM !== 'aws') return;
             const email = `${process.env.AWS_INSTANCE_ID}@noobaa.com`;
-            return promise_utils.retry(10, 30000, () =>
-                    P.fromCallback(callback => request({ method: 'GET', url: `https://store.zapier.com/api/records?secret=${email}` }, callback))
+            return promise_utils.retry(10, 30000, () => P.fromCallback(callback => request({ method: 'GET', url: `https://store.zapier.com/api/records?secret=${email}` }, callback))
                     .then(res => {
                         dbg.log0(`got activation code for ${email} from zappier. body=`, res.body);
                         const { code } = JSON.parse(res.body);

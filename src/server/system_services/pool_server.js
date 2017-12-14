@@ -573,10 +573,13 @@ function calc_cloud_pool_mode(p) {
 
 function calc_mongo_pool_mode(p) {
     const { by_mode } = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
+    const { free } = _.defaults({}, p.storage, { free: NO_CAPAITY_LIMIT + 1 });
     return (!p.nodes && 'INITIALIZING') ||
         (by_mode.OPTIMAL && 'OPTIMAL') ||
         (by_mode.IO_ERRORS && 'IO_ERRORS') ||
         (by_mode.INITIALIZING && 'INITIALIZING') ||
+        (by_mode.OFFLINE && 'ALL_NODES_OFFLINE') ||
+        (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
         'ALL_NODES_OFFLINE';
 }
 

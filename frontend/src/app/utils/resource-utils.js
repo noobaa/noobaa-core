@@ -112,6 +112,11 @@ const internalResourceModeToStateIcon = deepFreeze({
         css: 'error',
         name: 'problem'
     },
+    NO_CAPACITY: {
+        tooltip: 'No available resource capacity',
+        css: 'error',
+        name: 'problem'
+    },
     IO_ERRORS: {
         tooltip: 'Resource has Read/Write problems',
         css: 'error',

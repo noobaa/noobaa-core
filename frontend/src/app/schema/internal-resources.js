@@ -17,7 +17,8 @@ export default {
                     'OPTIMAL',
                     'INITIALIZING',
                     'IO_ERRORS',
-                    'ALL_NODES_OFFLINE'
+                    'ALL_NODES_OFFLINE',
+                    'NO_CAPACITY'
                 ]
             },
             storage: {

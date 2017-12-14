@@ -43,6 +43,8 @@ const ERROR_MAPPING = {
 
 let staged_package = 'UNKNOWN';
 
+class ExtractionError extends Error {}
+
 function pre_upgrade(params) {
     dbg.log0('UPGRADE:', 'pre_upgrade called with upgrade_file =', params.upgrade_path);
     return P.resolve()
@@ -85,6 +87,9 @@ function pre_upgrade(params) {
         }, _.isUndefined))
         .catch(error => {
             dbg.error('pre_upgrade: HAD ERRORS', error);
+            if (error instanceof ExtractionError) { //Failed in extracting, no staged package
+                staged_package = 'UNKNOWN';
+            }
             return _.omitBy({
                 result: false,
                 error: ERROR_MAPPING[error.message] || ERROR_MAPPING.UNKNOWN,
@@ -251,9 +256,12 @@ function new_pre_upgrade() {
 
 function pre_upgrade_checkups() {
     return P.join(
-        test_major_version_change(),
-        test_package_extraction()
-    );
+            test_major_version_change(),
+            test_package_extraction()
+        )
+        .catch(err => {
+            throw new ExtractionError(err);
+        });
 }
 
 function extract_new_pre_upgrade_params() {

@@ -39,11 +39,18 @@ function aws_specific(){
 }
 
 function generate_entropy(){
+    local path
+    local pid=()
     echo "Generate entropy for /dev/random (openssl and such) for 5m"
-    find /dev/disk/by-uuid/ -type l | xargs md5sum &
-    pid=$!
+    for path in $(find /dev/disk/by-uuid/ -type l )
+    do
+        md5sum ${path} &
+        pid+=($!)
+    done
+    ps -ef | grep md5 | grep -v grep
     sleep 300
-    kill -9 ${pid}
+    echo "killing md5sum (pid: ${pid[@]})"
+    kill -9 ${pid[@]} 2> /dev/null
 }
 
 OPTIONS=$( getopt -o 'h,e,a,l,w,d' --long "help,esx,azure,alyun,aws,dev" -- "$@" )

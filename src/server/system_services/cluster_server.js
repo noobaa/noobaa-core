@@ -1259,7 +1259,8 @@ function cluster_pre_upgrade(req) {
                         })
                     ));
                 });
-        });
+        })
+        .return();
 }
 
 function upgrade_cluster(req) {
@@ -1287,17 +1288,17 @@ function upgrade_cluster(req) {
             }
         })
         .then(() => {
-            const update = {
+            const updates = system_store.data.clusters.map(cluster => ({
                 _id: {
-                    $in: system_store.data.clusters.map(cluster => cluster._id)
+                    $in: cluster._id
                 },
                 $set: {
                     "upgrade.initiator_email": req.account.email
                 }
-            };
+            }));
             return system_store.make_changes({
                 update: {
-                    clusters: [update]
+                    clusters: updates
                 }
             });
         })
@@ -1347,20 +1348,18 @@ function upgrade_cluster(req) {
             });
         })
         .then(() => {
-            const update = {
-                _id: {
-                    $in: system_store.data.clusters.map(cluster => cluster._id)
-                },
+            const updates = system_store.data.clusters.map(cluster => ({
+                _id: cluster._id,
                 $set: {
                     "upgrade.status": 'UPGRADING'
                 },
                 $unset: {
                     "upgrade.error": true
                 }
-            };
+            }));
             return system_store.make_changes({
                 update: {
-                    clusters: [update]
+                    clusters: updates
                 }
             });
         })
@@ -1376,25 +1375,31 @@ function _handle_cluster_upgrade_failure(err, ip) {
             dbg.error('_handle_cluster_upgrade_failure: got error on cluster upgrade', err);
             upgrade_in_process = false;
             const fe_notif_params = {};
-            const id_query = ip ? system_store.data.clusters.find(cluster => {
-                if (String(cluster.owner_address) === String(ip)) {
-                    fe_notif_params.secret = cluster.owner_secret;
-                    return true;
-                }
-                return false;
-            })._id : {
-                $in: system_store.data.clusters.map(cluster => cluster._id)
+            const change = {
+                "upgrade.status": 'UPGRADE_FAILED',
+                "upgrade.error": 'Upgrade has failed with an interal error'
             };
-            const update = {
-                _id: id_query,
-                $set: {
-                    "upgrade.status": 'UPGRADE_FAILED',
-                    "upgrade.error": 'Upgrade has failed with an interal error'
-                }
-            };
+            let updates;
+            if (ip) {
+                updates = [{
+                    _id: system_store.data.clusters.find(cluster => {
+                        if (String(cluster.owner_address) === String(ip)) {
+                            fe_notif_params.secret = cluster.owner_secret;
+                            return true;
+                        }
+                        return false;
+                    })._id,
+                    $set: change
+                }];
+            } else {
+                updates = system_store.data.clusters.map(cluster => ({
+                    _id: cluster._id,
+                    $set: change
+                }));
+            }
             return system_store.make_changes({
                     update: {
-                        clusters: [update]
+                        clusters: updates
                     }
                 })
                 .then(() => Dispatcher.instance().publish_fe_notifications(fe_notif_params, 'change_upgrade_status'))

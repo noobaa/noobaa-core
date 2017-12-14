@@ -85,8 +85,6 @@ export default class BucketRowViewModel {
 
         const spillover = formatSize(bucket.spillover ? bucket.spillover.usage : 0);
 
-        console.warn(getBucketStateIcon(bucket, 'start'));
-
         this.state(getBucketStateIcon(bucket, 'start'));
         this.name(name);
         this.objectCount(numeral(bucket.objectCount).format('0,0'));

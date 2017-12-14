@@ -61,7 +61,6 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
             state: cloud_sync.status
         },
         undeletable: bucket.undeletable,
-        writable: bucket.writable,
         placement: _mapPlacement(placementTiers[0], resTypeByName, resUsageByName),
         spillover: _mapSpillover(spilloverTiers[0], resTypeByName, resUsageByName),
         io: _mapIO(stats)

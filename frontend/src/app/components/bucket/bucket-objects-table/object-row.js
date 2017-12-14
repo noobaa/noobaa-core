@@ -10,11 +10,13 @@ import ko from 'knockout';
 const statusMapping = deepFreeze({
     OPTIMAL: {
         css: 'success',
-        name: 'healthy'
+        name: 'healthy',
+        tooltip: 'Healthy'
     },
     UPLOADING: {
         css: 'warning',
-        name: 'working'
+        name: 'working',
+        tooltip: 'Uploading'
     }
 });
 

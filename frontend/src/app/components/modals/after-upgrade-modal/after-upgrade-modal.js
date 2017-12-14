@@ -28,7 +28,7 @@ class AfterUpgradeModalViewModel extends Observer {
 
     onDone() {
         action$.onNext(closeModal());
-        action$.onNext(requestLocation(this.pathname));
+        action$.onNext(requestLocation(this.pathname, true));
     }
 }
 

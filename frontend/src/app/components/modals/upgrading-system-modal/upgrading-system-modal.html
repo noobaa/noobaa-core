@@ -21,7 +21,11 @@
     </span>
     <ul class="list-no-style column alt-bg greedy pad" ko.foreach="serverRows">
         <li class="row content-middle push-both-half">
-            <svg-icon class="push-next" ko.css="icon().css" params="name: icon().name"></svg-icon>
+            <svg-icon class="push-next"
+                ko.css="icon().css"
+                ko.tooltip="icon().tooltip"
+                params="name: icon().name"
+            ></svg-icon>
             {{name}}
             <span class="master-marking push-prev-half"
                 ko.visible="markAsMaster"

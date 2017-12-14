@@ -17,7 +17,10 @@ export default function(action$, { fetch }) {
             const url = `${baseUrl}/${versionWithNoBuildNumber}.${suffix}`;
 
             try {
-                const notes = await(await fetch(url)).text();
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Got HTTP: ${res.status}`);
+
+                const notes = await(res).text();
                 return completeFetchVersionReleaseNotes(version, notes);
 
             } catch (error) {

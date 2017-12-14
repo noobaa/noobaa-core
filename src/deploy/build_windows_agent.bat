@@ -85,7 +85,7 @@ del /q .\build\*.*
 
 curl -L https://nodejs.org/dist/v%NODEJS_VERSION%/win-x64/node.exe > node.exe || exit 1
 
-curl -L https://storage.googleapis.com/noobaa-temp/openssl/openssl.zip > openssl.zip || exit 1
+curl -L https://storage.googleapis.com/noobaa-temp/openssl/openssl-1.0.2l-x64_86-win64.zip > openssl.zip || exit 1
 7za.exe e openssl.zip -y -x!*.txt || exit 1
 del /Q openssl.zip
 del /s *.pdb

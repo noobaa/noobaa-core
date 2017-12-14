@@ -145,8 +145,7 @@ function create_bucket(req) {
 
     if (req.rpc_params.namespace) {
         const read_resources = _.compact(req.rpc_params.namespace.read_resources
-            .map(ns_name =>
-                req.system.namespace_resources_by_name[ns_name] &&
+            .map(ns_name => req.system.namespace_resources_by_name[ns_name] &&
                 req.system.namespace_resources_by_name[ns_name]._id)
         );
         const wr_obj = req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource];
@@ -223,9 +222,8 @@ function read_bucket(req) {
             cloud_sync_server.get_cloud_sync(req, bucket),
             node_allocator.refresh_tiering_alloc(bucket.tiering)
         )
-        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) =>
-            get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier,
-                num_of_objects, cloud_sync_policy));
+        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) => get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier,
+            num_of_objects, cloud_sync_policy));
 }
 
 function get_bucket_namespaces(req) {
@@ -241,8 +239,7 @@ function get_bucket_namespaces(req) {
                         write_resource: pool_server.get_namespace_resource_extended_info(
                             system.namespace_resources_by_name[bucket.namespace.write_resource.name]
                         ),
-                        read_resources: _.map(bucket.namespace.read_resources, rs =>
-                            pool_server.get_namespace_resource_extended_info(rs))
+                        read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs))
                     }
                 };
             } else {
@@ -498,14 +495,12 @@ function update_bucket_s3_access(req) {
         .then(() => {
             const desc_string = [];
             if (added_accounts.length > 0) {
-                desc_string.push('Added accounts: ' + _.map(added_accounts, function(acc) {
-                    return acc.email;
-                }));
+                desc_string.push('Added accounts:');
+                _.each(added_accounts, acc => desc_string.push(acc.email));
             }
             if (removed_accounts.length > 0) {
-                desc_string.push('Removed accounts: ' + _.map(removed_accounts, function(acc) {
-                    return acc.email;
-                }));
+                desc_string.push('Removed accounts:');
+                _.each(removed_accounts, acc => desc_string.push(acc.email));
             }
 
             Dispatcher.instance().activity({
@@ -760,8 +755,7 @@ function get_cloud_buckets(req) {
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
                     .timeout(EXTERNAL_BUCKET_LIST_TO)
-                    .then(data => data.entries.map(entry =>
-                        _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
+                    .then(data => data.entries.map(entry => _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
             } else if (connection.endpoint_type === 'NET_STORAGE') {
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets('NET_STORAGE',
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
@@ -782,8 +776,7 @@ function get_cloud_buckets(req) {
                     .then(data => {
                         const files = data.body.stat.file;
                         const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
-                        return buckets.map(bucket =>
-                            _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
+                        return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
                     });
             } //else if AWS
             let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AWS',
@@ -798,8 +791,7 @@ function get_cloud_buckets(req) {
             });
             return P.ninvoke(s3, "listBuckets")
                 .timeout(EXTERNAL_BUCKET_LIST_TO)
-                .then(data => data.Buckets.map(bucket =>
-                    _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)));
+                .then(data => data.Buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)));
         })
         .catch(P.TimeoutError, err => {
             dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
@@ -816,9 +808,8 @@ function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
     let res = {
         name: target_name
     };
-    let using_target = usage_list.find(candidate_target =>
-        (target_name === candidate_target.target_name &&
-            endpoint === candidate_target.endpoint));
+    let using_target = usage_list.find(candidate_target => (target_name === candidate_target.target_name &&
+        endpoint === candidate_target.endpoint));
     if (using_target) {
         res.used_by = {
             name: using_target.source_name,
@@ -848,8 +839,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         namespace: bucket.namespace ? {
             write_resource: pool_server.get_namespace_resource_info(
                 bucket.namespace.write_resource).name,
-            read_resources: _.map(bucket.namespace.read_resources, rs =>
-                pool_server.get_namespace_resource_info(rs).name)
+            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_info(rs).name)
         } : undefined,
         tiering: tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool, aggregate_data_free_by_tier),
         tag: bucket.tag ? bucket.tag : '',

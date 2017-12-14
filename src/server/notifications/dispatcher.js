@@ -197,7 +197,6 @@ class Dispatcher {
                 if (node) {
                     l.node.name = `${node.host_name}#${node.host_sequence}`;
                 }
-                if (log_item.node) dbg.log0('JAJA', node);
                 return P.resolve(log_item.tier && system_store.data.get_by_id_include_deleted(log_item.tier, 'tiers'));
             })
             .then(tier => {

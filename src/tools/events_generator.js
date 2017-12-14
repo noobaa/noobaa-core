@@ -57,7 +57,7 @@ const EXISTING_AUDIT_LOGS = {
     'cluster': ['added_member_to_cluster',
         'set_server_conf'
     ],
-    'config': ['create_system',
+    'conf': ['create_system',
         'server_date_time_updated',
         'dns_address',
         'set_phone_home_proxy_address',

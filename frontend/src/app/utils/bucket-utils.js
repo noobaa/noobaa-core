@@ -97,6 +97,9 @@ const namespaceBucketToStateIcon = deepFreeze({
 const writableStates = deepFreeze([
     'LOW_CAPACITY',
     'APPROUCHING_QOUTA',
+    'SPILLOVER_NO_RESOURCES',
+    'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
+    'SPILLOVER_NO_CAPACITY',
     'OPTIMAL'
 ]);
 

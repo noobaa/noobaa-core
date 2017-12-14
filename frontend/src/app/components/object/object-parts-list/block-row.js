@@ -8,7 +8,7 @@ export default class BlockRowViewModel extends BaseViewModel {
     constructor({ adminfo }, index, count, poolIconMapping) {
         super();
 
-        let { online, in_cloud_pool, node_name, pool_name } = adminfo;
+        let { online, in_cloud_pool, in_mongo_pool, node_name, pool_name } = adminfo;
 
         this.state = {
             name: online ? 'healthy' : 'problem',
@@ -20,11 +20,11 @@ export default class BlockRowViewModel extends BaseViewModel {
         this.resourceType = poolIconMapping()[pool_name] || {};
         this.poolName = pool_name;
 
-        if (in_cloud_pool) {
+        if (in_cloud_pool || in_mongo_pool) {
             this.nodeName = null;
             this.node = '---';
             this.replicaLocation = {
-                text: pool_name,
+                text: in_mongo_pool ? 'Internal Storage' : pool_name,
                 tooltip: pool_name
             };
 

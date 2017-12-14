@@ -209,7 +209,7 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     onCancel() {
-        action$.onNext(closeModal);
+        action$.onNext(closeModal());
     }
 
     dispose() {

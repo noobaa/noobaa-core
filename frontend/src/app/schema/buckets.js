@@ -190,9 +190,6 @@ export default {
                     'LAST_BUCKET',
                     'NOT_EMPTY'
                 ]
-            },
-            writable: {
-                type: 'boolean'
             }
         }
     }

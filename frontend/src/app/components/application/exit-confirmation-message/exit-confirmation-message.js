@@ -3,6 +3,7 @@
 import template from './exit-confirmation-message.html';
 import Observer from 'observer';
 import { state$ } from 'state';
+import { get } from 'utils/core-utils';
 
 class ExitConfirmationMessageViewModel extends Observer {
     constructor() {
@@ -10,13 +11,20 @@ class ExitConfirmationMessageViewModel extends Observer {
         this.showMessage = false;
 
         this.observe(
-            state$.get('objectUploads', 'stats', 'uploading'),
+            state$.getMany(
+                ['objectUploads', 'stats', 'uploading'],
+                ['topology', 'servers']
+            ),
             this.onState
         );
     }
 
-    onState(uploading) {
-        this.showMessage = Boolean(uploading);
+    onState([uploadCount, servers = {}]) {
+        const uploadingObjects = Boolean(uploadCount);
+        const uploadingUpgradePackage = Object.values(servers)
+            .some(server => get(server, ['upgrade', 'package', 'state'], 'NO_PACKAGE') === 'UPLOADING');
+
+        this.showMessage = uploadingObjects || uploadingUpgradePackage;
     }
 
     onBeforeUnload(_, evt) {

@@ -315,7 +315,7 @@ class TestRunner {
                         '\n------------------------------   ' +
                         '( took ' + ((new Date() - ts) / 1000) + 's )';
                 }
-                console.error('Failed action with', err.message);
+                console.error(step_res, 'Failed action with', err.message);
                 return step_res;
             });
     }

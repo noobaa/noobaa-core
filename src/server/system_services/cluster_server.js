@@ -1289,9 +1289,7 @@ function upgrade_cluster(req) {
         })
         .then(() => {
             const updates = system_store.data.clusters.map(cluster => ({
-                _id: {
-                    $in: cluster._id
-                },
+                _id: cluster._id,
                 $set: {
                     "upgrade.initiator_email": req.account.email
                 }

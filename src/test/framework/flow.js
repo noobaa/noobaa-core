@@ -108,7 +108,6 @@ var steps = [
         common: 'restore_db_defaults',
     }, {
         //Test Cloud Pools
-        ignore_failure: true,
         action: 'node',
         name: 'Cloud Pools Test',
         params: [{

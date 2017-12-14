@@ -206,12 +206,13 @@ class TestRunner {
     print_conclusion() {
         for (const res of this.tests_results) {
             if (res.success) {
-                console.log(`${res.name} Passed`);
+                console.log(`============ ${res.name} Passed`);
+            } else if (res.ignored) {
+                console.warn(`=========== ${res.name} Failed - Result ignored`);
             } else {
-                console.log(`${res.name} Failed${res.ignored ? '. Result ignored' : ''}`);
+                console.error(`========== ${res.name} Failed!`);
             }
         }
-        console.log(fs.readFileSync(REPORT_PATH).toString());
     }
 
     _print_curent_step(current_step) {
@@ -298,10 +299,10 @@ class TestRunner {
                 return step_res;
             })
             .catch(err => {
-                const result = { name: current_step.name, success: false };
+                const result = { name: current_step.name, success: false, ignored: true };
                 if (!current_step.ignore_failure) {
                     this._error = true;
-                    result.ignored = true;
+                    result.ignored = false;
                 }
                 this.tests_results.push(result);
                 if (current_step.blocking) {
@@ -333,10 +334,10 @@ class TestRunner {
                 return step_res;
             })
             .catch(res => {
-                const result = { name: current_step.name, success: false };
+                const result = { name: current_step.name, success: false, ignored: true };
                 if (!current_step.ignore_failure) {
                     this._error = true;
-                    result.ignored = true;
+                    result.ignored = false;
                 }
                 this.tests_results.push(result);
                 if (current_step.blocking) {

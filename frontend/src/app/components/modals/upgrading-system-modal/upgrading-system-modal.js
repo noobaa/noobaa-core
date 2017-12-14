@@ -9,19 +9,38 @@ import style from 'style';
 import { state$, action$ } from 'state';
 import { sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import Tweenable from 'shifty';
 import {
     replaceToPreUpgradeSystemFailedModal,
     replaceToUpgradeSystemFailedModal
 } from 'action-creators';
 
+function _startFakeProgress(stepCallback) {
+    setTimeout(
+        () => new Tweenable().tween({
+            from: { val: 0 },
+            to: { val: .8 },
+            duration: 45 * 1000,
+            easing: 'linear',
+            step: ({ val }) => stepCallback(val)
+        }),
+        1000
+    );
+}
+
+function _formatProgress(progress) {
+    return `${numeral(progress).format('%')} Completed`;
+}
+
 class SystemUpgradingModalViewModel extends Observer {
     constructor() {
         super();
 
+        this.progress = 0;
         this.upgradingMessage = ko.observable();
         this.completedRatio = ko.observable();
         this.letfRatio = ko.observable();
-        this.progress = ko.observable();
+        this.progressText = ko.observable();
         this.serverRows = ko.observableArray();
         this.barValues = [
             {
@@ -39,6 +58,9 @@ class SystemUpgradingModalViewModel extends Observer {
             this.onState
         );
 
+        // Start a fake progress process.
+        _startFakeProgress(this.onFakeProgress.bind(this));
+
     }
 
     onState(servers) {
@@ -51,9 +73,7 @@ class SystemUpgradingModalViewModel extends Observer {
         );
 
         const upgradingMessage = `Upgrading ${stringifyAmount('server', serverList.length)}`;
-        const completedRatio = progressSum / serverList.length;
-        const letfRatio = 1 - completedRatio;
-        const progress = `${numeral(completedRatio).format('%')} Completed`;
+        const progress = progressSum / serverList.length;
         const serverRows = Object.values(serverList)
             .map((server, i) => {
                 const row = this.serverRows.get(i) || new ServerRowViewModel();
@@ -61,10 +81,11 @@ class SystemUpgradingModalViewModel extends Observer {
                 return row;
             });
 
+        this.progress = progress;
         this.upgradingMessage(upgradingMessage);
-        this.completedRatio(completedRatio);
-        this.letfRatio(letfRatio);
-        this.progress(progress);
+        this.completedRatio(progress);
+        this.letfRatio(1 - progress);
+        this.progressText(_formatProgress(progress));
         this.serverRows(serverRows);
 
         if (serverList.some(server => server.upgrade.package.error)) {
@@ -74,6 +95,15 @@ class SystemUpgradingModalViewModel extends Observer {
         if (serverList.some(server => server.upgrade.error)) {
             action$.onNext(replaceToUpgradeSystemFailedModal());
         }
+    }
+
+    onFakeProgress(fakeProgress) {
+        const { progress: realProgress } = this;
+        const progress = Math.max(fakeProgress, realProgress);
+
+        this.completedRatio(progress);
+        this.letfRatio(1 - progress);
+        this.progressText(_formatProgress(progress));
     }
 }
 

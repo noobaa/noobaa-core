@@ -23,6 +23,7 @@ class UpgradeSystemModalViewModel extends Observer {
     constructor() {
         super();
 
+        this.systemName = '';
         this.stateLoaded = ko.observable();
         this.currVersion = ko.observable();
         this.stagedVersion = ko.observable();
@@ -49,6 +50,7 @@ class UpgradeSystemModalViewModel extends Observer {
 
         this.observe(
             state$.getMany(
+                ['location', 'params', 'system'],
                 'system',
                 ['topology', 'servers']
             ),
@@ -56,8 +58,8 @@ class UpgradeSystemModalViewModel extends Observer {
         );
     }
 
-    onState([system, servers]) {
-        if (!system || !servers) {
+    onState([systemName, systemState, servers]) {
+        if (!systemState || !servers) {
             this.stateLoaded(false);
             return;
         }
@@ -68,9 +70,10 @@ class UpgradeSystemModalViewModel extends Observer {
         } = aggregateUpgradePackageInfo(Object.values(servers));
 
         const testedAtFormatted = moment(testedAt).format(timeShortFormat);
-        const { [stagedVersion]: notes } = system.releaseNotes || {};
+        const { [stagedVersion]: notes } = systemState.releaseNotes || {};
 
-        this.currVersion(system.version);
+        this.systemName = systemName;
+        this.currVersion(systemState.version);
         this.stagedVersion(stagedVersion);
         this.testedAt(testedAtFormatted);
         this.releaseNotes(_normalizeReleaseNotes(notes));
@@ -86,7 +89,7 @@ class UpgradeSystemModalViewModel extends Observer {
     }
 
     onStartUpgrade() {
-        action$.onNext(upgradeSystem());
+        action$.onNext(upgradeSystem(this.systemName));
     }
 }
 

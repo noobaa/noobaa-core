@@ -10,12 +10,13 @@ commands-bar {
 
     .alerts {
         position: relative;
+        overflow: visible;
 
-        &.counter::after {
+        &.counter::before {
             @size : 10px;
             content: attr(data-count);
             position: absolute;
-            top: -7px;
+            top: -5px;
             left: 0;
             display: block;
             min-width: @size;
@@ -26,6 +27,7 @@ commands-bar {
             border-radius: @size;
             color: @color8;
             text-align: center;
+            z-index: 1;
         }
     }
 }

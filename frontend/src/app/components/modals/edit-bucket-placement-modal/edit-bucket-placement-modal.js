@@ -164,7 +164,7 @@ class EditBucketPlacementModalViewModel extends Observer {
         const warnings = {};
 
         const { policyType, selectedResources } = values;
-        if (policyType === 'MIRROR') {
+        if (policyType === 'SPREAD') {
             const [ first, ...others ] = selectedResources;
             if (others.some(res => res.type !== first.type)) {
                 warnings.selectedResources = 'Configuring node pools combined with cloud resources as a spread policy may cause performance issues';

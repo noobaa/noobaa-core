@@ -123,8 +123,11 @@ export function failFetchSystemStorageHistory(error) {
     };
 }
 
-export function upgradeSystem() {
-    return { type: UPGRADE_SYSTEM };
+export function upgradeSystem(system) {
+    return {
+        type: UPGRADE_SYSTEM,
+        payload: { system }
+    };
 }
 
 export function uploadUpgradePackage(packageFile) {

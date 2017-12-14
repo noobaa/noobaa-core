@@ -1,5 +1,7 @@
 /* Copyright (C) 2017 NooBaa */
 
+import * as routes from 'routes';
+import { realizeUri } from 'utils/browser-utils';
 import {
     COMPLETE_FETCH_SYSTEM_INFO,
     FAIL_FETCH_SYSTEM_INFO,
@@ -16,7 +18,9 @@ function _upgradeFailed(action) {
 export default function(action$, { api, browser }) {
     return action$
         .ofType(UPGRADE_SYSTEM)
-        .flatMap(() => {
+        .flatMap(action => {
+            const { system } = action.payload;
+
             const upgradeFailure$ = action$
                 .ofType(COMPLETE_FETCH_SYSTEM_INFO)
                 .filter(_upgradeFailed);
@@ -25,7 +29,10 @@ export default function(action$, { api, browser }) {
                 .ofType(FAIL_FETCH_SYSTEM_INFO)
                 .takeUntil(upgradeFailure$)
                 .flatMap(() => browser.httpWaitForResponse('/version', 200))
-                .subscribe(() => browser.reload());
+                .subscribe(() => {
+                    const url = realizeUri(routes.system, { system }, { afterupgrade: true });
+                    browser.reload(url);
+                });
 
             return api.cluster_internal.upgrade_cluster();
         });

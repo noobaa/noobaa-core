@@ -611,7 +611,7 @@ export function openUpgradeSystemModal() {
         payload: {
             component: 'upgrade-system-modal',
             options: {
-                title: 'Upgrade NooBaa Version',
+                title: 'System Upgrade Preview',
                 size: 'medium'
             }
         }

@@ -206,6 +206,10 @@ export function isUri(str) {
     return regExp.test(value);
 }
 
-export function reloadBrowser() {
-    global.location.reload();
+export function reloadBrowser(url) {
+    if (url) {
+        global.location.href = url;
+    } else {
+        global.location.reload();
+    }
 }

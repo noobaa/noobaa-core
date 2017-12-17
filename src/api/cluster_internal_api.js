@@ -357,6 +357,14 @@ module.exports = {
             }
         },
 
+        reset_upgrade_package_status: {
+            doc: 'reset upgrade package status on a new upload',
+            method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        },
+
         set_hostname_internal: {
             method: 'POST',
             params: {

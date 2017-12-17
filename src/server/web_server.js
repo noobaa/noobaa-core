@@ -263,6 +263,18 @@ app.post('/upgrade', function(req, res, next) {
         if (!can_upload) {
             res.status(503).end();
         }
+        req.system = system;
+        next();
+    },
+    function(req, res, next) {
+        server_rpc.client.cluster_internal.reset_upgrade_package_status({}, {
+            address: 'http://127.0.0.1:' + http_port,
+            auth_token: auth_server.make_auth_token({
+                system_id: req.system._id,
+                role: 'admin',
+                account_id: req.system.owner._id,
+            })
+        });
         next();
     },
     multer({
@@ -408,13 +420,12 @@ function getVersion(route) {
 }
 
 // Get the current version
-app.get('/version', (req, res) =>
-    getVersion(req.url)
-        .then(({ status, version }) => {
-            if (version) res.send(version);
-            if (status !== 200) res.status(status);
-            res.end();
-        })
+app.get('/version', (req, res) => getVersion(req.url)
+    .then(({ status, version }) => {
+        if (version) res.send(version);
+        if (status !== 200) res.status(status);
+        res.end();
+    })
 );
 
 ////////////

@@ -2048,6 +2048,21 @@ function check_cluster_status() {
         }));
 }
 
+function reset_upgrade_package_status() {
+    const updates = system_store.data.clusters.map(cluster => ({
+        _id: cluster._id,
+        $set: {
+            'upgrade.status': 'COMPLETED'
+        }
+    }));
+    return system_store.make_changes({
+            update: {
+                clusters: updates
+            }
+        })
+        .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'));
+}
+
 function ping() {
     return "PONG";
 }
@@ -2099,3 +2114,4 @@ exports.get_secret = get_secret;
 exports.get_upgrade_status = get_upgrade_status;
 exports.update_member_of_cluster = update_member_of_cluster;
 exports.cluster_pre_upgrade = cluster_pre_upgrade;
+exports.reset_upgrade_package_status = reset_upgrade_package_status;

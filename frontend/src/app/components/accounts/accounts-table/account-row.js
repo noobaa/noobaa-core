@@ -33,9 +33,12 @@ export default class AccountRowViewModel {
                 breakWords: true
             }
         };
+
+        const accountNameText = `${name} ${currentUser === name ? '(Current user)' : ''}`;
         const nameInfo = {
-            text: `${name} ${currentUser === name ? '(Current user)' : ''}`,
-            href: realizeUri(this.baseRoute, { account: name })
+            text: accountNameText,
+            href: realizeUri(this.baseRoute, { account: name }),
+            tooltip: accountNameText
         };
 
         this.isCurrentUser = currentUser === name;

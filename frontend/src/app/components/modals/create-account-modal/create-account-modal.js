@@ -151,9 +151,11 @@ class CreateAccountWizardViewModel extends Observer {
         if (step == 0) {
             if (!trimmedName) {
                 errors.accountName = `${subject} is required`;
-            }
-            else if (hasLoginAccess && !isEmail(trimmedName)) {
+            } else if (hasLoginAccess && !isEmail(trimmedName)) {
                 errors.accountName = 'Please enter a valid email address';
+
+            } else if (hasLoginAccess && trimmedName.length > 70) {
+                errors.accountName = 'Please enter an email address up to 70 characters';
 
             } else if (!hasLoginAccess && (trimmedName.length < 3 || trimmedName.length > 32)) {
                 errors.accountName = 'Please enter a name between 3 - 32 characters';

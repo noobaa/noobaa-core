@@ -1,18 +1,24 @@
 /* Copyright (C) 2017 NooBaa */
 
-import * as routes from 'routes';
-import { realizeUri } from 'utils/browser-utils';
+import Rx from 'rx';
+import { flatMap } from 'utils/core-utils';
+import { fetchSystemInfo, completeUpgradeSystem, failUpgradeSystem } from 'action-creators';
 import {
     COMPLETE_FETCH_SYSTEM_INFO,
     FAIL_FETCH_SYSTEM_INFO,
-    UPGRADE_SYSTEM
+    UPGRADE_SYSTEM,
+    COMPLETE_UPGRADE_SYSTEM,
+    FAIL_UPGRADE_SYSTEM
 } from 'action-types';
 
-function _upgradeFailed(action) {
-    return action.payload.cluster.shards
-        .some(shard => shard.servers
-            .some(server => server.upgrade.status === 'UPGRADE_FAILED')
-        );
+const { fromPromise, interval, merge } = Rx.Observable;
+
+function _upgradeFailure(action) {
+    return flatMap(
+        action.payload.cluster.shards,
+        shard => shard.servers.map(server => server.upgrade.status)
+    )
+        .some(status => status === 'FAILED' || status === 'UPGRADE_FAILED');
 }
 
 export default function(action$, { api, browser }) {
@@ -21,19 +27,26 @@ export default function(action$, { api, browser }) {
         .flatMap(action => {
             const { system } = action.payload;
 
-            const upgradeFailure$ = action$
-                .ofType(COMPLETE_FETCH_SYSTEM_INFO)
-                .filter(_upgradeFailed);
-
-            action$
+            const successe$ = action$
                 .ofType(FAIL_FETCH_SYSTEM_INFO)
-                .takeUntil(upgradeFailure$)
+                .takeUntil(action$.ofType(FAIL_UPGRADE_SYSTEM))
+                .take(1)
                 .flatMap(() => browser.httpWaitForResponse('/version', 200))
-                .subscribe(() => {
-                    const url = realizeUri(routes.system, { system }, { afterupgrade: true });
-                    browser.reload(url);
-                });
+                .map(() => completeUpgradeSystem(system));
 
-            return api.cluster_internal.upgrade_cluster();
+            const failure$ = action$
+                .ofType(COMPLETE_FETCH_SYSTEM_INFO)
+                .filter(_upgradeFailure)
+                .takeUntil(action$.ofType(COMPLETE_UPGRADE_SYSTEM))
+                .take(1)
+                .map(() => failUpgradeSystem());
+
+            // Dispatch fetch system info every 30 sec while upgrading.
+            const update$ = fromPromise(api.cluster_internal.upgrade_cluster())
+                .flatMap(interval(30 * 1000))
+                .takeUntil(action$.ofType(FAIL_UPGRADE_SYSTEM, COMPLETE_UPGRADE_SYSTEM))
+                .map(() => fetchSystemInfo());
+
+            return merge(update$, successe$, failure$);
         });
 }

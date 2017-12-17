@@ -20,11 +20,16 @@ export default class BlockRowViewModel extends BaseViewModel {
         this.resourceType = poolIconMapping()[pool_name] || {};
         this.poolName = pool_name;
 
-        if (in_cloud_pool || in_mongo_pool) {
+        if (in_mongo_pool) {
+            this.nodeName = null;
+            this.node = '---';
+            this.replicaLocation = 'Internal Storage';
+
+        } else if (in_cloud_pool) {
             this.nodeName = null;
             this.node = '---';
             this.replicaLocation = {
-                text: in_mongo_pool ? 'Internal Storage' : pool_name,
+                text: pool_name,
                 tooltip: pool_name
             };
 

@@ -113,11 +113,11 @@ class VersionFormViewModel extends Observer {
         this.clusterVersionStatus = ko.observable();
         this.versionInfo = [
             {
-                label: 'Current version',
+                label: 'Current Version',
                 value: this.version
             },
             {
-                label: 'Last upgrade',
+                label: 'Last Upgrade',
                 value: this.lastUpgrade
 
             },
@@ -126,7 +126,7 @@ class VersionFormViewModel extends Observer {
                 value: this.clusterVersionStatus
             },
             {
-                label: 'License information',
+                label: 'License Information',
                 value: true,
                 template: 'licenseInfo'
             }
@@ -150,12 +150,12 @@ class VersionFormViewModel extends Observer {
                 value: this.pkgVersion
             },
             {
-                label: 'Validated at',
+                label: 'Validated At',
                 value: this.pkgTestTime,
                 visible: this.pkgTestTime
             },
             {
-                label: 'Validation result',
+                label: 'Validation Result',
                 template: 'testResult',
                 value: this.pkgTestResult,
                 visible: this.pkgTestResult

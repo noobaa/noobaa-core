@@ -18,7 +18,7 @@ class AccountDetailsFormViewModel extends Observer {
 
         this.profileInfo = [
             {
-                label: 'Account name',
+                label: 'Account Name',
                 value: this.accountName
             },
             {

@@ -9,6 +9,7 @@ import style from 'style';
 import { state$, action$ } from 'state';
 import { sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import moment from 'moment';
 import Tweenable from 'shifty';
 import {
     replaceToPreUpgradeSystemFailedModal,
@@ -16,16 +17,17 @@ import {
 } from 'action-creators';
 
 function _startFakeProgress(stepCallback) {
-    setTimeout(
-        () => new Tweenable().tween({
-            from: { val: 0 },
-            to: { val: .8 },
-            duration: 45 * 1000,
-            easing: 'linear',
-            step: ({ val }) => stepCallback(val)
-        }),
-        1000
-    );
+    const delay = moment.duration(1, 'seconds').asMilliseconds();
+    const duration = moment.duration(45, 'seconds').asMilliseconds();
+
+    return new Tweenable().tween({
+        from: { val: 0 },
+        to: { val: .8 },
+        delay: delay,
+        duration: duration,
+        easing: 'linear',
+        step: ({ val }) => stepCallback(val)
+    });
 }
 
 function _formatProgress(progress) {
@@ -59,7 +61,7 @@ class SystemUpgradingModalViewModel extends Observer {
         );
 
         // Start a fake progress process.
-        _startFakeProgress(this.onFakeProgress.bind(this));
+        this.tweenSub = _startFakeProgress(this.onFakeProgress.bind(this));
 
     }
 
@@ -73,7 +75,7 @@ class SystemUpgradingModalViewModel extends Observer {
         );
 
         const upgradingMessage = `Upgrading ${stringifyAmount('server', serverList.length)}`;
-        const progress = progressSum / serverList.length;
+        const progress = Math.max(progressSum / serverList.length, this.progress);
         const serverRows = Object.values(serverList)
             .map((server, i) => {
                 const row = this.serverRows.get(i) || new ServerRowViewModel();
@@ -97,13 +99,17 @@ class SystemUpgradingModalViewModel extends Observer {
         }
     }
 
-    onFakeProgress(fakeProgress) {
-        const { progress: realProgress } = this;
-        const progress = Math.max(fakeProgress, realProgress);
+    onFakeProgress(onProgress) {
+        const progress = Math.max(this.progress, onProgress);
 
         this.completedRatio(progress);
         this.letfRatio(1 - progress);
         this.progressText(_formatProgress(progress));
+    }
+
+    dispose() {
+        this.tweenSub.dispose();
+        super.dispose();
     }
 }
 

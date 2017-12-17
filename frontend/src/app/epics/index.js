@@ -54,12 +54,14 @@ import uploadUpgradePackage from './upload-upgrade-package';
 import runUpgradePackageTests from './run-upgrade-package-tests';
 import fetchVersionReleaseNotes from './fetch-version-release-notes';
 import upgradeSystem from './upgrade-system';
+import reloadAfterSystemUpgrade from './reload-after-system-upgrade';
 
 const generalEpics = [
     handleLocationRequests,
     notify,
     downloadFile,
-    fetchCloudTargets
+    fetchCloudTargets,
+    reloadAfterSystemUpgrade
 ];
 
 const sessionRelatedEpics = [

@@ -61,13 +61,13 @@ class AccountS3AccessFormViewModel extends Observer {
                 value: this.s3AccessLabel
             },
             {
-                label: 'Permitted buckets',
+                label: 'Permitted Buckets',
                 value: this.allowedBuckets,
                 disabled: this.isS3AccessDisabled,
                 template: this.allowedBucketsTemplate
             },
             {
-                label: 'Default resource for S3 applications',
+                label: 'Default Resource for S3 Applications',
                 value: this.defaultResource,
                 disabled: this.isS3AccessDisabled
             },

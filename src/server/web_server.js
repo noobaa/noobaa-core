@@ -404,8 +404,8 @@ function getVersion(route) {
                                 };
                             })
                             .catch(err => {
-                                dbg.log0(`${route} caught ${err} on read system, returning 404`);
-                                return { status: 404 };
+                                dbg.log0(`${route} caught ${err} on read system, returning 503`);
+                                return { status: 503 };
                             });
                     } else {
                         dbg.log0(`${route} returning 404, service_registered ${registered}, status.in_progress ${status.in_progress}`);
@@ -413,8 +413,8 @@ function getVersion(route) {
                     }
                 })
                 .catch(err => {
-                    dbg.error(`got error when checking upgrade status. returning 404`, err);
-                    return { status: 404 };
+                    dbg.error(`got error when checking upgrade status. returning 503`, err);
+                    return { status: 5034 };
                 });
         });
 }
@@ -447,13 +447,13 @@ function cache_control(seconds) {
 function handleUpgrade(req, res, next) {
     return getVersion(req.url)
         .then(({ status }) => {
-            if (status === 200) {
-                next();
-                return;
+            if (status === 404) { //Currently 404 marks during upgrade
+                const filePath = path.join(rootdir, 'frontend', 'dist', 'upgrade.html');
+                res.sendFile(filePath);
+            } else if (status.startsWith(5)) { //5xx, our own error on RPC (read system) or any other express internal error
+                return next();
             }
-
-            const filePath = path.join(rootdir, 'frontend', 'dist', 'upgrade.html');
-            res.sendFile(filePath);
+            return next();
         });
 }
 

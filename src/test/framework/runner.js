@@ -206,11 +206,11 @@ class TestRunner {
     print_conclusion() {
         for (const res of this.tests_results) {
             if (res.success) {
-                console.log(`============ ${res.name} Passed`);
+                console.log(`===PASSED=== ${res.name} passed`);
             } else if (res.ignored) {
-                console.warn(`=========== ${res.name} Failed - Result ignored`);
+                console.warn(`==FAILED=== ${res.name} failed - Result ignored`);
             } else {
-                console.error(`========== ${res.name} Failed!`);
+                console.error(`=FAILED=== ${res.name} failed!`);
             }
         }
     }

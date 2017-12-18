@@ -15,6 +15,7 @@ import {
     FAIL_FETCH_SYSTEM_STORAGE_HISTORY,
     UPGRADE_SYSTEM,
     COMPLETE_UPGRADE_SYSTEM,
+    UPDATE_UPGRAGE_SYSTEM,
     FAIL_UPGRADE_SYSTEM,
     UPLOAD_UPGRADE_PACKAGE,
     UPDATE_UPGRADE_PACKAGE_UPLOAD,
@@ -143,7 +144,7 @@ export function failUpgradeSystem() {
     return { type: FAIL_UPGRADE_SYSTEM };
 }
 
-export function updateUpgradeSystem(system) {
+export function updateUpgradeSystem() {
     return { type: UPDATE_UPGRAGE_SYSTEM };
 }
 

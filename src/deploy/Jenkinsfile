@@ -1,7 +1,7 @@
 #!groovy​
 def branch = 'master'
 //dataset
-def dataset_ip = '51.143.9.62'
+def dataset_ip = '51.143.89.148'
 def noobaa_server = 'datasetpipeline.westus2.cloudapp.azure.com'
 def dataset_size = '51200' //MB
 def aging_time = '300' //min
@@ -29,7 +29,7 @@ def nodeLocalIP = '10.1.12.0'
 def serverLocalIP = '52.191.139.47'
 def severExternalIP = '52.191.139.47'
 //yulia rg
-def yulia_ip = '52.191.137.253'
+def yulia_ip = '52.191.142.206'
 def yulia_resource = 'yulia-test-rg'
 def yulia_vnet = 'yulia-test-rg-vnet'
 def yulia_storage = 'yuliastorage'
@@ -118,12 +118,12 @@ node('pipeline') {
             node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}'
             """
         }
-        stage('System configuration') {
+        stage('dataset test') {
             echo 'Doing clean ova and set system config'
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/system_config.js --server_ip '${serverLocalIP}' --my_ip '${nodeLocalIP}' --external_server_ip '${severExternalIP}'
+            node $WORKSPACE/src/test/qa/dataset.js --server '${dataset_ip}' --aging_timeout 1 --dataset_size 1024
             """
         }
 	} catch (e) {

@@ -27,6 +27,18 @@ function update_version_change() {
 function mongo_upgrade_mark_completed() {
     print('\nMONGO UPGRADE MARK COMPLETED - START ...');
     setVerboseShell(true);
+
+    var initiator = db.clusters.find({
+        owner_secret: param_secret
+    }).toArray()[0].upgrade.initiator_email;
+    //set last upgrade system info
+    db.systems.update({}, {
+        $set: {
+            "last_upgrade.timestamp": Date.now(),
+            "last_upgrade.initiator": initiator
+        }
+    });
+
     // mark upgrade status of this server as completed
     db.clusters.update({
         owner_secret: param_secret
@@ -35,12 +47,6 @@ function mongo_upgrade_mark_completed() {
             upgrade: {
                 status: 'COMPLETED',
             }
-        }
-    });
-
-    db.systems.update({}, {
-        $set: {
-            upgrade_date: Date.now()
         }
     });
 

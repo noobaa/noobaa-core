@@ -399,11 +399,9 @@ function read_system(req) {
             _.map(system.tiers_by_name, tier => String(tier._id)),
             system._id),
 
-        refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket =>
-            node_allocator.refresh_tiering_alloc(bucket.tiering))),
+        refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering))),
 
-        deletable_buckets: P.props(_.mapValues(system.buckets_by_name, bucket =>
-            bucket_server.can_delete_bucket(system, bucket))),
+        deletable_buckets: P.props(_.mapValues(system.buckets_by_name, bucket => bucket_server.can_delete_bucket(system, bucket))),
 
         rs_status: system_store.get_local_cluster_info().is_clusterized ?
             MongoCtrl.get_hb_rs_status()
@@ -523,7 +521,10 @@ function read_system(req) {
             has_ssl_cert: has_ssl_cert,
             cluster: cluster_info,
             upgrade: {
-                last_upgrade: system.upgrade_date,
+                last_upgrade: {
+                    timestamp: system.last_upgrade.timestamp,
+                    last_initiator_email: system.last_upgrade.initiator
+                },
                 can_upload_upgrade_package: _get_upgrade_availability_status(cluster_info)
             }
         };
@@ -709,8 +710,7 @@ function add_role(req) {
 function remove_role(req) {
     var account = find_account_by_email(req);
     var roles = _.filter(system_store.data.roles,
-        role =>
-        String(role.system._id) === String(req.system._id) &&
+        role => String(role.system._id) === String(req.system._id) &&
         String(role.account._id) === String(account._id) &&
         role.role === req.rpc_params.role);
     if (!roles.length) return;
@@ -769,8 +769,7 @@ function get_node_installation_string(req) {
             // try to find an existing configuration with the same settings
             return P.resolve()
                 .then(() => {
-                    let cfg = system_store.data.agent_configs.find(conf =>
-                        pool._id === conf.pool._id &&
+                    let cfg = system_store.data.agent_configs.find(conf => pool._id === conf.pool._id &&
                         use_storage === conf.use_storage && use_s3 === conf.use_s3 &&
                         _.isEqual(exclude_drives, conf.exclude_drives));
                     if (cfg) {

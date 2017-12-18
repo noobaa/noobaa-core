@@ -24,7 +24,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
         version,
         sslCert: has_ssl_cert ? {} : undefined,
         upgrade: {
-            lastUpgrade: upgrade.last_upgrade,
+            lastUpgrade: upgrade.last_upgrade.timestamp,
             preconditionFailure: upgrade.can_upload_upgrade_package
         },
         releaseNotes

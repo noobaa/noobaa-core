@@ -119,10 +119,17 @@ module.exports = {
             }
         },
 
-        //Last upgrade date
-        upgrade_date: {
-            idate: true
+        //Last upgrade information
+        last_upgrade: {
+            type: 'object',
+            properties: {
+                timestamp: {
+                    idate: true
+                },
+                initiator: {
+                    type: 'string'
+                }
+            }
         }
-
     }
 };

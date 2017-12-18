@@ -265,6 +265,12 @@ function _mapUpgradeState(state, upgrade) {
                 package: testedPkg
             };
         }
+        case 'UPGRADING': {
+            return {
+                progress: .5,
+                package: testedPkg
+            };
+        }
         case 'UPGRADE_FAILED': {
             return {
                 error,

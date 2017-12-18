@@ -9,7 +9,8 @@ import {
     LOCK_MODAL,
     CLOSE_MODAL,
     CHANGE_LOCATION,
-    COMPLETE_FETCH_SYSTEM_INFO
+    COMPLETE_FETCH_SYSTEM_INFO,
+    UPGRADE_SYSTEM
 } from 'action-types';
 
 // ------------------------------
@@ -113,27 +114,21 @@ function onCompleteFetchSystemInfo(modals, { payload }) {
         return _openModal(modals, {
             component: 'upgraded-capacity-notification-modal'
         });
-
-    }
-
-    const topMostModal = last(modals);
-    if(
-        _isSystemUpgrading(payload) &&
-        (!topMostModal || topMostModal.component !== 'upgrade-system-modal')
-    ) {
-        // Close all upgrading modals and open the upgrade system modal.
-        return _openModal([], {
-            component: 'upgrading-system-modal',
-            options: {
-                title: 'Upgrading NooBaa Version',
-                size: 'small',
-                backdropClose: false,
-                closeButton: 'hidden'
-            }
-        });
     }
 
     return modals;
+}
+
+function onUpgradeSystem() {
+    return _openModal(initialState, {
+        component: 'upgrading-system-modal',
+        options: {
+            title: 'Upgrading NooBaa Version',
+            size: 'small',
+            backdropClose: false,
+            closeButton: 'hidden'
+        }
+    });
 }
 
 // ------------------------------
@@ -156,17 +151,6 @@ function _openModal(modals, { component = 'empty', options = {} }) {
     ];
 }
 
-function _isSystemUpgrading(sysInfo) {
-    return sysInfo.cluster.shards
-        .some(shard => shard.servers
-            .some(server => {
-                const { status } = server.upgrade;
-                return status === 'PRE_UPGRADE_PENDING' ||
-                    status === 'PRE_UPGRADE_READY';
-            })
-        );
-}
-
 // ------------------------------
 // Exported reducer function.
 // ------------------------------
@@ -177,5 +161,6 @@ export default createReducer(initialState, {
     [LOCK_MODAL]: onLockModal,
     [CLOSE_MODAL]: onCloseModal,
     [CHANGE_LOCATION]: onChangeLocation,
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
+    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
+    [UPGRADE_SYSTEM]: onUpgradeSystem
 });

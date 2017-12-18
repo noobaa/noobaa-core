@@ -13,9 +13,11 @@ import {
     FETCH_SYSTEM_STORAGE_HISTORY,
     COMPLETE_FETCH_SYSTEM_STORAGE_HISTORY,
     FAIL_FETCH_SYSTEM_STORAGE_HISTORY,
+    INVOKE_UPGRADE_SYSTEM,
+    COMPLETE_INVOKE_UPGRADE_SYSTEM,
+    FAIL_INVOKE_UPGRADE_SYSTEM,
     UPGRADE_SYSTEM,
     COMPLETE_UPGRADE_SYSTEM,
-    UPDATE_UPGRAGE_SYSTEM,
     FAIL_UPGRADE_SYSTEM,
     UPLOAD_UPGRADE_PACKAGE,
     UPDATE_UPGRADE_PACKAGE_UPLOAD,
@@ -126,26 +128,31 @@ export function failFetchSystemStorageHistory(error) {
     };
 }
 
-export function upgradeSystem(system) {
+export function invokeUpgradeSystem() {
+    return { type: INVOKE_UPGRADE_SYSTEM };
+}
+
+export function completeInvokeUpgradeSystem() {
+    return { type: COMPLETE_INVOKE_UPGRADE_SYSTEM };
+}
+
+export function failInvokeUpgradeSystem(error) {
     return {
-        type: UPGRADE_SYSTEM,
-        payload: { system }
+        type: FAIL_INVOKE_UPGRADE_SYSTEM,
+        payload: { error }
     };
 }
 
-export function completeUpgradeSystem(system) {
-    return {
-        type: COMPLETE_UPGRADE_SYSTEM,
-        payload: { system }
-    };
+export function upgradeSystem() {
+    return { type: UPGRADE_SYSTEM };
+}
+
+export function completeUpgradeSystem() {
+    return { type: COMPLETE_UPGRADE_SYSTEM };
 }
 
 export function failUpgradeSystem() {
     return { type: FAIL_UPGRADE_SYSTEM };
-}
-
-export function updateUpgradeSystem() {
-    return { type: UPDATE_UPGRAGE_SYSTEM };
 }
 
 export function uploadUpgradePackage(packageFile) {

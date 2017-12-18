@@ -53,6 +53,7 @@ import deleteHost from './delete-host';
 import uploadUpgradePackage from './upload-upgrade-package';
 import runUpgradePackageTests from './run-upgrade-package-tests';
 import fetchVersionReleaseNotes from './fetch-version-release-notes';
+import invokeUpgradeSystem from './invoke-upgrade-system';
 import upgradeSystem from './upgrade-system';
 import reloadAfterSystemUpgrade from './reload-after-system-upgrade';
 
@@ -79,6 +80,7 @@ const systemRelatedEpics = [
     uploadUpgradePackage,
     runUpgradePackageTests,
     fetchVersionReleaseNotes,
+    invokeUpgradeSystem,
     upgradeSystem
 ];
 

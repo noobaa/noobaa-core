@@ -648,12 +648,14 @@ module.exports = {
                     properties: {
                         last_upgrade: {
                             type: 'object',
-                            timestamp: {
-                                idate: true
-                            },
-                            last_initiator_email: {
-                                type: 'string'
-                            },
+                            properties: {
+                                timestamp: {
+                                    idate: true
+                                },
+                                last_initiator_email: {
+                                    type: 'string'
+                                }
+                            }
                         },
                         can_upload_upgrade_package: {
                             type: 'string',

@@ -32,6 +32,8 @@ function mongo_upgrade_mark_completed() {
         owner_secret: param_secret
     }).toArray()[0].upgrade.initiator_email;
     //set last upgrade system info
+    print('\nInitiator');
+    printjson(initiator);
     db.systems.update({}, {
         $set: {
             "last_upgrade.timestamp": Date.now(),

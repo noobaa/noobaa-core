@@ -465,6 +465,11 @@ function read_system(req) {
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
 
+        let last_upgrade = {
+            timestamp: system.last_upgrade ? system.last_upgrade.timestamp : undefined,
+            last_initiator_email: system.last_upgrade ? system.last_upgrade.initiator : undefined
+        };
+
         const response = {
             name: system.name,
             objects: objects_sys.count.toJSNumber(),
@@ -521,10 +526,7 @@ function read_system(req) {
             has_ssl_cert: has_ssl_cert,
             cluster: cluster_info,
             upgrade: {
-                last_upgrade: {
-                    timestamp: system.last_upgrade.timestamp,
-                    last_initiator_email: system.last_upgrade.initiator
-                },
+                last_upgrade: last_upgrade,
                 can_upload_upgrade_package: _get_upgrade_availability_status(cluster_info)
             }
         };

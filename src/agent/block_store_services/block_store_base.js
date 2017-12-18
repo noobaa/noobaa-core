@@ -10,6 +10,7 @@ const js_utils = require('../../util/js_utils');
 const LRUCache = require('../../util/lru_cache');
 const time_utils = require('../../util/time_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
+const KeysLock = require('../../util/keys_lock');
 
 function _new_stats() {
     return {
@@ -30,6 +31,8 @@ class BlockStoreBase {
         this.node_name = options.node_name;
         this.client = options.rpc_client;
         this.storage_limit = options.storage_limit;
+        // semaphore to serialize writes\deletes of specific blocks
+        this.block_modify_lock = new KeysLock();
         this.block_cache = new LRUCache({
             name: 'BlockStoreCache',
             max_usage: 200 * 1024 * 1024, // 200 MB
@@ -113,7 +116,7 @@ class BlockStoreBase {
         this.stats.inflight_writes += 1;
         this.stats.max_inflight_writes = Math.max(this.stats.inflight_writes, this.stats.max_inflight_writes);
         const start = time_utils.millistamp();
-        return P.resolve(this._write_block(block_md, data))
+        return this.block_modify_lock.surround_keys([block_md.id], () => P.resolve(this._write_block(block_md, data))
             .then(() => {
                 this.block_cache.put_in_cache(block_md, { block_md, data });
             })
@@ -121,8 +124,8 @@ class BlockStoreBase {
                 this.stats.write_count += 1;
                 this.stats.total_write_latency += time_utils.millistamp() - start;
                 this.stats.inflight_writes -= 1;
-            });
-
+            })
+        );
     }
 
     sample_stats() {
@@ -153,7 +156,7 @@ class BlockStoreBase {
         const block_ids = req.rpc_params.block_ids;
         dbg.log0('delete_blocks', block_ids, 'node', this.node_name);
         this.block_cache.multi_invalidate_keys(block_ids);
-        return P.resolve(this._delete_blocks(block_ids)).return();
+        return this.block_modify_lock.surround_keys(block_ids, () => P.resolve(this._delete_blocks(block_ids)).return());
     }
 
     _verify_block(block_md, data, block_md_from_store) {

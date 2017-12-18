@@ -7,7 +7,7 @@ import ko from 'knockout';
 import moment from 'moment';
 import { timeShortFormat } from 'config';
 import { aggregateUpgradePackageInfo } from 'utils/cluster-utils';
-import { fetchVersionReleaseNotes, upgradeSystem, closeModal } from 'action-creators';
+import { fetchVersionReleaseNotes, invokeUpgradeSystem, closeModal } from 'action-creators';
 
 function _normalizeReleaseNotes(notes = {}) {
     const {
@@ -89,7 +89,7 @@ class UpgradeSystemModalViewModel extends Observer {
     }
 
     onStartUpgrade() {
-        action$.onNext(upgradeSystem(this.systemName));
+        action$.onNext(invokeUpgradeSystem(this.systemName));
     }
 }
 

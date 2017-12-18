@@ -32,7 +32,8 @@ export default function(action$) {
             types.COMPLETE_DELETE_HOST,
             types.COMPLETE_DELETE_BUCKET_OBJECT,
             types.UPLOAD_OBJECTS,
-            types.COMPLETE_OBJECT_UPLOAD
+            types.COMPLETE_OBJECT_UPLOAD,
+            types.COMPLETE_INVOKE_UPGRADE_SYSTEM,
         )
         .map(() => refreshLocation());
 }

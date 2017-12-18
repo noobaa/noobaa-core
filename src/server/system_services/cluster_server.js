@@ -1298,6 +1298,9 @@ function upgrade_cluster(req) {
                 _id: cluster._id,
                 $set: {
                     "upgrade.initiator_email": req.account.email
+                },
+                $unset: {
+                    "upgrade.error": 1
                 }
             }));
             return system_store.make_changes({

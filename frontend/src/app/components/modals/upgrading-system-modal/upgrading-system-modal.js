@@ -18,11 +18,11 @@ import {
 
 function _startFakeProgress(stepCallback) {
     const delay = moment.duration(1, 'seconds').asMilliseconds();
-    const duration = moment.duration(45, 'seconds').asMilliseconds();
+    const duration = moment.duration(90, 'seconds').asMilliseconds();
 
     return new Tweenable().tween({
         from: { val: 0 },
-        to: { val: .8 },
+        to: { val: .9 },
         delay: delay,
         duration: duration,
         easing: 'linear',
@@ -62,7 +62,6 @@ class SystemUpgradingModalViewModel extends Observer {
 
         // Start a fake progress process.
         this.tweenSub = _startFakeProgress(this.onFakeProgress.bind(this));
-
     }
 
     onState(servers) {
@@ -102,6 +101,7 @@ class SystemUpgradingModalViewModel extends Observer {
     onFakeProgress(onProgress) {
         const progress = Math.max(this.progress, onProgress);
 
+        this.progress = progress;
         this.completedRatio(progress);
         this.letfRatio(1 - progress);
         this.progressText(_formatProgress(progress));

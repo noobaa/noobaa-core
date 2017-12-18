@@ -50,7 +50,6 @@ function minutesToUnit(minutes) {
 
 class EditCloudSyncModalViewModel extends BaseViewModel {
     constructor({ bucketName, onClose }) {
-        console.warn(bucketName);
         super();
 
         this.onClose = onClose;

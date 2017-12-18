@@ -12,11 +12,26 @@ const mongo_client = require('../../util/mongo_client');
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { SERVER_MIN_REQUIREMENTS } = require('../../../config');
+const mongo_utils = require('../../util/mongo_utils');
 
 const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
 const GRID_FS_BUCKET_NAME_FILES = `${GRID_FS_BUCKET_NAME}.files`;
 const GRID_FS_BUCKET_NAME_CHUNKS = `${GRID_FS_BUCKET_NAME}.chunks`;
 const GRID_FS_CHUNK_SIZE = 8 * 1024 * 1024;
+
+// The rational behind that configuration was to limit the cache of GridFS Chunks collection
+// On low spec servers we had a problem of memory choke on low work loads (5GB)
+// Since mongodb cached the chunk collection with all of it's data
+// Currently with the new configuration we minimize the cache and write it to the hard drive
+// Link to wiredTiger configuration:
+// http://source.wiredtiger.com/mongodb-3.4/struct_w_t___s_e_s_s_i_o_n.html#a358ca4141d59c345f401c58501276bbb
+const GRID_FS_CHUNK_COLLECTION_OPTIONS = {
+    storageEngine: {
+        wiredTiger: {
+            configString: "memory_page_max=512,os_cache_dirty_max=1,os_cache_max=1"
+        }
+    }
+};
 
 class BlockStoreMongo extends BlockStoreBase {
 
@@ -25,6 +40,19 @@ class BlockStoreMongo extends BlockStoreBase {
         this.base_path = options.mongo_path;
         this.blocks_path = this.base_path + '/blocks_tree';
         this._STORE_LIMIT = 5 * size_utils.GIGABYTE;
+    }
+
+    _init_chunks_collection() {
+        return P.resolve()
+            .then(() => mongo_client.instance().db.createCollection(GRID_FS_BUCKET_NAME_CHUNKS, GRID_FS_CHUNK_COLLECTION_OPTIONS))
+            .catch(err => {
+                if (!mongo_utils.is_err_namespace_exists(err)) throw err;
+            })
+            .then(() => dbg.log0('_init_chunks_collection: created collection', GRID_FS_BUCKET_NAME_CHUNKS))
+            .catch(err => {
+                dbg.error('_init_chunks_collection: FAILED', GRID_FS_BUCKET_NAME_CHUNKS, err);
+                throw err;
+            });
     }
 
     _gridfs() {
@@ -69,11 +97,12 @@ class BlockStoreMongo extends BlockStoreBase {
                 } else {
                     this._STORE_LIMIT = 30 * size_utils.GIGABYTE;
                 }
-        });
+            });
     }
 
     init() {
         return mongo_client.instance().connect()
+            .then(() => this._init_chunks_collection())
             .then(() => this._gridfs())
             .then(() => this.read_usage_gridfs())
             .then(usage_metadata => {

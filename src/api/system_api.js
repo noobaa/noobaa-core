@@ -647,12 +647,18 @@ module.exports = {
                     type: 'object',
                     properties: {
                         last_upgrade: {
-                            idate: true
+                            type: 'object',
+                            timestamp: {
+                                idate: true
+                            },
+                            last_initiator_email: {
+                                type: 'string'
+                            },
                         },
                         can_upload_upgrade_package: {
                             type: 'string',
                             enum: ['NOT_ALL_MEMBERS_UP', 'NOT_ENOUGH_SPACE', 'VERSION_MISMATCH']
-                        }
+                        },
                     },
                 },
                 cluster: {

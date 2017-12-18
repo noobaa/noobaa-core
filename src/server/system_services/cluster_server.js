@@ -1281,6 +1281,7 @@ function upgrade_cluster(req) {
     dbg.log0('UPGRADE:', 'secondaries =', secondary_members);
     // upgrade can only be called from master. throw error otherwise
     upgrade_in_process = true;
+    console.log('NBNB:: initiator', req.account.email);
     return P.fcall(() => {
             if (cinfo.is_clusterized) {
                 return MongoCtrl.is_master()

@@ -55,7 +55,7 @@ function pre_upgrade(params) {
         }))
         .catch(err => {
             dbg.error('pre_upgrade: package copying failed', err);
-            throw new Error('COULD_NOT_COPY_PACKAGE');
+            throw new ExtractionError('COULD_NOT_COPY_PACKAGE');
         })
         .then(() => pre_upgrade_checkups())
         .then(() => {
@@ -260,7 +260,7 @@ function pre_upgrade_checkups() {
             test_package_extraction()
         )
         .catch(err => {
-            throw new ExtractionError(err);
+            throw new ExtractionError(err.message);
         });
 }
 

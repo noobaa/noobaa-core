@@ -174,6 +174,7 @@ class BucketObjectsTableViewModel extends Observer {
         if (!bucket || !bucketObjects || !user || !accounts || !bucketObjectsQuery || !bucketObjectsQuery.result) {
             this.uploadButton({});
             this.objectsLoaded(false);
+            this.rows([]);
         } else {
             const account = accounts[user];
             const { system } = location.params;

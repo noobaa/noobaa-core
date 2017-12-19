@@ -42,27 +42,29 @@ export default function(action$, { browser }) {
         .ofType(COMPLETE_FETCH_SYSTEM_INFO)
         .distinctUntilChanged(_isSystemUpgrading)
         .filter(_isSystemUpgrading)
-        .flatMap(() => {
+        .flatMap(action => {
+            const { name: systemName } = action.payload;
+
             const successe$ = action$
                 .ofType(FAIL_FETCH_SYSTEM_INFO)
                 .takeUntil(action$.ofType(FAIL_UPGRADE_SYSTEM))
                 .take(1)
                 .flatMap(() => browser.httpWaitForResponse('/version', 200))
-                .map(() => completeUpgradeSystem());
+                .map(() => completeUpgradeSystem(systemName));
 
             const failure$ = action$
                 .ofType(COMPLETE_FETCH_SYSTEM_INFO)
                 .filter(_hasUpgradeFailed)
                 .takeUntil(action$.ofType(COMPLETE_UPGRADE_SYSTEM))
                 .take(1)
-                .map(() => failUpgradeSystem());
+                .map(() => failUpgradeSystem(systemName));
 
             // Dispatch a fetch system info every 10 sec while upgrading to pull upgrade status and progress.
             const fetches$ = interval(10 * 1000)
-                .takeUntil(action$.ofType(COMPLETE_UPGRADE_SYSTEM, FAIL_UPGRADE_SYSTEM))
+                .takeUntil(action$.ofType(FAIL_FETCH_SYSTEM_INFO, FAIL_UPGRADE_SYSTEM))
                 .map(() => fetchSystemInfo());
 
-            return just(upgradeSystem())
+            return just(upgradeSystem(systemName))
                 .concat(merge([fetches$, successe$, failure$]));
         });
 }

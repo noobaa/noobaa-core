@@ -52,10 +52,16 @@ function create_object_upload(req) {
         upload_started: new Date(),
         upload_size: 0,
     };
-    if (req.rpc_params.xattr) info.xattr = req.rpc_params.xattr;
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
+
+    if (req.rpc_params.xattr) {
+        // translating xattr names to valid mongo property names which do not allow dots
+        // we use `@` since it is not a valid char in HTTP header names
+        info.xattr = _.mapKeys(req.rpc_params.xattr, (v, k) => k.replace(/\./g, '@'));
+    }
+
     return MDStore.instance().insert_object(info)
         .return({
             obj_id: String(info._id)
@@ -503,7 +509,10 @@ function read_object_md(req) {
 function update_object_md(req) {
     dbg.log0('update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr');
+    const set_updates = _.pick(req.rpc_params, 'content_type');
+    if (req.rpc_params.xattr) {
+        set_updates.xattr = _.mapKeys(req.rpc_params.xattr, (v, k) => k.replace(/\./g, '@'));
+    }
     return find_object_md(req)
         .then(obj => MDStore.instance().update_object_by_id(obj._id, set_updates))
         .return();
@@ -809,7 +818,7 @@ function get_object_info(md) {
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
         upload_started: md.upload_started ? md.upload_started.getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
-        xattr: md.xattr,
+        xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),
         cloud_synced: md.cloud_synced,
         stats: md.stats ? {
             reads: md.stats.reads || 0,

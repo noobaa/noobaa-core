@@ -143,16 +143,25 @@ export function failInvokeUpgradeSystem(error) {
     };
 }
 
-export function upgradeSystem() {
-    return { type: UPGRADE_SYSTEM };
+export function upgradeSystem(system) {
+    return {
+        type: UPGRADE_SYSTEM,
+        payload: { system }
+    };
 }
 
-export function completeUpgradeSystem() {
-    return { type: COMPLETE_UPGRADE_SYSTEM };
+export function completeUpgradeSystem(system) {
+    return {
+        type: COMPLETE_UPGRADE_SYSTEM,
+        payload: { system }
+    };
 }
 
-export function failUpgradeSystem() {
-    return { type: FAIL_UPGRADE_SYSTEM };
+export function failUpgradeSystem(system) {
+    return {
+        type: FAIL_UPGRADE_SYSTEM,
+        payload: { system }
+    };
 }
 
 export function uploadUpgradePackage(packageFile) {

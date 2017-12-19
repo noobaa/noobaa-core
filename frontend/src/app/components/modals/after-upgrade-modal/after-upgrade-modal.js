@@ -1,34 +1,23 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './after-upgrade-modal.html';
-import ko from 'knockout';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import { action$ } from 'state';
 import { closeModal, requestLocation } from 'action-creators';
 
-class AfterUpgradeModalViewModel extends Observer {
-    constructor() {
-        super();
+class AfterUpgradeModalViewModel {
+    constructor({ version, user, upgradeInitiator, redirectUrl }) {
+        const welcomeMessage = (!upgradeInitiator || user === upgradeInitiator) ?
+            'Welcome Back!' :
+            `${upgradeInitiator} recently updated the system version.`;
 
-        this.version = ko.observable();
-
-        this.observe(
-            state$.getMany(
-                ['system', 'version'],
-                ['location', 'pathname']
-            ),
-            this.onState
-        );
-    }
-
-    onState([version, pathname]) {
-        this.version(version);
-        this.pathname = pathname;
+        this.version = version;
+        this.redirectUrl = redirectUrl;
+        this.welcomeMessage = welcomeMessage;
     }
 
     onDone() {
         action$.onNext(closeModal());
-        action$.onNext(requestLocation(this.pathname, true));
+        action$.onNext(requestLocation(this.redirectUrl, true));
     }
 }
 

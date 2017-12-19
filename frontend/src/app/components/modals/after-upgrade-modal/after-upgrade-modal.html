@@ -2,13 +2,11 @@
 
 <section class="column greedy">
     <p class="heading3 push-next">
-        Welcome Back!
+        {{welcomeMessage}}
         <br />
         You are now using NooBaa version <span ko.text="version"></span>
-    <p>
-    <div class="align-middle">
-        <svg-icon class="icon-xxbig align-middle highlight" params="name: 'upgrade'"></svg-icon>
-    </div>
+    </p>
+    <svg-icon class="icon-xxbig align-middle highlight push-prev" params="name: 'upgrade'"></svg-icon>
 </section>
 
 <a class="btn align-end" ko.click="onDone">

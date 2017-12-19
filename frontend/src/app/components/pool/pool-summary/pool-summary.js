@@ -122,7 +122,7 @@ class PoolSummaryViewModel extends Observer {
             this.issuesCount(numeral(hostCount - OPTIMAL - OFFLINE).format('0,0'));
         }
 
-        { // Update pool stroage and usage
+        { // Update pool storage and usage
             const { free, unavailableFree, used, usedOther, reserved } = storage;
             this.availableCapacity(toBytes(free));
             this.unavailableCapacity(toBytes(unavailableFree));

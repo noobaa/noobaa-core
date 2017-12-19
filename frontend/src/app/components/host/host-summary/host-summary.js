@@ -115,7 +115,7 @@ class HostSummaryViewModel extends Observer {
             this.accessibilityIcon(getHostAccessibilityIcon(host) || {});
         }
 
-        { // Update host stroage and usage
+        { // Update host storage and usage
             const { free, unavailableFree, used, usedOther, reserved } = host.storage;
 
             this.availableCapacity(toBytes(free));

@@ -92,7 +92,7 @@ const resourceTypeIconMapping = deepFreeze({
 
     INTERNAL_STORAGE: {
         name: 'internal-storage',
-        tooltip: 'Internal Stroage'
+        tooltip: 'Internal Storage'
     }
 });
 

@@ -465,9 +465,9 @@ function read_system(req) {
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
 
-        let last_upgrade = {
-            timestamp: system.last_upgrade ? system.last_upgrade.timestamp : undefined,
-            last_initiator_email: system.last_upgrade ? system.last_upgrade.initiator : undefined
+        let last_upgrade = system.last_upgrade && {
+            timestamp: system.last_upgrade.timestamp,
+            last_initiator_email: system.last_upgrade.initiator
         };
 
         const response = {

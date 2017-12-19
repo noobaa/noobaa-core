@@ -12,8 +12,8 @@ import { stringifyAmount } from 'utils/string-utils';
 import moment from 'moment';
 import Tweenable from 'shifty';
 import {
-    replaceToPreUpgradeSystemFailedModal,
-    replaceToUpgradeSystemFailedModal
+    replaceWidthPreUpgradeSystemFailedModal,
+    replaceWidthUpgradeSystemFailedModal
 } from 'action-creators';
 
 function _startFakeProgress(stepCallback) {
@@ -90,11 +90,11 @@ class SystemUpgradingModalViewModel extends Observer {
         this.serverRows(serverRows);
 
         if (serverList.some(server => server.upgrade.package.error)) {
-            action$.onNext(replaceToPreUpgradeSystemFailedModal());
+            action$.onNext(replaceWidthPreUpgradeSystemFailedModal());
         }
 
         if (serverList.some(server => server.upgrade.error)) {
-            action$.onNext(replaceToUpgradeSystemFailedModal());
+            action$.onNext(replaceWidthUpgradeSystemFailedModal());
         }
     }
 

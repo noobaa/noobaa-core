@@ -24,8 +24,8 @@ let buildErrors = 0;
 let lintErrors = 0;
 
 const staticAssetsSelector = [
-    'src/index.html',
-    'src/upgrade.html',
+    'src/*.html',
+    'src/ping-server.js',
     'src/preload.js',
     'src/assets/**/*',
     '!src/assets/icons',

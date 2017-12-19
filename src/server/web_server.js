@@ -451,7 +451,8 @@ function handleUpgrade(req, res, next) {
                 const filePath = path.join(rootdir, 'frontend', 'dist', 'upgrade.html');
                 res.sendFile(filePath);
             } else if (status.toString().startsWith(5)) { //5xx, our own error on RPC (read system) or any other express internal error
-                return next();
+                const filePath = path.join(rootdir, 'frontend', 'dist', 'error.html');
+                res.sendFile(filePath);
             } else {
                 return next();
             }

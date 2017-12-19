@@ -86,7 +86,7 @@ function onChangeLocation(modals, { payload: location }) {
         return _openModal(modals, {
             component: 'after-upgrade-modal',
             options: {
-                title: 'Upgrade was successful',
+                title: 'Upgrade was Successful',
                 size: 'xsmall',
                 severity: 'success'
             }

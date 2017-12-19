@@ -438,13 +438,13 @@ class NodesMonitor extends EventEmitter {
 
         return this._migrate_items_to_pool(items, to_pool)
             .then(() => {
-                description.push(`${items.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email}`);
+                description.push(`${hosts_info.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email}`);
                 _.each(hosts_info, host => {
-                    const { host_id, from_pool } = hosts_info;
-                    dbg.log0('migrate_hosts_to_pool:', host_id,
+                    const { name, from_pool } = host;
+                    dbg.log0('migrate_hosts_to_pool:', name,
                         'from', from_pool, 'to', to_pool.name);
                     if (from_pool) {
-                        description.push(`${host_id} was assigned from ${from_pool} to ${to_pool.name}`);
+                        description.push(`${name} was assigned from ${from_pool} to ${to_pool.name}`);
                     }
                 });
                 Dispatcher.instance().activity({

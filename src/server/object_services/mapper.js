@@ -657,7 +657,7 @@ function get_chunk_info(chunk, adminfo, tiering_status) {
         cipher_iv_b64: chunk.cipher_iv && chunk.cipher_iv.toString('base64'),
         cipher_auth_tag_b64: chunk.cipher_auth_tag && chunk.cipher_auth_tag.toString('base64'),
         frags: chunk.frags && _.map(chunk.frags, frag => get_frag_info(chunk, frag, blocks_by_frag_id[frag._id], adminfo)),
-        adminfo,
+        adminfo: adminfo || undefined,
     };
 }
 
@@ -693,7 +693,7 @@ function get_block_info(chunk, frag, block, adminfo) {
     }
     return {
         block_md: get_block_md(chunk, frag, block),
-        adminfo,
+        adminfo: adminfo || undefined,
     };
 }
 

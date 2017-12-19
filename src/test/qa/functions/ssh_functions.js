@@ -38,11 +38,7 @@ function ssh_exec(client, command, reject_on_exit_code) {
                         resolve();
                     }
                 });
-        }))
-        .catch(err => {
-            console.log(err);
-            throw err;
-        });
+        }));
 }
 
 //will do ssh stick which will relese the need to enter password for each ssh session

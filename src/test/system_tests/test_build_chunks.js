@@ -339,7 +339,10 @@ function test_rebuild_single_unavailable_block() {
         .then(obj_mapping => discard_nodes_from_pool(obj_mapping, 1, 'test1pool'))
         .then(() => verify_object_health(3, bucket_name, pool_names))
         .then(() => console.log('test test_rebuild_single_unavailable_block successful'))
-        .catch(err => console.error(`Had error in test test_rebuild_single_unavailable_block: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_rebuild_single_unavailable_block: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 
@@ -355,7 +358,10 @@ function test_rebuild_two_unavailable_blocks() {
         .then(obj_mapping => discard_nodes_from_pool(obj_mapping, 2, 'test2pool'))
         .then(() => verify_object_health(3, bucket_name, pool_names))
         .then(() => console.log('test test_rebuild_two_unavailable_blocks successful'))
-        .catch(err => console.error(`Had error in test test_rebuild_two_unavailable_blocks: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_rebuild_two_unavailable_blocks: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 
@@ -372,7 +378,10 @@ function test_rebuild_unavailable_from_mirror() {
         .then(obj_mapping => discard_nodes_from_pool(obj_mapping, 1, 'test3pool1'))
         .then(() => verify_object_health(6, bucket_name, pool_names))
         .then(() => console.log('test test_rebuild_unavailable_from_mirror successful'))
-        .catch(err => console.error(`Had error in test test_rebuild_unavailable_from_mirror: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_rebuild_unavailable_from_mirror: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 
@@ -390,7 +399,10 @@ function test_rebuild_unavailable_from_cloud_pool() {
         .spread(obj_mapping => discard_nodes_from_pool(obj_mapping, 3, pool_names[0]))
         .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name))
         .then(() => console.log('test test_rebuild_unavailable_from_cloud_pool successful'))
-        .catch(err => console.error(`Had error in test test_rebuild_unavailable_from_cloud_pool: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_rebuild_unavailable_from_cloud_pool: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 
@@ -406,7 +418,10 @@ function test_rebuild_one_corrupted_block() {
         .then(obj_mapping => corrupt_a_block(obj_mapping))
         .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
         .then(() => console.log('test test_rebuild_one_corrupted_block successful'))
-        .catch(err => console.error(`Had error in test test_rebuild_one_corrupted_block: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_rebuild_one_corrupted_block: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 
@@ -422,7 +437,10 @@ function test_rebuild_two_corrupted_blocks() {
         .then(obj_mapping => corrupt_a_block(obj_mapping))
         .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
         .then(() => console.log('test test_rebuild_two_corrupted_blocks successful'))
-        .catch(err => console.error(`Had error in test test_rebuild_two_corrupted_blocks: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_rebuild_two_corrupted_blocks: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 
@@ -439,7 +457,10 @@ function test_rebuild_corrupted_from_mirror() {
         .then(obj_mapping => corrupt_a_block(obj_mapping), 2)
         .then(() => verify_object_health(6, bucket_name, pool_names, false, false, true))
         .then(() => console.log('test test_rebuild_corrupted_from_mirror successful'))
-        .catch(err => console.error(`Had error in test test_rebuild_corrupted_from_mirror: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_rebuild_corrupted_from_mirror: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 
@@ -457,7 +478,10 @@ function test_rebuild_corrupted_from_cloud_pool() {
         .spread(obj_mapping => corrupt_a_block(obj_mapping), 3)
         .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name, false, true))
         .then(() => console.log('test test_rebuild_corrupted_from_cloud_pool successful'))
-        .catch(err => console.error(`Had error in test test_rebuild_corrupted_from_cloud_pool: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_rebuild_corrupted_from_cloud_pool: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 
@@ -471,7 +495,10 @@ function test_double_blocks_on_movie_files() {
         .then(() => upload_random_file(4, bucket_name, 'mp4', 'video/mp4'))
         .then(() => verify_object_health(3, bucket_name, pool_names, false, true))
         .then(() => console.log('test test_double_blocks_on_movie_files successful'))
-        .catch(err => console.error(`Had error in test test_double_blocks_on_movie_files: ${err}`))
+        .catch(err => {
+            console.error(`Had error in test test_double_blocks_on_movie_files: ${err}`);
+            throw err;
+        })
         .finally(() => test_tear_down());
 }
 

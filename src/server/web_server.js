@@ -414,7 +414,7 @@ function getVersion(route) {
                 })
                 .catch(err => {
                     dbg.error(`got error when checking upgrade status. returning 503`, err);
-                    return { status: 5034 };
+                    return { status: 503 };
                 });
         });
 }
@@ -450,11 +450,17 @@ function handleUpgrade(req, res, next) {
             if (status === 404) { //Currently 404 marks during upgrade
                 const filePath = path.join(rootdir, 'frontend', 'dist', 'upgrade.html');
                 res.sendFile(filePath);
-            } else if (status.startsWith(5)) { //5xx, our own error on RPC (read system) or any other express internal error
+            } else if (status.toString().startsWith(5)) { //5xx, our own error on RPC (read system) or any other express internal error
+                return next();
+            } else {
                 return next();
             }
-            return next();
         });
+}
+
+function serveFE(req, res) {
+    var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
+    res.sendFile(filePath);
 }
 
 // setup static files
@@ -476,11 +482,17 @@ app.use('/public/license-info', license_info.serve_http);
 // Serve the new frontend (management console)
 app.use('/fe/assets', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
+//app.get('/fe', handleUpgrade, function(req, res) {
+//    var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
+//    res.sendFile(filePath);
+//});
+app.get('/fe', handleUpgrade, serveFE);
 app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
-app.get('/fe/**/', handleUpgrade, function(req, res) {
-    var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
-    res.sendFile(filePath);
-});
+app.get('/fe/**/', handleUpgrade, serveFE);
+//app.get('/fe/**/', handleUpgrade, function(req, res) {
+//    var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
+//    res.sendFile(filePath);
+//});
 
 app.use('/', express.static(path.join(rootdir, 'public')));
 

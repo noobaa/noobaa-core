@@ -83,7 +83,7 @@ function _getLastUpgradeText(lastUpgrade) {
         return 'System has never been upgraded';
     }
 
-    return moment(lastUpgrade).format(timeShortFormat);
+    return moment(lastUpgrade.time).format(timeShortFormat);
 }
 
 function _getPackageTestResult(state, numOfIssues) {

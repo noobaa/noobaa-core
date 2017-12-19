@@ -94,7 +94,7 @@ class SystemHealthViewModel extends Observer {
                 color: style['color8']
             },
             {
-                label: 'Unavailable',
+                label: 'Reserved & Unavailable',
                 value: ko.observable(),
                 color: style['color17']
             },

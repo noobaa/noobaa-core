@@ -96,6 +96,7 @@ export default function register(ko) {
     ko.components.register('upgrading-system-modal',                        require('./modals/upgrading-system-modal/upgrading-system-modal').default);
     ko.components.register('upgrade-system-failed-modal',                   require('./modals/upgrade-system-failed-modal/upgrade-system-failed-modal').default);
     ko.components.register('pre-upgrade-system-failed-modal',               require('./modals/pre-upgrade-system-failed-modal/pre-upgrade-system-failed-modal').default);
+    ko.components.register('finalize-upgrade-modal',                        require('./modals/finalize-upgrade-modal/finalize-upgrade-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------

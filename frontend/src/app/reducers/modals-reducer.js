@@ -84,11 +84,10 @@ function onChangeLocation(modals, { payload: location }) {
 
     if (afterupgrade) {
         return _openModal(modals, {
-            component: 'after-upgrade-modal',
+            component: 'finalize-upgrade-modal',
             options: {
-                title: 'Upgrade was Successful',
                 size: 'xsmall',
-                severity: 'success'
+                backdropClose: false
             }
         });
     }

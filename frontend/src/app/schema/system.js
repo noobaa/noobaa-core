@@ -14,7 +14,19 @@ export default {
             type: 'object',
             properties: {
                 lastUpgrade: {
-                    type: 'integer'
+                    type: 'object',
+                    required: [
+                        'time',
+                        'initiator'
+                    ],
+                    properties: {
+                        time: {
+                            type: 'integer'
+                        },
+                        initiator: {
+                            type: 'string'
+                        }
+                    }
                 },
                 preconditionFailure:  {
                     type: 'string',

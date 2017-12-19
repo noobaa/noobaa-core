@@ -393,7 +393,7 @@ export function openEditBucketQuotaModal(bucketName) {
     };
 }
 
-export function replaceToAccountCreatedModal(accountName, password) {
+export function replaceWidthAccountCreatedModal(accountName, password) {
     return {
         type: REPLACE_MODAL,
         payload: {
@@ -618,7 +618,7 @@ export function openUpgradeSystemModal() {
     };
 }
 
-export function replaceToPreUpgradeSystemFailedModal() {
+export function replaceWidthPreUpgradeSystemFailedModal() {
     return {
         type: REPLACE_MODAL,
         payload: {
@@ -632,7 +632,7 @@ export function replaceToPreUpgradeSystemFailedModal() {
     };
 }
 
-export function replaceToUpgradeSystemFailedModal() {
+export function replaceWidthUpgradeSystemFailedModal() {
     return {
         type: REPLACE_MODAL,
         payload: {
@@ -641,6 +641,29 @@ export function replaceToUpgradeSystemFailedModal() {
                 severity: 'error',
                 title: 'System Upgrade Failed',
                 size: 'xsmall'
+            }
+        }
+    };
+}
+
+export function replaceWithAfterUpgradeModal(version, user, upgradeInitiator, redirectUrl) {
+    const title = user === upgradeInitiator ?
+        'Upgrade was Successful' :
+        'System was Upgraded by Admin';
+
+    return {
+        type: REPLACE_MODAL,
+        payload: {
+            component: {
+                name: 'after-upgrade-modal',
+                params: { version, user, upgradeInitiator, redirectUrl }
+            },
+            options: {
+                title: title,
+                size: 'xsmall',
+                severity: 'success',
+                backdropClose: false,
+                closeButton: 'hidden'
             }
         }
     };

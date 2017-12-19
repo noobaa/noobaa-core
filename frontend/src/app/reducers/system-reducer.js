@@ -23,10 +23,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     return {
         version,
         sslCert: has_ssl_cert ? {} : undefined,
-        upgrade: {
-            lastUpgrade: upgrade.last_upgrade.timestamp,
-            preconditionFailure: upgrade.can_upload_upgrade_package
-        },
+        upgrade: _mapUpgrade(upgrade),
         releaseNotes
     };
 }
@@ -81,6 +78,17 @@ function onFailFetchVersionReleaseNotes(state, { payload }) {
 // ------------------------------
 // Local util functions
 // ------------------------------
+function _mapUpgrade(upgradeInfo) {
+    const { last_upgrade, can_upload_upgrade_package } = upgradeInfo;
+
+    return {
+        lastUpgrade: last_upgrade && {
+            time:last_upgrade.timestamp,
+            initiator: last_upgrade.last_initiator_email
+        },
+        preconditionFailure: can_upload_upgrade_package
+    };
+}
 
 // ------------------------------
 // Exported reducer function

@@ -658,7 +658,12 @@ function _set_dns_server(servers) {
     dbg.log0('setting dns servers in named forwarders configuration');
     dbg.log0('writing', forwarders_str, 'to', config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE);
     return fs_utils.replace_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, forwarders_str)
-        .then(() => promise_utils.exec('systemctl restart named'));
+        .then(() => {
+            // perform named restart in the background
+            promise_utils.exec('systemctl restart named')
+                .then(() => dbg.log0('successfully restarted named after setting dns servers to', servers))
+                .catch(err => dbg.error('failed on systemctl restart named when setting dns servers to', servers, err));
+        });
 }
 
 
@@ -691,7 +696,12 @@ function _set_search_domains(search_domains) {
     network_scripts_files.forEach(file => commands_to_exec.push(domain_command + file));
 
     return P.map(commands_to_exec, command => promise_utils.exec(command), { concurrency: 5 })
-        .then(() => promise_utils.exec('systemctl restart network'));
+        .then(() => {
+            // perform network restart in the background
+            promise_utils.exec('systemctl restart network')
+                .then(() => dbg.log0('successfully restarted network after setting search domains to', search_domains))
+                .catch(err => dbg.error('failed on systemctl restart network when setting search domains to', search_domains, err));
+        });
 }
 
 

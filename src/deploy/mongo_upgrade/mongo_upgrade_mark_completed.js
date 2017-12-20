@@ -28,15 +28,9 @@ function mongo_upgrade_mark_completed() {
     print('\nMONGO UPGRADE MARK COMPLETED - START ...');
     setVerboseShell(true);
 
-    var initiator = db.clusters.find({
-        owner_secret: param_secret
-    }).toArray()[0].upgrade.initiator_email;
-    //set last upgrade system info
-    printjson(initiator);
     db.systems.update({}, {
         $set: {
-            "last_upgrade.timestamp": Date.now(),
-            "last_upgrade.initiator": initiator
+            "last_upgrade.timestamp": Date.now()
         }
     });
 

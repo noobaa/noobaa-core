@@ -1355,7 +1355,15 @@ function upgrade_cluster(req) {
             });
         })
         .then(() => {
-            const updates = system_store.data.clusters.map(cluster => ({
+            Dispatcher.instance().activity({
+                event: 'conf.system_upgrade_started',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+            });
+
+            //Update all clusters upgrade section with the new status and clear the error if exists
+            let updates = system_store.data.clusters.map(cluster => ({
                 _id: cluster._id,
                 $set: {
                     "upgrade.status": 'UPGRADING'
@@ -1364,6 +1372,13 @@ function upgrade_cluster(req) {
                     "upgrade.error": true
                 }
             }));
+            //set last upgrade initiator under system
+            updates.push({
+                _id: req.system._id,
+                $set: {
+                    "last_upgrade.initiator": (req.account && req.account.email) || ''
+                }
+            });
             return system_store.make_changes({
                 update: {
                     clusters: updates
@@ -2051,13 +2066,20 @@ function check_cluster_status() {
         }));
 }
 
-function reset_upgrade_package_status() {
+function reset_upgrade_package_status(req) {
     const updates = system_store.data.clusters.map(cluster => ({
         _id: cluster._id,
         $set: {
             'upgrade.status': 'COMPLETED'
         }
     }));
+    Dispatcher.instance().activity({
+        event: 'conf.upload_package',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+    });
+
     return system_store.make_changes({
             update: {
                 clusters: updates

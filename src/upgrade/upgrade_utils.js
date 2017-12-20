@@ -14,6 +14,7 @@ const promise_utils = require('../util/promise_utils');
 const phone_home_utils = require('../util/phone_home');
 const argv = require('minimist')(process.argv);
 const mongo_client = require('../util/mongo_client');
+const ntp_client = require('ntp-client');
 
 const TMP_PATH = '/tmp';
 const EXTRACTION_PATH = `${TMP_PATH}/test`;
@@ -38,12 +39,15 @@ const ERROR_MAPPING = {
     COULD_NOT_EXTRACT_PARAMS: 'Failed to perform pre-upgrade tests.',
     CANNOT_UPGRADE_WITHOUT_SYSTEM: 'Failed to perform pre-upgrade tests due to no system on the server.',
     COULD_NOT_INSTALL_PACKAGES: 'Failed on pre-upgrade packages.',
+    NTP_TIMESKEW_FAILED: 'The difference between the server time and the NTP server time is too large.',
+    NTP_COMMUNICATION_ERROR: 'Failed to communicate with NTP server.',
     UNKNOWN: 'Failed with an internal error.'
 };
 
 let staged_package = 'UNKNOWN';
 
 class ExtractionError extends Error {}
+class NewTestsError extends Error {}
 
 function pre_upgrade(params) {
     dbg.log0('UPGRADE:', 'pre_upgrade called with upgrade_file =', params.upgrade_path);
@@ -76,7 +80,7 @@ function pre_upgrade(params) {
                         })
                         .then(errors => {
                             dbg.log0('found errors in spawn: ', String(errors));
-                            throw new Error(JSON.parse(errors).error.message);
+                            throw new NewTestsError(JSON.parse(errors).message);
                         });
                 });
         })
@@ -86,13 +90,17 @@ function pre_upgrade(params) {
             staged_package: params.testing_stage && (staged_package || 'UNKNOWN')
         }, _.isUndefined))
         .catch(error => {
+            let err_message = ERROR_MAPPING[error.message] || ERROR_MAPPING.UNKNOWN;
             dbg.error('pre_upgrade: HAD ERRORS', error);
             if (error instanceof ExtractionError) { //Failed in extracting, no staged package
                 staged_package = 'UNKNOWN';
             }
+            if (error instanceof NewTestsError) {
+                err_message = error.message;
+            }
             return _.omitBy({
                 result: false,
-                error: ERROR_MAPPING[error.message] || ERROR_MAPPING.UNKNOWN,
+                error: err_message,
                 tested_date: Date.now(),
                 staged_package: params.testing_stage && (staged_package || 'UNKNOWN')
             }, _.isUndefined);
@@ -174,6 +182,26 @@ function do_upgrade(upgrade_file, is_clusterized, err_handler) {
     } catch (err) {
         err_handler(err);
     }
+}
+
+function test_ntp_timeskew(ntp_server) {
+    const defaultNtpPort = 123;
+    const defaultNtpServer = "pool.ntp.org";
+    return P.fromCallback(callback => ntp_client.getNetworkTime(
+            ntp_server || defaultNtpServer,
+            defaultNtpPort,
+            callback
+        ))
+        .catch(err => {
+            dbg.error('test_ntp_timeskew failed', err);
+            throw new Error('NTP_COMMUNICATION_ERROR');
+        })
+        .then(date => {
+            const FIFTEEN_MINUTES_IN_MILLISECONDS = 900000;
+            if (Math.abs(date.getTime() - Date.now()) > FIFTEEN_MINUTES_IN_MILLISECONDS) {
+                throw new Error('NTP_TIMESKEW_FAILED');
+            }
+        });
 }
 
 function test_major_version_change() {
@@ -265,14 +293,15 @@ function pre_upgrade_checkups() {
 }
 
 function extract_new_pre_upgrade_params() {
-    const reply = {};
     return P.resolve()
         .then(() => mongo_client.instance().connect())
-        .then(() => _get_phone_home_proxy_address())
-        .then(ph_proxy => {
-            reply.phone_home_proxy_address = ph_proxy;
-            return reply;
-        })
+        .then(() => P.join(
+            _get_phone_home_proxy_address(),
+            _get_ntp_address()
+        ).spread((phone_home_proxy_address, ntp_server) => ({
+            ntp_server,
+            phone_home_proxy_address
+        })))
         .catch(err => {
             dbg.error('extract_new_pre_upgrade_params had errors', err);
             throw new Error('COULD_NOT_EXTRACT_PARAMS');
@@ -294,10 +323,17 @@ function _get_phone_home_proxy_address() {
         });
 }
 
+function _get_ntp_address() {
+    return P.resolve()
+        .then(() => os_utils.get_ntp());
+}
+
 function new_pre_upgrade_checkups(params) {
     return P.join(
         // test_major_version_change(),
         test_internet_connectivity(params.phone_home_proxy_address),
+        // TODO: Check the NTP with consideration to the proxy
+        test_ntp_timeskew(params.ntp_server),
         test_local_harddrive_memory()
     );
 }
@@ -424,9 +460,8 @@ if (require.main === module) {
             .catch(err => {
                 dbg.error('new_pre_upgrade: FAILED:', err);
                 // This is done because the new spawn only knowns the new errors
-                err.message = ERROR_MAPPING[err.message] || ERROR_MAPPING.UNKNOWN;
                 return fs.writeFileAsync(ERRORS_PATH, JSON.stringify({
-                        error: err
+                        message: (ERROR_MAPPING[err.message] || ERROR_MAPPING.UNKNOWN)
                     }))
                     .catch(error => {
                         dbg.error('new_pre_upgrade: failed to write error file', error);

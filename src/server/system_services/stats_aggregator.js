@@ -12,6 +12,7 @@ const request = require('request');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
+const pkg = require('../../../package.json');
 const Histogram = require('../../util/histogram');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -715,7 +716,9 @@ function background_worker() {
 
     dbg.log('Central Statistics gathering started');
     //Run the system statistics gatheting
-    return P.fcall(() => {
+    return P.resolve()
+        .then(() => _notify_latest_version())
+        .then(() => {
             let support_account = _.find(system_store.data.accounts, account => account.is_support);
             return server_rpc.client.stats.get_all_stats({}, {
                 auth_token: auth_server.make_auth_token({
@@ -752,6 +755,25 @@ function background_worker() {
             dbg.warn('Phone Home data send failed', err.stack || err);
         })
         .return();
+}
+
+function _notify_latest_version() {
+    return P.resolve()
+        .then(() => {
+            // TODO: Get the latest version document here from google cloud storage
+            throw new Error('TODO: GET LATEST VERSION');
+        })
+        .then(latest_version => {
+            if (String(pkg.version) < String(latest_version)) {
+                Dispatcher.instance().alert('INFO',
+                    system_store.data.systems[0]._id,
+                    `New NooBaa version available ${latest_version}`,
+                    Dispatcher.rules.once_weekly);
+            }
+        })
+        .catch(err => {
+            dbg.error('_notify_latest_version had error', err);
+        });
 }
 
 // EXPORTS

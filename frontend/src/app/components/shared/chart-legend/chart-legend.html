@@ -8,7 +8,9 @@
         ko.css="css"
         ko.click="onToggle"
     >
-        <span class="legend-label" ko.text="label"></span>
+        <span class="legend-label">
+            <span ko.text="label" ko.tooltip="tooltip"></span>
+        </span>
         <span class="legend-value" ko.text="formattedValue"></span>
     </li>
 </ul>

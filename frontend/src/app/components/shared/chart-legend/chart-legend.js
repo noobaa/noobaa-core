@@ -25,14 +25,25 @@ class ChartLegendViewModel {
         );
     }
 
-    normalizeItem({ label, color, value, visible = true, disabled = false }) {
-        const formattedValue = this.formatter(ko.unwrap(value) || 0);
-        const style = { 'border-color': color };
+    normalizeItem({ label, color, value, visible = true, disabled = false, tooltip }) {
         const toggable = ko.isWriteableObservable(disabled);
-        const css = { disabled, toggable };
         const onToggle =  toggable ? () => disabled(!disabled()) : echo;
+        const tooltipInfo = tooltip && {
+            text: tooltip.toString(),
+            position: 'after',
+            align: 'center'
+        };
 
-        return { label, style, formattedValue, visible, css, onToggle };
+        return {
+            label,
+            style: { 'border-color': color },
+            formattedValue: this.formatter(ko.unwrap(value) || 0),
+            visible,
+            css: { disabled, toggable },
+            tooltip:
+            tooltipInfo,
+            onToggle
+        };
     }
 }
 

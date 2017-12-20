@@ -95,17 +95,20 @@ class SystemHealthViewModel extends Observer {
             {
                 label: 'Used',
                 value: ko.observable(),
-                color: style['color8']
+                color: style['color8'],
+                tooltip: 'The raw storage used in the system'
             },
             {
                 label: 'Reserved & Unavailable',
                 value: ko.observable(),
-                color: style['color17']
+                color: style['color17'],
+                tooltip: 'All offline resources or unusable storage such as OS usage and reserved capacity'
             },
             {
                 label: 'Available',
                 value: ko.observable(),
-                color: style['color15']
+                color: style['color15'],
+                tooltip: 'The free space available for writes and redundancy in the system'
             }
         ];
 

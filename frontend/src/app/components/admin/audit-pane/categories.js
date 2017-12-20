@@ -326,6 +326,21 @@ export default {
             set_certificate: {
                 message: 'Certificate Set',
                 entityId: () => ''
+            },
+
+            upload_package: {
+                message: 'Upgrade package upload started',
+                entityId: () => ''
+            },
+
+            system_upgrade_started: {
+                message: 'System upgrade started ',
+                entityId: () => ''
+            },
+
+            system_after_completed: {
+                message: 'System upgrade completed',
+                entityId: () => ''
             }
         }
     }

@@ -63,7 +63,10 @@ const EXISTING_AUDIT_LOGS = {
         'set_phone_home_proxy_address',
         'dns_servers',
         'remote_syslog',
-        'set_certificate'
+        'set_certificate',
+        'upload_package',
+        'system_upgrade_started',
+        'system_after_completed'
     ]
 };
 

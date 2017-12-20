@@ -1,13 +1,15 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<label>
-    <input type="radio" data-bind="
-        attr: { name: $data.group },
-        checked: $data.selected,
-        checkedValue: $data.value,
-        disable: $data.disabled || false,
-        hasFocus: $data.hasFocus
-    "/>
+<label ko.tooltip="$data.tooltip">
+    <input type="radio"
+        ko.attr.name="$data.group"
+        ko.checked="$data.selected"
+        ko.disable="$data.disabled || false"
+        ko.hasFocus="$data.hasFocus"
+        data-bind="checkedValue: $data.value""
+    />
     <span class="radio-knob"></span>
-    <span class="radio-label" data-bind="text: $data.label || $data.value"></span>
+    <span class="radio-label"
+        ko.text="$data.label || $data.value"
+    ></span>
 </label>

@@ -34,11 +34,15 @@ function _getSystemStorageIcon(total = 0, free = 0) {
         };
 
     } else {
+        const percentage = ratio < .01 ?
+            'Lower then 1%' :
+            numeral(ratio).format('%');
+
         return {
             name: ratio <= .2 ? 'problem' : 'healthy',
             css: ratio <= .2 ? 'warning' : 'success',
             tooltip: {
-                text: `${numeral(ratio).format('%')} free storage left`,
+                text: `${percentage} free storage left`,
                 align: 'start'
             }
         };

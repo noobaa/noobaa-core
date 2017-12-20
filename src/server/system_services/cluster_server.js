@@ -1363,7 +1363,7 @@ function upgrade_cluster(req) {
             });
 
             //Update all clusters upgrade section with the new status and clear the error if exists
-            let updates = system_store.data.clusters.map(cluster => ({
+            const cluster_updates = system_store.data.clusters.map(cluster => ({
                 _id: cluster._id,
                 $set: {
                     "upgrade.status": 'UPGRADING'
@@ -1373,15 +1373,16 @@ function upgrade_cluster(req) {
                 }
             }));
             //set last upgrade initiator under system
-            updates.push({
+            const system_updates = {
                 _id: req.system._id,
                 $set: {
                     "last_upgrade.initiator": (req.account && req.account.email) || ''
                 }
-            });
+            };
             return system_store.make_changes({
                 update: {
-                    clusters: updates
+                    clusters: cluster_updates,
+                    systems: system_updates
                 }
             });
         })

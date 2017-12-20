@@ -4,14 +4,10 @@ import template from './edit-server-time-settings-modal.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import moment from 'moment-timezone';
+import { sumBy } from 'utils/core-utils';
 import { inputThrottle } from 'config';
 import { systemInfo, serverTime, ntpResolutionState } from 'model';
 import { loadServerTime, updateServerClock, updateServerNTPSettings, attemptResolveNTPServer } from 'actions';
-
-const configTypes =  Object.freeze([
-    { label: 'Manual Time', value: 'MANUAL' },
-    { label: 'Network Time (NTP)', value: 'NTP' }
-]);
 
 class EditServerTimeSettingsModalViewModel extends BaseViewModel {
     constructor({ serverSecret, onClose }) {
@@ -30,7 +26,38 @@ class EditServerTimeSettingsModalViewModel extends BaseViewModel {
             () => server() && server().hostname
         );
 
-        this.configTypes = configTypes;
+        const inClusterEnv = ko.pureComputed(
+            () => {
+                if (!systemInfo()) return;
+
+                const serverCount = sumBy(
+                    systemInfo().cluster.shards
+                        .map(shard => shard.servers.length)
+                );
+
+                return serverCount > 1;
+            }
+        );
+
+        const manualTimeTooltip = ko.pureComputed(
+            () => inClusterEnv() ?
+                'Mannual time cannot be used in a cluster environment' :
+                ''
+        );
+
+        this.configTypes = [
+            {
+                label: 'Manual Time',
+                value: 'MANUAL',
+                disabled: inClusterEnv,
+                tooltip: manualTimeTooltip
+            },
+            {
+                label: 'Network Time (NTP)',
+                value: 'NTP'
+            }
+        ];
+
         this.selectedConfigType = ko.observableWithDefault(
             () => server() && server().ntp_server ? 'NTP' : 'MANUAL'
         );

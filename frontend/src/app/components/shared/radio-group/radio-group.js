@@ -22,8 +22,12 @@ class RadioGroupViewModel {
         this.options = ko.pureComputed(
             () => ko.unwrap(options).map(
                 opt => {
-                    const { value = opt, label = value } = opt;
-                    return { value, label };
+                    const { value = opt, label = value, tooltip } = opt;
+                    const disabled = ko.unwrap(this.disabled) ||
+                        ko.unwrap(opt.disabled) ||
+                        false;
+
+                    return { value, label, disabled, tooltip };
                 }
             )
         );

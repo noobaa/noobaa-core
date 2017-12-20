@@ -4,7 +4,7 @@ import template from './server-table.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
-import { createCompareFunc, deepFreeze, throttle } from 'utils/core-utils';
+import { createCompareFunc, deepFreeze, throttle, flatMap } from 'utils/core-utils';
 import { inputThrottle } from 'config';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
@@ -74,6 +74,24 @@ class ServerTableViewModel extends BaseViewModel {
 
         this.columns = columns;
 
+        this.canAttachServer = ko.pureComputed(
+            () => {
+                if (!systemInfo()) return false;
+
+                const { shards, master_secret } = systemInfo().cluster;
+                const { ntp_server } = flatMap(shards, shard => shard.servers)
+                    .find(server => server.secret === master_secret);
+
+                return Boolean(ntp_server);
+            }
+        );
+
+        this.attachServerTooltip = ko.pureComputed(
+            () => !this.canAttachServer() ?
+                'NTP must be configured before attaching a new server' :
+                ''
+        );
+
         const query = ko.pureComputed(
             () => routeContext().query || {}
         );
@@ -101,7 +119,6 @@ class ServerTableViewModel extends BaseViewModel {
                     .sort(compareOp);
             }
         );
-
 
         this.actionContext = ko.observable();
         this.isAttachServerModalVisible = ko.observable(false);

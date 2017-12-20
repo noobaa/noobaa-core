@@ -1048,8 +1048,15 @@ class NodesMonitor extends EventEmitter {
         if (!item.node.permission_tempering && !item.node.issues_report) {
             return;
         }
-
         return P.resolve()
+            .then(() => {
+                if (item.node.permission_tempering) {
+                    if (!item.connection) return;
+                    return server_rpc.client.agent.fix_storage_permissions(undefined, {
+                        connection: item.connection,
+                    });
+                }
+            })
             .then(() => {
                 this._clear_untrusted(item);
                 return this._update_nodes_store('force');

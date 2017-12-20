@@ -836,6 +836,19 @@ function is_folder_permissions_set(current_path) {
         });
 }
 
+function set_win_folder_permissions(current_path) {
+    if (os.type() !== 'Windows_NT') {
+        return P.resolve(true);
+    }
+    return promise_utils.exec('attrib +H ' + current_path)
+        .then(() => promise_utils.exec('icacls  ' + current_path + ' /reset /t /c /q'))
+        .then(() => promise_utils.exec('icacls  ' + current_path +
+            ' /grant:r administrators:(oi)(ci)F' +
+            ' /grant:r system:F' +
+            ' /remove:g BUILTIN\\Users' +
+            ' /inheritance:r'));
+}
+
 function _set_time_zone(tzone) {
     // TODO _set_time_zone: Ugly Ugly, change to datectrl on centos7
     return promise_utils.exec('ln -sf /usr/share/zoneinfo/' +
@@ -1235,6 +1248,7 @@ exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.is_folder_permissions_set = is_folder_permissions_set;
+exports.set_win_folder_permissions = set_win_folder_permissions;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
 exports.set_dns_and_search_domains = set_dns_and_search_domains;

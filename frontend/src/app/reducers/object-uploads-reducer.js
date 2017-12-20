@@ -37,7 +37,7 @@ const initialObjectState = deepFreeze({
     loaded: 0,
     completed: false,
     archived: false,
-    error: ''
+    error: undefined
 });
 
 // ------------------------------
@@ -98,7 +98,10 @@ function _completeUpload(uploads, { id, error }) {
             return {
                 ...obj,
                 completed: true,
-                error: error ? error.message : ''
+                error: error && {
+                    code: error.code,
+                    message: error.message
+                }
             };
         });
 

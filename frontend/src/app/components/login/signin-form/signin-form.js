@@ -11,7 +11,11 @@ class SignInFormViewModel extends BaseViewModel {
     constructor() {
         super();
 
-        this.email = ko.observable()
+        const email = ko.observable();
+        this.email = ko.pureComputed({
+            read: email,
+            write: val => email(val.trim())
+        })
             .extend({
                 required: { message: 'Please enter an email address' },
                 email: { message: 'Please enter a valid email address' }

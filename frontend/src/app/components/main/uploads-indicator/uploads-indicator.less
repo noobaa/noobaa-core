@@ -34,20 +34,25 @@ uploads-indicator {
         }
     }
 
-    .uploading::after {
-        @size : 10px;
-        content: attr(data-count);
-        position: absolute;
-        top: -7px;
-        left: 0;
-        display: block;
-        min-width: @size;
-        height: @size;
-        line-height: 100%;
-        padding: 2px;
-        background-color: @color6;
-        border-radius: @size;
-        color: @color8;
-        text-align: center;
+    .icon-btn {
+        overflow: visible;
+
+        &.uploading::before {
+            @size : 10px;
+            content: attr(data-count);
+            position: absolute;
+            top: -5px;
+            left: 5px;
+            display: block;
+            min-width: @size;
+            height: @size;
+            line-height: 100%;
+            padding: 2px;
+            background-color: @color6;
+            border-radius: @size;
+            color: @color8;
+            text-align: center;
+            z-index: 1;
+        }
     }
 }

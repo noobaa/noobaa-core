@@ -12,8 +12,7 @@ export default {
                     'size',
                     'loaded',
                     'completed',
-                    'archived',
-                    'error'
+                    'archived'
                 ],
                 properties: {
                     id: {
@@ -38,7 +37,19 @@ export default {
                         type: 'boolean'
                     },
                     error: {
-                        type: 'string'
+                        type: 'object',
+                        required: [
+                            'code',
+                            'message'
+                        ],
+                        properties: {
+                            code: {
+                                type: 'string'
+                            },
+                            message: {
+                                type: 'string'
+                            }
+                        }
                     }
                 }
             }

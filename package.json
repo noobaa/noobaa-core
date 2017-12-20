@@ -9,7 +9,7 @@
   },
   "main": "index.js",
   "config": {
-    "covdir" : "coverage"
+    "covdir": "coverage"
   },
   "scripts": {
     "preinstall": "npm install node-addon-api nan",
@@ -110,6 +110,7 @@
     "node-addon-api": "0.6.3",
     "node-df": "0.1.1",
     "node-gyp": "3.6.2",
+    "ntp-client": "0.5.3",
     "performance-now": "2.1.0",
     "proxy-agent": "2.1.0",
     "request": "2.81.0",

@@ -1373,12 +1373,12 @@ function upgrade_cluster(req) {
                 }
             }));
             //set last upgrade initiator under system
-            const system_updates = {
+            const system_updates = [{
                 _id: req.system._id,
                 $set: {
                     "last_upgrade.initiator": (req.account && req.account.email) || ''
                 }
-            };
+            }];
             return system_store.make_changes({
                 update: {
                     clusters: cluster_updates,

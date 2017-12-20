@@ -65,17 +65,20 @@ class ResourceOverviewViewModel extends Observer {
             {
                 label: 'Healthy',
                 color: style['color12'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The number of fully operative storage nodes that can be used as a storage target for NooBaa'
             },
             {
                 label: 'Issues',
                 color: style['color11'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The number of storage nodes that are partially operative due to a current process or low spec'
             },
             {
                 label: 'Offline',
                 color: style['color10'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The number of storage nodes that are currently not operative and are not considered as part of NooBaa’s available storage'
             }
         ];
 

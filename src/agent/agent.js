@@ -1046,6 +1046,28 @@ class Agent {
             });
     }
 
+    fix_storage_permissions() {
+        if (os.type() !== 'Windows_NT') return P.resolve();
+        const dbg = this.dbg;
+        const root_path = path.win32.parse(this.storage_path).dir;
+        return P.resolve()
+            .then(() => os_utils.is_folder_permissions_set(root_path))
+            .then(permissions_set => {
+                if (!permissions_set && (this.node_type !== 'ENDPOINT_S3')) {
+                    os_utils.set_win_folder_permissions(root_path)
+                        .catch(err => dbg.error('Icacls configuration failed with:', err));
+                }
+            })
+            .then(() => {
+                dbg.log0('fix_storage_permissions configuration success');
+                this.permission_tempering = false;
+            })
+            .catch(function(err) {
+                dbg.error('fix_storage_permissions configuration failed with:', err);
+                throw new Error('fix_storage_permissions configuration failed!');
+            });
+    }
+
 }
 
 

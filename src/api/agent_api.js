@@ -323,6 +323,9 @@ module.exports = {
             method: 'DELETE',
         },
 
+        fix_storage_permissions: {
+            method: 'DELETE',
+        },
     },
 
     definitions: {

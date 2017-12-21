@@ -6,13 +6,14 @@
  */
 'use strict';
 
-var util = require('util');
-var P = require('../util/promise');
-var AzureFunctions = require('./azureFunctions');
-var crypto = require('crypto');
-var argv = require('minimist')(process.argv);
-var net = require('net');
-var _ = require('lodash');
+const util = require('util');
+const P = require('../util/promise');
+const AzureFunctions = require('./azureFunctions');
+const crypto = require('crypto');
+const argv = require('minimist')(process.argv);
+const net = require('net');
+const _ = require('lodash');
+const af = require('../test/qa/functions/agent_functions');
 
 
 // Environment Setup
@@ -32,10 +33,9 @@ var timestamp = (Math.floor(Date.now() / 1000));
 
 var vnetName = argv.vnet || 'newcapacity-vnet';
 var serverName;
-var agentConf = argv.agent_conf;
 
 var machineCount = 4;
-
+let server_ip;
 var azf;
 
 function print_usage() {
@@ -60,7 +60,9 @@ Usage:
 if (argv.help) {
     print_usage();
 } else {
-    vmOperations();
+    return vmOperations()
+        .then(() => console.log('Done'))
+        .then(() => { process.exit(0) })
 }
 
 var oses = [
@@ -75,6 +77,7 @@ function args_builder(count, os) {
     for (let i = 0; i < count; i++) {
         var vmName;
         if (net.isIP(serverName)) {
+            server_ip = serverName;
             var octets = serverName.split(".");
             vmName = 'a' + octets[2] + '-' + octets[3];
         } else {
@@ -142,15 +145,17 @@ function vmOperations(operationCallback) {
                     if (os2.osType === 'Windows') {
                         machine_name = machine_name.substring(0, 15);
                     }
-                    return azf.createAgent({
-                        vmName: machine_name,
-                        storage: storageAccountName,
-                        vnet: vnetName,
-                        os: os2,
-                        serverName,
-                        agentConf
-                    })
-                        .catch(err => console.log('got error with agent', err));
+                    return af.getAgentConf(server_ip)
+                        .then(agentConf => azf.createAgent({
+                            vmName: machine_name,
+                            storage: storageAccountName,
+                            vnet: vnetName,
+                            os: os2,
+                            serverName,
+                            agentConf
+                        })
+                            .catch(err => console.log('got error with agent', err))
+                        );
                 });
             }
             if (argv.servers) {
@@ -188,15 +193,21 @@ function vmOperations(operationCallback) {
                 var os = azf.getImagesfromOSname(argv.os);
                 machines = args_builder(machineCount - old_machines.length, os);
                 console.log('adding ', (machineCount - old_machines.length), 'machines');
-                return P.map(machines, machine => azf.createAgent({
-                    vmName: machine,
-                    storage: storageAccountName,
-                    vnet: vnetName,
-                    os,
-                    serverName,
-                    agentConf
-                })
-                    .catch(err => console.log('got error with agent', err)));
+                return af.getAgentConf(server_ip)
+                    .then(agentConf => {
+                        console.log(`agentConf: ${agentConf}`);
+                        return P.map(machines, machine => {
+                            console.log(`machine ${machine}`);
+                            return azf.createAgent({
+                                vmName: machine,
+                                storage: storageAccountName,
+                                vnet: vnetName,
+                                os,
+                                serverName,
+                                agentConf
+                            }).catch(err => console.log('got error with agent', err))
+                        });
+                    });
             }
             console.log('removing ', (old_machines.length - machineCount), 'machines');
             var todelete = old_machines.length - machineCount;

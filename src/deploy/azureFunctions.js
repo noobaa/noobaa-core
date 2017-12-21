@@ -150,7 +150,8 @@ class AzureFunctions {
     }
 
     createAgent(params) {
-        const { vmName, storage, vnet, os } = params;
+        console.log('createAgent:: ', params);
+        const { vmName, storage, vnet, os, serverName, agentConf } = params;
         return this.getSubnetInfo(vnet)
             .then(subnetInfo => this.createPublicIp(vmName + '_pip')
                 .then(ipInfo => [subnetInfo, ipInfo])
@@ -188,6 +189,7 @@ class AzureFunctions {
     }
 
     createAgentExtension(params) {
+        console.log('createAgentExtension:: ', params);
         const { vmName, os, serverName, agentConf, ip } = params;
 
         console.log('Started the Virtual Machine!');

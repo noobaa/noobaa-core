@@ -377,13 +377,13 @@ function delayInSec(sec) {
 }
 
 function createCluster(requestedServes, masterIndex, clusterIndex) {
-    const master_ip = requestedServes[masterIndex].ip;
+    const masterIp = requestedServes[masterIndex].ip;
     const slave_ip = requestedServes[clusterIndex].ip;
     const slave_secret = requestedServes[clusterIndex].secret;
     const slave_name = requestedServes[clusterIndex].name;
     const master_name = requestedServes[masterIndex].name;
     console.log(`${YELLOW}adding ${slave_name} to master: ${master_name}${NC}`);
-    return azf.addServerToCluster(master_ip, slave_ip, slave_secret, slave_name)
+    return azf.addServerToCluster(masterIp, slave_ip, slave_secret, slave_name)
         .then(() => delayInSec(90));
 }
 

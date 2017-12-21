@@ -181,7 +181,7 @@ class AzureFunctions {
             .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
             .then(ip => {
                 // only install noobaa agent if given a server and agent conf
-                if (params.serverName && params.agentConf) {
+                if (serverName && agentConf) {
                     return this.createAgentExtension(_.defaults({ ip }, params));
                 }
                 return ip;
@@ -634,16 +634,17 @@ class AzureFunctions {
     waitMachineState(machine, state) {
         var c_state;
         console.log('Waiting for machine state to be ' + state);
-        return promise_utils.pwhile(() => c_state !== state, () => P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
-            expand: 'instanceView',
-        }, callback))
-            .then(machine_info => {
-                if (machine_info.instanceView.statuses[1]) {
-                    c_state = machine_info.instanceView.statuses[1].displayStatus;
-                }
-                console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
-            })
-            .delay(5000)
+        return promise_utils.pwhile(() => c_state !== state,
+            () => P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, machine, {
+                expand: 'instanceView',
+            }, callback))
+                .then(machine_info => {
+                    if (machine_info.instanceView.statuses[1]) {
+                        c_state = machine_info.instanceView.statuses[1].displayStatus;
+                    }
+                    console.log('Current state is: ' + c_state + ' waiting for: ' + state + ' - will wait for extra 5 seconds');
+                })
+                .delay(5000)
         );
     }
 
@@ -670,18 +671,19 @@ class AzureFunctions {
             .then(() => P.fromCallback(callback => blobSvc.doesBlobExist(CONTAINER_NAME, 'image.vhd', callback)))
             .then(({ exists }) => !exists && P.fromCallback(
                 callback => blobSvc.startCopyBlob(NOOBAA_IMAGE, CONTAINER_NAME, 'image.vhd', callback))
-                .then(() => promise_utils.pwhile(() => !isDone, () => P.fromCallback(callback => blobSvc.getBlobProperties(CONTAINER_NAME, 'image.vhd', callback))
-                    .then(result => {
-                        if (result.copy) {
-                            console.log('Copying Image...', result.copy.progress);
-                            if (result.copy.status === 'success') {
-                                isDone = true;
-                            } else if (result.copy.status !== 'pending') {
-                                throw new Error('got wrong status while copying', result.copy.status);
+                .then(() => promise_utils.pwhile(() => !isDone,
+                    () => P.fromCallback(callback => blobSvc.getBlobProperties(CONTAINER_NAME, 'image.vhd', callback))
+                        .then(result => {
+                            if (result.copy) {
+                                console.log('Copying Image...', result.copy.progress);
+                                if (result.copy.status === 'success') {
+                                    isDone = true;
+                                } else if (result.copy.status !== 'pending') {
+                                    throw new Error('got wrong status while copying', result.copy.status);
+                                }
                             }
-                        }
-                    })
-                    .delay(10000)
+                        })
+                        .delay(10000)
                 )))
             .then(() => this.createVirtualMachineFromImage({
                 vmName: serverName,

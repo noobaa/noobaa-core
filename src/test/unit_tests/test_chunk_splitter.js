@@ -5,20 +5,12 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const crypto = require('crypto');
 const assert = require('assert');
-const argv = require('minimist')(process.argv);
 
 const P = require('../../util/promise');
-const dbg = require('../../util/debug_module')(__filename);
 const RandStream = require('../../util/rand_stream');
 const ChunkSplitter = require('../../util/chunk_splitter');
-// const promise_utils = require('../../util/promise_utils');
-
-if (argv.verbose) {
-    dbg.set_level(5, 'core');
-}
 
 mocha.describe('ChunkSplitter', function() {
-
 
     mocha.it('is consistent', function() {
         this.timeout(100000); // eslint-disable-line no-invalid-this

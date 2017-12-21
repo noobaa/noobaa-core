@@ -12,7 +12,6 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 
-
 mocha.describe('md_store', function() {
 
     const md_store = new MDStore(`_test_md_store_${Date.now().toString(36)}`);

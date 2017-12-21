@@ -21,8 +21,9 @@ module.exports = {
                 required: ['name'],
                 properties: {
                     name: { type: 'string' },
-                    // only one of tiering / chunk_coder_config should be provided
+                    // if tiering is provided then chunk_coder_config & chunk_split_config are ignored!
                     tiering: { type: 'string' },
+                    chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     tag: { type: 'string' },
                     namespace: {

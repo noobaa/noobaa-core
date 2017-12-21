@@ -305,7 +305,8 @@ class SystemStoreData {
                     let key = _.get(item, index.key || '_id');
                     let val = index.val ? _.get(item, index.val) : item;
                     let context = index.context ? _.get(item, index.context) : this;
-                    let map = context[index.name] = context[index.name] || {};
+                    let map = context[index.name] || {};
+                    context[index.name] = map;
                     if (index.val_array) {
                         map[key] = map[key] || [];
                         map[key].push(val);
@@ -542,25 +543,23 @@ class SystemStore extends EventEmitter {
      *
      */
     make_changes(changes) {
-        let bulk_per_collection = {};
-        let now = new Date();
+        const bulk_per_collection = {};
+        const now = new Date();
         dbg.log0('SystemStore.make_changes:', util.inspect(changes, {
             depth: 5
         }));
 
-        let get_collection = name => {
+        const get_collection = name => {
             const col = COLLECTIONS_BY_NAME[name];
             if (!col) {
                 throw new Error('SystemStore: make_changes bad collection name - ' + name);
             }
             return col;
         };
-        let get_bulk = name => {
-            let bulk =
-                bulk_per_collection[name] =
-                bulk_per_collection[name] ||
-                mongo_client.instance().collection(name)
-                .initializeUnorderedBulkOp();
+        const get_bulk = name => {
+            const bulk = bulk_per_collection[name] ||
+                mongo_client.instance().collection(name).initializeUnorderedBulkOp();
+            bulk_per_collection[name] = bulk;
             return bulk;
         };
 

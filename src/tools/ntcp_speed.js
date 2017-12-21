@@ -16,7 +16,7 @@ function main() {
     if (argv.server) {
         run_server(argv.port);
     } else if (argv.client) {
-        argv.client = typeof(argv.client) === 'string' && argv.client || '127.0.0.1';
+        argv.client = (typeof(argv.client) === 'string' && argv.client) || '127.0.0.1';
         run_client(argv.port, argv.client);
     } else {
         return usage();
@@ -67,14 +67,15 @@ function setup_conn(conn) {
 function run_sender(conn) {
     console.log('client connected');
     let send_speedometer = new Speedometer('Send Speed');
-    let send = function() {
+    send();
+
+    function send() {
         let buf = Buffer.allocUnsafe(argv.size);
         conn.write(buf, () => {
             send_speedometer.update(buf.length);
             setImmediate(send);
         });
-    };
-    send();
+    }
 }
 
 function run_receiver(conn) {

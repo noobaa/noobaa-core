@@ -564,7 +564,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             })
         };
 
-        agent = self.agents[node_name] = new Agent({
+        agent = new Agent({
             address: self.params.address,
             servers: self.params.servers,
             node_name: node_name,
@@ -579,6 +579,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             create_node_token_wrapper: create_node_token_wrapper,
             s3_agent: this._is_s3_agent(node_name)
         });
+        self.agents[node_name] = agent;
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);
     }

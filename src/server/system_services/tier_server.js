@@ -29,16 +29,16 @@ function new_tier_defaults(name, system_id, chunk_config, mirrors) {
     };
 }
 
-function new_policy_defaults(name, system_id, tiers_orders) {
+function new_policy_defaults(name, system_id, chunk_split_config, tiers_orders) {
     return {
         _id: system_store.generate_id(),
         name: name,
         system: system_id,
         tiers: tiers_orders,
-        chunk_split_config: {
+        chunk_split_config: _.defaults(chunk_split_config, {
             avg_chunk: config.CHUNK_SPLIT_AVG_CHUNK,
             delta_chunk: config.CHUNK_SPLIT_DELTA_CHUNK,
-        },
+        }),
     };
 }
 
@@ -50,9 +50,9 @@ function new_policy_defaults(name, system_id, tiers_orders) {
 function create_tier(req) {
     const changes = { insert: {} };
 
-    const policy_pool_ids = _.map(req.rpc_params.attached_pools, function(pool_name) {
-        return req.system.pools_by_name[pool_name]._id;
-    });
+    const policy_pool_ids = _.map(req.rpc_params.attached_pools,
+        pool_name => req.system.pools_by_name[pool_name]._id
+    );
 
     const chunk_config = chunk_config_utils.resolve_chunk_config(
         req.rpc_params.chunk_coder_config, req.account, req.system);
@@ -76,7 +76,7 @@ function create_tier(req) {
     return system_store.make_changes(changes)
         .then(function() {
             req.load_auth();
-            var created_tier = find_tier_by_name(req);
+            const created_tier = find_tier_by_name(req);
             return get_tier_info(created_tier);
         });
 }
@@ -89,8 +89,8 @@ function create_tier(req) {
  *
  */
 function read_tier(req) {
-    var tier = find_tier_by_name(req);
-    var pool_names = [];
+    const tier = find_tier_by_name(req);
+    const pool_names = [];
 
     _.each(tier.mirrors, object => {
         _.each(object.spread_pools, pool => {
@@ -178,8 +178,8 @@ function update_tier(req) {
 
     return system_store.make_changes(changes)
         .then(res => {
-            var bucket = find_bucket_by_tier(req);
-            let desc_string = [];
+            const bucket = find_bucket_by_tier(req);
+            const desc_string = [];
             if (req.rpc_params.data_placement) { //Placement policy changes
                 let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
                     `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
@@ -219,12 +219,8 @@ function update_tier(req) {
  */
 function delete_tier(req) {
     dbg.log0('Deleting tier', req.rpc_params.name, 'on', req.system._id);
-    var tier = find_tier_by_name(req);
-    return system_store.make_changes({
-        remove: {
-            tiers: [tier._id]
-        }
-    }).return();
+    const tier = find_tier_by_name(req);
+    return system_store.make_changes({ remove: { tiers: [tier._id] } }).return();
 }
 
 
@@ -233,50 +229,47 @@ function delete_tier(req) {
 // TIERING POLICY /////////////////////////////////////////////////
 
 function create_policy(req) {
-    var policy = new_policy_defaults(
-        req.rpc_params.name,
-        req.system._id,
-        _.map(req.rpc_params.tiers, function(t) {
-            return {
-                order: t.order,
-                tier: req.system.tiers_by_name[t.tier]._id,
-                spillover: t.spillover || false,
-                disabled: t.disabled || false
-            };
-        }));
+    const policy = policy_defaults_from_req(req);
     dbg.log0('Creating tiering policy', policy);
-    return system_store.make_changes({
-            insert: {
-                tieringpolicies: [policy]
-            }
-        })
-        .then(function() {
+    return system_store.make_changes({ insert: { tieringpolicies: [policy] } })
+        .then(() => {
             req.load_auth();
-            var created_policy = find_policy_by_name(req);
+            const created_policy = find_policy_by_name(req);
             return get_tiering_policy_info(created_policy);
         });
 }
 
 function update_policy(req) {
-    throw new RpcError('TODO', 'TODO is update tiering policy needed?');
+    const policy = find_policy_by_name(req);
+    const policy_defaults = policy_defaults_from_req(req);
+    const updates = _.pick(policy_defaults, 'chunk_split_config', 'tiers');
+    if (_.isEmpty(updates)) return;
+    updates._id = policy._id;
+    return system_store.make_changes({ update: { tieringpolicies: [updates] } })
+        .then(() => {
+            req.load_auth();
+            const created_policy = find_policy_by_name(req);
+            return get_tiering_policy_info(created_policy);
+        });
+
 }
 
 function get_policy_pools(req) {
-    var policy = find_policy_by_name(req);
+    const policy = find_policy_by_name(req);
     return get_tiering_policy_info(policy);
 }
 
 function read_policy(req) {
-    var policy = find_policy_by_name(req);
-    var pools = [];
+    const policy = find_policy_by_name(req);
+    let pools = [];
 
-    _.forEach(policy.tiers, tier_and_order => {
-        _.forEach(tier_and_order.tier.mirrors, mirror_object => {
+    _.forEach(policy.tiers, t => {
+        _.forEach(t.tier.mirrors, mirror_object => {
             pools = _.concat(pools, mirror_object.spread_pools);
         });
     });
     pools = _.compact(pools);
-    var pool_names = pools.map(pool => pool.name);
+    const pool_names = pools.map(pool => pool.name);
     return P.join(
             nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
             nodes_client.instance().aggregate_data_free_by_tier(
@@ -289,7 +282,7 @@ function read_policy(req) {
 
 function delete_policy(req) {
     dbg.log0('Deleting tiering policy', req.rpc_params.name);
-    var policy = find_policy_by_name(req);
+    const policy = find_policy_by_name(req);
     return system_store.make_changes({
         remove: {
             tieringpolicies: [policy._id]
@@ -301,21 +294,19 @@ function delete_policy(req) {
 // UTILS //////////////////////////////////////////////////////////
 
 function find_bucket_by_tier(req) {
-    var tier = find_tier_by_name(req);
-    var policy = _.find(system_store.data.tieringpolicies, function(o) {
-        return _.find(o.tiers, function(t) {
-            return (t.tier._id.toString() === tier._id.toString());
-        });
-    });
+    const tier = find_tier_by_name(req);
+    const policy = _.find(system_store.data.tieringpolicies,
+        p => _.find(p.tiers, t => String(t.tier._id) === String(tier._id))
+    );
 
     if (!policy) {
         return null;
         //throw new RpcError('NOT_FOUND', 'POLICY OF TIER NOT FOUND ' + tier.name);
     }
 
-    var bucket = _.find(system_store.data.buckets, function(o) {
-        return (o.tiering._id.toString() === policy._id.toString());
-    });
+    const bucket = _.find(system_store.data.buckets,
+        bkt => String(bkt.tiering._id) === String(policy._id)
+    );
 
     if (!bucket) {
         return null;
@@ -326,8 +317,8 @@ function find_bucket_by_tier(req) {
 }
 
 function find_tier_by_name(req) {
-    var name = req.rpc_params.name;
-    var tier = req.system.tiers_by_name[name];
+    const name = req.rpc_params.name;
+    const tier = req.system.tiers_by_name[name];
     if (!tier) {
         throw new RpcError('NO_SUCH_TIER', 'No such tier: ' + name);
     }
@@ -335,21 +326,35 @@ function find_tier_by_name(req) {
 }
 
 function find_policy_by_name(req) {
-    var name = req.rpc_params.name;
-    var policy = req.system.tiering_policies_by_name[name];
+    const name = req.rpc_params.name;
+    const policy = req.system.tiering_policies_by_name[name];
     if (!policy) {
         throw new RpcError('NO_SUCH_TIERING_POLICY', 'No such tiering policy: ' + name);
     }
     return policy;
 }
 
+function policy_defaults_from_req(req) {
+    return new_policy_defaults(
+        req.rpc_params.name,
+        req.system._id,
+        req.rpc_params.chunk_split_config,
+        _.map(req.rpc_params.tiers, t => ({
+            order: t.order,
+            tier: req.system.tiers_by_name[t.tier]._id,
+            spillover: t.spillover || false,
+            disabled: t.disabled || false
+        }))
+    );
+}
+
 function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier) {
-    let mirrors_storage = [];
+    const mirrors_storage = [];
     let attached_pools = [];
 
     _.forEach(tier.mirrors, mirror_object => {
         let spread_storage;
-        var pools_storage = _.map(mirror_object.spread_pools, pool =>
+        const pools_storage = _.map(mirror_object.spread_pools, pool =>
             _.defaults(_.get(nodes_aggregate_pool, ['groups', String(pool._id), 'storage']), {
                 used: 0,
                 total: 0,
@@ -401,24 +406,24 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
 }
 
 function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate_data_free_by_tier) {
-    var info = _.pick(tiering_policy, 'name');
-    var tiers_storage = nodes_aggregate_pool ? [] : null;
-    var tiers_data = aggregate_data_free_by_tier ? [] : null;
-    info.tiers = _.map(tiering_policy.tiers, function(tier_and_order) {
+    const info = _.pick(tiering_policy, 'name');
+    const tiers_storage = nodes_aggregate_pool ? [] : null;
+    const tiers_data = aggregate_data_free_by_tier ? [] : null;
+    info.tiers = _.map(tiering_policy.tiers, t => {
         if (tiers_storage) {
-            var tier_info = get_tier_info(tier_and_order.tier,
+            const tier_info = get_tier_info(t.tier,
                 nodes_aggregate_pool,
-                aggregate_data_free_by_tier[String(tier_and_order.tier._id)]);
-            if (!tier_and_order.spillover) {
+                aggregate_data_free_by_tier[String(t.tier._id)]);
+            if (!t.spillover) {
                 tiers_storage.push(tier_info.storage);
                 tiers_data.push(tier_info.data);
             }
         }
         return {
-            order: tier_and_order.order,
-            tier: tier_and_order.tier.name,
-            spillover: tier_and_order.spillover || false,
-            disabled: tier_and_order.disabled || false
+            order: t.order,
+            tier: t.tier.name,
+            spillover: t.spillover || false,
+            disabled: t.disabled || false
         };
     });
     if (tiers_storage) {
@@ -435,10 +440,9 @@ function get_internal_storage_tier(system) {
 }
 
 function get_associated_tiering_policies(tier) {
-    var associated_tiering_policies = _.filter(tier.system.tiering_policies_by_name, function(tiering_policy) {
-        return _.find(tiering_policy.tiers, tier_and_order =>
-            String(tier_and_order.tier._id) === String(tier._id));
-    });
+    const associated_tiering_policies = _.filter(tier.system.tiering_policies_by_name,
+        policy => _.find(policy.tiers, t => String(t.tier._id) === String(tier._id))
+    );
 
     return _.map(associated_tiering_policies, tiering_policies => tiering_policies._id);
 }

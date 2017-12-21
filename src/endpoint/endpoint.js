@@ -17,6 +17,8 @@ const http = require('http');
 const https = require('https');
 const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
+const FtpSrv = require('ftp-srv');
+
 
 const P = require('../util/promise');
 const promise_utils = require('../util/promise_utils');
@@ -33,8 +35,10 @@ const http_utils = require('../util/http_utils');
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const lambda_rest = require('./lambda/lambda_rest');
+const { FtpFileSystemNB } = require('./ftp/ftp_filesystem');
 
 const ENDPOINT_BLOB_ENABLED = process.env.ENDPOINT_BLOB_ENABLED === 'true';
+const ENDPOINT_FTP_ENABLED = process.env.ENDPOINT_FTP_ENABLED === 'true';
 
 function start_all() {
     dbg.set_process_name('Endpoint');
@@ -125,6 +129,31 @@ function run_server(options) {
         })
         .then(rpc => {
             endpoint_request_handler = create_endpoint_handler(rpc, options);
+            if (ENDPOINT_FTP_ENABLED) {
+                const port = process.env.FTP_PORT || 21;
+                // ftp-srv calls log.debug in some cases. set it to dbg.trace
+                dbg.debug = dbg.trace;
+                dbg.child = () => dbg;
+                const ftp_srv = new FtpSrv(`ftp://0.0.0.0:${port}`, {
+                    pasv_range: process.env.FTP_PASV_RANGE || "8000-9000",
+                    anonymous: true,
+                    log: dbg
+                });
+                const obj_io = new ObjectIO(options.node_id, options.host_id);
+                //
+                ftp_srv.on('login', (creds, resolve, reject) => {
+                    dbg.log0(`got a login request from user ${creds.username}`);
+                    // TODO: create FS and return in resolve. move this to a new file to abstract the use of this package.
+                    resolve({
+                        fs: new FtpFileSystemNB({
+                            object_sdk: new ObjectSDK(rpc.new_client(), obj_io)
+                        })
+                    });
+                });
+
+                P.resolve(ftp_srv.listen())
+                    .catch(err => console.log(`DZDZ: got error from ftp_srv.listen`, err));
+            }
         })
         .then(() => dbg.log0('Starting HTTP', params.port))
         .then(() => listen_http(params.port, http.createServer(endpoint_request_handler)))

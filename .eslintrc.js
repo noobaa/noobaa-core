@@ -23,46 +23,25 @@ module.exports = {
 
     rules: {
 
-        // verify every file contains our copyright header
-        'header/header': ['error', 'block', [
-            ' Copyright (C) 2016 NooBaa '
-        ]],
 
-        // not forcing how arrays should have new-line breaks
-        'array-element-newline': 'off',
-        'array-bracket-newline': 'off',
-        'array-bracket-spacing': 'off',
+        //////////////////////////////////////////////////////////////////////
+        //                                                                  //
+        // ERROR                                                            //
+        //                                                                  //
+        // The default is error, so these are just for passing options      //
+        //                                                                  //
+        //////////////////////////////////////////////////////////////////////
+
+
+        // verify every file contains our copyright header
+        'header/header': ['error', 'block', [' Copyright (C) 2016 NooBaa ']],
 
         // arrow function styling is not a real error but should be consistent
         'arrow-parens': ['error', 'as-needed'],
-        'arrow-body-style': ['warn', 'as-needed'],
-
-        // camelcase is a religion. we were born differently.
-        'camelcase': 'off',
-
-        // Example: /=$/ is not like /\=$/ which the eslint expects
-        // This is not a relevant rule, we added it after the signature_utils query parsing errors
-        'no-div-regex': 'off',
-
-        // prefer to always return when calling callbacks to avoid double calls
-        'callback-return': 'error',
-
-        'capitalized-comments': 'off',
-
-        // not enforcing all class methods to use 'this'
-        'class-methods-use-this': 'off',
-
-        // dangling commas are great for arrays and object properties
-        'comma-dangle': 'off',
 
         // maximum number of code paths in a function
         // TODO eslint complexity should be reduced to ~10 instead of 30
         'complexity': ['error', 35],
-
-        // consistent return does not allow to write promises code very easily
-        // because in many cases there are conditions to running a promise,
-        // and otherwise the expected behavior is to simply continue.
-        'consistent-return': 'off',
 
         // must use self=this and not any other alternatives
         'consistent-this': ['error', 'self'],
@@ -73,68 +52,12 @@ module.exports = {
         // when splitting "obj.property" to 2 lines the dot should stick to the property
         'dot-location': ['error', 'property'],
 
-        // ending files with single EOL is overrated
-        'eol-last': 'off',
-
-        // allowing anonymous functions, used a lot for promises
-        'func-names': 'off',
-
-        // prefer to use function decleration (function foo() {})
-        // instead of expression (foo = function() {})
-        'func-style': ['warn', 'declaration', {
-            allowArrowFunctions: true
-        }],
-
-        // not forcing a consistent policy on line breaks inside func parentheses
-        'function-paren-newline': 'off',
-
         // match generator-star-spacing to the beautifier preference
         'generator-star-spacing': ['error', { before: false, after: true }],
-
-        // prefer that requires are on module scope and not in a function
-        'global-require': 'error',
-
-        // better handle every err in callbacks
-        'handle-callback-err': 'error',
-
-        // allow short variable names like '_' or 'P' etc. use with care.
-        'id-length': 'off',
-
-        'implicit-arrow-linebreak': ['warn', 'beside'],
-
-        // indent of 4 spaces would be good to enforce, but it doesn't work well for promise chains
-        // so hope no-mixed-spaces-and-tabs will be good enough
-        'indent': ['off', 4],
-
-        // not forcing initialization of variables
-        'init-declarations': 'off',
-
-        // expect empty line before comment to create visual relation to the relevant code
-        'lines-around-comment': 'error',
-
-        // directive means 'use strict', we don't enforce lines around
-        'lines-around-directive': 'off',
-
-        'lines-between-class-members': ['warn', 'always', {
-            exceptAfterSingleLine: true
-        }],
-
-        // we don't enforce comments to above/after the line, both work ok
-        'line-comment-position': 'off',
 
         // max depth of blocks in a function
         // TODO eslint max-depth of blocks should be reduced to ~3 instead of 5
         'max-depth': ['error', 5],
-
-        // max line length is 80 by default, allow some slack
-        // TODO eslint max-len for code lines should be error and reduced to ~100 instead of 140
-        'max-len': ['warn', {
-            code: 140,
-            tabWidth: 4,
-            ignoreComments: true,
-            ignoreUrls: true,
-            ignoreTemplateLiterals: true,
-        }],
 
         // max file length is 300 by default, we accept longer files
         'max-lines': ['error', 1500],
@@ -147,6 +70,150 @@ module.exports = {
         // TODO eslint max-statements per function should be reduced to ~20 instead of 60
         'max-statements': ['error', 70],
 
+        'newline-per-chained-call': ['error', { ignoreChainWithDepth: 4 }],
+
+        // don't assign inside a condition, separate the lines for clarity
+        'no-cond-assign': ['error', 'always'],
+
+        'no-confusing-arrow': ['error', { allowParens: true }],
+
+        // empty lines are mostly harmless
+        'no-multiple-empty-lines': ['error', { max: 20 }],
+
+        // don't allow the code to leave unused variables, this prevents typos in many cases
+        'no-unused-vars': ['error', { vars: 'all', args: 'none' }],
+
+        // don't use assignments inside return statements, use separate statements.
+        'no-return-assign': ['error', 'always'],
+
+        'no-trailing-spaces': ['error', { ignoreComments: true }],
+
+        // do not allow code using varibles before they are defined and initialized,
+        // but ok for functions since function declerations are loaded before the code runs
+        'no-use-before-define': ['error', 'nofunc'],
+
+        // break lines after operators, not before
+        'operator-linebreak': ['error', 'after'],
+
+        // we prefer single var statement per variable
+        'one-var': ['error', 'never'],
+
+        'space-before-function-paren': ['error', 'never'],
+
+        'space-unary-ops': ['error', { words: false, nonwords: false }],
+
+
+        //////////////////////////////////////////////////////////////////////
+        //                                                                  //
+        // WARN                                                             //
+        //                                                                  //
+        // These should be a temporary state, as warnings are futile.       //
+        // We should eventually decide to change either to error or off.    //
+        //                                                                  //
+        //////////////////////////////////////////////////////////////////////
+
+
+        'arrow-body-style': ['error', 'as-needed'],
+
+        // prefer to use function decleration (function foo() {})
+        // instead of expression (foo = function() {})
+        'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
+
+        'lines-between-class-members': ['warn', 'always', { exceptAfterSingleLine: true }],
+
+        // max line length is 80 by default, allow some slack
+        // TODO eslint max-len for code lines should be error and reduced to ~100 instead of 140
+        'max-len': ['warn', {
+            code: 140,
+            tabWidth: 4,
+            ignoreComments: true,
+            ignoreUrls: true,
+            ignoreTemplateLiterals: true,
+        }],
+
+        // use only x|0 for int casting, but avoid other bitwise operators
+        'no-bitwise': ['warn', { int32Hint: true }],
+
+        // for empty functions we expect at least a comment why it's there
+        'no-empty-function': 'warn',
+
+        // mixing operators in the same statement is considered a readability hell
+        // TODO eslint no-mixed-operators should be error
+        'no-mixed-operators': 'warn',
+
+        // prefer "if (x) doit() else dont()" over "if (!x) dont() else doit()"
+        'no-negated-condition': 'warn',
+
+        // warn on using ++ operator, should replace with +=1
+        // to avoid shenanigans of the value returned before/after the action
+        'no-plusplus': ['warn', { allowForLoopAfterthoughts: true }],
+
+        // constructors that do nothing can be deleted
+        'no-useless-constructor': 'warn',
+        'no-useless-return': 'warn',
+
+
+        //////////////////////////////////////////////////////////////////////
+        //                                                                  //
+        // OFF                                                              //
+        //                                                                  //
+        // We decided that these rules are too anal for our taste           //
+        //                                                                  //
+        //////////////////////////////////////////////////////////////////////
+
+
+        // not forcing how arrays should have new-line breaks
+        'array-element-newline': 'off',
+        'array-bracket-newline': 'off',
+        'array-bracket-spacing': 'off',
+
+        // camelcase is a religion. we were born differently.
+        'camelcase': 'off',
+
+        // Example: /=$/ is not like /\=$/ which the eslint expects
+        // This is not a relevant rule, we added it after the signature_utils query parsing errors
+        'no-div-regex': 'off',
+
+        'capitalized-comments': 'off',
+
+        // not enforcing all class methods to use 'this'
+        'class-methods-use-this': 'off',
+
+        // dangling commas are great for arrays and object properties
+        'comma-dangle': 'off',
+
+        // consistent return does not allow to write promises code very easily
+        // because in many cases there are conditions to running a promise,
+        // and otherwise the expected behavior is to simply continue.
+        'consistent-return': 'off',
+
+        // ending files with single EOL is overrated
+        'eol-last': 'off',
+
+        // allowing anonymous functions, used a lot for promises
+        'func-names': 'off',
+
+        // not forcing a consistent policy on line breaks inside func parentheses
+        'function-paren-newline': 'off',
+
+        // allow short variable names like '_' or 'P' etc. use with care.
+        'id-length': 'off',
+
+        'implicit-arrow-linebreak': ['off', 'beside'],
+
+        // indent of 4 spaces would be good to enforce, but it doesn't work well for promise chains
+        // so hope no-mixed-spaces-and-tabs will be good enough
+        'indent': ['off', 4],
+
+        // not forcing initialization of variables
+        'init-declarations': 'off',
+
+        // directive means 'use strict', we don't enforce lines around
+        'lines-around-directive': 'off',
+
+        // we don't enforce comments to above/after the line, both work ok
+        'line-comment-position': 'off',
+
         // ternary operator is better split to 3 lines for readability
         // TODO eslint multiline-ternary should be error
         'multiline-ternary': 'off',
@@ -157,28 +224,9 @@ module.exports = {
         // newlines to separate vars and return are not productive
         'newline-after-var': 'off',
         'newline-before-return': 'off',
-        'newline-per-chained-call': ['error', {
-            ignoreChainWithDepth: 4,
-        }],
-
-        // use only x|0 for int casting, but avoid other bitwise operators
-        'no-bitwise': ['warn', {
-            int32Hint: true
-        }],
-
-        // don't assign inside a condition, separate the lines for clarity
-        'no-cond-assign': ['error', 'always'],
-
-        'no-confusing-arrow': ['error', {
-            allowParens: true
-        }],
 
         // using console in node.js is cool
         'no-console': 'off',
-
-        // constant conditions make loop breaking unclear
-        // prefer to use a loop variable
-        'no-constant-condition': 'error',
 
         // continue in loops is better off avoided for readability
         // prefer to use a function with returns and call from the loop
@@ -188,85 +236,32 @@ module.exports = {
         // avoid redundant 'else' when using return statements in all cases
         'no-else-return': 'off',
 
-        // for empty functions we expect at least a comment why it's there
-        'no-empty-function': 'warn',
-
-        'no-extra-parens': ['off', 'all', {
-            nestedBinaryExpressions: false
-        }],
+        'no-extra-parens': ['off', 'all', { nestedBinaryExpressions: false }],
 
         // short comments in-line are not great but sometimes make a lot of sense
         'no-inline-comments': 'off',
 
-        // mixing operators in the same statement is considered a readability hell
-        // TODO eslint no-mixed-operators should be error
-        'no-mixed-operators': 'warn',
-
-        'no-multi-assign': 'warn',
-
-        // empty lines are mostly harmless
-        'no-multiple-empty-lines': ['error', {
-            max: 20
-        }],
-
         // we live for magic numbers
         'no-magic-numbers': 'off',
 
-        // prefer "if (x) doit() else dont()" over "if (!x) dont() else doit()"
-        'no-negated-condition': 'warn',
-
-        // avoid nesting ternary operators. really.
-        'no-nested-ternary': 'error',
-
         // prefer to avoid reassigning to function params and use a new variable
         'no-param-reassign': 'off',
-
-        // warn on using ++ operator, should replace with +=1
-        // to avoid shenanigans of the value returned before/after the action
-        'no-plusplus': ['warn', {
-            allowForLoopAfterthoughts: true
-        }],
 
         // using process features on nodejs is expected
         'no-process-exit': 'off',
         'no-process-env': 'off',
 
-        // don't use assignments inside return statements, use separate statements.
-        'no-return-assign': ['error', 'always'],
-
-        // prefer not to define a variable that shadows an outer scope variable
-        'no-shadow': 'error',
-
-        // warn on usage of sync functions like fs.readFileSync() etc.
-        'no-sync': 'warn',
+        // allow usage of sync functions like fs.readFileSync() etc.
+        'no-sync': 'off',
 
         // allowing (x ? y : z) it's a discouraged form but everyone are used to it
         'no-ternary': 'off',
-
-        'no-trailing-spaces': ['error', {
-            ignoreComments: true
-        }],
 
         // using undefined on nodejs is safe. you cannot override it. you can try. it won't work.
         'no-undefined': 'off',
 
         // we do allow _name or name_ as identifiers
         'no-underscore-dangle': 'off',
-
-        // don't allow the code to leave unused variables, this prevents typos in many cases
-        'no-unused-vars': ['error', {
-            'vars': 'all',
-            'args': 'none'
-        }],
-
-        // constructors that do nothing can be deleted
-        'no-useless-constructor': 'warn',
-        'no-useless-escape': 'warn',
-        'no-useless-return': 'warn',
-
-        // do not allow code using varibles before they are defined and initialized,
-        // but ok for functions since function declerations are loaded before the code runs
-        'no-use-before-define': ['error', 'nofunc'],
 
         // prefer to use let/const instead of var
         'no-var': 'off',
@@ -282,15 +277,6 @@ module.exports = {
 
         // prefer using x={a,b} over x={a:a, b:b} but too much to fix
         'object-shorthand': 'off',
-
-        // prefer x+=4 over x=x+4
-        'operator-assignment': 'error',
-
-        // break lines after operators, not before
-        'operator-linebreak': ['error', 'after'],
-
-        // we prefer single var statement per variable
-        'one-var': ['error', 'never'],
 
         // ignore stylish padding code blocks with newlines
         'padded-blocks': 'off',
@@ -315,24 +301,12 @@ module.exports = {
         'quotes': ['off', 'single'],
 
         'quote-props': 'off',
-
         'require-jsdoc': 'off',
-
         'spaced-comment': 'off',
-
-        'space-before-function-paren': ['error', 'never'],
-
-        'space-unary-ops': ['error', {
-            'words': false,
-            'nonwords': false
-        }],
-
         'sort-keys': 'off',
 
         // don't verify the structure of jsdoc comments. let them be for now.
-        'valid-jsdoc': ['off', {
-            'requireReturn': false
-        }],
+        'valid-jsdoc': ['off', { requireReturn: false }],
 
         // accept var decleration in mid function, since we already check used before defined
         'vars-on-top': 'off',

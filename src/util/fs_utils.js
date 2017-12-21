@@ -51,10 +51,10 @@ function read_dir_recursive(options) {
     const root = options.root || '.';
     const depth = options.depth || Infinity;
     const level = options.level || 0;
-    const dir_sem = options.dir_semaphore =
-        options.dir_semaphore || new Semaphore(32);
-    const stat_sem = options.stat_semaphore =
-        options.stat_semaphore || new Semaphore(128);
+    const dir_sem = options.dir_semaphore || new Semaphore(32);
+    options.dir_semaphore = dir_sem;
+    const stat_sem = options.stat_semaphore || new Semaphore(128);
+    options.stat_semaphore = stat_sem;
     const sub_dirs = [];
 
     return dir_sem.surround(() => {
@@ -214,7 +214,7 @@ function full_dir_copy(src, dst, filter_regex) {
         if (filter_regex) {
             //this regexp will filter out files that matches, except path.
             var ncp_filter_regex = new RegExp(filter_regex);
-            var ncp_filter_function = function(input) {
+            var ncp_filter_function = input => {
                 if (input.indexOf('/') > 0) {
                     return false;
                 } else if (ncp_filter_regex.test(input)) {

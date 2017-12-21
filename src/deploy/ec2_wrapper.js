@@ -210,7 +210,7 @@ function print_instances(instances) {
         _.each(instances, function(instance) {
             console.log('Instance:',
                 instance.InstanceId,
-                instance.State && instance.State.Name || '[no-state]',
+                (instance.State && instance.State.Name) || '[no-state]',
                 instance.PublicIpAddress,
                 instance.region_name,
                 instance.tags_map.Name || '[no-name]',
@@ -658,9 +658,10 @@ function ec2_call(func_name, params) {
 
 
 function ec2_region_call(region_name, func_name, params) {
-    var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
+    var ec2 = _ec2_per_region[region_name] || new AWS.EC2({
         region: region_name
     });
+    _ec2_per_region[region_name] = ec2;
     return P.nfcall(ec2[func_name].bind(ec2), params);
 }
 
@@ -670,9 +671,10 @@ function set_app_name(appname) {
 }
 
 function ec2_wait_for(region_name, state_name, params) {
-    var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
+    var ec2 = _ec2_per_region[region_name] || new AWS.EC2({
         region: region_name
     });
+    _ec2_per_region[region_name] = ec2;
 
     return P.ninvoke(ec2, 'waitFor', state_name, params).then(function(data) {
         if (!data) {

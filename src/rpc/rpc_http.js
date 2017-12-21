@@ -151,10 +151,11 @@ class RpcHttpConnection extends RpcBaseConnection {
             responseType: 'arraybuffer'
         };
 
-        let http_req = this.req =
+        let http_req =
             (http_options.protocol === 'https:') ?
             https.request(http_options) :
             http.request(http_options);
+        this.req = http_req;
 
         dbg.log3('HTTP request', http_req.method, http_req.path, http_req._headers);
 

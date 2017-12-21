@@ -50,7 +50,8 @@ function levenshtein_distance(s, t, fuzzy, stop_marker) {
     // create two work vectors of integer distances
     const v0 = [];
     const v1 = [];
-    v0.length = v1.length = t.length + 1;
+    v0.length = t.length + 1;
+    v1.length = t.length + 1;
 
     // initialize v0 (the previous row of distances)
     // this row is A[0][i]: edit distance for an empty s

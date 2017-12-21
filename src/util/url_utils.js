@@ -9,7 +9,7 @@ module.exports = {
     quick_parse: quick_parse,
 };
 
-var QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/\[\]]*)|\[([a-fA-F0-9:.]*)\])?(:\d*)?(\/[^?#]*)?(\?[^#]*)?(#.*)?\s*$/;
+var QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/[\]]*)|\[([a-fA-F0-9:.]*)\])?(:\d*)?(\/[^?#]*)?(\?[^#]*)?(#.*)?\s*$/;
 
 /**
  * parse url string much faster than url.parse() - reduce the time to 1/10.
@@ -34,7 +34,7 @@ function quick_parse(url_string, parse_query_string) {
     u.protocol = match[1] || null;
     u.slashes = match[2] ? true : null;
     u.hostname = match[4] || match[5] || '';
-    u.port = match[6] && match[6].slice(1) || null;
+    u.port = (match[6] && match[6].slice(1)) || null;
     u.host = (match[3] || '') + (match[6] || '');
     u.pathname = match[7] || null;
     u.search = match[8] || '';

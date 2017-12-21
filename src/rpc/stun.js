@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint-disable no-bitwise */
 'use strict';
 
 var _ = require('lodash');
@@ -12,7 +13,7 @@ var ip_module = require('ip');
 var chance = require('chance')();
 
 // https://tools.ietf.org/html/rfc5389
-var stun = module.exports = {
+var stun = {
 
     is_stun_packet: is_stun_packet,
     new_packet: new_packet,
@@ -114,6 +115,8 @@ var stun = module.exports = {
 };
 stun.METHOD_NAMES = _.invert(stun.METHODS);
 stun.ATTR_NAMES = _.invert(stun.ATTRS);
+
+module.exports = stun;
 
 _.each(stun.PUBLIC_SERVERS, function(stun_url) {
     if (!stun_url.port) {
@@ -458,7 +461,8 @@ function decode_attr_xor_mapped_addr(buffer, start, end) {
     var xor_buf = Buffer.allocUnsafe(addr_buf.length);
     var k = stun.XOR_KEY_OFFSET;
     for (var i = 0; i < xor_buf.length; ++i) {
-        xor_buf[i] = addr_buf[i] ^ buffer[k++];
+        xor_buf[i] = addr_buf[i] ^ buffer[k];
+        k += 1;
     }
     var address = ip_module.toString(xor_buf, 0, family);
 
@@ -474,7 +478,7 @@ function decode_attr_xor_mapped_addr(buffer, start, end) {
  */
 function decode_attr_error_code(buffer, start, end) {
     var block = buffer.readUInt32BE(start);
-    var code = (block & 0x700) * 100 + block & 0xff;
+    var code = ((block & 0x700) * 100) + block & 0xff;
     var reason = buffer.readUInt32BE(start + 4);
     return {
         code: code,
@@ -524,7 +528,8 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
     ip_module.toBuffer(addr.address, buffer, offset + 4);
     var k = stun.XOR_KEY_OFFSET;
     for (var i = offset + 4; i < end; ++i) {
-        buffer[i] ^= buffer[k++];
+        buffer[i] ^= buffer[k];
+        k += 1;
     }
 }
 
@@ -533,7 +538,7 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
  * encode ERROR-CODE attribute
  */
 function encode_attr_error_code(err, buffer, start, end) {
-    var code = ((err.code / 100) | 0) << 8 | ((err.code % 100) & 0xff);
+    var code = (((err.code / 100) | 0) << 8) | ((err.code % 100) & 0xff);
     buffer.writeUInt32BE(code, start);
     buffer.writeUInt32BE(err.reason, start + 4);
 }

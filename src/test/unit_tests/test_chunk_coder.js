@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// const _ = require('lodash');
+const _ = require('lodash');
 const mocha = require('mocha');
 const stream = require('stream');
 const crypto = require('crypto');
@@ -221,6 +221,28 @@ mocha.describe('nb_native chunk_coder', function() {
                     call_chunk_coder_must_succeed(chunk);
                 });
 
+                mocha.it('encodes-consistent-parity-frags', function() {
+                    const chunk = prepare_chunk(chunk_coder_config);
+                    call_chunk_coder_must_succeed(chunk);
+                    const frags_by_index = _.keyBy(chunk.frags, _frag_index);
+                    const max_parity_frags = 32;
+                    for (let i = 0; i < max_parity_frags; ++i) {
+                        const chunk_coder_config2 = _.defaults({ parity_frags: i, parity_type: 'isa-c1' }, chunk_coder_config);
+                        const chunk2 = prepare_chunk(chunk_coder_config2, chunk);
+                        call_chunk_coder_must_succeed(chunk2);
+                        chunk2.frags.forEach(frag2 => {
+                            const frag_index = _frag_index(frag2);
+                            const frag = frags_by_index[frag_index];
+                            if (frag) {
+                                assert.strictEqual(frag2.digest_b64, frag.digest_b64);
+                                assert.deepStrictEqual(frag2.block, frag.block);
+                            } else {
+                                assert(frag2.parity_index >= chunk_coder_config.parity_frags);
+                            }
+                        });
+                    }
+                });
+
             });
         });
     });
@@ -328,8 +350,8 @@ function throw_chunk_err(err) {
     throw new Error(err.message + '\n' + message);
 }
 
-function prepare_chunk(chunk_coder_config) {
-    const original = crypto.randomBytes(SP_A);
+function prepare_chunk(chunk_coder_config, copy_from_chunk) {
+    const original = copy_from_chunk ? copy_from_chunk.original : crypto.randomBytes(SP_A);
     const data = Buffer.allocUnsafe(original.length);
     original.copy(data);
 
@@ -341,6 +363,10 @@ function prepare_chunk(chunk_coder_config) {
         chunk_coder_config,
     };
 
+    if (copy_from_chunk) {
+        chunk.cipher_key_b64 = copy_from_chunk.cipher_key_b64;
+    }
+
     call_chunk_coder_must_succeed(chunk);
 
     assert.strictEqual(chunk.frags.length, chunk_coder_config.data_frags + chunk_coder_config.parity_frags);
@@ -349,4 +375,11 @@ function prepare_chunk(chunk_coder_config) {
     chunk.coder = 'dec';
     chunk.data = null;
     return chunk;
+}
+
+function _frag_index(frag) {
+    if (frag.data_index >= 0) return `D${frag.data_index}`;
+    if (frag.parity_index >= 0) return `P${frag.parity_index}`;
+    if (frag.lrc_index >= 0) return `L${frag.lrc_index}`;
+    throw new Error('BAD FRAG ' + JSON.stringify(frag));
 }

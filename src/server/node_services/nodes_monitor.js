@@ -1269,7 +1269,9 @@ class NodesMonitor extends EventEmitter {
                 connection: first_item.connection,
             }))
             .then(() => {
-                dbg.log0('_uninstall_deleting_node: host', this._item_hostname(host) + '#' + host.node.host_sequence, 'is uninstalled - all nodes will be removed');
+                dbg.log0('_uninstall_deleting_node: host',
+                    this._item_hostname(host) + '#' + host.node.host_sequence,
+                    'is uninstalled - all nodes will be removed');
                 host_nodes.forEach(host_item => {
                     host_item.ready_to_be_deleted = true;
                 });
@@ -2185,7 +2187,7 @@ class NodesMonitor extends EventEmitter {
     _schedule_rebuild(item) {
         const act = item.data_activity;
 
-        if (!act || act.running) return;
+        if (!act || act.running || item.rebuild_timeout) return;
 
         const now = Date.now();
         let delay = config.REBUILD_NODE_BATCH_DELAY;
@@ -2194,7 +2196,8 @@ class NodesMonitor extends EventEmitter {
             dbg.warn('_schedule_rebuild: delay', delay, 'for node', item.node.name);
         }
 
-        setTimeout(() => {
+        item.rebuild_timeout = setTimeout(() => {
+            item.rebuild_timeout = undefined;
             this._set_need_rebuild.add(item);
             this._wakeup_rebuild();
         }, delay).unref();

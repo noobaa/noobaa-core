@@ -753,12 +753,14 @@ _nb_derasure(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, int
             continue; // invalid chunk index
         }
         if (f->block.len != chunk->frag_size) {
-            printf(
-                "ERROR [%i] %i frag_size %i != %i\n",
-                i,
-                index,
-                f->block.len,
-                chunk->frag_size);
+            if (f->block.len) {
+                printf(
+                    "CODER MISMATCHING BLOCK SIZE i=%i index=%i block_size=%i frag_size=%i\n",
+                    i,
+                    index,
+                    f->block.len,
+                    chunk->frag_size);
+            }
             continue; // mismatching block size
         }
         if (frags_map[index]) {

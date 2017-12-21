@@ -174,6 +174,7 @@ class MirrorMapper {
         for (let data_index = 0; data_index < desired_data_frags; ++data_index) {
             const frag_index = `D${data_index}`;
             this._map_frag(
+                chunk_mapper,
                 tier_mapping,
                 frags_by_index[frag_index],
                 blocks_by_index[frag_index],
@@ -184,6 +185,7 @@ class MirrorMapper {
         for (let parity_index = 0; parity_index < desired_parity_frags; ++parity_index) {
             const frag_index = `P${parity_index}`;
             this._map_frag(
+                chunk_mapper,
                 tier_mapping,
                 frags_by_index[frag_index],
                 blocks_by_index[frag_index],
@@ -193,7 +195,7 @@ class MirrorMapper {
         }
     }
 
-    _map_frag(tier_mapping, frag, blocks, replicas, is_write, max_replicas) {
+    _map_frag(chunk_mapper, tier_mapping, frag, blocks, replicas, is_write, max_replicas) {
         const {
             pools_by_id,
             regular_pools,
@@ -205,8 +207,10 @@ class MirrorMapper {
         const accessible = accessible_blocks.length > 0;
         const used_blocks = [];
 
+        // rebuild from other frags
         if (!accessible && !is_write) {
-            // TODO GUY GAP rebuild from other frags
+            tier_mapping.missing_frags = tier_mapping.missing_frags || [];
+            tier_mapping.missing_frags.push(frag);
         }
 
         let used_replicas = 0;
@@ -243,19 +247,19 @@ class MirrorMapper {
                 blocks_in_use.push(used_blocks[i]);
             }
 
-            const sources = {
+            const sources = accessible ? {
                 accessible_blocks,
                 next_source: 0,
-            };
+            } : undefined;
 
-            // We prefer to keep regular pools as much as possible
-            const pools = regular_pools_valid && !used_redundant_blocks ? regular_pools : this._pick_pools();
+            // We prefer to keep regular pools if possible, otherwise pick at random
+            const pools = used_replicas && !used_redundant_blocks && regular_pools_valid ?
+                regular_pools : this._pick_pools();
 
             // num_missing of required replicas, which are a must to have for the chunk
             // In case of redundant pool allocation we consider one block as a fulfilment of all policy
             const is_redundant = _.every(pools, _pool_has_redundancy);
             const num_missing = is_redundant ? 1 : Math.max(0, replicas - used_replicas);
-
 
             // Notice that we push the minimum required replicas in higher priority
             // This is done in order to insure that we will allocate them before the additional replicas
@@ -360,6 +364,7 @@ class TierMapper {
             deletions: undefined,
             allocations: undefined,
             extra_allocations: undefined,
+            missing_frags: undefined,
         });
 
         if (is_write) {
@@ -532,7 +537,7 @@ function _get_cached_tiering_mapper(tiering) {
         tiering_mapper = new TieringMapper(tiering);
         tiering_mapper_cache.map.set(tiering, tiering_mapper);
     }
-    if ((tiering_mapper_cache.hits + tiering_mapper_cache.miss + 1) % 50 === 0) {
+    if ((tiering_mapper_cache.hits + tiering_mapper_cache.miss + 1) % 10000 === 0) {
         dbg.log0('tiering_mapper_cache:', tiering_mapper_cache);
     }
     return tiering_mapper;
@@ -732,13 +737,11 @@ function _is_block_good_node(block) {
  * sorting function for sorting blocks with most recent heartbeat first
  */
 function _block_access_sort(block1, block2) {
-    if (!block1.node.readable) {
-        return 1;
-    }
-    if (!block2.node.readable) {
-        return -1;
-    }
-    return block2.node.heartbeat - block1.node.heartbeat;
+    const node1 = block1.node;
+    const node2 = block2.node;
+    if (node2.readable && !node1.readable) return 1;
+    if (node1.readable && !node2.readable) return -1;
+    return node2.heartbeat - node1.heartbeat;
 }
 
 function _block_newer_first_sort(block1, block2) {

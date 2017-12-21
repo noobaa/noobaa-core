@@ -1,4 +1,4 @@
-/* eslint-disable header/header */
+/* eslint-disable header/header, no-useless-escape */
 /*
 Copyright (c) 2015, Scott Motte
 All rights reserved.

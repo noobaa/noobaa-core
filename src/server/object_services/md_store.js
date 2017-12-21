@@ -324,7 +324,8 @@ class MDStore {
                 const buckets = {};
                 let total_count = 0;
                 _.each(res, r => {
-                    total_count += buckets[r._id] = r.count;
+                    buckets[r._id] = r.count;
+                    total_count += r.count;
                 });
                 buckets[''] = total_count;
                 return buckets;
@@ -370,7 +371,8 @@ class MDStore {
             .then(res => {
                 const buckets = {};
                 _.each(res, r => {
-                    const b = buckets[r._id[0]] = buckets[r._id[0]] || {};
+                    const b = buckets[r._id[0]] || {};
+                    buckets[r._id[0]] = b;
                     b[r._id[1]] = r.value;
                 });
                 return buckets;
@@ -711,7 +713,6 @@ class MDStore {
     }
 
     find_chunks_by_dedup_key(bucket, dedup_keys) {
-        let chunks;
         return this._chunks.col().find({
                 system: bucket.system._id,
                 bucket: bucket._id,
@@ -725,11 +726,7 @@ class MDStore {
                 }
             })
             .toArray()
-            .then(res => {
-                chunks = res;
-                return this.load_blocks_for_chunks(chunks);
-            })
-            .then(() => chunks);
+            .then(chunks => this.load_blocks_for_chunks(chunks));
     }
 
     iterate_all_chunks(marker, limit) {
@@ -784,7 +781,8 @@ class MDStore {
             .then(res => {
                 const buckets = {};
                 _.each(res, r => {
-                    const b = buckets[r._id[0]] = buckets[r._id[0]] || {};
+                    const b = buckets[r._id[0]] || {};
+                    buckets[r._id[0]] = b;
                     b[r._id[1]] = r.value;
                 });
                 return buckets;
@@ -900,7 +898,7 @@ class MDStore {
     }
 
     load_blocks_for_chunks(chunks) {
-        if (!chunks || !chunks.length) return;
+        if (!chunks || !chunks.length) return chunks;
         return this._blocks.col().find({
                 chunk: {
                     $in: mongo_utils.uniq_ids(chunks, '_id')
@@ -918,6 +916,7 @@ class MDStore {
                 for (let i = 0; i < chunks.length; ++i) {
                     chunks[i].blocks = blocks_by_chunk[chunks[i]._id];
                 }
+                return chunks;
             });
     }
 
@@ -1037,18 +1036,20 @@ class MDStore {
                     if (type === 'total') {
                         buckets[r._id[1]] = { size: r.value };
                     } else if (type === 'bucket') {
-                        const b = buckets[r._id[1]] = buckets[r._id[1]] || {
+                        const b = buckets[r._id[1]] || {
                             size: 0,
                             pools: {}
                         };
+                        buckets[r._id[1]] = b;
                         b.size = r.value;
                     } else if (type === 'pool') {
                         pools[r._id[1]] = { size: r.value };
                     } else if (type === 'bucket_and_pool') {
-                        const b = buckets[r._id[1]] = buckets[r._id[1]] || {
+                        const b = buckets[r._id[1]] || {
                             size: 0,
                             pools: {}
                         };
+                        buckets[r._id[1]] = b;
                         b.pools[r._id[2]] = { size: r.value };
                     }
                 });

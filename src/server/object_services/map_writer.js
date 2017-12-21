@@ -82,7 +82,8 @@ class MapAllocator {
 
     find_dups() {
         if (!config.DEDUP_ENABLED) return;
-        const dedup_keys = _.map(this.parts, part => Buffer.from(part.chunk.digest_b64, 'base64'));
+        const dedup_keys = _.compact(_.map(this.parts,
+            part => part.chunk.digest_b64 && Buffer.from(part.chunk.digest_b64, 'base64')));
         dbg.log3('MapAllocator.find_dups', dedup_keys.length);
         return MDStore.instance().find_chunks_by_dedup_key(this.bucket, dedup_keys)
             .then(dup_chunks => {
@@ -202,6 +203,10 @@ function finalize_object_parts(bucket, obj, parts) {
                         if (block_id_time < bucket.storage_stats.last_update + config.MD_AGGREGATOR_INTERVAL) {
                             dbg.error('finalize_object_parts: A big gap was found between id creation and bucket last update:',
                                 block, bucket.name, obj.key, block_id_time, bucket.storage_stats.last_update);
+                        }
+                        if (!block.block_md.node || !block.block_md.pool) {
+                            dbg.error('finalize_object_parts: Missing node/pool for block', block);
+                            throw new Error('finalize_object_parts: Missing node/pool for block');
                         }
                         new_blocks.push({
                             _id: block_id,

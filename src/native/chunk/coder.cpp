@@ -286,9 +286,14 @@ _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher)
     const int key_len = EVP_CIPHER_key_length(evp_cipher);
     const int iv_len = EVP_CIPHER_iv_length(evp_cipher);
     nb_buf_init_zeros(&iv, iv_len);
-    nb_buf_free(&chunk->cipher_key);
-    nb_buf_init_alloc(&chunk->cipher_key, key_len);
-    RAND_bytes(chunk->cipher_key.data, chunk->cipher_key.len);
+
+    if (chunk->cipher_key.len) {
+        assert(chunk->cipher_key.len == key_len);
+    } else {
+        nb_buf_free(&chunk->cipher_key);
+        nb_buf_init_alloc(&chunk->cipher_key, key_len);
+        RAND_bytes(chunk->cipher_key.data, chunk->cipher_key.len);
+    }
 
     StackCleaner cleaner([&] {
         EVP_CIPHER_CTX_cleanup(&ctx);

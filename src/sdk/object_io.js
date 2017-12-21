@@ -546,11 +546,9 @@ class ObjectIO {
      *
      */
     _write_block(params, buffer, block_md, desc) {
-        // limit writes per agent
+        // limit writes per agent + global IO semaphore to limit concurrency
         return this._block_write_sem_agent.surround_key(String(block_md.node), () =>
-                // global IO semaphore to limit concurrency
                 this._block_write_sem_global.surround(() => {
-
                     dbg.log1('UPLOAD:', desc, 'write block', block_md.id, block_md.address, buffer.length);
 
                     this._error_injection_on_write();
@@ -572,31 +570,31 @@ class ObjectIO {
 
 
     _replicate_block(params, source_md, target_md, desc) {
-        // limit replicates per agent
+        // limit replicates per agent + Global IO semaphore to limit concurrency
         return this._block_replicate_sem_agent.surround_key(String(target_md.node), () =>
-            // Global IO semaphore to limit concurrency
-            this._block_replicate_sem_global.surround(() => {
+                this._block_replicate_sem_global.surround(() => {
+                    dbg.log1('UPLOAD:', desc,
+                        'replicate block', source_md.id, source_md.address,
+                        'to', target_md.id, target_md.address);
 
-                dbg.log1('UPLOAD:', desc,
+                    this._error_injection_on_write();
+
+                    return params.client.block_store.replicate_block({
+                        target: target_md,
+                        source: source_md,
+                    }, {
+                        address: target_md.address,
+                        timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
+                    });
+                })
+            )
+            .catch(err => {
+                dbg.warn('UPLOAD:', desc,
                     'replicate block', source_md.id, source_md.address,
-                    'to', target_md.id, target_md.address);
-
-                this._error_injection_on_write();
-
-                return params.client.block_store.replicate_block({
-                    target: target_md,
-                    source: source_md,
-                }, {
-                    address: target_md.address,
-                    timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
-                });
-            })).catch(err => {
-            dbg.warn('UPLOAD:', desc,
-                'replicate block', source_md.id, source_md.address,
-                'to', target_md.id, target_md.address,
-                'ERROR', err);
-            throw err;
-        });
+                    'to', target_md.id, target_md.address,
+                    'ERROR', err);
+                throw err;
+            });
     }
 
     _report_error_on_object_upload(params, block_md, action, err) {
@@ -941,6 +939,7 @@ class ObjectIO {
     _read_frag(params, part, frag) {
 
         if (frag.block) return;
+        if (!frag.blocks) return;
         if (frag.read_promise) return frag.read_promise;
 
         const frag_desc = _.clone(part.desc);
@@ -998,8 +997,7 @@ class ObjectIO {
         // use semaphore to surround the IO
         return this._block_read_sem_agent.surround_key(String(block_md.node), () =>
                 this._block_read_sem_global.surround(() => {
-
-                    dbg.log0('_read_block:', block_md.id, 'from', block_md.address);
+                    dbg.log1('_read_block:', block_md.id, 'from', block_md.address);
 
                     this._error_injection_on_read();
 

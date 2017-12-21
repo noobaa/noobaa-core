@@ -70,7 +70,8 @@ function named_array_push(obj, arr_name, item) {
     if (arr) {
         _cached_array_push.call(arr, item);
     } else {
-        arr = obj[arr_name] = [item];
+        arr = [item];
+        obj[arr_name] = arr;
     }
     return arr;
 }

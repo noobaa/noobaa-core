@@ -92,8 +92,10 @@ server_rpc.register_common_services();
 server_rpc.rpc.register_http_app(app);
 server_rpc.rpc.router.default = 'fcall://fcall';
 
-var http_port = process.env.PORT = process.env.PORT || 5001;
-var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
+var http_port = process.env.PORT || 5001;
+var https_port = process.env.SSL_PORT || 5443;
+process.env.PORT = http_port;
+process.env.SSL_PORT = https_port;
 var http_server = http.createServer(app);
 var https_server;
 

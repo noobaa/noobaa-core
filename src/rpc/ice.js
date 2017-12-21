@@ -599,7 +599,9 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
     const MAX_ATTEMPTS = 10;
     var attempts = 0;
     var delay = 250;
-    var try_ap = function() {
+    try_ap();
+
+    function try_ap() {
         if (self.active_session || self.closed || session.is_closed()) {
             dbg.log1('ICE TCP AP STOPPED', session.key);
             session.close(new Error('ICE TCP AP STOPPED'));
@@ -626,8 +628,7 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
             self._init_tcp_connection(session.tcp, session);
             session.tcp.frame_stream.send_message([session.packet], ICE_FRAME_STUN_MSG_TYPE);
         });
-    };
-    try_ap();
+    }
 };
 
 
@@ -646,7 +647,9 @@ Ice.prototype._connect_tcp_simultaneous_open_pair = function(session) {
         address: session.remote.address,
         localPort: session.local.port
     };
-    var try_so = function() {
+    try_so();
+
+    function try_so() {
         if (self.active_session || self.closed || session.is_closed()) {
             dbg.log1('ICE TCP SO STOPPED', session.key);
             session.close(new Error('ICE TCP SO STOPPED'));
@@ -680,8 +683,7 @@ Ice.prototype._connect_tcp_simultaneous_open_pair = function(session) {
                 session.tcp.frame_stream.send_message([session.packet], ICE_FRAME_STUN_MSG_TYPE);
             }
         });
-    };
-    try_so();
+    }
 };
 
 
@@ -1284,10 +1286,10 @@ function IceCandidate(cand) {
     // the needed properties, not less, and no more.
     cand.key = make_candidate_key(cand.transport, cand.family, cand.address, cand.port);
     cand.priority =
-        (ip_module.isPrivate(cand.address) ? 1 : 0) << 3 |
-        (cand.transport === 'tcp' ? 1 : 0) << 2 |
-        // (cand.family === 'IPv4' ? 1 : 0) << 1 |
-        (cand.tcp_type !== CAND_TCP_TYPE_SO ? 1 : 0) << 0;
+        (ip_module.isPrivate(cand.address) ? 1000 : 0) +
+        (cand.transport === 'tcp' ? 100 : 0) +
+        // (cand.family === 'IPv4' ? 10 : 0) +
+        (cand.tcp_type === CAND_TCP_TYPE_SO ? 0 : 1);
     return cand;
 }
 

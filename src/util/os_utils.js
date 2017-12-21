@@ -315,7 +315,6 @@ function read_mac_linux_drives(include_all) {
                     .then(() => linux_volume_to_drive(vol))
                     .catch(() => {
                         dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
-                        return;
                     });
             }))
             .then(res => _.compact(res)));
@@ -815,8 +814,13 @@ function is_folder_permissions_set(current_path) {
                 .forEach(line => {
                     const [user, permissions = ''] = line.trim().split(':');
                     if (user === ADMIN_WIN_USERS[1]) { // Administrators
-                        if (permissions.includes('(F)') && permissions.includes('(OI)') && permissions.includes('(CI)')) administrators_has_inheritance = true;
-                        else if (!permissions.includes('(F)')) found_other_permissions = true;
+                        if (permissions.includes('(F)') &&
+                            permissions.includes('(OI)') &&
+                            permissions.includes('(CI)')) {
+                            administrators_has_inheritance = true;
+                        } else if (!permissions.includes('(F)')) {
+                            found_other_permissions = true;
+                        }
                     } else if (user === ADMIN_WIN_USERS[0]) { // SYSTEM
                         if (permissions.includes('(F)')) {
                             system_has_full_control = true;
@@ -966,7 +970,7 @@ function set_hostname(hostname) {
 }
 
 function is_valid_hostname(hostname_string) {
-    const hostname_regex = /^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$/;
+    const hostname_regex = /^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9])$/;
     return Boolean(hostname_regex.exec(hostname_string));
 }
 

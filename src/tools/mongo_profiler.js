@@ -25,9 +25,8 @@ db.system.profile.find({
 }, {}).forEach(function(p) {
     var col = p.ns.split('.')[1];
     var key = col + '.' + p.op;
-    var info = res[key] = res[key] || {
-        items: []
-    };
+    var info = res[key] || { items: [] };
+    res[key] = info;
     info.items.push(p);
 });
 

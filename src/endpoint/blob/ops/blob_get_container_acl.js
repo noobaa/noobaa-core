@@ -8,11 +8,7 @@
  */
 function get_container_acl(req, res) {
     return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            return {
-                SignedIdentifiers: {}
-            };
-        });
+        .then(bucket_info => ({ SignedIdentifiers: {} }));
 }
 
 module.exports = {

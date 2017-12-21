@@ -62,7 +62,7 @@ if (argv.help) {
 } else {
     return vmOperations()
         .then(() => console.log('Done'))
-        .then(() => { process.exit(0) })
+        .then(() => process.exit(0));
 }
 
 var oses = [
@@ -205,7 +205,7 @@ function vmOperations(operationCallback) {
                                 os,
                                 serverName,
                                 agentConf
-                            }).catch(err => console.log('got error with agent', err))
+                            }).catch(err => console.log('got error with agent', err));
                         });
                     });
             }

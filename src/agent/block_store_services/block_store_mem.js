@@ -13,7 +13,7 @@ class BlockStoreMem extends BlockStoreBase {
         super(options);
         this._used = 0;
         this._count = 0;
-        this._blocks = {};
+        this._blocks = new Map();
     }
 
     init() {
@@ -37,7 +37,7 @@ class BlockStoreMem extends BlockStoreBase {
 
     _read_block(block_md) {
         const block_id = block_md.id;
-        const b = this._blocks[block_id];
+        const b = this._blocks.get(block_id);
         if (!b) {
             throw new Error('No such block ' + block_id);
         }
@@ -46,27 +46,27 @@ class BlockStoreMem extends BlockStoreBase {
 
     _write_block(block_md, data) {
         const block_id = block_md.id;
-        const b = this._blocks[block_id];
+        const b = this._blocks.get(block_id);
         if (b) {
             this._used -= b.length;
             this._count -= 1;
         }
-        this._blocks[block_id] = {
+        this._blocks.set(block_id, {
             data: data,
             block_md: block_md
-        };
+        });
         this._used += data.length;
         this._count += 1;
     }
 
     _delete_blocks(block_ids) {
         _.each(block_ids, block_id => {
-            const b = this._blocks[block_id];
+            const b = this._blocks.get(block_id);
             if (b) {
                 this._used -= b.length;
                 this._count -= 1;
+                this._blocks.delete(block_id);
             }
-            delete this._blocks[block_id];
         });
     }
 

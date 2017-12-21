@@ -5,14 +5,13 @@
 const coretest = require('./coretest');
 coretest.setup();
 
-let _ = require('lodash');
-let util = require('util');
-let mocha = require('mocha');
+const _ = require('lodash');
+const util = require('util');
+const mocha = require('mocha');
 
-let P = require('../../util/promise');
-// let dbg = require('../../util/debug_module')(__filename);
-let promise_utils = require('../../util/promise_utils');
-let ObjectIO = require('../../sdk/object_io');
+const P = require('../../util/promise');
+const ObjectIO = require('../../sdk/object_io');
+const promise_utils = require('../../util/promise_utils');
 
 mocha.describe('s3_list_objects', function() {
 

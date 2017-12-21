@@ -260,22 +260,22 @@ mocha.describe('system_servers', function() {
                 name: TIERING_POLICY
             }))
             .then(() => rpc_client.tiering_policy.update_policy({
-                    name: TIERING_POLICY,
+                name: TIERING_POLICY,
                 chunk_split_config: {
                     avg_chunk: 999,
                     delta_chunk: 22,
                 },
-                    tiers: [{
-                        order: 0,
-                        tier: TIER,
-                        spillover: false,
-                        disabled: false
-                    }, {
-                        order: 1,
-                        tier: TIER,
-                        spillover: true,
-                        disabled: false
-                    }]
+                tiers: [{
+                    order: 0,
+                    tier: TIER,
+                    spillover: false,
+                    disabled: false
+                }, {
+                    order: 1,
+                    tier: TIER,
+                    spillover: true,
+                    disabled: false
+                }]
             }))
             .then(() => rpc_client.tiering_policy.get_policy_pools({
                 name: TIERING_POLICY
@@ -498,7 +498,7 @@ mocha.describe('system_servers', function() {
                 name: POOL,
             }))
             .then(() => rpc_client.system.read_system());
-            // .then(() => coretest.clear_test_nodes())
-            // .then(() => rpc_client.system.delete_system());
+        // .then(() => coretest.clear_test_nodes())
+        // .then(() => rpc_client.system.delete_system());
     });
 });

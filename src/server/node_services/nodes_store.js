@@ -167,17 +167,6 @@ class NodesStore {
         });
     }
 
-
-    ///////////
-    // utils //
-    ///////////
-
-    // for unit tests
-    test_code_delete_all_nodes() {
-        return P.resolve()
-            .then(() => this._nodes.col().deleteMany({}));
-    }
-
 }
 
 

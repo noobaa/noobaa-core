@@ -20,7 +20,7 @@ const node_allocator = require('../node_services/node_allocator');
 const builder_lock = new KeysLock();
 const object_io = new ObjectIO();
 
-dbg.set_level(5);
+// dbg.set_level(5);
 
 /**
  *
@@ -279,7 +279,7 @@ class MapBuilder {
         return P.resolve()
             .then(() => object_io._read_frags(params, part, chunk_info.frags))
             .catch(err => {
-                console.log('GGG _read_frags ERROR', err);
+                console.log('MapBuilder.read_entire_chunk: _read_frags ERROR', err);
                 throw err;
             })
             .then(() => {

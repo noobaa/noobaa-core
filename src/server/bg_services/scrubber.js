@@ -43,7 +43,7 @@ function background_worker() {
         .then(() => {
             // return the delay before next batch
             if (this.marker) {
-                dbg.log0('SCRUBBER:', 'CONTINUE', this.marker);
+                dbg.log0('SCRUBBER:', 'CONTINUE', this.marker, this.marker.getTimestamp());
                 return config.SCRUBBER_BATCH_DELAY;
             }
             dbg.log0('SCRUBBER:', 'END');

@@ -24,19 +24,18 @@ const _ = require('lodash');
 // const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
-// const mongodb = require('mongodb');
 
 const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
+const argv = require('minimist')(process.argv);
 const endpoint = require('../../endpoint/endpoint');
 const server_rpc = require('../../server/server_rpc');
 const node_server = require('../../server/node_services/node_server');
 const mongo_client = require('../../util/mongo_client');
 const account_server = require('../../server/system_services/account_server');
 const core_agent_control = require('./core_agent_control');
-const { NodesStore } = require('../../server/node_services/nodes_store');
 
-if (process.argv.includes('--verbose')) {
+if (argv.verbose) {
     dbg.set_level(5, 'core');
 }
 
@@ -215,8 +214,6 @@ function clear_test_nodes() {
     return P.resolve()
         .then(() => console.log('CLEANING AGENTS'))
         .then(() => core_agent_control.cleanup_agents())
-        .then(() => console.log('REMOVE NODES'))
-        .then(() => NodesStore.instance().test_code_delete_all_nodes())
         .then(() => console.log('STOP MONITOR'))
         .then(() => node_server.stop_monitor('force_close_n2n'));
 }
@@ -253,10 +250,163 @@ function init_internal_storage(system_name) {
     return system_store.make_changes(changes);
 }
 
+
+function describe_mapper_test_case({ name, bucket_name_prefix }, func) {
+    const PLACEMENTS = ['SPREAD', 'MIRROR'];
+
+    const NUM_POOLS_BASIC = [1, 2, 3];
+    const NUM_POOLS_FULL = [1, 2, 3, 13];
+
+    const REPLICAS_BASIC = [1, 3];
+    const REPLICAS_FULL = [1, 2, 3, 6];
+
+    const EC_BASIC = [
+        '1+0',
+        '4+2',
+        '8+2',
+    ].map(parse_ec);
+
+    const EC_FULL = [
+        '1+0', '1+1', '1+2',
+        '2+0', '2+1', '2+2',
+        '4+0', '4+1', '4+2', '4+3', '4+4',
+        '6+0', '6+1', '6+2', '6+3', '6+4',
+        '8+0', '8+1', '8+2', '8+3', '8+4',
+    ].map(parse_ec);
+
+    function parse_ec(str) {
+        const [d, p] = str.split('+');
+        return { data_frags: Number(d), parity_frags: Number(p) };
+    }
+
+    const variations = [];
+
+    // run with --full to include all variations
+    if (argv.full) {
+        for (const data_placement of PLACEMENTS) {
+            for (const num_pools of NUM_POOLS_FULL) {
+                // replicas(full) * ec(basic)
+                for (const replicas of REPLICAS_FULL) {
+                    for (const { data_frags, parity_frags } of EC_BASIC) {
+                        variations.push({
+                            data_placement,
+                            num_pools,
+                            replicas,
+                            data_frags,
+                            parity_frags,
+                        });
+                    }
+                }
+                // replicas(basic) * ec(full)
+                for (const replicas of REPLICAS_BASIC) {
+                    for (const { data_frags, parity_frags } of EC_FULL) {
+                        variations.push({
+                            data_placement,
+                            num_pools,
+                            replicas,
+                            data_frags,
+                            parity_frags,
+                        });
+                    }
+                }
+            }
+        }
+    } else {
+        for (const data_placement of PLACEMENTS) {
+            for (const num_pools of NUM_POOLS_BASIC) {
+                // replicas(basic) * ec(basic)
+                for (const replicas of REPLICAS_BASIC) {
+                    for (const { data_frags, parity_frags } of EC_BASIC) {
+                        variations.push({
+                            data_placement,
+                            num_pools,
+                            replicas,
+                            data_frags,
+                            parity_frags,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let bucket_counter = 1;
+
+    for (const {
+            data_placement,
+            num_pools,
+            replicas,
+            data_frags,
+            parity_frags,
+        } of variations) {
+        const total_frags = data_frags + parity_frags;
+        const total_replicas = data_placement === 'MIRROR' ? replicas * num_pools : replicas;
+        const total_blocks = total_replicas * total_frags;
+        const chunk_coder_config = { replicas, data_frags, parity_frags };
+        const test_name = `${data_placement} num_pools=${num_pools} replicas=${replicas} data_frags=${data_frags} parity_frags=${parity_frags}`;
+        const bucket_name = bucket_name_prefix ? `${bucket_name_prefix}-${bucket_counter}` : '';
+        bucket_counter += 1;
+        const test_case = {
+            test_name,
+            bucket_name,
+            data_placement,
+            num_pools,
+            replicas,
+            data_frags,
+            parity_frags,
+            total_frags,
+            total_blocks,
+            total_replicas,
+            chunk_coder_config,
+        };
+        _describe_mapper_test_case(test_case, func);
+    }
+}
+
+function _describe_mapper_test_case(test_case, func) {
+    const { test_name, bucket_name, chunk_coder_config } = test_case;
+
+    mocha.describe(test_name, function() {
+
+        if (bucket_name) {
+
+            mocha.before(function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                return P.resolve()
+                    .then(() => rpc_client.bucket.create_bucket({
+                        name: bucket_name,
+                        chunk_coder_config,
+                        // using small chunks to make the tests lighter
+                        chunk_split_config: {
+                            avg_chunk: 100,
+                            delta_chunk: 50,
+                        },
+                    }));
+            });
+
+            // deleting the objects to free memory because the test uses block_store_mem.js
+            mocha.after(function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                return P.resolve()
+                    .then(() => rpc_client.object.list_objects({ bucket: bucket_name }))
+                    .then(res => rpc_client.object.delete_multiple_objects({
+                        bucket: bucket_name,
+                        keys: res.objects.map(o => o.key),
+                    }));
+            });
+        }
+
+        func(test_case);
+
+    });
+}
+
 exports.setup = setup;
+exports.no_setup = _.noop;
 exports.SYSTEM = SYSTEM;
 exports.EMAIL = EMAIL;
 exports.PASSWORD = PASSWORD;
 exports.rpc_client = rpc_client;
 exports.new_rpc_client = new_rpc_client;
 exports.get_http_address = get_http_address;
+exports.describe_mapper_test_case = describe_mapper_test_case;

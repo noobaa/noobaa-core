@@ -8,6 +8,7 @@ coretest.setup();
 // const _ = require('lodash');
 const mocha = require('mocha');
 // const assert = require('assert');
+
 const system_store = require('../../server/system_services/system_store').get_instance();
 
 mocha.describe('system_store', function() {

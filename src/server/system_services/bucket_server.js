@@ -120,7 +120,9 @@ function create_bucket(req) {
             mirrors
         );
         tiering_policy = tier_server.new_policy_defaults(
-            bucket_with_suffix, req.system._id, [{
+            bucket_with_suffix,
+            req.system._id,
+            req.rpc_params.chunk_split_config, [{
                 tier: tier._id,
                 order: 0,
                 spillover: false,

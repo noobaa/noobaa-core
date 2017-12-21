@@ -261,6 +261,10 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => rpc_client.tiering_policy.update_policy({
                     name: TIERING_POLICY,
+                chunk_split_config: {
+                    avg_chunk: 999,
+                    delta_chunk: 22,
+                },
                     tiers: [{
                         order: 0,
                         tier: TIER,
@@ -272,9 +276,7 @@ mocha.describe('system_servers', function() {
                         spillover: true,
                         disabled: false
                     }]
-                })
-                .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
-            )
+            }))
             .then(() => rpc_client.tiering_policy.get_policy_pools({
                 name: TIERING_POLICY
             }))

@@ -105,15 +105,10 @@ module.exports = {
             type: 'object',
             required: ['name', 'tiers'],
             properties: {
-                name: {
-                    type: 'string',
-                },
-                storage: {
-                    $ref: 'common_api#/definitions/storage_info'
-                },
-                data: {
-                    $ref: 'common_api#/definitions/storage_info'
-                },
+                name: { type: 'string' },
+                data: { $ref: 'common_api#/definitions/storage_info' },
+                storage: { $ref: 'common_api#/definitions/storage_info' },
+                chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                 tiers: {
                     type: 'array',
                     items: {

@@ -183,9 +183,11 @@ function new_system_changes(name, owner_account) {
         default_chunk_config._id,
         tier_mirrors
     );
+    const chunk_split_config = undefined; // using policy defaults
     const policy = tier_server.new_policy_defaults(
         bucket_with_suffix,
-        system._id, [{
+        system._id,
+        chunk_split_config, [{
             tier: tier._id,
             order: 0,
             spillover: false,

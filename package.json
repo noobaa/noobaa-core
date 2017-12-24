@@ -5,7 +5,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "description": "",
   "engines": {
-    "node": "6.11.5"
+    "node": "8.0"
   },
   "main": "index.js",
   "config": {

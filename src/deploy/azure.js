@@ -54,6 +54,13 @@ Usage:
 `);
 }
 
+var oses = [
+    'ubuntu14', 'ubuntu16', 'ubuntu12',
+    'centos6', 'centos7',
+    'redhat6', 'redhat7',
+    'win2008', 'win2012', 'win2016'
+];
+
 ///////////////////////////////////////
 //Entrypoint for the vm-sample script//
 ///////////////////////////////////////
@@ -64,13 +71,6 @@ if (argv.help) {
         .then(() => console.log('Done'))
         .then(() => process.exit(0));
 }
-
-var oses = [
-    'ubuntu14', 'ubuntu16', 'ubuntu12',
-    'centos6', 'centos7',
-    'redhat6', 'redhat7',
-    'win2008', 'win2012', 'win2016'
-];
 
 function args_builder(count, os) {
     var vmNames = [];
@@ -145,6 +145,7 @@ function vmOperations(operationCallback) {
                     if (os2.osType === 'Windows') {
                         machine_name = machine_name.substring(0, 15);
                     }
+                    machines = args_builder(1, os2);
                     return af.getAgentConf(server_ip)
                         .then(agentConf => azf.createAgent({
                             vmName: machine_name,

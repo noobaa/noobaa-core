@@ -45,8 +45,8 @@ node('pipeline') {
 			sh script: """
 			export NVM_DIR=/opt/nvm
 			. /opt/nvm/nvm.sh
-			 #nvm install 6.11.5
-			 #nvm alias default 6
+			 #nvm install 8.0
+			 #nvm alias default 8.0
 			 #nvm use default
 			 #cd $WORKSPACE
 			 #npm install

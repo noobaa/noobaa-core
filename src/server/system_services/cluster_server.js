@@ -1154,7 +1154,8 @@ function member_pre_upgrade(req) {
         .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'))
         .then(() => upgrade_utils.pre_upgrade({
             upgrade_path: upgrade.path,
-            testing_stage: Boolean(req.rpc_params.stage !== 'UPGRADE_STAGE')
+            testing_stage: Boolean(req.rpc_params.stage !== 'UPGRADE_STAGE'),
+            extract_package: req.rpc_params.stage === 'UPLOAD_STAGE'
         }))
         .then(res => {
             //Update result of pre_upgrade and message in DB

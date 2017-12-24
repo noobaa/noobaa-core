@@ -50,7 +50,7 @@ class ExtractionError extends Error {}
 class NewTestsError extends Error {}
 
 function pre_upgrade(params) {
-    dbg.log0('UPGRADE:', 'pre_upgrade called with upgrade_file =', params.upgrade_path);
+    dbg.log0('UPGRADE:', 'pre_upgrade called with params =', params);
     return P.resolve()
         .then(() => promise_utils.exec(`cp -f ${params.upgrade_path} ${TMP_PATH}/${PACKAGE_FILE_NAME}`, {
             ignore_rc: false,
@@ -61,7 +61,7 @@ function pre_upgrade(params) {
             dbg.error('pre_upgrade: package copying failed', err);
             throw new ExtractionError('COULD_NOT_COPY_PACKAGE');
         })
-        .then(() => pre_upgrade_checkups())
+        .then(() => pre_upgrade_checkups(params))
         .then(() => {
             dbg.log0('new_pre_upgrade spawn');
             // TODO: Should probably do some sort of timeout on the spawn or something
@@ -282,12 +282,14 @@ function new_pre_upgrade() {
         .timeout(360000, 'PACKAGE_INSTALLATION_TIMEOUT');
 }
 
-function pre_upgrade_checkups() {
+function pre_upgrade_checkups(params) {
+    dbg.log0('performing pre_upgrade_checkups. extract_package = ', params.extract_package);
     return P.join(
             test_major_version_change(),
-            test_package_extraction()
+            P.resolve(params.extract_package && test_package_extraction())
         )
         .catch(err => {
+            dbg.error('failed pre_upgrade_checkups with error', err);
             throw new ExtractionError(err.message);
         });
 }

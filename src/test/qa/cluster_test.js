@@ -350,7 +350,12 @@ function setNTPConfig(serverIndex) {
 
 //this function is getting servers array creating and upgrading them.
 function prepareServers(requestedServers) {
-    return P.map(requestedServers, server => azf.createServer(server.name, vnet, storage, 'Static')
+    return P.map(requestedServers, server => azf.createServer({
+        serverName: server.name,
+        vnet,
+        storage,
+        ipType: 'Static'
+    })
         .then(new_secret => {
             console.log(`${YELLOW}${server.name} secret is: ${new_secret}${NC}`);
             server.secret = new_secret;

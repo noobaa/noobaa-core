@@ -181,10 +181,8 @@ function usage() {
     --file_size_low     -   lowest file size (min 50 MB) (default: ${TEST_CFG_DEFAULTS.file_size_low})
     --file_size_high    -   highest file size (max 200 MB) (default: ${TEST_CFG_DEFAULTS.file_size_high})
     --dataset_size      -   dataset size (default: ${TEST_CFG_DEFAULTS.dataset_size})
-
     --replay            -   replays a given scenario, requires a path to the journal file. 
                             server and bucket are the only applicable parameters when running in replay mode  
-
     --help              -   show this help
     `);
 }
@@ -296,7 +294,7 @@ function upload_new_randomizer() {
     let rand_parts;
     if (is_multi_part) {
         rand_parts = (Math.floor(Math.random() *
-                (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
+            (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
             TEST_CFG.part_num_low);
     }
     let file_name = get_filename();
@@ -327,8 +325,8 @@ function upload_new(params) {
                 }
                 console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
                 return s3ops.upload_file_with_md5(
-                        TEST_CFG.server, TEST_CFG.bucket, params.file_name,
-                        params.rand_size, params.rand_parts, TEST_CFG.data_multiplier)
+                    TEST_CFG.server, TEST_CFG.bucket, params.file_name,
+                    params.rand_size, params.rand_parts, TEST_CFG.data_multiplier)
                     .then(res => {
                         console.log(`file multi-part uploaded was
                             ${params.file_name} with ${params.rand_parts} parts`);
@@ -393,8 +391,8 @@ function upload_overwrite(params) {
         if (params.rand_size / params.rand_parts >= 5) {
             console.log(`running upload overwrite - multi-part`);
             return s3ops.upload_file_with_md5(
-                    TEST_CFG.server, TEST_CFG.bucket, params.filename,
-                    params.rand_size, params.rand_parts, TEST_CFG.data_multiplier)
+                TEST_CFG.server, TEST_CFG.bucket, params.filename,
+                params.rand_size, params.rand_parts, TEST_CFG.data_multiplier)
                 .tap(() => console.log(`file upload (multipart) overwritten was ${params.filename} with ${params.rand_parts} parts`))
                 .then(() => {
                     TEST_STATE.current_size -= Math.floor(params.oldsize / TEST_CFG.data_multiplier);
@@ -408,8 +406,8 @@ function upload_overwrite(params) {
     } else {
         console.log(`running upload overwrite`);
         return s3ops.put_file_with_md5(
-                TEST_CFG.server, TEST_CFG.bucket, params.filename,
-                params.rand_size, TEST_CFG.data_multiplier)
+            TEST_CFG.server, TEST_CFG.bucket, params.filename,
+            params.rand_size, TEST_CFG.data_multiplier)
             .tap(name => console.log(`file upload (put) overwritten was ${params.filename}`))
             .then(() => {
                 TEST_STATE.current_size -= Math.floor(params.oldsize / TEST_CFG.data_multiplier);
@@ -556,11 +554,11 @@ function run_replay() {
         terminal: false
     });
     return new P((resolve, reject) => {
-            readfile
-                .on('line', line => journal.push(line))
-                .once('error', reject)
-                .once('close', resolve);
-        })
+        readfile
+            .on('line', line => journal.push(line))
+            .once('error', reject)
+            .once('close', resolve);
+    })
         .then(() => {
             //first line should contain the TEST_CFG
             console.log(`journal[0] ${journal[0]}`);
@@ -576,26 +574,26 @@ function run_replay() {
             return promise_utils.pwhile(
                 () => iline < journal.length,
                 () => P.resolve()
-                .then(() => {
-                    //split action from params
-                    current_params = JSON.parse(journal[iline].slice(ACTION_MARKER.length));
-                    current_action = current_params.action;
-                    delete current_params.action;
-                    console.log(`Calling ${current_action} with parameters ${util.inspect(current_params)}`);
-                    //run single selected activity
-                    idx = _.findIndex(ACTION_TYPES, ac => ac.name === current_action);
-                    if (idx === -1) {
-                        console.error(`Cannot find action ${current_action}`);
-                        process.exit(1);
-                    } else {
-                        return ACTION_TYPES[idx].action(current_params);
-                    }
+                    .then(() => {
+                        //split action from params
+                        current_params = JSON.parse(journal[iline].slice(ACTION_MARKER.length));
+                        current_action = current_params.action;
+                        delete current_params.action;
+                        console.log(`Calling ${current_action} with parameters ${util.inspect(current_params)}`);
+                        //run single selected activity
+                        idx = _.findIndex(ACTION_TYPES, ac => ac.name === current_action);
+                        if (idx === -1) {
+                            console.error(`Cannot find action ${current_action}`);
+                            process.exit(1);
+                        } else {
+                            return ACTION_TYPES[idx].action(current_params);
+                        }
 
-                })
-                .catch(err => console.error(`Failed replaying action ${current_action} with ${err}`))
-                .finally(() => {
-                    iline += 1;
-                })
+                    })
+                    .catch(err => console.error(`Failed replaying action ${current_action} with ${err}`))
+                    .finally(() => {
+                        iline += 1;
+                    })
             );
         })
         .catch(err => {

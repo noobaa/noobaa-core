@@ -81,7 +81,11 @@ function main() {
 //this function is getting servers array creating and upgrading them.
 function prepare_server() {
     console.log(`prepare_server: creating server ${server.name}`);
-    return azf.createServer(server.name, vnet, storage)
+    return azf.createServer({
+        serverName: server.name,
+        vnet,
+        storage
+    })
         .then(new_secret => {
             server.secret = new_secret;
             return azf.getIpAddress(server.name + '_pip');
@@ -99,21 +103,21 @@ function prepare_server() {
 function prepare_agents() {
     console.log(`starting the create agents stage`);
     return P.map(agents, agent => azf.createAgent({
-                vmName: agent.name,
-                storage,
-                vnet,
-                os: azf.getImagesfromOSname(agent.os),
-            })
-            .then(ip => {
-                console.log(`assign ip ${ip} to ${agent.name}`);
-                agent.prepared = true;
-                agent.ip = ip;
-                created_agents.push(agent);
-            })
-            .catch(err => {
-                console.error(`Creating agent ${agent.name} VM failed`, err);
-            })
-        )
+        vmName: agent.name,
+        storage,
+        vnet,
+        os: azf.getImagesfromOSname(agent.os),
+    })
+        .then(ip => {
+            console.log(`assign ip ${ip} to ${agent.name}`);
+            agent.prepared = true;
+            agent.ip = ip;
+            created_agents.push(agent);
+        })
+        .catch(err => {
+            console.error(`Creating agent ${agent.name} VM failed`, err);
+        })
+    )
         .then(() => {
             if (created_agents.length < min_required_agents) {
                 console.error(`could not create the minimum number of required agents (${min_required_agents})`);

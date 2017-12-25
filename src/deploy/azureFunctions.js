@@ -8,6 +8,7 @@ const ComputeManagementClient = require('azure-arm-compute');
 const NetworkManagementClient = require('azure-arm-network');
 
 const P = require('../util/promise');
+const fs = require('fs');
 const api = require('../api');
 const promise_utils = require('../util/promise_utils');
 const azure_storage = require('../util/azure_storage_wrap');
@@ -25,7 +26,7 @@ const DEV_ACTIVATION_KEY = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +
     "3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd";
 
-const NOOBAA_IMAGE = 'https://jenkinsnoobaastorage.blob.core.windows.net/staging-vhds/noobaa2-test4.vhd';
+const IMAGE_LOCATION = 'https://jenkinsnoobaastorage.blob.core.windows.net/';
 
 const system = {
     name: 'demo',
@@ -660,19 +661,22 @@ class AzureFunctions {
             vmName + '_ext', callback));
     }
 
-
-    createServer(serverName, vnet, storage, ipType = 'Dynamic', vmSize = DEFAULT_SIZE) { // creates new noobaa server and returns it's secret
-        const CONTAINER_NAME = 'staging-vhds';
-        var rpc;
-        var client;
+    //copyVHD will copy the relevant VHD if it doesnt exsist
+    copyVHD(params) {
+        const { image, CONTAINER_NAME = 'staging-vhds', location = IMAGE_LOCATION } = params;
+        const NOOBAA_IMAGE = location + CONTAINER_NAME + '/' + image;
+        // const image_preffix = image.split('-')[0];
         var isDone = false;
+        // check if the containar exsist 
         return P.fromCallback(callback => blobSvc.doesContainerExist(CONTAINER_NAME, callback))
+            //if the container doesnt exist create it
             .then(({ exists }) => !exists && P.fromCallback(callback => blobSvc.createContainer(CONTAINER_NAME, callback)))
-            .then(() => P.fromCallback(callback => blobSvc.doesBlobExist(CONTAINER_NAME, 'image.vhd', callback)))
+            //copy the image (blob) if it doesn't exsist
+            .then(() => P.fromCallback(callback => blobSvc.doesBlobExist(CONTAINER_NAME, image, callback)))
             .then(({ exists }) => !exists && P.fromCallback(
-                callback => blobSvc.startCopyBlob(NOOBAA_IMAGE, CONTAINER_NAME, 'image.vhd', callback))
+                callback => blobSvc.startCopyBlob(NOOBAA_IMAGE, CONTAINER_NAME, image, callback))
                 .then(() => promise_utils.pwhile(() => !isDone,
-                    () => P.fromCallback(callback => blobSvc.getBlobProperties(CONTAINER_NAME, 'image.vhd', callback))
+                    () => P.fromCallback(callback => blobSvc.getBlobProperties(CONTAINER_NAME, image, callback))
                         .then(result => {
                             if (result.copy) {
                                 console.log('Copying Image...', result.copy.progress);
@@ -683,11 +687,41 @@ class AzureFunctions {
                                 }
                             }
                         })
-                        .delay(10000)
-                )))
+                        .delay(10 * 1000)
+                )));
+    }
+
+    // creates new noobaa server and returns it's secret
+    createServer(params) {
+        const {
+            serverName,
+            vnet,
+            storage,
+            ipType = 'Dynamic',
+            vmSize = DEFAULT_SIZE,
+            CONTAINER_NAME = 'staging-vhds',
+            location = IMAGE_LOCATION
+        } = params;
+        let { imagename } = params;
+        var rpc;
+        var client;
+        return P.resolve()
+            .then(() => {
+                if (!imagename) {
+                    return fs.readFileAsync('src/deploy/version_map.json')
+                        .then(buf => {
+                            imagename = JSON.parse(buf.toString());
+                            imagename = imagename.versions[imagename.versions.length - 1].vhd;
+                        });
+                }
+            })
+            .then(() => this.copyVHD({
+                image: imagename,
+                location
+            }))
             .then(() => this.createVirtualMachineFromImage({
                 vmName: serverName,
-                image: 'https://' + storage + '.blob.core.windows.net/staging-vhds/image.vhd',
+                image: 'https://' + storage + '.blob.core.windows.net/' + CONTAINER_NAME + '/' + imagename,
                 vnet,
                 storageAccountName: storage,
                 osType: 'Linux',

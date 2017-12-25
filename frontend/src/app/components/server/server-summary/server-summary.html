@@ -15,8 +15,10 @@
         <div class="row greedy content-middle">
             <svg-icon class="push-next"
                 params="name: issuesIcon().name"
-                data-bind="css: issuesIcon().css"
-            ></svg-icon>
+                data-bind="
+                    css: issuesIcon().css,
+                    tooltip: issuesTooltip
+            "></svg-icon>
             <span class="highlight" data-bind="
                 text: issuesText,
                 css: { disabled: !isConnected() }

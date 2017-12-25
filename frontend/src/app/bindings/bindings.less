@@ -35,7 +35,11 @@
     max-width: 20em;
     box-shadow: 1px 1px 1px 1px @bg-color;
 
-    .break-words {
+    > .tooltip-content   {
+        overflow: hidden;
+    }
+
+    .break-words > .tooltip-content {
         word-wrap: break-word;
         word-break: break-all;
     }
@@ -58,6 +62,18 @@
             bottom: -@arrow-size;
             border-top-color: @bg-color;
         }
+
+        &.start {
+            transform: translate(0, -100%);
+        }
+
+        &.center {
+            transform: translate(-50%, -100%);
+        }
+
+        &.end {
+            transform: translate(-100%, -100%);
+        }
     }
 
     &.below {
@@ -71,6 +87,18 @@
         &::after {
             top: -@arrow-size;
             border-bottom-color: @bg-color;
+        }
+
+        &.start {
+            transform: translate(0, 0);
+        }
+
+        &.center {
+            transform: translate(-50%, 0);
+        }
+
+        &.end {
+            transform: translate(-100%, 0);
         }
     }
 
@@ -86,6 +114,18 @@
             right: -@arrow-size;
             border-left-color: @bg-color;
         }
+
+        &.start {
+            transform: translate(-100%, 0);
+        }
+
+        &.center {
+            transform: translate(-100%, -50%);
+        }
+
+        &.end {
+            transform: translate(-100%, -100%);
+        }
     }
 
     &.after {
@@ -100,11 +140,23 @@
             left: -@arrow-size;
             border-right-color: @bg-color;
         }
+
+        &.start {
+            transform: translate(0, 0);
+        }
+
+        &.center {
+            transform: translate(0, -50%);
+        }
+
+        &.end {
+            transform: translate(0, -100%);
+        }
     }
 
     &.above, &.below {
         &.start {
-            margin-left: -(@arrow-size/2 + @arrow-offset);
+            margin-left: -(@arrow-offset + (@arrow-size / 2));
 
             &::before, &::after {
                 left: @arrow-offset;
@@ -119,7 +171,7 @@
         }
 
         &.end {
-            margin-left: @arrow-size/2 + @arrow-offset;
+            margin-left: @arrow-offset + (@arrow-size / 2);
 
             &::before, &::after {
                 right: @arrow-offset;
@@ -131,7 +183,7 @@
 
     &.before, &.after {
         &.start {
-            margin-top: -(@arrow-size/2 + @arrow-offset);
+            margin-top: -(@arrow-offset + (@arrow-size / 2));
 
             &::before, &::after {
                 top: @arrow-offset;
@@ -146,7 +198,7 @@
         }
 
         &.end {
-            margin-top: @arrow-size/2 + @arrow-offset;
+            margin-top: @arrow-offset + (@arrow-size / 2);
 
             &::before, &::after {
                 bottom: @arrow-offset;

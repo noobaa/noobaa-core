@@ -138,6 +138,7 @@ class VersionFormViewModel extends Observer {
         this.pkgSuffix = upgradePackageSuffix;
         this.pkgState = ko.observable();
         this.pkgVersion = ko.observable();
+        this.isPkgVersionDisabled = ko.observable();
         this.pkgTestTime = ko.observable();
         this.pkgTestResult = ko.observable();
         this.pkgStateProgress = ko.observable();
@@ -147,7 +148,8 @@ class VersionFormViewModel extends Observer {
         this.pkgInfo = [
             {
                 label: 'Staged Version',
-                value: this.pkgVersion
+                value: this.pkgVersion,
+                disabled: this.isPkgVersionDisabled
             },
             {
                 label: 'Validated At',
@@ -226,6 +228,7 @@ class VersionFormViewModel extends Observer {
         this.upgradeBtn(upgradeBtn);
         this.uploadArea(uploadArea);
         this.pkgState(state);
+        this.isPkgVersionDisabled(isPkgUploadingOrTesting);
         this.pkgVersion(_getPackageVersionText(pkgVersion));
         this.pkgTestTime(pkgTestTime);
         this.pkgTestResult(pkgTextResultToInfo[pkgTestResult]);

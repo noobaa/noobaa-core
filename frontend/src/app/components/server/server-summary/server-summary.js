@@ -86,7 +86,11 @@ class ServerSummaryViewModel extends BaseViewModel {
                 if (!systemInfo() || !this.isConnected()) {
                     return {
                         icon: icons.unavailable,
-                        text: 'Server services is unavailable'
+                        text: 'Server services is unavailable',
+                        tooltip: {
+                            text: 'Disconnected',
+                            align: 'start'
+                        }
                     };
                 }
 
@@ -97,19 +101,31 @@ class ServerSummaryViewModel extends BaseViewModel {
                 if (issues.length === 1) {
                     return {
                         icon: icons.warning,
-                        text: issues[0]
+                        text: issues[0],
+                        tooltip: {
+                            text: 'Has issues',
+                            align: 'start'
+                        }
                     };
 
                 } else if (issues.length > 1) {
                     return {
                         icon: icons.warning,
-                        text: `Server has ${issues.length} issues`
+                        text: `Server has ${issues.length} issues`,
+                        tooltip: {
+                            align: 'start',
+                            text: issues
+                        }
                     };
 
                 } else {
                     return {
                         icon: icons.healthy,
-                        text: 'Server has no issues'
+                        text: 'Server has no issues',
+                        tooltip: {
+                            align: 'start',
+                            text: 'No Issues'
+                        }
                     };
                 }
             }
@@ -121,6 +137,10 @@ class ServerSummaryViewModel extends BaseViewModel {
 
         this.issuesIcon = ko.pureComputed(
             () => issues().icon
+        );
+
+        this.issuesTooltip = ko.pureComputed(
+            () => issues().tooltip
         );
 
         this.barValues = this.getBarValues();

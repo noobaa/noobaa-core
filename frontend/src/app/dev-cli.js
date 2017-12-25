@@ -12,10 +12,11 @@ const actions = mapValues(
     }
 );
 
-function print_json_in_new_tab(data) {
-    data = JSON.stringify(data, undefined, 2);
-    const blob = new Blob([data], { type: 'text/json' });
-    window.open(window.URL.createObjectURL(blob));
+function printJsonInNewTab(data) {
+    const json = JSON.stringify(data, undefined, 2);
+    const blob = new Blob([json], { type: 'text/json' });
+    const url = global.URL.createObjectURL(blob);
+    global.open(url);
 }
 
 const cli = Object.seal({
@@ -24,7 +25,9 @@ const cli = Object.seal({
     actions: actions,
     state: undefined,
     api: api,
-    print_json_in_new_tab
+    utils: {
+        printJsonInNewTab
+    }
 });
 
 state$.subscribe(state => { cli.state = state; });

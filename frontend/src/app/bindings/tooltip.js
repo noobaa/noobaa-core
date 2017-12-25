@@ -1,142 +1,200 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { isDefined, isObject, isString, deepFreeze } from 'utils/core-utils';
+import { isDefined, isObject, isString, deepFreeze, runAsync } from 'utils/core-utils';
+import { domFromHtml } from 'utils/browser-utils';
 
-const tooltip = document.createElement('p');
+const data = ko.observable({});
+const [elm] = domFromHtml(
+    // Top level element used with applyBinding cannot support the new binding
+    // syntax for some reason. Falling back to data-bind syntax.
+    `<div class="tooltip" data-bind="
+        style: $data.style,
+        css: $data.css,
+        with: $data.template
+    ">
+        <section class="tooltip-content" ko.template="$data"></section>
+    </div>`
+);
+
+// Attaching the element to the body in async menner to prevent the element from being mount
+// during the main applyBinding (creating a double binding on the element).
+runAsync(() => {
+    document.body.appendChild(elm);
+    ko.applyBindings(data, elm);
+});
+
 const delay = 350;
-
-const positions = deepFreeze({
-    above: 0,
-    after: 1,
-    below: 2,
-    before: 3
+const templates = deepFreeze({
+    text: '{{$data}}',
+    list: `
+        <ul class="bullet-list" ko.foreach="$data">
+            <li ko.text="$data"></ul>
+        </ul>
+    `,
+    listWithCaption: `
+        <p ko.text="$data.title"></p>
+        <ul class="bullet-list" ko.foreach="$data.list">
+            <li ko.text="$data"></ul>
+        </ul>
+    `
 });
+const positions = deepFreeze([
+    'above',
+    'after',
+    'below',
+    'before'
+]);
+const alignments = deepFreeze([
+    'start',
+    'center',
+    'end'
+]);
 
-const alignments = deepFreeze({
-    start: 0,
-    center: .5,
-    end: 1
-});
+function _getTemplate(template, data) {
+    if (template) {
+        return {
+            html: template,
+            data: data
+        };
+    }
 
-function toHtmlList(arr) {
-    return `<ul class="bullet-list">${
-        arr.map(
-            item => `<li>${item}</li>`
-        ).join('')
-    }</ul>`;
+    if (!data) {
+        return null;
+    }
+
+    if (isString(data)) {
+        return {
+            html: templates.text,
+            data: data
+        };
+    }
+
+    if (Array.isArray(data)) {
+        const list = data.filter(isDefined);
+        if (list.length < 2) {
+            return {
+                html: templates.text,
+                data: list[0] || ''
+            };
+
+        } else {
+            return {
+                html: templates.list,
+                data: list
+            };
+        }
+    }
+
+    if (isObject(data)) {
+        let { title, list = [] } = data;
+        if (!Array.isArray(list)) list = [list];
+        list = list.filter(isDefined);
+
+        if (title) {
+            return {
+                html: templates.listWithCaption,
+                data: { title, list }
+            };
+
+        } else if (list.length < 2) {
+            return {
+                html: templates.text,
+                data: list[0] || ''
+            };
+
+        } else {
+            return {
+                html: template.list,
+                data: list
+            };
+        }
+    }
+
+    return ko.renderToString(templates.text, data.toString());
 }
 
-function normalizeValue(value) {
-    if (isString(value)) {
-        return {
-            text: value,
-            position: 'below',
-            align: 'center',
-            breakWords: false
-        };
+function _normalizeValue(value) {
+    const {
+        text = value,
+        position,
+        align,
+        breakWords,
+        template
+    } = value || {};
 
-    } else if (Array.isArray(value)) {
-        const list = value.filter(isDefined);
-        const text = list.length > 0 ?
-            (list.length === 1 ? list[0] : toHtmlList(list)) :
-            '';
+    return {
+        template: _getTemplate(template, text),
+        position: positions.includes(position) ? position : 'below',
+        align: alignments.includes(align) ? align : 'center',
+        breakWords: Boolean(breakWords)
+    };
+}
 
-        return {
-            text: text,
-            position: 'below',
-            align: 'center',
-            breakWords: false
-        };
+function _calcScreenPosition(position, boundingRect) {
+    const { top, right, bottom, left } = boundingRect;
+    const width = right - left;
+    const height = bottom - top;
 
-    } else if (isObject(value)) {
-        let { text, position, align } = value;
-        if (Array.isArray(text)) {
-            const list = text.filter(isDefined);
-            text = list.length > 0 ?
-                (list.length > 1 ? toHtmlList(list) :  list[0]) :
-                '';
-
-        } else if (isObject(text)) {
-            const { title  = '', list = [] } = text;
-            text = `<p>${
-                title
-            }:</p>${
-                toHtmlList(list.filter(isDefined))
-            }`;
+    switch (position) {
+        case 'above': {
+            return {
+                top: top,
+                left: left + (width / 2)
+            };
         }
-
-        if (!Object.keys(positions).includes(position)) {
-            position = 'below';
+        case 'after': {
+            return {
+                top: top + (height / 2),
+                left: right
+            };
         }
-
-        if (!Object.keys(alignments).includes(align)) {
-            align = 'center';
+        case 'below': {
+            return {
+                top: bottom,
+                left: left + (width / 2)
+            };
         }
-
-        return {
-            text: text,
-            position: position,
-            align: align,
-            breakWords: Boolean(value.breakWords)
-        };
-
-    } else {
-        return {};
+        case 'before': {
+            return {
+                top: top + (height / 2),
+                left: left
+            };
+        }
     }
 }
 
-function showTooltip(target, { text, align, position, breakWords }) {
-    tooltip.innerHTML = text;
-    tooltip.className = `tooltip ${align} ${position} ${breakWords ? 'break-words' : ''}`;
-    document.body.appendChild(tooltip);
+function _showTooltip(target, params) {
+    const { template, position, align, breakWords } = params;
+    const css = `${position} ${align} ${breakWords ? 'break-words' : ''}`;
+    const { top, left } = _calcScreenPosition(position, target.getBoundingClientRect());
+    const style = {
+        display: 'block',
+        top: `${Math.ceil(top)}px`,
+        left: `${Math.ceil(left)}px`
+    };
 
-    const alignFactor = alignments[align];
-    let { left, top, bottom, right } = target.getBoundingClientRect();
-
-    switch (positions[position]) {
-        case positions.above:
-            top -= tooltip.offsetHeight;
-            left += target.offsetWidth / 2 - tooltip.offsetWidth * alignFactor;
-            break;
-
-        case positions.after:
-            top += target.offsetHeight / 2 - tooltip.offsetHeight * alignFactor;
-            left = right;
-            break;
-
-        case positions.below:
-            left += target.offsetWidth / 2 - tooltip.offsetWidth * alignFactor;
-            top = bottom;
-            break;
-
-        case positions.before:
-            top += target.offsetHeight / 2 - tooltip.offsetHeight * alignFactor;
-            left -= tooltip.offsetWidth;
-            break;
-    }
-
-    tooltip.style.top = `${Math.ceil(top)}px`;
-    tooltip.style.left = `${Math.ceil(left)}px`;
+    data({ template, css, style });
 }
 
-function hideTooltip() {
-    if (tooltip.parentElement) {
-        document.body.removeChild(tooltip);
-        tooltip.innerHTML = '';
-    }
+function _hideTooltip() {
+    data({
+        style: {
+            display: 'none'
+        }
+    });
 }
 
 export default {
     init: function(target, valueAccessor) {
         const params = ko.pureComputed(
-            () => normalizeValue(ko.deepUnwrap(valueAccessor()))
+            () => _normalizeValue(ko.deepUnwrap(valueAccessor()))
         );
 
         const hover = ko.observable(false);
         const paramsSub = params.subscribe(
             params => hover() && (
-                params.text ? showTooltip(target, params) : hideTooltip()
+                params.template ? _showTooltip(target, params) : _hideTooltip()
             )
         );
 
@@ -148,9 +206,9 @@ export default {
                 }
             })
             .subscribe(
-                hoverd => (hoverd && params().text) ?
-                    showTooltip(target, params()) :
-                    hideTooltip()
+                hovered => (hovered && params().template) ?
+                    _showTooltip(target, params()) :
+                    _hideTooltip()
             );
 
         // Handle delyed hover state.
@@ -161,7 +219,7 @@ export default {
         ko.utils.domNodeDisposal.addDisposeCallback(
             target,
             () => {
-                hideTooltip(tooltip);
+                _hideTooltip();
                 paramsSub.dispose();
                 hoverSub.dispose();
             }

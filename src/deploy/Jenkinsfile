@@ -1,7 +1,7 @@
 #!groovy​
-def branch = 'master'
+def branch = '2.0'
 //dataset
-def dataset_ip = '51.143.89.148'
+def dataset_ip = '52.250.112.75'
 def noobaa_server = 'datasetpipeline.westus2.cloudapp.azure.com'
 def dataset_size = '51200' //MB
 def aging_time = '300' //min
@@ -29,11 +29,11 @@ def nodeLocalIP = '10.1.12.0'
 def serverLocalIP = '52.191.139.47'
 def severExternalIP = '52.191.139.47'
 //yulia rg
-def yulia_ip = '52.191.173.161'
+def yulia_ip = '51.143.19.170'
 def yulia_resource = 'yulia-test-rg'
 def yulia_vnet = 'yulia-test-rg-vnet'
 def yulia_storage = 'yuliastorage'
-def ip = '52.250.110.150'
+def ip = '52.250.112.75'
 
 node('pipeline') {
 	def buildResult = "SUCCESS"

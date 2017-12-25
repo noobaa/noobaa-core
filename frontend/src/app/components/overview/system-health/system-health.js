@@ -35,16 +35,13 @@ function _getSystemStorageIcon(total = 0, free = 0) {
 
     } else {
         const percentage = ratio < .01 ?
-            'Lower then 1%' :
+            'Lower than 1%' :
             numeral(ratio).format('%');
 
         return {
             name: ratio <= .2 ? 'problem' : 'healthy',
             css: ratio <= .2 ? 'warning' : 'success',
-            tooltip: {
-                text: `${percentage} free storage left`,
-                align: 'start'
-            }
+            tooltip: `${percentage} free storage left`
         };
     }
 }
@@ -77,6 +74,12 @@ function _getAlertsTooltip(unreadCounters) {
         }
     };
 
+}
+
+function _getServerCount(servers) {
+    return servers ?
+        `Contains ${stringifyAmount('server', Object.keys(servers).length)}` :
+        '';
 }
 
 class SystemHealthViewModel extends Observer {
@@ -176,13 +179,11 @@ class SystemHealthViewModel extends Observer {
         this.storageBarValues[1].value(toBytes(systemUnavailable));
         this.storageBarValues[2].value(toBytes(systemStorage.free));
 
-        const { servers } = topology;
-        const { tooltip: clusterState, ...clsuterIcon } = getClusterStateIcon(topology, systemVersion);
+        const { tooltip: clusterState, ...clusterIcon } = getClusterStateIcon(topology, systemVersion);
         const clusterHA = getClsuterHAState(topology);
-        const serverCount = servers ? `Contains ${stringifyAmount('server', Object.keys(servers).length)}` : '';
         const clusterHref = realizeUri(routes.cluster, { system: location.params.system });
-        this.clusterServerCount(serverCount);
-        this.clusterIcon(clsuterIcon);
+        this.clusterServerCount(_getServerCount(topology.servers));
+        this.clusterIcon(clusterIcon);
         this.clusterState(clusterState);
         this.clusterHA(clusterHA);
         this.clusterHref(clusterHref);

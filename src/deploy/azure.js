@@ -168,7 +168,11 @@ function vmOperations(operationCallback) {
                         ip: ''
                     });
                 }
-                return P.map(servers, server => azf.createServer(server.name, vnetName, storageAccountName)
+                return P.map(servers, server => azf.createServer({
+                    serverName: server.name,
+                    vnet: vnetName,
+                    storage: storageAccountName
+                })
                     .then(new_secret => {
                         server.secret = new_secret;
                         return azf.getIpAddress(server.name + '_pip');

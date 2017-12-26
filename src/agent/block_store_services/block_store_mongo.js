@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const mongodb = require('mongodb');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -39,6 +38,10 @@ class BlockStoreMongo extends BlockStoreBase {
         super(options);
         this.base_path = options.mongo_path;
         this.blocks_path = this.base_path + '/blocks_tree';
+        this._blocks_fs = mongo_client.instance().define_gridfs({
+            name: GRID_FS_BUCKET_NAME,
+            chunk_size: GRID_FS_CHUNK_SIZE
+        });
         this._STORE_LIMIT = 5 * size_utils.GIGABYTE;
     }
 
@@ -53,16 +56,6 @@ class BlockStoreMongo extends BlockStoreBase {
                 dbg.error('_init_chunks_collection: FAILED', GRID_FS_BUCKET_NAME_CHUNKS, err);
                 throw err;
             });
-    }
-
-    _gridfs() {
-        if (!this._internal_gridfs) {
-            this._internal_gridfs = new mongodb.GridFSBucket(mongo_client.instance().db, {
-                bucketName: GRID_FS_BUCKET_NAME,
-                chunkSizeBytes: GRID_FS_CHUNK_SIZE
-            });
-        }
-        return this._internal_gridfs;
     }
 
     read_usage_gridfs() {
@@ -103,7 +96,6 @@ class BlockStoreMongo extends BlockStoreBase {
     init() {
         return mongo_client.instance().connect()
             .then(() => this._init_chunks_collection())
-            .then(() => this._gridfs())
             .then(() => this.read_usage_gridfs())
             .then(usage_metadata => {
                 if (usage_metadata) {
@@ -138,7 +130,7 @@ class BlockStoreMongo extends BlockStoreBase {
     _read_block(block_md) {
         const block_name = this._block_key(block_md.id);
         return P.join(
-                buffer_utils.read_stream_join(this._gridfs().openDownloadStreamByName(block_name)),
+                buffer_utils.read_stream_join(this._blocks_fs.gridfs().openDownloadStreamByName(block_name)),
                 this.head_block(block_name)
             )
             .then(([data, head]) => ({
@@ -159,7 +151,7 @@ class BlockStoreMongo extends BlockStoreBase {
         return this.head_block(block_name)
             .then(head => {
                 console.warn('block already found in mongo, will overwrite. id =', block_md.id);
-                return this._gridfs().delete(head._id);
+                return this._blocks_fs.gridfs().delete(head._id);
             }, err => {
                 if (err.code === 'NOT_FOUND') {
                     dbg.log0('_head_block: Block ', block_name, ' was not found');
@@ -171,7 +163,7 @@ class BlockStoreMongo extends BlockStoreBase {
             .then(() => {
                 dbg.log3('writing block id to mongo: ', block_name);
                 return new P((resolve, reject) => {
-                    const upload_stream = this._gridfs().openUploadStream(block_name, {
+                    const upload_stream = this._blocks_fs.gridfs().openUploadStream(block_name, {
                         metadata: block_metadata
                     });
                     upload_stream
@@ -196,11 +188,11 @@ class BlockStoreMongo extends BlockStoreBase {
 
     _delete_blocks(block_ids) {
         const block_names = _.map(block_ids, block_id => this._block_key(block_id));
-        return P.map(block_names, block_name => this._gridfs().find({
+        return P.map(block_names, block_name => this._blocks_fs.gridfs().find({
                     filename: block_name
                 })
                 .toArray()
-                .then(blocks => P.map(blocks, block => this._gridfs().delete(block._id), {
+                .then(blocks => P.map(blocks, block => this._blocks_fs.gridfs().delete(block._id), {
                     concurrency: 10
                 })), {
                     concurrency: 10
@@ -225,7 +217,7 @@ class BlockStoreMongo extends BlockStoreBase {
     }
 
     head_block(block_name) {
-        return P.resolve(this._gridfs().find({
+        return P.resolve(this._blocks_fs.gridfs().find({
                     filename: block_name
                 }, {
                     limit: 1

@@ -167,9 +167,10 @@ config.CHUNK_CODER_EC_DATA_FRAGS = 4;
 config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
 config.CHUNK_CODER_EC_PARITY_TYPE = 'isa-c1';
 
-//////////////////////
+
+//////////////////////////
 // DEDUP INDEXER CONFIG //
-//////////////////////
+//////////////////////////
 config.DEDUP_INDEXER_ENABLED = true;
 config.DEDUP_INDEXER_BATCH_SIZE = 200;
 config.DEDUP_INDEXER_BATCH_DELAY = 50;

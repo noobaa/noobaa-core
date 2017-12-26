@@ -14,6 +14,7 @@ const nb_native = require('../../util/nb_native');
 const server_rpc = require('../server_rpc');
 const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
+const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 
@@ -185,9 +186,20 @@ class MapBuilder {
             // if there are no allocations, then try to allocate extra_allocations for special replicas
             const current_cycle_allocations = mapping.allocations || mapping.extra_allocations;
             if (!current_cycle_allocations) return;
+            if (mapping.allocations) {
+                dbg.log0('MapBuilder.build_chunks: allocations needed for chunk',
+                    chunk, _.map(chunk.objects, 'key'));
+            }
 
             chunk.avoid_nodes = chunk.blocks.map(block => String(block.node._id));
             chunk.allocated_hosts = chunk.blocks.map(block => block.node.host_id);
+            chunk.rpc_client = server_rpc.rpc.new_client({
+                auth_token: auth_server.make_auth_token({
+                    system_id: chunk.system,
+                    role: 'admin',
+                })
+            });
+
             return P.resolve()
                 .then(() => mapping.missing_frags && this.read_entire_chunk(chunk))
                 .then(chunk_info => P.map(current_cycle_allocations,
@@ -238,7 +250,7 @@ class MapBuilder {
         const target = mapper.get_block_md(chunk, frag, block);
         const source = mapper.get_block_md(chunk, frag, source_block);
 
-        const params = { client: server_rpc.client };
+        const params = { client: chunk.rpc_client };
         const desc = { chunk: chunk._id, frag };
 
         dbg.log0('MapBuilder.build_block_from_replicas: replicating to', target, 'from', source, 'chunk', chunk);
@@ -255,7 +267,7 @@ class MapBuilder {
         dbg.log0('MapBuilder.build_block_from_frags: target', target, 'frag', frag, 'frag_with_data', frag_with_data);
         const desc = { chunk: chunk._id, frag };
         const params = {
-            client: server_rpc.client,
+            client: chunk.rpc_client,
             bucket: chunk.bucket.name,
             key: '', // faking it as we don't want to read and obj just for that
         };
@@ -271,7 +283,7 @@ class MapBuilder {
         part.desc = { chunk: chunk._id };
         const chunk_info = part.chunk;
         const params = {
-            client: server_rpc.client,
+            client: chunk.rpc_client,
             bucket: chunk.bucket.name,
             key: '', // faking it as we don't want to read and obj just for that
         };

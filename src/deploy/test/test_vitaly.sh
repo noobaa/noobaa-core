@@ -62,8 +62,8 @@ echo "prepare workspace"
 
 mkdir agent_storage
 cp /root/node_modules/noobaa-core/.env .env
-echo 'AWS_ACCESS_KEY_ID=AKIAJJCHBZVA3VSS2YCQ' >> .env
-echo 'AWS_SECRET_ACCESS_KEY=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' >> .env
+echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> .env
+echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
 
 #TODO: unsafe-perm is needed because we run as root and is a bad practice 
 #      because it runs deps npm scripts as root on our machine!

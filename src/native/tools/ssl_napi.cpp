@@ -55,11 +55,11 @@ ssl_napi(napi_env env, napi_value exports)
 #endif
 
     napi_value func = 0;
-    napi_create_function(env, "x509", _nb_x509, NULL, &func);
+    napi_create_function(env, "x509", NAPI_AUTO_LENGTH, _nb_x509, NULL, &func);
     napi_set_named_property(env, exports, "x509", func);
-    napi_create_function(env, "x509_verify", _nb_x509_verify, NULL, &func);
+    napi_create_function(env, "x509_verify", NAPI_AUTO_LENGTH, _nb_x509_verify, NULL, &func);
     napi_set_named_property(env, exports, "x509_verify", func);
-    napi_create_function(env, "rsa", _nb_rsa, NULL, &func);
+    napi_create_function(env, "rsa", NAPI_AUTO_LENGTH, _nb_rsa, NULL, &func);
     napi_set_named_property(env, exports, "rsa", func);
 }
 
@@ -433,7 +433,7 @@ x509_name_to_entries(napi_env env, X509_NAME* x509_name)
         const char* key = OBJ_nid2sn(OBJ_obj2nid(o));
         const char* val = (const char*)ASN1_STRING_data(d);
         napi_value v = 0;
-        napi_create_string_utf8(env, val, 0, &v);
+        napi_create_string_utf8(env, val, NAPI_AUTO_LENGTH, &v);
         napi_set_named_property(env, v_entries, key, v);
     }
     return v_entries;

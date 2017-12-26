@@ -32,7 +32,7 @@ chunk_coder_napi(napi_env env, napi_value exports)
 {
     nb_chunk_coder_init();
     napi_value func = 0;
-    napi_create_function(env, "chunk_coder", _nb_chunk_coder, NULL, &func);
+    napi_create_function(env, "chunk_coder", NAPI_AUTO_LENGTH, _nb_chunk_coder, NULL, &func);
     napi_set_named_property(env, exports, "chunk_coder", func);
 }
 
@@ -45,9 +45,10 @@ _nb_chunk_coder(napi_env env, napi_callback_info info)
 
     napi_value v_chunks = argv[0];
     napi_value v_callback = argv[1];
+    napi_value v_async_resource_name = 0;
+    napi_value v_null = 0;
     napi_valuetype typeof_chunks = napi_undefined;
     napi_valuetype typeof_callback = napi_undefined;
-    napi_value v_null = 0;
     bool is_chunks_array = false;
     uint32_t chunks_len = 1;
 
@@ -109,8 +110,9 @@ _nb_chunk_coder(napi_env env, napi_callback_info info)
 
         napi_create_reference(env, v_chunks, 1, &async->r_chunks);
         napi_create_reference(env, v_callback, 1, &async->r_callback);
+        napi_create_string_utf8(env, "CoderResource", NAPI_AUTO_LENGTH, &v_async_resource_name);
         napi_create_async_work(
-            env, _nb_coder_async_execute, _nb_coder_async_complete, async, &async->work);
+            env, v_async_resource_name, v_async_resource_name, _nb_coder_async_execute, _nb_coder_async_complete, async, &async->work);
         napi_queue_async_work(env, async->work);
         return 0;
     }
@@ -231,7 +233,7 @@ _nb_coder_async_complete(napi_env env, napi_status status, void* data)
 
     if (!v_err) napi_get_null(env, &v_err);
     napi_value v_callback_args[] = { v_err, v_chunks };
-    napi_make_callback(env, v_global, v_callback, 2, v_callback_args, 0);
+    napi_make_callback(env, 0, v_global, v_callback, 2, v_callback_args, 0);
 
     napi_delete_reference(env, async->r_chunks);
     napi_delete_reference(env, async->r_callback);
@@ -248,7 +250,7 @@ _nb_coder_update_chunk(
     if (chunk->errors.count) {
         if (!*v_err) {
             napi_value v = 0;
-            napi_create_string_utf8(env, "had chunk errors", -1, &v);
+            napi_create_string_utf8(env, "had chunk errors", NAPI_AUTO_LENGTH, &v);
             napi_create_error(env, 0, v, v_err);
         }
 
@@ -272,7 +274,7 @@ _nb_coder_update_chunk(
         for (int i = 0; i < chunk->errors.count; ++i) {
             napi_value v = 0;
             napi_create_string_utf8(
-                env, (const char*)nb_bufs_get(&chunk->errors, i)->data, -1, &v);
+                env, (const char*)nb_bufs_get(&chunk->errors, i)->data, NAPI_AUTO_LENGTH, &v);
             napi_set_element(env, v_errors, i, v);
         }
         return;

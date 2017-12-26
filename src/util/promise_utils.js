@@ -279,7 +279,7 @@ function fork(command, input_args, opts, ignore_rc) {
 function exec(command, options) {
     const ignore_rc = (options && options.ignore_rc) || false;
     const return_stdout = (options && options.return_stdout) || false;
-    const timeout = (options && options.timeout) || false;
+    const timeout = (options && options.timeout) || 0;
     const trim_stdout = (options && options.trim_stdout) || false;
     return new P((resolve, reject) => {
         dbg.log2('promise exec', command, ignore_rc);

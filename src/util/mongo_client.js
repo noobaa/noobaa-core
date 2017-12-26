@@ -151,6 +151,17 @@ class MongoClient extends EventEmitter {
             });
     }
 
+    _gridfs() {
+        if (!this._internal_gridfs) {
+            this._internal_gridfs = new mongodb.GridFSBucket(this.db, {
+                bucketName: config.GRID_FS_BUCKET_NAME,
+                chunkSizeBytes: config.GRID_FS_CHUNK_SIZE
+            });
+        }
+        return this._internal_gridfs;
+    }
+
+
     _init_collections(db) {
         return P.map(this.collections, col => this._init_collection(db, col))
             .then(() => P.map(this.collections, col => db.collection(col.name).indexes()
@@ -184,6 +195,7 @@ class MongoClient extends EventEmitter {
         dbg.log0('disconnect called');
         this._disconnected_state = true;
         this.promise = null;
+        this._internal_gridfs = null;
         if (this.db) {
             this.db.close();
             this.db = null;

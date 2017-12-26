@@ -167,9 +167,15 @@ config.CHUNK_CODER_EC_DATA_FRAGS = 4;
 config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
 config.CHUNK_CODER_EC_PARITY_TYPE = 'isa-c1';
 
-//////////////////////
+///////////////////
+// GRIDFS CONFIG //
+///////////////////
+config.GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
+config.GRID_FS_CHUNK_SIZE = 8 * 1024 * 1024;
+
+//////////////////////////
 // DEDUP INDEXER CONFIG //
-//////////////////////
+//////////////////////////
 config.DEDUP_INDEXER_ENABLED = true;
 config.DEDUP_INDEXER_BATCH_SIZE = 200;
 config.DEDUP_INDEXER_BATCH_DELAY = 50;

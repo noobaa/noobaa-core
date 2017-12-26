@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const mongodb = require('mongodb');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -11,14 +10,11 @@ const size_utils = require('../../util/size_utils');
 const mongo_client = require('../../util/mongo_client');
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-const { SERVER_MIN_REQUIREMENTS } = require('../../../config');
+const config = require('../../../config.js');
 const mongo_utils = require('../../util/mongo_utils');
 
-const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
-const GRID_FS_BUCKET_NAME_FILES = `${GRID_FS_BUCKET_NAME}.files`;
-const GRID_FS_BUCKET_NAME_CHUNKS = `${GRID_FS_BUCKET_NAME}.chunks`;
-const GRID_FS_CHUNK_SIZE = 8 * 1024 * 1024;
-
+const GRID_FS_BUCKET_NAME_FILES = `${config.GRID_FS_BUCKET_NAME}.files`;
+const GRID_FS_BUCKET_NAME_CHUNKS = `${config.GRID_FS_BUCKET_NAME}.chunks`;
 // The rational behind that configuration was to limit the cache of GridFS Chunks collection
 // On low spec servers we had a problem of memory choke on low work loads (5GB)
 // Since mongodb cached the chunk collection with all of it's data
@@ -55,16 +51,6 @@ class BlockStoreMongo extends BlockStoreBase {
             });
     }
 
-    _gridfs() {
-        if (!this._internal_gridfs) {
-            this._internal_gridfs = new mongodb.GridFSBucket(mongo_client.instance().db, {
-                bucketName: GRID_FS_BUCKET_NAME,
-                chunkSizeBytes: GRID_FS_CHUNK_SIZE
-            });
-        }
-        return this._internal_gridfs;
-    }
-
     read_usage_gridfs() {
         // Notice that I do not worry about PETABYTES because this is for local use only
         // We should not write PETABYTES to mongo so there should be no problems
@@ -92,7 +78,7 @@ class BlockStoreMongo extends BlockStoreBase {
         return os_utils.get_raw_storage()
             .then(total => {
                 dbg.log0(`total disk size ${total}, current used ${this._usage}`);
-                if (total < SERVER_MIN_REQUIREMENTS.STORAGE_GB * size_utils.GIGABYTE) {
+                if (total < config.SERVER_MIN_REQUIREMENTS.STORAGE_GB * size_utils.GIGABYTE) {
                     this._STORE_LIMIT = 5 * size_utils.GIGABYTE;
                 } else {
                     this._STORE_LIMIT = 30 * size_utils.GIGABYTE;
@@ -103,7 +89,6 @@ class BlockStoreMongo extends BlockStoreBase {
     init() {
         return mongo_client.instance().connect()
             .then(() => this._init_chunks_collection())
-            .then(() => this._gridfs())
             .then(() => this.read_usage_gridfs())
             .then(usage_metadata => {
                 if (usage_metadata) {
@@ -138,7 +123,7 @@ class BlockStoreMongo extends BlockStoreBase {
     _read_block(block_md) {
         const block_name = this._block_key(block_md.id);
         return P.join(
-                buffer_utils.read_stream_join(this._gridfs().openDownloadStreamByName(block_name)),
+                buffer_utils.read_stream_join(mongo_client.instance()._gridfs().openDownloadStreamByName(block_name)),
                 this.head_block(block_name)
             )
             .then(([data, head]) => ({
@@ -159,7 +144,7 @@ class BlockStoreMongo extends BlockStoreBase {
         return this.head_block(block_name)
             .then(head => {
                 console.warn('block already found in mongo, will overwrite. id =', block_md.id);
-                return this._gridfs().delete(head._id);
+                return mongo_client.instance()._gridfs().delete(head._id);
             }, err => {
                 if (err.code === 'NOT_FOUND') {
                     dbg.log0('_head_block: Block ', block_name, ' was not found');
@@ -171,7 +156,7 @@ class BlockStoreMongo extends BlockStoreBase {
             .then(() => {
                 dbg.log3('writing block id to mongo: ', block_name);
                 return new P((resolve, reject) => {
-                    const upload_stream = this._gridfs().openUploadStream(block_name, {
+                    const upload_stream = mongo_client.instance()._gridfs().openUploadStream(block_name, {
                         metadata: block_metadata
                     });
                     upload_stream
@@ -196,11 +181,11 @@ class BlockStoreMongo extends BlockStoreBase {
 
     _delete_blocks(block_ids) {
         const block_names = _.map(block_ids, block_id => this._block_key(block_id));
-        return P.map(block_names, block_name => this._gridfs().find({
+        return P.map(block_names, block_name => mongo_client.instance()._gridfs().find({
                     filename: block_name
                 })
                 .toArray()
-                .then(blocks => P.map(blocks, block => this._gridfs().delete(block._id), {
+                .then(blocks => P.map(blocks, block => mongo_client.instance()._gridfs().delete(block._id), {
                     concurrency: 10
                 })), {
                     concurrency: 10
@@ -225,7 +210,7 @@ class BlockStoreMongo extends BlockStoreBase {
     }
 
     head_block(block_name) {
-        return P.resolve(this._gridfs().find({
+        return P.resolve(mongo_client.instance()._gridfs().find({
                     filename: block_name
                 }, {
                     limit: 1

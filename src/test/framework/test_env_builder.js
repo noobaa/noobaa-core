@@ -80,7 +80,10 @@ function main() {
 //this function is getting servers array creating and upgrading them.
 function prepare_server() {
     console.log(`prepare_server: creating server ${server.name}`);
-    return azf.createServer(server.name, vnet, storage)
+    // TODO GUY Temporary attempt to use larger VM size
+    const vmSize = 'Standard_A8_v2';
+    const ipType = 'Dynamic';
+    return azf.createServer(server.name, vnet, storage, ipType, vmSize)
         .then(new_secret => {
             server.secret = new_secret;
             return azf.getIpAddress(server.name + '_pip');

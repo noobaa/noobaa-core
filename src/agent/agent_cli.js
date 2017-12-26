@@ -581,7 +581,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
         });
         self.agents[node_name] = agent;
 
-        dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);
+        dbg.log0('agent inited', node_name, self.params.address, self.params.port, self.params.secure_port, node_path);
     }
 
     return P.fcall(function() {
@@ -696,6 +696,31 @@ AgentCLI.prototype._is_s3_enabled = function(node_name) {
     return (this.params.roles && this.params.roles.indexOf('S3') >= 0);
 };
 
+AgentCLI.prototype.repl = function() {
+    // start a Read-Eval-Print-Loop
+    var repl_srv = repl.start({
+        prompt: 'agent-cli > ',
+        useGlobal: false
+    });
+    var help = {
+        functions: [],
+        variables: [],
+        general: [],
+    };
+    _.forIn(this, (val, key) => {
+        if (typeof(val) === 'function') {
+            repl_srv.context[key] = val.bind(this);
+            help.functions.push(key);
+        } else {
+            repl_srv.context[key] = val;
+            help.variables.push(key);
+        }
+    });
+    populate_general_help(help.general);
+    repl_srv.context.help = help;
+    repl_srv.context.dbg = dbg;
+};
+
 AgentCLI.main = main;
 
 function main() {
@@ -705,44 +730,17 @@ function main() {
         dbg.set_process_name('Agent');
     }
 
-
-    var cli = new AgentCLI(argv);
-
-    cli.init().then(function() {
-        if (!argv.repl) return;
-        // start a Read-Eval-Print-Loop
-        var repl_srv = repl.start({
-            prompt: 'agent-cli > ',
-            useGlobal: false
-        });
-        var help = {
-            functions: [],
-            variables: [],
-            general: [],
-        };
-        _.forIn(cli, function(val, key) {
-            if (typeof(val) === 'function') {
-                repl_srv.context[key] = val.bind(cli);
-                help.functions.push(key);
-            } else {
-                repl_srv.context[key] = val;
-                help.variables.push(key);
-            }
-        });
-        populate_general_help(help.general);
-        repl_srv.context.help = help;
-        repl_srv.context.dbg = dbg;
-    }, function(err) {
-        dbg.error('init err:' + err);
-    });
-
     if (argv.scale) {
-        P.map(_.range(1, argv.scale), i => {
+        return P.map(_.range(0, argv.scale), i => {
             let params = _.clone(argv);
             params.test_hostname = `${os.hostname()}-${i}`;
             let test_agent_cli = new AgentCLI(params);
             return test_agent_cli.init();
         });
+    } else {
+        var cli = new AgentCLI(argv);
+        return cli.init()
+            .then(() => argv.repl && cli.repl());
     }
 }
 

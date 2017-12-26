@@ -22,7 +22,7 @@ function main() {
         })
         .then(client => {
             ssh_client = client;
-            return ssh.ssh_exec(ssh_client, `sudo bash -c "/root/node_modules/noobaa-core/src/test/framework/prepare_and_run_tests.sh"`, true);
+            return ssh.ssh_exec(ssh_client, `sudo bash -c "AWS_ACCESS_KEY_ID=${process.env.AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${process.env.AWS_SECRET_ACCESS_KEY} /root/node_modules/noobaa-core/src/test/framework/prepare_and_run_tests.sh"`, true);
         })
         .then(() => {
                 console.log('SUCCESSFUL TESTS');

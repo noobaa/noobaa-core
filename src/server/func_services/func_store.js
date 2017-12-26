@@ -31,6 +31,9 @@ class FuncStore {
                 }
             }]
         });
+        this._func_code = mongo_client.instance().define_gridfs({
+            name: 'func_code_gridfs'
+        });
     }
 
     static instance() {
@@ -40,15 +43,6 @@ class FuncStore {
 
     make_func_id(id_str) {
         return new mongodb.ObjectId(id_str);
-    }
-
-    _code_gridfs() {
-        if (!this._func_code_gridfs) {
-            this._func_code_gridfs = new mongodb.GridFSBucket(mongo_client.instance().db, {
-                bucketName: 'func_code_gridfs'
-            });
-        }
-        return this._func_code_gridfs;
     }
 
     create_func(func) {
@@ -120,7 +114,7 @@ class FuncStore {
         const sha256 = crypto.createHash('sha256');
         var size = 0;
         return new P((resolve, reject) => {
-            const upload_stream = this._code_gridfs().openUploadStream(
+            const upload_stream = this._func_code.gridfs().openUploadStream(
                 this.code_filename(system, name, version));
             code_stream
                 .once('error', reject)
@@ -143,11 +137,11 @@ class FuncStore {
     }
 
     delete_code_gridfs(id) {
-        return this._code_gridfs().delete(id);
+        return this._func_code.gridfs().delete(id);
     }
 
     stream_code_gridfs(id) {
-        return this._code_gridfs().openDownloadStream(id);
+        return this._func_code.gridfs().openDownloadStream(id);
     }
 
     read_code_gridfs(id) {

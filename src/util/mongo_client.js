@@ -24,6 +24,8 @@ class MongoClient extends EventEmitter {
         this.cfg_db = null; // will be set once a part of a cluster & connected
         this.admin_db = null;
         this.collections = [];
+        this.gridfs_buckets = [];
+        this.gridfs_instances = {};
         this.connect_timeout = null; //will be set if connected and conn closed
         this.url =
             process.env.MONGO_RS_URL ||
@@ -121,6 +123,7 @@ class MongoClient extends EventEmitter {
                 dbg.log0('_connect: connected', this.url);
                 this._reset_connect_timeout();
                 this.db = db;
+                this.gridfs_instances = {};
                 // for now just print the topologyDescriptionChanged. we'll see if it's worth using later
                 db.topology.on('topologyDescriptionChanged', function(event) {
                     console.log('received topologyDescriptionChanged', util.inspect(event));
@@ -184,6 +187,7 @@ class MongoClient extends EventEmitter {
         dbg.log0('disconnect called');
         this._disconnected_state = true;
         this.promise = null;
+        this.gridfs_instances = {};
         if (this.db) {
             this.db.close();
             this.db = null;
@@ -226,6 +230,26 @@ class MongoClient extends EventEmitter {
     collection(col_name) {
         if (!this.db) throw new Error(`mongo_client not connected (collection ${col_name})`);
         return this.db.collection(col_name);
+    }
+
+    define_gridfs(bucket) {
+        if (_.find(this.gridfs_buckets, b => b.name === bucket.name)) {
+            throw new Error('define_gridfs: gridfs bucket already defined ' + bucket.name);
+        }
+        bucket.gridfs = () => {
+            if (!this.db) throw new Error(`mongo_client not connected (gridfs name ${bucket.name})`);
+            if (!this.gridfs_instances[bucket.name]) {
+                this.gridfs_instances[bucket.name] = new mongodb.GridFSBucket(this.db, {
+                    bucketName: bucket.name,
+                    chunkSizeBytes: bucket.chunk_size
+                });
+            }
+            return this.gridfs_instances[bucket.name];
+        };
+        js_utils.deep_freeze(bucket);
+        this.gridfs_buckets.push(bucket);
+
+        return bucket;
     }
 
     validate(col_name, doc, warn) {

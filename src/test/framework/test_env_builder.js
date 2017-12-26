@@ -8,7 +8,7 @@ const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 
 const AzureFunctions = require('../../deploy/azureFunctions');
-const agent_functions = require('../../test/qa/functions/agent_functions');
+const agent_functions = require('../utils/agent_functions');
 const sanity_build_test = require('../system_tests/sanity_build_test');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');

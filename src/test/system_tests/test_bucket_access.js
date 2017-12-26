@@ -4,7 +4,7 @@
 var api = require('../../api');
 var P = require('../../util/promise');
 var dotenv = require('../../util/dotenv');
-var ops = require('./basic_server_ops');
+var ops = require('../utils/basic_server_ops');
 var config = require('../../../config.js');
 var rpc = api.new_rpc();
 

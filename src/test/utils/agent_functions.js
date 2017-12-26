@@ -1,15 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../../util/promise');
+const P = require('../../util/promise');
 const _ = require('lodash');
 const crypto = require('crypto');
 const pool = 'first.pool';
-const api = require('../../../api');
-const promise_utils = require('../../../util/promise_utils');
+const api = require('../../api');
+const promise_utils = require('../../util/promise_utils');
 
 // Environment Setup
-require('../../../util/dotenv').load();
+require('../../util/dotenv').load();
 const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 

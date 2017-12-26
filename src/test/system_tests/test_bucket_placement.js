@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-var basic_server_ops = require('./basic_server_ops');
+var basic_server_ops = require('../utils/basic_server_ops');
 var config = require('../../../config');
 var P = require('../../util/promise');
 var api = require('../../api');

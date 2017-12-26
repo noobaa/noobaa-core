@@ -4,7 +4,7 @@
 const child_process = require('child_process');
 const P = require('../../util/promise');
 const argv = require('minimist')(process.argv);
-const server_ops = require('../qa/functions/server_functions');
+const server_ops = require('../utils/server_functions');
 const promise_utils = require('../../util/promise_utils');
 let secret;
 let isSystemStarted = true;

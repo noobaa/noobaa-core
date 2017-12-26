@@ -6,7 +6,7 @@ var api = require('../../api');
 var rpc = api.new_rpc();
 var argv = require('minimist')(process.argv);
 var P = require('../../util/promise');
-var basic_server_ops = require('./basic_server_ops');
+var basic_server_ops = require('../utils/basic_server_ops');
 // var _ = require('lodash');
 // var assert = require('assert');
 // var promise_utils = require('../../util/promise_utils');
@@ -404,7 +404,7 @@ function run_test() {
         .then(() => {
             console.log('test_s3_authentication PASSED');
             rpc.disconnect_all();
-            return;
+            
         })
         .catch(err => {
             rpc.disconnect_all();

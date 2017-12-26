@@ -3,7 +3,7 @@
 
 var _ = require('lodash');
 var P = require('../../util/promise');
-var ops = require('./basic_server_ops');
+var ops = require('../utils/basic_server_ops');
 var argv = require('minimist')(process.argv);
 
 function show_usage() {
@@ -15,7 +15,7 @@ function show_usage() {
 
 function stop() {
     process.exit(3);
-    return;
+
 }
 
 function main() {
@@ -41,7 +41,7 @@ function main() {
         .then(function() {
             console.log('Upgrade only passed!');
             process.exit(0);
-            return;
+
         });
 }
 

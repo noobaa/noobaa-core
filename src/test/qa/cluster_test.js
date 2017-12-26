@@ -6,9 +6,9 @@ const AzureFunctions = require('../../deploy/azureFunctions');
 const P = require('../../util/promise');
 const api = require('../../api');
 const promise_utils = require('../../util/promise_utils');
-const ops = require('../system_tests/basic_server_ops');
-const s3ops = require('../qa/s3ops');
-const af = require('../qa/functions/agent_functions');
+const ops = require('../utils/basic_server_ops');
+const s3ops = require('../utils/s3ops');
+const af = require('../utils/agent_functions');
 const _ = require('lodash');
 
 require('../../util/dotenv').load();

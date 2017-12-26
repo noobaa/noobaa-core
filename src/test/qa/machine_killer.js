@@ -4,7 +4,7 @@
 
 const promise_utils = require('../../util/promise_utils');
 var dotenv = require('../../util/dotenv');
-// const gcops = require('../qa/gcops');
+// const gcops = require('../utils/gcops');
 const argv = require('minimist')(process.argv);
 // var google = require('googleapis');
 

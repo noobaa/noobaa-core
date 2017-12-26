@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
-const basic_server_ops = require('./basic_server_ops');
+const basic_server_ops = require('../utils/basic_server_ops');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
 const api = require('../../api');

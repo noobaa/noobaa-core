@@ -3,10 +3,10 @@
 
 var vsphere = require("vsphere");
 var promise_utils = require('../../util/promise_utils');
-var vm_helper = require('../qa/vm-helper');
+var vm_helper = require('./vm-helper');
 var P = require('../../util/promise');
 var request = require('request');
-var ops = require('../system_tests/basic_server_ops');
+var ops = require('../utils/basic_server_ops');
 var ssh2 = require('ssh2');
 var argv = require('minimist')(process.argv);
 

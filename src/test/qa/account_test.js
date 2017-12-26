@@ -4,7 +4,7 @@
 const P = require('../../util/promise');
 const api = require('../../api');
 const argv = require('minimist')(process.argv);
-const s3ops = require('../qa/s3ops');
+const s3ops = require('../utils/s3ops');
 const _ = require('lodash');
 const promise_utils = require('../../util/promise_utils');
 const serverName = argv.server_ip || '127.0.0.1';

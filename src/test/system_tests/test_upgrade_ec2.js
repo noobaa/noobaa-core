@@ -8,7 +8,7 @@ var request = require('request');
 var ec2_wrap = require('../../deploy/ec2_wrapper');
 var ec2_deploy_agents = require('../../deploy/ec2_deploy_agents');
 var promise_utils = require('../../util/promise_utils');
-var ops = require('./basic_server_ops');
+var ops = require('./utils/basic_server_ops');
 
 var default_instance_type = 't2.micro';
 
@@ -70,7 +70,7 @@ function create_new_agents(target_ip, target_region) {
         })
         .then(function() {
             console.log('successfully created a new intance with 10 docker agents');
-            return;
+
         })
         .then(null, function(err) {
             console.error('Error in creating new instance for agents ', err);
@@ -167,7 +167,7 @@ function main() {
                     })
                     .then(function() {
                         console.log('Test Done');
-                        return;
+
                     })
                     .then(null, function(error) {
                         console.error('ERROR: test_upgrade FAILED', error);
@@ -181,7 +181,7 @@ function main() {
     } else {
         show_usage();
         process.exit(3);
-        return;
+
     }
 }
 

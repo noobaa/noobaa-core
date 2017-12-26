@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../../util/promise');
-const promise_utils = require('../../../util/promise_utils');
+const P = require('../../util/promise');
+const promise_utils = require('../../util/promise_utils');
 const ssh = require('./ssh_functions');
 const ssh2 = require('ssh2');
-const api = require('../../../api');
+const api = require('../../api');
 const activation_code = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +
     "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +

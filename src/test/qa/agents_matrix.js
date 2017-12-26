@@ -5,9 +5,9 @@ var P = require('../../util/promise');
 const _ = require('lodash');
 var AzureFunctions = require('../../deploy/azureFunctions');
 var crypto = require('crypto');
-const s3ops = require('../qa/s3ops');
-const af = require('../qa/functions/agent_functions');
-const ops = require('../system_tests/basic_server_ops');
+const s3ops = require('../utils/s3ops');
+const af = require('../utils/agent_functions');
+const ops = require('../utils/basic_server_ops');
 
 // Environment Setup
 require('../../util/dotenv').load();

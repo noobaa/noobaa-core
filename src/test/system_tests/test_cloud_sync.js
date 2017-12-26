@@ -3,7 +3,7 @@
 
 var P = require('../../util/promise');
 var api = require('../../api');
-var ops = require('./basic_server_ops');
+var ops = require('../utils/basic_server_ops');
 var config = require('../../../config.js');
 var dotenv = require('../../util/dotenv');
 var target_rpc = api.new_rpc();
@@ -590,8 +590,7 @@ function _create_bucket(params) {
             attached_pools: params.pools,
             data_placement: params.data_placement
         })
-        .then(() =>
-            client.tiering_policy.create_policy({
+        .then(() => client.tiering_policy.create_policy({
                 name: params.tiering_policy,
                 tiers: [{
                     order: 0,

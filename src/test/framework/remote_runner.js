@@ -3,7 +3,7 @@
 
 const argv = require('minimist')(process.argv);
 
-const ssh = require('../qa/functions/ssh_functions');
+const ssh = require('../utils/ssh_functions');
 
 const {
     server_name,

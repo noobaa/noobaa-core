@@ -5,8 +5,8 @@ const argv = require('minimist')(process.argv);
 const AzureFunctions = require('../../deploy/azureFunctions');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
-const s3ops = require('../qa/s3ops');
-const af = require('../qa/functions/agent_functions');
+const s3ops = require('../utils/s3ops');
+const af = require('../utils/agent_functions');
 
 require('../../util/dotenv').load();
 

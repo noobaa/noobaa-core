@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const argv = require('minimist')(process.argv);
 const net = require('net');
 const _ = require('lodash');
-const af = require('../test/qa/functions/agent_functions');
+const af = require('../test/utils/agent_functions');
 
 
 // Environment Setup

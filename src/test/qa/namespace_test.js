@@ -7,7 +7,7 @@ const promise_utils = require('../../util/promise_utils');
 const RandStream = require('../../util/rand_stream');
 const AWS = require('aws-sdk');
 const azure_storage = require('../../util/azure_storage_wrap');
-const s3ops = require('../qa/s3ops');
+const s3ops = require('../utils/s3ops');
 const api = require('../../api');
 const crypto = require('crypto');
 

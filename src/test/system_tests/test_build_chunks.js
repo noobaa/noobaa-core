@@ -9,7 +9,7 @@ const crypto = require('crypto');
 
 const P = require('../../util/promise');
 const api = require('../../api');
-const ops = require('./basic_server_ops');
+const ops = require('../utils/basic_server_ops');
 const config = require('../../../config.js');
 const dotenv = require('../../util/dotenv');
 const ObjectIO = require('../../sdk/object_io');

@@ -4,7 +4,7 @@
 let _ = require('lodash');
 let P = require('../../util/promise');
 let api = require('../../api');
-let ops = require('./basic_server_ops');
+let ops = require('../utils/basic_server_ops');
 let promise_utils = require('../../util/promise_utils');
 var dotenv = require('../../util/dotenv');
 const uuid = require('uuid/v4');
@@ -115,8 +115,7 @@ function create_test_bucket() {
             attached_pools: [TEST_CTX.pool],
             data_placement: 'SPREAD'
         })
-        .then(() =>
-            client.tiering_policy.create_policy({
+        .then(() => client.tiering_policy.create_policy({
                 name: 'tiering-' + TEST_CTX.bucket,
                 tiers: [{
                     order: 0,

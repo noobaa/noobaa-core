@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const s3ops = require('../qa/s3ops');
+const s3ops = require('../utils/s3ops');
 const P = require('../../util/promise');
 const argv = require('minimist')(process.argv);
 

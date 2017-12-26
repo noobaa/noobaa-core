@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const ssh2 = require('ssh2');
-const P = require('../../../util/promise');
+const P = require('../../util/promise');
 
 //will connect the ssh session
 function ssh_connect(client, options) {

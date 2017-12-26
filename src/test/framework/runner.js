@@ -13,7 +13,7 @@ const request = require('request');
 const P = require('../../util/promise');
 const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
-const ops = require('../system_tests/basic_server_ops');
+const ops = require('../utils/basic_server_ops');
 const fs_utils = require('../../util/fs_utils');
 const promise_utils = require('../../util/promise_utils');
 const { CoverageReport } = require('../../util/coverage_utils');
@@ -185,7 +185,7 @@ class TestRunner {
                     })
                     .then(function(step_res) {
                         fs.appendFileSync(REPORT_PATH, step_res + '\n');
-                        return;
+
                     })
                     .catch(function(error) {
                         fs.appendFileSync(REPORT_PATH, 'Stopping tests with error ' + error + ' ' + error.stace + ' ' + error.message);
@@ -195,7 +195,7 @@ class TestRunner {
             .then(function() {
                 console.log('All steps done');
                 fs.appendFileSync(REPORT_PATH, 'All steps done\n');
-                return;
+
             })
             .catch(function(error) {
                 fs.appendFileSync(REPORT_PATH, 'Stopping tests with error\n' + error);

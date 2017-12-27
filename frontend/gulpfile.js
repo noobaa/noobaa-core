@@ -16,8 +16,11 @@ const watchify = require('watchify');
 const runSequence = require('run-sequence');
 const through = require('through2');
 const moment = require('moment');
+const spawn = require('child_process').spawn;
 const $ = require('gulp-load-plugins')();
 
+const cwd = process.cwd();
+const libsPath = './src/lib';
 const buildPath = './dist';
 const uglify = !!argv.uglify;
 let buildErrors = 0;
@@ -33,19 +36,61 @@ const staticAssetsSelector = [
 ];
 
 const libs = [
-    { name: 'knockout',             path: './src/lib/knockout/dist/knockout.debug.js' },
-    { name: 'knockout-projections', path: './src/lib/knockout-projections/dist/knockout-projections.min.js' },
-    { name: 'knockout-validation',  path: './src/lib/knockout-validation/dist/knockout.validation.js' },
-    { name: 'numeral',              path: './src/lib/numeral/numeral.js' },
-    { name: 'page',                 path: './src/lib/page/page.js' },
-    { name: 'moment',               path: './src/lib/moment/moment.js' },
-    { name: 'moment-timezone',      path: './src/lib/moment-timezone/builds/moment-timezone-with-data.js' },
-    { name: 'shifty',               path: './src/lib/shifty/dist/shifty.js' },
-    { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
-    { name: 'jszip',                path: './src/lib/jszip/dist/jszip.js' },
-    { name: 'chartjs',              path: './src/lib/chart.js/dist/Chart.js' },
-    { name: 'rx',                   path: './src/lib/rxjs/dist/rx.lite.js' },
-    { name: 'big-integer',          path: './src/lib/big-integer/BigInteger.min.js' }
+    {
+        name: 'knockout',
+        module: 'dist/knockout.debug.js'
+    },
+    {
+        name: 'knockout-projections',
+        module: 'dist/knockout-projections.min.js'
+    },
+    {
+        name: 'knockout-validation',
+        module: 'dist/knockout.validation.js'
+    },
+    {
+        name: 'numeral',
+        module: 'numeral.js'
+    },
+    {
+        name: 'page',
+        module: 'page.js'
+    },
+    {
+        name: 'moment',
+        module: 'moment.js'
+    },
+    {
+        name: 'moment-timezone',
+        module: 'builds/moment-timezone-with-data.js'
+    },
+    {
+        name: 'shifty',
+        module: 'dist/shifty.js',
+        build: 'npm run build'
+    },
+    {
+        name: 'aws-sdk',
+        module: 'dist/aws-sdk.js'
+    },
+    {
+        name: 'jszip',
+        module: 'dist/jszip.js'
+    },
+    {
+        name: 'chart.js',
+        exposeAs: 'chartjs',
+        module: 'dist/Chart.js'
+    },
+    {
+        name: 'rxjs',
+        exposeAs: 'rx',
+        module: 'dist/rx.lite.js'
+    },
+    {
+        name: 'big-integer',
+        module: 'BigInteger.min.js'
+    }
 ];
 
 const apiBlackList = [
@@ -90,15 +135,17 @@ gulp.task('clean', cb => {
     });
 });
 
-gulp.task('build-lib', ['install-deps'], () => {
+gulp.task('build-lib', ['build-deps'], () => {
     const b = browserify({
         debug: true,
         noParse: true
     });
 
-    libs.forEach(
-        lib => b.require(lib.path, { expose: lib.name })
-    );
+    libs.forEach(lib =>  {
+        const { module, name, exposeAs = name } = lib;
+        const fullPath = path.join(cwd, libsPath, name, module);
+        b.require(fullPath, { expose: exposeAs });
+    });
 
     return b.bundle()
         .on('error', errorHandler)
@@ -165,7 +212,6 @@ gulp.task('generate-svg-icons', () => {
         .pipe(gulp.dest(path.join(buildPath, 'assets')));
 });
 
-
 gulp.task('copy', () => {
     return gulp.src(
         staticAssetsSelector,
@@ -180,6 +226,27 @@ gulp.task('build-js-style', () => {
         .pipe($.less())
         .pipe(cssClassToJson())
         .pipe(gulp.dest(buildPath));
+});
+
+gulp.task('build-deps', ['install-deps'], cb => {
+    const libsToBuild = libs
+        .filter(lib => lib.build)
+        .map(lib => {
+            const workingDir = path.join(cwd, libsPath, lib.name);
+            const pkgFile = path.join(workingDir, 'package.json');
+            const command = lib.build;
+            return { workingDir, pkgFile, command };
+        });
+
+    gulp.src(libsToBuild.map(lib => lib.pkgFile))
+        .pipe($.install(() => {
+            const builds = libsToBuild
+                .map(lib => spawnAsync(lib.command, { cwd: lib.workingDir }));
+
+            Promise.all(builds)
+                .then(() => cb(), cb);
+        }))
+        .on('error', errorHandler);
 });
 
 gulp.task('install-deps', () => {
@@ -277,6 +344,21 @@ gulp.task('test', () => {
 // ----------------------------------
 // Helper functions
 // ----------------------------------
+
+function spawnAsync(command, options) {
+    return new Promise((resolve, reject) => {
+        const [cmd, ...args] = command.split(/\s+/);
+        spawn(cmd, args, Object.assign({ stdio: 'inherit' }, options))
+            .on('exit', code => code === 0 ?
+                resolve() :
+                reject(new Error(`spawn "${command}" exit with error code ${code}`))
+            )
+            .on('error', err => reject(
+                new Error(`spawn "${command}"" exited with error ${err}`)
+            ));
+    });
+}
+
 function createBundler(useWatchify) {
     let bundler;
     if (useWatchify) {
@@ -319,7 +401,7 @@ function bundleApp(watch) {
         .transform(stringify({ minify: uglify }))
         .add('src/app/main');
 
-    libs.forEach(lib => bundler.external(lib.name));
+    libs.forEach(lib => bundler.external(lib.exposeAs || lib.name));
     bundler.external('nb-api');
 
     const bundle = () => bundler.bundle()

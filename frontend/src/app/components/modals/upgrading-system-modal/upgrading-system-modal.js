@@ -10,17 +10,17 @@ import { state$, action$ } from 'state';
 import { sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import moment from 'moment';
-import Tweenable from 'shifty';
+import { tween } from 'shifty';
 import {
-    replaceWidthPreUpgradeSystemFailedModal,
-    replaceWidthUpgradeSystemFailedModal
+    replaceWithPreUpgradeSystemFailedModal,
+    replaceWithUpgradeSystemFailedModal
 } from 'action-creators';
 
 function _startFakeProgress(stepCallback) {
     const delay = moment.duration(1, 'seconds').asMilliseconds();
     const duration = moment.duration(90, 'seconds').asMilliseconds();
 
-    return new Tweenable().tween({
+    tween({
         from: { val: 0 },
         to: { val: .9 },
         delay: delay,
@@ -61,7 +61,7 @@ class SystemUpgradingModalViewModel extends Observer {
         );
 
         // Start a fake progress process.
-        this.tweenSub = _startFakeProgress(this.onFakeProgress.bind(this));
+        _startFakeProgress(this.onFakeProgress.bind(this));
     }
 
     onState(servers) {
@@ -90,11 +90,11 @@ class SystemUpgradingModalViewModel extends Observer {
         this.serverRows(serverRows);
 
         if (serverList.some(server => server.upgrade.package.error)) {
-            action$.onNext(replaceWidthPreUpgradeSystemFailedModal());
+            action$.onNext(replaceWithPreUpgradeSystemFailedModal());
         }
 
         if (serverList.some(server => server.upgrade.error)) {
-            action$.onNext(replaceWidthUpgradeSystemFailedModal());
+            action$.onNext(replaceWithUpgradeSystemFailedModal());
         }
     }
 
@@ -105,11 +105,6 @@ class SystemUpgradingModalViewModel extends Observer {
         this.completedRatio(progress);
         this.letfRatio(1 - progress);
         this.progressText(_formatProgress(progress));
-    }
-
-    dispose() {
-        this.tweenSub.dispose();
-        super.dispose();
     }
 }
 

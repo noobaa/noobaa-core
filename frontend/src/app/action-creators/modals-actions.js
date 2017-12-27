@@ -393,7 +393,7 @@ export function openEditBucketQuotaModal(bucketName) {
     };
 }
 
-export function replaceWidthAccountCreatedModal(accountName, password) {
+export function replaceWithAccountCreatedModal(accountName, password) {
     return {
         type: REPLACE_MODAL,
         payload: {
@@ -618,7 +618,7 @@ export function openUpgradeSystemModal() {
     };
 }
 
-export function replaceWidthPreUpgradeSystemFailedModal() {
+export function replaceWithPreUpgradeSystemFailedModal() {
     return {
         type: REPLACE_MODAL,
         payload: {
@@ -632,7 +632,7 @@ export function replaceWidthPreUpgradeSystemFailedModal() {
     };
 }
 
-export function replaceWidthUpgradeSystemFailedModal() {
+export function replaceWithUpgradeSystemFailedModal() {
     return {
         type: REPLACE_MODAL,
         payload: {

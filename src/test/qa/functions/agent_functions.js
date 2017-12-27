@@ -349,11 +349,10 @@ function waitForAgentsAmount(server_ip, numberAgents) {
 
 function startOfflineAgents(azf, server_ip, suffix, oses) {
     let agentsExpected;
-    let agentName = oses + suffix;
     return list_nodes(server_ip)
         .then(res => {
             agentsExpected = res.length + oses.length;
-            return P.each(oses, agent => start_agent(azf, agentName));
+            return P.each(oses, agent => start_agent(azf, agent + suffix));
         })
         .then(() => waitForAgentsAmount(server_ip, agentsExpected))
         .then(() => list_nodes(server_ip))

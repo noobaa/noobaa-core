@@ -1,5 +1,5 @@
 #!groovy​
-def branch = '2.0'
+def branch = 'master'
 //dataset
 def dataset_ip = '52.250.112.75'
 def noobaa_server = 'datasetpipeline.westus2.cloudapp.azure.com'

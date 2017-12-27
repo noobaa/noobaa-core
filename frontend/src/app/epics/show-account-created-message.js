@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { COMPLETE_CREATE_ACCOUNT, COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
-import { replaceToAccountCreatedModal } from 'action-creators';
+import { replaceWithAccountCreatedModal } from 'action-creators';
 
 export default function(action$) {
     return action$
@@ -11,6 +11,6 @@ export default function(action$) {
             return action$
                 .ofType(COMPLETE_FETCH_SYSTEM_INFO)
                 .take(1)
-                .map(() => replaceToAccountCreatedModal(accountName, password));
+                .map(() => replaceWithAccountCreatedModal(accountName, password));
         });
 }

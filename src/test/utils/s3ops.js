@@ -13,8 +13,6 @@ function validate_multiplier(multiplier) {
     if (!multiplier % 1024) throw new Error(`multiplier must be in multiples of 1024`);
 }
 
-// copy_file_with_md5('127.0.0.1', 'first.bucket', 'DataSet1470756819/file1', 'DataSet1470756819/file45');
-
 function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
     validate_multiplier(multiplier);
     const rest_endpoint = 'http://' + ip + ':80';
@@ -55,7 +53,7 @@ function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
         });
 }
 
-function copy_file_with_md5(ip, bucket, source, destination) {
+function server_side_copy_file_with_md5(ip, bucket, source, destination) {
     const rest_endpoint = 'http://' + ip + ':80';
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -72,65 +70,40 @@ function copy_file_with_md5(ip, bucket, source, destination) {
         Key: destination,
         MetadataDirective: 'COPY'
     };
-    console.log('>>> COPY - About to copy object... from: ' + source + ' to: ' + destination);
+    console.log('>>> SS COPY - About to copy object... from: ' + source + ' to: ' + destination);
     let start_ts = Date.now();
     return P.ninvoke(s3bucket, 'copyObject', params)
         .then(res => {
-            console.log('Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
+            console.log('SS Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
         })
         .catch(err => {
-            console.error(`Copy failed from ${source} to ${destination}!`, err);
+            console.error(`SS Copy failed from ${source} to ${destination}!`, err);
             throw err;
+        });
+}
+
+function client_side_copy_file_with_md5(ip, bucket, source, destination) {
+    console.log('>>> CS COPY - About to copy object... from: ' + source + ' to: ' + destination);
+
+    return get_file_check_md5(ip, bucket, source, true)
+        .then(res => {
+            const TEN_MB = 10 * 1024 * 1024;
+            return _multipart_upload_internal(ip, bucket, destination, res.data, TEN_MB);
         });
 }
 
 function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multiplier) {
     validate_multiplier(multiplier);
-    const rest_endpoint = 'http://' + ip + ':80';
-    const s3bucket = new AWS.S3({
-        endpoint: rest_endpoint,
-        accessKeyId: accessKeyDefault,
-        secretAccessKey: secretKeyDefault,
-        s3ForcePathStyle: true,
-        sslEnabled: false,
-    });
-    bucket = bucket || 'first.bucket';
     data_size = data_size || 50;
-
     const actual_size = data_size * multiplier;
-
     let data = crypto.randomBytes(actual_size);
-    let md5 = crypto.createHash('md5').update(data)
-        .digest('hex');
-
-    let start_ts = Date.now();
     let size = Math.ceil(actual_size / parts_num);
 
-    console.log(`>>> MultiPart UPLOAD - About to multipart upload object... ${
-        file_name}, md5: ${md5}, size: ${data.length}`);
-    let params = {
-        Bucket: bucket,
-        Key: file_name,
-        Body: data,
-        Metadata: {
-            md5: md5
-        },
-    };
-    let options = {
-        partSize: size
-    };
-    return P.ninvoke(s3bucket, 'upload', params, options)
-        .then(res => {
-            console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
-            return md5;
-        })
-        .catch(err => {
-            console.error(`Put failed ${file_name}!`, err);
-            throw err;
-        });
+    return P.resolve()
+        .then(() => _multipart_upload_internal(ip, bucket, file_name, data, size));
 }
 
-function get_file_check_md5(ip, bucket, file_name) {
+function get_file_check_md5(ip, bucket, file_name, return_data) {
     const rest_endpoint = 'http://' + ip + ':80';
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -161,6 +134,12 @@ function get_file_check_md5(ip, bucket, file_name) {
                     md5} - they are different, size: ${res.ContentLength}`);
                 throw new Error('Bad MD5 from download');
             }
+            if (return_data) {
+                return {
+                    data: res.Body,
+                    length: res.ContentLength
+                };
+            }
         })
         .catch(err => {
             console.error(`Download failed for ${file_name}!`, err);
@@ -187,16 +166,16 @@ function check_MD5_all_objects(ip, bucket, prefix) {
     promise_utils.pwhile(
         () => !stop,
         () => P.ninvoke(s3bucket, 'listObjects', params)
-            .then(res => {
-                let list = res.Contents;
-                if (list.length === 0) {
-                    stop = true;
-                } else {
-                    params.Marker = list[list.length - 1].Key;
-                    stop = true;
-                    return P.each(list, obj => get_file_check_md5(ip, bucket, obj.Key));
-                }
-            }));
+        .then(res => {
+            let list = res.Contents;
+            if (list.length === 0) {
+                stop = true;
+            } else {
+                params.Marker = list[list.length - 1].Key;
+                stop = true;
+                return P.each(list, obj => get_file_check_md5(ip, bucket, obj.Key));
+            }
+        }));
 }
 
 function get_a_random_file(ip, bucket, prefix) {
@@ -368,6 +347,7 @@ function get_list_prefixes(ip, bucket) {
             throw err;
         });
 }
+
 function get_file_number(ip, bucket, prefix) {
     const rest_endpoint = 'http://' + ip + ':80';
     const s3bucket = new AWS.S3({
@@ -476,12 +456,10 @@ function set_file_attribute(ip, bucket, file_name) {
         Bucket: bucket,
         Key: file_name,
         Tagging: {
-            TagSet: [
-                {
-                    Key: 's3ops',
-                    Value: 'set_file_attribute'
-                }
-            ]
+            TagSet: [{
+                Key: 's3ops',
+                Value: 'set_file_attribute'
+            }]
         }
     };
 
@@ -705,8 +683,56 @@ function get_object(ip, bucket, key) {
     return P.ninvoke(s3bucket, 'getObject', params)
         .catch(err => {
             console.error(`get_object:: getObject ${params} failed!`, err);
+            throw err;
         });
 }
+
+/*
+ * Internal Utils
+ */
+function _multipart_upload_internal(ip, bucket, file_name, data, size) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    bucket = bucket || 'first.bucket';
+
+    let md5 = crypto.createHash('md5').update(data).digest('hex');
+
+    let params = {
+        Bucket: bucket,
+        Key: file_name,
+        Body: data,
+        Metadata: {
+            md5: md5
+        },
+    };
+    let options;
+    if (size) {
+        options = {
+            partSize: size
+        };
+    }
+
+    let start_ts = Date.now();
+    console.log(`>>> MultiPart UPLOAD - About to multipart upload object... ${
+        file_name}, md5: ${md5}, size: ${data.length}`);
+
+    return P.ninvoke(s3bucket, 'upload', params, options)
+        .then(res => {
+            console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
+            return md5;
+        })
+        .catch(err => {
+            console.error(`Upload failed ${file_name}!`, err);
+            throw err;
+        });
+}
+
 
 exports.get_list_multipart_uploads = get_list_multipart_uploads;
 exports.get_list_multipart_uploads_filters = get_list_multipart_uploads_filters;
@@ -715,7 +741,8 @@ exports.get_object_uploadId = get_object_uploadId;
 exports.get_bucket_uploadId = get_bucket_uploadId;
 exports.is_bucket_exist = is_bucket_exist;
 exports.put_file_with_md5 = put_file_with_md5;
-exports.copy_file_with_md5 = copy_file_with_md5;
+exports.server_side_copy_file_with_md5 = server_side_copy_file_with_md5;
+exports.client_side_copy_file_with_md5 = client_side_copy_file_with_md5;
 exports.upload_file_with_md5 = upload_file_with_md5;
 exports.get_file_check_md5 = get_file_check_md5;
 exports.check_MD5_all_objects = check_MD5_all_objects;

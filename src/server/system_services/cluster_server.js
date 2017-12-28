@@ -1138,7 +1138,8 @@ function member_pre_upgrade(req) {
         path: req.rpc_params.filepath,
         mongo_upgrade: req.rpc_params.mongo_upgrade,
         status: req.rpc_params.stage === 'UPGRADE_STAGE' ? 'PRE_UPGRADE_PENDING' : 'PENDING',
-        package_uploaded: req.rpc_params.stage === 'UPLOAD_STAGE' ? Date.now() : server.upgrade.package_uploaded
+        package_uploaded: req.rpc_params.stage === 'UPLOAD_STAGE' ? Date.now() : server.upgrade.package_uploaded,
+        staged_package: req.rpc_params.stage === 'UPLOAD_STAGE' ? 'UNKNOWN' : server.upgrade.staged_package
     }, _.isUndefined);
 
     dbg.log0('UPGRADE:', 'updating cluster for server._id', server._id, 'with upgrade =', upgrade);
@@ -1154,7 +1155,6 @@ function member_pre_upgrade(req) {
         .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'))
         .then(() => upgrade_utils.pre_upgrade({
             upgrade_path: upgrade.path,
-            testing_stage: Boolean(req.rpc_params.stage !== 'UPGRADE_STAGE')
         }))
         .then(res => {
             //Update result of pre_upgrade and message in DB
@@ -1167,9 +1167,14 @@ function member_pre_upgrade(req) {
                 dbg.error('UPGRADE HAD ERROR: ', res.error);
                 // TODO: Change that shit to more suitable error handler
                 upgrade.error = res.error;
+                if (req.rpc_params.stage === 'UPGRADE_STAGE') {
+                    upgrade_in_process = false;
+                }
             }
 
-            upgrade.staged_package = res.staged_package || 'UNKNOWN';
+            if (req.rpc_params.stage === 'UPLOAD_STAGE') {
+                upgrade.staged_package = res.staged_package || 'UNKNOWN';
+            }
             upgrade.tested_date = res.tested_date;
 
             dbg.log0('UPGRADE:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
@@ -1340,16 +1345,16 @@ function upgrade_cluster(req) {
                 });
         })
         .then(() => {
-            //wait for all secondaries to reach CAN_UPGRADE. if one failed fail the upgrade
-            dbg.log0('UPGRADE:', 'waiting for secondaries to reach CAN_UPGRADE');
+            //wait for all secondaries to reach PRE_UPGRADE_READY. if one failed fail the upgrade
+            dbg.log0('UPGRADE:', 'waiting for secondaries to reach PRE_UPGRADE_READY');
             // TODO: on multiple shards we can upgrade one at the time in each shard
-            return P.all(cutil.get_all_cluster_members(), ip => {
-                // for each server, wait for it to reach CAN_UPGRADE, then call do_upgrade
+            return P.map(cutil.get_all_cluster_members(), ip => {
+                // for each server, wait for it to reach PRE_UPGRADE_READY, then call do_upgrade
                 // wait for UPGRADED status before continuing to next one
-                dbg.log0('UPGRADE:', 'waiting for server', ip, 'to reach CAN_UPGRADE');
-                return _wait_for_upgrade_state(ip, 'CAN_UPGRADE')
+                dbg.log0('UPGRADE:', 'waiting for server', ip, 'to reach PRE_UPGRADE_READY');
+                return _wait_for_upgrade_state(ip, 'PRE_UPGRADE_READY')
                     .catch(err => {
-                        dbg.error('UPGRADE:', 'timeout: server at', ip, 'did not reach CAN_UPGRADE state. aborting upgrade', err);
+                        dbg.error('UPGRADE:', 'timeout: server at', ip, 'did not reach PRE_UPGRADE_READY state. aborting upgrade', err);
                         throw err;
                     });
             });
@@ -1400,7 +1405,7 @@ function _handle_cluster_upgrade_failure(err, ip) {
             const fe_notif_params = {};
             const change = {
                 "upgrade.status": 'UPGRADE_FAILED',
-                "upgrade.error": 'Upgrade has failed with an interal error'
+                "upgrade.error": 'Upgrade has failed with an interal error.'
             };
             let updates;
             if (ip) {

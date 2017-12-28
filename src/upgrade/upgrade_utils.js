@@ -39,8 +39,8 @@ const ERROR_MAPPING = {
     COULD_NOT_EXTRACT_PARAMS: 'Failed to perform pre-upgrade tests.',
     CANNOT_UPGRADE_WITHOUT_SYSTEM: 'Failed to perform pre-upgrade tests due to no system on the server.',
     COULD_NOT_INSTALL_PACKAGES: 'Failed on pre-upgrade packages.',
-    NTP_TIMESKEW_FAILED: 'The difference between the server time and the NTP server time is too large.',
-    NTP_COMMUNICATION_ERROR: 'Failed to communicate with NTP server.',
+    NTP_TIMESKEW_FAILED: 'The difference between the server time and a web NTP server time is too large.',
+    NTP_COMMUNICATION_ERROR: 'Failed to check time skew, please configure NTP server or verify internet connectivity.',
     UNKNOWN: 'Failed with an internal error.'
 };
 
@@ -87,7 +87,7 @@ function pre_upgrade(params) {
         .then(() => _.omitBy({
             result: true,
             tested_date: Date.now(),
-            staged_package: params.testing_stage && (staged_package || 'UNKNOWN')
+            staged_package: staged_package || 'UNKNOWN'
         }, _.isUndefined))
         .catch(error => {
             let err_message = ERROR_MAPPING[error.message] || ERROR_MAPPING.UNKNOWN;
@@ -102,7 +102,7 @@ function pre_upgrade(params) {
                 result: false,
                 error: err_message,
                 tested_date: Date.now(),
-                staged_package: params.testing_stage && (staged_package || 'UNKNOWN')
+                staged_package: staged_package || 'UNKNOWN'
             }, _.isUndefined);
         });
 }

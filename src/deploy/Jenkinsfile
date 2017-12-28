@@ -1,5 +1,5 @@
 #!groovy​
-def branch = 'master'
+def branch = '2.0'
 //dataset
 def dataset_ip = '52.250.112.75'
 def noobaa_server = 'datasetpipeline.westus2.cloudapp.azure.com'
@@ -29,7 +29,7 @@ def nodeLocalIP = '10.1.12.0'
 def serverLocalIP = '52.191.139.47'
 def severExternalIP = '52.191.139.47'
 //yulia rg
-def yulia_ip = '52.175.239.178'
+def yulia_ip = '51.143.23.233'
 def yulia_resource = 'yulia-test-rg'
 def yulia_vnet = 'yulia-test-rg-vnet'
 def yulia_storage = 'yuliastorage'

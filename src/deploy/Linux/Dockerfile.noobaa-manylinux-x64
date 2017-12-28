@@ -1,13 +1,13 @@
-FROM dockcross/manylinux-x64
+FROM centos:6
 
 #################
 # INSTALLATIONS #
 #################
 # best keep installations first for best docker images caching
 
-# python2.6 - required for node-gyp
 RUN yum -y update
-RUN yum -y install python26
+RUN yum -y install centos-release-scl
+RUN yum -y install devtoolset-7
 
 # nvm - for all users
 # adding nvm.sh to /etc/profile.d/nvm.sh to be loaded by any non-interactive shells
@@ -41,8 +41,7 @@ RUN nvm install
 
 # configure npm
 # unsafe-perm is needed in order to run by root
-RUN npm config set python /usr/bin/python26 && \
-    npm config set unsafe-perm true
+RUN npm config set unsafe-perm true
 
-# set DEFAULT_DOCKCROSS_IMAGE so that the generated control script will default to using our image
-ENV DEFAULT_DOCKCROSS_IMAGE noobaa-manylinux-x64
+RUN mkdir /work
+WORKDIR /work

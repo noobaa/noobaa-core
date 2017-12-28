@@ -102,6 +102,14 @@ node('pipeline') {
             echo 'CLIENT_ID=199522b3-407d-45eb-b7fb-023d21ab6406' >> .env
             """
         }
+        stage('Rebuild replicas test') {
+            echo 'Uploading data with switching off agents and checking files chunks and parts'
+            sh script: """
+            export NVM_DIR=/opt/nvm
+            . /opt/nvm/nvm.sh
+            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}' --failed_agents_number 2 --agents_number 10
+            """
+        }
         stage('Data availability test') {
             echo 'Uploading data with switching off agents and checking files'
             sh script: """
@@ -115,7 +123,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}' --failed_agents_number 2 --agents_number 8
+            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}' --failed_agents_number 2 --agents_number 10
             """
         }
         stage('dataset test') {

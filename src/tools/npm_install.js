@@ -9,10 +9,9 @@ const child_process = require('child_process');
 // but skip it if the frontend folder is missing such as when building agent package.
 const folder = process.argv[2];
 
-fs.exists(folder, function(exists) {
-    if (!exists) return;
+if (fs.existsSync(folder)) {
     child_process.spawn('npm', ['install'], {
         cwd: folder,
         stdio: 'inherit',
     });
-});
+}

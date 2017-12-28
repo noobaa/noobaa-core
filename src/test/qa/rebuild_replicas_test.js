@@ -36,13 +36,19 @@ const {
     failed_agents_number = 1,
     server_ip,
     bucket = 'first.bucket',
-    help = false
+    help = false,
+    data_frags = 1,
+    parity_frags = 0,
+    replicas = 3
 } = argv;
 
 function usage() {
     console.log(`
     --location              -   azure location (default: ${location})
     --bucket                -   bucket to run on (default: ${bucket})
+    --data_frags            -   bucket configuration (default: ${data_frags})
+    --parity_frags          -   bucket configuration (default: ${parity_frags})
+    --replicas              -   expected number of files replicas (default: ${replicas})
     --resource              -   azure resource group
     --storage               -   azure storage on the resource group
     --vnet                  -   azure vnet on the resource group
@@ -57,6 +63,12 @@ if (help) {
     usage();
     process.exit(1);
 }
+
+let auth_params = {
+    email: 'demo@noobaa.com',
+    password: 'DeMo1',
+    system: 'demo'
+};
 
 let osesSet = [
     'ubuntu12', 'ubuntu14', 'ubuntu16',
@@ -93,10 +105,11 @@ const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourc
 function changeTierSetting() {
     const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.bucket.read_bucket({ name: bucket })
+    return client.create_auth_token(auth_params)
+        .then(() => client.bucket.read_bucket({ name: bucket }))
         .then(res => client.tier.update_tier({
             name: res.tiering.tiers[0].tier,
-            chunk_coder_config: { data_frags: 4, parity_frags: 2 }
+            chunk_coder_config: { data_frags, parity_frags, replicas }
         }));
 }
 
@@ -136,15 +149,10 @@ function readFiles() {
 function getRebuildReplicasStatus(key) {
     let result = false;
     let replicaStatusOnline = [];
-    let replicas = [];
+    let filesReplicas = [];
     let fileParts = [];
     const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => P.resolve(client.object.read_object_mappings({
             bucket,
@@ -153,12 +161,12 @@ function getRebuildReplicasStatus(key) {
         })))
         .then(res => {
             fileParts = res.parts;
-            return P.each(fileParts, part => replicas.push(part.chunk.frags[0].blocks));
+            return P.each(fileParts, part => filesReplicas.push(part.chunk.frags[0].blocks));
         })
         .then(() => {
-                for (let i = 0; i < replicas.length; i++) {
-                        replicaStatusOnline = replicas[i].filter(replica => replica.adminfo.online === true);
-                        if (replicaStatusOnline.length === 3) {
+                for (let i = 0; i < filesReplicas.length; i++) {
+                        replicaStatusOnline = filesReplicas[i].filter(replica => replica.adminfo.online === true);
+                        if (replicaStatusOnline.length === replicas) {
                             console.log('Part ' + i + ' contains 3 online replicas - as should');
                             result = true;
                         } else {
@@ -195,11 +203,6 @@ function getFilesChunksHealthStatus(key) {
     let parts = [];
     const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => P.resolve(client.object.read_object_mappings({
             bucket,

@@ -89,6 +89,17 @@ function saveErrorAndResume(message) {
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
+
+function changeTierSetting() {
+    const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
+    const client = rpc.new_client({});
+    return client.bucket.read_bucket({ name: bucket })
+        .then(res => client.tier.update_tier({
+            name: res.tiering.tiers[0].tier,
+            chunk_coder_config: { data_frags: 4, parity_frags: 2 }
+        }));
+}
+
 function uploadAndVerifyFiles(dataset_size_GB) {
     let { data_multiplier } = unit_mapping.MB;
     let dataset_size = dataset_size_GB * 1024;
@@ -238,6 +249,7 @@ function clean_up_dataset() {
 }
 
 return azf.authenticate()
+    .then(changeTierSetting)
     .then(() => af.clean_agents(azf, osesSet, suffix))
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {

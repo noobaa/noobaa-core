@@ -1,7 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { action$ } from 'state';
-import { fetchUnreadAlertsCount, showNotification, removeHost, fetchSystemInfo } from 'action-creators';
+import {
+    fetchUnreadAlertsCount,
+    showNotification,
+    removeHost,
+    fetchSystemInfo,
+    refreshLocation
+} from 'action-creators';
 
 export function alert() {
     action$.onNext(fetchUnreadAlertsCount());
@@ -21,6 +27,7 @@ export function add_memeber_to_cluster(req) {
 export function remove_host(req) {
     const { name: host } = req.rpc_params;
     action$.onNext(removeHost(host));
+    action$.onNext(refreshLocation());
 }
 
 export function change_upgrade_status() {

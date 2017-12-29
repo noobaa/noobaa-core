@@ -981,7 +981,10 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, 
         dns_servers: [primaryDNS, secondaryDNS].filter(Boolean),
         search_domains: searchDomains
     })
-        .then(() => action$.onNext(refreshLocation()))
+        .then(() => {
+            notify('DNS server settings updated successfully', 'success');
+            action$.onNext(refreshLocation());
+        })
         .catch(() => {
             notify('Updating server DNS setting failed, Please try again later', 'error');
         })

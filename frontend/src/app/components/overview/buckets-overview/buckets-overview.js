@@ -4,7 +4,7 @@ import Observer from 'observer';
 import template from './buckets-overview.html';
 import { realizeUri } from 'utils/browser-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { deepFreeze, mapValues } from 'utils/core-utils';
+import { deepFreeze, mapValues, last } from 'utils/core-utils';
 import { sumSize, interpolateSizes, toBytes, formatSize } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
 import { state$, action$ } from 'state';
@@ -18,6 +18,7 @@ import {
     openConnectAppModal
 } from 'action-creators';
 
+const minRedrawInterval = 5000;
 const durations = deepFreeze({
     DAY: {
         label: 'Day',
@@ -67,6 +68,18 @@ const chartDatasets = deepFreeze([
 ]);
 
 const firstSampleHideDuration = moment.duration(1, 'hours').asMilliseconds();
+
+function _shouldRedraw(lastDuration, currentDuration, lastPoints, currentPoints) {
+    const shouldNotRedraw = lastDuration === currentDuration &&
+        lastPoints.length === currentPoints.length &&
+        currentPoints
+            .some((currentPoint, i) => (
+                currentPoint.x - lastPoints[i].x < minRedrawInterval &&
+                currentPoint.y === lastPoints[i].y
+            ));
+
+    return !shouldNotRedraw;
+}
 
 function _getTimespanBounds(unit, timespan, now) {
     const t = moment(now).add(1, unit).startOf(unit);
@@ -250,6 +263,8 @@ class BucketsOverviewViewModel extends Observer{
         super();
 
         this.pathname = '';
+        this.lastDurationFilter = '';
+        this.lastDataPoints = [];
         this.durationOptions = Object.entries(durations)
             .map(pair => ({
                 value: pair[0],
@@ -354,6 +369,7 @@ class BucketsOverviewViewModel extends Observer{
         const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
         const hasChartData = chartParams.data.datasets
             .some(dataset => Boolean(dataset.data.length));
+        const currentDataPoints = chartParams.data.datasets.map(({ data }) => last(data));
 
         this.bucketsLinkText(bucketsLinkText);
         this.bucketsLinkHref(bucketsLinkHref);
@@ -366,8 +382,20 @@ class BucketsOverviewViewModel extends Observer{
         this.usedValues[1].value(used.cloudResources);
         this.usedValues[2].value(used.internalResources);
         this.noChartData(!hasChartData);
-        this.chartParams(chartParams);
+
+        if (_shouldRedraw(
+                this.lastDurationFilter,
+                selectedDuration,
+                this.lastDataPoints,
+                currentDataPoints
+            )
+        ) {
+            this.chartParams(chartParams);
+        }
+
         this.dataLoaded(true);
+        this.lastDurationFilter = selectedDuration;
+        this.lastDataPoints = currentDataPoints;
     }
 
     onSelectDuration(duration) {

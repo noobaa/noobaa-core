@@ -43,30 +43,31 @@ class ObjectSummaryViewModel extends BaseViewModel {
             {
                 label: 'Original size',
                 color: style['color7'],
+                tooltip: 'The original size of the file as written prior to optimization or data resiliency',
                 parts: [
                     {
                         value: ko.pureComputed(() => toBytes(obj().size)),
                         color: style['color7']
                     }
                 ]
-
             },
             {
-                label: 'Size on Disk (with replicas)',
+                label: 'Actual Used Storage',
                 color: style['color13'],
+                tooltip: 'The actual raw usage of this file includes the data resiliency replications or fragments after compression',
                 parts: [
                     {
                         value: ko.pureComputed(() => toBytes(obj().capacity_size)),
                         color: style['color13']
                     }
                 ]
-
             }
         ];
 
-        this.barsValues = this.barChartData.map(({ label, color, parts }) => ({
+        this.barsValues = this.barChartData.map(({ label, color, tooltip, parts }) => ({
             label,
-            color: color,
+            color,
+            tooltip,
             value: sumBy(parts, ({ value }) => value())
         }));
     }

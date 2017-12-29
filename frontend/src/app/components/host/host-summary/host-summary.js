@@ -48,27 +48,32 @@ class HostSummaryViewModel extends Observer {
             {
                 label: 'Available',
                 color: style['color5'],
-                value: this.availableCapacity
+                value: this.availableCapacity,
+                tooltip: 'The total storage of this machine, does not include any offline or deactivated drives'
             },
             {
                 label: 'Unavailable Capacity',
                 color: style['color17'],
-                value: this.unavailableCapacity
+                value: this.unavailableCapacity,
+                tooltip: 'The total storage from drives which are either offline or in process'
             },
             {
                 label: 'NooBaa Usage',
                 color: style['color13'],
-                value: this.usedByNoobaaCapacity
+                value: this.usedByNoobaaCapacity,
+                tooltip: 'The actual storage utilization of this node by the buckets connected to its assigned pool'
             },
             {
                 label: 'Other Usage',
                 color: style['color14'],
-                value: this.usedByOthersCapacity
+                value: this.usedByOthersCapacity,
+                tooltip: 'The machine utilization by OS, local files etc'
             },
             {
                 label: 'Reserved',
                 color: style['color7'],
-                value: this.reservedCapacity
+                value: this.reservedCapacity,
+                tooltip: 'NooBaa reserves 10GB from each storage node to avoid a complete utilization of the local storage on the machine'
             }
         ];
 

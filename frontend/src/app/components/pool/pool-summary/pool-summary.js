@@ -29,17 +29,20 @@ class PoolSummaryViewModel extends Observer {
             {
                 label: 'Healthy',
                 color: style['color12'],
-                value: this.healthyCount
+                value: this.healthyCount,
+                tooltip: 'The number of fully operative storage nodes that can be used as a storage target for NooBaa'
             },
             {
                 label: 'Issues',
                 color: style['color11'],
-                value: this.issuesCount
+                value: this.issuesCount,
+                tooltip: 'The number of storage nodes that are partially operative due to a current process or low spec'
             },
             {
                 label: 'Offline',
                 color: style['color10'],
-                value: this.offlineCount
+                value: this.offlineCount,
+                tooltip: 'The number of storage nodes that are currently not operative and are not considered as part of NooBaa’s available storage'
             }
         ];
 
@@ -54,27 +57,32 @@ class PoolSummaryViewModel extends Observer {
             {
                 label: 'Available',
                 color: style['color5'],
-                value: this.availableCapacity
+                value: this.availableCapacity,
+                tooltip: 'The total aggregated storage from installed nodes in this pool, does not include any offline or deactivated node'
             },
             {
                 label: 'Unavailable Capacity',
                 color: style['color17'],
-                value: this.unavailableCapacity
+                value: this.unavailableCapacity,
+                tooltip: 'The total aggregated storage from offline nodes in this pool'
             },
             {
                 label: 'NooBaa Usage',
                 color: style['color13'],
-                value: this.usedByNoobaaCapacity
+                value: this.usedByNoobaaCapacity,
+                tooltip: 'The actual storage utilization of this pool by the buckets connected to it'
             },
             {
                 label: 'Other Usage',
                 color: style['color14'],
-                value: this.usedByOthersCapacity
+                value: this.usedByOthersCapacity,
+                tooltip: 'The machines utilization by OS, local files etc'
             },
             {
                 label: 'Reserved',
                 color: style['color7'],
-                value: this.reservedCapacity
+                value: this.reservedCapacity,
+                tooltip: 'NooBaa reserves 10GB from each storage node to avoid a complete utilization of the local storage on the machine'
             }
         ];
 

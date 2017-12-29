@@ -3,7 +3,7 @@
 import template from './bucket-summary.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { deepFreeze, sumBy } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { isSizeZero, formatSize, toBytes } from 'utils/size-utils';
@@ -64,7 +64,8 @@ class BucketSummrayViewModel extends Observer {
             {
                 label: 'Used Data',
                 color: style['color8'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The total amount of data uploaded to this bucket. Does not include data optimisation or data resiliency'
             },
             {
                 label: 'Overused',
@@ -75,75 +76,71 @@ class BucketSummrayViewModel extends Observer {
             {
                 label: 'Available',
                 color: style['color5'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The actual free space on this bucket for data writes taking into account the current configured resiliency policy'
             },
             {
                 label: 'Available on spillover',
                 color: style['color18'],
                 value: ko.observable(),
-                visible: ko.observable()
+                visible: ko.observable(),
+                tooltip: 'The current available storage from the system internal storage resource, will be used only in the case of no available data storage on this bucket. Once possible, data will be spilled-back'
             },
             {
                 label: 'Overallocated',
                 color: style['color11'],
                 value: ko.observable(),
-                visible: ko.observable()
+                visible: ko.observable(),
+                tooltip: 'Overallocation happens when configuring a higher quota than this bucket assigned resources can store'
             }
         ];
 
-        this.barChartData  = [
+        this.dataUsage = [
             {
                 label: 'Total Original Size',
                 color: style['color7'],
-                parts: [
-                    {
-                        value: ko.observable(),
-                        color: style['color7']
-
-                    }
-                ]
-
+                tooltip: 'The total aggregated size of all data written on this bucket',
+                value: ko.observable()
             },
             {
                 label: 'Compressed & Deduped',
                 color: style['color13'],
-                parts: [
-                    {
-                        value: ko.observable(),
-                        color: style['color13']
-
-                    }
-                ]
-
+                tooltip: 'The size of all data written on this bucket after optimization',
+                value: ko.observable()
             }
         ];
 
-        this.dataUsage = this.barChartData.map(({ label, color, parts }) => ({
+        this.barChartData = this.dataUsage.map(({ label, color, tooltip, value }) => ({
             label,
-            color: color,
-            value: ko.pureComputed(() => sumBy(parts, ({ value }) => value()))
+            tooltip,
+            color,
+            parts: [{ value, color }]
         }));
 
         this.rawUsage = [
             {
                 label: 'Available from Resources',
                 color: style['color5'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'An aggregation of the available storage from the resources selected for this bucket data placement policy'
             },
             {
                 label: 'Available Spillover',
                 color: style['color18'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The current available storage from the system internal storage resource'
             },
             {
                 label: 'Bucket Usage (Replicated)',
                 color: style['color13'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The actual raw usage of this bucket includes the data resiliency replications or fragments'
             },
             {
                 label: 'Shared Usage',
                 color: style['color14'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'Resources in the system are not exclusively allocated per bucket, other buckets may be using the same resources and utilizing this bucket free storage'
             }
         ];
 

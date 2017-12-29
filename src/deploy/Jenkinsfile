@@ -29,11 +29,11 @@ def nodeLocalIP = '10.1.12.0'
 def serverLocalIP = '52.191.139.47'
 def severExternalIP = '52.191.139.47'
 //yulia rg
-def yulia_ip = '52.183.113.134'
+def yulia_ip = '52.183.112.145'
 def yulia_resource = 'yulia-test-rg'
 def yulia_vnet = 'yulia-test-rg-vnet'
 def yulia_storage = 'yuliastorage'
-def ip = '52.250.112.75'
+def ip = '52.175.227.42'
 
 node('pipeline') {
 	def buildResult = "SUCCESS"
@@ -91,14 +91,14 @@ node('pipeline') {
             node $WORKSPACE/src/test/qa/namespace_test.js --server_ip '${ip}'
             """
         }
-        stage('Setting env file') {
+        stage('Setting env file agents rg') {
             sh script: """
             rm .env
             touch .env
             echo 'AZURE_SUBSCRIPTION_ID=a3556050-2d88-42a4-a4e3-f0a2087edc60' >> .env
             echo 'DOMAIN=noobaa.com' >> .env
             echo 'APPLICATION_SECRET=JRqvAUh95fF+3aBaz0SJcB21ocTO8+MCtjJ7adg9fhE=' >> .env
-            echo 'AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=yuliastorage;AccountKey=viMsHoxn3psNN/bHwerSsSJllPUGRO4/YcfJ7bNYqv3KwLtbE1t1VpWcghJ8A7J74qlBF5bzcyH2L4Kx1S8nAw==;EndpointSuffix=core.windows.net"' >> .env
+            echo 'AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=pipelineagentsdisks;AccountKey=p9Ed8m+87P5ZwcOcvXqfvCJ9NExeZBRutsDdSCkXU2JKj9wPIV60e1yYaZ4UIKuSLvedMhVS2dSKUtDYSbujKQ==;EndpointSuffix=core.windows.net"' >> .env
             echo 'CLIENT_ID=199522b3-407d-45eb-b7fb-023d21ab6406' >> .env
             """
         }
@@ -107,7 +107,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}' --failed_agents_number 2 --agents_number 10
+            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${ip}' --failed_agents_number 2 --agents_number 10
             """
         }
         stage('Data availability test') {
@@ -115,15 +115,7 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/data_availability_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}' --iterationsNumber 2 --failed_agents_number 1 --agents_number 6
-            """
-        }
-        stage('Rebuild replicas test') {
-            echo 'Uploading data with switching off agents and checking files chunks and parts'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${yulia_resource}' --vnet '${yulia_vnet}' --storage '${yulia_storage}' --server_ip '${yulia_ip}' --failed_agents_number 2 --agents_number 10
+            node $WORKSPACE/src/test/qa/data_availability_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${yulia_ip}' --iterationsNumber 2 --failed_agents_number 1 --agents_number 6
             """
         }
         stage('dataset test') {

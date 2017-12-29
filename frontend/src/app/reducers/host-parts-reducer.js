@@ -67,7 +67,7 @@ function onFailFetchHostObjects(state, { payload }) {
     return {
         ...state,
         fetching: false,
-        errors: true
+        error: true
     };
 }
 

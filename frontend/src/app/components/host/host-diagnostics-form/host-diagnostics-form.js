@@ -75,6 +75,7 @@ class HostDiagnosticsFormViewModel extends Observer{
     onHost(host) {
         if (!host) {
             this.areActionsDisabled(true);
+            this.actionsTooltip({});
             this.debugModeToggleText(_getDebugModeToggleText(false));
             return;
         }

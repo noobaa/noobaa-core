@@ -50,6 +50,11 @@ const columns = deepFreeze([
     }
 ]);
 
+const noNtpTooltip = deepFreeze({
+    align: 'end',
+    text: 'NTP must be configured before attaching a new server'
+});
+
 const compareAccessors = deepFreeze({
     state: server => server.status,
     name: server => `${server.hostname}-${server.secret}`,
@@ -87,9 +92,7 @@ class ServerTableViewModel extends BaseViewModel {
         );
 
         this.attachServerTooltip = ko.pureComputed(
-            () => !this.canAttachServer() ?
-                'NTP must be configured before attaching a new server' :
-                ''
+            () => !this.canAttachServer() ? noNtpTooltip : ''
         );
 
         const query = ko.pureComputed(

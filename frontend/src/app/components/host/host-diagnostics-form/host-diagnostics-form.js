@@ -7,6 +7,8 @@ import { state$, action$ } from 'state';
 import { openTestNodeModal, collectHostDiagnostics, setHostDebugMode } from 'action-creators';
 import moment from 'moment';
 
+const debugInternval = 1000; // 1Sec
+
 function _getDebugModeToggleText(debugState) {
     return `Turn ${debugState ? 'off' : 'on'} node debug mode`;
 }
@@ -26,7 +28,17 @@ function _getTimeLeftForDebugModeText(debugState, timeLeft) {
     }
 }
 
-const debugInternval = 1000; // 1Sec
+function _getActionsTooltip(isOffline, isBeingDeleted) {
+    const text =
+        (isOffline && 'Node must be online for diagnostics operations') ||
+        (isBeingDeleted && 'This operation is not available during node’s deletion') ||
+        '';
+
+    return text && {
+        text: text,
+        align: 'end'
+    };
+}
 
 class HostDiagnosticsFormViewModel extends Observer{
     constructor({ name }) {
@@ -70,13 +82,9 @@ class HostDiagnosticsFormViewModel extends Observer{
         const { mode, debugMode, rpcAddress, diagnostics } = host;
         const isOffline = mode === 'OFFLINE';
         const isBeingDeleted = mode === 'DELETING';
-        const actionsTooltip =
-            (isOffline && 'Node must be online for diagnostics operations') ||
-            (isBeingDeleted && 'This operation is not available during node’s deletion') ||
-            '';
 
         this.rpcAddress = rpcAddress;
-        this.actionsTooltip(actionsTooltip);
+        this.actionsTooltip(_getActionsTooltip(isOffline, isBeingDeleted));
         this.areActionsDisabled(isOffline || isBeingDeleted);
         this.isCollectingDiagnostics(diagnostics.collecting);
 

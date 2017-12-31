@@ -15,7 +15,6 @@ function show_usage() {
 
 function stop() {
     process.exit(3);
-    
 }
 
 function main() {

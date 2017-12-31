@@ -404,7 +404,6 @@ function run_test() {
         .then(() => {
             console.log('test_s3_authentication PASSED');
             rpc.disconnect_all();
-            
         })
         .catch(err => {
             rpc.disconnect_all();

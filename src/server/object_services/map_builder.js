@@ -191,8 +191,9 @@ class MapBuilder {
                     chunk, _.map(chunk.objects, 'key'));
             }
 
-            chunk.avoid_nodes = chunk.blocks.map(block => String(block.node._id));
-            chunk.allocated_hosts = chunk.blocks.map(block => block.node.host_id);
+            const avoid_blocks = chunk.blocks.filter(block => block.node.node_type === 'BLOCK_STORE_FS');
+            chunk.avoid_nodes = avoid_blocks.map(block => String(block.node._id));
+            chunk.allocated_hosts = avoid_blocks.map(block => block.node.host_id);
             chunk.rpc_client = server_rpc.rpc.new_client({
                 auth_token: auth_server.make_auth_token({
                     system_id: chunk.system,
@@ -328,8 +329,10 @@ class MapBuilder {
             bucket: chunk.bucket._id,
         };
         mapper.assign_node_to_block(block, node, chunk.system);
-        avoid_nodes.push(String(node._id));
-        allocated_hosts.push(node.host_id);
+        if (node.node_type === 'BLOCK_STORE_FS') {
+            avoid_nodes.push(String(node._id));
+            allocated_hosts.push(node.host_id);
+        }
         return block;
     }
 

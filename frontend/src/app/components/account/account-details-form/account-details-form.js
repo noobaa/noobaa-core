@@ -8,7 +8,7 @@ import ko from 'knockout';
 
 const actionUnavailableTooltip = deepFreeze({
     align: 'end',
-    text: 'This action is unavailable for accounts without login access',
+    text: 'This action is unavailable for accounts without login access'
 });
 
 class AccountDetailsFormViewModel extends Observer {
@@ -53,7 +53,6 @@ class AccountDetailsFormViewModel extends Observer {
         const role  = !isOwner ?
             (account.hasLoginAccess ? 'Admin' : 'Application') :
             'Owner';
-        const changePasswordTooltip  =
 
         this.accountName(account.name);
         this.role(role);

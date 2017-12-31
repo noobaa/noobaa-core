@@ -6,16 +6,15 @@
 # (https://github.com/dockcross/dockcross) however since node.js v8 doesn't support glibc 2.5
 # and dropped the support for centos-5 we moved to use centos 6 directly.
 
-IMAGE="noobaa/manylinux-x64"
-DOCKERFILE="src/deploy/Linux/Dockerfile.noobaa-manylinux-x64"
+IMAGE="noobaa/build_agent_manylinux"
+DOCKERFILE="src/deploy/Linux/build_agent_manylinux.Dockerfile"
 # use the same user ids as the current user
 USER_IDS="-e BUILDER_UID=$(id -u) -e BUILDER_GID=$(id -g) -e BUILDER_USER=$(id -un) -e BUILDER_GROUP=$(id -gn)"
 # map the current directory as /work dir in the container
 HOST_VOLUMES="-v $PWD:/work"
 # when running inside a tty we can also run docker interactively
 tty -s && TTY_ARGS="-it" || TTY_ARGS=""
-SCL_COMMAND="scl enable devtoolset-7"
-BUILD_COMMAND="bash -c \"src/deploy/Linux/build_agent_linux.sh $@\""
+BUILD_COMMAND="src/deploy/Linux/build_agent_linux.sh $@"
 
 # deleting files is significantly slower within docker, so prefer to clean here before
 mkdir -p build
@@ -35,6 +34,5 @@ docker run --rm \
     $USER_IDS \
     $HOST_VOLUMES \
     $IMAGE \
-    $SCL_COMMAND \
-    "$BUILD_COMMAND" \
+    $BUILD_COMMAND \
     || exit 1

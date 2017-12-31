@@ -9,7 +9,7 @@ import { isNumber } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getHostsPoolStateIcon } from 'utils/resource-utils';
-import { getActivityName, formatActivityListTooltipHtml } from 'utils/host-utils';
+import { getActivityName, getActivityListTooltip } from 'utils/host-utils';
 import style from 'style';
 import moment from 'moment';
 
@@ -152,7 +152,7 @@ class PoolSummaryViewModel extends Observer {
 
                     this.hasAdditionalActivities(true);
                     this.additionalActivitiesMessage(message);
-                    this.additionalActivitiesTooltip(formatActivityListTooltipHtml(additionalActivities));
+                    this.additionalActivitiesTooltip(getActivityListTooltip(additionalActivities));
 
                 } else {
                     this.hasAdditionalActivities(false);

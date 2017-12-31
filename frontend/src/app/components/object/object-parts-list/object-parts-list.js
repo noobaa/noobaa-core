@@ -39,10 +39,23 @@ class ObjectPartsListViewModel extends BaseViewModel {
             () => !systemInfo() || !sessionInfo() || (systemInfo().owner.email !== sessionInfo().user)
         );
 
-        this.tooltip = ko.pureComputed(
+        this.downloadTooltip = ko.pureComputed(
             () => {
                 if (this.notOwner()) {
                     return 'This operation is only available for the system owner';
+                }
+
+                return '';
+            }
+        );
+
+        this.previewTooltip = ko.pureComputed(
+            () => {
+                if (this.notOwner()) {
+                    return {
+                        align: 'end',
+                        text: 'This operation is only available for the system owner'
+                    };
                 }
 
                 return '';

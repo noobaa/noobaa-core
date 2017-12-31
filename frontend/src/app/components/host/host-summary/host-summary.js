@@ -17,7 +17,7 @@ import {
     getHostTrustIcon,
     getHostAccessibilityIcon,
     getActivityName,
-    formatActivityListTooltipHtml
+    getActivityListTooltip
 } from 'utils/host-utils';
 
 const trustTooltip = `A reliability check that verifies that this node has no disk
@@ -146,7 +146,7 @@ class HostSummaryViewModel extends Observer {
 
                     this.hasAdditionalActivities(true);
                     this.additionalActivitiesMessage(message);
-                    this.additionalActivitiesTooltip(formatActivityListTooltipHtml(additionalActivities));
+                    this.additionalActivitiesTooltip(getActivityListTooltip(additionalActivities));
 
                 } else {
                     this.hasAdditionalActivities(false);

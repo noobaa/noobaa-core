@@ -47,7 +47,10 @@ const columns = deepFreeze([
     }
 ]);
 
-const noNamespaceResourceTooltip = 'At least one namespace resoruce is needed. Please create a namespace resource in the resources section.';
+const noNamespaceResourceTooltip = {
+    align: 'end',
+    text: 'At least one namespace resoruce is needed. Please create a namespace resource in the resources section.'
+};
 
 class NamespaceBucketsTableViewModel extends Observer {
     constructor() {

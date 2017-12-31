@@ -60,8 +60,14 @@ const uploadBtnTooltips = {
 };
 
 const upgradeBtnTooltips = {
-    PACKAGE_NOT_READY: 'Upgrade can be initiated only after uploading a validated package',
-    NOT_ALL_MEMBERS_UP: 'All cluster members must be connected in order to start an upgrade. Please make sure all servers are up.'
+    PACKAGE_NOT_READY: {
+        align: 'end',
+        text: 'Upgrade can be initiated only after uploading a validated package'
+    },
+    NOT_ALL_MEMBERS_UP: {
+        align: 'end',
+        text: 'All cluster members must be connected in order to start an upgrade. Please make sure all servers are up.'
+    }
 };
 
 function _getVersionStatus(servers, version) {

@@ -3,6 +3,7 @@
 import template from './host-endpoint-form.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
+import { deepFreeze } from 'utils/core-utils';
 import { getEndpointServiceStateIcon } from 'utils/host-utils';
 import { formatSize } from 'utils/size-utils';
 import { timeShortFormat } from 'config';
@@ -14,7 +15,10 @@ import {
     openDisableHostLastServiceWarningModal
 } from 'action-creators';
 
-const operationsDisabledTooltip = 'This operation is not available during node’s deletion';
+const operationsDisabledTooltip = deepFreeze({
+    align: 'end',
+    text: 'This operation is not available during node’s deletion'
+});
 
 class HostEndpointFormViewModel extends Observer {
     constructor({ name }) {

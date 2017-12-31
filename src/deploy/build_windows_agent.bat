@@ -79,6 +79,8 @@ node -p process.arch
 cmd /c npm config set msvs_version=2015 --global
 cmd /c npm install --production || exit 1
 if not exist ".\build\Release" exit 1
+
+rd /q/s .\src\native
 rd /q/s .\build\src
 rd /q/s .\build\Windows
 del /q .\build\*.*

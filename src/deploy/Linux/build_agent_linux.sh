@@ -86,7 +86,7 @@ then
     verbose npm install --production
     verbose npm install node-linux@0.1.8
 
-    verbose rm -f agent_conf.json
+    verbose rm -rf agent_conf.json src/native
     verbose popd
 fi
 

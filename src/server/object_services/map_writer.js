@@ -132,8 +132,10 @@ class MapAllocator {
                 mapper.assign_node_to_block(block, node, this.bucket.system._id);
                 frag.blocks = frag.blocks || [];
                 frag.blocks.push(mapper.get_block_info(chunk, frag, block));
-                avoid_nodes.push(String(node._id));
-                allocated_hosts.push(node.host_id);
+                if (node.node_type === 'BLOCK_STORE_FS') {
+                    avoid_nodes.push(String(node._id));
+                    allocated_hosts.push(node.host_id);
+                }
             });
         }
     }

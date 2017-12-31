@@ -12,6 +12,14 @@ var version;
 
 update_version_change();
 mongo_upgrade_mark_completed();
+mongo_flush_changes();
+
+function mongo_flush_changes() {
+    print('\nmongo_flush_changes start...');
+    const admin_db = db.getSiblingDB('admin');
+    admin_db.runCommand({ fsync: 1 });
+    print('\nmongo_flush_changes end...');
+}
 
 function update_version_change() {
     print('\nMONGO UPDATE VERSION CHANGE - START ...');

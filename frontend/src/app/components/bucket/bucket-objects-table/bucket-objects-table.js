@@ -104,15 +104,24 @@ function _getObjectQuery(bucket, query) {
 
 function _getUploadTooltip(isOwner, isReadOnly, httpsNoCert) {
     if (!isOwner) {
-        return 'This operation is only available for the system owner';
+        return {
+            align: 'end',
+            text: 'This operation is only available for the system owner'
+        };
     }
 
     if (isReadOnly) {
-        return 'Cannot upload, not enough healthy storage resources';
+        return {
+            align: 'end',
+            text: 'Cannot upload, not enough healthy storage resources'
+        };
     }
 
     if (httpsNoCert) {
-        return 'Cannot upload, a certificate must be installed in order to upload via https';
+        return {
+            align: 'end',
+            text: 'Cannot upload, a certificate must be installed in order to upload via https'
+        };
     }
 
     return '';

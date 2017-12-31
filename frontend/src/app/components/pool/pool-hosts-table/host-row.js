@@ -8,7 +8,7 @@ import {
     getHostStateIcon,
     getNodeOrHostCapacityBarValues,
     getActivityName,
-    formatActivityListTooltipHtml
+    getActivityListTooltip
 } from 'utils/host-utils';
 
 
@@ -35,7 +35,7 @@ export default class HostRowViewModel {
         const [ firstActivity = { } ] = activities;
         const dataActivity = {
             text: getActivityName(firstActivity.kind) || 'No Activity',
-            tooltip: formatActivityListTooltipHtml(activities)
+            tooltip: getActivityListTooltip(activities)
         };
 
         this.state(getHostStateIcon(host));

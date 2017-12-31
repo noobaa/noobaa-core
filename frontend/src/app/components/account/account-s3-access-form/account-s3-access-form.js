@@ -139,6 +139,10 @@ class AccountS3AccessFormViewModel extends Observer {
             allowedBucketsTemplate = allowedBuckets.length && 'list';
         }
 
+        const regenerateCredentialsTooltip = !hasS3Access ?
+            { align: 'end', text: disabledActionTooltip } :
+            '';
+
         this.accountName(account.name);
         this.defaultResource(defaultResource || '(not set)');
         this.isS3AccessDisabled(!hasS3Access);
@@ -152,7 +156,7 @@ class AccountS3AccessFormViewModel extends Observer {
         this.allowedIpsTemplate(allowedIpsTemplate);
         this.isAllowedIpVisible(Boolean(hasS3Access && allowedIps));
         this.setIPRestrictionsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
-        this.regenerateCredentialsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
+        this.regenerateCredentialsButtonTooltip(regenerateCredentialsTooltip);
     }
 
     onEditS3Access() {

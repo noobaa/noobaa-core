@@ -38,6 +38,11 @@ const columns = deepFreeze([
     }
 ]);
 
+const createFuncTooltip = {
+    align: 'end',
+    text: 'Create function not available'
+};
+
 class FuncsTableViewModel extends BaseViewModel {
     constructor() {
         super();
@@ -45,7 +50,7 @@ class FuncsTableViewModel extends BaseViewModel {
         this.columns = columns;
         this.funcs = funcList;
         this.isCreateFuncWizardVisible = ko.observable(false);
-        this.createFuncToolTip = 'Create function not available';
+        this.createFuncToolTip = createFuncTooltip;
     }
 
     newFuncRow(func) {

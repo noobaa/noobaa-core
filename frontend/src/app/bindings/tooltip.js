@@ -4,7 +4,13 @@ import ko from 'knockout';
 import { isDefined, isObject, isString, deepFreeze, runAsync } from 'utils/core-utils';
 import { domFromHtml } from 'utils/browser-utils';
 
-const data = ko.observable({});
+const hiddenData = deepFreeze({
+    style: {
+        display: 'none'
+    }
+});
+
+const data = ko.observable(hiddenData);
 const [elm] = domFromHtml(
     // Top level element used with applyBinding cannot support the new binding
     // syntax for some reason. Falling back to data-bind syntax.
@@ -50,6 +56,7 @@ const alignments = deepFreeze([
     'center',
     'end'
 ]);
+
 
 function _getTemplate(template, data) {
     if (template) {
@@ -114,6 +121,10 @@ function _getTemplate(template, data) {
     return ko.renderToString(templates.text, data.toString());
 }
 
+function _toPx(val) {
+    return `${Math.ceil(val)}px`;
+}
+
 function _normalizeValue(value) {
     const {
         text = value,
@@ -131,34 +142,61 @@ function _normalizeValue(value) {
     };
 }
 
-function _calcScreenPosition(position, boundingRect) {
+function _calcScreenPosition(position, boundingRect, winSize) {
     const { top, right, bottom, left } = boundingRect;
-    const width = right - left;
-    const height = bottom - top;
+    const centerX = (left + right) / 2;
+    const centerY = (top + bottom) / 2;
+    const leftSideOfScreen = centerX <= winSize.width / 2;
 
     switch (position) {
         case 'above': {
-            return {
-                top: top,
-                left: left + (width / 2)
-            };
+            if (leftSideOfScreen) {
+                return {
+                    top: _toPx(top),
+                    right: 'auto',
+                    bottom: 'auto',
+                    left: _toPx(centerX)
+                };
+            } else {
+                return {
+                    top: _toPx(top),
+                    right: _toPx(winSize.width - centerX),
+                    bottom: 'auto',
+                    left: 'auto'
+                };
+            }
         }
         case 'after': {
             return {
-                top: top + (height / 2),
-                left: right
+                top: _toPx(centerY),
+                right: 'auto',
+                bottom: 'auto',
+                left: _toPx(right)
             };
         }
         case 'below': {
-            return {
-                top: bottom,
-                left: left + (width / 2)
-            };
+            if (leftSideOfScreen) {
+                return {
+                    top: _toPx(bottom),
+                    right: 'auto',
+                    bottom: 'auto',
+                    left: _toPx(centerX)
+                };
+            } else {
+                return {
+                    top: _toPx(bottom),
+                    right: _toPx(winSize.width - centerX),
+                    bottom: 'auto',
+                    left: 'auto'
+                };
+            }
         }
         case 'before': {
             return {
-                top: top + (height / 2),
-                left: left
+                top: _toPx(centerY),
+                right: 'auto',
+                bottom: 'auto',
+                left: _toPx(left)
             };
         }
     }
@@ -166,23 +204,21 @@ function _calcScreenPosition(position, boundingRect) {
 
 function _showTooltip(target, params) {
     const { template, position, align, breakWords } = params;
-    const css = `${position} ${align} ${breakWords ? 'break-words' : ''}`;
-    const { top, left } = _calcScreenPosition(position, target.getBoundingClientRect());
-    const style = {
-        display: 'block',
-        top: `${Math.ceil(top)}px`,
-        left: `${Math.ceil(left)}px`
-    };
+    const winSize = { width: global.innerWidth, height: global.innerHeight };
+    const pos = _calcScreenPosition(position, target.getBoundingClientRect(), winSize);
+    const style = { display: 'block', ...pos };
+    const css = [
+        position,
+        align,
+        breakWords ? 'break-words' : '',
+        style.right !== 'auto' ? 'right-pos' : 'left-pos'
+    ].join(' ');
 
     data({ template, css, style });
 }
 
 function _hideTooltip() {
-    data({
-        style: {
-            display: 'none'
-        }
-    });
+    data(hiddenData);
 }
 
 export default {

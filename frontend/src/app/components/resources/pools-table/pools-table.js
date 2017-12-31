@@ -75,7 +75,10 @@ const columns = deepFreeze([
     }
 ]);
 
-const notEnoughHostsTooltip = 'Not enough nodes to create a new pool, please install at least 3 nodes';
+const notEnoughHostsTooltip = deepFreeze({
+    align: 'end',
+    text: 'Not enough nodes to create a new pool, please install at least 3 nodes'
+});
 
 class PoolsTableViewModel extends Observer {
     constructor() {

@@ -1,9 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-details-form.html';
+import { deepFreeze } from 'utils/core-utils';
 import { state$ } from 'state';
 import Observer from 'observer';
 import ko from 'knockout';
+
+const actionUnavailableTooltip = deepFreeze({
+    align: 'end',
+    text: 'This action is unavailable for accounts without login access',
+});
 
 class AccountDetailsFormViewModel extends Observer {
     constructor({ accountName }) {
@@ -47,16 +53,14 @@ class AccountDetailsFormViewModel extends Observer {
         const role  = !isOwner ?
             (account.hasLoginAccess ? 'Admin' : 'Application') :
             'Owner';
+        const changePasswordTooltip  =
 
         this.accountName(account.name);
         this.role(role);
         this.isCurrentUser(isCurrentUser);
         this.changePasswordButtonLabel(isCurrentUser ? 'Change Password' : 'Reset Password');
         this.disableChangePasswordButton(!account.hasLoginAccess);
-        this.changePasswordButtonTooltip(!account.hasLoginAccess ?
-            'This action is unavailable for accounts without login access' :
-            ''
-        );
+        this.changePasswordButtonTooltip(!account.hasLoginAccess ? actionUnavailableTooltip : '');
     }
 
     showPasswordModal() {

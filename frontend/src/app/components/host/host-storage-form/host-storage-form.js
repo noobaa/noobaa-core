@@ -9,7 +9,10 @@ import ko from 'knockout';
 import { deepFreeze, compare } from 'utils/core-utils';
 import { getStorageServiceStateIcon } from 'utils/host-utils';
 
-const operationsDisabledTooltip = 'This operation is not available during node’s deletion';
+const operationsDisabledTooltip = deepFreeze({
+    align: 'end',
+    text: 'This operation is not available during node’s deletion'
+});
 
 const columns = deepFreeze([
     {

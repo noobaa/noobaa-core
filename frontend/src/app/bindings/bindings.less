@@ -67,12 +67,24 @@
             transform: translate(0, -100%);
         }
 
-        &.center {
-            transform: translate(-50%, -100%);
+        &.left-pos {
+            &.center {
+                transform: translate(-50%, -100%);
+            }
+
+            &.end {
+                transform: translate(-100%, -100%);
+            }
         }
 
-        &.end {
-            transform: translate(-100%, -100%);
+        &.right-pos {
+            &.center {
+                transform: translate(100%, -100%);
+            }
+
+            &.end {
+                transform: translate(50%, -100%);
+            }
         }
     }
 
@@ -89,16 +101,33 @@
             border-bottom-color: @bg-color;
         }
 
-        &.start {
-            transform: translate(0, 0);
+
+        &.left-pos {
+            &.start {
+                transform: translate(0, 0);
+            }
+
+            &.center {
+                transform: translate(-50%, 0);
+            }
+
+            &.end {
+                transform: translate(-100%, 0);
+            }
         }
 
-        &.center {
-            transform: translate(-50%, 0);
-        }
+        &.right-pos {
+            &.start {
+                transform: translate(100%, 0);
+            }
 
-        &.end {
-            transform: translate(-100%, 0);
+            &.center {
+                transform: translate(50%, 0);
+            }
+
+            &.end {
+                transform: translate(0, 0);
+            }
         }
     }
 
@@ -155,8 +184,16 @@
     }
 
     &.above, &.below {
+        @offset: (@arrow-offset + (@arrow-size / 2));
+
         &.start {
-            margin-left: -(@arrow-offset + (@arrow-size / 2));
+            &.left-pos {
+                margin-left: -@offset;
+            }
+
+            &.right-pos {
+                margin-right: @offset;
+            }
 
             &::before, &::after {
                 left: @arrow-offset;
@@ -171,7 +208,13 @@
         }
 
         &.end {
-            margin-left: @arrow-offset + (@arrow-size / 2);
+            &.left-pos {
+                margin-left: @offset;
+            }
+
+            &.right-pos {
+                margin-right: -@offset;
+            }
 
             &::before, &::after {
                 right: @arrow-offset;

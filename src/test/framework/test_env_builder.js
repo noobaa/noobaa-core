@@ -202,7 +202,10 @@ function run_tests() {
 function clean_test_env() {
     const vms_to_delete = agents.map(agent => agent.name).concat([server.name]);
     console.log(`deleting virtual machines`, vms_to_delete);
-    return P.map(vms_to_delete, vm => azf.deleteVirtualMachine(vm));
+    return P.map(vms_to_delete, vm =>
+        azf.deleteVirtualMachine(vm)
+        .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
+    );
 }
 
 

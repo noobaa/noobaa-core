@@ -6,7 +6,7 @@
         {{count}}
     </h3>
 
-    <div class="column push-next" ko.tooltip="tooltip">
+    <div class="column push-next" ko.tooltip="downloadTooltip">
         <a class="btn" download
             ko.css.disabled="notOwner"
             ko.click="onDownloadClick"
@@ -15,7 +15,7 @@
         </a>
     </div>
 
-    <div ko.tooltip="tooltip">
+    <div ko.tooltip="previewTooltip">
         <button class="btn"
             ko.disable="notOwner"
             ko.click="onPreviewFile">

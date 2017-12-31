@@ -508,6 +508,14 @@ const activityStageToName = deepFreeze({
     WIPING: 'Wiping Data'
 });
 
+const dataActivityTooltipTemplate =
+    `<ul class="list-no-style column" ko.foreach="$data">
+        <li class="push-next-half">
+            <p ko.text="activity"><p>
+            <p class="remark push-next-half" ko.text="eta"></p>
+        </li>
+    </ul>`;
+
 export function getHostDisplayName(hostName) {
     const [ namePart ] = hostName.split('#');
     return `${namePart}`;
@@ -579,16 +587,21 @@ export function getActivityStageName(stage) {
     return activityStageToName[stage];
 }
 
-export function formatActivityListTooltipHtml(activityList) {
-    return activityList.map(act => {
+export function getActivityListTooltip(activityList) {
+    const data = activityList.map(act => {
         const name = activityTypeToName[act.kind];
         const driveCount = stringifyAmount('drive', act.nodeCount);
         const progress = numeral(act.progress).format('%');
         const eta = isNumber(act.eta) ? moment(act.eta).fromNow() : 'calculating...';
 
-        return `
-            <p>${name} ${driveCount} ${progress}</p>
-            <p class="remark push-next-half">ETA: ${eta}</p>
-        `;
+        return {
+            activity: `${name} ${driveCount} ${progress}`,
+            eta: `ETA: ${eta}`
+        };
     });
+
+    return {
+        template: dataActivityTooltipTemplate,
+        text: data
+    };
 }

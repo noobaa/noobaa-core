@@ -25,8 +25,14 @@ class DeleteButtonViewModel {
 
         this.tooltip = ko.pureComputed(
             () => {
-                const text = tooltip == null ? `Delete ${ko.unwrap(subject)}` : ko.unwrap(tooltip);
-                return this.isActive() ? undefined : { text, align: 'end' };
+                if (this.isActive()) return;
+
+                return {
+                    align: 'end',
+                    text: tooltip == null ?
+                        `Delete ${ko.unwrap(subject)}` :
+                        ko.unwrap(tooltip)
+                };
             }
         );
 

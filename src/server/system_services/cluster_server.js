@@ -1302,7 +1302,10 @@ function upgrade_cluster(req) {
             const updates = system_store.data.clusters.map(cluster => ({
                 _id: cluster._id,
                 $set: {
-                    "upgrade.initiator_email": req.account.email
+                    "upgrade.initiator_email": req.account.email,
+                    // This is a patch that was done in order so the FE won't wait for tests prior to upgrade
+                    // We set this once again inside the member_pre_upgrade
+                    "upgrade.status": 'PRE_UPGRADE_PENDING'
                 },
                 $unset: {
                     "upgrade.error": 1
@@ -1314,87 +1317,91 @@ function upgrade_cluster(req) {
                 }
             });
         })
-        // .then(() => Dispatcher.instance().publish_fe_notifications({}, 'change_upgrade_status'))
         .then(() => {
-            // upload package to secondaries
-            dbg.log0('UPGRADE:', 'testing package in all secondary cluster members');
-            // upload package to cluster members
-            return P.all(secondary_members.map(ip => server_rpc.client.cluster_internal.member_pre_upgrade({
-                    filepath: system_store.data.clusters.find(cluster => (String(cluster.owner_address) === String(ip))).upgrade.path,
-                    mongo_upgrade: false,
-                    stage: 'UPGRADE_STAGE'
-                }, {
-                    address: server_rpc.get_base_address(ip),
+            // Notice that we do not return here on purpose so the FE won't wait for the completion of the tests
+            P.resolve()
+                // .then(() => Dispatcher.instance().publish_fe_notifications({}, 'change_upgrade_status'))
+                .then(() => {
+                    // upload package to secondaries
+                    dbg.log0('UPGRADE:', 'testing package in all secondary cluster members');
+                    // upload package to cluster members
+                    return P.all(secondary_members.map(ip => server_rpc.client.cluster_internal.member_pre_upgrade({
+                            filepath: system_store.data.clusters.find(cluster => (String(cluster.owner_address) === String(ip))).upgrade.path,
+                            mongo_upgrade: false,
+                            stage: 'UPGRADE_STAGE'
+                        }, {
+                            address: server_rpc.get_base_address(ip),
+                        })
+                        .catch(err => {
+                            dbg.error('upgrade_cluster failed uploading package', err);
+                            return _handle_cluster_upgrade_failure(new Error('DISTRIBUTION_FAILED'), ip);
+                        })
+                    ));
                 })
-                .catch(err => {
-                    dbg.error('upgrade_cluster failed uploading package', err);
-                    return _handle_cluster_upgrade_failure(new Error('DISTRIBUTION_FAILED'), ip);
+                .then(() => {
+                    dbg.log0('UPGRADE:', 'calling member_pre_upgrade');
+                    return server_rpc.client.cluster_internal.member_pre_upgrade({
+                            filepath: upgrade_path,
+                            mongo_upgrade: true,
+                            stage: 'UPGRADE_STAGE'
+                        })
+                        .catch(err => {
+                            dbg.error('UPGRADE:', 'pre_upgrade failed on master - aborting upgrade', err);
+                            throw err;
+                        });
                 })
-            ));
-        })
-        .then(() => {
-            dbg.log0('UPGRADE:', 'calling member_pre_upgrade');
-            return server_rpc.client.cluster_internal.member_pre_upgrade({
-                    filepath: upgrade_path,
-                    mongo_upgrade: true,
-                    stage: 'UPGRADE_STAGE'
-                })
-                .catch(err => {
-                    dbg.error('UPGRADE:', 'pre_upgrade failed on master - aborting upgrade', err);
-                    throw err;
-                });
-        })
-        .then(() => {
-            //wait for all secondaries to reach PRE_UPGRADE_READY. if one failed fail the upgrade
-            dbg.log0('UPGRADE:', 'waiting for secondaries to reach PRE_UPGRADE_READY');
-            // TODO: on multiple shards we can upgrade one at the time in each shard
-            return P.map(cutil.get_all_cluster_members(), ip => {
-                // for each server, wait for it to reach PRE_UPGRADE_READY, then call do_upgrade
-                // wait for UPGRADED status before continuing to next one
-                dbg.log0('UPGRADE:', 'waiting for server', ip, 'to reach PRE_UPGRADE_READY');
-                return _wait_for_upgrade_state(ip, 'PRE_UPGRADE_READY')
-                    .catch(err => {
-                        dbg.error('UPGRADE:', 'timeout: server at', ip, 'did not reach PRE_UPGRADE_READY state. aborting upgrade', err);
-                        throw err;
+                .then(() => {
+                    //wait for all secondaries to reach PRE_UPGRADE_READY. if one failed fail the upgrade
+                    dbg.log0('UPGRADE:', 'waiting for secondaries to reach PRE_UPGRADE_READY');
+                    // TODO: on multiple shards we can upgrade one at the time in each shard
+                    return P.map(cutil.get_all_cluster_members(), ip => {
+                        // for each server, wait for it to reach PRE_UPGRADE_READY, then call do_upgrade
+                        // wait for UPGRADED status before continuing to next one
+                        dbg.log0('UPGRADE:', 'waiting for server', ip, 'to reach PRE_UPGRADE_READY');
+                        return _wait_for_upgrade_state(ip, 'PRE_UPGRADE_READY')
+                            .catch(err => {
+                                dbg.error('UPGRADE:', 'timeout: server at', ip, 'did not reach PRE_UPGRADE_READY state. aborting upgrade', err);
+                                throw err;
+                            });
                     });
-            });
-        })
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.system_upgrade_started',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-            });
+                })
+                .then(() => {
+                    Dispatcher.instance().activity({
+                        event: 'conf.system_upgrade_started',
+                        level: 'info',
+                        system: req.system._id,
+                        actor: req.account && req.account._id,
+                    });
 
-            //Update all clusters upgrade section with the new status and clear the error if exists
-            const cluster_updates = system_store.data.clusters.map(cluster => ({
-                _id: cluster._id,
-                $set: {
-                    "upgrade.status": 'UPGRADING'
-                },
-                $unset: {
-                    "upgrade.error": true
-                }
-            }));
-            //set last upgrade initiator under system
-            const system_updates = [{
-                _id: req.system._id,
-                $set: {
-                    "last_upgrade.initiator": (req.account && req.account.email) || ''
-                }
-            }];
-            return system_store.make_changes({
-                update: {
-                    clusters: cluster_updates,
-                    systems: system_updates
-                }
-            });
-        })
-        // TODO: I've currently relying that this will not fail
-        .then(() => Dispatcher.instance().publish_fe_notifications({}, 'change_upgrade_status'))
-        // after all servers reached CAN_UPGRADE, start upgrading secondaries one by one
-        .then(() => _handle_upgrade_stage({ secondary_members, upgrade_path }));
+                    //Update all clusters upgrade section with the new status and clear the error if exists
+                    const cluster_updates = system_store.data.clusters.map(cluster => ({
+                        _id: cluster._id,
+                        $set: {
+                            "upgrade.status": 'UPGRADING'
+                        },
+                        $unset: {
+                            "upgrade.error": true
+                        }
+                    }));
+                    //set last upgrade initiator under system
+                    const system_updates = [{
+                        _id: req.system._id,
+                        $set: {
+                            "last_upgrade.initiator": (req.account && req.account.email) || ''
+                        }
+                    }];
+                    return system_store.make_changes({
+                        update: {
+                            clusters: cluster_updates,
+                            systems: system_updates
+                        }
+                    });
+                })
+                // TODO: I've currently relying that this will not fail
+                .then(() => Dispatcher.instance().publish_fe_notifications({}, 'change_upgrade_status'))
+                // after all servers reached PRE_UPGRADE_READY, start upgrading secondaries one by one
+                .then(() => _handle_upgrade_stage({ secondary_members, upgrade_path }));
+        });
 }
 
 function _handle_cluster_upgrade_failure(err, ip) {

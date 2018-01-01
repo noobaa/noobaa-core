@@ -782,6 +782,15 @@ class Agent {
                 if (storage_info) {
                     dbg.log0('storage_info:', storage_info);
                     reply.storage = storage_info;
+
+                    // treat small amount of used storage as 0 (under 200 KB) to avoid noisy 
+                    // reporting in a new system
+                    const MIN_USED_STORAGE = 200 * 1024;
+                    if (storage_info.used < MIN_USED_STORAGE) {
+                        dbg.log0(`used storage is under 200 KB (${storage_info.used}), treat as 0`);
+                        storage_info.used = 0;
+                    }
+
                     if (this.storage_limit) {
                         this._fix_storage_limit(reply.storage);
                         // reply.storage.limit = this.storage_limit;

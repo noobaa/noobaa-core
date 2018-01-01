@@ -9,7 +9,6 @@ import style from 'style';
 import { state$, action$ } from 'state';
 import { sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import moment from 'moment';
 import { tween } from 'shifty';
 import {
     replaceWithPreUpgradeSystemFailedModal,
@@ -17,14 +16,11 @@ import {
 } from 'action-creators';
 
 function _startFakeProgress(stepCallback) {
-    const delay = moment.duration(1, 'seconds').asMilliseconds();
-    const duration = moment.duration(90, 'seconds').asMilliseconds();
-
-    tween({
+    return tween({
         from: { val: 0 },
-        to: { val: .9 },
-        delay: delay,
-        duration: duration,
+        to: { val: .95 },
+        delay: 1000,
+        duration: 4 * 60 * 1000,
         easing: 'linear',
         step: ({ val }) => stepCallback(val)
     });
@@ -35,25 +31,25 @@ function _formatProgress(progress) {
 }
 
 class SystemUpgradingModalViewModel extends Observer {
+    progress = 0;
+    upgradingMessage = ko.observable();
+    completedRatio = ko.observable();
+    letfRatio = ko.observable();
+    progressText = ko.observable();
+    serverRows = ko.observableArray();
+    barValues = [
+        {
+            value: this.completedRatio,
+            color: style['color8']
+        },
+        {
+            value: this.letfRatio,
+            color: 'transparent'
+        }
+    ];
+
     constructor() {
         super();
-
-        this.progress = 0;
-        this.upgradingMessage = ko.observable();
-        this.completedRatio = ko.observable();
-        this.letfRatio = ko.observable();
-        this.progressText = ko.observable();
-        this.serverRows = ko.observableArray();
-        this.barValues = [
-            {
-                value: this.completedRatio,
-                color: style['color8']
-            },
-            {
-                value: this.letfRatio,
-                color: 'transparent'
-            }
-        ];
 
         this.observe(
             state$.get('topology', 'servers'),
@@ -98,13 +94,16 @@ class SystemUpgradingModalViewModel extends Observer {
         }
     }
 
-    onFakeProgress(onProgress) {
-        const progress = Math.max(this.progress, onProgress);
-
+    onFakeProgress(fakeProgress) {
+        const progress = Math.max(this.progress, fakeProgress);
         this.progress = progress;
         this.completedRatio(progress);
         this.letfRatio(1 - progress);
         this.progressText(_formatProgress(progress));
+    }
+
+    dispose() {
+        clearInterval(this.tickHandle);
     }
 }
 

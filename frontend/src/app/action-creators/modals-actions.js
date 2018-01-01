@@ -605,6 +605,22 @@ export function openConfirmDeleteHostModal(host) {
     };
 }
 
+export function openWelcomeModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'welcome-modal',
+            options: {
+                size: 'xsmall',
+                severity: 'success',
+                title: 'System Created Successfully',
+                backdropClose: false,
+                closeButton: 'hidden'
+            }
+        }
+    };
+}
+
 export function openUpgradeSystemModal() {
     return {
         type: OPEN_MODAL,
@@ -641,6 +657,19 @@ export function replaceWithUpgradeSystemFailedModal() {
                 severity: 'error',
                 title: 'System Upgrade Failed',
                 size: 'xsmall'
+            }
+        }
+    };
+}
+
+export function openFinalizeUpgradeModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'finalize-upgrade-modal',
+            options: {
+                size: 'xsmall',
+                backdropClose: false
             }
         }
     };

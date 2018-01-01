@@ -55,6 +55,16 @@ class NodesStore {
             .return(node);
     }
 
+    db_delete_nodes(node_ids) {
+        if (!node_ids || !node_ids.length) return;
+        return this._nodes.col().deleteMany({
+            _id: {
+                $in: node_ids
+            },
+            deleted: { $exists: true }
+        });
+    }
+
     update_node_by_id(node_id, updates, options) {
         return P.resolve(this._nodes.col().updateOne({
                 _id: this.make_node_id(node_id)
@@ -165,6 +175,13 @@ class NodesStore {
                 { 'force_hide': { $ne: null } },
             ]
         });
+    }
+
+    has_any_nodes_for_pool(pool_id) {
+        return this._nodes.col().findOne({
+                pool: pool_id,
+            })
+            .then(obj => Boolean(obj));
     }
 
 }

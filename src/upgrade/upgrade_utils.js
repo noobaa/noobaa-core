@@ -96,7 +96,7 @@ function pre_upgrade(params) {
             if (error instanceof ExtractionError) { //Failed in extracting, no staged package
                 staged_package = 'UNKNOWN';
             }
-            if (error instanceof NewTestsError || error instanceof VersionMismatchError) {
+            if (error instanceof NewTestsError) {
                 err_message = error.message;
             }
             return _.omitBy({

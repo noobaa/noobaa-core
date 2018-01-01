@@ -10,6 +10,7 @@ import { aggregateUpgradePackageInfo } from 'utils/cluster-utils';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
+import { Tweenable } from 'shifty';
 import {
     uploadUpgradePackage,
     abortUpgradePackageUpload,
@@ -62,7 +63,7 @@ const uploadBtnTooltips = {
 const upgradeBtnTooltips = {
     PACKAGE_NOT_READY: {
         align: 'end',
-        text: 'Upgrade can be initiated only after uploading a validated package'
+        text: 'Upgrade can be initiated only after uploading a valid package'
     },
     NOT_ALL_MEMBERS_UP: {
         align: 'end',
@@ -110,65 +111,93 @@ function _getPackageVersionText(version) {
     return version;
 }
 
+function _startFakeProgress(stepCallback) {
+    const durationInSec = 6 * 60;
+    const t =  new Tweenable().setConfig({
+        from: { val: 0 },
+        to: { val: durationInSec },
+        duration: durationInSec * 1000,
+        easing: 'linear',
+        step: ({ val }) => {
+            const progress =
+                // 0% - 20% in 00:40 min.
+                (Math.min(val, 40) * .2 / 40) +
+                // 20% - 95% in 5:20 min.
+                (Math.max(val - 40, 0) * (.95 - .2) / (5 * 60 + 20));
+
+            stepCallback(progress);
+        }
+    });
+    t.tween();
+    return t;
+}
+
+
 class VersionFormViewModel extends Observer {
+    // Version control observables.
+    version = ko.observable();
+    lastUpgrade = ko.observable();
+    clusterVersionStatus = ko.observable();
+    versionInfo = [
+        {
+            label: 'Current Version',
+            value: this.version
+        },
+        {
+            label: 'Last Upgrade',
+            value: this.lastUpgrade
+
+        },
+        {
+            label: 'Cluster Servers Version',
+            value: this.clusterVersionStatus
+        },
+        {
+            label: 'License Information',
+            value: true,
+            template: 'licenseInfo'
+        }
+    ];
+
+    // System upgrade observables.
+    stateLoaded = ko.observable();
+    uploadBtn = ko.observable();
+    uploadArea =  ko.observable();
+    upgradeBtn = ko.observable();
+    pkgSuffix = upgradePackageSuffix;
+    pkgState = ko.observable();
+    pkgVersion = ko.observable();
+    pkgVersionLabel = ko.observable();
+    isPkgVersionDisabled = ko.observable();
+    pkgTestTime = ko.observable();
+    pkgTestResult = ko.observable();
+    pkgStateProgress = 0;
+    pkgStateProgressText = ko.observable();
+    pkgIssuesColumns = pkgIssuesColumns;
+    isPkgTestResultsVisible = ko.observable();
+    pkgIssuesRows = ko.observableArray();
+    progressTween = null;
+    pkgInfo = [
+        {
+            label: this.pkgVersionLabel,
+            value: this.pkgVersion,
+            disabled: this.isPkgVersionDisabled
+        },
+        {
+            label: 'Validated At',
+            value: this.pkgTestTime,
+            visible: this.pkgTestTime
+        },
+        {
+            label: 'Validation Result',
+            template: 'testResult',
+            value: this.pkgTestResult,
+            visible: this.pkgTestResult
+        }
+    ];
+
     constructor() {
         super();
-
-        this.version = ko.observable();
-        this.lastUpgrade = ko.observable();
-        this.clusterVersionStatus = ko.observable();
-        this.versionInfo = [
-            {
-                label: 'Current Version',
-                value: this.version
-            },
-            {
-                label: 'Last Upgrade',
-                value: this.lastUpgrade
-
-            },
-            {
-                label: 'Cluster Servers Version',
-                value: this.clusterVersionStatus
-            },
-            {
-                label: 'License Information',
-                value: true,
-                template: 'licenseInfo'
-            }
-        ];
-        this.stateLoaded = ko.observable();
-        this.uploadBtn = ko.observable();
-        this.uploadArea =  ko.observable();
-        this.upgradeBtn = ko.observable();
-        this.pkgSuffix = upgradePackageSuffix;
-        this.pkgState = ko.observable();
-        this.pkgVersion = ko.observable();
-        this.isPkgVersionDisabled = ko.observable();
-        this.pkgTestTime = ko.observable();
-        this.pkgTestResult = ko.observable();
-        this.pkgStateProgress = ko.observable();
-        this.pkgIssuesColumns = pkgIssuesColumns;
-        this.isPkgTestResultsVisible = ko.observable();
-        this.pkgIssuesRows = ko.observableArray();
-        this.pkgInfo = [
-            {
-                label: 'Staged Version',
-                value: this.pkgVersion,
-                disabled: this.isPkgVersionDisabled
-            },
-            {
-                label: 'Validated At',
-                value: this.pkgTestTime,
-                visible: this.pkgTestTime
-            },
-            {
-                label: 'Validation Result',
-                template: 'testResult',
-                value: this.pkgTestResult,
-                visible: this.pkgTestResult
-            }
-        ];
 
         this.observe(
             state$.getMany(
@@ -182,8 +211,8 @@ class VersionFormViewModel extends Observer {
     onState([system, servers]) {
         if (!system || !servers) {
             this.stateLoaded(false);
-            this.uploadBtn({});
-            this.upgradeBtn({});
+            this.uploadBtn({ disabled:  true });
+            this.upgradeBtn({ disabled:  true });
             this.uploadArea({});
             this.isPkgTestResultsVisible(false);
             return;
@@ -201,6 +230,7 @@ class VersionFormViewModel extends Observer {
         } = aggregateUpgradePackageInfo(serverList);
 
         const pkgTestResult = _getPackageTestResult(state, issues.length);
+        const pkgVersionLabel = `${pkgTestResult === 'SUCCESS' ? 'Staged' : 'Uploaded'} Version`;
         const isPkgUploadingOrTesting = state === 'UPLOADING' || state === 'TESTING';
         const uploadBtn = {
             disabled: Boolean(upgrade.preconditionFailure) || isPkgUploadingOrTesting,
@@ -217,7 +247,7 @@ class VersionFormViewModel extends Observer {
             active: isPkgUploadingOrTesting
         };
         const pkgTestTime = testedAt ? moment(testedAt).format(timeShortFormat) : '';
-        const pkgStateProgress = numeral(progress).format('%');
+        const pkgStateProgressText = numeral(progress).format('%');
         const isPkgTestResultsVisible = pkgTestResult === 'FAILURE';
         const pkgIssuesRows = issues
             .map((issue, i) => {
@@ -225,7 +255,6 @@ class VersionFormViewModel extends Observer {
                 row.onState(issue.message, servers[issue.server]);
                 return row;
             });
-
 
         this.version(version);
         this.lastUpgrade(_getLastUpgradeText(upgrade.lastUpgrade));
@@ -235,13 +264,29 @@ class VersionFormViewModel extends Observer {
         this.uploadArea(uploadArea);
         this.pkgState(state);
         this.isPkgVersionDisabled(isPkgUploadingOrTesting);
+        this.pkgVersionLabel(pkgVersionLabel);
         this.pkgVersion(_getPackageVersionText(pkgVersion));
         this.pkgTestTime(pkgTestTime);
         this.pkgTestResult(pkgTextResultToInfo[pkgTestResult]);
-        this.pkgStateProgress(pkgStateProgress);
+        this.pkgStateProgress = progress;
+        this.pkgStateProgressText(pkgStateProgressText);
         this.pkgIssuesRows(pkgIssuesRows);
         this.isPkgTestResultsVisible(isPkgTestResultsVisible);
         this.stateLoaded(true);
+
+        if (state === 'TESTING' && !this.progressTween){
+            this.progressTween = _startFakeProgress(this.onFakeProgress.bind(this));
+
+        } else if (state !== 'TESTING' && this.progressTween) {
+            this.progressTween.stop().dispose();
+            this.progressTween = null;
+        }
+    }
+
+    onFakeProgress(fakeProgress) {
+        const progress = Math.max(this.pkgStateProgress, fakeProgress);
+        this.pkgStateProgress = progress;
+        this.pkgStateProgressText(numeral(progress).format('%'));
     }
 
     onUploadPackage() {
@@ -272,6 +317,14 @@ class VersionFormViewModel extends Observer {
 
     onRerunTest() {
         action$.onNext(runUpgradePackageTests());
+    }
+
+    dispose() {
+        if (this.progressTween) {
+            this.progressTween.stop().dispose();
+        }
+
+        super.dispose();
     }
 }
 

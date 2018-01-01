@@ -104,7 +104,7 @@ function _getPackageVersionText(version) {
     }
 
     if (version === 'UNKNOWN') {
-        return 'Not a NooBaa upgrade package';
+        return 'Package might be corrupted or not a NooBaa upgrade package';
     }
 
     return version;

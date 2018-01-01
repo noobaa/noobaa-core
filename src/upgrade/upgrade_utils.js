@@ -47,6 +47,7 @@ const ERROR_MAPPING = {
 let staged_package = 'UNKNOWN';
 
 class ExtractionError extends Error {}
+class VersionMismatchError extends Error {}
 class NewTestsError extends Error {}
 
 function pre_upgrade(params) {
@@ -95,7 +96,7 @@ function pre_upgrade(params) {
             if (error instanceof ExtractionError) { //Failed in extracting, no staged package
                 staged_package = 'UNKNOWN';
             }
-            if (error instanceof NewTestsError) {
+            if (error instanceof NewTestsError || error instanceof VersionMismatchError) {
                 err_message = error.message;
             }
             return _.omitBy({
@@ -229,11 +230,11 @@ function test_major_version_change() {
             const major_part = Number(staged_package.split('.')[0]);
             if (major_part < 2) {
                 dbg.error('Unsupported upgrade, 2.X to 1.X');
-                throw new Error('MAJOR_VERSION_CHANGE');
+                throw new VersionMismatchError('MAJOR_VERSION_CHANGE');
             }
             if (staged_package.split('-')[0] > pkg.version.split('-')[0]) {
                 dbg.error('Unsupported upgrade, cannot downgrade');
-                throw new Error('CANNOT_DOWNGRADE');
+                throw new VersionMismatchError('CANNOT_DOWNGRADE');
             }
         });
 }
@@ -332,7 +333,6 @@ function _get_ntp_address() {
 
 function new_pre_upgrade_checkups(params) {
     return P.join(
-        // test_major_version_change(),
         test_internet_connectivity(params.phone_home_proxy_address),
         // TODO: Check the NTP with consideration to the proxy
         test_ntp_timeskew(params.ntp_server),

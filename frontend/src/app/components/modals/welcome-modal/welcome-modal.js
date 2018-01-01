@@ -4,7 +4,7 @@ import template from './welcome-modal.html';
 import Observer from 'observer';
 import { realizeUri } from 'utils/browser-utils';
 import { state$, action$ } from 'state';
-import { requestLocation } from 'action-creators';
+import { requestLocation, closeModal } from 'action-creators';
 
 class WelcomeModalViewModel extends Observer {
     constructor() {
@@ -20,6 +20,7 @@ class WelcomeModalViewModel extends Observer {
     }
 
     onStart() {
+        action$.onNext(closeModal());
         action$.onNext(requestLocation(this.systemUri, true));
     }
 }

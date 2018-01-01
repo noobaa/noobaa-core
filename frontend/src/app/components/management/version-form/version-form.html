@@ -57,7 +57,7 @@
                 <!-- ko if: pkgState.eq('UPLOADING') -->
                 <svg-icon class="spin push-next-half" params="name: 'in-progress'"></svg-icon>
                 <p class="row content-middle">
-                    Uploading Package... {{pkgStateProgress}}
+                    Uploading Package... {{pkgStateProgressText}}
                     <button class="link alt-colors push-prev-half"
                         ko.click="onCancelUpload"
                     >
@@ -68,7 +68,7 @@
 
                 <!-- ko if: pkgState.eq('TESTING') -->
                 <svg-icon class="spin push-next-half" params="name: 'in-progress'"></svg-icon>
-                <p>Validating Package... {{pkgStateProgress}}</p>
+                <p>Validating Package... {{pkgStateProgressText}}</p>
                 <!-- /ko -->
 
                 <!-- ko if: pkgState.eq('TESTED') -->

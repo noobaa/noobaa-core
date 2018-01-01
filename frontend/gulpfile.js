@@ -395,6 +395,7 @@ function bundleApp(watch) {
                 'transform-es2015-modules-commonjs',
                 'transform-async-to-generator',
                 'transform-object-rest-spread',
+                'transform-class-properties',
                 ['transform-runtime', { polyfill: false }]
             ]
         })

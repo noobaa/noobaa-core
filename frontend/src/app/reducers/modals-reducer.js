@@ -8,7 +8,6 @@ import {
     REPLACE_MODAL,
     LOCK_MODAL,
     CLOSE_MODAL,
-    CHANGE_LOCATION,
     COMPLETE_FETCH_SYSTEM_INFO,
     UPGRADE_SYSTEM
 } from 'action-types';
@@ -79,35 +78,6 @@ function onCloseModal(modals) {
     return modals.slice(0, -1);
 }
 
-function onChangeLocation(modals, { payload: location }) {
-    const { afterupgrade, welcome } = location.query;
-
-    if (afterupgrade) {
-        return _openModal(modals, {
-            component: 'finalize-upgrade-modal',
-            options: {
-                size: 'xsmall',
-                backdropClose: false
-            }
-        });
-    }
-
-    if (welcome) {
-        return _openModal(modals, {
-            component: 'welcome-modal',
-            options: {
-                size: 'xsmall',
-                severity: 'success',
-                title: 'System Created Successfully',
-                backdropClose: false,
-                closeButton: 'hidden'
-            }
-        });
-    }
-
-    return initialState;
-}
-
 function onCompleteFetchSystemInfo(modals, { payload }) {
     if (payload.phone_home_config.upgraded_cap_notification) {
         return _openModal(modals, {
@@ -159,7 +129,6 @@ export default createReducer(initialState, {
     [REPLACE_MODAL]: onReplaceModal,
     [LOCK_MODAL]: onLockModal,
     [CLOSE_MODAL]: onCloseModal,
-    [CHANGE_LOCATION]: onChangeLocation,
     [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
     [UPGRADE_SYSTEM]: onUpgradeSystem
 });

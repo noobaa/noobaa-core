@@ -9,7 +9,11 @@ import { realizeUri } from 'utils/browser-utils';
 import { registerForAlerts } from 'actions';
 import * as routes from 'routes';
 import routeMapping from './route-mapping';
-import { fetchSystemInfo } from 'action-creators';
+import {
+    fetchSystemInfo,
+    openFinalizeUpgradeModal,
+    openWelcomeModal
+} from 'action-creators';
 
 const navItems = deepFreeze([
     /*{
@@ -82,7 +86,7 @@ class MainLayoutViewModel extends Observer {
     }
 
     onLocation(location) {
-        const { route, params } = location;
+        const { route, params, query } = location;
         const { system } = params;
         const { panel, area, crumbsGenerator } = routeMapping[route] || {};
 
@@ -91,6 +95,14 @@ class MainLayoutViewModel extends Observer {
         this.navItems.forEach(item => item.url(realizeUri(routes[item.name], { system })));
         this.area(area);
         this.panel(panel ? `${panel}-panel` : 'empty');
+
+        const { afterupgrade, welcome } = query;
+        if (afterupgrade) {
+            action$.onNext(openFinalizeUpgradeModal());
+
+        } else if (welcome) {
+            action$.onNext(openWelcomeModal());
+        }
 
         action$.onNext(fetchSystemInfo());
     }

@@ -511,12 +511,14 @@ function verify_new_ip(req) {
 function update_member_of_cluster(req) {
     let topology = cutil.get_topology();
     const is_clusterized = topology.is_clusterized;
+    let old_address;
     // Shouldn't do anything if there is not cluster
     if (!(is_clusterized && system_store.is_cluster_master)) {
         dbg.log0(`update_member_of_cluster: is_clusterized:${is_clusterized},
             is_master:${system_store.is_cluster_master}`);
         return P.resolve();
     }
+    const info = cutil.get_cluster_info();
 
     return _validate_member_request(_.defaults({
             rpc_params: {
@@ -536,20 +538,27 @@ function update_member_of_cluster(req) {
             if (version_check_res.result !== 'OKAY') throw new Error('Verify member version check returned', version_check_res);
         })
         .then(() => {
-            let shard_index = cutil.find_shard_index(req.rpc_params.shard);
-            let server_idx = _.findIndex(topology.shards[shard_index].servers,
-                server => server.address === req.rpc_params.old_address);
-            if (server_idx === -1) {
-                throw new Error(`could not find address:${req.rpc_params.old_address} in shard`);
+            let shard_index = -1;
+            let server_idx = -1;
+            for (let i = 0; i < info.shards.length; ++i) {
+                server_idx = _.findIndex(info.shards[i].servers,
+                    server => server.secret === req.rpc_params.target_secret);
+                if (server_idx !== -1) {
+                    shard_index = i;
+                    break;
+                }
             }
-
+            if (shard_index === -1 || server_idx === -1) {
+                throw new Error(`could not find address:${req.rpc_params.secret} in any shard`);
+            }
             let new_shard = topology.shards[shard_index];
+            old_address = new_shard.servers[server_idx].address;
             new_shard.servers[server_idx] = {
                 address: req.rpc_params.new_address
             };
 
             let new_rs_params = {
-                name: req.rpc_params.shard,
+                name: new_shard.shardname,
                 IPs: cutil.extract_servers_ip(
                     new_shard.servers
                 ),
@@ -573,7 +582,7 @@ function update_member_of_cluster(req) {
             return _publish_to_cluster('news_updated_topology', {
                 new_topology: topology_to_send,
                 cluster_member_edit: {
-                    old_address: req.rpc_params.old_address,
+                    old_address: old_address,
                     new_address: req.rpc_params.new_address
                 }
             });

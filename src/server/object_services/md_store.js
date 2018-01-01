@@ -379,6 +379,34 @@ class MDStore {
             });
     }
 
+    find_deleted_objects(max_delete_time, limit) {
+        const query = {
+            deleted: {
+                $lt: new Date(max_delete_time)
+            },
+        };
+        return this._objects.col().find(query, {
+                limit: Math.min(limit, 1000),
+                fields: {
+                    _id: 1,
+                    deleted: 1
+                }
+            }).toArray()
+            .then(objects => mongo_utils.uniq_ids(objects, '_id'));
+    }
+
+    db_delete_objects(object_ids) {
+        if (!object_ids || !object_ids.length) return;
+        return this._objects.col().deleteMany({
+            _id: {
+                $in: object_ids
+            },
+            deleted: { $exists: true }
+        });
+    }
+
+
+
 
     ////////////////
     // CLOUD SYNC //
@@ -504,6 +532,20 @@ class MDStore {
                 num: 'num_del',
             }
         });
+    }
+
+    db_delete_multiparts_of_object(obj) {
+        return this._multiparts.col().deleteMany({
+            obj: obj._id,
+            deleted: { $exists: true }
+        });
+    }
+
+    has_any_objects_for_bucket(bucket_id) {
+        return this._objects.col().findOne({
+                bucket: bucket_id,
+            })
+            .then(obj => Boolean(obj));
     }
 
 
@@ -666,6 +708,13 @@ class MDStore {
                 start: 'start_del',
                 // chunk: 'chunk_del',
             }
+        });
+    }
+
+    db_delete_parts_of_object(obj) {
+        return this._parts.col().deleteMany({
+            obj: obj._id,
+            deleted: { $exists: true }
         });
     }
 
@@ -864,6 +913,46 @@ class MDStore {
             }));
     }
 
+    find_deleted_chunks(max_delete_time, limit) {
+        const query = {
+            deleted: {
+                $lt: new Date(max_delete_time)
+            },
+        };
+        return this._chunks.col().find(query, {
+                limit: Math.min(limit, 1000),
+                fields: {
+                    _id: 1,
+                    deleted: 1
+                }
+            }).toArray()
+            .then(objects => mongo_utils.uniq_ids(objects, '_id'));
+    }
+
+    has_any_blocks_for_chunk(chunk_id) {
+        return this._blocks.col().findOne({
+                chunk: chunk_id,
+            })
+            .then(obj => Boolean(obj));
+    }
+
+    has_any_parts_for_chunk(chunk_id) {
+        return this._parts.col().findOne({
+                chunk: chunk_id,
+            })
+            .then(obj => Boolean(obj));
+    }
+
+    db_delete_chunks(chunk_ids) {
+        if (!chunk_ids || !chunk_ids.length) return;
+        return this._chunks.col().deleteMany({
+            _id: {
+                $in: chunk_ids
+            },
+            deleted: { $exists: true }
+        });
+    }
+
     ////////////
     // BLOCKS //
     ////////////
@@ -1058,6 +1147,32 @@ class MDStore {
                     pools
                 };
             });
+    }
+
+    find_deleted_blocks(max_delete_time, limit) {
+        const query = {
+            deleted: {
+                $lt: new Date(max_delete_time)
+            },
+        };
+        return this._blocks.col().find(query, {
+                limit: Math.min(limit, 1000),
+                fields: {
+                    _id: 1,
+                    deleted: 1
+                }
+            }).toArray()
+            .then(objects => mongo_utils.uniq_ids(objects, '_id'));
+    }
+
+    db_delete_blocks(block_ids) {
+        if (!block_ids || !block_ids.length) return;
+        return this._blocks.col().deleteMany({
+            _id: {
+                $in: block_ids
+            },
+            deleted: { $exists: true }
+        });
     }
 }
 

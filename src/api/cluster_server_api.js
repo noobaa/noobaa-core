@@ -50,16 +50,10 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['old_address', 'new_address', 'shard', 'target_secret'],
+                required: ['new_address', 'target_secret'],
                 properties: {
-                    old_address: {
-                        type: 'string',
-                    },
                     new_address: {
                         type: 'string',
-                    },
-                    shard: {
-                        type: 'string'
                     },
                     target_secret: {
                         type: 'string'

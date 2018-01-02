@@ -427,7 +427,7 @@ function extract_package() {
             trim_stdout: true
         }))
         .then(function() {
-            return promise_utils.exec(`cd ${EXTRACTION_PATH}/;tar -xzvf ${EXTRACTION_PATH}/${PACKAGE_FILE_NAME} >& /dev/null`, {
+            return promise_utils.exec(`cd ${EXTRACTION_PATH}/;tar --same-owner -xzvf ${EXTRACTION_PATH}/${PACKAGE_FILE_NAME} >& /dev/null`, {
                     ignore_rc: false,
                     return_stdout: true,
                     trim_stdout: true

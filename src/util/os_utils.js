@@ -213,7 +213,7 @@ function get_disk_mount_points() {
                 const exclude_drive =
                     mount.includes('/Volumes/') ||
                     mount.startsWith('/etc/') ||
-                    mount.startsWith('/boot/') ||
+                    mount.startsWith('/boot') ||
                     mount.startsWith('/private/') || // mac
                     drive_id.includes('by-uuid');
                 if ((is_win_drive || is_linux_drive) && !exclude_drive) {

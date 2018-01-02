@@ -1,7 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// const P = require('../../util/promise');
+const _ = require('lodash');
+
+const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
@@ -56,6 +58,28 @@ function background_worker() {
         });
 }
 
+/**
+ * 
+ * Scrubber RPC API to build chunks
+ * 
+ * This is meant to be the only way to run MapBuilder by any non-scrubber creatures
+ * such as the nodes monitor or other modules that will need it in the future.
+ * 
+ * The reason they need to call the scrubber to do it is that we want MapBuilder's builder_lock 
+ * to prevent concurrent rebuild of the same chunk in concurrency.
+ * 
+ */
+function build_chunks(req) {
+    return P.resolve()
+        .then(() => {
+            const chunk_ids = _.map(req.rpc_params.chunk_ids, id => MDStore.instance().make_md_id(id));
+            const builder = new map_builder.MapBuilder(chunk_ids);
+            return builder.run();
+        })
+        .return();
+}
+
 
 // EXPORTS
 exports.background_worker = background_worker;
+exports.build_chunks = build_chunks;

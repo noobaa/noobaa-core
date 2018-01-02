@@ -23,7 +23,6 @@ const NodesStore = require('./nodes_store').NodesStore;
 const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
 const Dispatcher = require('../notifications/dispatcher');
-const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
@@ -2254,8 +2253,14 @@ class NodesMonitor extends EventEmitter {
                 // we update the stage marker even if failed to advance the scan
                 act.stage.marker = res.marker;
                 blocks_size = res.blocks_size;
-                const builder = new MapBuilder(res.chunk_ids);
-                return builder.run();
+                return this.client.scrubber.build_chunks({
+                    chunk_ids: res.chunk_ids
+                }, {
+                    auth_token: auth_server.make_auth_token({
+                        system_id: String(item.node.system),
+                        role: 'admin'
+                    })
+                });
             })
             .then(() => {
                 act.running = false;

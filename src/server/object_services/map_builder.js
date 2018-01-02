@@ -2,6 +2,8 @@
 'use strict';
 
 const _ = require('lodash');
+const util = require('util');
+
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -41,7 +43,7 @@ class MapBuilder {
     }
 
     run() {
-        dbg.log1('MapBuilder.run:', 'batch start', this.chunk_ids.length, 'chunks');
+        dbg.log1('MapBuilder.run:', 'batch start', this.chunk_ids);
         if (!this.chunk_ids.length) return;
 
         return builder_lock.surround_keys(_.map(this.chunk_ids, String),
@@ -74,6 +76,7 @@ class MapBuilder {
             .then(() => MDStore.instance().find_chunks_by_ids(chunk_ids))
             .then(chunks => {
                 this.chunks = chunks;
+                dbg.log1('MapBuilder.reload_chunks:', this.chunks);
             });
     }
 
@@ -200,6 +203,7 @@ class MapBuilder {
                     role: 'admin',
                 })
             });
+            chunk[util.inspect.custom] = custom_inspect_chunk;
 
             return P.resolve()
                 .then(() => mapping.missing_frags && this.read_entire_chunk(chunk))
@@ -309,8 +313,7 @@ class MapBuilder {
     allocate_block(chunk, alloc) {
         const { avoid_nodes, allocated_hosts } = chunk;
         const { frag, pools, special_replica } = alloc;
-
-        dbg.log0('MapBuilder.allocate_block:', chunk._id, 'frag', frag);
+        const block_id = MDStore.instance().make_md_id();
 
         // We send an additional flag in order to allocate
         // replicas of content tiering feature on the best read latency nodes
@@ -318,10 +321,13 @@ class MapBuilder {
             pools, avoid_nodes, allocated_hosts, { special_replica }
         );
 
+        dbg.log0('MapBuilder.allocate_block: block', block_id,
+            'node', node._id, node.name, 'chunk', chunk._id, 'frag', frag);
+
         if (!node) throw new Error('MapBuilder.allocate_block: no nodes for allocation');
 
         const block = {
-            _id: MDStore.instance().make_md_id(),
+            _id: block_id,
             chunk,
             frag: frag._id,
             size: chunk.frag_size,
@@ -388,6 +394,15 @@ class MapBuilder {
             map_deleter.delete_chunks(_.map(chunks_to_be_deleted, '_id'))
         );
     }
+}
+
+/**
+ * avoid printing rpc_client to logs, it's ugly
+ * also avoid infinite recursion and omit inspect function
+ * @this chunk
+ */
+function custom_inspect_chunk() {
+    return _.omit(this, 'rpc_client', util.inspect.custom);
 }
 
 exports.MapBuilder = MapBuilder;

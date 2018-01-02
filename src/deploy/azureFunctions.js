@@ -12,13 +12,15 @@ const fs = require('fs');
 const api = require('../api');
 const promise_utils = require('../util/promise_utils');
 const azure_storage = require('../util/azure_storage_wrap');
+// const ssh = require('../test/utils/ssh_functions');
+const af = require('../test/utils/agent_functions');
 
 require('../util/dotenv').load();
 
 const adminUsername = 'notadmin';
-const adminPassword = '0bj3ctSt0r3';
+const qaUsername = 'qaadmin';
+const adminPassword = '0bj3ctSt0r3!';
 let DEFAULT_SIZE = 'Standard_B2s';
-// const adminPassword = 'Passw0rd123!';
 
 
 const DEV_ACTIVATION_KEY = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
@@ -191,6 +193,74 @@ class AzureFunctions {
             });
     }
 
+    // runAgentCommand(agent_server_ip, agentCommand) {
+    //     let client;
+    //     return ssh.ssh_connect(null, {
+    //         host: agent_server_ip,
+    //         //  port: 22,
+    //         username: qaUsername,
+    //         password: adminPassword,
+    //         keepaliveInterval: 5000,
+    //     })
+    //         //becoming root and running the agent command
+    //         .then(res => {
+    //             client = res;
+    //             return ssh.ssh_exec(client, `
+    //                 sudo bash -c '${agentCommand}'
+    //             `);
+    //         })
+    //         .then(() => ssh.ssh_stick(client));
+    // }
+
+    createAgentFromImage(params) {
+        const {
+            vmName,
+            vnet,
+            storage,
+            server_ip,
+            os,
+            ipType = 'Dynamic',
+            vmSize = DEFAULT_SIZE,
+            CONTAINER_NAME = 'staging-vhds',
+            location = IMAGE_LOCATION,
+            exclude_drives = [],
+        } = params;
+        let agentCommand;
+        const osType = this.getImagesfromOSname(os).osType;
+        return P.resolve()
+            .then(() => this.copyVHD({
+                image: os + '.vhd',
+                location
+            }))
+            .then(() => {
+                let diskSizeGB;
+                if (osType === 'Windows') {
+                    diskSizeGB = 140;
+                } else if (osType === 'Linux') {
+                    diskSizeGB = 40;
+                }
+                return this.createVirtualMachineFromImage({
+                    vmName,
+                    image: 'https://' + storage + '.blob.core.windows.net/' + CONTAINER_NAME + '/' + os + '.vhd',
+                    vnet,
+                    storageAccountName: storage,
+                    osType,
+                    ipType,
+                    diskSizeGB,
+                    vmSize
+                });
+            })
+            .delay(20 * 1000)
+            .then(() => af.getAgentConfCommand(server_ip, osType, exclude_drives))
+            .then(res => {
+                agentCommand = res;
+                console.log(agentCommand);
+                return this.getIpAddress(vmName + '_pip');
+            })
+            .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
+            .then(ip => af.runAgentCommandViaSsh(ip, qaUsername, adminPassword, agentCommand, osType));
+    }
+
     createAgentExtension(params) {
         const { vmName, os, serverName, agentConf, ip } = params;
         console.log('Started the Virtual Machine!');
@@ -330,7 +400,7 @@ class AzureFunctions {
 
     createVirtualMachineFromImage(params) {
         console.log(params);
-        const { vmName, image, vnet, storageAccountName, osType, plan, ipType = 'Dynamic', vmSize = DEFAULT_SIZE } = params;
+        const { vmName, image, vnet, storageAccountName, osType, plan, ipType = 'Dynamic', diskSizeGB, vmSize = DEFAULT_SIZE } = params;
         var vmParameters = {
             location: this.location,
             plan: plan,
@@ -345,10 +415,10 @@ class AzureFunctions {
             storageProfile: {
                 osDisk: {
                     name: vmName + '_disk',
-                    // diskSizeGB: 1023,
+                    diskSizeGB,
                     caching: 'None',
                     createOption: 'fromImage',
-                    osType: osType,
+                    osType,
                     vhd: {
                         uri: 'https://' + storageAccountName + '.blob.core.windows.net/osdisks/' + vmName + '-os.vhd'
                     },

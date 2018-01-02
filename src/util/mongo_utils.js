@@ -33,6 +33,10 @@ const mongo_operators = new Set([
     '$isolated'
 ]);
 
+mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
+    return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
+};
+
 /*
  *@param base - the array to subtract from
  *@param values - array of values to subtract from base

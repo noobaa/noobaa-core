@@ -628,7 +628,7 @@ class SystemStore extends EventEmitter {
                 });
 
                 return P.all(_.map(bulk_per_collection,
-                    bulk => bulk.length && P.resolve(bulk.execute({ j: 1 }))));
+                    bulk => bulk.length && P.resolve(bulk.execute({ j: true }))));
             })
             .then(() =>
                 // notify all the cluster (including myself) to reload

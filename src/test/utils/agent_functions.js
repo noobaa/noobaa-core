@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const pool = 'first.pool';
 const api = require('../../api');
 const promise_utils = require('../../util/promise_utils');
+const ssh = require('./ssh_functions');
 
 // Environment Setup
 require('../../util/dotenv').load();
@@ -176,6 +177,57 @@ function getAgentConf(server_ip, exclude_drives = []) {
             const agentConfArr = installationString.LINUX.split(" ");
             return agentConfArr[agentConfArr.length - 1];
         });
+}
+
+function getAgentConfCommand(server_ip, osType, exclude_drives = []) {
+    const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+    const client = rpc.new_client({});
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params)
+        .then(() => client.system.get_node_installation_string({
+            pool: pool,
+            exclude_drives
+        }))
+        .then(installationString => {
+            if (osType === 'Linux') {
+                return installationString.LINUX;
+            } else if (osType === 'Windows') {
+                return installationString.WINDOWS;
+            } else {
+                throw new Error(`osType is ${osType}`);
+            }
+        });
+}
+
+const agentCommandGeneratorForOS = {
+    LINUX: agentCommand => `
+        sudo bash -c '${agentCommand}'
+    `,
+    WINDOWS: agentCommand => `
+        sudo bash -c '${agentCommand}'
+    `
+};
+
+function runAgentCommandViaSsh(agent_server_ip, username, password, agentCommand, osType) {
+    let client;
+    return ssh.ssh_connect(null, {
+        host: agent_server_ip,
+        username,
+        password,
+        keepaliveInterval: 5000,
+    })
+        //becoming root and running the agent command
+        .then(res => {
+            client = res;
+            const generateOSCommand = agentCommandGeneratorForOS[osType.toUpperCase()];
+            if (!generateOSCommand) throw new Error('Unknown os type: ', osType);
+            return ssh.ssh_exec(client, generateOSCommand(agentCommand));
+        })
+        .then(() => ssh.ssh_stick(client));
 }
 
 function activeAgents(server_ip, deactivated_nodes_list) {
@@ -416,6 +468,8 @@ function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suff
 exports.list_nodes = list_nodes;
 exports.getTestNodes = getTestNodes;
 exports.getAgentConf = getAgentConf;
+exports.getAgentConfCommand = getAgentConfCommand;
+exports.runAgentCommandViaSsh = runAgentCommandViaSsh;
 exports.activeAgents = activeAgents;
 exports.deactiveAgents = deactiveAgents;
 exports.activeAllHosts = activeAllHosts;

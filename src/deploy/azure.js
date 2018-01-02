@@ -13,16 +13,16 @@ const crypto = require('crypto');
 const argv = require('minimist')(process.argv);
 const net = require('net');
 const _ = require('lodash');
-const af = require('../test/utils/agent_functions');
-
+const af = require('../test/utils/agent_functions'); //TODO: remove from here when Win can be copied from an image
 
 // Environment Setup
 require('../util/dotenv').load();
 _validateEnvironmentVariables();
-var clientId = process.env.CLIENT_ID;
-var domain = process.env.DOMAIN;
-var secret = process.env.APPLICATION_SECRET;
-var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
+const clientId = process.env.CLIENT_ID;
+const domain = process.env.DOMAIN;
+const secret = process.env.APPLICATION_SECRET;
+const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
+const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
 //Sample Config
 var location = argv.location || 'westus2';
@@ -32,6 +32,7 @@ var storageAccountName = argv.storage || 'capacitystorage';
 var timestamp = (Math.floor(Date.now() / 1000));
 
 var vnetName = argv.vnet || 'newcapacity-vnet';
+let delete_agents = argv.delete_agents || false;
 var serverName;
 
 var machineCount = 4;
@@ -49,6 +50,8 @@ Usage:
   --resource <resource-group> the azure resource group to use (default: ${resourceGroupName})
   --storage <storage-account> the azure storage account to use (default: ${storageAccountName})
   --vnet <vnet>               the azure virtual network to use (default: ${vnetName})
+  --delete_agents             Will delete agents if the number given in the scale flag is 
+                              larger then the amount of the current agent number (with the same prefix)
   --os <name>                 the desired os for the agent (default is linux - ubuntu14)
                               ubuntu16/ubuntu14/centos6/win2012/win2008/win2016
 `);
@@ -58,12 +61,19 @@ var oses = [
     'ubuntu14', 'ubuntu16', 'ubuntu12',
     'centos6', 'centos7',
     'redhat6', 'redhat7',
-    'win2008', 'win2012', 'win2016'
+    'win2008', 'win2012',
+    'win2016'
 ];
 
 ///////////////////////////////////////
 //Entrypoint for the vm-sample script//
 ///////////////////////////////////////
+if (!connectionString.includes(storageAccountName)) {
+    console.log('Your \'.env\' file is pointing to a diffrent storage-account:');
+    console.log('You reqested', storageAccountName, 'and the file contains:', connectionString);
+    process.exit(1);
+}
+
 if (argv.help) {
     print_usage();
 } else {
@@ -89,10 +99,10 @@ function args_builder(count, os) {
         var postfix = dateSha.substring(dateSha.length - 6);
         if (os.osType === 'Windows') {
             vmName += 'W' + postfix;
-            console.log('the Windows machine name is: ', vmName);
+            console.log('the Windows machine name is:', vmName);
         } else {
             vmName += 'Linux' + postfix;
-            console.log('the Linux machine name is: ', vmName);
+            console.log('the Linux machine name is:', vmName);
         }
         vmNames.push(vmName);
     }
@@ -142,25 +152,33 @@ function vmOperations(operationCallback) {
                 return P.map(oses, osname => {
                     var os2 = azf.getImagesfromOSname(osname);
                     var machine_name = prefix + osname;
-                    if (os2.osType === 'Windows') {
-                        machine_name = machine_name.substring(0, 15);
-                    }
                     machines = args_builder(1, os2);
-                    return af.getAgentConf(server_ip)
-                        .then(agentConf => azf.createAgent({
+                    if (os2.osType === 'Windows' || osname === 'redhat7') {
+                        machine_name = machine_name.substring(0, 15);
+                        //TODO: remove when Win can be copied from an image (close the if here)
+                        return af.getAgentConf(server_ip)
+                            .then(agentConf => azf.createAgent({
+                                vmName: machine_name,
+                                storage: storageAccountName,
+                                vnet: vnetName,
+                                os: os2,
+                                serverName,
+                                agentConf
+                            }));
+                    } else { //TODO: when Win can be copied from an image remove the else, everything should be called with createAgentFromImage
+                        return azf.createAgentFromImage({
                             vmName: machine_name,
                             storage: storageAccountName,
                             vnet: vnetName,
-                            os: os2,
-                            serverName,
-                            agentConf
+                            server_ip,
+                            os: osname,
                         })
-                            .catch(err => console.log('got error with agent', err))
-                        );
+                            .catch(err => console.log('got error with agent', err));
+                    }
                 });
             }
             if (argv.servers) {
-                var servers = [];
+                let servers = [];
                 for (let i = 0; i < argv.servers; ++i) {
                     servers.push({
                         name: argv.app + i,
@@ -184,46 +202,66 @@ function vmOperations(operationCallback) {
                 )
                     .then(() => {
                         if (argv.servers > 1) {
-                            var slaves = Array.from(servers);
-                            var master = slaves.pop();
+                            const slaves = Array.from(servers);
+                            const master = slaves.pop();
                             return P.each(slaves, slave => azf.addServerToCluster(master.ip, slave.ip, slave.secret));
                         }
                     })
                     .then(() => {
-                        var server = servers[servers.length - 1];
-                        console.log('Cluster/Server:', server.name, 'was successfuly created, ip is:', server.ip);
+                        const server = servers[servers.length - 1];
+                        console.log('Cluster/Server:', server.name, 'was successfuly created, ip is:'
+                            , server.ip, ' The secret is:', server.secret);
                     });
             }
-            if (old_machines.length < machineCount) {
+            if (old_machines.length < machineCount || !delete_agents) {
                 var os = azf.getImagesfromOSname(argv.os);
-                machines = args_builder(machineCount - old_machines.length, os);
-                console.log('adding ', (machineCount - old_machines.length), 'machines');
-                return af.getAgentConf(server_ip)
-                    .then(agentConf => {
-                        console.log(`agentConf: ${agentConf}`);
-                        return P.map(machines, machine => {
-                            console.log(`machine ${machine}`);
-                            return azf.createAgent({
-                                vmName: machine,
-                                storage: storageAccountName,
-                                vnet: vnetName,
-                                os,
-                                serverName,
-                                agentConf
-                            }).catch(err => console.log('got error with agent', err));
-                        });
-                    });
-            }
-            console.log('removing ', (old_machines.length - machineCount), 'machines');
-            var todelete = old_machines.length - machineCount;
-            if (todelete > 0) {
-                var machines_to_del = [];
-                for (let i = 0; i < todelete; ++i) {
-                    console.log(old_machines[i]);
-                    machines_to_del.push(old_machines[i]);
+                let machine_number = machineCount - old_machines.length;
+                if (!delete_agents) {
+                    machine_number = machineCount;
                 }
-                return P.map(machines_to_del, machine => azf.deleteVirtualMachine(machine)
-                    .catch(err => console.log('got error with agent', err)));
+                machines = args_builder(machine_number, os);
+                console.log('adding', (machine_number), 'machines');
+                return P.map(machines, machine => {
+                    console.log(`machine ${machine}`);
+                    //TODO: remove from here when Win can be copied from an image (all the if section)
+                    if (argv.os.toLowerCase().includes('win') || argv.os === 'redhat7') {
+                        return af.getAgentConf(server_ip)
+                            .then(agentConf => {
+                                console.log(`agentConf: ${agentConf}`);
+                                return azf.createAgent({
+                                    vmName: machine,
+                                    storage: storageAccountName,
+                                    vnet: vnetName,
+                                    os,
+                                    serverName,
+                                    agentConf
+                                });
+                            });
+                    } else { //TODO: when Win can be copied from an image remove the else, everything should be called with createAgentFromImage
+                        return azf.createAgentFromImage({
+                            vmName: machine,
+                            storage: storageAccountName,
+                            vnet: vnetName,
+                            server_ip,
+                            os: argv.os,
+                        })
+                            .catch(err => console.log('got error with agent', err));
+                    }
+                });
+                // });
+            }
+            if (delete_agents) {
+                console.log('removing', (old_machines.length - machineCount), 'machines');
+                var todelete = old_machines.length - machineCount;
+                if (todelete > 0) {
+                    var machines_to_del = [];
+                    for (let i = 0; i < todelete; ++i) {
+                        console.log(old_machines[i]);
+                        machines_to_del.push(old_machines[i]);
+                    }
+                    return P.map(machines_to_del, machine => azf.deleteVirtualMachine(machine)
+                        .catch(err => console.log('got error with agent', err)));
+                }
             }
         })
         .catch(err => {

@@ -377,14 +377,14 @@ class MongoClient extends EventEmitter {
         };
 
         return P.fcall(function() {
-                if (!is_config_set) { //connect the mongod server
+                if (is_config_set) { //connect the server running the config replica set
+                    return P.resolve(self._send_command_config_rs(command));
+                } else { //connect the mongod server
                     return P.resolve(self.db.admin().command(command))
                         .catch(err => {
                             dbg.error('Failed get_rs_version with', err.message);
                             throw err;
                         });
-                } else { //connect the server running the config replica set
-                    return P.resolve(self._send_command_config_rs(command));
                 }
             })
             .then(res => {
@@ -404,6 +404,20 @@ class MongoClient extends EventEmitter {
         return P.fcall(function() {
             return P.resolve(self.db.admin().command(command))
                 .then(res => dbg.log0(`Recieved ${res} from setParameter/logLevel command (${level})`));
+        });
+    }
+
+    force_mongo_sync_journal() {
+        var self = this;
+        var command = {
+            fsync: 1,
+            async: false,
+
+        };
+
+        return P.fcall(function() {
+            return P.resolve(self.db.admin().command(command))
+                .then(res => dbg.log0(`Recieved ${res} from sforce_mongo_sync_journal command`));
         });
     }
 

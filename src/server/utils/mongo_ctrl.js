@@ -207,6 +207,10 @@ MongoCtrl.prototype.set_debug_level = function(level) {
     return mongo_client.instance().set_debug_level(level);
 };
 
+MongoCtrl.prototype.force_mongo_sync_journal = function() {
+    return mongo_client.instance().force_mongo_sync_journal();
+};
+
 //
 //Internals
 //

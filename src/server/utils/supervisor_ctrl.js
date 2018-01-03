@@ -96,7 +96,6 @@ SupervisorCtrl.prototype.remove_program = function(prog_name) {
             if (ind !== -1) {
                 self._programs.splice(ind, 1);
             }
-            return;
         });
 };
 

@@ -1,15 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-var _ = require('lodash');
-var request = require('request');
-var fs = require('fs');
-var crypto = require('crypto');
-var os = require('os');
-var P = require('../../util/promise');
-var ec2_wrap = require('../../deploy/ec2_wrapper');
-var promise_utils = require('../../util/promise_utils');
-var api = require('../../api');
+const _ = require('lodash');
+const request = require('request');
+const fs = require('fs');
+const crypto = require('crypto');
+const os = require('os');
+const util = require('util');
+const P = require('../../util/promise');
+const ec2_wrap = require('../../deploy/ec2_wrapper');
+const promise_utils = require('../../util/promise_utils');
+const api = require('../../api');
 
 var test_file = '/tmp/test_upgrade';
 let rpc_validation_disabled = false;
@@ -72,7 +73,7 @@ function upload_and_upgrade(ip, upgrade_pack) {
                     if (upgrade_status === 'CAN_UPGRADE') {
                         ready = true;
                     } else if (upgrade_status === 'FAILED') {
-                        console.log('Failed on pre upgrade tests');
+                        console.log('Failed on pre upgrade tests', util.inspect(res.cluster.shards[0].servers));
                         throw new Error('Failed on pre upgrade tests');
                     } else {
                         return P.delay(5000);

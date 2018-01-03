@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const stream = require('stream');
 const ip_module = require('ip');
+const request = require('request');
 
 const P = require('../../util/promise');
 const api = require('../../api');
@@ -15,6 +16,8 @@ const func_store = require('./func_store');
 const func_stats_store = require('./func_stats_store');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
+const AWS = require('aws-sdk');
+
 
 const FUNC_CONFIG_FIELDS_MUTABLE = [
     'description',
@@ -60,15 +63,7 @@ function create_func(req) {
     }
 
     return P.resolve()
-        .then(() => {
-            if (!func_code.zipfile_b64) throw new Error('Unsupported code');
-            return new stream.Readable({
-                read(size) {
-                    this.push(Buffer.from(func_code.zipfile_b64, 'base64'));
-                    this.push(null);
-                }
-            });
-        })
+        .then(() => _get_func_code_stream(req, func_code))
         .then(code_stream => func_store.instance().create_code_gridfs({
             system: func.system,
             name: func.name,
@@ -274,6 +269,52 @@ function invoke_func(req) {
             })
             .return(res)
         );
+}
+
+function _get_func_code_stream(req, func_code) {
+    if (func_code.zipfile_b64) {
+        // if zip file is given use it
+        return new stream.Readable({
+            read(size) {
+                this.push(Buffer.from(func_code.zipfile_b64, 'base64'));
+                this.push(null);
+            }
+        });
+    } else if (func_code.s3_bucket && func_code.s3_key) {
+        console.log(`reading function code from bucket ${func_code.s3_bucket} and key ${func_code.s3_key}`);
+        const account_keys = req.account.access_keys[0];
+        const s3_endpoint = new AWS.S3({
+            endpoint: 'http://127.0.0.1',
+            accessKeyId: account_keys.access_key,
+            secretAccessKey: account_keys.secret_key,
+        });
+
+        const get_object_req = s3_endpoint.getObject({
+            Bucket: func_code.s3_bucket,
+            Key: func_code.s3_key,
+        });
+        return get_object_req.createReadStream();
+    } else if (func_code.url) {
+        return new P((resolve, reject) => {
+            console.log(`reading function code from ${func_code.url}`);
+            request({
+                    url: func_code.url,
+                    method: 'GET',
+                    encoding: null, // get a buffer
+                    proxy: req.system.phone_home_proxy_address,
+                })
+                .once('response', res => {
+
+                    if (res.statusCode !== 200) {
+                        return reject(new Error(`failed GET request from ${func_code.url}`));
+                    }
+                    return resolve(res);
+                })
+                .once('error', err => reject(err));
+        });
+    } else {
+        throw new Error('Unsupported code');
+    }
 }
 
 function _load_func(req) {

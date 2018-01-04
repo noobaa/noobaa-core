@@ -1,12 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 
-attach-server-modal {
+.attach-server-modal {
     @offset: 80px;
 
     display: block;
 
+    new-wizard {
+        margin: -@gutter;
+        margin-bottom: 0;
+    }
+
     .hostname {
-        padding-right: @offset + 5px !important;
+        padding-right: @offset + 5px;
     }
 
     .name-suffix {

@@ -7,10 +7,9 @@
             ko.textInput="filter"
         />
     </div>
-
     <div ko.tooltip="attachServerTooltip">
         <button class="btn align-end"
-            ko.click="() => showAttachServerModal()"
+            ko.click="onAttachServerToCluster"
             ko.enable="canAttachServer"
         >
             Attach Server
@@ -25,8 +24,3 @@
     data: servers,
     emptyMessage: 'The current filter does not match any server'
 "></data-table>
-
-<!-- ko if:isAttachServerModalVisible -->
-<attach-server-modal params="onClose: () => hideAttachServerModal()">
-</attach-server-modal>
-<!-- /ko -->

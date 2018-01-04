@@ -16,4 +16,4 @@ export * from './account-actions';
 export * from './cloud-actions';
 export * from './namespace-actions';
 export * from './object-actions';
-export * from './topology-actions.js';
+export * from './topology-actions';

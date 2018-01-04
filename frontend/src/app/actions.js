@@ -827,26 +827,6 @@ export function disableRemoteSyslog() {
         .done();
 }
 
-export function attachServerToCluster(serverAddress, serverSecret, hostname, location) {
-    logAction('attachServerToCluster', { serverAddress, serverSecret, hostname, location });
-
-    const name = `${hostname}-${serverSecret}`;
-    api.cluster_server.add_member_to_cluster({
-        address: serverAddress,
-        secret: serverSecret,
-        role: 'REPLICA',
-        shard: 'shard1',
-        location: location || undefined,
-        new_hostname: hostname || undefined
-    })
-        .then(
-            () => notify(`Attaching ${name} to the cluster, this might take a few moments`, 'info'),
-            () => notify(`Attaching ${name} to cluster failed`, 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
 export function updateServerDetails(serverSecret, hostname, location) {
     logAction('updateServerDetails', { serverSecret, hostname, location });
 
@@ -1025,18 +1005,6 @@ export function regenerateAccountCredentials(email, verificationPassword) {
             }
         )
         .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
-export function verifyServer(address, secret) {
-    logAction('verifyServer', { address, secret });
-
-    api.cluster_server.verify_candidate_join_conditions({ address, secret})
-        .then(
-            reply => model.serverVerificationState(
-                Object.assign({ address, secret }, reply)
-            )
-        )
         .done();
 }
 

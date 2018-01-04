@@ -101,8 +101,9 @@ export default function register(ko) {
     ko.components.register('risky-bucket-data-resiliency-warning-modal',    require('./modals/risky-bucket-data-resiliency-warning-modal/risky-bucket-data-resiliency-warning-modal').default);
     ko.components.register('change-cluster-connectivity-ip-modal',          require('./modals/change-cluster-connectivity-ip-modal/change-cluster-connectivity-ip-modal').default);
     ko.components.register('management-console-error-modal',                require('./modals/management-console-error-modal/management-console-error-modal').default);
-    ko.components.register('add-bucket-trigger-modal', require('./modals/add-bucket-trigger-modal/add-bucket-trigger-modal').default);
-    ko.components.register('edit-bucket-trigger-modal', require('./modals/edit-bucket-trigger-modal/edit-bucket-trigger-modal').default);
+    ko.components.register('add-bucket-trigger-modal',                      require('./modals/add-bucket-trigger-modal/add-bucket-trigger-modal').default);
+    ko.components.register('edit-bucket-trigger-modal',                     require('./modals/edit-bucket-trigger-modal/edit-bucket-trigger-modal').default);
+    ko.components.register('attach-server-modal',                           require('./modals/attach-server-modal/attach-server-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -228,7 +229,6 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('cluster-panel',                 require('./cluster/cluster-panel/cluster-panel').default);
     ko.components.register('server-table',                  require('./cluster/server-table/server-table').default);
-    ko.components.register('attach-server-modal',           require('./cluster/attach-server-modal/attach-server-modal').default);
     ko.components.register('cluster-summary',               require('./cluster/cluster-summary/cluster-summary').default);
     /** INJECT:cluster **/
 

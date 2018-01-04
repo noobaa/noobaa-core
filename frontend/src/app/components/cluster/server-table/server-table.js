@@ -8,6 +8,8 @@ import { createCompareFunc, deepFreeze, throttle, flatMap } from 'utils/core-uti
 import { inputThrottle } from 'config';
 import { navigateTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
+import { action$ } from 'state';
+import { openAttachServerModal } from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -124,7 +126,6 @@ class ServerTableViewModel extends BaseViewModel {
         );
 
         this.actionContext = ko.observable();
-        this.isAttachServerModalVisible = ko.observable(false);
         this.isServerDNSSettingsModalVisible = ko.observable(false);
         this.isServerTimeSettingsModalVisible = ko.observable(false);
     }
@@ -147,12 +148,8 @@ class ServerTableViewModel extends BaseViewModel {
         navigateTo(undefined, undefined, { filter, sortBy, order });
     }
 
-    showAttachServerModal() {
-        this.isAttachServerModalVisible(true);
-    }
-
-    hideAttachServerModal() {
-        this.isAttachServerModalVisible(false);
+    onAttachServerToCluster() {
+        action$.onNext(openAttachServerModal());
     }
 }
 

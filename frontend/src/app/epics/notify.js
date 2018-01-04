@@ -379,6 +379,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_REMOVE_BUCKET_TRIGGER]: ({ bucketName }) => ({
         message: `Removing a trigger from ${bucketName} failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_ATTACH_SERVER_TO_CLUSTER]: ({ secret, hostname }) => ({
+        message: `Attaching ${getServerDisplayName({ secret, hostname })} to the cluster, this might take a few moments`,
+        severity: 'info'
+    }),
+
+    [types.FAIL_ATTACH_SERVER_TO_CLUSTER]: ({ secret, hostname }) => ({
+        message: `Attaching ${getServerDisplayName({ secret, hostname })} to cluster failed`,
+        severity: 'error'
     })
 });
 

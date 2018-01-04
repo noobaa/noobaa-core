@@ -670,7 +670,20 @@ export function openUpgradeSystemModal() {
     };
 }
 
-export function replaceWithPreUpgradeSystemFailedModal() {
+export function openAttachServerModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'attach-server-modal',
+            options: {
+                title: 'Attach New Server',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function replaceWidthPreUpgradeSystemFailedModal() {
     return {
         type: REPLACE_MODAL,
         payload: {

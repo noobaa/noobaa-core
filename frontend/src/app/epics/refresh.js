@@ -41,7 +41,8 @@ export default function(action$) {
             types.COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
             types.COMPLETE_ADD_BUCKET_TRIGGER,
             types.COMPLETE_UPDATE_BUCKET_TRIGGER,
-            types.COMPLETE_REMOVE_BUCKET_TRIGGER
+            types.COMPLETE_REMOVE_BUCKET_TRIGGER,
+            types.COMPLETE_ATTACH_SERVER_TO_CLUSTER
         )
         .map(() => refreshLocation());
 }

@@ -227,13 +227,17 @@ function test_major_version_change() {
         .then(ver => {
             dbg.log0('new package version is', ver);
             staged_package = ver.replace(/[",]/g, '');
-            const major_part = Number(staged_package.split('.')[0]);
-            if (major_part < 2) {
+            const [staged_major, staged_minor, staged_patch] = staged_package.split('-')[0].split('.').map(str => Number(str));
+            const [current_major, current_minor, current_patch] = pkg.version.split('-')[0].split('.').map(str => Number(str));
+            if (staged_major < 2) {
                 dbg.error('Unsupported upgrade, 2.X to 1.X');
                 throw new VersionMismatchError('MAJOR_VERSION_CHANGE');
             }
-            if (staged_package.split('-')[0] > pkg.version.split('-')[0]) {
-                dbg.error('Unsupported upgrade, cannot downgrade');
+            // calc value of versions to compare
+            const staged_ver_val = (staged_major * 10000) + (staged_minor * 100) + staged_patch;
+            const current_ver_val = (current_major * 10000) + (current_minor * 100) + current_patch;
+            if (staged_ver_val < current_ver_val) {
+                dbg.error(`Unsupported upgrade, cannot downgrade. staged version = ${staged_package}, current version = ${pkg.version}`);
                 throw new VersionMismatchError('CANNOT_DOWNGRADE');
             }
         });

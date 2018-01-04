@@ -4,10 +4,10 @@
 
 <div class="tabs greedy">
     <nav>
-        <a ko.css.selected="selectedTab.eq('data-placement')"
-            ko.attr.href="tabHref('data-placement')"
+        <a ko.css.selected="selectedTab.eq('data-policies')"
+            ko.attr.href="tabHref('data-policies')"
         >
-            Data Placement
+            Bucket Policies
         </a>
         <a ko.css.selected="selectedTab.eq('objects')"
             ko.attr.href="tabHref('objects')"
@@ -19,7 +19,6 @@
         >
             S3 Access
         </a>
-
         <a ko.css.selected="selectedTab.eq('cloud-sync')"
             ko.attr.href="tabHref('cloud-sync')"
         >
@@ -28,10 +27,10 @@
     </nav>
 
     <div class="tabs-row">
-        <bucket-data-placement-form class="tab column greedy"
-            ko.css.selected="selectedTab.eq('data-placement')"
+        <bucket-data-policies-form class="tab"
+            ko.css.selected="selectedTab.eq('data-policies')"
             params="bucketName: bucket"
-        ></bucket-data-placement-form>
+        ></bucket-data-policies-form>
 
         <bucket-objects-table class="tab"
             ko.css.selected="selectedTab.eq('objects')"

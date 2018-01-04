@@ -1,0 +1,37 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="pad">
+    <div class="row content-middle bucket-policy-summary"
+        ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Data Placement Resources</h2>
+            <p class="row content-middle">
+                Policy Type: {{placementType}}
+                <vr class="push-both-half"></vr>
+                Node Pools: {{hostPoolCount}}
+                <vr class="push-both-half"></vr>
+                Cloud Resources: {{cloudResourceCount}}
+            </p>
+        </div>
+        <button class="btn push-both"
+            ko.click="onEditDataPlacement"
+        >
+            Edit Data Placement
+        </button>
+        <svg-icon class="icon-small rotate"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded">
+        <div class="column">
+            <data-table class="placement-table alt-bg push-prev" params="
+                columns: columns,
+                data: rows,
+                emptyMessage: 'No resources participate in policy'
+            "></data-table>
+        </div>
+    </div>
+</section>
+

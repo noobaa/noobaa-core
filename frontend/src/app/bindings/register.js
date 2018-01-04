@@ -13,6 +13,7 @@ export default function register(ko) {
 
     // Extending existing handlers
     registerHandler('template', require('./template-ex').default);
+    registerHandler('value', require('./value-ex').default);
 
     // Registering new handlers
     registerHandler('let',              require('./let').default);

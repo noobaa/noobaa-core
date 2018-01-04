@@ -97,6 +97,8 @@ export default function register(ko) {
     ko.components.register('upgrade-system-failed-modal',                   require('./modals/upgrade-system-failed-modal/upgrade-system-failed-modal').default);
     ko.components.register('pre-upgrade-system-failed-modal',               require('./modals/pre-upgrade-system-failed-modal/pre-upgrade-system-failed-modal').default);
     ko.components.register('finalize-upgrade-modal',                        require('./modals/finalize-upgrade-modal/finalize-upgrade-modal').default);
+    ko.components.register('edit-bucket-data-resiliency-modal',             require('./modals/edit-bucket-data-resiliency-modal/edit-bucket-data-resiliency-modal').default);
+    ko.components.register('risky-bucket-data-resiliency-warning-modal',    require('./modals/risky-bucket-data-resiliency-warning-modal/risky-bucket-data-resiliency-warning-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -120,12 +122,16 @@ export default function register(ko) {
     // -------------------------------
     // Bucket
     // -------------------------------
-    ko.components.register('bucket-panel',                  require('./bucket/bucket-panel/bucket-panel').default);
-    ko.components.register('bucket-summary',                require('./bucket/bucket-summary/bucket-summary').default);
-    ko.components.register('bucket-objects-table',          require('./bucket/bucket-objects-table/bucket-objects-table').default);
-    ko.components.register('bucket-data-placement-form',    require('./bucket/bucket-data-placement-form/bucket-data-placement-form').default);
-    ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
-    ko.components.register('bucket-s3-access-table',        require('./bucket/bucket-s3-access-table/bucket-s3-access-table').default);
+    ko.components.register('bucket-panel',                          require('./bucket/bucket-panel/bucket-panel').default);
+    ko.components.register('bucket-summary',                        require('./bucket/bucket-summary/bucket-summary').default);
+    ko.components.register('bucket-objects-table',                  require('./bucket/bucket-objects-table/bucket-objects-table').default);
+    ko.components.register('bucket-cloud-sync-form',                require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
+    ko.components.register('bucket-s3-access-table',                require('./bucket/bucket-s3-access-table/bucket-s3-access-table').default);
+    ko.components.register('bucket-data-policies-form',             require('./bucket/bucket-data-policies-form/bucket-data-policies-form').default);
+    ko.components.register('bucket-spillover-policy-form',          require('./bucket/bucket-spillover-policy-form/bucket-spillover-policy-form').default);
+    ko.components.register('bucket-quota-policy-form',              require('./bucket/bucket-quota-policy-form/bucket-quota-policy-form').default);
+    ko.components.register('bucket-data-resiliency-policy-form',    require('./bucket/bucket-data-resiliency-policy-form/bucket-data-resiliency-policy-form').default);
+    ko.components.register('bucket-data-placement-policy-form',     require('./bucket/bucket-data-placement-policy-form/bucket-data-placement-policy-form').default);
     /** INJECT:bucket **/
 
     // -------------------------------

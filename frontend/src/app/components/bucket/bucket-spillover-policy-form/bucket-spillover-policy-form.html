@@ -1,0 +1,36 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="pad">
+    <div class="row content-middle bucket-policy-summary"
+        ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Bucket Spillover</h2>
+            <p class="row content-middle" ko.visible="!isExpanded()">
+                {{spilloverState}}
+                <vr class="push-both-half"></vr>
+                {{spilloverUsage}}
+            </p>
+            <p ko.visible="isExpanded">
+                Automatically used when this bucket storage is not enough to store new data
+            </p>
+        </div>
+        <button class="btn push-both"
+            ko.click="onToggleSpillover"
+            ko.text="toggleText"
+        ></button>
+        <svg-icon class="icon-small rotate"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded">
+        <div class="column">
+            <data-table class="spillover-table alt-bg push-prev" params="
+                columns: columns,
+                data: rows,
+                disabled: isSpilloverDisabled
+            "></data-table>
+        </div>
+    </div>
+</section>

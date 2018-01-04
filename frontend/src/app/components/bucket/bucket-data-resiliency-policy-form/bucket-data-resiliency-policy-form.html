@@ -1,0 +1,31 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="pad">
+    <div class="row content-middle bucket-policy-summary"
+        ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Data Resiliency</h2>
+            <p class="row content-middle" ko.visible="!isExpanded()">
+                {{resiliencyType}}
+                <vr class="push-both-half"></vr>
+                {{dataDistribution}}
+            </p>
+            <p ko.visible="isExpanded">
+                The ability of stored objects to recover and continue operating in the case of a failure
+            </p>
+        </div>
+        <button class="btn push-both" ko.click="onEditDataResiliency">
+            Edit Data Resiliency
+        </button>
+        <svg-icon class="icon-small rotate"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div class="column" ko.expand="isExpanded">
+        <property-sheet class="push-prev" params="properties: info">
+        </property-sheet>
+    </div>
+</section>
+

@@ -11,6 +11,9 @@ import {
     UPDATE_BUCKET_PLACEMENT_POLICY,
     COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
     FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
+    UPDATE_BUCKET_RESILIENCY_POLICY,
+    COMPLETE_UPDATE_BUCKET_RESILIENCY_POLICY,
+    FAIL_UPDATE_BUCKET_RESILIENCY_POLICY,
     DELETE_BUCKET,
     COMPLETE_DELETE_BUCKET,
     FAIL_DELETE_BUCKET,
@@ -102,6 +105,27 @@ export function completeUpdateBucketPlacementPolicy(bucket) {
 export function failUpdateBucketPlacementPolicy(bucket, error) {
     return {
         type: FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
+        payload: { bucket, error }
+    };
+}
+
+export function updateBucketResiliencyPolicy(bucket, tier, policy) {
+    return {
+        type: UPDATE_BUCKET_RESILIENCY_POLICY,
+        payload: { bucket, tier, policy }
+    };
+}
+
+export function completeUpdateBucketResiliencyPolicy(bucket) {
+    return {
+        type: COMPLETE_UPDATE_BUCKET_RESILIENCY_POLICY,
+        payload: { bucket }
+    };
+}
+
+export function failUpdateBucketResiliencyPolicy(bucket, error) {
+    return {
+        type: FAIL_UPDATE_BUCKET_RESILIENCY_POLICY,
         payload: { bucket, error }
     };
 }

@@ -19,8 +19,11 @@ export function lockModal() {
     return { type: LOCK_MODAL };
 }
 
-export function closeModal() {
-    return { type: CLOSE_MODAL };
+export function closeModal(count = 1) {
+    return {
+        type: CLOSE_MODAL,
+        payload: { count }
+    };
 }
 
 export function openInstallNodesModal() {
@@ -154,6 +157,39 @@ export function openEditBucketPlacementModal(bucketName) {
             options: {
                 title: 'Edit Placement Policy',
                 size: 'medium'
+            }
+        }
+    };
+}
+
+export function openEditBucketDataResiliencyModal(bucketName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-bucket-data-resiliency-modal',
+                params: { bucketName }
+            },
+            options: {
+                title: 'Edit Data Resiliency',
+                size: 'large'
+            }
+        }
+    };
+}
+
+export function openRiskyBucketDataResiliencyWarningModal(bucketName, tierName, policy) {
+    return {
+        type: OPEN_MODAL,
+        payload:{
+            component: {
+                name: 'risky-bucket-data-resiliency-warning-modal',
+                params: { bucketName, tierName, policy }
+            },
+            options: {
+                title: 'Risky Data Resiliency Policy',
+                severity: 'warning',
+                size: 'xsmall'
             }
         }
     };
@@ -697,3 +733,6 @@ export function replaceWithAfterUpgradeModal(version, user, upgradeInitiator, re
         }
     };
 }
+
+
+

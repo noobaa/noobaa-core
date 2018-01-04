@@ -49,7 +49,6 @@ export function fromBigInteger(bi) {
     });
 }
 
-
 export function mulBigIntegerReal(bi, real){
     const scalar = Math.floor(real);
     const friction = real % 1;

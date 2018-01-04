@@ -156,7 +156,7 @@ class AddCloudResourceModalViewModel extends BaseViewModel {
             () => {
                 let i = 0;
                 let name = (this.targetBucket() || '').toLowerCase();
-                while(namesInUse().includes(name)) {
+                while (namesInUse().includes(name)) {
                     name = `${this.targetBucket()}-${++i}`;
                 }
 

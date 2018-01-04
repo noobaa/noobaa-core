@@ -130,7 +130,7 @@ class DataTableViewModel {
                 this.rows.push({ vm, md });
             }
         } else if (diff > 0) {
-            while(diff-- > 0) {
+            while (diff-- > 0) {
                 const { vm } = this.rows.pop();
                 isFunction(vm.dispose) && vm.dispose();
             }
@@ -147,7 +147,7 @@ class DataTableViewModel {
                     read: () => ko.unwrap(columnProp),
                     write: echo
                 });
-        } else if(this.expandColumn) {
+        } else if (this.expandColumn) {
             isExpanded = ko.observable(false);
         }
 

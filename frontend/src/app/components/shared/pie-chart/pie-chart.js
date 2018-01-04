@@ -37,7 +37,7 @@ function _normalizeValues(values) {
     const thresholdSize = threshold * sum;
     const { delta, overhead } = values.reduce(
         ({ delta = 0, overhead = 0 }, value) => {
-            if(value > 0){
+            if (value > 0){
                 value < thresholdSize ?
                     delta += thresholdSize - value :
                     overhead += value - thresholdSize;

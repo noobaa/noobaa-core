@@ -47,7 +47,7 @@ function _createDataPathAccessor(dataPath) {
 
     try {
         return new Function('state', body);
-    } catch(err) {
+    } catch (err) {
         return function() {
             console.warn(`SCHEMA DATA ACCSSESOR, Could not compile data accessor for path: ${dataPath}`);
             return;

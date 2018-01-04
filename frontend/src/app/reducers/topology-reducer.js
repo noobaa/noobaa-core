@@ -226,7 +226,7 @@ function _mapUpgradeState(state, upgrade) {
         version: staged_package
     });
 
-    switch(status) {
+    switch (status) {
         case 'COMPLETED': {
             const pkgState = get(state, ['package', 'state']);
             return pkgState === 'UPLOADING' ?

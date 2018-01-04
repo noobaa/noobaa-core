@@ -19,7 +19,7 @@ class PreferedBrowsersStickyViewModel extends Observer {
     }
 
     onEnv(env) {
-        if(!env) return;
+        if (!env) return;
 
         const { browser, isBrowserStickyDismissed } = env;
         const isActive = !preferdBrowsers.includes(browser) && !isBrowserStickyDismissed;

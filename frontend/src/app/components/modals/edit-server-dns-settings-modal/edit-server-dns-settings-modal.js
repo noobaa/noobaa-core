@@ -61,7 +61,7 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
-            if(!this.primaryDNS()) {
+            if (!this.primaryDNS()) {
                 updateServerDNSSettings(this.serverSecret, '', '', []);
             } else {
                 updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), this.searchDomains());

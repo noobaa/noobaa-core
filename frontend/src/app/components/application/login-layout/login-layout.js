@@ -32,7 +32,7 @@ class LoginLayoutViewModel extends BaseViewModel {
                     } else if (!session) {
                         return 'signin-form';
 
-                    } else if(session.passwordExpired) {
+                    } else if (session.passwordExpired) {
                         return 'change-password-form';
 
                     } else {

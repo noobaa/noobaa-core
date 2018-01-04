@@ -6,7 +6,7 @@ import { completeAddExternalConnection, failAddExternalConnection } from 'action
 function _getApiRequestParams(payload) {
     const { name, service, params } = payload;
 
-    switch(service) {
+    switch (service) {
         case 'AWS':
         case 'S3_COMPATIBLE': {
             return {

@@ -216,7 +216,7 @@ class HostDetailsFormViewModel extends Observer {
 
         const hostIsBeingDeleted = host.mode === 'DELETING';
 
-        if(!host.trusted) {
+        if (!host.trusted) {
             this.untrustedReasons = flatMap(
                 services.storage.nodes,
                 node => node.untrusted.map(events => ({ events, drive: node.mount}))

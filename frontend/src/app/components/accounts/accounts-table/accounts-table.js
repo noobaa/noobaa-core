@@ -86,7 +86,7 @@ class AccountsTableViewModel extends Observer {
     }
 
     onAccounts([accounts, location, session]) {
-        if(!accounts) {
+        if (!accounts) {
             this.accountsLoading(true);
             return;
         }

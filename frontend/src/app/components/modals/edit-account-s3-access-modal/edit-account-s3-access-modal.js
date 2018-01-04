@@ -62,7 +62,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
     }
 
     onState([ account, hostPools, cloudResources, buckets, namespaceBuckets ]) {
-        if(!account) {
+        if (!account) {
             this.isFormInitialized(false);
             return;
         }

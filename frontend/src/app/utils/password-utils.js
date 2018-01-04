@@ -88,7 +88,7 @@ export function calcPasswordStrength(password) {
     // Consecutive Uppercase Letters  : -(n*2)
     score -= charsInfo.reduce(
         (inc, currInfo, i) => {
-            if(i < 1) return inc;
+            if (i < 1) return inc;
 
             let lastChar = charsInfo[i - 1];
             return inc + Number(currInfo.letter && currInfo.upperCase &&
@@ -100,7 +100,7 @@ export function calcPasswordStrength(password) {
     // Consecutive Lowercase Letters : -(n*2)
     score -= charsInfo.reduce(
         (inc, currInfo, i) => {
-            if(i < 1) return inc;
+            if (i < 1) return inc;
 
             let lastChar = charsInfo[i - 1];
             return inc + Number(currInfo.letter && currInfo.lowerCase &&
@@ -112,7 +112,7 @@ export function calcPasswordStrength(password) {
     // Consecutive Numbers : -(n*2)
     score -= charsInfo.reduce(
         (inc, currInfo, i) => {
-            if(i < 1) return inc;
+            if (i < 1) return inc;
 
             let lastChar = charsInfo[i - 1];
             return inc + Number(currInfo.digit && lastChar.digit) * 2;
@@ -123,11 +123,11 @@ export function calcPasswordStrength(password) {
     // Sequential Letters (3+) : -(n*3)
     score -= charsInfo.reduce(
         (inc, currInfo, i) => {
-            if(i < 2) return inc;
+            if (i < 2) return inc;
 
             let last1 = charsInfo[i - 1];
             let last2 = charsInfo[i - 2];
-            if(!last2.letter || !last1.letter || !currInfo.letter) {
+            if (!last2.letter || !last1.letter || !currInfo.letter) {
                 return inc;
             }
 
@@ -142,11 +142,11 @@ export function calcPasswordStrength(password) {
     // Sequential Numbers (3+) : -(n*3)
     score -= charsInfo.reduce(
         (inc, currInfo, i) => {
-            if(i < 2) return inc;
+            if (i < 2) return inc;
 
             let last1 = charsInfo[i - 1];
             let last2 = charsInfo[i - 2];
-            if(!last2.digit || !last1.digit || !currInfo.digit) {
+            if (!last2.digit || !last1.digit || !currInfo.digit) {
                 return inc;
             }
 
@@ -160,11 +160,11 @@ export function calcPasswordStrength(password) {
     // Sequential Symbols (3+) : -(n*3)
     score -= charsInfo.reduce(
         (inc, currInfo, i) => {
-            if(i < 2) return inc;
+            if (i < 2) return inc;
 
             let last1 = charsInfo[i - 1];
             let last2 = charsInfo[i - 2];
-            if(!last2.symbol || !last1.symbol || !currInfo.symbol) {
+            if (!last2.symbol || !last1.symbol || !currInfo.symbol) {
                 return inc;
             }
 
@@ -182,7 +182,7 @@ export function calcPasswordStrength(password) {
             let delta = 0;
 
             let j = password.indexOf(char);
-            while(j > -1) {
+            while (j > -1) {
                 if (j !== i) {
                     delta += password.length / Math.abs(j - i);
                 }

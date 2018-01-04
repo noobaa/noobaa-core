@@ -52,7 +52,7 @@ class ConnectAppModalViewModel extends Observer {
     }
 
     onAccount([accounts, location, form]) {
-        if(!accounts) {
+        if (!accounts) {
             this.isFormInitialized(false);
             return;
         }

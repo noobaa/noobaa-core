@@ -66,6 +66,7 @@ import addBucketTrigger from './add-bucket-trigger';
 import updateBucketTrigger from './update-bucket-trigger';
 import removeBucketTrigger from './remove-bucket-trigger';
 import closeModalsOnLocationChange from './close-modals-on-location-change';
+import attachServerToCluster from './attach-server-to-cluster';
 
 const generalEpics = [
     handleLocationRequests,
@@ -96,7 +97,8 @@ const systemRelatedEpics = [
 ];
 
 const topologyRelatedEpics = [
-    updateServerAddress
+    updateServerAddress,
+    attachServerToCluster
 ];
 
 const alertsRelatedEpics = [

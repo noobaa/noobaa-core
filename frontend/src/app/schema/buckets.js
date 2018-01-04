@@ -4,15 +4,21 @@ export default {
         type: 'object',
         required: [
             'name',
+            'tierName',
             'mode',
             'storage',
             'data',
             'objectCount',
             'placement',
+            'resiliency',
+            'resiliencyHostCountMetric',
             'io'
         ],
         properties: {
             name: {
+                type: 'string'
+            },
+            tierName: {
                 type: 'string'
             },
             mode: {
@@ -59,14 +65,10 @@ export default {
             placement: {
                 type: 'object',
                 required: [
-                    'tierName',
                     'policyType',
                     'resources'
                 ],
                 properties: {
-                    tierName: {
-                        type: 'string'
-                    },
                     policyType: {
                         type: 'string',
                         enum: [
@@ -101,6 +103,47 @@ export default {
                         }
                     }
                 }
+            },
+            resiliencyHostCountMetric: {
+                type: 'integer'
+            },
+            resiliency: {
+                oneOf: [
+                    {
+                        type: 'object',
+                        required: [
+                            'kind',
+                            'replicas'
+                        ],
+                        properties: {
+                            kind: {
+                                const: 'REPLICATION'
+                            },
+                            replicas: {
+                                type: 'integer'
+                            }
+                        }
+                    },
+                    {
+                        type: 'object',
+                        required: [
+                            'kind',
+                            'dataFrags',
+                            'parityFrags'
+                        ],
+                        properties: {
+                            kind: {
+                                const: 'ERASURE_CODING'
+                            },
+                            dataFrags: {
+                                type: 'integer'
+                            },
+                            parityFrags: {
+                                type: 'integer'
+                            }
+                        }
+                    }
+                ]
             },
             io: {
                 type: 'object',

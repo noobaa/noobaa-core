@@ -18,7 +18,7 @@ class BucketPanelViewModel extends Observer {
     }
 
     onLocation({ route, params }) {
-        const { system, bucket, tab = 'data-placement' } = params;
+        const { system, bucket, tab = 'data-policies' } = params;
         if (!bucket) return;
 
         this.baseRoute = realizeUri(route, { system, bucket }, {}, true);

@@ -230,6 +230,16 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
+    [types.COMPLETE_UPDATE_BUCKET_RESILIENCY_POLICY]: ({ bucket }) => ({
+        message: `${bucket} resiliency policy updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_BUCKET_RESILIENCY_POLICY]: ({ bucket }) => ({
+        message: `Updating ${bucket} resiliency policy failed`,
+        severity: 'error'
+    }),
+
     [types.COMPLETE_DELETE_BUCKET]: ({ bucket }) => ({
         message: `Bucket ${bucket} deleted successfully`,
         severity:'success'

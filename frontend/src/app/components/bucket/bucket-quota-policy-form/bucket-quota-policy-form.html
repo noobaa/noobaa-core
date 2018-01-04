@@ -1,0 +1,37 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="pad">
+    <div class="row content-middle bucket-policy-summary"
+        ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Bucket Quota</h2>
+            <p class="row content-middle"
+                ko.visible="!isExpanded()"
+            >
+                {{quotaStateText}}
+                <vr class="push-both-half"></vr>
+                {{summary}}
+            </p>
+            <p ko.visible="isExpanded">
+                A limit on the amount of data this bucket can potentially use for uploads
+            </p>
+        </div>
+        <button class="btn push-both"
+            ko.click="onEditQuota"
+        >
+            Edit Quota
+        </button>
+        <svg-icon class="icon-small rotate"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div class="column" ko.expand="isExpanded">
+        <property-sheet class="push-prev" params="properties: info">
+            <template name="state">
+                <span ko.css="$data.css">{{$data.text}}</span>
+            </template>
+        </property-sheet>
+    </div>
+</section>

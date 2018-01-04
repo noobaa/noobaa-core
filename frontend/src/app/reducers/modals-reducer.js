@@ -74,8 +74,8 @@ function onLockModal(modals) {
     ];
 }
 
-function onCloseModal(modals) {
-    return modals.slice(0, -1);
+function onCloseModal(modals, { payload }) {
+    return modals.slice(0, -payload.count);
 }
 
 function onCompleteFetchSystemInfo(modals, { payload }) {

@@ -56,6 +56,7 @@ class EditBucketPlacementModalViewModel extends Observer {
         this.rows = ko.observableArray();
         this.allResourceNames = [];
         this.isMixedPolicy = false;
+        this.isPolicyRisky = false;
 
         this.observe(
             state$.getMany(
@@ -105,11 +106,11 @@ class EditBucketPlacementModalViewModel extends Observer {
         this.rows(rows);
 
         if (!form) {
-            const { tierName, policyType, resources } = bucket.placement;
+            const { policyType, resources } = bucket.placement;
             const selectedResources = resources
                 .map(record => pick(record, ['type', 'name']));
 
-            this.tierName = tierName;
+            this.tierName = bucket.tierName;
             this.form = new FormViewModel({
                 name: formName,
                 fields: { policyType, selectedResources },

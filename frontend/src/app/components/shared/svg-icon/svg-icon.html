@@ -1,9 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- Forcing recreation of the <use> element each time the href value changes (using ko.with) -->
-<!-- This is done due to the fact that chrome 58 broke behavior that cause changes to xlink:href -->
-<!-- to be ignored which manifested itself as empty icons (issue #2994) -->
-
+<!--
+Forcing recreation of the <use> element each time the href value changes (using ko.with)
+This is done due to the fact that chrome 58 broke behavior that cause changes to xlink:href
+to be ignored which manifested itself as empty icons (issue #2994)
+-->
 <svg ko.style.fill="fill" ko.style.stroke="stroke" ko.with="href">
     <use xlink:href ko.attr="{ 'xlink:href': $data }"></use>
 </svg>

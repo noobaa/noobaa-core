@@ -94,6 +94,11 @@ const namespaceBucketToStateIcon = deepFreeze({
     }
 });
 
+const resiliencyTypeToDisplay = deepFreeze({
+    REPLICATION: 'Replication',
+    ERASURE_CODING: 'Erasure Coding'
+});
+
 const writableStates = deepFreeze([
     'LOW_CAPACITY',
     'APPROUCHING_QOUTA',
@@ -185,3 +190,36 @@ export function isBucketWritable(bucket) {
     return writableStates.includes(bucket.mode);
 }
 
+export function summrizeResiliency(resiliency) {
+    switch (resiliency.kind) {
+        case 'REPLICATION': {
+            const replicas = Math.max(resiliency.replicas, 0);
+            const copies = Math.max(replicas - 1, 0);
+            return {
+                type: 'REPLICATION',
+                replicas: replicas,
+                storageOverhead: copies,
+                failureTolerance: copies,
+                requiredHosts: replicas,
+                rebuildEffort: 'LOW'
+            };
+        }
+        case 'ERASURE_CODING': {
+            const dataFrags = Math.max(resiliency.dataFrags, 0);
+            const parityFrags = Math.max(resiliency.parityFrags, 0);
+            return {
+                type: 'ERASURE_CODING',
+                dataFrags: dataFrags,
+                parityFrags: parityFrags,
+                storageOverhead: dataFrags > 0 ? parityFrags / dataFrags : 0,
+                failureTolerance: parityFrags,
+                requiredHosts: dataFrags + parityFrags,
+                rebuildEffort: dataFrags <= 4 ? 'HIGH' : 'VERY_HIGH'
+            };
+        }
+    }
+}
+
+export function getResiliencyTypeDisplay(resiliencyType) {
+    return resiliencyTypeToDisplay[resiliencyType];
+}

@@ -18,11 +18,9 @@ export default class SpilloverRowViewModel {
         this.type = spilloverResourceType;
         this.resourceName = ko.observable();
         this.bucketUsage = ko.observable();
-        this.css = ko.observable();
     }
 
-    onResource(resource, bucketUsage, disabled) {
-        this.css(disabled ? 'disabled' : '');
+    onResource(resource, bucketUsage) {
         this.resourceName(getInternalResourceDisplayName(resource));
         this.state(getInternalResourceStateIcon(resource));
         this.bucketUsage({

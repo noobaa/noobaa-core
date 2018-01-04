@@ -40,7 +40,7 @@ class DataTableViewModel {
 
         this.tableCss = {
             'has-sub-rows': Boolean(this.subRowTemplate),
-            disabled: disabled
+            'table-disabled': disabled
         };
 
         // Hold current position of vertical scroll of the table.

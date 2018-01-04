@@ -49,6 +49,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
     const { storage, data, quota, cloud_sync, stats } = bucket;
     return {
         name: bucket.name,
+        tierName: placementTiers[0].name,
         mode: bucket.mode,
         storage: mapApiStorage(storage.values, storage.last_update),
         data: _mapData(data),
@@ -57,11 +58,13 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
             unit: quota.unit
         },
         objectCount: bucket.num_objects,
+        resiliencyHostCountMetric: bucket.num_of_nodes,
         cloudSync: cloud_sync && {
             state: cloud_sync.status
         },
         undeletable: bucket.undeletable,
         placement: _mapPlacement(placementTiers[0], resTypeByName, resUsageByName),
+        resiliency: _mapResiliency(placementTiers[0]),
         spillover: _mapSpillover(spilloverTiers[0], resTypeByName, resUsageByName),
         io: _mapIO(stats)
     };
@@ -78,7 +81,7 @@ function _mapData(data){
 }
 
 function _mapPlacement(tier, typeByName, usageByName) {
-    const { name: tierName, data_placement: policyType, attached_pools } = tier;
+    const { data_placement: policyType, attached_pools } = tier;
     const resources = attached_pools
         .map(name => {
             const type = typeByName[name];
@@ -86,7 +89,24 @@ function _mapPlacement(tier, typeByName, usageByName) {
             return { type, name, usage };
         });
 
-    return { tierName, policyType, resources };
+    return { policyType, resources };
+}
+
+function _mapResiliency(tier) {
+    const { data_frags, parity_frags, replicas } = tier.chunk_coder_config;
+
+    if (parity_frags) {
+        return {
+            kind: 'ERASURE_CODING',
+            dataFrags: data_frags,
+            parityFrags: parity_frags
+        };
+    } else {
+        return {
+            kind: 'REPLICATION',
+            replicas: replicas
+        };
+    }
 }
 
 function _mapSpillover(tier, typeByName, usageByName) {

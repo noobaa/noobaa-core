@@ -37,8 +37,9 @@ import signOutDeletedUser from './sign-out-deleted-user';
 import updateBucketQuota from './update-bucket-quota';
 import toggleBucketSpillover from './toggle-bucket-spillover';
 import toggleBucketsSpillover from './toggle-buckets-spillover';
-import deleteBucket from './delete-bucket';
 import updateBucketPlacementPolicy from './update-bucket-placement-policy';
+import updateBucketResiliencyPolicy from './update-bucket-resiliency-policy';
+import deleteBucket from './delete-bucket';
 import fetchCloudTargets from './fetch-cloud-targets';
 import createNamespaceResource from './create-namespace-resource';
 import deleteNamespaceResource from './delete-namespace-resource';
@@ -108,6 +109,7 @@ const bucketRelatedEpics = [
     toggleBucketSpillover,
     toggleBucketsSpillover,
     updateBucketPlacementPolicy,
+    updateBucketResiliencyPolicy,
     deleteBucket,
     createNamespaceBucket,
     updateNamespaceBucketPlacement,

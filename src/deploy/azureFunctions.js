@@ -717,6 +717,7 @@ class AzureFunctions {
                             } else {
                                 imagename = ver_map.versions[ver_map.versions.length - 1].vhd;
                             }
+                            console.log(`using image ${imagename}`);
                         });
                 }
                 console.log(`using image ${imagename}`);

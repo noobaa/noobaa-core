@@ -119,21 +119,18 @@ var steps = [
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
     },
-    // TODO:    test_md_aggregator cuases supervisord to shutdown and not start again.
-    //          we should resove it before uncommenting the test
-    // {
-    //     //Test MD Aggregator
-    //     ignore_failure: true,
-    //     name: 'MD Aggregator Test',
-    //     action: 'node',
-    //     params: [{
-    //         arg: './src/test/system_tests/test_md_aggregator'
-    //     }],
-    // }, {
-    //     //Restore DB to defaults
-    //     name: 'Restore DB Defaults',
-    //     common: 'restore_db_defaults',
-    // }
+    {
+        //Test MD Aggregator
+        name: 'MD Aggregator Test',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_md_aggregator'
+        }],
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }
 ];
 
 module.exports = steps;

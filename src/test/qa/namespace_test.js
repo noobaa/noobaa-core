@@ -4,10 +4,9 @@
 const argv = require('minimist')(process.argv);
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
-const RandStream = require('../../util/rand_stream');
 const AWS = require('aws-sdk');
-const azure_storage = require('../../util/azure_storage_wrap');
 const s3ops = require('../utils/s3ops');
+const blobops = require('../utils/blobops');
 const api = require('../../api');
 const crypto = require('crypto');
 
@@ -46,18 +45,7 @@ const connections_mapping = {
         identity: 'AKIAJJCHBZVA3VSS2YCQ',
         secret: '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'
     },
-    AZURE: {
-        name: 'AZUREConnection',
-        endpoint: "https://azureconnection.blob.core.windows.net",
-        endpoint_type: "AZURE",
-        identity: "azureconnection",
-        secret: "UsMgM/8uX2FMAwW765fSBATLjROZn+JbxxHLYXDUfBmV0vtpiYkGnRrB8hkSvVcV92pbSxG4J1j/q0IFy3nb6g=="
-    }
 };
-const blobService = azure_storage.createBlobService(
-    connections_mapping.AZURE.identity,
-    connections_mapping.AZURE.secret,
-    connections_mapping.AZURE.endpoint);
 
 //variables for using creating namespace resource
 const namespace_mapping = {
@@ -101,21 +89,21 @@ const unit_mapping = {
     }
 };
 
-function saveErrorAndResume(message) {
-    console.error(message);
-    errors.push(message);
+function saveErrorAndResume(message, err) {
+    console.error(message, err);
+    errors.push(`${message} ${err}`);
+    failures_in_test = true;
 }
 
 function createNamespaceResource(connection, name, target_bucket) {
     console.log('Creating namespace with connection ' + connection);
     return client.pool.create_namespace_resource({
-        connection,
-        name,
-        target_bucket
-    })
+            connection,
+            name,
+            target_bucket
+        })
         .catch(err => {
             saveErrorAndResume('Failed to create namespace resource ', err);
-            failures_in_test = true;
             throw err;
         });
 }
@@ -123,15 +111,14 @@ function createNamespaceResource(connection, name, target_bucket) {
 function createGatewayBucket(name, namespace) {
     console.log('Creating gateway bucket with namespace ' + namespace);
     return client.bucket.create_bucket({
-        name,
-        namespace: {
-            read_resources: [namespace],
-            write_resource: namespace
-        }
-    })
+            name,
+            namespace: {
+                read_resources: [namespace],
+                write_resource: namespace
+            }
+        })
         .catch(err => {
             saveErrorAndResume('Failed to create gateway bucket ', err);
-            failures_in_test = true;
             throw err;
         });
 }
@@ -139,13 +126,12 @@ function createGatewayBucket(name, namespace) {
 function createCloudPool(connection, name, target_bucket) {
     console.log('Creating cloud pool ' + connection);
     return client.pool.create_cloud_pool({
-        connection,
-        name,
-        target_bucket
-    })
+            connection,
+            name,
+            target_bucket
+        })
         .catch(err => {
             saveErrorAndResume('Failed to create cloud pool ', err);
-            failures_in_test = true;
             throw err;
         });
 }
@@ -157,60 +143,27 @@ function waitingForHealthyPool(poolName) {
     return promise_utils.pwhile(
         () => healthy === false && retries !== 36,
         () => P.resolve(client.system.read_system({}))
-            .then(res => {
-                let poolIndex = res.pools.findIndex(pool => pool.name === 'cloud-resource-aws');
-                let status = res.pools[poolIndex].mode;
-                if (status === 'OPTIMAL') {
-                    console.log('Pool ' + poolName + ' is healthy');
-                    healthy = true;
-                } else {
-                    retries += 1;
-                    console.log('Pool ' + poolName + ' has status ' + status + ' waiting for OPTIMAL extra 5 seconds');
-                }
-            })
-            .delay(5000));
+        .then(res => {
+            let poolIndex = res.pools.findIndex(pool => pool.name === 'cloud-resource-aws');
+            let status = res.pools[poolIndex].mode;
+            if (status === 'OPTIMAL') {
+                console.log('Pool ' + poolName + ' is healthy');
+                healthy = true;
+            } else {
+                retries += 1;
+                console.log('Pool ' + poolName + ' has status ' + status + ' waiting for OPTIMAL extra 5 seconds');
+            }
+        })
+        .delay(5000));
 }
 
 function deleteConnection(connection_name) {
     console.log('Deleting connection ' + connection_name);
     return client.account.delete_external_connection({
-        connection_name
-    })
-        .catch(err => {
-            saveErrorAndResume('Failed to delete connection ', err);
-            failures_in_test = true;
-            throw err;
-        });
-}
-
-function uploadFileToAzure(container, file_name, size) {
-    console.log('Uploading file ' + file_name + ' to azure container ' + container);
-    let streamFile = new RandStream(size, {
-        highWaterMark: 1024 * 1024,
-    });
-    let options = {
-        storeBlobContentMD5: true,
-        useTransactionalMD5: true,
-        transactionalContentMD5: true
-    };
-    return P.fromCallback(callback => blobService.createBlockBlobFromStream(container, file_name, streamFile, size, options, callback))
-        .catch(err => {
-            saveErrorAndResume('Uploading to AZURE file ' + file_name + ' with error ' + err);
-            failures_in_test = true;
-            throw err;
-        });
-}
-
-function getMD5Blob(container, file_name) {
-    console.log('Getting md5 of azure blob from properties');
-    return P.fromCallback(callback => blobService.getBlobProperties(container, file_name, callback))
-        .then(res => {
-            console.log(JSON.stringify(res));
-            return res.contentSettings.contentMD5;
+            connection_name
         })
         .catch(err => {
-            saveErrorAndResume('Uploading to AZURE file ' + file_name + ' with error ' + err);
-            failures_in_test = true;
+            saveErrorAndResume('Failed to delete connection ', err);
             throw err;
         });
 }
@@ -223,8 +176,7 @@ function getMD5Aws(bucket, file_name) {
                 .digest('base64');
         })
         .catch(err => {
-            saveErrorAndResume('Getting md5 from aws noobaa server from file ' + file_name + ' with error ' + err);
-            failures_in_test = true;
+            saveErrorAndResume(`Getting md5 from aws noobaa server from file ${file_name}`, err);
             throw err;
         });
 }
@@ -233,7 +185,7 @@ function checkAzureMd5OnNoobaaAWSServer(container, noobaa_bucket, file_name) {
     let azureMD5;
     let noobaaMD5;
     console.log('Checking azure bucket file on noobaa aws server');
-    return getMD5Blob(container, file_name)
+    return blobops.getMD5Blob(container, file_name, saveErrorAndResume)
         .then(res => {
             azureMD5 = res;
             return getMD5Aws(noobaa_bucket, file_name);
@@ -243,8 +195,7 @@ function checkAzureMd5OnNoobaaAWSServer(container, noobaa_bucket, file_name) {
             if (azureMD5 === noobaaMD5) {
                 console.log('Noobaa aws bucket contains the md5 ' + noobaaMD5 + ' as azure md5 ' + azureMD5 + ' for file ' + file_name);
             } else {
-                saveErrorAndResume('Noobaa aws bucket contains the md5 ' + noobaaMD5 + ' instead ' + azureMD5 + ' for file ' + file_name);
-                failures_in_test = true;
+                saveErrorAndResume(`Noobaa aws bucket contains the md5 ${noobaaMD5} instead ${azureMD5} for file ${file_name}`);
             }
         });
 }
@@ -255,25 +206,8 @@ function uploadDataSetToAzure(container) {
         let file_name = 'file_' + size.data_size + size.size_units + (Math.floor(Date.now() / 1000));
         const actual_size = size.data_size * data_multiplier;
         files_azure.push(file_name);
-        return uploadFileToAzure(container, file_name, actual_size);
+        return blobops.uploadRandomFileToAzure(container, file_name, actual_size, saveErrorAndResume);
     });
-}
-
-function getListFilesAzure(bucket) {
-    let blobs = [];
-    console.log('Getting list from azure container ' + bucket);
-    return P.fromCallback(callback => blobService.listBlobsSegmented(bucket, null, callback))
-        .then(res => {
-            res.entries.forEach(function(blob) {
-                blobs.push(blob.name);
-            });
-        })
-        .then(() => blobs)
-        .catch(err => {
-            saveErrorAndResume('Failed to get list from azure ' + err);
-            failures_in_test = true;
-            throw err;
-        });
 }
 
 function uploadFileToAWS(bucket, file_name, size, multiplier) {
@@ -334,8 +268,7 @@ function isUploadedSetAvailable(gateway, files) {
             if (keys.includes(file)) {
                 console.log('Server contains file ' + file);
             } else {
-                saveErrorAndResume('Server is not contains uploaded file ' + file + ' in bucket ' + gateway);
-                failures_in_test = true;
+                saveErrorAndResume(`Server is not contains uploaded file ${file} in bucket ${gateway}`);
             }
         }));
 }
@@ -344,8 +277,7 @@ function uploadFileToNoobaaS3(bucket, file_name) {
     let { data_multiplier } = unit_mapping.KB;
     return s3ops.put_file_with_md5(server_ip, bucket, file_name, 15, data_multiplier)
         .catch(err => {
-            saveErrorAndResume('Failed upload file ' + file_name + err);
-            failures_in_test = true;
+            saveErrorAndResume(`Failed upload file ${file_name}`, err);
             throw err;
         });
 }
@@ -353,11 +285,10 @@ function uploadFileToNoobaaS3(bucket, file_name) {
 function deleteGatewayBucket(bucket) {
     console.log('Deleting gateway bucket ' + bucket);
     return client.bucket.delete_bucket({
-        name: bucket
-    })
+            name: bucket
+        })
         .catch(err => {
-            saveErrorAndResume('Failed to delete gateway bucket with error' + err);
-            failures_in_test = true;
+            saveErrorAndResume(`Failed to delete gateway bucket with error`, err);
             throw err;
         });
 }
@@ -365,11 +296,10 @@ function deleteGatewayBucket(bucket) {
 function deleteCloudPool(pool) {
     console.log('Deleting cloud pool ' + pool);
     return client.pool.delete_pool({
-        name: pool
-    })
+            name: pool
+        })
         .catch(err => {
-            saveErrorAndResume('Failed to delete cloud pool error' + err);
-            failures_in_test = true;
+            saveErrorAndResume(`Failed to delete cloud pool error`, err);
             throw err;
         });
 }
@@ -377,29 +307,28 @@ function deleteCloudPool(pool) {
 function deleteNamespace(namespace) {
     console.log('Deleting cloud pool ' + namespace);
     return client.pool.delete_namespace_resource({
-        name: namespace
-    })
+            name: namespace
+        })
         .catch(err => {
-            saveErrorAndResume('Failed to delete cloud pool error' + err);
-            failures_in_test = true;
+            saveErrorAndResume(`Failed to delete cloud pool error`, err);
             throw err;
         });
 }
 
 P.fcall(function() {
-    rpc = api.new_rpc('wss://' + server_ip + ':8443');
-    client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
-    return client.create_auth_token(auth_params);
-})
+        rpc = api.new_rpc('wss://' + server_ip + ':8443');
+        client = rpc.new_client({});
+        let auth_params = {
+            email: 'demo@noobaa.com',
+            password: 'DeMo1',
+            system: 'demo'
+        };
+        return client.create_auth_token(auth_params);
+    })
     //creating connection
     .then(() => {
         console.log('Creating AZURE connection');
-        return P.resolve(client.account.add_external_connection(connections_mapping.AZURE));
+        return P.resolve(client.account.add_external_connection(blobops.AzureDefaultConnection));
     })
     .then(() => {
         console.log('Creating AWS connection');
@@ -407,12 +336,13 @@ P.fcall(function() {
     })
     //creating two cloud resources
     .then(() => createCloudPool(connections_mapping.AWS.name, namespace_mapping.AWS.pool, namespace_mapping.AWS.bucket1))
-    .then(() => createCloudPool(connections_mapping.AZURE.name, namespace_mapping.AZURE.pool, namespace_mapping.AZURE.bucket1))
+    .then(() => createCloudPool(blobops.AzureDefaultConnection.name, namespace_mapping.AZURE.pool, namespace_mapping.AZURE.bucket1))
     //waiting until both these resources are "healthy"
     .then(() => waitingForHealthyPool(namespace_mapping.AWS.pool))
     .then(() => waitingForHealthyPool(namespace_mapping.AZURE.pool))
     .then(() => createNamespaceResource(connections_mapping.AWS.name, namespace_mapping.AWS.namespace, namespace_mapping.AWS.bucket2))
-    .then(() => createNamespaceResource(connections_mapping.AZURE.name, namespace_mapping.AZURE.namespace, namespace_mapping.AZURE.bucket2))
+    .then(() => createNamespaceResource(blobops.AzureDefaultConnection.name,
+        namespace_mapping.AZURE.namespace, namespace_mapping.AZURE.bucket2))
     //Create a namespace bucket over these 2 connections
     .then(() => createGatewayBucket(namespace_mapping.AWS.gateway, namespace_mapping.AWS.namespace))
     .then(() => createGatewayBucket(namespace_mapping.AZURE.gateway, namespace_mapping.AZURE.namespace))
@@ -428,7 +358,7 @@ P.fcall(function() {
         files_aws.push(file_name);
         files_azure.push(file_name);
         return uploadFileToAWS(namespace_mapping.AWS.bucket2, file_name, 15, data_multiplier)
-            .then(() => uploadFileToAzure(namespace_mapping.AZURE.bucket2, file_name, actual_size));
+            .then(() => blobops.uploadRandomFileToAzure(namespace_mapping.AZURE.bucket2, file_name, actual_size, saveErrorAndResume));
     })
     //list the files in the namespace bucket on noobaa server, verify all the unique files appear, and only 1 of the duplicate names
     .then(() => isUploadedSetAvailable(namespace_mapping.AZURE.gateway, files_azure))
@@ -443,14 +373,13 @@ P.fcall(function() {
         files_azure.push(file_name);
         return uploadFileToNoobaaS3(namespace_mapping.AZURE.gateway, file_name);
     })
-    .then(() => getListFilesAzure(namespace_mapping.AZURE.bucket2))
+    .then(() => blobops.getListFilesAzure(namespace_mapping.AZURE.bucket2, saveErrorAndResume))
     .then(res => {
         console.log('Azure files list ' + res);
         if (res.includes('file_azure_15KB')) {
             console.log('Uploaded file to noobaa s3 server is contains in azure container');
         } else {
-            saveErrorAndResume('Uploaded file to noobaa s3 server is not contains in azure container');
-            failures_in_test = true;
+            saveErrorAndResume(`Uploaded file to noobaa s3 server is not contains in azure container`);
         }
     })
     //deleting files from noobaa sever gateway buckets
@@ -464,10 +393,9 @@ P.fcall(function() {
     .then(() => deleteCloudPool(namespace_mapping.AWS.pool))
     .then(() => deleteCloudPool(namespace_mapping.AZURE.pool))
     .then(() => deleteConnection(connections_mapping.AWS.name))
-    .then(() => deleteConnection(connections_mapping.AZURE.name))
+    .then(() => deleteConnection(blobops.AzureDefaultConnection.name))
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
-        failures_in_test = true;
     })
     .then(() => {
         if (failures_in_test) {

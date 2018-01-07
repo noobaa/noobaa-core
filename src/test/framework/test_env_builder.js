@@ -82,11 +82,12 @@ function main() {
 function prepare_server() {
     console.log(`prepare_server: creating server ${server.name}`);
     return azf.createServer({
-        serverName: server.name,
-        vnet,
-        storage,
-        vmSize: 'Standard_A2_v2',
-    })
+            serverName: server.name,
+            vnet,
+            storage,
+            vmSize: 'Standard_A2_v2',
+            latestRelease: true
+        })
         .then(new_secret => {
             server.secret = new_secret;
             return azf.getIpAddress(server.name + '_pip');
@@ -104,21 +105,21 @@ function prepare_server() {
 function prepare_agents() {
     console.log(`starting the create agents stage`);
     return P.map(agents, agent => azf.createAgent({
-        vmName: agent.name,
-        storage,
-        vnet,
-        os: azf.getImagesfromOSname(agent.os),
-    })
-        .then(ip => {
-            console.log(`assign ip ${ip} to ${agent.name}`);
-            agent.prepared = true;
-            agent.ip = ip;
-            created_agents.push(agent);
-        })
-        .catch(err => {
-            console.error(`Creating agent ${agent.name} VM failed`, err);
-        })
-    )
+                vmName: agent.name,
+                storage,
+                vnet,
+                os: azf.getImagesfromOSname(agent.os),
+            })
+            .then(ip => {
+                console.log(`assign ip ${ip} to ${agent.name}`);
+                agent.prepared = true;
+                agent.ip = ip;
+                created_agents.push(agent);
+            })
+            .catch(err => {
+                console.error(`Creating agent ${agent.name} VM failed`, err);
+            })
+        )
         .then(() => {
             if (created_agents.length < min_required_agents) {
                 console.error(`could not create the minimum number of required agents (${min_required_agents})`);
@@ -135,23 +136,23 @@ function install_agents() {
         .then(agent_conf => {
             console.log(`got agent conf: ${agent_conf}`);
             return P.map(created_agents, agent => {
-                console.log(`installing agent on ${agent.name}`);
-                return azf.createAgentExtension({
-                    vmName: agent.name,
-                    storage,
-                    vnet,
-                    os: azf.getImagesfromOSname(agent.os),
-                    serverName: server.ip,
-                    agentConf: agent_conf,
+                    console.log(`installing agent on ${agent.name}`);
+                    return azf.createAgentExtension({
+                            vmName: agent.name,
+                            storage,
+                            vnet,
+                            os: azf.getImagesfromOSname(agent.os),
+                            serverName: server.ip,
+                            agentConf: agent_conf,
+                        })
+                        .then(
+                            () => { // successfully installed
+                                num_installed += 1;
+                            },
+                            err => { // failed installation
+                                console.error(`failed installing agent on ${agent.name}`, err);
+                            });
                 })
-                    .then(
-                    () => { // successfully installed
-                        num_installed += 1;
-                    },
-                    err => { // failed installation
-                        console.error(`failed installing agent on ${agent.name}`, err);
-                    });
-            })
                 .then(() => {
                     if (num_installed < min_required_agents) {
                         console.error(`could not install the minimum number of required agents (${min_required_agents})`);
@@ -203,7 +204,7 @@ function clean_test_env() {
     console.log(`deleting virtual machines`, vms_to_delete);
     return P.map(vms_to_delete, vm =>
         azf.deleteVirtualMachine(vm)
-            .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
+        .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
     );
 }
 

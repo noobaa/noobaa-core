@@ -121,7 +121,7 @@ ko.subscribable.fn.when = function(condition = Boolean) {
     } else {
         return new Promise(resolve => {
             const sub = this.subscribe(val => {
-                if(condition(val)) {
+                if (condition(val)) {
                     sub.dispose();
                     resolve(val);
                 }

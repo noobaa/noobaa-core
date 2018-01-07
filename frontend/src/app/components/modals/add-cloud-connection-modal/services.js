@@ -61,7 +61,7 @@ const aws = {
                 secret: secretKey
             });
 
-            switch(status) {
+            switch (status) {
                 case 'TIMEOUT': {
                     errors.endpoint = 'AWS connection timed out';
                     break;
@@ -150,7 +150,7 @@ const azure = {
                 secret: accountKey
             });
 
-            switch(status) {
+            switch (status) {
                 case 'TIMEOUT': {
                     errors.endpoint = 'Azure connection timed out';
                     break;
@@ -239,7 +239,7 @@ const s3Compatible = {
                 secret: secretKey
             });
 
-            switch(status) {
+            switch (status) {
                 case 'TIMEOUT': {
                     errors.endpoint = 'S3 connection timed out';
                     break;
@@ -322,7 +322,7 @@ const netStorage = {
                 cp_code: cpCode
             });
 
-            switch(status) {
+            switch (status) {
                 case 'UNKNOWN_FAILURE': {
                     // Using empty message to mark the fields as invalid.
                     errors.storageGroup =

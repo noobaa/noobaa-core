@@ -96,7 +96,7 @@ export default class ServerRowViewModel extends BaseViewModel {
 
         this.diskUsage = ko.pureComputed(
             () => {
-                if(!server()) {
+                if (!server()) {
                     return '';
 
                 } else if (server().status === 'DISCONNECTED') {
@@ -110,7 +110,7 @@ export default class ServerRowViewModel extends BaseViewModel {
                     const tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
 
                     let css = '';
-                    if(usedRatio >= diskUsageWarningBound) {
+                    if (usedRatio >= diskUsageWarningBound) {
                         css = usedRatio >= diskUsageErrorBound ? 'error' : 'warning';
                     }
 

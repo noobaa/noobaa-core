@@ -126,7 +126,7 @@ class DropdownViewModel {
     onKeyPress({ which }) {
         const optionsCount = this.options().length;
 
-        switch(which) {
+        switch (which) {
             case 9: /* tab */
                 this.searchInput = '';
                 this.active(false);

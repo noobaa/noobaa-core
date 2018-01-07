@@ -75,7 +75,7 @@ export function compare(a, b) {
 }
 
 export function compareArray(a, b) {
-    for(let i = 0; i < a.length; ++i) {
+    for (let i = 0; i < a.length; ++i) {
         let result = compare(a[i], b[i]);
         if (result !== 0) return result;
     }

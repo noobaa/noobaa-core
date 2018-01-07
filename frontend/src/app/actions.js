@@ -658,7 +658,7 @@ export function uploadSSLCertificate(SSLCertificate) {
     const payload = toFormData({ upload_file: SSLCertificate });
     httpRequest('/upload_certificate', { verb: 'POST', xhr, payload })
         .then(
-            evt => { if(evt.target.status !== 200) throw evt; }
+            evt => { if (evt.target.status !== 200) throw evt; }
         )
         .then(
             () => {
@@ -686,7 +686,7 @@ export function downloadServerDiagnosticPack(secret, hostname) {
 
     const name = `${hostname}-${secret}`;
     const key = `server:${secret}`;
-    if(model.collectDiagnosticsState[key]) {
+    if (model.collectDiagnosticsState[key]) {
         return;
     }
 
@@ -713,7 +713,7 @@ export function downloadServerDiagnosticPack(secret, hostname) {
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
-    if(model.collectDiagnosticsState['system'] === true) {
+    if (model.collectDiagnosticsState['system'] === true) {
         return;
     }
 

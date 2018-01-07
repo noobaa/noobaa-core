@@ -84,7 +84,7 @@ class AccountConnectionsTableViewModel extends Observer {
     }
 
     onConnections([connections, buckets, namespaceBuckets, location]) {
-        if(!connections || !buckets || !namespaceBuckets) {
+        if (!connections || !buckets || !namespaceBuckets) {
             this.connectionsLoading(true);
             return;
         }

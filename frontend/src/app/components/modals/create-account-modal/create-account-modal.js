@@ -111,7 +111,7 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     onState([accounts, hostPools, cloudResources, buckets, form]) {
-        if(!accounts || !form) {
+        if (!accounts || !form) {
             this.accountNameProps({});
             return;
         }

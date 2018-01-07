@@ -22,7 +22,7 @@ export default function(action$, { S3 }) {
             const deleteEvent$ = new Rx.Subject();
 
 
-            if(uploadId) {
+            if (uploadId) {
                 const params = {
                     Bucket: bucket,
                     Key: key,

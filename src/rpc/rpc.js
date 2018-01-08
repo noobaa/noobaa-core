@@ -900,6 +900,10 @@ RPC.prototype.disable_validation = function() {
     this._disable_validation = true;
 };
 
+RPC.prototype.enable_validation = function() {
+    this._disable_validation = false;
+};
+
 RPC.prototype.set_request_logger = function(request_logger) {
     this._request_logger = request_logger;
 };

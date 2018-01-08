@@ -782,12 +782,13 @@ class AzureFunctions {
                     return fs.readFileAsync('src/deploy/version_map.json')
                         .then(buf => {
                             const ver_map = JSON.parse(buf.toString());
+                            console.log('available images', ver_map);
                             if (latesetRelease) {
-                                imagename = _.lastIndexOf(ver_map.versions, obj => obj.released).vhd;
+                                imagename = ver_map.versions[_.findLastIndex(ver_map.versions, obj => obj.released === true)].vhd;
                             } else {
                                 imagename = ver_map.versions[ver_map.versions.length - 1].vhd;
                             }
-                            console.log(`using image ${imagename}`);
+                            console.log(`selected ${imagename} from available images`);
                         });
                 }
                 console.log(`using image ${imagename}`);

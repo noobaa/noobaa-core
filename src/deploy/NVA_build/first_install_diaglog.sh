@@ -134,9 +134,9 @@ function configure_ips_dialog {
 }
 
 function configure_dns_dialog {
-    local cur_dns=($(grep forwarders /etc/noobaa_configured_dns.conf | awk -F "{" '{print $2}' | awk -F "}" '{print $1}' | awk -F ";" '{print $1" " $2}'))
-    local dns0=${cur_dns[0]}
-    local dns1=${cur_dns[1]}
+    local conf=$(grep forwarders /etc/noobaa_configured_dns.conf | awk -F "{" '{print $2}' | awk -F "}" '{print $1}' | awk -F ";" '{print $1" " $2}')
+    local dns1=$(echo $conf | awk '{print $1}')
+    local dns2=$(echo $conf | awk '{print $2}')
     ok_dns1=1
     cancel=0 
     

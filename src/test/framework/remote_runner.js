@@ -14,7 +14,7 @@ const {
 function main() {
     console.log(`running runner tests on ${server_name}`);
     let ssh_client;
-    return ssh.ssh_connect(null, {
+    return ssh.ssh_connect({
             host: server_ip,
             username: 'noobaaroot',
             password: server_secret,
@@ -22,7 +22,7 @@ function main() {
         })
         .then(client => {
             ssh_client = client;
-            return ssh.ssh_exec(ssh_client, `sudo bash -c "AWS_ACCESS_KEY_ID=${process.env.AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${process.env.AWS_SECRET_ACCESS_KEY} /root/node_modules/noobaa-core/src/test/framework/prepare_and_run_tests.sh"`, true);
+            return ssh.ssh_exec(ssh_client, `sudo bash -c "AWS_ACCESS_KEY_ID=${process.env.AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${process.env.AWS_SECRET_ACCESS_KEY} /root/node_modules/noobaa-core/src/test/framework/prepare_and_run_tests.sh"`);
         })
         .then(() => {
                 console.log('SUCCESSFUL TESTS');

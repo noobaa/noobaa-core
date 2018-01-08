@@ -68,9 +68,9 @@ var oses = [
 ///////////////////////////////////////
 //Entrypoint for the vm-sample script//
 ///////////////////////////////////////
-if (!connectionString.includes(storageAccountName)) {
-    console.log('Your \'.env\' file is pointing to a diffrent storage-account:');
-    console.log('You reqested', storageAccountName, 'and the file contains:', connectionString);
+
+if (connectionString.indexOf(storageAccountName) === -1) {
+    console.error('Configured connection string in .env does not match provided storage account');
     process.exit(1);
 }
 
@@ -187,19 +187,19 @@ function vmOperations(operationCallback) {
                     });
                 }
                 return P.map(servers, server => azf.createServer({
-                    serverName: server.name,
-                    vnet: vnetName,
-                    storage: storageAccountName
-                })
-                    .then(new_secret => {
-                        server.secret = new_secret;
-                        return azf.getIpAddress(server.name + '_pip');
-                    })
-                    .then(ip => {
-                        server.ip = ip;
-                        return ip;
-                    })
-                )
+                            serverName: server.name,
+                            vnet: vnetName,
+                            storage: storageAccountName
+                        })
+                        .then(new_secret => {
+                            server.secret = new_secret;
+                            return azf.getIpAddress(server.name + '_pip');
+                        })
+                        .then(ip => {
+                            server.ip = ip;
+                            return ip;
+                        })
+                    )
                     .then(() => {
                         if (argv.servers > 1) {
                             const slaves = Array.from(servers);

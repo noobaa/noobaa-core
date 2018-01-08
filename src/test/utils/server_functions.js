@@ -1,11 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const fs = require('fs');
+const api = require('../../api');
+const request = require('request');
+const ssh = require('./ssh_functions');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
-const ssh = require('./ssh_functions');
-const ssh2 = require('ssh2');
-const api = require('../../api');
+
 const activation_code = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +
     "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +
@@ -13,16 +15,18 @@ const activation_code = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
 
 //will enable noobaa user login via ssh
 function enable_nooba_login(server_ip, secret) {
-    const client_ssh = new ssh2.Client();
-    return ssh.ssh_connect(client_ssh, {
-        host: server_ip,
-        //  port: 22,
-        username: 'noobaaroot',
-        password: secret,
-        keepaliveInterval: 5000,
-    })
+    let client_ssh;
+    return ssh.ssh_connect({
+            host: server_ip,
+            //  port: 22,
+            username: 'noobaaroot',
+            password: secret,
+            keepaliveInterval: 5000,
+        })
         //enabling noobaa user login
-        .then(() => ssh.ssh_exec(client_ssh, `
+        .then(cssh => {
+            client_ssh = cssh;
+            return client_ssh.ssh_exec(client_ssh, `
         if sudo grep -q 'Match User noobaa' /etc/ssh/sshd_config
         then
             sudo sed -i 's/Match User noobaa//g' /etc/ssh/sshd_config
@@ -30,21 +34,25 @@ function enable_nooba_login(server_ip, secret) {
             sudo service sshd restart
             #sudo systemctl restart sshd.service
         fi
-        `))
+        `);
+        })
         .then(() => ssh.ssh_stick(client_ssh));
 }
 
 //will run clean_ova and reboot the server
 function clean_ova(server_ip, secret) {
-    const client_ssh = new ssh2.Client();
-    return ssh.ssh_connect(client_ssh, {
-        host: server_ip,
-        //  port: 22,
-        username: 'noobaaroot',
-        password: secret,
-        keepaliveInterval: 5000,
-    })
-        .then(() => ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a'))
+    let client_ssh;
+    return ssh.ssh_connect({
+            host: server_ip,
+            //  port: 22,
+            username: 'noobaaroot',
+            password: secret,
+            keepaliveInterval: 5000,
+        })
+        .then(cssh => {
+            client_ssh = cssh;
+            return ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a');
+        })
         .then(() => ssh.ssh_exec(client_ssh, 'sudo reboot -fn'))
         .then(() => client_ssh.end());
 }
@@ -81,9 +89,9 @@ function validate_activation_code(server_ip) {
     const client = rpc.new_client({});
     console.log(`Validating the activation code`);
     return P.resolve(client.system.validate_activation({
-        code: activation_code,
-        email: 'demo@noobaa.com'
-    }))
+            code: activation_code,
+            email: 'demo@noobaa.com'
+        }))
         .then(result => {
             let code_is = result.valid;
             if (code_is === true) {
@@ -100,11 +108,11 @@ function create_system_and_check(server_ip) {
     const rpc = api.new_rpc(`wss://${server_ip}:8443`);
     const client = rpc.new_client({});
     return P.resolve(client.system.create_system({
-        email: 'demo@noobaa.com',
-        name: 'demo',
-        password: 'DeMo1',
-        activation_code: activation_code
-    }))
+            email: 'demo@noobaa.com',
+            name: 'demo',
+            password: 'DeMo1',
+            activation_code: activation_code
+        }))
         .then(() => P.resolve(client.account.accounts_status({})))
         .then(res => P.resolve()
             .then(() => promise_utils.pwhile(
@@ -124,8 +132,27 @@ function create_system_and_check(server_ip) {
             }));
 }
 
+//upload upgrade package
+function upload_upgrade_package(ip, package_path) {
+    let formData = {
+        upgrade_file: {
+            value: fs.createReadStream(package_path),
+            options: {
+                filename: package_path,
+                contentType: 'application/x-gzip'
+            }
+        }
+    };
+    return P.ninvoke(request, 'post', {
+        url: 'http://' + ip + ':8080/upgrade',
+        formData: formData,
+        rejectUnauthorized: false,
+    });
+}
+
 exports.enable_nooba_login = enable_nooba_login;
 exports.clean_ova = clean_ova;
 exports.wait_server_recoonect = wait_server_recoonect;
 exports.validate_activation_code = validate_activation_code;
 exports.create_system_and_check = create_system_and_check;
+exports.upload_upgrade_package = upload_upgrade_package;

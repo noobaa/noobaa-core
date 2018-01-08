@@ -109,6 +109,10 @@ module.exports = {
             type: 'integer'
         },
 
+        debug_mode: {
+            idate: true
+        },
+
         mongo_upgrade: {
             type: 'object',
             // required: [],

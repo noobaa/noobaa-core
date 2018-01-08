@@ -99,6 +99,10 @@ module.exports = {
             type: 'integer'
         },
 
+        debug_mode: {
+            idate: true
+        },
+
         //Upgrade proccess
         upgrade: {
             type: 'object',

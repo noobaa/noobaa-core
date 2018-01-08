@@ -634,8 +634,17 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
-                debug_level: {
-                    type: 'integer'
+                debug: {
+                    type: 'object',
+                    required: ['level'],
+                    properties: {
+                        level: {
+                            type: 'integer',
+                        },
+                        time_left: { // in ms
+                            type: 'integer'
+                        },
+                    },
                 },
                 system_cap: {
                     type: 'integer'
@@ -821,8 +830,17 @@ module.exports = {
                         type: 'string'
                     },
                 },
-                debug_level: {
-                    type: 'integer'
+                debug: {
+                    type: 'object',
+                    required: ['level'],
+                    properties: {
+                        level: {
+                            type: 'integer',
+                        },
+                        time_left: { // in ms
+                            type: 'integer'
+                        },
+                    },
                 },
                 services_status: {
                     $ref: '#/definitions/services_status'

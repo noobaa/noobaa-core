@@ -982,16 +982,31 @@ function _set_debug_level_internal(req, level) {
         .then(() => MongoCtrl.set_debug_level(level ? 5 : 0))
         .then(() => {
             var update_object = {};
+            var debug_mode = level > 0 ? Date.now() : undefined;
+
             if (req.rpc_params.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
                 if (!cluster_server) {
                     throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:',
                         req.rpc_params.target_secret, ' was not found');
                 }
-                update_object.clusters = [{
-                    _id: cluster_server._id,
-                    debug_level: level
-                }];
+                if (level > 0) {
+                    update_object.clusters = [{
+                        _id: cluster_server._id,
+                        debug_level: level,
+                        debug_mode: debug_mode
+                    }];
+                } else {
+                    update_object.clusters = [{
+                        _id: cluster_server._id,
+                        $set: {
+                            debug_level: level
+                        },
+                        $unset: {
+                            debug_mode: true
+                        }
+                    }];
+                }
             } else {
                 // Only master can update the whole system debug mode level
                 // TODO: If master falls in the process and we already passed him
@@ -1000,11 +1015,23 @@ function _set_debug_level_internal(req, level) {
                 if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
                     return;
                 }
-
-                update_object.systems = [{
-                    _id: req.system._id,
-                    debug_level: level
-                }];
+                if (level > 0) {
+                    update_object.systems = [{
+                        _id: req.system._id,
+                        debug_level: level,
+                        debug_mode: debug_mode
+                    }];
+                } else {
+                    update_object.systems = [{
+                        _id: req.system._id,
+                        $set: {
+                            debug_level: level
+                        },
+                        $unset: {
+                            debug_mode: true
+                        }
+                    }];
+                }
             }
 
             return system_store.make_changes({

@@ -3025,16 +3025,20 @@ class NodesMonitor extends EventEmitter {
     _get_host_info(host_item, adminfo) {
         let info = {
             s3_nodes_info: {
-                nodes: host_item.s3_nodes.map(item => {
-                    this._update_status(item);
-                    return this._get_node_info(item);
-                })
+                nodes: host_item.s3_nodes
+                    .filter(item => Boolean(item.node_from_store))
+                    .map(item => {
+                        this._update_status(item);
+                        return this._get_node_info(item);
+                    })
             },
             storage_nodes_info: {
-                nodes: host_item.storage_nodes.map(item => {
-                    this._update_status(item);
-                    return this._get_node_info(item);
-                })
+                nodes: host_item.storage_nodes
+                    .filter(item => Boolean(item.node_from_store))
+                    .map(item => {
+                        this._update_status(item);
+                        return this._get_node_info(item);
+                    })
             }
         };
         info.s3_nodes_info.mode = host_item.s3_nodes_mode;

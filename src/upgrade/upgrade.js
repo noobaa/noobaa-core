@@ -5,8 +5,10 @@ var P = require('../util/promise');
 var argv = require('minimist')(process.argv);
 var fs_utils = require('../util/fs_utils');
 var fs = require('fs');
+const path = require('path');
+
 var promise_utils = require('../util/promise_utils');
-const fork = require('child_process').fork;
+const spawn = require('child_process').spawn;
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('Upgrade');
 
@@ -19,6 +21,12 @@ const SUPERD = '/usr/bin/supervisord';
 const SUPERCTL = '/usr/bin/supervisorctl';
 const CORE_DIR = "/root/node_modules/noobaa-core";
 let MONGO_SHELL = "/usr/bin/mongo nbcore";
+
+
+// read node version from nvmrc
+const NODE_VER = String(fs.readFileSync(path.join(EXTRACTION_PATH, 'noobaa-core/.nvmrc'))).trim();
+const NEW_NODE_BIN = path.join(TMP_PATH, 'v' + NODE_VER, 'bin/node');
+
 
 function disable_autostart() {
     dbg.log0(`disable_autostart`);
@@ -356,14 +364,14 @@ function run_upgrade() {
                             stderr = fs.openSync(fname, 'a');
                         })
                         .then(() => {
-                            let upgrade_proc = fork(NEW_UPGRADE_SCRIPT, [
+                            let upgrade_proc = spawn(NEW_NODE_BIN, [
+                                NEW_UPGRADE_SCRIPT,
                                 '--do_upgrade', 'true',
                                 '--fsuffix', argv.fsuffix,
                                 '--cluster_str', argv.cluster_str
                             ], {
                                 detached: true,
                                 stdio: ['ignore', stdout, stderr, 'ipc'],
-                                // stdio: 'ignore',
                                 cwd: `${EXTRACTION_PATH}/noobaa-core/`
                             });
                             upgrade_proc.on('exit', (code, signal) => {

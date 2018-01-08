@@ -121,7 +121,8 @@ function do_upgrade(upgrade_file, is_clusterized, err_handler) {
         var stdout = fs.openSync(fname, 'a');
         var stderr = fs.openSync(fname, 'a');
         let cluster_str = is_clusterized ? 'cluster' : ' ';
-        dbg.log0('command: /usr/local/bin/node ', process.cwd() + '/src/upgrade/upgrade.js --from_file ' + upgrade_file, '--fsuffix', fsuffix, '--cluster_str', cluster_str);
+        dbg.log0('command: /usr/local/bin/node ',
+            process.cwd() + '/src/upgrade/upgrade.js --from_file ' + upgrade_file, '--fsuffix', fsuffix, '--cluster_str', cluster_str);
         let upgrade_proc = spawn('nohup', [
             '/usr/local/bin/node',
             process.cwd() + '/src/upgrade/upgrade.js',
@@ -219,17 +220,19 @@ function test_internet_connectivity(phone_home_proxy_address) {
 
 function test_local_harddrive_memory() {
     return P.resolve()
-        .then(() => os_utils.get_raw_storage())
-        .catch(err => {
-            dbg.error('Could not get raw storage', err);
-            throw new Error('COULD_NOT_GET_RAW_STORAGE');
-        })
-        .then(raw_storage => {
-            if (raw_storage < config.MIN_MEMORY_FOR_UPGRADE) {
-                dbg.error(`NOT_ENOUGH_MEMORY_IN_MACHINE MEM_IN_BYTES:${raw_storage}`);
+        //This logic is performed here on two accounts:
+        //Reading the HB from the mongo is possible, but would also require reading the noobaa_sec to identify which is
+        //the current server to find it in the shards array. In addition, HB storage status might be over the threshold but
+        //actual state is below and the package won't have space to be written
+        .then(() => os_utils.read_drives())
+        .then(drives => {
+            let root = drives.find(drive => drive.mount === '/');
+            if (root.storage.free < config.MIN_MEMORY_FOR_UPGRADE) {
+                dbg.error(`NOT_ENOUGH_MEMORY_IN_MACHINE MEM_IN_BYTES:${root.free}`);
                 throw new Error('LOCAL_HARDDRIVE_MEMORY');
             }
         });
+
 }
 
 function test_package_extraction() {

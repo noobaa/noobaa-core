@@ -142,9 +142,7 @@ function new_system_defaults(name, owner_account_id) {
             udp_dtls: true,
             udp_port: true,
         },
-        debug: {
-            level: 0,
-        },
+        debug_level: 0,
         mongo_upgrade: {
             blocks_to_buckets: true
         },

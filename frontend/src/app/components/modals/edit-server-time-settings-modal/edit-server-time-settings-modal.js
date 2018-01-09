@@ -22,6 +22,10 @@ class EditServerTimeSettingsModalViewModel extends BaseViewModel {
             )
         );
 
+        this.isFormReady = ko.pureComputed(
+            () => Boolean(serverTime())
+        );
+
         this.hostname = ko.pureComputed(
             () => server() && server().hostname
         );

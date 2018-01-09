@@ -12,6 +12,7 @@
     "sessionTokenKey": "sessionToken",
     "previewContentKey": "previewContent",
     "redirectOverlayDuration": 4000,
+    "timeTickInterval": 1000,
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

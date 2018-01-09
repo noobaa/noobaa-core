@@ -11,7 +11,7 @@ class DebugModeStickyViewModel extends BaseViewModel {
         super();
 
         this.isActive = ko.pureComputed(
-            () => !!systemInfo() && systemInfo().debug_level > 0
+            () => !!systemInfo() && systemInfo().debug.level > 0
         );
     }
 

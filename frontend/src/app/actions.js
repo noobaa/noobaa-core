@@ -118,9 +118,9 @@ export async function loadFunc(name, version = '$LATEST') {
     });
 
     let codeFiles = [];
-    const { zipfile } = reply.code || {};
-    if (zipfile) {
-        const zip = await JSZip.loadAsync(zipfile);
+    const { zipfile_b64 } = reply.code || {};
+    if (zipfile_b64) {
+        const zip = await JSZip.loadAsync(atob(zipfile_b64));
 
         // Convert the result of iterating the zip file into an array of Promises.
         const promises = [];
@@ -192,14 +192,15 @@ export async function updateFuncCode(name, version, patches) {
             read_code: true
         });
 
-        if (code.zipfile) {
-            const zip = await JSZip.loadAsync(code.zipfile);
+        if (code.zipfile_b64) {
+            const zip = await JSZip.loadAsync(atob(code.zipfile_b64));
             await all(patches.map(({ path, content }) => zip.file(path, content)));
-            const zipfile = Buffer.from(await zip.generateAsync({ type: 'uint8array'}));
+            const update = Buffer.from(await zip.generateAsync({ type: 'uint8array' }))
+                .toString('base64');
 
             await api.func.update_func({
                 config: { name, version },
-                code: { zipfile }
+                code: { zipfile_b64: update }
             });
         }
 

@@ -18,9 +18,10 @@ const errorLevel = 0.95;
 const warningLevel = 0.8;
 
 function _getCssByUsage(usage) {
-    return usage > errorLevel ?
-        'error' :
-        (usage > warningLevel) ? 'warning' : 'highlight';
+    return true &&
+        (usage > errorLevel && 'error') ||
+        (usage > warningLevel && 'warning') ||
+        '';
 }
 
 function _getTooltipByUsage(subject, used, usedByNoobaa, usedByOther) {

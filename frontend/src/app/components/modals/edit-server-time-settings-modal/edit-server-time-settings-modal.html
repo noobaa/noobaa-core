@@ -4,6 +4,7 @@
     title: 'Edit Server Time Settings',
     onClose: () => cancel()
 ">
+    <!-- ko if: isFormReady -->
     <editor params="label: 'Config type'">
         <radio-group params="
             options: configTypes,
@@ -20,7 +21,7 @@
 
         <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
             <div class="row content-middle"
-                data-bind="validationOptions: { insertMessages: false }"
+                 data-bind="validationOptions: { insertMessages: false }"
             >
                 <input type="text" placeholder="IP or DNS name" ko.value="ntpServer" />
                 <svg-icon class="spin push-prev-half"
@@ -42,4 +43,5 @@
             save
         </button>
     </div>
+    <!-- /ko -->
 </modal>

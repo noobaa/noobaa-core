@@ -5,6 +5,8 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { systemInfo, collectDiagnosticsState } from 'model';
 import { downloadServerDiagnosticPack, setServerDebugLevel } from 'actions';
+import { formatTimeLeftForDebugMode } from 'utils/diagnostic-utils';
+import { timeTickInterval } from 'config';
 
 class ServerDiagnosticsFormViewModel extends BaseViewModel {
     constructor({ serverSecret }) {
@@ -28,6 +30,31 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
             () => Boolean(this.server() && this.server().debug.level)
         );
 
+        const isTimeLeftDisabled = ko.pureComputed(
+            () => !this.debugMode()
+        );
+
+        const serverDebugTimeLeft = ko.pureComputed(
+            () => this.server() && this.server().debug.time_left
+        );
+
+        this.debugTimeLeft = ko.observable(serverDebugTimeLeft());
+        this.addToDisposeList(
+            serverDebugTimeLeft.subscribe(time => this.debugTimeLeft(time))
+        );
+
+        this.addToDisposeList(
+            setInterval(
+                () => {
+                    if (this.debugMode()) {
+                        this.debugTimeLeft(this.debugTimeLeft() - timeTickInterval);
+                    }
+                },
+                timeTickInterval
+            ),
+            clearInterval
+        );
+
         this.debugModeSheet = [
             {
                 label: 'Debug Mode',
@@ -40,9 +67,9 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
             {
                 label: 'Time Left For Debugging',
                 value: ko.pureComputed(
-                    () => 'None'
+                    () => formatTimeLeftForDebugMode(this.debugMode(), this.debugTimeLeft())
                 ),
-                disabled: true
+                disabled: isTimeLeftDisabled
             }
         ];
 

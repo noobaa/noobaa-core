@@ -5,27 +5,11 @@ import ko from 'knockout';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { openTestNodeModal, collectHostDiagnostics, setHostDebugMode } from 'action-creators';
-import moment from 'moment';
-
-const debugInternval = 1000; // 1Sec
+import { formatTimeLeftForDebugMode } from 'utils/diagnostic-utils';
+import { timeTickInterval } from 'config';
 
 function _getDebugModeToggleText(debugState) {
     return `Turn ${debugState ? 'off' : 'on'} node debug mode`;
-}
-
-function _getTimeLeftForDebugModeText(debugState, timeLeft) {
-    if (!debugState) {
-        return 'None';
-
-    } else  if (timeLeft == null) {
-        return 'Calculating...';
-
-    } else {
-        const duration = moment.duration(timeLeft);
-        const minutes = String(duration.minutes()).padStart(2, 0);
-        const seconds = String(duration.seconds()).padStart(2, 0);
-        return `${minutes}:${seconds} minutes`;
-    }
 }
 
 function _getActionsTooltip(isOffline, isBeingDeleted) {
@@ -69,7 +53,7 @@ class HostDiagnosticsFormViewModel extends Observer{
         this.observe(state$.get('hosts', 'items', this.hostName), this.onHost);
 
         // Create a ticker to update the debug counter each second.
-        this.ticker = setInterval(this.onTick.bind(this), debugInternval);
+        this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
     }
 
     onHost(host) {
@@ -93,7 +77,7 @@ class HostDiagnosticsFormViewModel extends Observer{
         this.timeLeftToDebugMode = debugMode.timeLeft;
         this.debugModeToggleText(_getDebugModeToggleText(debugMode.state));
         this.debugDetails[0].value(debugMode.state);
-        this.debugDetails[1].value(_getTimeLeftForDebugModeText(debugMode.state, debugMode.timeLeft));
+        this.debugDetails[1].value(formatTimeLeftForDebugMode(debugMode.state, debugMode.timeLeft));
         this.debugDetails[1].disabled(!debugMode.state);
 
         this.hostLoaded(true);
@@ -101,10 +85,10 @@ class HostDiagnosticsFormViewModel extends Observer{
 
     onTick() {
         const { debugState, timeLeftToDebugMode } = this;
-        if (!debugState || !timeLeftToDebugMode || timeLeftToDebugMode < debugInternval) return;
+        if (!debugState || !timeLeftToDebugMode || timeLeftToDebugMode < timeTickInterval) return;
 
-        this.timeLeftToDebugMode = timeLeftToDebugMode - debugInternval;
-        const text = _getTimeLeftForDebugModeText(debugState, timeLeftToDebugMode);
+        this.timeLeftToDebugMode = timeLeftToDebugMode - timeTickInterval;
+        const text = formatTimeLeftForDebugMode(debugState, timeLeftToDebugMode);
         this.debugDetails[1].value(text);
     }
 

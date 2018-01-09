@@ -41,8 +41,7 @@ const navItems = deepFreeze([
     {
         route: 'funcs',
         icon: 'functions',
-        label: 'Functions',
-        beta: true
+        label: 'Functions'
     },
     {
         route: 'cluster',

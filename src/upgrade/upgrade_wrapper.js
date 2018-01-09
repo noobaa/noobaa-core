@@ -154,12 +154,12 @@ function post_upgrade() {
 
     return P.join(
             promise_utils.exec(`md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup*.exe | cut -f 1 -d' '`, {
-                ignore_rc: false,
+                ignore_rc: true,
                 return_stdout: true,
                 trim_stdout: true
             }),
             promise_utils.exec(`md5sum /backup/build/public/noobaa-setup*.exe | cut -f 1 -d' '`, {
-                ignore_rc: false,
+                ignore_rc: true,
                 return_stdout: true,
                 trim_stdout: true
             }),
@@ -312,7 +312,6 @@ function post_upgrade() {
             return_stdout: true,
             trim_stdout: true
         }))
-        .then(() => fix_security_issues())
         .then(() => promise_utils.exec(`cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord`, {
             ignore_rc: false,
             return_stdout: true,
@@ -351,7 +350,7 @@ function post_upgrade() {
             dbg.log0('post_upgrade: Configure permissions to first install dialog');
         })
         .then(() => promise_utils.exec(`rm -f /tmp/*.tar.gz`, {
-            ignore_rc: false,
+            ignore_rc: true,
             return_stdout: true,
             trim_stdout: true
         }))
@@ -359,7 +358,7 @@ function post_upgrade() {
             dbg.log0(`post_upgrade: Removed all packages from /tmp/`);
         })
         .then(() => promise_utils.exec(`rm -rf /tmp/v*`, {
-            ignore_rc: false,
+            ignore_rc: true,
             return_stdout: true,
             trim_stdout: true
         }))
@@ -367,7 +366,7 @@ function post_upgrade() {
             dbg.log0(`post_upgrade: Removed all files and folders starting with v from /tmp/`);
         })
         .then(() => promise_utils.exec(`rm -rf /backup/build/public/*diagnostics*`, {
-            ignore_rc: false,
+            ignore_rc: true,
             return_stdout: true,
             trim_stdout: true
         }))
@@ -414,68 +413,6 @@ function run_upgrade_wrapper(params) {
         });
 }
 
-function fix_security_issues() {
-    dbg.log0('fix_security_issues: Called');
-    return P.resolve()
-        .then(function() {
-            let should_work = true;
-            return promise_utils.exec(`ping 8.8.8.8 -c 3`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                })
-                .catch(err => {
-                    should_work = false;
-                    dbg.log0(`Missing internet connectivity`, err);
-                })
-                .then(function() {
-                    if (!should_work) return P.resolve();
-                    return promise_utils.exec(`cp -fd /etc/localtime /tmp`, {
-                            ignore_rc: false,
-                            return_stdout: true,
-                            trim_stdout: true
-                        })
-                        .then(() => promise_utils.exec(`yum clean all`, {
-                            ignore_rc: false,
-                            return_stdout: true,
-                            trim_stdout: true
-                        }))
-                        .then(res => {
-                            dbg.log0('fix_security_issues: yum clean', res);
-                        })
-                        .then(() => promise_utils.exec(`yum update -y`, {
-                            ignore_rc: false,
-                            return_stdout: true,
-                            trim_stdout: true
-                        }))
-                        .then(res => {
-                            dbg.log0('fix_security_issues: yum update', res);
-                        })
-                        .then(function() {
-                            return promise_utils.exec(`yum clean all`, {
-                                    ignore_rc: false,
-                                    return_stdout: true,
-                                    trim_stdout: true
-                                })
-                                .then(() => {
-                                    dbg.log0(`Updated yum packages`);
-                                });
-                        })
-                        .then(() => promise_utils.exec(`cp -fd /tmp/localtime /etc`, {
-                            ignore_rc: false,
-                            return_stdout: true,
-                            trim_stdout: true
-                        }));
-                });
-        })
-        .then(() => {
-            dbg.log0('fix_security_issues: Success');
-        })
-        .catch(function(err) {
-            dbg.error('fix_security_issues: Failure', err);
-            throw err;
-        });
-}
 
 function update_noobaa_net() {
     dbg.log0('update_noobaa_net: Called');

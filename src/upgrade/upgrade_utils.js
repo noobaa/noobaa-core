@@ -108,44 +108,6 @@ function pre_upgrade(params) {
         });
 }
 
-// function extract_new_node_version() {
-//     let nodever;
-//     return P.resolve()
-//         .then(() => promise_utils.exec(`cat ${EXTRACTION_PATH}/noobaa-core/.nvmrc`, {
-//             ignore_rc: false,
-//             return_stdout: true,
-//             trim_stdout: true
-//         }))
-//         .then(res => {
-//             dbg.log0('extract_new_node_version: Nodever', res);
-//             nodever = res;
-//         })
-//         .then(() => promise_utils.exec(`mkdir /tmp/v${nodever}`, {
-//             ignore_rc: false,
-//             return_stdout: true,
-//             trim_stdout: true
-//         }))
-//         .then(() => {
-//             dbg.log0(`pre_upgrade: Created dir /tmp/v${nodever}`);
-//         })
-//         .then(() => promise_utils.exec(`cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v${nodever}-linux-x64.tar.xz /tmp/`, {
-//             ignore_rc: false,
-//             return_stdout: true,
-//             trim_stdout: true
-//         }))
-//         .then(() => {
-//             dbg.log0(`extract_new_node_version: Copied node package`);
-//         })
-//         .then(() => promise_utils.exec(`tar -xJf /tmp/node-v${nodever}-linux-x64.tar.xz -C /tmp/v${nodever} --strip-components 1`, {
-//             ignore_rc: false,
-//             return_stdout: true,
-//             trim_stdout: true
-//         }))
-//         .then(() => {
-//             dbg.log0(`extract_new_node_version: Extracted node package`);
-//             return `/tmp/v${nodever}/bin/node`;
-//         });
-// }
 
 function do_upgrade(upgrade_file, is_clusterized, err_handler) {
     try {
@@ -344,6 +306,52 @@ function new_pre_upgrade_checkups(params) {
     );
 }
 
+function do_yum_update() {
+    dbg.log0('fix_security_issues: Called');
+    return promise_utils.exec(`cp -fd /etc/localtime /tmp`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        })
+        .then(() => promise_utils.exec(`yum clean all`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        }))
+        .then(res => {
+            dbg.log0('fix_security_issues: yum clean', res);
+        })
+        .then(() => promise_utils.exec(`yum update -y`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        }))
+        .then(res => {
+            dbg.log0('fix_security_issues: yum update', res);
+        })
+        .then(() => promise_utils.exec(`yum clean all`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        }))
+        .then(() => {
+            dbg.log0(`Updated yum packages`);
+        })
+        .then(() => promise_utils.exec(`cp -fd /tmp/localtime /etc`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        }))
+        .then(() => {
+            dbg.log0('fix_security_issues: Success');
+        })
+        .catch(function(err) {
+            dbg.error('fix_security_issues: Failure', err);
+            throw err;
+        });
+}
+
+
 function packages_upgrade() {
     dbg.log0(`fix SCL issue (centos-release-SCL)`);
     return promise_utils.exec(`yum -y remove centos-release-SCL`, {
@@ -364,14 +372,6 @@ function packages_upgrade() {
             return_stdout: true,
             trim_stdout: true
         }))
-        .then(() => promise_utils.exec(`yum update rsyslog -y`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('packages_upgrade: Updated rsyslog');
-        })
         .then(() => promise_utils.exec(`yum -y install centos-release-scl`, {
             ignore_rc: false,
             return_stdout: true,
@@ -412,6 +412,7 @@ function packages_upgrade() {
                     dbg.log0(res);
                 });
         })
+        .then(do_yum_update)
         .catch(err => {
             dbg.error('packages_upgrade: Failure', err);
             throw new Error('COULD_NOT_INSTALL_PACKAGES');

@@ -174,21 +174,9 @@ function getAgentConf(server_ip, exclude_drives = []) {
         }))
         .then(installationString => {
             const agentConfArr = installationString.LINUX.split(" ");
-            console.log(agentConfArr[agentConfArr.length - 1]);
             return agentConfArr[agentConfArr.length - 1];
         });
 }
-
-// function create_agents(azf, server_ip, storage, resource_vnet, ...oses) {
-//     return getAgentConf(server_ip)
-//         .then(() => createAgents(azf, server_ip, storage, resource_vnet, ...oses))
-//         .then(() => list_nodes(server_ip)
-//             .then(res => {
-//                 let node_number_after_create = res.length;
-//                 console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
-//                 console.warn(`Node names are ${res.map(node => node.name)}`);
-//             }));
-// }
 
 function activeAgents(server_ip, deactivated_nodes_list) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
@@ -217,6 +205,52 @@ function deactiveAgents(server_ip, activated_nodes_list) {
         .then(() => P.each(activated_nodes_list, name => {
             console.log('calling decommission_node on', name);
             return client.node.decommission_node({ name });
+        }));
+}
+
+function activeAllHosts(server_ip) {
+    console.log(`Active All Hosts`);
+    const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+    const client = rpc.new_client({});
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params)
+        .then(() => client.host.list_hosts({}))
+        .then(res => P.each(res.hosts.filter(node => node.mode === 'DECOMMISSIONED'), names => {
+            let params = {
+                name: names.name,
+                services: {
+                    s3: undefined,
+                    storage: true
+                },
+            };
+            return client.host.update_host_services(params);
+        }));
+}
+
+function deactiveAllHosts(server_ip) {
+    console.log(`Deactiveing All Hosts`);
+    const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+    const client = rpc.new_client({});
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params)
+        .then(() => client.host.list_hosts({}))
+        .then(res => P.each(res.hosts.filter(node => node.mode === 'OPTIMAL'), names => {
+            let params = {
+                name: names.name,
+                services: {
+                    s3: undefined,
+                    storage: false
+                },
+            };
+            return client.host.update_host_services(params);
         }));
 }
 
@@ -384,6 +418,8 @@ exports.getTestNodes = getTestNodes;
 exports.getAgentConf = getAgentConf;
 exports.activeAgents = activeAgents;
 exports.deactiveAgents = deactiveAgents;
+exports.activeAllHosts = activeAllHosts;
+exports.deactiveAllHosts = deactiveAllHosts;
 // exports.create_agents = create_agents;
 exports.deleteAgents = deleteAgents;
 exports.clean_agents = clean_agents;

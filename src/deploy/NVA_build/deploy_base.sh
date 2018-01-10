@@ -67,8 +67,8 @@ function install_platform {
     systemctl disable firewalld
     systemctl enable iptables
 
-    # make network and NetworkManager run on boot
-    systemctl enable NetworkManager
+    # make network service run on boot
+    systemctl disable NetworkManager
     systemctl enable network
 
 	# make crontab start on boot
@@ -398,7 +398,7 @@ function setup_named {
     #Configure 127.0.0.1 as the dns server - we will use named as a dns cache server
     echo "prepend domain-name-servers 127.0.0.1 ;" > /etc/dhclient.conf
     echo "#NooBaa Configured Search" >> /etc/dhclient.conf
-    echo "nameserver 127.0.0.1" > /etc/resolve.conf
+    echo "nameserver 127.0.0.1" > /etc/resolv.conf
 
     #restore /etc/noobaa_configured_dns.conf
     echo "forwarders { 8.8.8.8; 8.8.4.4; };" > /etc/noobaa_configured_dns.conf

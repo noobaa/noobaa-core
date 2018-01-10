@@ -149,7 +149,8 @@ function _get_tier_pools_status(pools) {
         }
         pools_status_by_id[pool._id] = {
             valid_for_allocation,
-            num_nodes
+            num_nodes,
+            resource_type: pool.resource_type
         };
     });
     return pools_status_by_id;

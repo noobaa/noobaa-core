@@ -16,7 +16,6 @@ const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('./system_store').get_instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
-const account_server = require('./account_server');
 
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors) {

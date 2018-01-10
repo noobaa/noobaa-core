@@ -25,7 +25,7 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
         );
 
         this.debugMode = ko.pureComputed(
-            () => Boolean(this.server() && this.server().debug_level)
+            () => Boolean(this.server() && this.server().debug.level)
         );
 
         this.debugModeSheet = [

@@ -627,6 +627,18 @@ class SystemStore extends EventEmitter {
                     });
                 });
 
+                _.each(changes.db_delete, (list, name) => {
+                    get_collection(name);
+                    _.each(list, id => {
+                        get_bulk(name)
+                            .find({
+                                _id: id,
+                                deleted: { $exists: true }
+                            })
+                            .removeOne();
+                    });
+                });
+
                 return P.all(_.map(bulk_per_collection,
                     bulk => bulk.length && P.resolve(bulk.execute({ j: true }))));
             })
@@ -678,6 +690,22 @@ class SystemStore extends EventEmitter {
         }
     }
 
+    find_deleted_docs(name, max_delete_time, limit) {
+        const collection = mongo_client.instance().collection(name);
+        const query = {
+            deleted: {
+                $lt: new Date(max_delete_time)
+            },
+        };
+        return collection.find(query, {
+                limit: Math.min(limit, 1000),
+                fields: {
+                    _id: 1,
+                    deleted: 1
+                }
+            }).toArray()
+            .then(objects => mongo_utils.uniq_ids(objects, '_id'));
+    }
 }
 
 

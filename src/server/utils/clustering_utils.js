@@ -17,7 +17,7 @@ const os_utils = require('../../util/os_utils');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
-const { SERVER_MIN_REQUIREMENTS } = require('../../../config');
+const { SERVER_MIN_REQUIREMENTS, DEBUG_MODE_PERIOD } = require('../../../config');
 
 function get_topology() {
     return system_store.get_local_cluster_info();
@@ -177,6 +177,9 @@ function get_cluster_info(rs_status) {
             hostname = cinfo.heartbeat.health.os_info.hostname;
             storage = cinfo.heartbeat.health.storage;
         }
+        const debug_time = cinfo.debug_mode ?
+            Math.max(0, DEBUG_MODE_PERIOD - (Date.now() - cinfo.debug_mode)) :
+            undefined;
         let server_info = {
             version: version,
             hostname: hostname,
@@ -188,7 +191,10 @@ function get_cluster_info(rs_status) {
             cpus: cpus,
             location: location,
             upgrade: cinfo.upgrade,
-            debug_level: cinfo.debug_level,
+            debug: _.omitBy({
+                level: cinfo.debug_level,
+                time_left: debug_time
+            }, _.isUndefined),
             ntp_server: cinfo.ntp && cinfo.ntp.server,
             timezone: cinfo.ntp && cinfo.ntp.timezone,
             dns_servers: cinfo.dns_servers || [],

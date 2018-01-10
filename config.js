@@ -180,6 +180,15 @@ config.DEDUP_INDEXER_IGNORE_BACK_TIME = 7 * 24 * 60 * 60 * 1000; // dedup indexe
 config.DEDUP_INDEXER_LOW_KEYS_NUMBER = 8 * 1000000; // 8M keys max in index ~ 1.5GB
 config.DEDUP_INDEXER_CHECK_INDEX_CYCLE = 60000;
 
+///////////////////////
+// DB CLEANER CONFIG //
+///////////////////////
+config.DB_CLEANER = {
+    ENABLED: true,
+    CYCLE: 120000,
+    BACK_TIME: 3 * 30 * 24 * 60 * 60 * 1000 // 3 months
+};
+
 //////////////////////
 // LIFECYCLE CONFIG //
 //////////////////////

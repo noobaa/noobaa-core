@@ -437,7 +437,14 @@ function read_system(req) {
         objects_sys.count = objects_sys.count.plus(obj_count_per_bucket[''] || 0);
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
-        const debug_level = system.debug_level;
+        const debug_time = system.debug_mode ?
+            Math.max(0, config.DEBUG_MODE_PERIOD - (Date.now() - system.debug_mode)) :
+            undefined;
+
+        const debug = _.omitBy({
+            level: system.debug_level,
+            time_left: debug_time
+        }, _.isUndefined);
 
         const maintenance_mode = {
             state: system_utils.system_in_maintenance(system._id)
@@ -523,7 +530,7 @@ function read_system(req) {
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
-            debug_level: debug_level,
+            debug: debug,
             system_cap: system_cap,
             has_ssl_cert: has_ssl_cert,
             cluster: cluster_info,

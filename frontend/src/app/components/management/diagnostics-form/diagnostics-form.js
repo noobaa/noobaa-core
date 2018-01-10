@@ -23,7 +23,7 @@ class DiagnosticsFormViewModel extends BaseViewModel {
         ];
 
         this.debugMode = ko.pureComputed(
-            () => Boolean(systemInfo() && systemInfo().debug_level)
+            () => Boolean(systemInfo() && systemInfo().debug.level)
         );
 
         this.debugModeSheet = [

@@ -29,6 +29,7 @@ var md_aggregator = require('./bg_services/md_aggregator');
 var background_scheduler = require('../util/background_scheduler').get_instance();
 var stats_collector = require('./bg_services/stats_collector');
 var dedup_indexer = require('./bg_services/dedup_indexer');
+var db_cleaner = require('./bg_services/db_cleaner');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
@@ -37,6 +38,7 @@ const MASTER_BG_WORKERS = [
     'md_aggregator',
     'usage_aggregator',
     'dedup_indexer',
+    'db_cleaner',
     'aws_usage_metering'
 ];
 
@@ -115,6 +117,14 @@ function run_master_workers() {
         }, dedup_indexer.background_worker);
     } else {
         dbg.warn('DEDUP INDEXER NOT ENABLED');
+    }
+
+    if (config.DB_CLEANER.ENABLED) {
+        register_bg_worker({
+            name: 'db_cleaner',
+        }, db_cleaner.background_worker);
+    } else {
+        dbg.warn('DB CLEANER NOT ENABLED');
     }
 
     if (config.LIFECYCLE_DISABLED !== 'true') {

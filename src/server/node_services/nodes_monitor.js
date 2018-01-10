@@ -953,6 +953,11 @@ class NodesMonitor extends EventEmitter {
             P.resolve()
             .then(() => dbg.log0('_run_node:', item.node.name))
             .then(() => this._get_agent_info(item))
+            .then(() => { //If internal or cloud resource, cut down initializing time (in update_rpc_config)
+                if (!item.node_from_store && (item.node.is_mongo_node || item.node.is_cloud_node)) {
+                    return this._update_nodes_store('force');
+                }
+            })
             .then(() => this._uninstall_deleting_node(item))
             .then(() => this._remove_hideable_nodes(item))
             .then(() => this._update_node_service(item))
@@ -3025,16 +3030,20 @@ class NodesMonitor extends EventEmitter {
     _get_host_info(host_item, adminfo) {
         let info = {
             s3_nodes_info: {
-                nodes: host_item.s3_nodes.map(item => {
-                    this._update_status(item);
-                    return this._get_node_info(item);
-                })
+                nodes: host_item.s3_nodes
+                    .filter(item => Boolean(item.node_from_store))
+                    .map(item => {
+                        this._update_status(item);
+                        return this._get_node_info(item);
+                    })
             },
             storage_nodes_info: {
-                nodes: host_item.storage_nodes.map(item => {
-                    this._update_status(item);
-                    return this._get_node_info(item);
-                })
+                nodes: host_item.storage_nodes
+                    .filter(item => Boolean(item.node_from_store))
+                    .map(item => {
+                        this._update_status(item);
+                        return this._get_node_info(item);
+                    })
             }
         };
         info.s3_nodes_info.mode = host_item.s3_nodes_mode;

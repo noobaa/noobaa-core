@@ -128,8 +128,7 @@ date -s "21 Aug 2017 00:00:00"
 #Configure 127.0.0.1 as the dns server - we will use named as a dns cache server
 echo "prepend domain-name-servers 127.0.0.1 ;" > /etc/dhclient.conf
 echo "#NooBaa Configured Search" >> /etc/dhclient.conf
-# restore resolve.conf, although NetworkManager will probably reqwrite it
-echo "nameserver 127.0.0.1" > /etc/resolve.conf
+echo "nameserver 127.0.0.1" > /etc/resolv.conf
 # reset /etc/sysconfig/network
 echo "HOSTNAME=noobaa" > /etc/sysconfig/network
 echo "DNS1=127.0.0.1" >> /etc/sysconfig/network
@@ -142,8 +141,8 @@ echo "forward only;" >> /etc/noobaa_configured_dns.conf
 
 cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/named.conf /etc/named.conf
 
-#make sure NetworkManager and named start on boot
-sudo systemctl enable NetworkManager
+#make sure NetworkManager is disabled and named start on boot
+sudo systemctl disable NetworkManager
 sudo systemctl enable named
 
 sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc/ntp.conf

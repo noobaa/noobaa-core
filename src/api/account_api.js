@@ -183,6 +183,23 @@ module.exports = {
             }
         },
 
+        verify_authorized_account: {
+            doc: 'Verify authorized account password',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['verification_password'],
+                properties: {
+                    verification_password: {
+                        type: 'string'
+                    }
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         update_account_s3_access: {
             doc: 'Update bucket s3 access permissions',
             method: 'PUT',

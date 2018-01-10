@@ -466,6 +466,12 @@ module.exports = {
                     total_parts: {
                         type: 'integer'
                     },
+                    mirror_groups: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/mirror_group_info'
+                        },
+                    }
                 }
             },
             auth: {
@@ -1217,7 +1223,8 @@ module.exports = {
                         },
                         in_mongo_pool: {
                             type: 'boolean'
-                        }
+                        },
+                        mirror_group: { type: 'string' }
                     }
                 }
             }
@@ -1239,6 +1246,17 @@ module.exports = {
                 if_none_match_etag: {
                     type: 'string'
                 },
+            }
+        },
+
+        mirror_group_info: {
+            type: 'object',
+            properties: {
+                name: { type: 'string' },
+                pools: {
+                    type: 'array',
+                    items: { type: 'string' }
+                }
             }
         },
 

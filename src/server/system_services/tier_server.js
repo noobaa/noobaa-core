@@ -16,6 +16,7 @@ const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('./system_store').get_instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
+const account_server = require('./account_server');
 
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors) {
@@ -176,7 +177,21 @@ function update_tier(req) {
         updates.mirrors = _convert_pools_to_data_placement_structure(pool_ids, req.rpc_params.data_placement);
     }
 
-    return system_store.make_changes(changes)
+    return P.resolve()
+        .then(() => {
+            const chunk_config_risk = _check_risky_policy_configuration(chunk_config);
+
+            if (chunk_config_risk) {
+                if (!req.rpc_params.verification_password) throw new RpcError('PROVIDE_PASSWORD', 'please provide verification password');
+                return P.resolve()
+                    .then(() => account_server.verify_authorized_account({
+                        verification_password: req.rpc_params.verification_password
+                    }, {
+                        auth_token: req.auth_token
+                    }));
+            }
+        })
+        .then(() => system_store.make_changes(changes))
         .then(res => {
             const bucket = find_bucket_by_tier(req);
             const desc_string = [];
@@ -445,6 +460,12 @@ function get_associated_tiering_policies(tier) {
     );
 
     return _.map(associated_tiering_policies, tiering_policies => tiering_policies._id);
+}
+
+function _check_risky_policy_configuration(chunk_config) {
+    if (chunk_config.replicas < config.CHUNK_RECOMENDED_MINIMAL_REPLICAS_FOR_HA &&
+        chunk_config.parity_frags < config.CHUNK_RECOMENDED_MINIMAL_PARITY_FRAGS_FOR_HA) return true;
+    return false;
 }
 
 // EXPORTS

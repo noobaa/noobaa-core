@@ -412,7 +412,13 @@ function read_object_mappings(req) {
 
             // when called from admin console, we do not update the stats
             // so that viewing the mapping in the ui will not increase read count
-            if (adminfo) return;
+            if (adminfo) {
+                reply.mirror_groups = _get_bucket_mirror_groups(obj.bucket);
+                // Notice that this changes the value of reply.parts
+                _mark_mirror_groups_for_blocks(reply.parts, reply.mirror_groups);
+                return;
+            }
+
             const date = new Date();
             MDStore.instance().update_object_by_id(
                 obj._id, { 'stats.last_read': date },
@@ -1010,6 +1016,51 @@ function check_quota(bucket) {
             `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(bucket.quota.value)}`,
             Dispatcher.rules.once_daily);
     }
+}
+
+function _get_bucket_mirror_groups(bucket_id) {
+    const bucket = system_store.data.get_by_id(bucket_id);
+
+    if (!bucket) {
+        throw new RpcError('BUCKET_NOT_EXIST',
+            `Could not find bucket:${bucket_id}`);
+    }
+
+    const working_tier = bucket.tiering.tiers.filter(tiers_obj => !tiers_obj.disabled)
+        .map(filtered_tiers_obj => filtered_tiers_obj.tier);
+
+    if (!working_tier) {
+        throw new RpcError('NO_VALID_TIER',
+            `Could not find valid tier in bucket bucket:${bucket_id}`);
+    }
+
+    const mirror_groups = _.flatten(
+        working_tier.map(tier =>
+            tier.mirrors.map(mirror_object => {
+                const pool_list = _.sortBy(mirror_object.spread_pools, pool => pool.name);
+                const group_name = JSON.stringify(pool_list.map(pool => pool.name));
+                return {
+                    name: crypto.createHash('md5').update(group_name).digest('hex'),
+                    pools: mirror_object.spread_pools.map(pool => pool.name)
+                };
+            })
+        )
+    );
+
+    return mirror_groups;
+}
+
+function _mark_mirror_groups_for_blocks(parts, mirror_groups) {
+    parts.forEach(part =>
+        part.chunk.frags.forEach(frag =>
+            frag.blocks.forEach(block => {
+                const mirror_group = mirror_groups.find(m_group => _.includes(m_group.pools, block.adminfo.pool_name));
+                // In case of block not being stored on pool that is not relevant to the main tier of bucket
+                // We will not assign it to any mirror group, this is relevant to spillover blocks and blocks not in policy
+                block.adminfo.mirror_group = mirror_group && mirror_group.name;
+            })
+        )
+    );
 }
 
 // EXPORTS

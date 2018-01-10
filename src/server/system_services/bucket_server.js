@@ -772,7 +772,7 @@ function get_cloud_buckets(req) {
                     ssl: false
                 });
 
-                // TODO: JENIA Shall I use any other method istead of listing the root cpCode dir?
+                // TODO: Shall I use any other method istead of listing the root cpCode dir?
                 return P.fromCallback(callback => ns.dir(connection.cp_code, callback))
                     .timeout(EXTERNAL_BUCKET_LIST_TO)
                     .then(data => {
@@ -877,7 +877,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         }
         let mirror_with_valid_pool = 0;
         tier_and_order.tier.mirrors.forEach(mirror_object => {
-            let num_valid_nodes = 0;
+            let num_valid_nodes;
+            let has_internal_or_cloud_pool = false;
             let has_valid_pool = false;
             _.compact((mirror_object.spread_pools || []).map(pool => {
                     has_any_pool_configured = has_any_pool_configured || !tier_and_order.spillover;
@@ -886,14 +887,20 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
                     return tiering_pools_status[tier_and_order.tier._id].pools[pool._id];
                 }))
                 .forEach(pool_status => {
-                    num_valid_nodes += pool_status.num_nodes || 0;
+                    num_valid_nodes = (num_valid_nodes || 0) + (pool_status.num_nodes || 0);
                     has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
+                    has_internal_or_cloud_pool = has_internal_or_cloud_pool || (pool_status.resource_type !== 'HOSTS');
                     // has_any_valid_pool_configured = has_any_valid_pool_configured || has_valid_pool;
                 });
             // let valid = ;
-            if (has_valid_pool || num_valid_nodes >= config.NODES_MIN_COUNT) mirror_with_valid_pool += 1;
+            if (has_valid_pool || ((num_valid_nodes || 0) >= config.NODES_MIN_COUNT)) mirror_with_valid_pool += 1;
             // return valid;
+            const exitsting_minimum = _.isUndefined(info.num_of_nodes) ? Number.MAX_SAFE_INTEGER : info.num_of_nodes;
+            const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : 0;
+            const potential_new_minimum = has_internal_or_cloud_pool ? Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
+            info.num_of_nodes = Math.min(exitsting_minimum, potential_new_minimum);
         });
+        info.num_of_nodes = info.num_of_nodes || 0;
         info.writable = mirror_with_valid_pool > 0;
         if (!tier_and_order.spillover &&
             ((tier_and_order.tier.mirrors.length > 1 && mirror_with_valid_pool === tier_and_order.tier.mirrors.length) ||

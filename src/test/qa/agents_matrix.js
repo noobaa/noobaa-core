@@ -86,11 +86,9 @@ let initial_node_number;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-function saveErrorAndResume(err_to_log) {
-    const stack = new Error().stack;
-    const func_name = stack.split('\n')[1].trim().split(' ')[1];
-    errors.push(`${func_name}:: ${err_to_log.message}\n${stack}`);
-    console.error(errors);
+function saveErrorAndResume(message) {
+    console.error(message);
+    errors.push(message);
     process.exit(1);
 }
 
@@ -189,7 +187,7 @@ function runAgentDebug() {
 }
 
 function verifyAgent() {
-    console.log(`starting the verify agents stage`);
+    console.log(`Starting the verify agents stage`);
     return s3ops.put_file_with_md5(server_ip, bucket, '100MB_File', 100, 1048576)
         .then(() => s3ops.get_file_check_md5(server_ip, bucket, '100MB_File'))
         .then(runAgentDiagnostics)
@@ -233,9 +231,9 @@ function runExtensions(script_name, flags = '') {
 
 function upgradeAgent() {
     // if upgrade pack is not specifyed then skipping this stage.
-    console.log(`upgrade_pack: ${upgrade_pack}`);
+    console.log(`Upgrade_pack: ${upgrade_pack}`);
     if (!_.isUndefined(upgrade_pack)) {
-        console.log('starting the upgrade agents stage');
+        console.log('Starting the upgrade agents stage');
         return runExtensions('replace_version_on_agent')
             .then(() => client.system.read_system({})
                 .then(result => ops.upload_and_upgrade(server_ip, upgrade_pack))
@@ -247,9 +245,13 @@ function upgradeAgent() {
 }
 
 function deleteAgent() {
-    console.log(`starting the delete agents stage`);
-    return runExtensions('remove_agent')
-        .delay(60000)
+    console.log(`Starting the delete agents stage`);
+    return client.host.list_hosts({})
+        .then(res => P.map(res.hosts, host => {
+            console.log('deleting', host.name);
+            return client.host.delete_host({ name: host.name });
+        }))
+        .delay(120 * 1000)
         .then(() => af.list_nodes(server_ip))
         .then(res => {
             nodes = [];
@@ -277,34 +279,6 @@ function addDisksToMachine(diskSize) {
         return azf.addDataDiskToVM(osname, diskSize, storage);
     });
 }
-
-// function activeHosts() {
-//     return list_hosts_with_status('DECOMMISSIONED')
-//         .then(res => P.each(res.name, name => {
-//             let params = {
-//                 name,
-//                 services: {
-//                     s3: undefined,
-//                     storage: true
-//                 },
-//             };
-//             return client.host.update_host_services({ params });
-//         }));
-// }
-
-// function deactiveHosts() {
-//     return list_hosts_with_status('OPTIMAL')
-//         .then(res => P.each(res.name, name => {
-//             let params = {
-//                 name,
-//                 services: {
-//                     s3: undefined,
-//                     storage: false
-//                 },
-//             };
-//             return client.host.update_host_services({ params });
-//         }));
-// }
 
 function checkIncludeDisk() {
     return af.getTestNodes(server_ip, oses)
@@ -363,10 +337,10 @@ function checkExcludeDisk(excludeList) {
     let number_befor_adding_disks;
     return af.getTestNodes(server_ip, oses)
         .then(nodes_befor_adding_disks => {
-            const includesE = nodes_befor_adding_disks.filter(node => node.name.includes('-E-'));
-            const includesF = nodes_befor_adding_disks.filter(node => node.name.includes('-F-'));
-            const includes_exclude1 = nodes_befor_adding_disks.filter(node => node.name.includes('exclude1'));
-            const prevNum = nodes_befor_adding_disks - includesE.concat(includesF.concat(includes_exclude1));
+            const includesE = nodes_befor_adding_disks.filter(node => node.includes('-E-'));
+            const includesF = nodes_befor_adding_disks.filter(node => node.includes('-F-'));
+            const includes_exclude1 = nodes_befor_adding_disks.filter(node => node.includes('exclude1'));
+            const prevNum = nodes_befor_adding_disks.length - includesE.concat(includesF.concat(includes_exclude1)).length;
             return addExcludeDisks(excludeList, prevNum);
         })
         .then(res => number_befor_adding_disks)
@@ -375,18 +349,12 @@ function checkExcludeDisk(excludeList) {
         //activate a deactivated node
         .then(() => af.getTestNodes(server_ip, oses)
             .then(test_nodes_names => {
-                const includesE = test_nodes_names.filter(node => node.name.includes('-E-'));
-                const includes_exclude1 = test_nodes_names.filter(node => node.name.includes('exclude1'));
+                const includesE = test_nodes_names.filter(node => node.includes('-E-'));
+                const includes_exclude1 = test_nodes_names.filter(node => node.includes('exclude1'));
                 // return includesE.concat(includes_exclude1);
                 return af.activeAgents(server_ip, includesE.concat(includes_exclude1));
             }))
         // .then(res => af.activeAgents(server_ip, res)))
-        //verifying write, read, diag and debug level.
-        .then(verifyAgent)
-        //disabling the entire host
-        .then(_.noop)
-        //enableing the entire host or enabling with random number of agents enabled
-        .then(_.noop)
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //adding disk after disable and enable entire host
@@ -405,9 +373,9 @@ function checkExcludeDisk(excludeList) {
         //deactivate agents (mounts)
         .then(() => af.getTestNodes(server_ip, oses)
             .then(test_nodes_names => {
-                const excludeE = test_nodes_names.filter(node => node.name.includes('-E-'));
-                const excludeF = test_nodes_names.filter(node => node.name.includes('-F-'));
-                const excludes_exclude = test_nodes_names.filter(node => node.name.includes('exclude'));
+                const excludeE = test_nodes_names.filter(node => node.includes('-E-'));
+                const excludeF = test_nodes_names.filter(node => node.includes('-F-'));
+                const excludes_exclude = test_nodes_names.filter(node => node.includes('exclude'));
                 return excludeE.concat(excludeF).concat(excludes_exclude);
             })
             .then(activated_nodes_list => af.deactiveAgents(server_ip, activated_nodes_list)));
@@ -469,6 +437,12 @@ function includeExcludeCycle(isInclude) {
         .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk(excludeList)))
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
+        //enableing the entire host or enabling with random number of agents enabled
+        .then(() => af.deactiveAllHosts(server_ip))
+        //verifying write, read, diag and debug level.
+        .then(verifyAgent)
+        //disabling the entire host
+        .then(() => af.activeAllHosts(server_ip))
         // Upgrade to same version before uninstalling
         .then(upgradeAgent)
         //verifying write, read, diag and debug level after the upgrade.
@@ -498,7 +472,7 @@ function main() {
             if (errors.length === 0) {
                 if (!skipsetup) {
                     console.log('deleing the virtual machines.');
-                    return P.map(oses, osname => azf.deleteVirtualMachine(osname));
+                    return runClean();
                 }
                 console.log('All is good :) - exiting...');
                 process.exit(0);

@@ -155,22 +155,7 @@ function mongo_upgrade() {
                 });
         })
         .then(() => P.join(
-            promise_utils.exec(`/usr/local/bin/node ${CORE_DIR}/src/tools/bcrypt_cli.js --bcrypt_password ${secret}`, {
-                ignore_rc: false,
-                return_stdout: true,
-                trim_stdout: true
-            }),
             promise_utils.exec(`uuidgen | cut -f 1 -d'-'`, {
-                ignore_rc: false,
-                return_stdout: true,
-                trim_stdout: true
-            }),
-            promise_utils.exec(`/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' '`, {
-                ignore_rc: false,
-                return_stdout: true,
-                trim_stdout: true
-            }),
-            promise_utils.exec(`openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}'`, {
                 ignore_rc: false,
                 return_stdout: true,
                 trim_stdout: true
@@ -181,9 +166,9 @@ function mongo_upgrade() {
                 trim_stdout: true
             })
         ))
-        .spread((bcrypt_secret, id, ip, client_subject, version) => {
-            dbg.log0(`starting mongo data upgrade ${bcrypt_secret} ${id} ${ip} ${client_subject} ${version}`);
-            return mongo_upgrade_database_metadata({ secret, bcrypt_secret, ip, client_subject, version })
+        .spread((id, version) => {
+            dbg.log0(`starting mongo data upgrade ${id} ${version}`);
+            return mongo_upgrade_database_metadata({ secret, version })
                 .then(() => dbg.log0(`finished mongo data upgrade`))
                 .catch(err => {
                     dbg.error('FAILED mongo data upgrade!', err);
@@ -445,7 +430,7 @@ function mongo_upgrade_database_metadata(params) {
         .then(function() {
             return P.each(UPGRADE_SCRIPTS, script => {
                 dbg.log0(`Running Mongo Upgrade Script ${script}`);
-                return promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${params.secret}', param_bcrypt_secret='${params.bcrypt_secret}', param_ip='${params.ip}', version='${params.version}', param_client_subject='${params.client_subject}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
+                return promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${params.secret}', version='${params.version}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
                         ignore_rc: false,
                         return_stdout: true,
                         trim_stdout: true

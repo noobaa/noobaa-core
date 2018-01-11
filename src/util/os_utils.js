@@ -687,7 +687,7 @@ function _set_search_domains(search_domains) {
 
 
 function restart_rsyslogd() {
-    return promise_utils.exec('/etc/init.d/rsyslog restart');
+    return promise_utils.exec('systemctl restart rsyslog');
 }
 
 function get_time_config() {

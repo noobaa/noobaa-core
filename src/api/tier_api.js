@@ -64,7 +64,6 @@ module.exports = {
                 properties: {
                     name: { type: 'string' },
                     new_name: { type: 'string' },
-                    verification_password: { type: 'string' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     attached_pools: { $ref: '#/definitions/pool_info' },
                     data_placement: { $ref: '#/definitions/data_placement_enum' },

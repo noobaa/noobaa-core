@@ -245,7 +245,7 @@ function configure_ntp_dialog {
     sudo bash -c "echo 'server ${ntp_server} iburst #NooBaa Configured NTP Server' >> /etc/ntp.conf"
     sudo /sbin/chkconfig ntpd on 2345
     sudo systemctl restart ntpd.service > /dev/null 2>&1
-    sudo /etc/init.d/rsyslog restart > /dev/null 2>&1
+    sudo systemctl restart rsyslog > /dev/null 2>&1
     sudo /etc/init.d/supervisord restart > /dev/null 2>&1
 } 
 

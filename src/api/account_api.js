@@ -195,6 +195,9 @@ module.exports = {
                     }
                 },
             },
+            reply: {
+                type: 'boolean'
+            },
             auth: {
                 system: 'admin'
             }

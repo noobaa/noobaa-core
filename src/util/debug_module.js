@@ -20,7 +20,9 @@ const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
+
 const nb_native = require('./nb_native');
+const LRU = require('./lru');
 
 var config = {
     dbg_log_level: 0,
@@ -63,9 +65,9 @@ if (typeof process !== 'undefined' &&
 
     if (should_log_to_syslog) {
         syslog = nb_native().syslog;
-    } else {
-        winston = require('winston');
     }
+    winston = require('winston');
+
 
     processType = "node";
     console_wrapper = require('./console_wrapper');
@@ -133,9 +135,20 @@ var LOG_FUNC_PER_LEVEL = {
 };
 
 
+const THROTTLING_PERIOD_SEC = 30;
+const MESSAGES_LRU_SIZE = 10000;
+
 class InternalDebugLogger {
 
     constructor() {
+
+
+        // an LRU table to hold last used messages for throttling
+        this.lru = new LRU({
+            name: 'debug_log_lru',
+            max_usage: MESSAGES_LRU_SIZE, // hold up to 10000 messages
+            expiry_ms: THROTTLING_PERIOD_SEC * 1000, // 30 seconds before repeating any message
+        });
 
         this._file_path = undefined;
         this._logs_by_file = [];
@@ -175,6 +188,7 @@ class InternalDebugLogger {
         if (!winston) {
             return;
         }
+
         //if logs directory doesn't exist, create it
         try {
             fs.mkdirSync('./logs');
@@ -184,61 +198,65 @@ class InternalDebugLogger {
             }
         }
         //Define Transports
+        const transports = [new winston.transports.Console({
+            name: 'console_transp',
+            level: 'ERROR',
+            showLevel: false,
+            formatter: options => {
+                var proc = '[' + this._proc_name + '/' + this._pid + ']';
+                var formatted_level = ' \x1B[31m[';
+                if (this._levels[options.level]) {
+                    formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
+                }
+                var message = options.message || '';
+                var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
+                // remove newlines from message?
+                // message = message.replace(/(\r\n|\n|\r)/gm, '');
+                return '\x1B[32m' + formatted_time() +
+                    '\x1B[35m ' + proc +
+                    formatted_level +
+                    options.level + ']\x1B[39m ' +
+                    message +
+                    postfix;
+            }
+        })];
+
+        // if not logging to syslog add a file transport
+        if (!syslog) {
+            transports.push(new winston.transports.File({
+                name: 'file_transp',
+                level: 'ERROR',
+                showLevel: false,
+                filename: 'noobaa.log',
+                dirname: './logs/',
+                json: false,
+                maxsize: (10 * 1024 * 1024),
+                maxFiles: 100,
+                tailable: true,
+                zippedArchive: true,
+                formatter: options => {
+                    //prefix - time, level, module & pid
+                    var proc = '[' + this._proc_name + '/' + this._pid + ']';
+                    var formatted_level = ' \x1B[31m[';
+                    if (this._levels[options.level]) {
+                        formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
+                    }
+                    var prefix = '\x1B[32m' + formatted_time() +
+                        '\x1B[35m ' + proc +
+                        formatted_level +
+                        options.level + ']\x1B[39m ';
+                    var message = options.message || '';
+                    var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
+                    // remove newlines from message
+                    message = message.replace(/(\r\n|\n|\r)/gm, '');
+                    return prefix + message + postfix;
+                }
+            }));
+        }
+
         this._log = new(winston.Logger)({
             levels: this._levels,
-            transports: [
-                new winston.transports.File({
-                    name: 'file_transp',
-                    level: 'ERROR',
-                    showLevel: false,
-                    filename: 'noobaa.log',
-                    dirname: './logs/',
-                    json: false,
-                    maxsize: (10 * 1024 * 1024),
-                    maxFiles: 100,
-                    tailable: true,
-                    zippedArchive: true,
-                    formatter: function(options) {
-                        //prefix - time, level, module & pid
-                        var proc = '[' + this._proc_name + '/' + this._pid + ']';
-                        var formatted_level = ' \x1B[31m[';
-                        if (this._levels[options.level]) {
-                            formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
-                        }
-                        var prefix = '\x1B[32m' + formatted_time() +
-                            '\x1B[35m ' + proc +
-                            formatted_level +
-                            options.level + ']\x1B[39m ';
-                        var message = options.message || '';
-                        var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
-                        // remove newlines from message
-                        message = message.replace(/(\r\n|\n|\r)/gm, '');
-                        return prefix + message + postfix;
-                    }
-                }),
-                new winston.transports.Console({
-                    name: 'console_transp',
-                    level: 'ERROR',
-                    showLevel: false,
-                    formatter: function(options) {
-                        var proc = '[' + this._proc_name + '/' + this._pid + ']';
-                        var formatted_level = ' \x1B[31m[';
-                        if (this._levels[options.level]) {
-                            formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
-                        }
-                        var message = options.message || '';
-                        var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
-                        // remove newlines from message?
-                        // message = message.replace(/(\r\n|\n|\r)/gm, '');
-                        return '\x1B[32m' + formatted_time() +
-                            '\x1B[35m ' + proc +
-                            formatted_level +
-                            options.level + ']\x1B[39m ' +
-                            message +
-                            postfix;
-                    }
-                })
-            ]
+            transports
         });
     }
 
@@ -353,10 +371,32 @@ class InternalDebugLogger {
     }
 
     log_internal(level) {
-        var args;
+
+        var args = Array.prototype.slice.call(arguments, 1);
         if (console_wrapper) {
             console_wrapper.original_console();
         }
+
+        // get formatted message to use as key for lru
+        let syslog_msg = this.syslog_formatter(level, arguments);
+
+        const lru_item = this.lru.find_or_add_item(syslog_msg.message);
+        if (lru_item.hit_count) {
+            lru_item.hit_count += 1;
+            // the message is already in the lru
+            // every 200 messages print message count, otherwise return
+            if (lru_item.hit_count > 2 && lru_item.hit_count % 200 !== 0) return;
+
+            const msg_prefix = lru_item.hit_count === 2 ?
+                `[This exact message was already printed at ${new Date(lru_item.time)}, and will be silenced for ${THROTTLING_PERIOD_SEC} seconds]` :
+                `[This exact message was printed ${lru_item.hit_count} times since ${new Date(lru_item.time)}]: `;
+            syslog_msg.message = msg_prefix + syslog_msg.message;
+            args[0] = msg_prefix + args[0];
+        } else {
+            // message not in lru. set hit count to 1
+            lru_item.hit_count = 1;
+        }
+
         if (this._file_path) {
             var winston_log = this._logs_by_file[this._file_path.name];
             if (!winston_log) {
@@ -376,7 +416,7 @@ class InternalDebugLogger {
                             //maxFiles: 100,
                             //tailable: true,
                             //zippedArchive: true,
-                            formatter: function(options) {
+                            formatter: options => {
                                 //prefix - time, level, module & pid
                                 var proc = '[' + this._proc_name + '/' + this._pid + ']';
                                 var formatted_level = ' \x1B[31m[';
@@ -398,29 +438,19 @@ class InternalDebugLogger {
                 });
                 this._logs_by_file[this._file_path.name] = winston_log;
             }
-            args = Array.prototype.slice.call(arguments, 1);
             args.push("");
             winston_log[level].apply(winston_log, args);
-        } else if (!_.isUndefined(syslog)) {
-            // syslog path
-            let msg = this.syslog_formatter(level, arguments);
-            syslog(this._levels_to_syslog[level], msg.message, 'LOG_LOCAL0');
-            // when not redirecting to file console.log is async:
-            // https://nodejs.org/api/console.html#console_asynchronous_vs_synchronous_consoles
-            if (level === 'ERROR') {
-                console.error(msg.console_prefix + msg.message);
-            } else {
-                console.log(msg.console_prefix + msg.message);
-            }
         } else if (this._log) {
+            if (syslog) {
+                // syslog path
+                syslog(this._levels_to_syslog[level], syslog_msg.message, 'LOG_LOCAL0');
+            }
             // winston path (non browser)
-            args = Array.prototype.slice.call(arguments, 1);
             args.push("");
             this._log[level].apply(this._log, args);
         } else {
             // browser workaround, don't use winston. Add timestamp and level
             var logfunc = LOG_FUNC_PER_LEVEL[level] || 'log';
-            args = Array.prototype.slice.call(arguments, 1);
             if (typeof(args[0]) === 'string') {
                 args[0] = formatted_time() + ' [' + level + '] ' + args[0];
             } else {

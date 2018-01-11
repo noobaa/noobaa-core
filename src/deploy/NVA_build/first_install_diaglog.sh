@@ -199,6 +199,23 @@ function configure_networking_dialog {
       fi
     done
 }
+
+
+function generate_entropy(){
+    local path
+    local pid=()
+    echo "Generate entropy for /dev/random (openssl and such) for 5m"
+    for path in $(find /dev/disk/by-uuid/ -type l )
+    do
+        md5sum ${path} &
+        pid+=($!)
+    done
+    ps -ef | grep md5 | grep -v grep
+    sleep 300
+    echo "killing md5sum (pid: ${pid[@]})"
+    kill -9 ${pid[@]} 2> /dev/null
+}
+
 function configure_ntp_dialog {
   local ntp_server=$(grep "server.*NooBaa Configured" /etc/ntp.conf | sed 's:.*server \(.*\) iburst.*:\1:')
   local tz=$(ls -la /etc/localtime  | sed 's:.*/usr/share/zoneinfo/\(.*\):\1:')
@@ -361,6 +378,7 @@ is a short first install wizard to help configure \n\Z5\ZbNooBaa\Zn to best suit
 }
 
 function end_wizard {
+  generate_entropy &
   local current_ip=$(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use.\nYou can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 72
   date | sudo tee -a ${FIRST_INSTALL_MARK}

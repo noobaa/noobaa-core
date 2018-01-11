@@ -195,6 +195,9 @@ function generate_account_keys(req) {
     let updates = _.pick(account, '_id');
 
     return verify_authorized_account(req)
+        .then(res => {
+            if (!res) throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
+        })
         .then(() => {
             updates.access_keys = [generate_access_keys()];
             return system_store.make_changes({
@@ -417,6 +420,9 @@ function reset_password(req) {
 
     const params = req.rpc_params;
     return verify_authorized_account(req)
+        .then(res => {
+            if (!res) throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
+        })
         .then(() => bcrypt_password(params.password))
         .then(password => {
             const changes = {
@@ -1009,9 +1015,8 @@ function verify_authorized_account(req) {
     return P.resolve()
         .then(() => bcrypt.compare(req.rpc_params.verification_password, req.account.password))
         .then(match => {
-            if (!match) {
-                throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
-            }
+            if (!match) return false;
+            return true;
         });
 }
 

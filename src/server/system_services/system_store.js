@@ -704,7 +704,7 @@ class SystemStore extends EventEmitter {
                     deleted: 1
                 }
             }).toArray()
-            .then(objects => mongo_utils.uniq_ids(objects, '_id'));
+            .then(docs => mongo_utils.uniq_ids(docs, '_id'));
     }
 }
 

@@ -96,34 +96,34 @@ function find_next_range({
     target_now,
     system_store,
 }) {
-    const range = find_minimal_range({
+    let { from_time, till_time, should_reset_all } = find_minimal_range({
         target_now,
         system_store,
     });
     // printing the range and the buckets/pools relative info
     dbg.log1('find_next_range:',
-        'from_time', range.from_time,
-        'till_time*', range.till_time - range.from_time,
-        'target_now*', target_now - range.from_time
+        'from_time', from_time,
+        'till_time*', till_time - from_time,
+        'target_now*', target_now - from_time
     );
     _.forEach(system_store.data.buckets, bucket => {
         const last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
         dbg.log1('find_next_range: bucket', bucket.name,
-            'last_update*', last_update - range.from_time
+            'last_update*', last_update - from_time
         );
     });
     _.forEach(system_store.data.pools, pool => {
         const last_update = _.get(pool, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
         dbg.log1('find_next_range: pool', pool.name,
-            'last_update*', last_update - range.from_time
+            'last_update*', last_update - from_time
         );
     });
 
-    if (range.should_reset_all) {
+    if (should_reset_all) {
         dbg.error('find_next_range: reset all storage_stats due to time skews ',
-            'from_time', range.from_time,
-            'till_time*', range.till_time - range.from_time,
-            'target_now*', target_now - range.from_time
+            'from_time', from_time,
+            'till_time*', till_time - from_time,
+            'target_now*', target_now - from_time
         );
         // Assigning NOOBAA_EPOCH so we will gather all data again till the new time
         // This means that we will be eventually consistent
@@ -157,26 +157,25 @@ function find_next_range({
     // but on upgrades or shutdowns the gap can get higher, and then we limit the number of cycles we
     // allow to run to MD_AGGREGATOR_MAX_CYCLES, and therefore increase the interval from MD_AGGREGATOR_INTERVAL
     // to higher interval in order to close the gap in a reasonable number of cycles.
-    const time_diff = range.till_time - range.from_time;
+    const time_diff = till_time - from_time;
     const current_interval = Math.max(
         Math.floor(time_diff / config.MD_AGGREGATOR_MAX_CYCLES),
         config.MD_AGGREGATOR_INTERVAL);
-    const from_time = range.from_time;
-    const till_time = Math.min(range.from_time + current_interval, range.till_time);
+    till_time = Math.min(from_time + current_interval, till_time);
 
-    if (range.from_time >= target_now || range.from_time >= till_time) {
+    if (from_time >= target_now || from_time >= till_time) {
         dbg.log0('find_next_range:: no more work',
-            'from_time', range.from_time,
-            'till_time*', till_time - range.from_time,
-            'target_now*', target_now - range.from_time
+            'from_time', from_time,
+            'till_time*', till_time - from_time,
+            'target_now*', target_now - from_time
         );
         return;
     }
 
     dbg.log0('find_next_range:: next work',
-        'from_time', range.from_time,
-        'till_time*', till_time - range.from_time,
-        'target_now*', target_now - range.from_time
+        'from_time', from_time,
+        'till_time*', till_time - from_time,
+        'target_now*', target_now - from_time
     );
     return { from_time, till_time };
 }

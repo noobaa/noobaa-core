@@ -177,6 +177,12 @@ function post_upgrade() {
                 ignore_rc: false,
                 return_stdout: true,
                 trim_stdout: true
+            }),
+            // eslint-disable-next-line no-useless-escape
+            promise_utils.exec(`sed -i "s:^.*ActionFileDefaultTemplate.*::" /etc/rsyslog.conf`, {
+                ignore_rc: true,
+                return_stdout: true,
+                trim_stdout: true
             })
         )
         .spread((res_curmd, res_prevmd) => {

@@ -368,8 +368,9 @@ function getVersion(route) {
             const registered = server_rpc.is_service_registered('system_api.read_system');
             let current_clustering = system_store.get_local_cluster_info();
             let started;
-            if (current_clustering && !current_clustering.is_clusterized) {
-                // if not clusterized then no need to wait.
+            if (system_store.data.systems.length === 0 ||
+                (current_clustering && !current_clustering.is_clusterized)) {
+                // if no system or not clusterized then no need to wait
                 started = true;
             } else {
                 // if in a cluster then after upgrade the user should be redirected to the new master
@@ -380,8 +381,7 @@ function getVersion(route) {
 
             return (server_rpc.client.cluster_internal.get_upgrade_status())
                 .then(status => {
-                    if (started && registered && !status.in_process &&
-                        system_store.is_finished_initial_load) {
+                    if (started && registered && !status.in_process && system_store.is_finished_initial_load) {
                         const system = system_store.data.systems[0];
                         if (!system) {
                             dbg.log0(`${route} without system returning ${pkg.version}, service registered and upgrade is not in progress`);
@@ -410,7 +410,8 @@ function getVersion(route) {
                                 return { status: 503 };
                             });
                     } else {
-                        dbg.log0(`${route} returning 404, service_registered ${registered}, status.in_progress ${status.in_progress}`);
+                        dbg.log0(`${route} returning 404, started(${started}), service_registered(${registered}), 
+                        status.in_progress(${status.in_progress}), system_store.is_finished_initial_load(${system_store.is_finished_initial_load})`);
                         return { status: 404 };
                     }
                 })

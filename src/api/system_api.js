@@ -675,6 +675,20 @@ module.exports = {
                 cluster: {
                     $ref: '#/definitions/cluster_info'
                 },
+                defaults: {
+                    type: 'object',
+                    properties: {
+                        tiers: {
+                            type: 'object',
+                            properties: {
+                                data_frags: { type: 'integer' },
+                                parity_frags: { type: 'integer' },
+                                replicas: { type: 'integer' },
+                                failure_tolerance_threshold: { type: 'integer' }
+                            }
+                        }
+                    }
+                },
             },
         },
 

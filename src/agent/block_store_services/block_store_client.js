@@ -24,10 +24,10 @@ class BlockStoreClient {
 
     write_block(rpc_client, params, options) {
         const { block_md } = params;
-        switch (block_md.delegator) {
-            case 'DELEGATOR_S3':
+        switch (block_md.node_type) {
+            case 'BLOCK_STORE_S3':
                 return this._delegate_write_block_s3(rpc_client, params, options);
-            case 'DELEGATOR_AZURE':
+            case 'BLOCK_STORE_AZURE':
                 return this._delegate_write_block_azure(rpc_client, params, options);
             default:
                 return rpc_client.block_store.write_block(params, options);
@@ -36,10 +36,10 @@ class BlockStoreClient {
 
     read_block(rpc_client, params, options) {
         const { block_md } = params;
-        switch (block_md.delegator) {
-            case 'DELEGATOR_S3':
+        switch (block_md.node_type) {
+            case 'BLOCK_STORE_S3':
                 return this._delegate_read_block_s3(rpc_client, params, options);
-            case 'DELEGATOR_AZURE':
+            case 'BLOCK_STORE_AZURE':
                 return this._delegate_read_block_azure(rpc_client, params, options);
             default:
                 return rpc_client.block_store.read_block(params, options);

@@ -85,7 +85,7 @@ module.exports = {
                         $ref: 'common_api#/definitions/os_info'
                     },
                     node_type: {
-                        $ref: 'node_api#/definitions/node_type'
+                        $ref: 'common_api#/definitions/node_type'
                     },
                     cpu_usage: {
                         type: 'number'

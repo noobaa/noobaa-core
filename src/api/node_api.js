@@ -467,7 +467,7 @@ module.exports = {
                     type: 'boolean'
                 },
                 node_type: {
-                    $ref: '#/definitions/node_type'
+                    $ref: 'common_api#/definitions/node_type'
                 },
                 demo_node: {
                     type: 'boolean'
@@ -614,17 +614,6 @@ module.exports = {
                 'MEMORY_PRESSURE',
                 'OPTIMAL',
                 'HTTP_SRV_ERRORS',
-            ]
-        },
-
-        node_type: {
-            type: 'string',
-            enum: [
-                'BLOCK_STORE_S3',
-                'BLOCK_STORE_MONGO',
-                'BLOCK_STORE_AZURE',
-                'BLOCK_STORE_FS',
-                'ENDPOINT_S3',
             ]
         },
 

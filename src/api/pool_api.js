@@ -477,7 +477,7 @@ module.exports = {
                     properties: {},
                 },
                 pool_node_type: {
-                    $ref: 'node_api#/definitions/node_type'
+                    $ref: 'common_api#/definitions/node_type'
                 },
                 resource_type: {
                     $ref: '#/definitions/resource_type'

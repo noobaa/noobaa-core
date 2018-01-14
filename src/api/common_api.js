@@ -251,11 +251,21 @@ module.exports = {
                 size: { type: 'integer' },
                 digest_type: { $ref: '#/definitions/digest_type' },
                 digest_b64: { type: 'string' },
-                delegator: {
-                    type: 'string',
-                    enum: ['DELEGATOR_AZURE', 'DELEGATOR_S3']
+                node_type: {
+                    $ref: '#/definitions/node_type'
                 },
             }
+        },
+
+        node_type: {
+            type: 'string',
+            enum: [
+                'BLOCK_STORE_S3',
+                'BLOCK_STORE_MONGO',
+                'BLOCK_STORE_AZURE',
+                'BLOCK_STORE_FS',
+                'ENDPOINT_S3',
+            ]
         },
 
         block_action: {

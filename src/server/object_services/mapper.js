@@ -703,21 +703,15 @@ function get_block_info(chunk, frag, block, adminfo) {
 }
 
 function get_block_md(chunk, frag, block) {
-    let delegator;
-    if (block.node.node_type === 'BLOCK_STORE_S3') {
-        delegator = 'DELEGATOR_S3';
-    } else if (block.node.node_type === 'BLOCK_STORE_AZURE') {
-        delegator = 'DELEGATOR_AZURE';
-    }
     return {
         size: block.size,
         id: block._id,
         address: block.node.rpc_address,
         node: block.node._id,
+        node_type: block.node.node_type,
         pool: block.pool,
         digest_type: chunk.chunk_coder_config.frag_digest_type,
         digest_b64: frag.digest_b64 || (frag.digest && frag.digest.toString('base64')),
-        delegator,
     };
 }
 

@@ -537,6 +537,14 @@ function read_system(req) {
             upgrade: {
                 last_upgrade: last_upgrade,
                 can_upload_upgrade_package: _get_upgrade_availability_status(cluster_info)
+            },
+            defaults: {
+                tiers: {
+                    data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
+                    parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
+                    replicas: config.CHUNK_CODER_REPLICAS,
+                    failure_tolerance_threshold: config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD
+                }
             }
         };
 

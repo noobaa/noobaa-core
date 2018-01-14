@@ -19,7 +19,7 @@ function new_chunk_code_config_defaults(chunk_coder_config) {
         ccc.parity_type = ccc.parity_type || config.CHUNK_CODER_EC_PARITY_TYPE;
     } else {
         // Data Copies
-        ccc.replicas = ccc.replicas || 3;
+        ccc.replicas = ccc.replicas || config.CHUNK_CODER_REPLICAS;
         ccc.data_frags = ccc.data_frags || 1;
         ccc.parity_frags = 0;
         delete ccc.parity_type;

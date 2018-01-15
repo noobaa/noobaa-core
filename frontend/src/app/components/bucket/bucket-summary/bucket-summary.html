@@ -19,77 +19,72 @@
     </section>
 
     <section class="column c6 push-both">
-        <div class="row graphs greedy align-middle">
-            <div class="column">
-                <toggle-filter class="graph-selector align-start push-next-half" params="
-                    options: viewOptions,
-                    selected: ko.pc(selectedView, onSelectView, $component)
-                "></toggle-filter>
-
-                <chart-legend class="greedy"
-                    ko.css="legendCss"
-                    params="items: chartValues, format: 'size'"
-                ></chart-legend>
-
-                <!-- ko if: selectedView.eq('RAW_USAGE') -->
-                <p class="row remark content-middle push-next">
+        <div class="column align-middle">
+            <div class="row content-middle push-next-half">
+                <h2 class="heading3 greedy push-next">Storage Availability</h2>
+                <p class="row remark content-middle">
                     <svg-icon class="icon-small push-next-half" params="name: 'clock'"></svg-icon>
-                    Updated: {{lastRawUsageTime}}
+                    Updated: {{availablityTime}}
                 </p>
-                <!-- /ko -->
-
-                <!-- ko if: selectedView.eq('DATA_USAGE') -->
-                <p class="row remark content-middle push-next">
-                    <svg-icon class="icon-small push-next-half" params="name: 'clock'"></svg-icon>
-                    Updated: {{lastDataUsageTime}}
-                </p>
-                <!-- /ko -->
-
-                <!-- ko if: selectedView.eq('AVAILABILITY') -->
-                <bar class="push-both align-start" params="
-                    values: availablity,
-                    limits: formatSize,
-                    teeth: 5,
-                    minRatio: 0,
-                    markers: availablityMarkers,
-                    width: 442
-                "></bar>
-                <!-- /ko -->
             </div>
-
-            <!-- ko if: selectedView.eq('DATA_USAGE') -->
-            <bar-chart class="align-end push-prev"
-                ko.visibility="selectedView.eq('DATA_USAGE')"
-                params="values: barChartData"
-            ></bar-chart>
-            <!-- /ko -->
-
-            <!-- ko if: selectedView.eq('RAW_USAGE') -->
-            <pie-chart class="align-end  push-prev" params="
-                values: rawUsage,
-                sumLabel: 'Total',
+            <chart-legend params="
+                items: availablity,
                 format: 'size'
-            "></pie-chart>
-            <!-- /ko -->
+            "></chart-legend>
+
+            <bar class="push-both align-start" params="
+                values: availablity,
+                limits: formatSize,
+                teeth: 5,
+                minRatio: 0,
+                markers: availablityMarkers,
+                width: 444
+            "></bar>
         </div>
     </section>
 
     <section class="c3 column">
         <div class="greedy borders pad column">
-             <p class="row greedy content-middle">
-                <span class="c4 highlight">Bucket Quota:</span>
-                <span class="c8 text-right" ko.text="bucketQuota"></span>
-            </p>
-            <hr>
-             <p class="row greedy content-middle">
-                <span class="c4 highlight">Cloud Sync:</span>
-                <span class="c8 text-right" ko.text="cloudSyncStatus"></span>
-            </p>
-            <hr>
-            <p class="row greedy content-middle">
-                <span class="c4 highlight">Last Access:</span>
-                <span class="c8 text-right" ko.text="lastAccess"></span>
-            </p>
+            <div class="row content-middle greedy">
+                <canvas class="push-next"
+                    ko.tooltip="dataUsageChartTooltip"
+                    ko.canvas="barChart"
+                ></canvas>
+                <div class="column">
+                    <p class="heading3" ko.text="dataOptimization"></p>
+                    <p>
+                        Data Optimization
+                        <svg-icon class="icon-small push-prev-half"
+                            params="name: 'notif-info'"
+                            ko.tooltip="dataUsageTooltip"
+                        ></svg-icon>
+                    </p>
+                </div>
+            </div>
+            <hr />
+            <div class="row content-middle greedy">
+                <pie-chart class="push-next"
+                    ko.tooltip="rawUsageChartTooltip"
+                    params="
+                        values: rawUsage,
+                        showSum: false,
+                        showValues: false,
+                        enableHover: false,
+                        radius: 30,
+                        lineWidth: 8
+                    "
+                ></pie-chart>
+                <div class="column">
+                    <p class="heading3" ko.text="rawUsageTotal"></p>
+                    <p>
+                        Raw Usage by This Bucket
+                        <svg-icon class="icon-small push-prev-half"
+                            params="name: 'notif-info'"
+                            ko.tooltip="rawUsageTooltip"
+                        ></svg-icon>
+                    </p>
+                </div>
+            </div>
         </div>
     </section>
 </div>

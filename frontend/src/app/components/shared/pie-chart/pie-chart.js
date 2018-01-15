@@ -8,9 +8,11 @@ import { getFormatter } from 'utils/chart-utils';
 import style from 'style';
 
 const { PI, max, pow, sqrt, atan2 } = Math;
-const radius = 84;
+
+const defaultRadius = 84;
+const defaultLineWidth = 20;
+
 const baseAngle = PI / 1.3;
-const lineWidth = 20;
 const separator = (2 * PI) / 1000;
 const threshold = 2 * separator;
 const silhouetteColor = style['color1'];
@@ -114,11 +116,24 @@ class PieChartViewModel {
     constructor({
         values = [],
         sumLabel = '',
-        format
+        format,
+        radius = defaultRadius,
+        lineWidth = defaultLineWidth,
+        enableHover = true,
+        showSum = true,
+        showValues = true
     }) {
+        this.radius = radius;
+        this.lineWidth = lineWidth;
+        this.enableHover = enableHover;
+
+        const diameter = ko.pureComputed(
+            () => ko.unwrap(radius) * 2
+        );
+
         this.canvasParams = {
-            width: radius * 2,
-            height: radius * 2,
+            width: diameter,
+            height: diameter,
             draw: this.onDraw.bind(this)
         };
 
@@ -143,12 +158,17 @@ class PieChartViewModel {
             () => {
                 const i = this.hoveredIndex();
                 if (i > -1) {
-                    return formatValue(ko.unwrap(values[i].value));
+                    return ko.unwrap(showValues) ?
+                        formatValue(ko.unwrap(values[i].value)) :
+                        '';
 
                 } else {
-                    const sum = sumBy(values, entry => ko.unwrap(entry.value));
-                    return formatValue(sum);
-
+                    if (ko.unwrap(showSum)) {
+                        const sum = sumBy(values, entry => ko.unwrap(entry.value));
+                        return formatValue(sum);
+                    } else {
+                        return '';
+                    }
                 }
             }
         );
@@ -156,7 +176,15 @@ class PieChartViewModel {
         this.secondaryText = ko.pureComputed(
             () => {
                 const i = this.hoveredIndex();
-                return ko.unwrap(values[i] ? values[i].label : sumLabel);
+                if (i > -1) {
+                    return ko.unwrap(showValues) ?
+                        ko.unwrap(values[i].label):
+                        '';
+                } else {
+                    return ko.unwrap(showSum) ?
+                        ko.unwrap(sumLabel):
+                        '';
+                }
             }
         );
 
@@ -193,13 +221,17 @@ class PieChartViewModel {
     }
 
     onDraw(ctx) {
+        const radius = ko.unwrap(this.radius);
         ctx.translate(radius, radius);
 
         this.drawGraph(ctx, this.hoveredIndex());
-        this.drawText(
-            ctx,
-            _prepareText(ctx, this.primaryText(), this.secondaryText())
-        );
+
+        if (this.primaryText() || this.secondaryText()) {
+            this.drawText(
+                ctx,
+                _prepareText(ctx, this.primaryText(), this.secondaryText())
+            );
+        }
     }
 
     drawGraph(ctx, hoveredIndex) {
@@ -225,6 +257,8 @@ class PieChartViewModel {
     }
 
     drawArc(ctx, start, end, color, isHovered) {
+        const radius = ko.unwrap(this.radius);
+        const lineWidth = ko.unwrap(this.lineWidth);
         const r = radius - (lineWidth / 2 | 0);
         const sAngle = start * 2  * PI;
         const eAngle = end * 2 * PI;
@@ -277,6 +311,10 @@ class PieChartViewModel {
     }
 
     onMouse(_, evt) {
+        if (!ko.unwrap(this.enableHover)) return;
+
+        const radius = ko.unwrap(this.radius);
+        const lineWidth = ko.unwrap(this.lineWidth);
         const x = evt.offsetX - radius;
         const y = evt.offsetY - radius;
         const len = sqrt(pow(x, 2) + pow(y, 2));
@@ -292,6 +330,7 @@ class PieChartViewModel {
     }
 
     onMouseLeave() {
+        if (!ko.unwrap(this.enableHover)) return;
         this.mouseLocation(-1);
     }
 }

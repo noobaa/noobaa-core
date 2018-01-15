@@ -1,240 +1,228 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-summary.html';
+import chartTooltipTemplate from './chart-tooltip.html';
 import Observer from 'observer';
-import { state$, action$ } from 'state';
-import { deepFreeze } from 'utils/core-utils';
+import BarViewModel from './bar';
+import { state$ } from 'state';
 import { stringifyAmount } from 'utils/string-utils';
-import { realizeUri } from 'utils/browser-utils';
 import { isSizeZero, formatSize, toBytes } from 'utils/size-utils';
 import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
-import { timeShortFormat } from 'config';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
-import { requestLocation } from 'action-creators';
-import {
-    getBucketStateIcon,
-    getCloudSyncState,
-    getPlacementTypeDisplayName
-} from 'utils/bucket-utils';
+import numeral from 'numeral';
+import { deepFreeze, mapValues } from 'utils/core-utils';
+import { getBucketStateIcon, getPlacementTypeDisplayName } from 'utils/bucket-utils';
 
-const viewOptions = deepFreeze([
-    {
-        label: 'Availability',
-        value: 'AVAILABILITY'
-    },
-    {
-        label: 'Data Usage',
-        value: 'DATA_USAGE'
-    },
-    {
-        label: 'Raw Usage',
-        value: 'RAW_USAGE'
-    }
-]);
-
-const quotaUnitMapping = deepFreeze({
-    GIGABYTE: 'GB',
-    TERABYTE: 'TB',
-    PETABYTE: 'PB'
+const rawUsageTooltip = deepFreeze({
+    text: 'Row usage refers to the actual size this bucket is utilizing from it\'s resources including data resiliency replicas or fragments',
+    align: 'end'
 });
 
+const dataUsageTooltip = deepFreeze({
+    text: 'Data optimization consist of duplication and compression',
+    align: 'end'
+});
+
+function _getDataPlacementText(placement) {
+    const { policyType, resources } = placement;
+    return `${
+        getPlacementTypeDisplayName(policyType)
+    } on ${
+        stringifyAmount('resource', resources.length)
+    }`;
+}
+
+function _getQuotaMarkers(quota) {
+    if (!quota) return [];
+
+    const value = getQuotaValue(quota);
+    const placement = toBytes(value);
+    const label = `Quota: ${formatSize(value)}`;
+    return [{ placement, label }];
+}
+
 class BucketSummrayViewModel extends Observer {
+    formatSize = formatSize;
+    bucketLoaded = ko.observable();
+    state = ko.observable();
+    dataPlacement = ko.observable();
+
+    availablityMarkers = ko.observableArray();
+    availablityTime = ko.observable();
+    availablity = [
+        {
+            label: 'Used Data',
+            color: style['color8'],
+            value: ko.observable()
+        },
+        {
+            label: 'Overused',
+            color: style['color10'],
+            value: ko.observable(),
+            visible: ko.observable()
+        },
+        {
+            label: 'Available',
+            color: style['color5'],
+            value: ko.observable()
+        },
+        {
+            label: 'Available on spillover',
+            color: style['color18'],
+            value: ko.observable(),
+            visible: ko.observable()
+        },
+        {
+            label: 'Overallocated',
+            color: style['color11'],
+            value: ko.observable(),
+            visible: ko.observable()
+        }
+    ];
+
+    dataOptimization = ko.observable();
+    dataUsage = [
+        {
+            label: 'Original Data Size',
+            color: style['color7'],
+            value: ko.observable()
+        },
+        {
+            label: 'After Optimizations',
+            color: style['color13'],
+            value: ko.observable()
+        }
+    ];
+    dataUsageTooltip = dataUsageTooltip;
+    dataUsageChartTooltip = {
+        maxWidth: 280,
+        template: chartTooltipTemplate,
+        text: {
+            updateTime: ko.observable(),
+            values: this.dataUsage
+        }
+    };
+
+    rawUsageTotal = ko.observable();
+    rawUsage = [
+        {
+            label: 'Available from Resources',
+            color: style['color5'],
+            value: ko.observable()
+        },
+        {
+            label: 'Available Spillover',
+            color: style['color18'],
+            value: ko.observable()
+        },
+        {
+            label: 'Bucket Usage (Replicated)',
+            color: style['color13'],
+            value: ko.observable()
+        },
+        {
+            label: 'Shared Usage',
+            color: style['color14'],
+            value: ko.observable()
+        }
+    ];
+    rawUsageTooltip = rawUsageTooltip;
+    rawUsageChartTooltip = {
+        maxWidth: 280,
+        template: chartTooltipTemplate,
+        text: {
+            caption: ko.observable(),
+            updateTime: ko.observable(),
+            values: this.rawUsage
+        }
+    };
+
+    barChart = {
+        width: 60,
+        height: 60,
+        draw: this.onDrawBars.bind(this),
+        bars: this.dataUsage
+            .map(item => new BarViewModel(item.color))
+    };
+
     constructor({ bucketName }) {
         super();
 
-        this.pathname = '';
-        this.formatSize = formatSize;
-        this.viewOptions = viewOptions;
-        this.bucketLoaded = ko.observable();
-        this.state = ko.observable();
-        this.dataPlacement = ko.observable();
-        this.cloudSyncStatus = ko.observable();
-        this.selectedView = ko.observable();
-        this.bucketQuota = ko.observable();
-        this.availablityMarkers = ko.observableArray();
-        this.lastAccess = ko.observable();
-        this.chartValues = ko.observableArray();
-        this.legendCss = ko.observable();
-        this.lastRawUsageTime = ko.observable();
-        this.lastDataUsageTime = ko.observable();
-
-        this.availablity = [
-            {
-                label: 'Used Data',
-                color: style['color8'],
-                value: ko.observable(),
-                tooltip: 'The total amount of data uploaded to this bucket. Does not include data optimisation or data resiliency'
-            },
-            {
-                label: 'Overused',
-                color: style['color10'],
-                value: ko.observable(),
-                visible: ko.observable()
-            },
-            {
-                label: 'Available',
-                color: style['color5'],
-                value: ko.observable(),
-                tooltip: 'The actual free space on this bucket for data writes taking into account the current configured resiliency policy'
-            },
-            {
-                label: 'Available on spillover',
-                color: style['color18'],
-                value: ko.observable(),
-                visible: ko.observable(),
-                tooltip: 'The current available storage from the system internal storage resource, will be used only in the case of no available data storage on this bucket. Once possible, data will be spilled-back'
-            },
-            {
-                label: 'Overallocated',
-                color: style['color11'],
-                value: ko.observable(),
-                visible: ko.observable(),
-                tooltip: 'Overallocation happens when configuring a higher quota than this bucket assigned resources can store'
-            }
-        ];
-
-        this.dataUsage = [
-            {
-                label: 'Total Original Size',
-                color: style['color7'],
-                tooltip: 'The total aggregated size of all data written on this bucket',
-                value: ko.observable()
-            },
-            {
-                label: 'Compressed & Deduped',
-                color: style['color13'],
-                tooltip: 'The size of all data written on this bucket after optimization',
-                value: ko.observable()
-            }
-        ];
-
-        this.barChartData = this.dataUsage.map(({ label, color, tooltip, value }) => ({
-            label,
-            tooltip,
-            color,
-            parts: [{ value, color }]
-        }));
-
-        this.rawUsage = [
-            {
-                label: 'Available from Resources',
-                color: style['color5'],
-                value: ko.observable(),
-                tooltip: 'An aggregation of the available storage from the resources selected for this bucket data placement policy'
-            },
-            {
-                label: 'Available Spillover',
-                color: style['color18'],
-                value: ko.observable(),
-                tooltip: 'The current available storage from the system internal storage resource'
-            },
-            {
-                label: 'Bucket Usage (Replicated)',
-                color: style['color13'],
-                value: ko.observable(),
-                tooltip: 'The actual raw usage of this bucket includes the data resiliency replications or fragments'
-            },
-            {
-                label: 'Shared Usage',
-                color: style['color14'],
-                value: ko.observable(),
-                tooltip: 'Resources in the system are not exclusively allocated per bucket, other buckets may be using the same resources and utilizing this bucket free storage'
-            }
-        ];
-
         this.observe(
-            state$.getMany(
-                ['buckets', ko.unwrap(bucketName)],
-                'location'
-            ),
-            this.onBucket
+            state$.get('buckets', ko.unwrap(bucketName)),
+            this.onState
         );
     }
 
-    onBucket([ bucket, location ]) {
+    onState(bucket) {
         if (!bucket) {
             this.state({});
             this.bucketLoaded(false);
             return;
         }
 
-        const { data, storage, quota, placement } = bucket;
-        const { view = this.viewOptions[0].value } = location.query;
-        const { policyType, resources } = placement;
+        const { quota, placement } = bucket;
+        const storage = mapValues(bucket.storage, toBytes);
+        const data = mapValues(bucket.data, toBytes);
+        const availablity = mapValues(getDataBreakdown(data, quota), toBytes);
+        const rawUsageTotal = formatSize(storage.total);
+        const dataLastUpdateTime = moment(storage.lastUpdate).fromNow();
+        const storageLastUpdateTime = moment(data.lastUpdate).fromNow();
+        const reducedRatio = data.size > 0 ? data.sizeReduced / data.size : 0;
+        const dataOptimization = numeral(1 - reducedRatio).format('%');
 
-        const dataPlacement = `${
-            getPlacementTypeDisplayName(policyType)
-        } on ${
-            stringifyAmount('resource', resources.length)
-        }`;
-
-        const cloudSync = getCloudSyncState(bucket).text;
-
-        const quotaText = quota ?
-            `Set to ${quota.size}${quotaUnitMapping[quota.unit]}` :
-            'Disabled';
-
-        const { lastRead, lastWrite } = bucket.io;
-        const lastAccess = Math.max(lastRead, lastWrite);
-        const lastAccessText = lastAccess > -1 ?
-            moment(lastAccess).format(timeShortFormat) :
-            'Never accessed';
-
-        const availablity = getDataBreakdown(data, quota);
-        const availablityMarkers = [];
-        if (quota) {
-            const value = getQuotaValue(quota);
-            const placement = toBytes(value);
-            const label = `Quota: ${formatSize(value)}`;
-
-            availablityMarkers.push({ placement, label });
-        }
-
-        const chartValues = {
-            AVAILABILITY: this.availablity,
-            DATA_USAGE: this.dataUsage,
-            RAW_USAGE: this.rawUsage
-        }[view];
-
-        const legendCss = view === 'AVAILABILITY' ? 'legend-row' : '';
-        const lastRawUsageTime = moment(storage.lastUpdate).fromNow();
-        const lastDataUsageTime = moment(data.lastUpdate).fromNow();
-
-        this.pathname = location.pathname;
         this.state(getBucketStateIcon(bucket));
-        this.dataPlacement(dataPlacement);
-        this.cloudSyncStatus(cloudSync);
-        this.selectedView(view);
-        this.bucketQuota(quotaText);
+        this.dataPlacement(_getDataPlacementText(placement));
 
-        this.availablity[0].value(toBytes(availablity.used));
-        this.availablity[1].value(toBytes(availablity.overused));
+        this.availablity[0].value(availablity.used);
+        this.availablity[1].value(availablity.overused);
         this.availablity[1].visible(!isSizeZero(availablity.overused));
-        this.availablity[2].value(toBytes(availablity.availableForUpload));
-        this.availablity[3].value(toBytes(availablity.availableForSpillover));
+        this.availablity[2].value(availablity.availableForUpload);
+        this.availablity[3].value(availablity.availableForSpillover);
         this.availablity[3].visible(Boolean(bucket.spillover));
-        this.availablity[4].value(toBytes(availablity.overallocated));
+        this.availablity[4].value(availablity.overallocated);
         this.availablity[4].visible(!isSizeZero(availablity.overallocated));
-        this.availablityMarkers(availablityMarkers);
-        this.barChartData[0].parts[0].value(toBytes(data.size));
-        this.barChartData[1].parts[0].value(toBytes(data.sizeReduced));
-        this.lastRawUsageTime(lastRawUsageTime);
-        this.rawUsage[0].value(toBytes(storage.free));
-        this.rawUsage[1].value(toBytes(storage.spilloverFree));
-        this.rawUsage[2].value(toBytes(storage.used));
-        this.rawUsage[3].value(toBytes(storage.usedOther));
-        this.lastDataUsageTime(lastDataUsageTime);
-        this.lastAccess(lastAccessText);
+        this.availablityMarkers(_getQuotaMarkers(quota));
+        this.availablityTime(dataLastUpdateTime);
+
+        this.dataOptimization(dataOptimization);
+        this.dataUsage[0].value(data.size);
+        this.dataUsage[1].value(data.sizeReduced);
+        this.dataUsageChartTooltip.text.updateTime(dataLastUpdateTime);
+
+        this.rawUsage[0].value(storage.free);
+        this.rawUsage[1].value(storage.spilloverFree);
+        this.rawUsage[2].value(storage.used);
+        this.rawUsage[3].value(storage.usedOther);
+        this.rawUsageChartTooltip.text.caption(`Total Raw Storage: ${rawUsageTotal}`);
+        this.rawUsageChartTooltip.text.updateTime(storageLastUpdateTime);
+        this.rawUsageTotal(rawUsageTotal);
+
+        this.barChart.bars[0].onState(data.size > 0 ? 1 : 0);
+        this.barChart.bars[1].onState(reducedRatio);
+
         this.bucketLoaded(true);
-        this.chartValues(chartValues);
-        this.legendCss(legendCss);
     }
 
-    onSelectView(view) {
-        const url = realizeUri(this.pathname, {}, { view });
-        action$.onNext(requestLocation(url), true);
+    onDrawBars(ctx, size) {
+        if (!this.bucketLoaded()) return;
+
+        const barWidth = 16;
+        const { width, height: scale } = size;
+        const { bars } = this.barChart;
+        const spacing = (width - bars.length * barWidth) / (bars.length + 1);
+
+        bars.reduce(
+            (offset, bar) => {
+                const { color, height } = bar;
+                ctx.fillStyle = color;
+                ctx.fillRect(offset, (1 - height()) * scale, barWidth, height() * scale);
+                return offset + barWidth + spacing;
+            },
+            spacing
+        );
     }
 }
 

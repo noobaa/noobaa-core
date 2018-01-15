@@ -18,7 +18,7 @@ import drawer from './drawer';
 import modals from './modals';
 import hostParts from './host-parts';
 import hostPools from './host-pools';
-import bucketObjects from './bucket-objects';
+import objects from './objects';
 import state from './state.js';
 
 const schemas = {
@@ -40,7 +40,7 @@ const schemas = {
     modals,
     hostParts,
     hostPools,
-    bucketObjects,
+    objects,
     state
 };
 

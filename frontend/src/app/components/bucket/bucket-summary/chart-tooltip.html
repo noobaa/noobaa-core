@@ -1,0 +1,10 @@
+<!-- ko if: $data.caption -->
+<h3 class="remark highlight" ko.text="caption"></h3>
+<!-- /ko -->
+
+<chart-legend params="items: values, format: 'size'"></chart-legend>
+
+<p class="row remark content-middle">
+    <svg-icon class="icon-small push-next-half" params="name: 'clock'"></svg-icon>
+    Updated: {{updateTime}}
+</p>

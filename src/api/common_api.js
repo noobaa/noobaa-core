@@ -418,6 +418,5 @@ module.exports = {
                 lrc_type: { $ref: '#/definitions/parity_type' },
             }
         },
-
     }
 };

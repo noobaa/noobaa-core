@@ -156,7 +156,7 @@ export function openEditBucketPlacementModal(bucketName) {
             },
             options: {
                 title: 'Edit Placement Policy',
-                size: 'medium'
+                size: 'large'
             }
         }
     };

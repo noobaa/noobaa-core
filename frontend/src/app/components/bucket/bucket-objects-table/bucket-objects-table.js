@@ -159,7 +159,7 @@ class BucketObjectsTableViewModel extends Observer {
         this.observe(
             state$.getMany(
                 ['buckets', ko.unwrap(bucketName)],
-                'bucketObjects',
+                'objects',
                 ['session', 'user'],
                 ['accounts'],
                 'location',

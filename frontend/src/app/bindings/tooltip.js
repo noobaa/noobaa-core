@@ -32,15 +32,17 @@ runAsync(() => {
 
 const delay = 350;
 const templates = deepFreeze({
-    text: '{{$data}}',
+    text: `
+        <span class="highlight" ko.text="$data"></span>
+    `,
     list: `
-        <ul class="bullet-list" ko.foreach="$data">
+        <ul class="bullet-list highlight" ko.foreach="$data">
             <li ko.text="$data"></ul>
         </ul>
     `,
     listWithCaption: `
-        <p ko.text="$data.title"></p>
-        <ul class="bullet-list" ko.foreach="$data.list">
+        <p class="highlight" ko.text="$data.title"></p>
+        <ul class="bullet-list highlight" ko.foreach="$data.list">
             <li ko.text="$data"></ul>
         </ul>
     `
@@ -131,14 +133,16 @@ function _normalizeValue(value) {
         position,
         align,
         breakWords,
-        template
+        template,
+        maxWidth
     } = value || {};
 
     return {
         template: _getTemplate(template, text),
         position: positions.includes(position) ? position : 'below',
         align: alignments.includes(align) ? align : 'center',
-        breakWords: Boolean(breakWords)
+        breakWords: Boolean(breakWords),
+        maxWidth: maxWidth && `${maxWidth}px`
     };
 }
 
@@ -203,10 +207,10 @@ function _calcScreenPosition(position, boundingRect, winSize) {
 }
 
 function _showTooltip(target, params) {
-    const { template, position, align, breakWords } = params;
+    const { template, position, align, breakWords, maxWidth } = params;
     const winSize = { width: global.innerWidth, height: global.innerHeight };
     const pos = _calcScreenPosition(position, target.getBoundingClientRect(), winSize);
-    const style = { display: 'block', ...pos };
+    const style = { display: 'block', ...pos, maxWidth };
     const css = [
         position,
         align,

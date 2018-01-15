@@ -6,10 +6,9 @@ import style from 'style';
 import { getFormatter } from 'utils/chart-utils';
 import { deepFreeze, clamp, isString, decimalRound, sumBy } from 'utils/core-utils';
 
-
 const height = 168;
 const minWidth = 168;
-const gutter = 19;
+const gutter = 18;
 const barWidth = 45;
 const maxBarHeight = height - 2.2 * gutter;
 const minBarHeight = 2;

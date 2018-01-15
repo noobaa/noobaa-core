@@ -76,7 +76,7 @@ class BucketQuotaPolicyFormViewModel extends Observer {
             const dataLeftUntilQuota = fromBigInteger(toBigInteger(quotaSize).subtract(data.size));
 
             this.isQuotaDisabled(false);
-            this.summary(`Set to ${quotaSize}`);
+            this.summary(`Set to ${formatSize(quotaSize)}`);
             this.quotaStateText('Enabled');
             this.quotaStateCss('success');
             this.quotaSize(formatSize(quotaSize));

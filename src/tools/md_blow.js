@@ -68,7 +68,14 @@ function blow_object(index) {
 
 function blow_parts(params) {
     dbg.log0('allocate_object_parts', params.key);
-    return client.object.allocate_object_parts({
+
+    return P.resolve()
+        .then(() => client.bucket.read_bucket({ name: params.bucket }))
+        .then(bucket => {
+            const [tier] = bucket.tiering.tiers;
+            return client.tier.read_tier({ name: tier });
+        })
+        .then(tier => client.object.allocate_object_parts({
             obj_id: params.obj_id,
             bucket: params.bucket,
             key: params.key,
@@ -77,6 +84,7 @@ function blow_parts(params) {
                 end: (i + 1) * argv.chunk_size,
                 seq: i,
                 chunk: {
+                    chunk_coder_config: tier.chunk_coder_config,
                     size: argv.chunk_size,
                     frag_size: argv.chunk_size,
                     compress_size: argv.chunk_size,
@@ -88,7 +96,7 @@ function blow_parts(params) {
                     }))
                 }
             }))
-        })
+        }))
         .then(res => {
             dbg.log0('finalize_object_parts', params.key);
             return client.object.finalize_object_parts({

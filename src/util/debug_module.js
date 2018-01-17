@@ -377,24 +377,27 @@ class InternalDebugLogger {
             console_wrapper.original_console();
         }
 
-        // get formatted message to use as key for lru
         let syslog_msg = this.syslog_formatter(level, arguments);
+        try {
+            // get formatted message to use as key for lru
+            const lru_item = this.lru.find_or_add_item(syslog_msg.message);
+            if (lru_item.hit_count) {
+                lru_item.hit_count += 1;
+                // the message is already in the lru
+                // every 200 messages print message count, otherwise return
+                if (lru_item.hit_count > 2 && lru_item.hit_count % 200 !== 0) return;
 
-        const lru_item = this.lru.find_or_add_item(syslog_msg.message);
-        if (lru_item.hit_count) {
-            lru_item.hit_count += 1;
-            // the message is already in the lru
-            // every 200 messages print message count, otherwise return
-            if (lru_item.hit_count > 2 && lru_item.hit_count % 200 !== 0) return;
-
-            const msg_prefix = lru_item.hit_count === 2 ?
-                `[This exact message was already printed at ${new Date(lru_item.time)}, and will be silenced for ${THROTTLING_PERIOD_SEC} seconds]` :
-                `[This exact message was printed ${lru_item.hit_count} times since ${new Date(lru_item.time)}]: `;
-            syslog_msg.message = msg_prefix + syslog_msg.message;
-            args[0] = msg_prefix + args[0];
-        } else {
-            // message not in lru. set hit count to 1
-            lru_item.hit_count = 1;
+                const msg_prefix = lru_item.hit_count === 2 ?
+                    `[This exact message was already printed at ${new Date(lru_item.time)}, and will be silenced for ${THROTTLING_PERIOD_SEC} seconds]` :
+                    `[This exact message was printed ${lru_item.hit_count} times since ${new Date(lru_item.time)}]: `;
+                syslog_msg.message = msg_prefix + syslog_msg.message;
+                args[0] = msg_prefix + args[0];
+            } else {
+                // message not in lru. set hit count to 1
+                lru_item.hit_count = 1;
+            }
+        } catch (err) {
+            console.log('got error on log suppression:', err.message);
         }
 
         if (this._file_path) {

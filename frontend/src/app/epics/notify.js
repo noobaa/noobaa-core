@@ -329,6 +329,26 @@ const actionToNotification = deepFreeze({
     [types.FAIL_UPDATE_BUCKET_S3_ACCESS]: ({ bucketName }) => ({
         message: `Updating ${bucketName} S3 access control failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_DELETE_CLOUD_SYNC_POLICY]: ({ bucket }) => ({
+        message: `${bucket} cloud sync policy removed successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_DELETE_CLOUD_SYNC_POLICY]: ({ bucket }) => ({
+        message: `Removing ${bucket} cloud sync policy failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_TOGGLE_CLOUD_SYNC_POLICY]: ({ bucket, paused }) => ({
+        message: `${bucket} cloud sync has been ${paused ? 'paused' : 'resumed'}`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_TOGGLE_CLOUD_SYNC_POLICY]: ({ bucket, paused }) => ({
+        message: `${paused ? 'Pausing' : 'Resuming'} ${bucket} cloud sync failed`,
+        severity: 'error'
     })
 });
 

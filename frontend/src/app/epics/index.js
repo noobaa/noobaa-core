@@ -60,6 +60,8 @@ import upgradeSystem from './upgrade-system';
 import reloadAfterSystemUpgrade from './reload-after-system-upgrade';
 import updateServerAddress from './update-server-address';
 import updateBucketS3Access from './update-bucket-s3-access';
+import deleteCloudSyncPolicy from './delete-cloud-sync-policy';
+import toggleCloudSyncPolicy from './toggle-cloud-sync-policy';
 
 const generalEpics = [
     handleLocationRequests,
@@ -121,7 +123,9 @@ const bucketRelatedEpics = [
     createNamespaceBucket,
     updateNamespaceBucketPlacement,
     deleteNamespaceBucket,
-    updateBucketS3Access
+    updateBucketS3Access,
+    deleteCloudSyncPolicy,
+    toggleCloudSyncPolicy
 ];
 
 const objectRelatedEpics = [

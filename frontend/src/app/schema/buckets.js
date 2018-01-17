@@ -233,17 +233,86 @@ export default {
             cloudSync: {
                 type: 'object',
                 required: [
-                    'state'
+                    'state',
+                    'policy'
                 ],
                 properties: {
                     state: {
-                        type: 'string',
-                        enum: [
-                            'PENDING',
-                            'SYNCING',
-                            'UNABLE',
-                            'SYNCED'
-                        ]
+                        type: 'object',
+                        required: [
+                            'mode',
+                            'isPaused'
+                        ],
+                        properties: {
+                            mode: {
+                                type: 'string',
+                                enum: [
+                                    'PENDING',
+                                    'SYNCING',
+                                    'UNABLE',
+                                    'SYNCED'
+                                ]
+                            },
+                            lastSyncTime: {
+                                type: 'integer'
+                            },
+                            isPaused: {
+                                type: 'boolean'
+                            }
+                        }
+                    },
+                    policy: {
+                        type: 'object',
+                        required: [
+                            'endpoint',
+                            'accessKey',
+                            'targetBucket',
+                            'frequency',
+                            'direction',
+                            'syncDeletions'
+                        ],
+                        properties: {
+                            endpoint: {
+                                type: 'string'
+                            },
+                            accessKey: {
+                                type: 'string'
+                            },
+                            targetBucket: {
+                                type: 'string'
+                            },
+                            frequency: {
+                                type: 'object',
+                                required: [
+                                    'value',
+                                    'unit'
+                                ],
+                                properties: {
+                                    value: {
+                                        type: 'integer'
+                                    },
+                                    unit: {
+                                        type: 'string',
+                                        enum: [
+                                            'MINUTE',
+                                            'HOUR',
+                                            'DAY'
+                                        ]
+                                    }
+                                }
+                            },
+                            direction: {
+                                type: 'string',
+                                enum: [
+                                    'SOURCE_TO_TARGET',
+                                    'TARGET_TO_SOURCE',
+                                    'BI_DIRECTIONAL'
+                                ]
+                            },
+                            syncDeletions: {
+                                type: 'boolean'
+                            }
+                        }
                     }
                 }
             },

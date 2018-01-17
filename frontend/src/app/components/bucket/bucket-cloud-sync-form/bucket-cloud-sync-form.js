@@ -1,17 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-cloud-sync-form.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import moment from 'moment';
-import { removeCloudSyncPolicy, toogleCloudSync } from 'actions';
-import { bitsToNumber } from 'utils/core-utils';
-import { formatDuration } from 'utils/string-utils';
-import { action$ } from 'state';
-import { openSetCloudSyncModal, openEditCloudSyncModal } from 'action-creators';
-import { systemInfo } from 'model';
-
-const timeFormat = 'MMM, DD [at] hh:mm:ss';
+import { stringifyAmount } from 'utils/string-utils';
+import { state$, action$ } from 'state';
+import { timeShortFormat } from 'config';
+import {
+    openSetCloudSyncModal,
+    openEditCloudSyncModal,
+    deleteCloudSyncPolicy,
+    toggleCloudSyncPolicy
+} from 'action-creators';
 
 const syncStateMapping = Object.freeze({
     PENDING: 'Waiting for sync',
@@ -21,178 +22,134 @@ const syncStateMapping = Object.freeze({
 });
 
 const directionMapping = Object.freeze({
-    1: 'Source to target',
-    2: 'Target to source',
-    3: 'Bi directional'
+    SOURCE_TO_TARGET: 'Source to target',
+    TARGET_TO_SOURCE: 'Target to source',
+    BI_DIRECTIONAL: 'Bi directional'
 });
 
-class BucketCloudSyncFormViewModel extends BaseViewModel {
+function _formatFrequency(lastSyncTime, value, unit) {
+    return moment(lastSyncTime)
+        .add(value, unit)
+        .format(timeShortFormat);
+}
+
+class BucketCloudSyncFormViewModel extends Observer {
+    bucketName = '';
+    isBucketLoaded = ko.observable();
+    hasCloudSync = ko.observable();
+    toggleSyncButtonLabel = ko.observable();
+    isPaused = ko.observable();
+    statusDetails = [
+        {
+            label: 'Sync Status',
+            value: ko.observable()
+        },
+        {
+            label: 'Last sync',
+            value: ko.observable()
+        },
+        {
+            label: 'Next Scheduled Sync',
+            value: ko.observable(),
+            template: 'nextScheduledSync'
+        }
+    ];
+    connectionDetails = [
+        {
+            label: 'Endpoint',
+            value: ko.observable()
+        },
+        {
+            label: 'Access key',
+            value: ko.observable()
+        },
+        {
+            label: 'Target bucket',
+            value: ko.observable()
+        }
+    ];
+    syncPolicy = [
+        {
+            label: 'Frequency',
+            value: ko.observable()
+        },
+        {
+            label: 'Direction',
+            value: ko.observable()
+        },
+        {
+            label: 'Sync Deletions',
+            value: ko.observable()
+        }
+    ];
+
+
     constructor({ bucketName }) {
         super();
 
-        const bucket = ko.pureComputed(
-            () => systemInfo() && systemInfo().buckets.find(
-                bucket => bucket.name === ko.unwrap(bucketName)
-            )
-        );
+        this.bucketName = ko.unwrap(bucketName);
 
-        const cloudSyncInfo = ko.pureComputed(
-            () => bucket() && bucket().cloud_sync
-        );
+        this.observe(state$.get('buckets', this.bucketName), this.onState);
+    }
 
-        const state = ko.pureComputed(
-            () => cloudSyncInfo() && syncStateMapping[cloudSyncInfo().status]
-        );
+    onState(bucket) {
+        if (!bucket) {
+            this.isBucketLoaded(false);
+            return;
+        }
 
-        const policy = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().policy
-        );
+        this.hasCloudSync(Boolean(bucket.cloudSync));
+        this.isBucketLoaded(true);
+        
+        if (!bucket.cloudSync) {
+            this.isPaused(undefined);
+        } else {
+            const { state , policy } = bucket.cloudSync;
+            const { value, unit } = policy.frequency;
+            const isPausedLabel = `${state.isPaused ?  'Resume' : 'Pause'} Schedule`;
+            const lastSync = true &&
+                (!state.lastSyncTime && 'No previous sync') ||
+                moment(state.lastSyncTime).format(timeShortFormat);
+            const nextSyncValue = true &&
+                (state.isPaused && 'Paused by user') ||
+                (!state.status === 'PENDING' && 'In a few moments') ||
+                _formatFrequency(state.lastSyncTime, value, unit);
 
-        this.bucketName = ko.pureComputed(
-            () => bucket() && bucket().name
-        );
+            const nextSyncCss = state.isPaused ? 'warning' : '';
+            const nextSync = {
+                value: nextSyncValue,
+                css: nextSyncCss
+            };
 
-
-        this.hasCloudSync = ko.pureComputed(
-            () => Boolean(cloudSyncInfo())
-        );
-
-        this.isPaused = ko.pureComputed(
-            () => this.hasCloudSync() && policy().paused
-        );
-
-        this.toggleSyncButtonLabel = ko.pureComputed(
-            () => `${this.isPaused() ? 'Resume' : 'Pause'} Schedule`
-        );
-
-        const lastSync = ko.pureComputed(
-            () => {
-                if (!this.hasCloudSync()){
-                    return 'N/A';
-                }
-
-                const { last_sync } = cloudSyncInfo();
-                if (!last_sync) {
-                    return 'No previous sync';
-                }
-
-                return moment(last_sync).format(timeFormat);
-            }
-        );
-
-        const nextSync = ko.pureComputed(
-            () => {
-                if (!this.hasCloudSync()){
-                    return 'N/A';
-                }
-
-                if (this.isPaused()) {
-                    return '<span class="warning">Paused by user</span>';
-                }
-
-                if (cloudSyncInfo().status === 'PENDING') {
-                    return 'In a few moments';
-                }
-
-                return moment(cloudSyncInfo().last_sync)
-                    .add(policy().schedule_min, 'minutes')
-                    .format(timeFormat);
-            }
-        );
-
-        this.statusDetails = [
-            {
-                label: 'Sync Status',
-                value: state
-            },
-            {
-                label: 'Last sync',
-                value: lastSync
-            },
-            {
-                label: 'Next Scheduled Sync',
-                value: nextSync
-            }
-        ];
-
-        const endpoint = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().endpoint
-        );
-
-        const accessKey = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().access_key
-        );
-
-        const targetBucket = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().target_bucket
-        );
-
-        this.connectionDetails = [
-            {
-                label: 'Endpoint',
-                value: endpoint
-            },
-            {
-                label: 'Access key',
-                value: accessKey
-            },
-            {
-                label: 'Target bucket',
-                value: targetBucket
-            }
-        ];
-
-        const frequancy = ko.pureComputed(
-            () => policy() && `Every ${formatDuration(policy().schedule_min)}`
-        );
-
-        const syncDirection = ko.pureComputed(
-            () => policy() && directionMapping[
-                bitsToNumber(policy().c2n_enabled, policy().n2c_enabled)
-            ]
-        );
-
-        const syncDeletions = ko.pureComputed(
-            () => policy() && policy().additions_only ? 'No' : 'Yes'
-        );
-
-        this.syncPolicy = [
-            {
-                label: 'Frequency',
-                value: frequancy
-            },
-            {
-                label: 'Direction',
-                value: syncDirection
-            },
-            {
-                label: 'Sync Deletions',
-                value: syncDeletions
-            }
-        ];
-
-        this.isEditCloudSyncModalVisible = ko.observable(false);
+            this.isPaused(state.isPaused);
+            this.toggleSyncButtonLabel(isPausedLabel);
+            this.statusDetails[0].value(syncStateMapping[state.mode]);
+            this.statusDetails[1].value(lastSync);
+            this.statusDetails[2].value(nextSync);
+            this.connectionDetails[0].value(policy.endpoint);
+            this.connectionDetails[1].value(policy.accessKey);
+            this.connectionDetails[2].value(policy.targetBucket);
+            this.syncPolicy[0].value(`Every ${stringifyAmount(unit.toLowerCase(), value)}`);
+            this.syncPolicy[1].value(directionMapping[policy.direction]);
+            this.syncPolicy[2].value(policy.syncDeletions ? 'Yes' : 'No');
+        }
     }
 
     onSetPolicy() {
-        action$.onNext(openSetCloudSyncModal(
-            ko.unwrap(this.bucketName())
-        ));
+        action$.onNext(openSetCloudSyncModal(this.bucketName));
     }
 
     onEditPolicy() {
-        action$.onNext(openEditCloudSyncModal(
-            ko.unwrap(this.bucketName())
-        ));
+        action$.onNext(openEditCloudSyncModal(this.bucketName));
     }
 
-    removePolicy() {
-        removeCloudSyncPolicy(this.bucketName());
+    onRemovePolicy() {
+        action$.onNext(deleteCloudSyncPolicy(this.bucketName));
     }
 
-    toggleSync() {
+    onToggleSync() {
         if (this.hasCloudSync()) {
-            toogleCloudSync(this.bucketName(), !this.isPaused());
+            action$.onNext(toggleCloudSyncPolicy(this.bucketName, !this.isPaused()));
         }
     }
 }

@@ -143,7 +143,7 @@ export function getBucketStateIcon(bucket, align) {
 }
 
 export function getCloudSyncState(bucket) {
-    const state = bucket.cloudSync ? bucket.cloudSync.state : 'NOTSET';
+    const state = bucket.cloudSync ? bucket.cloudSync.state.mode : 'NOTSET';
     return cloudSyncStateToText[state];
 }
 

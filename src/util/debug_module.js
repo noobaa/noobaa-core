@@ -385,7 +385,12 @@ class InternalDebugLogger {
                 lru_item.hit_count += 1;
                 // the message is already in the lru
                 // every 200 messages print message count, otherwise return
-                if (lru_item.hit_count > 2 && lru_item.hit_count % 200 !== 0) return;
+                if (lru_item.hit_count > 2 && lru_item.hit_count % 200 !== 0) {
+                    if (console_wrapper) {
+                        console_wrapper.wrapper_console();
+                    }
+                    return;
+                }
 
                 const msg_prefix = lru_item.hit_count === 2 ?
                     `[This exact message was already printed at ${new Date(lru_item.time)}, and will be silenced for ${THROTTLING_PERIOD_SEC} seconds]` :

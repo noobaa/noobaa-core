@@ -53,7 +53,6 @@ var steps = [
         common: 'restore_db_defaults',
     }, {
         //Test Data Rebuild and Eviction
-        ignore_failure: true,
         name: 'Rebuild and Eviction Test',
         action: 'node',
         params: [{

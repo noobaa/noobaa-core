@@ -504,27 +504,45 @@ function test_double_blocks_on_movie_files() {
 
 function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_per_pool) {
     console.log(`test setup: bucket name: ${bucket_name}, pool names: ${pool_names}${mirrored ? ", mirrored" : ""}${cloud_pool ? ", from cloud pool" : ""}${num_of_nodes_per_pool ? ", node configuration: " + util.inspect(num_of_nodes_per_pool) : ""}`);
-    return P.map(pool_names.map(pool_name => ({
-                name: pool_name
-            })), pool_to_create => client.node.list_nodes({
-                query: {
-                    has_issues: false,
-                    pools: [TEST_CTX.discard_pool_name],
-                    skip_mongo_nodes: true
-                }
-            })
-            .then(node_list => {
-                pool_to_create.nodes = _.slice(node_list.nodes, 0, num_of_nodes_per_pool[pool_to_create.name]).map(node_info => ({
-                    id: node_info._id,
-                    name: node_info.name,
-                    peer_id: node_info.peer_id,
-                    rpc_address: node_info.rpc_address
-                }));
-                return client.pool.create_nodes_pool(pool_to_create);
-            }), {
-                concurrency: 1
-            }
-        )
+    return P.each(pool_names, pool_name => {
+            const ATTEMPTS = 10;
+            const DELAY = 30 * 1000;
+            // if not enough nodes, keep retrying for ~5 minutes 
+            return promise_utils.retry(ATTEMPTS, DELAY, () => client.node.list_nodes({
+                        query: {
+                            // has_issues: false,
+                            pools: [TEST_CTX.discard_pool_name],
+                            skip_mongo_nodes: true
+                        }
+                    })
+                    .then(node_list => {
+                        if (!node_list || !node_list.nodes) throw new Error('not enough nodes');
+                        const valid_nodes = node_list.nodes.filter(node => node.mode === 'OPTIMAL');
+                        if (valid_nodes.length < num_of_nodes_per_pool[pool_name]) {
+                            console.log(`list nodes returned ${valid_nodes.length} nodes. required number by ${pool_name} is ${num_of_nodes_per_pool[pool_name]}.`,
+                                node_list.nodes.map(node => ({ name: node.name, mode: node.mode })));
+                            throw new Error('not enough nodes');
+                        }
+                        return valid_nodes;
+                    })
+                )
+                .catch(() => {
+                    console.error('failed getting enough nodes');
+                    process.exit(1);
+                })
+                .then(node_list => {
+                    const pool_to_create = {
+                        name: pool_name,
+                    };
+                    pool_to_create.nodes = _.slice(node_list, 0, num_of_nodes_per_pool[pool_to_create.name]).map(node_info => ({
+                        id: node_info._id,
+                        name: node_info.name,
+                        peer_id: node_info.peer_id,
+                        rpc_address: node_info.rpc_address
+                    }));
+                    return client.pool.create_nodes_pool(pool_to_create);
+                });
+        })
         .then(() => cloud_pool && client.account.add_external_connection({
                 name: 'test_build_chunks_cloud',
                 endpoint_type: 'AWS',

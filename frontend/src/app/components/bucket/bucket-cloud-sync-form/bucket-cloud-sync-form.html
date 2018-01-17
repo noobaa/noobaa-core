@@ -11,7 +11,7 @@
             Cloud sync was not set for this bucket
         </p>
 
-        <button class="btn" data-bind="click: onSetPolicy">
+        <button class="btn" ko.click="onSetPolicy">
             Set Policy
         </button>
     </div>
@@ -23,24 +23,34 @@
             <h3 class="heading3 greedy push-next">Status details</h3>
 
             <!-- ko if: hasCloudSync -->
-            <button class="btn push-next" data-bind="
-                click: toggleSync,
-                text: toggleSyncButtonLabel
-            "></button>
+            <button class="btn push-next"
+                ko.click="onToggleSync"
+                ko.text="toggleSyncButtonLabel"
+            ></button>
 
-            <button class="btn" data-bind="click: removePolicy">
+            <button class="btn" ko.click="onRemovePolicy">
                 Remove
             </button>
             <!-- /ko -->
         </div>
-        <property-sheet params="properties: statusDetails"></property-sheet>
+        <property-sheet params="
+            properties: statusDetails,
+            loading: !isBucketLoaded()
+        ">
+            <template name="nextScheduledSync">
+                <span ko.css="css">{{value}}</span>
+            </template>
+        </property-sheet>
     </section>
 
      <hr>
 
     <section class="column pad">
         <h3 class="heading3">Connection details</h3>
-        <property-sheet params="properties: connectionDetails"></property-sheet>
+        <property-sheet params="
+            properties: connectionDetails,
+            loading: !isBucketLoaded()
+        "></property-sheet>
     </section>
 
      <hr>
@@ -48,11 +58,14 @@
     <section class="column pad">
         <div class="row">
             <h3 class="heading3 greedy push-next">Sync Policy</h3>
-            <button class="btn" data-bind="click: onEditPolicy">
+            <button class="btn" ko.click="onEditPolicy">
                 Edit
             </button>
         </div>
-        <property-sheet params="properties: syncPolicy"></property-sheet>
+        <property-sheet params="
+            properties: syncPolicy,
+            loading: !isBucketLoaded()
+        "></property-sheet>
     </section>
     <!-- /ko -->
 </div>

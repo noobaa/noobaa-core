@@ -28,7 +28,13 @@ import {
     FAIL_DELETE_NAMESPACE_BUCKET,
     UPDATE_BUCKET_S3_ACCESS,
     COMPLETE_UPDATE_BUCKET_S3_ACCESS,
-    FAIL_UPDATE_BUCKET_S3_ACCESS
+    FAIL_UPDATE_BUCKET_S3_ACCESS,
+    DELETE_CLOUD_SYNC_POLICY,
+    COMPLETE_DELETE_CLOUD_SYNC_POLICY,
+    FAIL_DELETE_CLOUD_SYNC_POLICY,
+    TOGGLE_CLOUD_SYNC_POLICY,
+    COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
+    FAIL_TOGGLE_CLOUD_SYNC_POLICY
 } from 'action-types';
 
 export function updateBucketQuota(bucket, quota) {
@@ -238,3 +244,46 @@ export function failUpdateBucketS3Access(bucketName, error) {
         payload: { bucketName, error }
     };
 }
+
+export function deleteCloudSyncPolicy(bucket) {
+    return {
+        type: DELETE_CLOUD_SYNC_POLICY,
+        payload: { bucket }
+    };
+}
+
+export function completeDeleteCloudSyncPolicy(bucket) {
+    return {
+        type: COMPLETE_DELETE_CLOUD_SYNC_POLICY,
+        payload: { bucket }
+    };
+}
+
+export function failDeleteCloudSyncPolicy(bucket, error) {
+    return {
+        type: FAIL_DELETE_CLOUD_SYNC_POLICY,
+        payload: { bucket, error }
+    };
+}
+
+export function toggleCloudSyncPolicy(bucket, paused) {
+    return {
+        type: TOGGLE_CLOUD_SYNC_POLICY,
+        payload: { bucket, paused }
+    };
+}
+
+export function completeToggleCloudSyncPolicy(bucket, paused) {
+    return {
+        type: COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
+        payload: { bucket, paused }
+    };
+}
+
+export function failToggleCloudSyncPolicy(bucket, paused, error) {
+    return {
+        type: FAIL_TOGGLE_CLOUD_SYNC_POLICY,
+        payload: { bucket, paused, error }
+    };
+}
+

@@ -753,32 +753,6 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
         .then(() => action$.onNext(fetchSystemInfo()));
 }
 
-export function removeCloudSyncPolicy(bucket) {
-    logAction('removeCloudSyncPolicy', { bucket });
-
-    api.bucket.delete_cloud_sync({ name: bucket })
-        .then(
-            () => notify(`${bucket} cloud sync policy removed successfully`, 'success'),
-            () => notify(`Removing ${bucket} cloud sync policy failed`, 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()));
-}
-
-export function toogleCloudSync(bucket, pause) {
-    logAction('toogleCloudSync', { bucket, pause });
-
-    api.bucket.toggle_cloud_sync({
-        name: bucket,
-        pause: pause
-    })
-        .then(
-            () => notify(`${bucket} cloud sync has been ${pause ? 'paused' : 'resumed'}`, 'success'),
-            () => notify(`${pause ? 'Pausing' : 'Resuming'} ${bucket} cloud sync failed`, 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
 export function enterMaintenanceMode(duration) {
     logAction('enterMaintenanceMode', { duration });
 

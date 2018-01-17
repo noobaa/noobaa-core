@@ -36,7 +36,9 @@ export default function(action$) {
             types.COMPLETE_OBJECT_UPLOAD,
             types.COMPLETE_INVOKE_UPGRADE_SYSTEM,
             types.REMOVE_HOST,
-            types.COMPLETE_UPDATE_BUCKET_S3_ACCESS
+            types.COMPLETE_UPDATE_BUCKET_S3_ACCESS,
+            types.COMPLETE_DELETE_CLOUD_SYNC_POLICY,
+            types.COMPLETE_TOGGLE_CLOUD_SYNC_POLICY
         )
         .map(() => refreshLocation());
 }

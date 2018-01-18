@@ -28,6 +28,18 @@ function _get_wiredtiger_log_diff(a, b) {
 
 mocha.describe('system_store', function() {
 
+    // eslint-disable-next-line no-undef
+    after(function() {
+        // hacky - all the added systems were failing some of the next tests
+        // remove all dummy systems
+        console.log('cleaning test systems:');
+        return mongo_client.instance().db.collection('systems').remove({
+            name: {
+                $nin: ['demo', 'coretest']
+            }
+        });
+    });
+
     mocha.it('load()', function() {
         return system_store.load();
     });

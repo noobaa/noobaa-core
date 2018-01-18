@@ -58,8 +58,8 @@
     "yargs": "^3.27.0"
   },
   "scripts": {
-    "prepublish": "./node_modules/.bin/gulp build",
-    "lint": "eslint src",
+    "nbbuild": "./node_modules/.bin/gulp build",
+    "lint": "./node_modules/.bin/gulp lint-app",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Ohad Mitrani"

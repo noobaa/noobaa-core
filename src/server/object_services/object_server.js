@@ -47,7 +47,7 @@ function create_object_upload(req) {
         bucket: req.bucket._id,
         key: req.rpc_params.key,
         content_type: req.rpc_params.content_type ||
-            mime.lookup(req.rpc_params.key) ||
+            mime.getType(req.rpc_params.key) ||
             'application/octet-stream',
         cloud_synced: false,
         upload_started: obj_id,

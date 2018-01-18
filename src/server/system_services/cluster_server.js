@@ -80,7 +80,8 @@ function new_cluster_info(params) {
                 config_servers: [],
                 upgrade: {
                     status: 'COMPLETED',
-                }
+                },
+                debug_level: 0
             };
             return cluster;
         })

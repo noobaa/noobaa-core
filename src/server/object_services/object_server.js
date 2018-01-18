@@ -734,9 +734,37 @@ function list_objects(req) {
             order: req.rpc_params.order,
             pagination: req.rpc_params.pagination,
         })
-        .then(res => {
-            res.objects = _.map(res.objects, obj => get_object_info(obj));
-            return res;
+        .then(res => _wrap_objects_for_fe(res, req));
+}
+
+function _wrap_objects_for_fe(response, req) {
+    return P.resolve()
+        .then(() => P.map(response.objects, object => P.resolve(get_object_info(object))
+            .then(obj => {
+                // using the internal IP doesn't work when there is a different external ip
+                // or when the intention is to use dns name.
+                const endpoint =
+                    (req.rpc_params.adminfo && req.rpc_params.adminfo.signed_url_endpoint) ||
+                    url.parse(req.system.base_address || '').hostname ||
+                    ip_module.address();
+                const account_keys = req.account.access_keys[0];
+                obj.s3_signed_url = cloud_utils.get_signed_url({
+                    endpoint: endpoint,
+                    access_key: account_keys.access_key,
+                    secret_key: account_keys.secret_key,
+                    bucket: req.rpc_params.bucket,
+                    key: obj.key,
+                });
+                return obj;
+            })))
+        .then(objects_res => {
+            const object_ids = objects_res.map(obj => obj.obj_id);
+            return MDStore.instance().read_objects_part_count_and_blocks_capacity(object_ids)
+                .then(info_by_object_ids => objects_res.map(obj => _.defaults(obj, info_by_object_ids[obj.obj_id])));
+        })
+        .then(objects => {
+            response.objects = objects;
+            return response;
         });
 }
 

@@ -23,6 +23,7 @@ module.exports = {
     reduce_sum: reduce_sum,
     reduce_noop: reduce_noop,
     map_common_prefixes_and_objects: map_common_prefixes_and_objects,
+    map_aggregate_blocks_for_object_total: map_aggregate_blocks_for_object_total,
     reduce_common_prefixes_occurrence_and_objects: reduce_common_prefixes_occurrence_and_objects
 };
 
@@ -31,6 +32,7 @@ module.exports = {
 let emit;
 let prefix;
 let delimiter;
+let objects_by_chunks;
 
 /**
  * @this mongodb doc being mapped
@@ -94,6 +96,19 @@ function map_aggregate_blocks() {
     emit(['bucket', this.bucket], this.size);
     emit(['bucket_and_pool', this.bucket, this.pool], this.size);
     emit(['pool', this.pool], this.size);
+}
+
+/**
+ * @this mongodb doc being mapped
+ */
+function map_aggregate_blocks_for_object_total() {
+    var self = this;
+    var objects_of_chunk = objects_by_chunks[this.chunk.valueOf()];
+    if (objects_of_chunk) {
+        objects_of_chunk.forEach(function(object) {
+            emit([object.obj], self.size);
+        });
+    }
 }
 
 /**

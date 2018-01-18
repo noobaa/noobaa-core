@@ -1801,7 +1801,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _should_include_drives(mount, os_info, exclude_drives) {
-        if (os_info.ostype === 'Windows_NT') {
+        if (os_info.ostype.startsWith('Windows_NT')) {
             let win_drives = exclude_drives.map(drv => {
                 let ret = drv;
                 if (drv.length === 1) {

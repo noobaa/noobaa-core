@@ -827,6 +827,14 @@ module.exports = {
                     upload_mode: {
                         type: 'boolean'
                     },
+                    adminfo: {
+                        type: 'object',
+                        properties: {
+                            signed_url_endpoint: {
+                                type: 'string'
+                            },
+                        }
+                    },
                 }
             },
             reply: {

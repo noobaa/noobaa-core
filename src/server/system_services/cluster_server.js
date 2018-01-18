@@ -65,6 +65,7 @@ function new_cluster_info(params) {
     return P.fcall(function() {
             var address = (params && params.address) || os_utils.get_local_ipv4_ips()[0];
             var cluster = {
+                debug_level: 0,
                 is_clusterized: false,
                 owner_secret: system_store.get_server_secret(),
                 cluster_id: system_store.get_server_secret(),

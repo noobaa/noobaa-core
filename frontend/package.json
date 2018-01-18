@@ -58,9 +58,10 @@
     "yargs": "^3.27.0"
   },
   "scripts": {
-    "nbbuild": "./node_modules/.bin/gulp build",
+    "prepare": "[ \"$NB_NO_BUILD\" ] || npm run build",
+    "build": "./node_modules/.bin/gulp build",
     "lint": "./node_modules/.bin/gulp lint-app",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "./node_modules/.bin/gulp test"
   },
   "author": "Ohad Mitrani"
 }

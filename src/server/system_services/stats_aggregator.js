@@ -222,7 +222,7 @@ function get_nodes_stats(req) {
                         node.os_info.uptime / SCALE_SEC_TO_DAYS);
                     if (node.os_info.ostype === 'Darwin') {
                         nodes_stats.os.osx += 1;
-                    } else if (node.os_info.ostype === 'Windows_NT') {
+                    } else if (node.os_info.ostype.startsWith('Windows_NT')) {
                         nodes_stats.os.win += 1;
                     } else if (node.os_info.ostype === 'Linux') {
                         nodes_stats.os.linux += 1;

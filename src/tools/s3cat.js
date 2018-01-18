@@ -293,7 +293,7 @@ function upload_object() {
         const params = {
             Key: upload_key,
             CopySource: argv.bucket + '/' + argv.copy,
-            ContentType: mime.lookup(upload_key) || '',
+            ContentType: mime.getType(upload_key) || '',
         };
         if (argv.presign) {
             console.log(s3.getSignedUrl('copyObject', params));
@@ -307,7 +307,7 @@ function upload_object() {
         const params = {
             Key: upload_key,
             Body: data_source,
-            ContentType: mime.lookup(file_path) || '',
+            ContentType: mime.getType(file_path) || '',
             ContentLength: data_size
         };
         if (argv.presign) {
@@ -323,7 +323,7 @@ function upload_object() {
         s3.upload({
                 Key: upload_key,
                 Body: data_source,
-                ContentType: mime.lookup(file_path),
+                ContentType: mime.getType(file_path),
                 ContentLength: data_size
             }, {
                 partSize: part_size,
@@ -339,7 +339,7 @@ function upload_object() {
         };
         s3.createMultipartUpload({
             Key: upload_key,
-            ContentType: mime.lookup(file_path),
+            ContentType: mime.getType(file_path),
         }, (err, create_res) => {
             if (err) {
                 console.error('s3.createMultipartUpload ERROR', err);

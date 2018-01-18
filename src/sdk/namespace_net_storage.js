@@ -145,7 +145,7 @@ class NamespaceNetStorage {
             size: res.size,
             etag,
             create_time: new Date(Number(res.mtime || 0) * 1000),
-            content_type: mime.lookup(res.name) || 'application/octet-stream',
+            content_type: mime.getType(res.name) || 'application/octet-stream',
             xattr,
         };
     }

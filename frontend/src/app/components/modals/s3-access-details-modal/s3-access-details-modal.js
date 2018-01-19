@@ -1,40 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './s3-access-details-modal.html';
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { noop } from 'utils/core-utils';
+import { closeModal } from 'action-creators';
+import { action$ } from 'state';
 import { copyTextToClipboard } from 'utils/browser-utils';
 
-class S3AccessDetailsModalViewModel extends BaseViewModel {
-    constructor({ email, onClose = noop }) {
-        super();
+class S3AccessDetailsModalViewModel {
+    details = null;
 
-        this.onClose = onClose;
-
-        let account = ko.pureComputed(
-            () => systemInfo() && systemInfo().accounts.find(
-                account => account.email === ko.unwrap(email)
-            )
-        );
-
-        let endpoint = ko.pureComputed(
-            () => systemInfo() && systemInfo().endpoint
-        );
-
-        let keys = ko.pureComputed(
-            () => account() && account().access_keys[0]
-        );
-
-        let accessKey = ko.pureComputed(
-            () => keys() && keys().access_key
-        );
-
-        let secretKey = ko.pureComputed(
-            () => keys() && keys().secret_key
-        );
-
+    constructor({ endpoint, accessKey, secretKey }) {
         this.details = [
             { label: 'Storage Type', value: 'S3 Compatible Storage', allowCopy: false },
             { label: 'Endpoint', value: endpoint, allowCopy: true },
@@ -48,7 +23,7 @@ class S3AccessDetailsModalViewModel extends BaseViewModel {
     }
 
     close() {
-        this.onClose();
+        action$.onNext(closeModal());
     }
 }
 

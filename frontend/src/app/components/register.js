@@ -62,7 +62,7 @@ export default function register(ko) {
     ko.components.register('set-cloud-sync-modal',                          require('./modals/set-cloud-sync-modal/set-cloud-sync-modal').default);
     ko.components.register('edit-cloud-sync-modal',                         require('./modals/edit-cloud-sync-modal/edit-cloud-sync-modal').default);
     ko.components.register('s3-access-details-modal',                       require('./modals/s3-access-details-modal/s3-access-details-modal').default);
-    ko.components.register('bucket-s3-access-modal',                        require('./modals/bucket-s3-access-modal/bucket-s3-access-modal').default);
+    ko.components.register('edit-bucket-s3-access-modal',                   require('./modals/edit-bucket-s3-access-modal/edit-bucket-s3-access-modal').default);
     ko.components.register('start-maintenance-modal',                       require('./modals/start-maintenance-modal/start-maintenance-modal').default);
     ko.components.register('file-uploads-modal',                            require('./modals/file-uploads-modal/file-uploads-modal').default);
     ko.components.register('delete-current-account-warning-modal',          require('./modals/delete-current-account-warning-modal/delete-current-account-warning-modal').default);

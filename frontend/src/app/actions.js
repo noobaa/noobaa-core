@@ -779,21 +779,6 @@ export function toogleCloudSync(bucket, pause) {
         .done();
 }
 
-export function updateBucketS3Access(bucketName, allowedAccounts) {
-    logAction('updateBucketS3Access', { bucketName, allowedAccounts });
-
-    api.bucket.update_bucket_s3_access({
-        name: bucketName,
-        allowed_accounts: allowedAccounts
-    })
-        .then(
-            () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
-            () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
 export function enterMaintenanceMode(duration) {
     logAction('enterMaintenanceMode', { duration });
 

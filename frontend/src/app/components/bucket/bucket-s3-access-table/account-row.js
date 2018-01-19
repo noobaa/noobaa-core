@@ -1,41 +1,37 @@
 /* Copyright (C) 2016 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { action$ } from 'state';
 import { openS3AccessDetailsModal } from 'action-creators';
+import { realizeUri } from 'utils/browser-utils';
 
-export default class AccountRowViewModel extends BaseViewModel {
-    constructor(account) {
-        super();
+export default class AccountRowViewModel {
+    baseRoute = '';
+    name = ko.observable();
+    credentialsDetails = ko.observable();
 
-        this.name = ko.pureComputed(
-            () => {
-                if (!account()) {
-                    return '';
-                }
+    constructor({ baseRoute }) {
+        this.baseRoute = baseRoute;
+        this.onShowDetails = this.onShowDetails.bind(this);
+    }
 
-                const email = account().email;
-                return {
-                    text: email,
-                    href: {
-                        route: 'account',
-                        params: { account: email, tab: null }
-                    }
-                };
-            }
-        );
+    onState(account, endpoint) {
+        const name = {
+            text: account.name,
+            href: realizeUri(this.baseRoute, { account: account.name })
+        };
+        const text = 'View';
+        const click = this.onShowDetails;
 
-        this.credentialsDetails = ko.pureComputed(
-            () => {
-                if (!account()) {
-                    return '';
-                }
+        this.name(name);
+        this.credentialsDetails({ text, click });
+        this.accessKey = account.accessKeys.accessKey;
+        this.secretKey = account.accessKeys.secretKey;
+        this.endpoint = endpoint;
+    }
 
-                const text = 'View';
-                const click = () => action$.onNext(openS3AccessDetailsModal(account().email));
-                return { text, click };
-            }
-        );
+    onShowDetails() {
+        const { endpoint, accessKey, secretKey } = this;
+        action$.onNext(openS3AccessDetailsModal(endpoint, accessKey, secretKey));
     }
 }

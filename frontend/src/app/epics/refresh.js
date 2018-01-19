@@ -35,7 +35,8 @@ export default function(action$) {
             types.UPLOAD_OBJECTS,
             types.COMPLETE_OBJECT_UPLOAD,
             types.COMPLETE_INVOKE_UPGRADE_SYSTEM,
-            types.REMOVE_HOST
+            types.REMOVE_HOST,
+            types.COMPLETE_UPDATE_BUCKET_S3_ACCESS
         )
         .map(() => refreshLocation());
 }

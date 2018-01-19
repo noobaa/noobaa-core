@@ -1,0 +1,40 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: isFormInitialized -->
+<form class="column greedy" ko.submit="form.submit">
+    <div class="row content-middle">
+        <h2 class="heading3 greedy">Edit accounts S3 access permissions</h2>
+        <div>
+            <button class="link alt-colors" ko.click="selectAllAccounts">
+                Select all
+            </button>
+            |
+            <button class="link alt-colors" ko.click="clearAllAccounts">
+                Clear
+            </button>
+        </div>
+    </div>
+
+    <multiselect class="cols-3 greedy" params="
+        options: accountOptions,
+        selected: form.selectedAccounts
+    "></multiselect>
+
+    <p class="push-next">
+        <svg-icon class="icon-small" params="name: 'notif-info'"></svg-icon>
+        To create a new account go to System Management >
+        <a class="link" ko.attr.href="accountsHref">
+            Accounts
+        </a>
+    </p>
+
+    <div class="row align-end">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn">
+            Save
+        </button>
+    </div>
+</form>
+<!-- /ko -->

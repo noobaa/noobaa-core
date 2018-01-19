@@ -59,6 +59,7 @@ import invokeUpgradeSystem from './invoke-upgrade-system';
 import upgradeSystem from './upgrade-system';
 import reloadAfterSystemUpgrade from './reload-after-system-upgrade';
 import updateServerAddress from './update-server-address';
+import updateBucketS3Access from './update-bucket-s3-access';
 
 const generalEpics = [
     handleLocationRequests,
@@ -119,7 +120,8 @@ const bucketRelatedEpics = [
     deleteBucket,
     createNamespaceBucket,
     updateNamespaceBucketPlacement,
-    deleteNamespaceBucket
+    deleteNamespaceBucket,
+    updateBucketS3Access
 ];
 
 const objectRelatedEpics = [

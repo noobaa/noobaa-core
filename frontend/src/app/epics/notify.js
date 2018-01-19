@@ -319,6 +319,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_UPDATE_SERVER_ADDRESS]: ({ secret, hostname }) => ({
         message: `Updating cluster connectivity IP for ${getServerDisplayName({ secret, hostname })} failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_BUCKET_S3_ACCESS]: ({ bucketName }) => ({
+        message: `${bucketName} S3 access control updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_BUCKET_S3_ACCESS]: ({ bucketName }) => ({
+        message: `Updating ${bucketName} S3 access control failed`,
+        severity: 'error'
     })
 });
 

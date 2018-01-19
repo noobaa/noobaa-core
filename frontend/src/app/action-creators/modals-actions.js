@@ -99,13 +99,13 @@ export function openEditCloudSyncModal(bucketName) {
     };
 }
 
-export function openS3AccessDetailsModal(email) {
+export function openS3AccessDetailsModal(endpoint, accessKey, secretKey) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
                 name: 's3-access-details-modal',
-                params: { email }
+                params: { endpoint, accessKey, secretKey }
             },
             options: {
                 title: 'Connection Details',
@@ -120,11 +120,11 @@ export function openBucketS3AccessModal(bucketName) {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'bucket-s3-access-modal',
+                name: 'edit-bucket-s3-access-modal',
                 params: { bucketName }
             },
             options: {
-                title: 'Bucket S3 Access'
+                title: 'Edit Bucket S3 Access'
             }
         }
     };

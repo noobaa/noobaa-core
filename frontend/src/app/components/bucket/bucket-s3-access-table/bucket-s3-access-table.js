@@ -1,21 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-s3-access-table.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
-import { systemInfo, routeContext } from 'model';
 import AccountRowViewModel from './account-row';
 import { deepFreeze, createCompareFunc } from 'utils/core-utils';
-import { navigateTo } from 'actions';
-import { action$ } from 'state';
-import { openBucketS3AccessModal } from 'action-creators';
-import numeral from 'numeral';
+import { state$, action$ } from 'state';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
+import { requestLocation, openBucketS3AccessModal } from 'action-creators';
 
 const columns = deepFreeze([
     {
         name: 'name',
-        type: 'link',
-        sortable: true
+        type: 'newLink',
+        sortable: true,
+        compareKey: account => account.name
     },
     {
         name: 'credentialsDetails',
@@ -23,81 +23,67 @@ const columns = deepFreeze([
     }
 ]);
 
-const compareAccessors = deepFreeze({
-    name: account => account.email
-});
+class BucketS3AccessTableViewModel extends Observer {
+    columns = columns;
+    bucketName = '';
+    pathname = '';
+    accounts = ko.observable();
+    accountsLoaded = ko.observable();
+    sorting = ko.observable();
+    accountCount = ko.observable();
+    rows = ko.observableArray();
 
-
-class BucketS3AccessListViewModel extends BaseViewModel {
     constructor({ bucketName }) {
         super();
 
-        this.columns = columns;
-        this.accounts = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return [];
-                }
-
-                const { sortBy, order } = this.sorting();
-                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
-
-                return (systemInfo().accounts || [])
-                    .filter(({ allowed_buckets })=> {
-                        if (!allowed_buckets) {
-                            return false;
-                        }
-
-                        const { full_permission, permission_list } = allowed_buckets;
-                        return full_permission || permission_list.includes(ko.unwrap(bucketName));
-                    })
-                    .sort(compareOp);
-            }
-        );
-
-        this.accountCount = ko.pureComputed(
-            () => this.accounts ?
-                numeral(this.accounts().length).format('0,0') :
-                ''
-        );
-
-        const query = ko.pureComputed(
-            () => routeContext().query || {}
-        );
-
-        this.sorting = ko.pureComputed({
-            read: () => {
-                const { sortBy, order } = query();
-                const canSort = Object.keys(compareAccessors).includes(sortBy);
-                return {
-                    sortBy: (canSort && sortBy) || 'name',
-                    order: (canSort && Number(order)) || 1
-                };
-            },
-            write: value => this.orderBy(value)
-        });
-
-        this.selectedAccount = ko.observable();
-
-        this.bucketName = bucketName;
+        this.bucketName = ko.unwrap(bucketName);
+        this.observe(state$.getMany('accounts', 'location'), this.onState);
     }
 
-    orderBy({ sortBy, order }) {
-        navigateTo(undefined, undefined, { filter: undefined, sortBy, order });
+    onState([accounts, location]) {
+        if (!accounts) {
+            this.accountsLoaded(false);
+            this.accountCount(0);
+            return;
+        }
+
+        const { sortBy = 'name', order = 1 } = location.query;
+        const { compareKey } = columns.find(column => column.name === sortBy);
+        const compareOp = createCompareFunc(compareKey, order);
+        const accountList = Object.values(accounts);
+        const filteredAccounts = accountList
+            .filter(account => account.allowedBuckets.includes(this.bucketName));
+        const rowParams = {
+            baseRoute: realizeUri(routes.account, { system: location.params.system }, {}, true)
+        };
+
+        const rows = filteredAccounts
+            .sort(compareOp)
+            .map((account, i) => {
+                const row = this.rows.get(i) || new AccountRowViewModel(rowParams);
+                row.onState(account, location.hostname);
+                return row;
+            });
+
+        this.rows(rows);
+        this.sorting({ sortBy, order: Number(order) });
+        this.accountCount(filteredAccounts.length);
+        this.pathname = location.pathname;
+        this.accountsLoaded(true);
+    }
+
+    onSort(sorting) {
+        const query = ko.deepUnwrap(sorting);
+        const url = realizeUri(this.pathname, {}, query);
+        action$.onNext(requestLocation(url));
     }
 
     onEditS3Access() {
-        action$.onNext(openBucketS3AccessModal(
-            ko.unwrap(this.bucketName)
-        ));
-    }
-
-    createS3AccessRow(accountRow) {
-        return new AccountRowViewModel(accountRow);
+        action$.onNext(openBucketS3AccessModal(this.bucketName));
     }
 }
 
 export default {
-    viewModel: BucketS3AccessListViewModel,
+    viewModel: BucketS3AccessTableViewModel,
     template: template
 };

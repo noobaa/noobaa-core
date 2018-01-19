@@ -25,7 +25,10 @@ import {
     FAIL_UPDATE_NAMESPACE_BUCKET_PLACEMENT,
     DELETE_NAMESPACE_BUCKET,
     COMPLETE_DELETE_NAMESPACE_BUCKET,
-    FAIL_DELETE_NAMESPACE_BUCKET
+    FAIL_DELETE_NAMESPACE_BUCKET,
+    UPDATE_BUCKET_S3_ACCESS,
+    COMPLETE_UPDATE_BUCKET_S3_ACCESS,
+    FAIL_UPDATE_BUCKET_S3_ACCESS
 } from 'action-types';
 
 export function updateBucketQuota(bucket, quota) {
@@ -212,5 +215,26 @@ export function failCompleteDeleteNamespaceBucket(name, error) {
     return {
         type: FAIL_DELETE_NAMESPACE_BUCKET,
         payload: { name, error }
+    };
+}
+
+export function updateBucketS3Access(bucketName, allowedAccounts) {
+    return {
+        type: UPDATE_BUCKET_S3_ACCESS,
+        payload: { bucketName, allowedAccounts }
+    };
+}
+
+export function completeUpdateBucketS3Access(bucketName) {
+    return {
+        type: COMPLETE_UPDATE_BUCKET_S3_ACCESS,
+        payload: { bucketName }
+    };
+}
+
+export function failUpdateBucketS3Access(bucketName, error) {
+    return {
+        type: FAIL_UPDATE_BUCKET_S3_ACCESS,
+        payload: { bucketName, error }
     };
 }

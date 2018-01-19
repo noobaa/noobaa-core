@@ -5,15 +5,15 @@
         Accounts with S3 access for this bucket: {{accountCount}}
     </h2>
 
-    <button class="btn" data-bind="click: onEditS3Access">
+    <button class="btn" ko.click="onEditS3Access">
         Edit S3 Access
     </button>
 </div>
 
 <data-table class="accounts-table" params="
     columns: columns,
-    data: accounts,
-    rowFactory: accessRow => createS3AccessRow(accessRow),
-    sorting: sorting,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !accountsLoaded,
     emptyMessage: 'No accounts were granted access for this bucket'
 "></data-table>

@@ -197,10 +197,10 @@ Section "Noobaa Local Service"
 		RMDir /r "$INSTDIR\node_modules"
 		RMDir /r "$INSTDIR\src"
 		RMDir /r "$INSTDIR\ssl"
+		Rename "$INSTDIR\node.exe" "$INSTDIR\node_old.exe"
 		${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
 			Delete "$INSTDIR\service_uninstaller.bat"
 			Delete "$INSTDIR\service_installer.bat"
-			Delete "$INSTDIR\node.exe"
 			Delete "$INSTDIR\service.bat"
 			RMDir /r "$INSTDIR\build"
 		${EndIf}
@@ -208,7 +208,6 @@ Section "Noobaa Local Service"
 		File "7za.exe"
 		File "NooBaa_Agent_wd.exe"
 		File "wget.exe"
-
 	${EndIf}
 
 	WriteUninstaller "$INSTDIR\uninstall-noobaa.exe"

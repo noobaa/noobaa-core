@@ -41,6 +41,7 @@ CONFIGURATION.INSTALLATION_COMMAND = WIN_AGENT ? `"${CONFIGURATION.SETUP_FILE}" 
     `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
 CONFIGURATION.UNINSTALL_COMMAND = WIN_AGENT ? `"${CONFIGURATION.UNINSTALL_FILE}" /S` :
     `setsid ${CONFIGURATION.UNINSTALL_FILE} >> /dev/null`;
+CONFIGURATION.WIN_OLD_NODE_FILE = path.join(CONFIGURATION.PROCESS_DIR, 'node_old.exe');
 
 process.chdir(path.join(__dirname, '..', '..'));
 CONFIGURATION.BACKUP_DIR = path.join(process.cwd(), `backup`);
@@ -52,7 +53,12 @@ dbg.log0('deleting file', CONFIGURATION.SETUP_FILE);
 fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
     // clean previous backup folder
     .then(() => os_utils.get_distro())
-    .then(res => dbg.log0('OS INFO:', res))
+    .then(res => {
+        dbg.log0('OS INFO:', res);
+        if (WIN_AGENT) {
+            return fs_utils.file_delete(CONFIGURATION.WIN_OLD_NODE_FILE);
+        }
+    })
     .then(() => fs.readdirAsync(process.cwd()))
     .then(files => files.find(file => file.startsWith('backup_')))
     .then(backup_dir => {

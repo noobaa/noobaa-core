@@ -5,7 +5,6 @@ const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const MongoCtrl = require('./mongo_ctrl');
-const _ = require('lodash');
 const crypto = require('crypto');
 
 function system_in_maintenance(system_id) {

@@ -15,6 +15,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const MDStore = require('./md_store').MDStore;
 const LRUCache = require('../../util/lru_cache');
 const size_utils = require('../../util/size_utils');
+const server_utils = require('../utils/system_utils');
 const { RpcError } = require('../../rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const http_utils = require('../../util/http_utils');
@@ -413,10 +414,11 @@ function read_object_mappings(req) {
             // when called from admin console, we do not update the stats
             // so that viewing the mapping in the ui will not increase read count
             if (adminfo) {
-                reply.mirror_groups = _get_bucket_mirror_groups(obj.bucket);
                 // Notice that this changes the value of reply.parts
-                _mark_mirror_groups_for_blocks(reply.parts, reply.mirror_groups);
-                return;
+                _mark_mirror_groups_for_blocks(
+                    reply.parts,
+                    _get_bucket_mirror_groups(obj.bucket)
+                );
             }
 
             const date = new Date();
@@ -835,8 +837,8 @@ function report_endpoint_problems(req) {
                     return Dispatcher.instance().alert(
                         'MAJOR',
                         req.system && req.system._id,
-                        `Due to ${endpoint_name} high memory utilization, 
-                        the S3 service may suffer some slowdown. To increase service performance, 
+                        `Due to ${endpoint_name} high memory utilization,
+                        the S3 service may suffer some slowdown. To increase service performance,
                         you can either increase the ${node ? "node's" : "server's"} resources or scale out S3 agents.`,
                         Dispatcher.rules.once_every(HOUR_IN_MILI)
                     );
@@ -1054,38 +1056,35 @@ function _get_bucket_mirror_groups(bucket_id) {
             `Could not find bucket:${bucket_id}`);
     }
 
-    const working_tier = bucket.tiering.tiers.filter(tiers_obj => !tiers_obj.disabled)
+    const working_tiers = bucket.tiering.tiers
+        .filter(tiers_obj => !tiers_obj.disabled)
         .map(filtered_tiers_obj => filtered_tiers_obj.tier);
 
-    if (!working_tier) {
+    if (!working_tiers) {
         throw new RpcError('NO_VALID_TIER',
             `Could not find valid tier in bucket bucket:${bucket_id}`);
     }
 
-    const mirror_groups = _.flatten(
-        working_tier.map(tier =>
-            tier.mirrors.map(mirror_object => {
-                const pool_list = _.sortBy(mirror_object.spread_pools, pool => pool.name);
-                const group_name = JSON.stringify(pool_list.map(pool => pool.name));
-                return {
-                    name: crypto.createHash('md5').update(group_name).digest('hex'),
-                    pools: mirror_object.spread_pools.map(pool => pool.name)
-                };
-            })
-        )
-    );
-
-    return mirror_groups;
+    return _.flatten(working_tiers.map(server_utils.get_tier_mirror_groups));
 }
 
 function _mark_mirror_groups_for_blocks(parts, mirror_groups) {
+    const pool_to_mirror_group = mirror_groups.reduce(
+        (mapping, mirror_group) => {
+            mirror_group.pools.forEach(pool_name => {
+                mapping[pool_name] = mirror_group.name;
+            });
+            return mapping;
+        },
+        {}
+    );
+
     parts.forEach(part =>
         part.chunk.frags.forEach(frag =>
             frag.blocks.forEach(block => {
-                const mirror_group = mirror_groups.find(m_group => _.includes(m_group.pools, block.adminfo.pool_name));
                 // In case of block not being stored on pool that is not relevant to the main tier of bucket
                 // We will not assign it to any mirror group, this is relevant to spillover blocks and blocks not in policy
-                block.adminfo.mirror_group = mirror_group && mirror_group.name;
+                block.adminfo.mirror_group = pool_to_mirror_group[block.adminfo.pool_name];
             })
         )
     );

@@ -12,6 +12,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const { RpcError } = require('../../rpc');
 const size_utils = require('../../util/size_utils');
+const server_utils = require('../utils/system_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('./system_store').get_instance();
@@ -379,6 +380,7 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
     });
 
     attached_pools = _.compact(attached_pools).map(pool => pool.name);
+    const mirror_groups = server_utils.get_tier_mirror_groups(tier);
 
     const storage = _.defaults(
         size_utils.reduce_storage(size_utils.reduce_sum, mirrors_storage), {
@@ -400,6 +402,7 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
         data_placement: tier.data_placement,
         attached_pools,
+        mirror_groups,
         storage,
         data,
     };

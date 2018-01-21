@@ -5,6 +5,8 @@ const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const MongoCtrl = require('./mongo_ctrl');
+const _ = require('lodash');
+const crypto = require('crypto');
 
 function system_in_maintenance(system_id) {
     const system = system_store.data.get_by_id(system_id);
@@ -44,6 +46,24 @@ function mongo_wrapper_system_created() {
     }
 }
 
+// For each mirror set in the tier create a mirror group object
+// with a uniqe name and a list of pools.
+function get_tier_mirror_groups(tier) {
+    return tier.mirrors
+        .map(mirror_object => {
+            const pools = mirror_object.spread_pools
+                .map(pool => pool.name)
+                .sort();
+
+            const name = crypto.createHash('md5')
+                .update(JSON.stringify(pools))
+                .digest('hex');
+
+            return { name, pools };
+        });
+}
+
 exports.system_in_maintenance = system_in_maintenance;
 exports.get_bucket_quota_usage_percent = get_bucket_quota_usage_percent;
 exports.mongo_wrapper_system_created = mongo_wrapper_system_created;
+exports.get_tier_mirror_groups = get_tier_mirror_groups;

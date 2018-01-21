@@ -82,7 +82,6 @@ function new_cluster_info(params) {
                 upgrade: {
                     status: 'COMPLETED',
                 },
-                debug_level: 0
             };
             return cluster;
         })

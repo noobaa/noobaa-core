@@ -896,7 +896,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
             if (has_valid_pool || ((num_valid_nodes || 0) >= config.NODES_MIN_COUNT)) mirror_with_valid_pool += 1;
             // return valid;
             const exitsting_minimum = _.isUndefined(info.num_of_nodes) ? Number.MAX_SAFE_INTEGER : info.num_of_nodes;
-            const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : 0;
+            const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : num_valid_nodes;
             const potential_new_minimum = has_internal_or_cloud_pool ? Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
             info.num_of_nodes = Math.min(exitsting_minimum, potential_new_minimum);
         });

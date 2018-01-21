@@ -178,9 +178,9 @@ function update_tier(req) {
 
     return system_store.make_changes(changes)
         .then(res => {
-            const bucket = find_bucket_by_tier(req);
-            const desc_string = [];
             if (req.rpc_params.data_placement) { //Placement policy changes
+                const bucket = find_bucket_by_tier(req);
+                const desc_string = [];
                 let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
                     `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
                 let removed_pools = _.difference(old_pool_names, req.rpc_params.attached_pools || []);
@@ -193,18 +193,18 @@ function update_tier(req) {
                 if (added_pools.length) {
                     desc_string.push(`Added resources: ${added_pools.join(', ')}`);
                 }
+                if (bucket) {
+                    Dispatcher.instance().activity({
+                        event: 'bucket.edit_policy',
+                        level: 'info',
+                        system: req.system._id,
+                        actor: req.account && req.account._id,
+                        bucket: bucket._id,
+                        desc: desc_string.join('\n'),
+                    });
+                }
             }
 
-            if (bucket) {
-                Dispatcher.instance().activity({
-                    event: 'bucket.edit_policy',
-                    level: 'info',
-                    system: req.system._id,
-                    actor: req.account && req.account._id,
-                    bucket: bucket._id,
-                    desc: desc_string.join('\n'),
-                });
-            }
             return res;
         })
         .return();

@@ -559,7 +559,7 @@ class MDStore {
     // We've measured the performance on 25 objects of 25GB each with 4MB chunks and it seemed to work fine
     // In case of heavier loads we should remove this code or think of a better way to gather the data needed
     read_objects_part_count_and_blocks_capacity(object_ids) {
-        if (!object_ids || !object_ids.length) return {};
+        if (!object_ids || !object_ids.length) return P.resolve({});
         return this._parts.col().find({
                 obj: {
                     $in: object_ids

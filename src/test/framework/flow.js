@@ -110,6 +110,7 @@ var steps = [
         //Test Cloud Pools
         action: 'node',
         name: 'Cloud Pools Test',
+        ignore_failure: true,
         params: [{
             arg: './src/test/system_tests/test_cloud_pools'
         }],

@@ -369,7 +369,9 @@ class BucketsOverviewViewModel extends Observer{
         const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
         const hasChartData = chartParams.data.datasets
             .some(dataset => Boolean(dataset.data.length));
-        const currentDataPoints = chartParams.data.datasets.map(({ data }) => last(data));
+        const currentDataPoints = chartParams.data.datasets
+            .map(ds => last(ds.data))
+            .filter(Boolean);
 
         this.bucketsLinkText(bucketsLinkText);
         this.bucketsLinkHref(bucketsLinkHref);

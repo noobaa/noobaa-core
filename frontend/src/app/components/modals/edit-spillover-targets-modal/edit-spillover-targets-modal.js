@@ -7,6 +7,7 @@ import BucketRowViewModel from './bucket-row';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze, echo, mapValues, createCompareFunc, keyBy } from 'utils/core-utils';
+import { flatMap } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { paginationPageSize } from 'config';
 import { closeModal, toggleBucketsSpillover } from 'action-creators';
@@ -35,7 +36,8 @@ const columns = deepFreeze([
         label: 'Bucket Policy',
         sortable: true,
         compareKey: bucket => {
-            const { policyType, resources } = bucket.placement;
+            const { policyType, mirrorSets } = bucket.placement;
+            const resources = flatMap(mirrorSets, ms => ms.resources);
             return [ policyType, resources.length ];
         }
     },

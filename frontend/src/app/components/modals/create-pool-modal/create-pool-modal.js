@@ -5,10 +5,10 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import HostRowViewModel from './host-row';
 import { state$, action$ } from 'state';
-import { fetchHosts, createHostsPool } from 'action-creators';
+import { fetchHosts, dropHostsView, createHostsPool } from 'action-creators';
 import { deepFreeze, union, equalItems, mapValues, sumBy } from 'utils/core-utils';
 import { formatSize, sumSize } from 'utils/size-utils';
-import { getHostModeListForState} from 'utils/host-utils';
+import { getHostModeListForState } from 'utils/host-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { paginationPageSize, inputThrottle } from 'config';
 import ko from 'knockout';
@@ -349,6 +349,7 @@ class CreatePoolModalViewModel extends Observer {
     }
 
     dispose() {
+        action$.onNext(dropHostsView(formName));
         this.form.dispose();
         super.dispose();
     }

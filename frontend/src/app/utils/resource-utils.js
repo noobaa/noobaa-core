@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { deepFreeze, isFunction } from 'utils/core-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
 import numeral from 'numeral';

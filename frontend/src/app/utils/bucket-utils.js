@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { deepFreeze, isUndefined } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
 
@@ -43,7 +45,7 @@ const bucketStateToIcon = deepFreeze({
         name: 'problem'
     },
     APPROUCHING_QOUTA: {
-        tooltip: 'Approuching configured quota',
+        tooltip: 'Approaching configured quota',
         css: 'warning',
         name: 'problem'
     },

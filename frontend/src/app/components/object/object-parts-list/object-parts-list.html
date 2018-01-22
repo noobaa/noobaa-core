@@ -1,10 +1,19 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row content-middle alt-bg pad push-next">
-    <h3 class="heading3 push-next greedy">
-        Part count for this file:
-        {{count}}
-    </h3>
+<div class="row content-middle alt-bg pad">
+    <div class="column greedy push-next">
+        <h3 class="heading3">
+            Part count for this file:
+            {{partCount}}
+        </h3>
+        <span class="row">
+            File\'s bucket policy: {{placementType}}
+            <vr class="push-both-half"></vr>
+            Data resiliency type: {{resilinecySummary}}
+            <vr class="push-both-half"></vr>
+            Number of resources: {{resourceCount}}
+        </span>
+    </div>
 
     <div class="column push-next" ko.tooltip="downloadTooltip">
         <a class="btn" download
@@ -24,33 +33,78 @@
     </div>
 </div>
 
-<ul class="part-list list-no-style column greedy" ko.foreach="rows">
-    <li>
-        <div class="row content-middle" ko.click="toggleExpend">
-            <svg-icon class="push-next"
-                params="name: stateIcon.name"
-                ko.css="stateIcon.css",
-                ko.tooltip="stateIcon.tooltip">
-            </svg-icon>
-            <div class="greedy">
-                {{label}}
+<loading-indicator class="align-middle greedy push-prev"
+    ko.visible="!partsLoaded()"
+></loading-indicator>
+
+<div class="row greedy no-overflow"
+    ko.css.expanded="isRowSelected"
+    ko.visible="partsLoaded"
+>
+    <ul class="part-list greedy list-no-style column" ko.foreach="rows">
+        <li class="row content-middle border-bottom part-row"
+            ko.css.selected="isSelected"
+            ko.click="onMoreDetails"
+        >
+            <div class="row content-middle part-summary">
+                <svg-icon class="push-next-half"
+                    ko.css="state().css"
+                    ko.tooltip="state().tooltip"
+                    params="name: state().name"
+                ></svg-icon>
+                <span class="greedy" ko.text="summary"></span>
+                <a class="link alt-colors more-details-btn" href="#">
+                    More Details
+                </a>
             </div>
+        </li>
+    </ul>
 
-            <button class="expand-btn btn-flat rotate no-outline"
-                    ko.css="{ 'deg-90': !isExpended() }">
-                <svg-icon class="expand-icon icon-small" params="
-                    name: 'chevron'
-                "></svg-icon>
-            </button>
+    <section class="column details-pane">
+        <div class="column greedy hpad no-wrap" ko.with="partDetails">
+            <div class="row content-middle">
+                <h2 class="heading3 greedy push-next">Part Destribution Details</h2>
+                <button class="icon-btn no-outline" ko.click="onX">
+                    <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
+                </button>
+            </div>
+            <hr />
+            <div class="greedy block-tables" ko.foreach="blockTables">
+                <section class="column">
+                    <div class="row content-middle push-next-half">
+                        <p class="row greedy push-next">
+                            <span class="highlight push-next-half">{{label}}:</span>
+                            {{policy}}
+                            <!-- ko if: resources -->
+                            | Resides on
+                            <span ko.text="resources().text"
+                                ko.tooltip="resources().tooltip"
+                            ></span>
+                            <!-- /ko -->
+                        </p>
+                        <svg-icon class="icon-small"
+                            ko.visible="tooltip().text"
+                            ko.tooltip="tooltip"
+                            params="name: 'question'"
+                        ></svg-icon>
+                    </div>
+
+                    <data-table class="alt-bg blocks-table" params="
+                        columns: columns,
+                        data: rows,
+                    ">
+                        <template name="marking">
+                            <span ko.text="$data"></span>
+                        </template>
+                    </data-table>
+                </section>
+            </div>
         </div>
+    </section>
+</div>
 
-        <section class="column" ko.expand="isExpended">
-            <data-table class="alt-bg push-next blocks-table" params="
-                columns: columns,
-                data: blocks
-            "></data-table>
-        </section>
-    </li>
-</ul>
-
-<paginator params="page: page, itemCount: count, pageSize: pageSize"></paginator>
+<paginator params="
+    page: ko.pc(page, onPage.bind($component)),
+    itemCount: partCount,
+    pageSize: pageSize
+"></paginator>

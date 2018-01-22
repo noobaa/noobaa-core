@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import Ajv from 'ajv';
 import { isObject } from 'utils/core-utils';
 import { escapeQuotes } from 'utils/string-utils';

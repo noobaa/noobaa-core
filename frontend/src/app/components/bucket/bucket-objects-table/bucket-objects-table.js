@@ -4,7 +4,7 @@ import template from './bucket-objects-table.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle, hashCode } from 'utils/core-utils';
+import { deepFreeze, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { isBucketWritable } from 'utils/bucket-utils';
 import ObjectRowViewModel from './object-row';
@@ -14,8 +14,9 @@ import numeral from 'numeral';
 import {
     uploadObjects,
     requestLocation,
-    deleteBucketObject,
-    fetchBucketObjects
+    deleteObject,
+    fetchObjects,
+    dropObjectsView
 } from 'action-creators';
 
 const columns = deepFreeze([
@@ -82,26 +83,6 @@ function _getStateFilterOptions(counters) {
     ];
 }
 
-function _getObjectQuery(bucket, query) {
-    const {
-        stateFilter = 'ALL',
-        filter = '',
-        sortBy = 'key',
-        order = 1,
-        page = 0
-    } = query || {};
-
-    return {
-        bucket: bucket,
-        filter,
-        sortBy: sortBy,
-        order: Number(order),
-        skip: Number(page) * paginationPageSize,
-        limit: paginationPageSize,
-        stateFilter
-    };
-}
-
 function _getUploadTooltip(isOwner, isReadOnly, httpsNoCert) {
     if (!isOwner) {
         return {
@@ -131,7 +112,9 @@ class BucketObjectsTableViewModel extends Observer {
     constructor({ bucketName }) {
         super();
 
+        this.viewName = this.constructor.name;
         this.columns = columns;
+        this.baseRoute = '';
         this.bucketName = bucketName;
         this.currQuery = null;
         this.currBucket = null;
@@ -156,98 +139,116 @@ class BucketObjectsTableViewModel extends Observer {
             write: val => this.onSelectForDelete(val)
         });
 
+        this.observe(state$.get('location'), this.onLocation);
         this.observe(
             state$.getMany(
                 ['buckets', ko.unwrap(bucketName)],
                 'objects',
                 ['session', 'user'],
                 ['accounts'],
-                'location',
                 ['system', 'sslCert']
             ),
             this.onState
         );
     }
 
-    onState([bucket, bucketObjects, user, accounts, location, sslCert]) {
-        if (location.params.tab != 'objects') {
-            this.uploadButton({});
-            this.objectsLoaded(false);
-            return;
-        }
+    onLocation(location) {
+        const { bucket, system } = location.params;
+        const {
+            stateFilter = 'ALL',
+            filter = '',
+            sortBy = 'key',
+            order = 1,
+            page = 0,
+            selectedForDelete
+        } = location.query || {};
 
-        const query = _getObjectQuery(location.params.bucket, location.query);
-        const queryKey = hashCode(query);
-        const bucketObjectsQuery = bucketObjects.queries[queryKey];
+        const baseRoute = realizeUri(
+            routes.object,
+            { system, bucket: bucket },
+            {},
+            true
+        );
 
-        if (!bucket || !bucketObjects || !user || !accounts || !bucketObjectsQuery || !bucketObjectsQuery.result) {
+        const emptyMessage = (!filter && stateFilter === 'ALL') ?
+            'No files in bucket' :
+            'The current filter does not match any files in bucket';
+
+        this.baseRoute = baseRoute;
+        this.stateFilter(stateFilter);
+        this.filter(filter);
+        this.sorting({ sortBy, order: Number(order) });
+        this.page(Number(page));
+        this.selectedForDelete(selectedForDelete);
+        this.emptyMessage(emptyMessage);
+
+        action$.onNext(fetchObjects(
+            this.viewName,
+            {
+                bucket: bucket,
+                filter,
+                sortBy: sortBy,
+                order: Number(order),
+                skip: Number(page) * paginationPageSize,
+                limit: paginationPageSize,
+                stateFilter
+            },
+            location.hostname
+        ));
+    }
+
+    onState([bucket, bucketObjects, user, accounts, sslCert]) {
+        const queryKey = bucketObjects.views[this.viewName];
+        const query = bucketObjects.queries[queryKey];
+
+        if (!query || !query.result || !bucket || !user || !accounts) {
             this.uploadButton({});
             this.objectsLoaded(false);
             this.rows([]);
-        } else {
-            const account = accounts[user];
-            const { system } = location.params;
-            const { stateFilter = 'ALL', filter = '', sortBy = 'key' } = location.query;
-            const page = Number(location.query.page || 0);
-            const order = Number(location.query.order || 0);
-            const { counters, objects: queryObjects } = bucketObjectsQuery.result;
-            const s3Connection = account.hasS3Access ? {
-                accessKey: account.accessKeys.accessKey,
-                secretKey: account.accessKeys.secretKey,
-                endpoint: location.hostname
-            } :
-            null;
-            const rowParams = {
-                baseRoute: realizeUri(routes.object, { system, bucket: bucket.name }, {}, true),
-                deleteGroup: this.deleteGroup,
-                onDelete: this.onDeleteBucketObject.bind(this)
-            };
-            const modeFilterOptions = _getStateFilterOptions(counters);
-            const httpsNoCert = location.protocol === 'https' && !sslCert;
-            const isReadOnly = !isBucketWritable(bucket);
-            const uploadButton = {
-                disabled: !account.isOwner || isReadOnly || httpsNoCert,
-                tooltip: _getUploadTooltip(account.isOwner, isReadOnly, httpsNoCert)
-            };
-            const emptyMessage = (!filter && stateFilter === 'ALL') ?
-                'No files in bucket' :
-                'The current filter does not match any files in bucket';
-
-
-            const rows = queryObjects
-                .map((bucketObjectKey, i) => {
-                    const row = this.rows.get(i) || new ObjectRowViewModel(rowParams);
-                    const { bucket, key, uploadId } = bucketObjects.items[bucketObjectKey];
-                    row.onState(
-                        bucketObjects.items[bucketObjectKey],
-                        bucketObjectKey,
-                        !account.isOwner,
-                        [bucket, key, uploadId]
-                    );
-                    return row;
-                });
-
-            this.s3Connection = s3Connection;
-            this.stateFilterOptions(modeFilterOptions);
-            this.fileSelectorExpanded(false);
-            this.uploadButton(uploadButton);
-            this.pathname = location.pathname;
-            this.stateFilter(stateFilter);
-            this.filter(filter);
-            this.sorting({ sortBy, order: Number(order) });
-            this.page(page);
-            this.selectedForDelete(location.query.selectedForDelete);
-            this.objectCount(_getItemsCountByState(counters, stateFilter));
-            this.rows(rows);
-            this.objectsLoaded(true);
-            this.emptyMessage(emptyMessage);
+            return;
         }
 
-        if (this.currBucket !== bucket ||this.currQuery !== queryKey) {
-            this.currBucket = bucket;
-            this.currQuery = queryKey;
-            action$.onNext(fetchBucketObjects(query));
-        }
+        const account = accounts[user];
+        const { counters, items: queryObjects } = query.result;
+        const s3Connection = account.hasS3Access ? {
+            accessKey: account.accessKeys.accessKey,
+            secretKey: account.accessKeys.secretKey,
+            endpoint: location.hostname
+        } : null;
+        const rowParams = {
+            baseRoute: this.baseRoute,
+            deleteGroup: this.deleteGroup,
+            onDelete: this.onDeleteBucketObject.bind(this)
+        };
+        const modeFilterOptions = _getStateFilterOptions(counters);
+        const httpsNoCert = location.protocol === 'https' && !sslCert;
+        const isReadOnly = !isBucketWritable(bucket);
+        const uploadButton = {
+            disabled: !account.isOwner || isReadOnly || httpsNoCert,
+            tooltip: _getUploadTooltip(account.isOwner, isReadOnly, httpsNoCert)
+        };
+
+        const rows = queryObjects
+            .map((bucketObjectKey, i) => {
+                const row = this.rows.get(i) || new ObjectRowViewModel(rowParams);
+                const { bucket, key, uploadId } = bucketObjects.items[bucketObjectKey];
+                row.onState(
+                    bucketObjects.items[bucketObjectKey],
+                    bucketObjectKey,
+                    !account.isOwner,
+                    [bucket, key, uploadId]
+                );
+                return row;
+            });
+
+        this.s3Connection = s3Connection;
+        this.stateFilterOptions(modeFilterOptions);
+        this.fileSelectorExpanded(false);
+        this.uploadButton(uploadButton);
+        this.pathname = location.pathname;
+        this.objectCount(_getItemsCountByState(counters, this.stateFilter()));
+        this.rows(rows);
+        this.objectsLoaded(true);
     }
 
     onFilter(filter) {
@@ -311,12 +312,17 @@ class BucketObjectsTableViewModel extends Observer {
     }
 
     onDeleteBucketObject(bucket, key, uploadId) {
-        action$.onNext(deleteBucketObject(bucket, key, uploadId, this.s3Connection));
+        action$.onNext(deleteObject(bucket, key, uploadId, this.s3Connection));
     }
 
     uploadFiles(files) {
         action$.onNext(uploadObjects(ko.unwrap(this.bucketName), files, this.s3Connection));
         this.fileSelectorExpanded(false);
+    }
+
+    dispose() {
+        action$.onNext(dropObjectsView(this.viewName));
+        super.dispose();
     }
 }
 

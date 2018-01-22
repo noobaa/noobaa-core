@@ -4,7 +4,7 @@ import template from './bucket-data-placement-policy-form.html';
 import Observer from 'observer';
 import PlacementRowViewModel from './placement-row';
 import { state$, action$ } from 'state';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, flatMap } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getPlacementTypeDisplayName } from 'utils/bucket-utils';
 import ko from 'knockout';
@@ -78,7 +78,8 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
         );
 
         const { placement } = buckets[bucket];
-        const counters = placement.resources
+        const resourceNames = flatMap(placement.mirrorSets, ms => ms.resources);
+        const counters = resourceNames
             .reduce(
                 (counters, res) => {
                     ++counters[res.type];
@@ -92,7 +93,7 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
             CLOUD: cloudResources
         };
 
-        const rows = placement.resources
+        const rows = resourceNames
             .map((item, i) => {
                 const { type, name, usage } = item;
                 const resource = resources[type][name];

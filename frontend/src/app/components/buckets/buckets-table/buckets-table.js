@@ -5,7 +5,7 @@ import Observer from 'observer';
 import BucketRowViewModel from './bucket-row';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
-import { deepFreeze, createCompareFunc, throttle } from 'utils/core-utils';
+import { deepFreeze, flatMap, createCompareFunc, throttle } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { requestLocation, deleteBucket } from 'action-creators';
@@ -42,7 +42,7 @@ const columns = deepFreeze([
         type: 'resources-cell',
         sortable: true,
         compareKey: bucket => {
-            const { resources } = bucket .placement;
+            const resources = flatMap(bucket.placement.mirrorSets, ms => ms.resources);
             const useHosts = resources.some(res => res.type === 'HOSTS');
             const useCloud = resources.some(res => res.type === 'CLOUD');
             return Number(useHosts) + Number(useCloud);

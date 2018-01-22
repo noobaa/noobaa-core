@@ -1203,7 +1203,7 @@ module.exports = {
                 },
                 adminfo: {
                     type: 'object',
-                    required: ['pool_name', 'node_name', 'node_ip', 'online'],
+                    required: ['pool_name', 'node_name', 'node_ip', 'online', 'accessible'],
                     properties: {
                         node_name: {
                             type: 'string',
@@ -1218,6 +1218,9 @@ module.exports = {
                             type: 'string',
                         },
                         online: {
+                            type: 'boolean'
+                        },
+                        accessible: {
                             type: 'boolean'
                         },
                         in_cloud_pool: {

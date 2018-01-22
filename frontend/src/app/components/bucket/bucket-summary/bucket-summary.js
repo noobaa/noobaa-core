@@ -12,7 +12,7 @@ import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
 import numeral from 'numeral';
-import { deepFreeze, mapValues } from 'utils/core-utils';
+import { deepFreeze, flatMap, mapValues } from 'utils/core-utils';
 import { getBucketStateIcon, getPlacementTypeDisplayName } from 'utils/bucket-utils';
 
 const rawUsageTooltip = deepFreeze({
@@ -26,7 +26,8 @@ const dataUsageTooltip = deepFreeze({
 });
 
 function _getDataPlacementText(placement) {
-    const { policyType, resources } = placement;
+    const { policyType, mirrorSets } = placement;
+    const resources = flatMap(mirrorSets, ms => ms.resources);
     return `${
         getPlacementTypeDisplayName(policyType)
     } on ${
@@ -65,7 +66,7 @@ class BucketSummrayViewModel extends Observer {
         },
         {
             label: 'Available',
-            color: style['color5'],
+            color: style['color15'],
             value: ko.observable()
         },
         {
@@ -118,7 +119,7 @@ class BucketSummrayViewModel extends Observer {
             value: ko.observable()
         },
         {
-            label: 'Bucket Usage (Replicated)',
+            label: 'Bucket Usage with Resiliency',
             color: style['color13'],
             value: ko.observable()
         },
@@ -143,6 +144,7 @@ class BucketSummrayViewModel extends Observer {
         width: 60,
         height: 60,
         draw: this.onDrawBars.bind(this),
+        disabled: ko.observable(),
         bars: this.dataUsage
             .map(item => new BarViewModel(item.color))
     };
@@ -170,8 +172,9 @@ class BucketSummrayViewModel extends Observer {
         const rawUsageTotal = formatSize(storage.total);
         const dataLastUpdateTime = moment(storage.lastUpdate).fromNow();
         const storageLastUpdateTime = moment(data.lastUpdate).fromNow();
-        const reducedRatio = data.size > 0 ? data.sizeReduced / data.size : 0;
-        const dataOptimization = numeral(1 - reducedRatio).format('%');
+        const hasSize = data.size > 0;
+        const reducedRatio = hasSize ? data.sizeReduced / data.size : 0;
+        const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
 
         this.state(getBucketStateIcon(bucket));
         this.dataPlacement(_getDataPlacementText(placement));
@@ -200,8 +203,9 @@ class BucketSummrayViewModel extends Observer {
         this.rawUsageChartTooltip.text.updateTime(storageLastUpdateTime);
         this.rawUsageTotal(rawUsageTotal);
 
-        this.barChart.bars[0].onState(data.size > 0 ? 1 : 0);
-        this.barChart.bars[1].onState(reducedRatio);
+        this.barChart.disabled(!hasSize);
+        this.barChart.bars[0].onState(1, hasSize);
+        this.barChart.bars[1].onState(hasSize ? reducedRatio : 1, hasSize);
 
         this.bucketLoaded(true);
     }

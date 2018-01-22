@@ -1,75 +1,81 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './object-summary.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import style from 'style';
+import { state$ } from 'state';
 import { toBytes } from 'utils/size-utils';
-import { sumBy } from 'utils/core-utils';
+import { pick } from 'utils/core-utils';
+import { getObjectId } from 'utils/object-utils';
+import { timeShortFormat } from 'config';
+import moment from 'moment';
+import numeral from 'numeral';
 
-class ObjectSummaryViewModel extends BaseViewModel {
-    constructor({ obj }) {
+class ObjectSummaryViewModel extends Observer {
+    objectLoaded = ko.observable();
+    objectKey = '';
+    bucketName = ko.observable();
+    contentType = ko.observable();
+    creationTime = ko.observable();
+    lastReadTime = ko.observable();
+    readCount = ko.observable();
+    originalSize = ko.observable();
+    sizeOnDisk = ko.observable();
+    size = [
+        {
+            label: 'Original size',
+            color: style['color7'],
+            tooltip: 'The original size of the file as written prior to optimization or data resiliency',
+            value: this.originalSize
+        },
+        {
+            label: 'Actual Used Storage',
+            color: style['color13'],
+            tooltip: 'The actual raw usage of this file includes the data resiliency replications or fragments after compression',
+            value: this.sizeOnDisk
+        }
+    ];
+    chartValues = this.size
+        .map(item => ({
+            label: item.label,
+            parts: [
+                pick(item, ['color', 'value'])
+            ]
+        }));
+
+    constructor(params) {
         super();
 
-        this.dataReady = ko.pureComputed(
-            () => !!obj()
+        const { bucketName, objKey } = ko.deepUnwrap(params);
+        const objId = getObjectId(bucketName, objKey);
+
+        this.observe(
+            state$.get('objects', 'items', objId),
+            this.onState
         );
+    }
 
-        this.bucketName = ko.pureComputed(
-            () => obj() && obj().bucket
-        );
+    onState(object) {
+        if (!object) {
+            this.objectLoaded(false);
+            return;
+        }
 
-        this.contentType = ko.pureComputed(
-            () => obj() && obj().content_type
-        );
+        const creationTime = moment(object.createTime).format(timeShortFormat);
+        const lastReadTime = object.lastReadTime ?
+            moment(object.lastRead).format(timeShortFormat) :
+            'File not read';
+        const readCount = numeral(object.readCount).format(',');
 
-        this.creationTime = ko.pureComputed(
-            () => obj() && obj().create_time
-        ).extend({
-            formatTime: true
-        });
-
-        this.lastRead = ko.pureComputed(
-            () => (obj() && obj().stats.last_read) || undefined
-        ).extend({
-            formatTime: { notAvailableText: 'File not read' }
-        });
-
-        this.readCount = ko.pureComputed(
-            () => obj() ? obj().stats.reads : 0
-        );
-
-        this.barChartData  = [
-            {
-                label: 'Original size',
-                color: style['color7'],
-                tooltip: 'The original size of the file as written prior to optimization or data resiliency',
-                parts: [
-                    {
-                        value: ko.pureComputed(() => toBytes(obj().size)),
-                        color: style['color7']
-                    }
-                ]
-            },
-            {
-                label: 'Actual Used Storage',
-                color: style['color13'],
-                tooltip: 'The actual raw usage of this file includes the data resiliency replications or fragments after compression',
-                parts: [
-                    {
-                        value: ko.pureComputed(() => toBytes(obj().capacity_size)),
-                        color: style['color13']
-                    }
-                ]
-            }
-        ];
-
-        this.barsValues = this.barChartData.map(({ label, color, tooltip, parts }) => ({
-            label,
-            color,
-            tooltip,
-            value: sumBy(parts, ({ value }) => value())
-        }));
+        this.bucketName(object.bucket);
+        this.contentType(object.contentType);
+        this.creationTime(creationTime);
+        this.lastReadTime(lastReadTime);
+        this.readCount(readCount);
+        this.originalSize(toBytes(object.size.original));
+        this.sizeOnDisk(toBytes(object.size.onDisk || 0));
+        this.objectLoaded(true);
     }
 }
 

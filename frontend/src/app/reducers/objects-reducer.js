@@ -1,206 +1,126 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
+import { paginationPageSize } from 'config';
+import { keyBy } from 'utils/core-utils';
+import { getObjectId } from 'utils/object-utils';
 import {
-    hashCode,
-    createCompareFunc,
-    flatMap,
-    keyBy,
-    mapValues
-} from 'utils/core-utils';
+    initialState,
+    handleFetch,
+    handleFetchCompleted,
+    handleFetchFailed,
+    handleDropView,
+    handleRemoveItem
+} from 'utils/item-cache-utils';
 import {
-    FETCH_BUCKET_OBJECTS,
-    COMPLETE_FETCH_BUCKET_OBJECTS,
-    FAIL_FETCH_BUCKET_OBJECTS,
-    COMPLETE_DELETE_BUCKET_OBJECT
+    FETCH_OBJECTS,
+    COMPLETE_FETCH_OBJECTS,
+    FAIL_FETCH_OBJECTS,
+    COMPLETE_DELETE_OBJECT,
+    DROP_OBJECTS_VIEW
 } from 'action-types';
 
-const inMemoryQueryLimit = 3;
-
-// ------------------------------
-// Initial State
-// ------------------------------
-const initialState = {
-    queries: {},
-    items: {}
-};
+const inMemoryQueryLimit = 10;
+const inMemoryHostLimit = paginationPageSize * inMemoryQueryLimit;
 
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onFetchBucketObjects(state, { payload }) {
-    const { query, timestamp } = payload;
-    const queryKey = _generateQueryKey(query);
-    const newState = {
-        ...state,
-        queries: {
-            ...state.queries,
-            [queryKey]: {
-                ...(state.queries[queryKey] || {}),
-                selector: query,
-                fetching: true,
-                error: false,
-                timestamp
-            }
-        }
-    };
 
-    return _clearOverallocated(
-        newState,
-        inMemoryQueryLimit
+function onFetchObjects(state, { payload }) {
+    const { view, query, timestamp } = payload;
+    return handleFetch(
+        state,
+        query,
+        view,
+        timestamp,
+        inMemoryQueryLimit,
+        inMemoryHostLimit
     );
 }
 
-function onCompleteFetchBucketObjects(state, { payload }) {
-    const { objects, counters } = payload.response;
-    const queryKey = _generateQueryKey(payload.query);
-    const query = state.queries[queryKey];
-    const mappedObjects = objects.map(_mapObject);
-    const queries = {
-        ...state.queries,
-        [queryKey]: {
-            ...query,
-            fetching: false,
-            result: {
-                objects: mappedObjects.map(_getObjectId),
-                counters: {
-                    optimal: counters.by_mode.completed,
-                    uploading: counters.by_mode.uploading
-                }
-            }
-        }
-    };
-
-    return {
-        ...state,
-        queries,
-        items: {
-            ...state.items,
-            ...keyBy(
-                mappedObjects,
-                _getObjectId
-            )
-        }
-    };
-}
-
-function onFailFetchBucketObjects(state, { payload }) {
-    const { query } = payload;
-    const queryKey = _generateQueryKey(query);
-
-    return {
-        ...state,
-        queries: {
-            ...state.queries,
-            [queryKey]: {
-                ...state.queries[queryKey],
-                fetching: false,
-                error: true
-            }
-        }
-    };
-}
-
-function onCompleteDeleteBucketObject(state, { payload }) {
-    const objKey = _getObjectId(payload);
-    const { [objKey]: deleteObject, ...items } = state.items;
-
-    const queries = mapValues(
-        state.queries,
-        query => ({
-            ...query,
-            result: _removeObjectFromResult(query.result, objKey, deleteObject.mode)
-        })
+function onCompleteFetchObjects(state, { payload }) {
+    const { response } = payload;
+    const items = keyBy(
+        response.objects,
+        obj => getObjectId(obj.bucket, obj.key, obj.uploadId),
+        _mapObject
     );
 
-    return {
-        ...state,
-        queries,
-        items
+    const counters = {
+        optimal: response.counters.by_mode.completed,
+        uploading: response.counters.by_mode.uploading
     };
+
+    return handleFetchCompleted(
+        state,
+        payload.query,
+        items,
+        { counters },
+        inMemoryQueryLimit,
+        inMemoryHostLimit
+    );
+}
+
+function onFailFetchObjects(state, { payload }) {
+    return handleFetchFailed(state, payload.query);
+}
+
+function onCompleteDeleteObject(state, { payload }) {
+    const { bucket, key, uploadId } = payload;
+    return handleRemoveItem(
+        state,
+        getObjectId(bucket, key, uploadId),
+        (extras, obj) => {
+            const counterName = obj.mode.toLowerCase();
+            const updatedCounter = extras.counters[counterName] - 1;
+            const counters = {
+                ...extras.counters,
+                [counterName]: updatedCounter
+            };
+            return { counters };
+        }
+    );
+}
+
+function onDropObjectsView(state, { payload }) {
+    return handleDropView(state, payload.view);
 }
 
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _generateQueryKey(query) {
-    return hashCode(query);
-}
-
-function _getObjectId({ bucket, key, uploadId }) {
-    return uploadId ? `${bucket}:${key}:${uploadId}` : `${bucket}:${key}`;
-}
 
 function _mapObject(obj) {
-    const {
-        obj_id,
-        bucket,
-        key,
-        size,
-        create_time: createTime,
-        upload_started
-    } = obj;
-
-    const mode = upload_started ? 'UPLOADING' : 'OPTIMAL';
-    const uploadId = mode === 'UPLOADING' ? obj_id : undefined;
-
-    return { bucket, key, size, createTime, mode, uploadId};
-}
-
-function _clearOverallocated(state, queryLimit) {
-    const list = Object.values(state.queries);
-    let overallocatedCount = Math.max(0, list.length - queryLimit);
-    if (overallocatedCount <= 0) return state;
-
-    const compareOp = createCompareFunc(
-        query => query.timestamp, 1
-    );
-
-    const queryList = list
-        .sort(compareOp)
-        .slice(overallocatedCount);
-
-    const items = {};
-    new Set(flatMap(queryList, query => query.result ? query.result.objects : []))
-        .forEach(id => items[id] = state.items[id]);
-
-    const queries = keyBy(
-        queryList,
-        query => _generateQueryKey(query.selector)
-    );
+    const mode = obj.upload_started ? 'UPLOADING' : 'OPTIMAL';
+    const uploadId = mode === 'UPLOADING' ? obj.obj_id : undefined;
+    const { reads = 0, last_read } = obj.stats || {};
 
     return {
-        ...state,
-        queries,
-        items
+        bucket: obj.bucket,
+        key: obj.key,
+        uploadId: uploadId,
+        mode: mode,
+        size: {
+            original: obj.size,
+            onDisk: obj.capacity_size
+        },
+        contentType: obj.content_type,
+        createTime: obj.create_time,
+        lastReadTime: last_read,
+        readCount: reads,
+        partCount: obj.num_parts,
+        s3SignedUrl: obj.s3_signed_url
     };
-}
-
-function _removeObjectFromResult(result, objKey, objMode) {
-    if (!result) return result;
-    const index = result.objects.findIndex(objId => objKey === objId);
-
-    if (index === -1) return result;
-
-    const counterName = objMode.toLowerCase();
-
-    const objects = result.objects
-        .filter((_, i) => index !== i);
-
-    const counters = {
-        ...result.counters,
-        [counterName]: result.counters[counterName] - 1
-    };
-
-    return { counters, objects };
 }
 
 // ------------------------------
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [FETCH_BUCKET_OBJECTS]: onFetchBucketObjects,
-    [COMPLETE_FETCH_BUCKET_OBJECTS]: onCompleteFetchBucketObjects,
-    [FAIL_FETCH_BUCKET_OBJECTS]: onFailFetchBucketObjects,
-    [COMPLETE_DELETE_BUCKET_OBJECT]: onCompleteDeleteBucketObject
+    [FETCH_OBJECTS]: onFetchObjects,
+    [COMPLETE_FETCH_OBJECTS]: onCompleteFetchObjects,
+    [FAIL_FETCH_OBJECTS]: onFailFetchObjects,
+    [COMPLETE_DELETE_OBJECT]: onCompleteDeleteObject,
+    [DROP_OBJECTS_VIEW]: onDropObjectsView
 });

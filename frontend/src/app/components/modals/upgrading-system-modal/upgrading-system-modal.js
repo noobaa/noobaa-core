@@ -104,6 +104,7 @@ class SystemUpgradingModalViewModel extends Observer {
 
     dispose() {
         clearInterval(this.tickHandle);
+        super.dispose();
     }
 }
 

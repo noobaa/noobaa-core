@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 export function validateName(name = '', existing) {
     return [
         {

@@ -19,7 +19,7 @@
     </section>
 
     <section class="column c6 push-both">
-        <div class="column align-middle">
+        <div class="column align-middle greedy">
             <div class="row content-middle push-next-half">
                 <h2 class="heading3 greedy push-next">Storage Availability</h2>
                 <p class="row remark content-middle">
@@ -32,22 +32,25 @@
                 format: 'size'
             "></chart-legend>
 
-            <bar class="push-both align-start" params="
-                values: availablity,
-                limits: formatSize,
-                teeth: 5,
-                minRatio: 0,
-                markers: availablityMarkers,
-                width: 444
-            "></bar>
+            <div class="greedy row">
+                <bar class="align-middle" params="
+                    values: availablity,
+                    limits: formatSize,
+                    teeth: 5,
+                    minRatio: 0,
+                    markers: availablityMarkers,
+                    width: 444
+                "></bar>
+            </div>
         </div>
     </section>
 
     <section class="c3 column">
         <div class="greedy borders pad column">
             <div class="row content-middle greedy">
-                <canvas class="push-next"
+                <canvas class="usage-chart push-next"
                     ko.tooltip="dataUsageChartTooltip"
+                    ko.css.disabled="barChart.disabled"
                     ko.canvas="barChart"
                 ></canvas>
                 <div class="column">

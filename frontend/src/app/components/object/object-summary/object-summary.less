@@ -1,13 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
 object-summary {
-    display: block;
+    .column();
+    position: relative;
+    min-height: 186px;
 
-    .details-label {
-        width: 100px;
+    .summary  {
+        opacity: 0;
+
+        &.visible {
+            opacity: 1;
+            transition: opacity 250ms ease-out;
+        }
     }
-
-    bars-chart {
-        margin:auto;
-    };
 }

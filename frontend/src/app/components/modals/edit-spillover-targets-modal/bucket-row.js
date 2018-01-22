@@ -1,7 +1,7 @@
 import ko from 'knockout';
 import { getBucketStateIcon, getPlacementTypeDisplayName} from 'utils/bucket-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { pick } from 'utils/core-utils';
+import { pick, flatMap } from 'utils/core-utils';
 
 export default class BucketRowViewModel {
     constructor({ onToggle }) {
@@ -21,7 +21,8 @@ export default class BucketRowViewModel {
     }
 
     onBucket(bucket, selected) {
-        const { policyType, resources } = bucket.placement;
+        const { policyType, mirrorSets } = bucket.placement;
+        const resources = flatMap(mirrorSets, ms => ms.resources);
         const placement = {
             tooltip: resources.map(resource => resource.name),
             text: `${

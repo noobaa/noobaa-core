@@ -42,7 +42,7 @@ export default class ObjectRowViewModel {
 
     onState(obj, id, isNotOwner, onDeleteArgs) {
         const deleteTooltip = isNotOwner ? 'This operation is only available for the system owner' : '';
-        const size = obj.uploadId ? '...' : formatSize(obj.size);
+        const size = obj.uploadId ? '...' : formatSize(obj.size.original);
         const creationTime = moment(obj.createTime).format(timeShortFormat);
         const href = !obj.uploadId ? realizeUri(this.baseRoute, { object: obj.key }) : undefined;
         const key = {

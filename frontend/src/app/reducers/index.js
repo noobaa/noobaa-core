@@ -22,6 +22,7 @@ import topologyReducer from './topology-reducer';
 import hostPartsReducer from './host-parts-reducer';
 import cloudTargetsReducer from './cloud-targets-reducer';
 import objectsReducer from './objects-reducer';
+import objectPartsReducer from './object-parts-reducer';
 import storageHistoryReducer from './storage-history-reducer';
 import systemReducer from './system-reducer';
 
@@ -43,10 +44,11 @@ export default combineReducers({
     hosts: hostsReducer,
     hostParts: hostPartsReducer,
     accounts: accountsReducer,
-    objectUploads: objectUploadsReducer,
     topology: topologyReducer,
     cloudTargets: cloudTargetsReducer,
     objects: objectsReducer,
+    objectUploads: objectUploadsReducer,
+    objectParts: objectPartsReducer,
     storageHistory: storageHistoryReducer,
     system: systemReducer
 });

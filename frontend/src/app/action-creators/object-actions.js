@@ -1,53 +1,85 @@
 import {
-    FETCH_BUCKET_OBJECTS,
-    COMPLETE_FETCH_BUCKET_OBJECTS,
-    FAIL_FETCH_BUCKET_OBJECTS,
-    DELETE_BUCKET_OBJECT,
-    COMPLETE_DELETE_BUCKET_OBJECT,
-    FAIL_DELETE_BUCKET_OBJECT
+    FETCH_OBJECTS,
+    COMPLETE_FETCH_OBJECTS,
+    FAIL_FETCH_OBJECTS,
+    DELETE_OBJECT,
+    COMPLETE_DELETE_OBJECT,
+    DROP_OBJECTS_VIEW,
+    FAIL_DELETE_OBJECT,
+    FETCH_OBJECT_PARTS,
+    COMPLETE_FETCH_OBJECT_PARTS,
+    FAIL_FETCH_OBJECT_PARTS
 } from 'action-types';
 
-export function fetchBucketObjects(query) {
+export function fetchObjects(view, query, s3Endpoint) {
     const timestamp = Date.now();
 
     return {
-        type: FETCH_BUCKET_OBJECTS,
-        payload: { query, timestamp }
+        type: FETCH_OBJECTS,
+        payload: { view, query, timestamp, s3Endpoint }
     };
 }
 
-export function completeFetchBucketObjects(query, response) {
+export function completeFetchObjects(query, response) {
     return {
-        type: COMPLETE_FETCH_BUCKET_OBJECTS,
+        type: COMPLETE_FETCH_OBJECTS,
         payload: { query , response }
     };
 }
 
-export function failFetchBucketObjects(query, error) {
+export function failFetchObjects(query, error) {
     return {
-        type: FAIL_FETCH_BUCKET_OBJECTS,
+        type: FAIL_FETCH_OBJECTS,
         payload: { query, error }
     };
 }
 
-export function deleteBucketObject(bucket, key, uploadId, accessData){
+export function deleteObject(bucket, key, uploadId, accessData){
     return {
-        type: DELETE_BUCKET_OBJECT,
+        type: DELETE_OBJECT,
         payload: { bucket, key, uploadId, accessData }
     };
 }
 
-export function completeDeleteBucketObject(bucket, key, uploadId) {
+export function completeDeleteObject(bucket, key, uploadId) {
     return {
-        type: COMPLETE_DELETE_BUCKET_OBJECT,
+        type: COMPLETE_DELETE_OBJECT,
         payload: { bucket, key, uploadId }
     };
 }
 
-export function failDeleteBucketObject(bucket, key, uploadId, error) {
+export function failDeleteObject(bucket, key, uploadId, error) {
     return {
-        type: FAIL_DELETE_BUCKET_OBJECT,
+        type: FAIL_DELETE_OBJECT,
         payload: { bucket, key, uploadId, error }
 
+    };
+}
+
+export function dropObjectsView(view) {
+    return {
+        type: DROP_OBJECTS_VIEW,
+        payload: { view }
+    };
+}
+
+export function fetchObjectParts(query) {
+    return {
+        type: FETCH_OBJECT_PARTS,
+        payload: query
+    };
+}
+
+export function completeFetchObjectParts(query, parts) {
+    return {
+        type: COMPLETE_FETCH_OBJECT_PARTS,
+        payload: { query, parts }
+    };
+}
+
+export function failFetchObjectParts(query, error) {
+    return {
+        type: FAIL_FETCH_OBJECT_PARTS,
+        payload: { query, error }
     };
 }

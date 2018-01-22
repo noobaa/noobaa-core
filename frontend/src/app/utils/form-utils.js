@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { mapValues } from './core-utils';
 
 function _getFieldProp(form, fieldName, propName) {

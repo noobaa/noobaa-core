@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 export function splitIPRange(range) {
     const sides = range.split('-');
     const start = sides[0].trim();

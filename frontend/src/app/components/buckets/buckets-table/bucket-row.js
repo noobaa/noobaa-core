@@ -2,7 +2,7 @@
 
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, flatMap } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { formatSize } from 'utils/size-utils';
 import {
@@ -27,19 +27,23 @@ const resourceGroupMetadata = deepFreeze({
     }
 });
 
-function _mapResourceGroup(resources, type) {
-    const { icon, tooltipTitle } = resourceGroupMetadata[type];
-    const group = resources.filter(res => res.type === type);
-    const hasResources = group.length > 0;
-    const tooltipText = hasResources ?
-        { title: tooltipTitle, list: group.map(res => res.name) } :
-        `No ${tooltipTitle.toLowerCase()}`;
+function _mapResourceGroups(placement) {
+    const resources = flatMap(placement.mirrorSets, ms => ms.resources);
+    return Object.keys(resourceGroupMetadata)
+        .map(type => {
+            const { icon, tooltipTitle } = resourceGroupMetadata[type];
+            const group = resources.filter(res => res.type === type);
+            const hasResources = group.length > 0;
+            const tooltipText = hasResources ?
+                { title: tooltipTitle, list: group.map(res => res.name) } :
+                `No ${tooltipTitle.toLowerCase()}`;
 
-    return {
-        icon: icon,
-        lighted: hasResources > 0,
-        tooltip: { text: tooltipText }
-    };
+            return {
+                icon: icon,
+                lighted: hasResources > 0,
+                tooltip: { text: tooltipText }
+            };
+        });
 }
 
 export default class BucketRowViewModel {
@@ -80,16 +84,13 @@ export default class BucketRowViewModel {
             }
         };
 
-        const resources  = ['HOSTS', 'CLOUD']
-            .map(type => _mapResourceGroup(bucket.placement.resources, type));
-
         const spillover = formatSize(bucket.spillover ? bucket.spillover.usage : 0);
 
         this.state(getBucketStateIcon(bucket, 'start'));
         this.name(name);
         this.objectCount(numeral(bucket.objectCount).format('0,0'));
         this.placementPolicy(getPlacementTypeDisplayName(bucket.placement.policyType));
-        this.resources(resources);
+        this.resources(_mapResourceGroups(bucket.placement));
         this.spilloverUsage(spillover);
         this.cloudSync(getCloudSyncState(bucket));
         this.totalCapacity(bucket.storage.total);

@@ -1,4 +1,6 @@
-import { omitUndefined } from './core-utils';
+/* Copyright (C) 2016 NooBaa */
+
+import { omitUndefined } from 'utils/core-utils';
 
 export function mapApiStorage(storage, lastUpdate) {
     return omitUndefined({
@@ -12,3 +14,4 @@ export function mapApiStorage(storage, lastUpdate) {
         reserved: storage.reserved
     });
 }
+

@@ -66,7 +66,7 @@ export default {
                 type: 'object',
                 required: [
                     'policyType',
-                    'resources'
+                    'mirrorSets'
                 ],
                 properties: {
                     policyType: {
@@ -76,28 +76,43 @@ export default {
                             'MIRROR'
                         ]
                     },
-                    resources: {
+                    mirrorSets: {
                         type: 'array',
                         items: {
                             type: 'object',
                             required: [
-                                'type',
                                 'name',
-                                'usage'
+                                'resources'
                             ],
                             properties: {
-                                type: {
-                                    type: 'string',
-                                    enum: [
-                                        'HOSTS',
-                                        'CLOUD'
-                                    ]
-                                },
                                 name: {
                                     type: 'string'
                                 },
-                                usage: {
-                                    $ref: '#/def/common/size'
+                                resources: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        required: [
+                                            'type',
+                                            'name',
+                                            'usage'
+                                        ],
+                                        properties: {
+                                            type: {
+                                                type: 'string',
+                                                enum: [
+                                                    'HOSTS',
+                                                    'CLOUD'
+                                                ]
+                                            },
+                                            name: {
+                                                type: 'string'
+                                            },
+                                            usage: {
+                                                $ref: '#/def/common/size'
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -183,6 +198,9 @@ export default {
                         ]
                     },
                     name: {
+                        type: 'string'
+                    },
+                    mirrorSet: {
                         type: 'string'
                     },
                     usage: {

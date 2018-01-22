@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { deepFreeze, mapValues, sumBy, isNumber } from './core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import moment from 'moment';
@@ -454,6 +456,11 @@ const storageNodeModeToStateIcon = deepFreeze({
         name: 'problem',
         css: 'warning',
         tooltip: 'Some ports might be blocked'
+    },
+    STORAGE_NOT_EXIST: {
+        name: 'problem',
+        css:'error',
+        tooltip: 'Drive is unmounted'
     },
     OPTIMAL: {
         name: 'healthy',

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { deepFreeze } from './core-utils';
 
 const serviceToMeta = deepFreeze({

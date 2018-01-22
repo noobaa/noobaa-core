@@ -72,8 +72,8 @@ function blow_parts(params) {
     return P.resolve()
         .then(() => client.bucket.read_bucket({ name: params.bucket }))
         .then(bucket => {
-            const [tier] = bucket.tiering.tiers;
-            return client.tier.read_tier({ name: tier });
+            const [record] = bucket.tiering.tiers;
+            return client.tier.read_tier({ name: record.tier });
         })
         .then(tier => client.object.allocate_object_parts({
             obj_id: params.obj_id,

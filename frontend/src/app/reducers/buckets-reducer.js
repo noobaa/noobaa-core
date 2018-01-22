@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { keyByProperty, groupBy } from 'utils/core-utils';
+import { keyByProperty, groupBy, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { mapApiStorage } from 'utils/state-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
@@ -81,15 +81,22 @@ function _mapData(data){
 }
 
 function _mapPlacement(tier, typeByName, usageByName) {
-    const { data_placement: policyType, attached_pools } = tier;
-    const resources = attached_pools
-        .map(name => {
-            const type = typeByName[name];
-            const usage = usageByName[name] || 0;
-            return { type, name, usage };
+    const { data_placement: policyType, mirror_groups } = tier;
+    const mirrorSets = mirror_groups
+        .sort((group1, group2) => compare(group1.name, group2.name))
+        .map(group => {
+            const { name, pools } = group;
+            const resources = pools
+                .map(name => {
+                    const type = typeByName[name];
+                    const usage = usageByName[name] || 0;
+                    return { type, name, usage };
+                });
+
+            return { name, resources };
         });
 
-    return { policyType, resources };
+    return { policyType, mirrorSets };
 }
 
 function _mapResiliency(tier) {
@@ -111,11 +118,11 @@ function _mapResiliency(tier) {
 
 function _mapSpillover(tier, typeByName, usageByName) {
     if (!tier) return;
-
-    const name = tier.attached_pools[0];
+    const { name: mirrorSet, pools } = tier.mirror_groups[0];
+    const [name] = pools;
     const type = typeByName[name];
     const usage = usageByName[name] || 0;
-    return { type, name, usage };
+    return { type, name, mirrorSet, usage };
 }
 
 function _mapIO(stats = {}) {

@@ -75,10 +75,10 @@ class ChunkMapper {
 
 /**
  *
- * 
+ *
  * MirrorMapper
  *
- * 
+ *
  */
 class MirrorMapper {
 
@@ -101,7 +101,7 @@ class MirrorMapper {
 
         // to decide which mirror to use for the first writing mirror
         // we set a weight for each mirror_mapper based on the pool types
-        // when all are regular pools we 
+        // when all are regular pools we
         let regular_weight = 0;
         let redundant_weight = 0;
         for (let i = 0; i < regular_pools.length; ++i) {
@@ -316,7 +316,7 @@ class MirrorMapper {
  *
  * TierMapper
  *
- * 
+ *
  */
 class TierMapper {
 
@@ -388,12 +388,12 @@ class TierMapper {
 
     /**
      * Compare tier based on space, effort, and policy.
-     * 
+     *
      * Regular vs Spillover Decision Table:
      * -----------------------------------
      * The following table describes how we mix the considerations of space and effort to compare regular vs spillover tiers.
      * The row/column titles are matching the test_mapper.js cases.
-     * 
+     *
      * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
      * |                               | all_tiers_have_chunk | all_tiers_dont_have_chunk | only_regular_tier_has_chunk | only_spillover_tier_has_chunk |
      * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
@@ -464,7 +464,7 @@ class TierMapper {
  *
  * TieringMapper
  *
- * 
+ *
  */
 class TieringMapper {
 
@@ -544,10 +544,10 @@ function _get_cached_tiering_mapper(tiering) {
 }
 
 /**
- * 
+ *
  * map_chunk() the main mapper functionality
  * decide how to map a given chunk, either new, or existing
- * 
+ *
  * @param {Object} chunk The data chunk, with chunk.blocks populated
  * @param {Object} tiering The bucket tiering
  * @param {Object} tiering_status See node_allocator.get_tiering_status()
@@ -694,6 +694,7 @@ function get_block_info(chunk, frag, block, adminfo) {
             in_cloud_pool: Boolean(node.is_cloud_node),
             in_mongo_pool: Boolean(node.is_mongo_node),
             online: Boolean(node.online),
+            accessible: _is_block_accessible(block)
         };
     }
     return {

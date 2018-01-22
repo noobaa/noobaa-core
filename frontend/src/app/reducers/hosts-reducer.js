@@ -1,10 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { echo, mapValues, keyByProperty, createCompareFunc, hashCode, averageBy,
-    flatMap, deepFreeze, groupBy } from 'utils/core-utils';
-import { mapApiStorage } from 'utils/state-utils';
+import { keyByProperty, averageBy, deepFreeze, groupBy } from 'utils/core-utils';
 import { paginationPageSize } from 'config';
+import { mapApiStorage } from 'utils/state-utils';
+import {
+    initialState,
+    handleFetch,
+    handleFetchCompleted,
+    handleFetchFailed,
+    handleUpdateItem,
+    handleDropView,
+    handleRemoveItem
+} from 'utils/item-cache-utils';
 import {
     FETCH_HOSTS,
     COMPLETE_FETCH_HOSTS,
@@ -28,12 +36,6 @@ const eventToReasonCode = deepFreeze({
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = {
-    items: {},
-    queries: {},
-    views: {}
-};
-
 const initialHostDiagnosticsState = {
     collecting: false,
     error: false,
@@ -45,90 +47,42 @@ const initialHostDiagnosticsState = {
 // ------------------------------
 function onFetchHosts(state, { payload }) {
     const { view, query, timestamp } = payload;
-    const queryKey = _generateQueryKey(query);
-
-    const newState = {
-        ...state,
-        queries: {
-            ...state.queries,
-            [queryKey]: {
-                ...(state.queries[queryKey] || {}),
-                key: queryKey,
-                timestamp: timestamp,
-                fetching: true,
-                error: false
-            }
-        },
-        views: {
-            ...state.views,
-            [view]: queryKey
-        }
-    };
-
-    return _clearOverallocated(
-        newState,
+    return handleFetch(
+        state,
+        query,
+        view,
+        timestamp,
         inMemoryQueryLimit,
         inMemoryHostLimit
     );
 }
 
 function onCompleteFetchHosts(state, { payload }) {
-    const { hosts, counters } = payload.response;
+    const { query, response } = payload;
 
-    const queryKey = _generateQueryKey(payload.query);
-    const query = state.queries[queryKey];
-    const itemUpdates = keyByProperty(
-        hosts,
+    const items = keyByProperty(
+        response.hosts,
         'name',
         data => _mapDataToHost(state.items[data.name], data, query.timestamp)
     );
-    const items = {
-        ...state.items,
-        ...itemUpdates
+
+    const counters = {
+        nonPaginated: response.counters.non_paginated,
+        byMode: response.counters.by_mode
     };
 
-    const queries = {
-        ...state.queries,
-        [queryKey]: {
-            ...query,
-            fetching: false,
-            result: {
-                items: Object.keys(itemUpdates),
-                counters: {
-                    nonPaginated: counters.non_paginated,
-                    byMode: counters.by_mode
-                }
-            }
-        }
-    };
-
-    const newState = {
-        ...state,
-        items: mapValues(items, echo),
-        queries: mapValues(queries, echo)
-    };
-
-    return _clearOverallocated(
-        newState,
+    return handleFetchCompleted(
+        state,
+        payload.query,
+        items,
+        { counters },
         inMemoryQueryLimit,
         inMemoryHostLimit
     );
 }
 
 function onFailFetchHosts(state, { payload }) {
-    const queryKey = _generateQueryKey(payload.query);
-
-    return {
-        ...state,
-        queries: {
-            ...state.queries,
-            [queryKey]: {
-                ...state.queries[queryKey],
-                fetching: false,
-                error: true
-            }
-        }
-    };
+    return handleFetchFailed(state, payload.query);
 }
 
 function onCollectHostDiagnostics(state, { payload }) {
@@ -138,7 +92,11 @@ function onCollectHostDiagnostics(state, { payload }) {
         packageUri: ''
     };
 
-    return _updateHost(state, payload.host, { diagnostics });
+    return handleUpdateItem(
+        state,
+        payload.host,
+        { diagnostics }
+    );
 }
 
 function onCompleteCollectHostDiagnostics(state, { payload }) {
@@ -148,7 +106,11 @@ function onCompleteCollectHostDiagnostics(state, { payload }) {
         packageUri: payload.packageUri
     };
 
-    return _updateHost(state, payload.host, { diagnostics });
+    return handleUpdateItem(
+        state,
+        payload.host,
+        { diagnostics }
+    );
 }
 
 function onFailCollectHostDiagnostics(state, { payload }) {
@@ -158,7 +120,11 @@ function onFailCollectHostDiagnostics(state, { payload }) {
         packageUri: ''
     };
 
-    return _updateHost(state, payload.host, { diagnostics });
+    return handleUpdateItem(
+        state,
+        payload.host,
+        { diagnostics }
+    );
 }
 
 function onCompleteSetHostDebugMode(state, { payload }) {
@@ -167,40 +133,39 @@ function onCompleteSetHostDebugMode(state, { payload }) {
         timeLeft: undefined
     };
 
-    return _updateHost(state, payload.host, { debugMode });
+    return handleUpdateItem(
+        state,
+        payload.host,
+        { debugMode }
+    );
 }
 
 function onDropHostsView(state, { payload }) {
-    const { [payload.view]: _, ...views } = state.views;
-
-    return {
-        ...state,
-        views
-    };
+    return handleDropView(state, payload.view);
 }
 
 function onRemoveHost(state, { payload } ) {
-    const { [payload.host]: host, ...items } = state.items;
-    if (!host) return state;
-
-    const queries = mapValues(
-        state.queries,
-        query => _removeHostFromQuery(query, host)
+    const { host } = payload;
+    return handleRemoveItem(
+        state,
+        host,
+        extras => {
+            const { nonPaginated, byMode } = extras.counters;
+            const counters = {
+                nonPaginated: nonPaginated - 1,
+                byMode: {
+                    ...byMode,
+                    [host]: byMode[host] - 1
+                }
+            };
+            return { counters };
+        }
     );
-
-    return {
-        ...state,
-        items,
-        queries
-    };
 }
 
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _generateQueryKey(query) {
-    return hashCode(query);
-}
 
 function _mapDataToHost(host = {}, data, fetchTime) {
     const { storage_nodes_info, s3_nodes_info, os_info, ports, debug } = data;
@@ -324,91 +289,6 @@ function _mapEndpointService(endpointData, fetchTime) {
     }
 
     return serviceState;
-}
-
-function _updateHost(state, host, updates) {
-    const item = state.items[host];
-    if (!item) return state;
-
-    return {
-        ...state,
-        items: {
-            ...state.items,
-            [host]: {
-                ...item,
-                ...updates
-            }
-        }
-    };
-}
-
-function _clearOverallocated(state, queryLimit, hostLimit) {
-    let overallocatedQueries = Math.max(0, Object.keys(state.queries).length - queryLimit);
-    let overallocatedHosts = Math.max(0, Object.keys(state.items).length - hostLimit);
-
-    if (overallocatedQueries > 0 || overallocatedHosts > 0) {
-        const lockedQueries = new Set(Object.values(state.views));
-        const cadidateQueries =  Object.values(state.queries)
-            .filter(query => !lockedQueries.has(query.key) && !query.fetching)
-            .sort(createCompareFunc(query => query.timestamp));
-
-        // Remove queries or items
-        const queries = { ...state.queries };
-        const items = { ...state.items };
-        for (const query of cadidateQueries) {
-            queries[query.key] = undefined;
-            --overallocatedQueries;
-
-            const lockedHosts = new Set(flatMap(
-                Object.values(queries),
-                query => (query && !query.fetching) ? query.result.items : []
-            ));
-
-            for (const host of query.result.items) {
-                if (!lockedHosts.has(host)) {
-                    items[host] = undefined;
-                    --overallocatedHosts;
-                }
-            }
-
-            if (overallocatedQueries === 0 && overallocatedHosts <= 0) {
-                break;
-            }
-        }
-
-        // Use mapValues to omit undefined keys.
-        return {
-            ...state,
-            queries: mapValues(queries, echo),
-            items: mapValues(items, echo)
-        };
-
-    } else {
-        return state;
-    }
-}
-
-function _removeHostFromQuery(query, host) {
-    const { items, counters } = query.result;
-    const updatedItems = items.filter(item => item !== host.name);
-    if (updatedItems.length === items.length) return query;
-
-    const { nonPaginated, byMode } = counters;
-    const updatedCoutners = {
-        nonPaginated: nonPaginated - 1,
-        byMode: {
-            ...byMode,
-            [host.mode]: byMode[host.mode] - 1
-        }
-    };
-
-    return {
-        ...query,
-        result: {
-            items: updatedItems,
-            counters: updatedCoutners
-        }
-    };
 }
 
 // ------------------------------

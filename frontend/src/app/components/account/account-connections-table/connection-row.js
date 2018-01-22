@@ -40,9 +40,11 @@ const columns = deepFreeze([
 ]);
 
 export function _isBucketUsingResource(bucket, resource) {
-    return bucket.placement.resources.some(another => {
-        return another.name === resource;
-    });
+    return bucket.placement.mirrorSets.some(
+        mirrorSet => mirrorSet.resources.some(
+            another => another.name === resource
+        )
+    );
 }
 
 export function _isNamespaceBucketUsingResource(bucket, resource) {

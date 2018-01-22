@@ -1,74 +1,106 @@
 /* Copyright (C) 2016 NooBaa */
 
 object-parts-list {
-    .column();
-    .greedy();
+    display: block;
 
     .part-list {
-        position: relative;
+        width: 420px;
+        margin: (@gutter/2 - 4px) 0;
         overflow: auto;
 
-        > li {
+        .part-row {
+            @height: 44px;
+
             box-sizing: content-box;
             padding: 0 @gutter;
-            line-height: 44px;
+            min-height: @height;
+            cursor: @cursor-pointer;
 
-            + li {
-                border-top: 1px solid @color15;
+            svg-icon {
+                min-width: 24px;
             }
 
-            > .row {
-                cursor: @cursor-pointer;
+            > div {
+                width: 100%;
+                white-space: nowrap;
             }
-        }
 
-    }
+            .more-details-btn {
+                display: none;
+            }
 
-    .blocks-table {
-        display: block;
-        text-align: center;
-        width: 100%;
+            &.selected {
+                color: @color6;
+                background-color: fadeout(@color6, 95%);
+            }
 
-        .link() {
-            a {
-                color: @color7;
+            &:hover {
+                background-color: fadeout(@color6, 91%);
 
-                &[href] {
-                    color: @color9;
+                .more-details-btn {
+                    display: block;
                 }
             }
         }
+    }
 
-        td {
-            padding: 0 @gutter/2;
+    .details-pane {
+        width: calc(~"100% - 420px");
+        margin-right: calc(~"420px - 100%");
+        transition: margin 750ms ease;
+
+        > div {
+            margin: @gutter/2;
+        }
+    }
+
+    .block-tables {
+        overflow-y: auto;
+        padding-right: @gutter/2;
+        padding-top: 4px;
+        padding-bottom: 4px;
+
+        > section {
+            padding: @gutter 0;
         }
 
-        .state-col {
-            min-width: 48px;
+        data-table {
+            .state-col {
+                min-width: 46px;
+            }
+
+            .marking-col {
+                text-align: left;
+                width: 100%;
+            }
+
+            .resource-col {
+                .no-wrap();
+                min-width: 250px;
+                max-width: 250px
+            }
+
+            tbody .marking-col > span {
+                padding: @gutter/4 @gutter/2;
+                color: @color6;
+                background-color: @color15;
+            }
+        }
+    }
+
+    .expanded {
+        .part-row:hover .more-details-btn {
+            display: none;
         }
 
-        .replica-col {
-            min-width: 140px;
-            text-align: left;
-            width: 100%;
+        .part-row > div {
+            width: 380px;
+            white-space: normal;
         }
 
-        .resource-type-col {
-            min-width: 120px;
-        }
-
-        .replica-location-col {
-            min-width: 140px;
-            max-width: 140px;
-            white-space: nowrap;
-
-            .link();
-        }
-
-        .node-col {
-            min-width: 230px;
-
-            .link();
+        .details-pane {
+            .border-left();
+            margin-right: 0;
         }
     }
 }

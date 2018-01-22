@@ -5,7 +5,7 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
-import { deepFreeze, pick } from 'utils/core-utils';
+import { deepFreeze, pick, flatMap } from 'utils/core-utils';
 import { getFieldValue } from 'utils/form-utils';
 import ko from 'knockout';
 import {
@@ -106,7 +106,8 @@ class EditBucketPlacementModalViewModel extends Observer {
         this.rows(rows);
 
         if (!form) {
-            const { policyType, resources } = bucket.placement;
+            const { policyType, mirrorSets } = bucket.placement;
+            const resources = flatMap(mirrorSets, ms => ms.resources);
             const selectedResources = resources
                 .map(record => pick(record, ['type', 'name']));
 

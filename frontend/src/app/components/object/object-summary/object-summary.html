@@ -1,17 +1,21 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row" data-bind="if: dataReady">
+<div class="fill row" ko.visible="!objectLoaded()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
+
+<div class="row" ko.if="objectLoaded">
     <section class="c3 column borders pad">
         <div class="greedy row content-middle">
             <span class="c4 highlight push-next">Bucket name:</span>
-            <span class="c8 break-words" data-bind="text: bucketName"></span>
+            <span class="c8 break-words" ko.text="bucketName"></span>
         </div>
 
         <hr />
 
         <div class="greedy row content-middle">
             <span class="c4 highlight push-next">Content-Type:</span>
-            <span class="c8 break-words" data-bind="text: contentType"></span>
+            <span class="c8 break-words" ko.text="contentType"></span>
         </div>
     </section>
 
@@ -19,32 +23,32 @@
     <section class="c6 column push-both">
         <div class="row align-middle">
             <chart-legend class="pad" params="
-                items: barsValues,
+                items: size,
                 caption: 'File Size',
                 format: 'size'
             "></chart-legend>
-            <bar-chart class="greedy" params="values: barChartData"></bar-chart>
+            <bar-chart class="greedy" params="values: chartValues"></bar-chart>
         </div>
     </section>
 
     <section class="c3 column  borders pad">
         <div class="greedy row content-middle">
             <span class="c5 highlight push-next">Creation time:</span>
-            <span class="c7" data-bind="text: creationTime"></span>
+            <span class="c7" ko.text="creationTime"></span>
         </div>
 
         <hr />
 
         <div class="greedy row content-middle">
             <span class="c5 highlight push-next">Last read time:</span>
-            <span class="c7" data-bind="text: lastRead"></span>
+            <span class="c7" ko.text="lastReadTime"></span>
         </div>
 
         <hr />
 
         <div class="greedy row content-middle">
             <span class="c5 highlight push-next">Read count:</span>
-            <span class="c7" data-bind="text: readCount"></span>
+            <span class="c7" ko.text="readCount"></span>
         </div>
     </section>
 </div>

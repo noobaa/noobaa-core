@@ -1,65 +1,74 @@
 /* Copyright (C) 2016 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
-import { getHostDisplayName } from 'utils/host-utils';
-import { shortString } from 'utils/string-utils';
+import ko from 'knockout';
+import { deepFreeze } from 'utils/core-utils';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
 
-export default class BlockRowViewModel extends BaseViewModel {
-    constructor({ adminfo }, index, count, poolIconMapping) {
-        super();
+const blockModeToState = deepFreeze({
+    NOT_ACCESSIBLE: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Unavailable'
+    },
+    MOCKED: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Allocating'
+    },
+    WIPING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Wipping'
+    },
+    HEALTHY: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    }
+});
 
-        let { online, in_cloud_pool, in_mongo_pool, node_name, pool_name } = adminfo;
+function _getBlockMarking(block) {
+    const letter = block.kind[0];
+    const digit = block.seq == null ? '' : (block.seq + 1);
+    return `${letter}${digit}`;
+}
 
-        this.state = {
-            name: online ? 'healthy' : 'problem',
-            tooltip: online ? 'Healthy' : 'Problem',
-            css: online ? 'success' : 'error'
-        };
+function _getBlockResource(block, system) {
+    if (block.mode === 'MOCKED') {
+        return { text: 'Searching for resource' };
+    }
 
-        this.replica = `Replica ${index + 1} of ${count}`;
-        this.resourceType = poolIconMapping()[pool_name] || {};
-        this.poolName = pool_name;
-
-        if (in_mongo_pool) {
-            this.nodeName = null;
-            this.node = '---';
-            this.replicaLocation = 'Internal Storage';
-
-        } else if (in_cloud_pool) {
-            this.nodeName = null;
-            this.node = '---';
-            this.replicaLocation = {
-                text: pool_name,
-                tooltip: pool_name
-            };
-
-        } else {
-            const shortenNodeName = shortString(getHostDisplayName(node_name), 30, 8);
-            this.nodeName = node_name;
-            this.node = {
-                text: shortenNodeName,
-                href: {
-                    route: 'host',
-                    params: {
-                        pool: pool_name,
-                        host: node_name,
-                        tab: null
-                    }
-                },
-                tooltip: node_name
-            };
-            this.replicaLocation = {
-                text: pool_name,
-                href: {
-                    route: 'pool',
-                    params: {
-                        pool: pool_name,
-                        tab: null
-                    }
-                },
-                tooltip: pool_name
-            };
-
+    const { kind, pool, host } = block.storage || {};
+    switch (kind) {
+        case 'HOSTS': {
+            const text = host;
+            const href = realizeUri(routes.host, { system, pool, host });
+            return { text, href };
         }
+
+        case 'CLOUD': {
+            return {
+                text: 'Cloud Resource'
+            };
+        }
+
+        case 'INTERNAL': {
+            return {
+                text: 'Internal Storage'
+            };
+        }
+    }
+}
+
+export default class BlockRowViewModel {
+    state = ko.observable();
+    marking = ko.observable();
+    resource = ko.observable();
+
+    onState(block, system) {
+        this.state(blockModeToState[block.mode]);
+        this.marking(_getBlockMarking(block));
+        this.resource(_getBlockResource(block, system));
     }
 }

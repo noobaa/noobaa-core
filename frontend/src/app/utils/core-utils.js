@@ -313,13 +313,13 @@ export function ensureArray(val) {
     return val;
 }
 
-export function union(...arrays) {
-    const merged = [];
-    for (const arr of arrays) {
-        merged.push(...arr);
-    }
-    return Array.from(new Set(merged).values());
+export function unique(values) {
+    return Array.from(new Set(values).values());
+}
+global.unique = unique;
 
+export function union(...arrays) {
+    return unique(flatMap(...arrays));
 }
 
 export function hashCode(value) {

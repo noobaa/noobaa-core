@@ -1,23 +1,23 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: ready -->
-<object-summary class="push-next" params="obj: obj"></object-summary>
+<object-summary class="push-next" params="
+    bucketName: bucket,
+    objKey: object
+"></object-summary>
 
 <div class="tabs greedy">
     <nav>
-        <a data-bind="
-            href: { route: 'object', params: { tab: 'parts' } },
-            css: { selected: isTabSelected('parts') }
-        ">
+        <a ko.css.selected="selectedTab.eq('parts')"
+            ko.attr.href="tabHref('parts')"
+        >
             File Parts
         </a>
     </nav>
 
-<div class="tabs-row">
-        <object-parts-list class="tab"
-            data-bind="css: { selected: isTabSelected('parts') }",
-            params="obj: obj, parts: parts"
+    <div class="tabs-row">
+        <object-parts-list class="tab column"
+            ko.css.selected="selectedTab.eq('parts')"
+            params="bucketName: bucket, objKey: object"
         ></object-parts-list>
     </div>
 </div>
-<!-- /ko -->

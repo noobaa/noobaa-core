@@ -47,8 +47,9 @@ import createNamespaceBucket from './create-namespace-bucket';
 import updateNamespaceBucketPlacement from './update-namespace-bucket-placement';
 import deleteNamespaceBucket from './delete-namespace-bucket';
 import retrustHost from './retrust-host';
-import fetchBucketObjects from './fetch-bucket-objects';
-import deleteBucketObject from './delete-bucket-object';
+import fetchObjects from './fetch-objects';
+import deleteObject from './delete-object';
+import fetchObjectParts from './fetch-object-parts';
 import fetchSystemStorageHistory from './fetch-system-storage-history';
 import deleteHost from './delete-host';
 import uploadUpgradePackage from './upload-upgrade-package';
@@ -123,8 +124,9 @@ const bucketRelatedEpics = [
 
 const objectRelatedEpics = [
     uploadObjects,
-    fetchBucketObjects,
-    deleteBucketObject
+    fetchObjects,
+    deleteObject,
+    fetchObjectParts
 ];
 
 const resourceRelatedEpics = [

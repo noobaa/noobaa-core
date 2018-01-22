@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import Rx from 'rx';
-import { DELETE_BUCKET_OBJECT } from 'action-types';
-import { completeDeleteBucketObject, failDeleteBucketObject } from 'action-creators';
+import { DELETE_OBJECT } from 'action-types';
+import { completeDeleteObject, failDeleteObject } from 'action-creators';
 
 export default function(action$, { S3 }) {
     return action$
-        .ofType(DELETE_BUCKET_OBJECT)
+        .ofType(DELETE_OBJECT)
         .flatMap(action => {
             const { bucket, key, uploadId, accessData } = action.payload;
             const { endpoint, accessKey, secretKey } = accessData;
@@ -31,8 +31,8 @@ export default function(action$, { S3 }) {
 
                 s3.abortMultipartUpload(params, error => {
                     deleteEvent$.onNext(error ?
-                        failDeleteBucketObject(bucket, key, uploadId, error) :
-                        completeDeleteBucketObject(bucket, key, uploadId)
+                        failDeleteObject(bucket, key, uploadId, error) :
+                        completeDeleteObject(bucket, key, uploadId)
                     );
                 });
             } else {
@@ -43,8 +43,8 @@ export default function(action$, { S3 }) {
 
                 s3.deleteObject(params, error => {
                     deleteEvent$.onNext(error ?
-                        failDeleteBucketObject(bucket, key, uploadId, error) :
-                        completeDeleteBucketObject(bucket, key, uploadId)
+                        failDeleteObject(bucket, key, uploadId, error) :
+                        completeDeleteObject(bucket, key, uploadId)
                     );
                 });
             }

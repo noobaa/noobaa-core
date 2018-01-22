@@ -64,7 +64,11 @@ export default {
                 required: [
                     'bucket',
                     'key',
-                    'mode'
+                    'mode',
+                    'size',
+                    'contentType',
+                    'creationTime',
+                    'readCount'
                 ],
                 properties: {
                     key: {
@@ -75,12 +79,39 @@ export default {
                     },
                     mode: {
                         type: 'string',
-                        enum: ['COMPLETED', 'UPLOADING']
+                        enum: [
+                            'COMPLETED',
+                            'UPLOADING'
+                        ]
                     },
                     uploadId: {
                         type: 'string'
                     },
                     size: {
+                        type: 'object',
+                        required: [
+                            'original',
+                            'onDisk'
+                        ],
+                        properties: {
+                            original: {
+                                $ref: '#/def/common/size'
+                            },
+                            onDisk: {
+                                $ref: '#/def/common/size'
+                            }
+                        }
+                    },
+                    contentType: {
+                        type: 'string'
+                    },
+                    creationTime: {
+                        type: 'integer'
+                    },
+                    lastReadTime: {
+                        type: 'integer'
+                    },
+                    readCount: {
                         type: 'integer'
                     }
                 }

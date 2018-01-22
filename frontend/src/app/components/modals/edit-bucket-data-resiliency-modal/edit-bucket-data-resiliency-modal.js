@@ -201,8 +201,8 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
                 errors.dataFrags = 'Please enter a number bigger then 0';
             }
 
-            if (Number.isNaN(parityFrags) || parityFrags < 0) {
-                errors.parityFrags = 'Please enter a positive number';
+            if (Number.isNaN(parityFrags) || parityFrags < 1) {
+                errors.parityFrags = 'Please enter a number bigger then 0';
             }
 
             if (dataFrags + parityFrags > 256) {

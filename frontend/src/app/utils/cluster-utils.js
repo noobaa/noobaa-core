@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+
 import { deepFreeze, omitUndefined, groupBy, get } from 'utils/core-utils';
 
 export function getServerIssues(server, systemVersion, minRequirements) {

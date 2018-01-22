@@ -8,15 +8,21 @@ export default class BarViewModel {
         this.onStep = this.onStep.bind(this);
     }
 
-    onState(height) {
+    onState(height, animate) {
         const lastHeight = this.height() || 0;
-        tween({
-            duration: 1000,
-            easing: 'easeOutQuad',
-            step: this.onStep,
-            from: { val: lastHeight },
-            to: { val: height }
-        });
+
+        if (animate) {
+            tween({
+                duration: 1000,
+                delay: 350,
+                easing: 'easeOutQuad',
+                step: this.onStep,
+                from: { val: lastHeight },
+                to: { val: height }
+            });
+        } else {
+            this.height(height);
+        }
     }
 
     onStep({ val }) {

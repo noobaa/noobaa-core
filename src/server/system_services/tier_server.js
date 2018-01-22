@@ -139,6 +139,8 @@ function update_tier(req) {
         update: { tiers: [updates] },
     };
 
+    let chunk_config_changed = false;
+
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
     }
@@ -154,6 +156,7 @@ function update_tier(req) {
     }
     if (chunk_config !== tier.chunk_config) {
         updates.chunk_config = chunk_config._id;
+        chunk_config_changed = true;
     }
 
     let old_pool_names = [];
@@ -179,22 +182,22 @@ function update_tier(req) {
 
     return system_store.make_changes(changes)
         .then(res => {
-            if (req.rpc_params.data_placement) { //Placement policy changes
-                const bucket = find_bucket_by_tier(req);
-                const desc_string = [];
-                let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
-                    `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
-                let removed_pools = _.difference(old_pool_names, req.rpc_params.attached_pools || []);
-                let added_pools = _.difference(req.rpc_params.attached_pools || [], old_pool_names);
-                desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
-                desc_string.push(`Policy type: ${policy_type_change}`);
-                if (removed_pools.length) {
-                    desc_string.push(`Removed resources: ${removed_pools.join(', ')}`);
-                }
-                if (added_pools.length) {
-                    desc_string.push(`Added resources: ${added_pools.join(', ')}`);
-                }
-                if (bucket) {
+            const bucket = find_bucket_by_tier(req);
+            if (bucket) {
+                if (req.rpc_params.data_placement) { //Placement policy changes
+                    const desc_string = [];
+                    let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
+                        `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
+                    let removed_pools = _.difference(old_pool_names, req.rpc_params.attached_pools || []);
+                    let added_pools = _.difference(req.rpc_params.attached_pools || [], old_pool_names);
+                    desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
+                    desc_string.push(`Policy type: ${policy_type_change}`);
+                    if (removed_pools.length) {
+                        desc_string.push(`Removed resources: ${removed_pools.join(', ')}`);
+                    }
+                    if (added_pools.length) {
+                        desc_string.push(`Added resources: ${added_pools.join(', ')}`);
+                    }
                     Dispatcher.instance().activity({
                         event: 'bucket.edit_policy',
                         level: 'info',
@@ -204,6 +207,32 @@ function update_tier(req) {
                         desc: desc_string.join('\n'),
                     });
                 }
+
+                if (chunk_config_changed) {
+                    const new_cc_type = req.rpc_params.chunk_coder_config.parity_frags ? 'Erasure Coding' : 'Replication';
+                    const old_cc_type = tier.chunk_config.chunk_coder_config.parity_frags ? 'Erasure Coding' : 'Replication';
+                    let desc_string;
+                    if (new_cc_type === old_cc_type) {
+                        desc_string = `Data resiliency configuration was updated to ${new_cc_type}. `;
+                    } else {
+                        desc_string = `Data resiliency type was changed from ${new_cc_type} to ${old_cc_type}`;
+                    }
+                    if (new_cc_type === 'Replication') {
+                        desc_string += `\nNumber of replicas: ${req.rpc_params.chunk_coder_config.replicas}`;
+                    } else {
+                        desc_string += `\nNumber of data fragments: ${req.rpc_params.chunk_coder_config.data_frags}`;
+                        desc_string += `\nNumber of parity fragments: ${req.rpc_params.chunk_coder_config.parity_frags}`;
+                    }
+                    Dispatcher.instance().activity({
+                        event: 'bucket.edit_resiliency',
+                        level: 'info',
+                        system: req.system._id,
+                        actor: req.account && req.account._id,
+                        bucket: bucket._id,
+                        desc: desc_string,
+                    });
+                }
+
             }
 
             return res;

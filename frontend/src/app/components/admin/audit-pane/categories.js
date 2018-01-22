@@ -128,6 +128,11 @@ export default {
                 entityId: ({ bucket }) => bucket && bucket.name
             },
 
+            edit_resiliency: {
+                message: 'Bucket Edit Data Resiliency',
+                entityId: ({ bucket }) => bucket && bucket.name
+            },
+
             s3_access_updated: {
                 message: 'Bucket S3 Access Updated',
                 entityId: ({ bucket }) => bucket && bucket.name

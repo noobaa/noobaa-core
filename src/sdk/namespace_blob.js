@@ -5,6 +5,7 @@ const _ = require('lodash');
 const util = require('util');
 const stream = require('stream');
 const crypto = require('crypto');
+const url = require('url');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -13,10 +14,11 @@ const azure_storage = require('../util/azure_storage_wrap');
 
 class NamespaceBlob {
 
-    constructor({ connection_string, container }) {
+    constructor({ connection_string, container, proxy }) {
         this.connection_string = connection_string;
         this.container = container;
         this.blob = azure_storage.createBlobService(connection_string);
+        this.blob.setProxy(this.proxy ? url.parse(this.proxy) : null);
     }
 
     /////////////////

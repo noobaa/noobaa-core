@@ -242,7 +242,8 @@ function get_bucket_namespaces(req) {
                             system.namespace_resources_by_name[bucket.namespace.write_resource.name]
                         ),
                         read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs))
-                    }
+                    },
+                    proxy: system.phone_home_proxy_address
                 };
             } else {
                 return read_bucket(req);

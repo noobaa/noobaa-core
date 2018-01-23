@@ -795,7 +795,10 @@ module.exports = {
                         write_resource: {
                             $ref: 'pool_api#/definitions/namespace_resource_extended_info'
                         }
-                    }
+                    },
+                },
+                proxy: {
+                    type: 'string'
                 }
             }
         },

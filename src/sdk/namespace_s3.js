@@ -12,6 +12,7 @@ const s3_utils = require('../endpoint/s3/s3_utils');
 class NamespaceS3 {
 
     constructor(options) {
+        this.proxy = options.proxy;
         this.s3 = new AWS.S3(options);
         this.bucket = this.s3.config.params.Bucket;
     }

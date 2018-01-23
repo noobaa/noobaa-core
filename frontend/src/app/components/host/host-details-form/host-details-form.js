@@ -77,30 +77,44 @@ function _getServicesString({ services }) {
     }
 }
 
-function _getMemoryInfo({ memory }) {
+function _getMemoryInfo({ memory, mode }) {
     const usedMemory = memory.usedByNoobaa + memory.usedByOther;
     const totalMemory = usedMemory + memory.free;
     const used = decimalRound(usedMemory/totalMemory, 2);
     const usedByNoobaa = (memory.usedByNoobaa/totalMemory).toFixed(2);
     const usedByOther = used - usedByNoobaa;
     const usage = `${formatSize(usedMemory)} of ${formatSize(totalMemory)}`;
-    const utilization = `${numeral(used).format('%')} utilization`;
-    const css = _getCssByUsage(used);
-    const tooltip = _getTooltipByUsage('Memory', used,  usedByNoobaa, usedByOther);
 
-    return { usage, utilization, css, tooltip };
+    if (mode === 'OFFLINE') {
+        const utilization = '';
+
+        return { usage, utilization };
+    } else {
+        const utilization = `${numeral(used).format('%')} utilization`;
+        const css = _getCssByUsage(used);
+        const tooltip = _getTooltipByUsage('Memory', used,  usedByNoobaa, usedByOther);
+
+        return { usage, utilization, css, tooltip };
+    }
 }
 
-function _getCpusInfo({ cpus }) {
+function _getCpusInfo({ cpus, mode }) {
     const used = decimalRound(cpus.usedByNoobaa + cpus.usedByOther, 2);
     const usedByNoobaa = cpus.usedByNoobaa.toFixed(2);
     const usedByOther = used - usedByNoobaa;
     const count = cpus.units.length;
-    const utilization = `${numeral(used).format('%')} utilization`;
-    const css = _getCssByUsage(used);
-    const tooltip = _getTooltipByUsage('CPU', used, usedByNoobaa, usedByOther);
 
-    return { count, utilization, css, tooltip };
+    if (mode === 'OFFLINE') {
+        const utilization = '';
+
+        return { count, utilization };
+    } else {
+        const utilization = `${numeral(used).format('%')} utilization`;
+        const css = _getCssByUsage(used);
+        const tooltip = _getTooltipByUsage('CPU', used, usedByNoobaa, usedByOther);
+
+        return {count, utilization, css, tooltip };
+    }
 }
 
 class HostDetailsFormViewModel extends Observer {

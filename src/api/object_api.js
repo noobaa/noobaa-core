@@ -1101,7 +1101,7 @@ module.exports = {
                         }
                     }
                 },
-                total_parts_count: {
+                num_parts: {
                     type: 'integer',
                 },
                 // This is the physical size (aggregation of all blocks)

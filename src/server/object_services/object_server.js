@@ -491,15 +491,6 @@ function read_object_md(req) {
                 bucket: req.rpc_params.bucket,
                 key: req.rpc_params.key,
             });
-
-            return map_reader.read_object_mappings(obj)
-                .then(parts => {
-                    info.total_parts_count = parts.length;
-                    info.capacity_size = 0;
-                    _.forEach(parts, part => _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
-                        info.capacity_size += block.block_md.size;
-                    })));
-                });
         })
         .then(() => info);
 }
@@ -759,11 +750,6 @@ function _wrap_objects_for_fe(response, req) {
                 });
                 return obj;
             })))
-        .then(objects_res => {
-            const object_ids = objects_res.map(obj => obj.obj_id);
-            return MDStore.instance().read_objects_part_count_and_blocks_capacity(object_ids)
-                .then(info_by_object_ids => objects_res.map(obj => _.defaults(obj, info_by_object_ids[obj.obj_id])));
-        })
         .then(objects => {
             response.objects = objects;
             return response;
@@ -866,6 +852,7 @@ function get_object_info(md) {
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
         upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
+        num_parts: md.num_parts,
         xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),
         cloud_synced: md.cloud_synced,
         stats: md.stats ? {
@@ -1075,8 +1062,7 @@ function _mark_mirror_groups_for_blocks(parts, mirror_groups) {
                 mapping[pool_name] = mirror_group.name;
             });
             return mapping;
-        },
-        {}
+        }, {}
     );
 
     parts.forEach(part =>

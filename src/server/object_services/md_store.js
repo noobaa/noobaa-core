@@ -553,54 +553,6 @@ class MDStore {
     // PARTS //
     ///////////
 
-    // TODO: This is called from the list_objects for FE only
-    // It might be a problematic code in case of many large objects
-    // Currently the FE assured that it will call with up to 25 objects (per page list)
-    // We've measured the performance on 25 objects of 25GB each with 4MB chunks and it seemed to work fine
-    // In case of heavier loads we should remove this code or think of a better way to gather the data needed
-    read_objects_part_count_and_blocks_capacity(object_ids) {
-        if (!object_ids || !object_ids.length) return P.resolve({});
-        return this._parts.col().find({
-                obj: {
-                    $in: object_ids
-                },
-                deleted: null
-            }, {
-                chunk: 1,
-                obj: 1
-            })
-            .toArray()
-            .then(parts => ({
-                objects_by_chunks: _.groupBy(parts, 'chunk'),
-                parts_by_objects: _.groupBy(parts, 'obj')
-            }))
-            .then(res => {
-                const query = {
-                    chunk: {
-                        $in: Object.keys(res.objects_by_chunks).map(mongo_utils.make_object_id)
-                    },
-                    deleted: null
-                };
-                return this._blocks.col().mapReduce(
-                        mongo_functions.map_aggregate_blocks_for_object_total,
-                        mongo_functions.reduce_sum, {
-                            query: query,
-                            out: { inline: 1 },
-                            scope: { objects_by_chunks: res.objects_by_chunks },
-                        })
-                    .then(reduce_reply => {
-                        const sizes_by_objects = _.groupBy(reduce_reply, '_id');
-                        let info_by_objects = {};
-                        _.forIn(res.parts_by_objects, function(value, object_id) {
-                            info_by_objects[object_id] = {
-                                total_parts_count: value.length,
-                                capacity_size: sizes_by_objects[object_id] && sizes_by_objects[object_id][0].value
-                            };
-                        });
-                        return info_by_objects;
-                    });
-            });
-    }
 
     insert_parts(parts) {
         if (!parts || !parts.length) return;

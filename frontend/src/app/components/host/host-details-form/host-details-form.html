@@ -56,6 +56,7 @@
             <template name="cpus">
                 <p class="row content-middle" ko.if="$data">
                     <span class="push-next-half" ko.text="count"></span>
+                    <!-- ko if: utilization -->
                     |
                     <span class="push-both-half"
                           ko.css="css"
@@ -65,12 +66,14 @@
                               ko.tooltip="tooltip"
                               params="name: 'problem'"
                     ></svg-icon>
+                    <!-- /ko -->
                 </p>
             </template>
 
             <template name="memory">
                 <p class="row content-middle" ko.if="$data">
                     <span class="push-next-half" ko.text="usage"></span>
+                    <!-- ko if: utilization -->
                     |
                     <span class="push-both-half"
                         ko.css="css"
@@ -81,6 +84,7 @@
                         ko.tooltip="tooltip"
                         params="name: 'problem'"
                     ></svg-icon>
+                    <!-- /ko -->
                 </p>
             </template>
         </property-sheet>

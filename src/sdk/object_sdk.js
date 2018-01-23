@@ -9,6 +9,7 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const LRUCache = require('../util/lru_cache');
 const cloud_utils = require('../util/cloud_utils');
+const http_utils = require('../util/http_utils');
 const NamespaceNB = require('./namespace_nb');
 const NamespaceS3 = require('./namespace_s3');
 const NamespaceBlob = require('./namespace_blob');
@@ -121,11 +122,11 @@ class ObjectSDK {
 
     _setup_merge_namespace(bucket) {
         let rr = _.cloneDeep(bucket.namespace.read_resources);
-        let wr = this._setup_single_namespace(bucket.namespace.write_resource);
+        let wr = this._setup_single_namespace(_.extend({ proxy: bucket.proxy }, bucket.namespace.write_resource));
         if (MULTIPART_NAMESPACES.includes(bucket.namespace.write_resource.endpoint_type)) {
             const wr_index = rr.findIndex(r => _.isEqual(r, bucket.namespace.write_resource));
             wr = new NamespaceMultipart(
-                this._setup_single_namespace(bucket.namespace.write_resource),
+                this._setup_single_namespace(_.extend({ proxy: bucket.proxy }, bucket.namespace.write_resource)),
                 this.namespace_nb);
             rr.splice(wr_index, 1, {
                 endpoint_type: 'MULTIPART',
@@ -137,12 +138,13 @@ class ObjectSDK {
             write_resource: wr,
             read_resources: _.map(rr, ns_info => (
                 ns_info.endpoint_type === 'MULTIPART' ? ns_info.ns :
-                this._setup_single_namespace(ns_info)
+                this._setup_single_namespace(_.extend({ proxy: bucket.proxy }, ns_info))
             ))
         });
     }
 
     _setup_single_namespace(ns_info) {
+        console.log(`ns_info.proxy = ${ns_info.proxy}`);
         if (ns_info.endpoint_type === 'NOOBAA') {
             if (ns_info.target_bucket) {
                 return new NamespaceNB(ns_info.target_bucket);
@@ -152,6 +154,9 @@ class ObjectSDK {
         }
         if (ns_info.endpoint_type === 'AWS' ||
             ns_info.endpoint_type === 'S3_COMPATIBLE') {
+            const httpOptions = ns_info.proxy ? {
+                agent: http_utils.get_unsecured_http_agent(ns_info.endpoint, ns_info.proxy)
+            } : undefined;
             return new NamespaceS3({
                 params: { Bucket: ns_info.target_bucket },
                 endpoint: ns_info.endpoint,
@@ -162,12 +167,14 @@ class ObjectSDK {
                 s3ForcePathStyle: true,
                 // computeChecksums: false, // disabled by default for performance
                 // s3DisableBodySigning: true, // disabled by default for performance
+                httpOptions
             });
         }
         if (ns_info.endpoint_type === 'AZURE') {
             return new NamespaceBlob({
                 container: ns_info.target_bucket,
                 connection_string: cloud_utils.get_azure_connection_string(ns_info),
+                proxy: ns_info.proxy
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

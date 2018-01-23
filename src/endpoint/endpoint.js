@@ -152,7 +152,7 @@ function run_server(options) {
                 });
 
                 P.resolve(ftp_srv.listen())
-                    .catch(err => console.log(`DZDZ: got error from ftp_srv.listen`, err));
+                    .catch(err => console.log(`got error from ftp_srv.listen`, err));
             }
         })
         .then(() => dbg.log0('Starting HTTP', params.port))

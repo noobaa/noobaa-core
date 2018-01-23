@@ -75,12 +75,12 @@ class FtpFileSystemNB {
     }
 
     currentDirectory() {
-        console.log(`DZDZ: returning current directory: ${this.working_dir}`);
+        console.log(`returning current directory: ${this.working_dir}`);
         return this.working_dir;
     }
 
     get(file_name) {
-        console.log(`DZDZ: get called with file_name=${file_name}`);
+        console.log(`get called with file_name=${file_name}`);
         const key = this._get_absolute_path(file_name).substring(1);
         if (!key) return this._get_new_file_stats_object('/', true, 0, new Date());
         // return this.authenticate.then(() => this.object_sdk.read_object_md({ bucket: this.bucket, key }))
@@ -93,7 +93,7 @@ class FtpFileSystemNB {
             }))
             .tap(console.log)
             .then(res => {
-                console.log(`DZDZ: in get - got res = `, res);
+                console.log(`in get - got res = `, res);
                 if (res.objects.length) {
                     const object_md = res.objects[0];
                     return this._get_new_file_stats_object(object_md.key, false, object_md.size, object_md.create_time);
@@ -112,7 +112,7 @@ class FtpFileSystemNB {
 
 
     list(dir_path = '.') {
-        console.log(`DZDZ: list called with dir_path ${dir_path}`);
+        console.log(`list called with dir_path ${dir_path}`);
         const key = this._get_absolute_path(dir_path).substring(1);
         const params = {
             bucket: this.bucket,
@@ -122,7 +122,7 @@ class FtpFileSystemNB {
             limit: 1000
         };
 
-        console.log(`DZDZ: calling list_objects with params =`, params);
+        console.log(`calling list_objects with params =`, params);
 
         return this.authenticate.then(() => this.object_sdk.list_objects(params))
             .tap(console.log)
@@ -130,18 +130,18 @@ class FtpFileSystemNB {
                 .concat(res.objects.filter(obj => !obj.key.endsWith('/')) // filter out dirs
                     .map(obj => this._get_new_file_stats_object(path.parse(obj.key).base, false, obj.size, obj.create_time)))
                 .concat(res.common_prefixes.map(prefix => this._get_new_file_stats_object(path.parse(prefix).base, true, 0, new Date()))))
-            .tap(list => console.log(`DZDZ: retruning list`, list));
+            .tap(list => console.log(`retruning list`, list));
     }
 
     chdir(dir_path = '.') {
         // no error checking, just change
         this.working_dir = this._get_absolute_path(dir_path);
-        console.log(`DZDZ: changed dir to ${this.working_dir}`);
+        console.log(`changed dir to ${this.working_dir}`);
     }
 
     read(file_name, { start = undefined } = {}) {
         const key = this._get_absolute_path(file_name).substring(1);
-        console.log(`DZDZ: got read for file`, key, ' with start offset = ', start);
+        console.log(`got read for file`, key, ' with start offset = ', start);
 
         return this.object_sdk.read_object_md({
                 bucket: this.bucket,

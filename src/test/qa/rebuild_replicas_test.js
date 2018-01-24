@@ -107,7 +107,10 @@ function changeTierSetting() {
     const client = rpc.new_client({});
     return client.create_auth_token(auth_params)
         .then(() => client.bucket.read_bucket({ name: bucket }))
-        .then(res => client.tier.update_tier({
+        .then(res =>
+
+
+            client.tier.update_tier({
             name: res.tiering.tiers[0].tier,
             chunk_coder_config: { data_frags, parity_frags, replicas }
         }));

@@ -93,7 +93,8 @@ const unit_mapping = {
     }
 };
 
-function saveErrorAndResume(message) {
+function saveErrorAnd
+Resume(message) {
     console.error(message);
     errors.push(message);
 }

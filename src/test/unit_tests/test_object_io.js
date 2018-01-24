@@ -79,7 +79,12 @@ coretest.describe_mapper_test_case({
                 bucket,
                 key,
             }))
-            .then(() => rpc_client.object.read_object_md({ bucket, key }))
+            .then(() => rpc_client.object.read_object_md({ bucket, key, adminfo: {} })
+                .then(object_md => {
+                    assert.strictEqual(object_md.num_parts, 0);
+                    assert.strictEqual(object_md.capacity_size, 0);
+                })
+            )
             .then(() => rpc_client.object.update_object_md({ bucket, key, content_type: content_type2 }))
             .then(() => rpc_client.object.list_objects({ bucket, prefix: key }))
             .then(() => rpc_client.object.delete_object({ bucket, key }));

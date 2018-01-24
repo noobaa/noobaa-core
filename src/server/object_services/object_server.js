@@ -491,6 +491,17 @@ function read_object_md(req) {
                 bucket: req.rpc_params.bucket,
                 key: req.rpc_params.key,
             });
+
+            const MAX_SIZE_CAP_FOR_OBJECT_RAW_QUERY = 20 * 1024 * 1024 * 1024;
+            if (info.size < MAX_SIZE_CAP_FOR_OBJECT_RAW_QUERY) {
+                return map_reader.read_object_mappings(obj)
+                    .then(parts => {
+                        info.capacity_size = 0;
+                        _.forEach(parts, part => _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
+                            info.capacity_size += block.block_md.size;
+                        })));
+                    });
+            }
         })
         .then(() => info);
 }

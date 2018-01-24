@@ -139,45 +139,48 @@ function update_tier(req) {
         update: { tiers: [updates] },
     };
 
-    let chunk_config_changed = false;
 
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
     }
-    if (req.rpc_params.data_placement) {
-        updates.data_placement = req.rpc_params.data_placement;
+
+    let chunk_config_changed = false;
+    if (req.rpc_params.chunk_coder_config) {
+        const chunk_config = chunk_config_utils.resolve_chunk_config(
+            req.rpc_params.chunk_coder_config, req.account, req.system);
+        if (!chunk_config._id) {
+            chunk_config._id = system_store.generate_id();
+            changes.insert.chunk_configs = [chunk_config];
+        }
+        if (chunk_config !== tier.chunk_config) {
+            updates.chunk_config = chunk_config._id;
+            chunk_config_changed = true;
+        }
     }
 
-    const chunk_config = chunk_config_utils.resolve_chunk_config(
-        req.rpc_params.chunk_coder_config, req.account, req.system);
-    if (!chunk_config._id) {
-        chunk_config._id = system_store.generate_id();
-        changes.insert.chunk_configs = [chunk_config];
-    }
-    if (chunk_config !== tier.chunk_config) {
-        updates.chunk_config = chunk_config._id;
-        chunk_config_changed = true;
-    }
 
     let old_pool_names = [];
-    // if node_pools are defined use it for the update otherwise use the existing
-    if (req.rpc_params.attached_pools) {
-        updates.mirrors = _convert_pools_to_data_placement_structure(
-            _.map(req.rpc_params.attached_pools, pool_name => req.system.pools_by_name[pool_name]._id),
-            req.rpc_params.data_placement || tier.data_placement);
+    if (req.rpc_params.data_placement) {
+        updates.data_placement = req.rpc_params.data_placement;
+        // if node_pools are defined use it for the update otherwise use the existing
+        if (req.rpc_params.attached_pools) {
+            updates.mirrors = _convert_pools_to_data_placement_structure(
+                _.map(req.rpc_params.attached_pools, pool_name => req.system.pools_by_name[pool_name]._id),
+                req.rpc_params.data_placement || tier.data_placement);
 
-        _.forEach(tier.mirrors, mirror_object => {
-            old_pool_names = _.concat(old_pool_names, _.map((mirror_object && mirror_object.spread_pools) || [], pool => pool.name));
-        });
-        old_pool_names = _.compact(old_pool_names);
-    } else if (tier.data_placement !== req.rpc_params.data_placement) {
-        let pool_ids = [];
-        _.forEach(tier.mirrors, mirror_object => {
-            pool_ids = _.concat(pool_ids, _.map((mirror_object && mirror_object.spread_pools) || [], pool => pool._id));
-        });
-        pool_ids = _.compact(pool_ids);
+            _.forEach(tier.mirrors, mirror_object => {
+                old_pool_names = _.concat(old_pool_names, _.map((mirror_object && mirror_object.spread_pools) || [], pool => pool.name));
+            });
+            old_pool_names = _.compact(old_pool_names);
+        } else if (tier.data_placement !== req.rpc_params.data_placement) {
+            let pool_ids = [];
+            _.forEach(tier.mirrors, mirror_object => {
+                pool_ids = _.concat(pool_ids, _.map((mirror_object && mirror_object.spread_pools) || [], pool => pool._id));
+            });
+            pool_ids = _.compact(pool_ids);
 
-        updates.mirrors = _convert_pools_to_data_placement_structure(pool_ids, req.rpc_params.data_placement);
+            updates.mirrors = _convert_pools_to_data_placement_structure(pool_ids, req.rpc_params.data_placement);
+        }
     }
 
     return system_store.make_changes(changes)
@@ -208,7 +211,7 @@ function update_tier(req) {
                     });
                 }
 
-                if (chunk_config_changed) {
+                if (req.rpc_params.chunk_coder_config && chunk_config_changed) {
                     const new_cc_type = req.rpc_params.chunk_coder_config.parity_frags ? 'Erasure Coding' : 'Replication';
                     const old_cc_type = tier.chunk_config.chunk_coder_config.parity_frags ? 'Erasure Coding' : 'Replication';
                     let desc_string;

@@ -15,6 +15,7 @@ const Semaphore = require('../../util/semaphore');
 const zip_utils = require('../../util/zip_utils');
 
 const FUNC_PROC_PATH = path.resolve(__dirname, 'func_proc.js');
+const FUNC_NODE_PATH = path.resolve(__dirname, '..', '..', '..', 'node_modules');
 
 class FuncNode {
 
@@ -32,12 +33,17 @@ class FuncNode {
                 const proc = child_process.fork(FUNC_PROC_PATH, [], {
                         cwd: func.code_dir,
                         stdio: 'inherit',
+                        // main node root modules library for the forked lambda function, so function can use modules (like aws-s3)
+                        // from wherever located (func.code_dir)
+                        env: {
+                            NODE_PATH: FUNC_NODE_PATH
+                        }
                     })
                     .once('error', reject)
                     .once('exit', code => resolve({
                         error: {
-                            message: `Func process exit code ${code}`,
-                            code: code,
+                            message: `Func process exit unexpectedly (should use callback function) with code ${code}`,
+                            code: String(code),
                         }
                     }))
                     .once('message', msg => {
@@ -47,7 +53,7 @@ class FuncNode {
                                 error: {
                                     message: msg.error.message || 'Unknown error from func process',
                                     stack: msg.error.stack,
-                                    code: msg.error.code,
+                                    code: String(msg.error.code),
                                 }
                             });
                         }

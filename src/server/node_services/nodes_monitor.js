@@ -1126,18 +1126,20 @@ class NodesMonitor extends EventEmitter {
                             const prev_cpus = _.get(item, 'node.os_info.cpus');
                             item.cpu_usage = os_utils.calc_cpu_usage(new_cpus, prev_cpus);
                             if (info.host_id !== item.node.host_id) {
-                                dbg.warn(`agent sent different host_id than the one stored in DB. updating from ${item.node.host_id} to ${info.host_id}`);
+                                const old_host_id = item.node.host_id;
+                                const new_host_id = info.host_id;
+                                dbg.warn(`agent sent different host_id than the one stored in DB. updating from ${old_host_id} to ${new_host_id}`);
                                 // if host id changed then we should change it for all agents of this host for consistnecy
-                                const host_nodes = this._map_host_id.get(item.node.host_id);
+                                const host_nodes = this._map_host_id.get(old_host_id);
                                 if (host_nodes) {
                                     for (const update_item of host_nodes) {
-                                        update_item.node.host_id = info.host_id;
-                                        this._add_node_to_hosts_map(info.host_id, update_item);
+                                        update_item.node.host_id = new_host_id;
+                                        this._add_node_to_hosts_map(new_host_id, update_item);
                                         this._set_need_update.add(update_item);
                                     }
-                                    this._map_host_id.delete(item.node.host_id);
+                                    this._map_host_id.delete(old_host_id);
                                     if (item.node.host_sequence) {
-                                        this._map_host_seq_num.set(String(item.node.host_sequence), info.host_id);
+                                        this._map_host_seq_num.set(String(item.node.host_sequence), new_host_id);
                                     }
                                 }
                             }

@@ -1238,16 +1238,15 @@ class NodesMonitor extends EventEmitter {
     }
 
     _remove_hideable_nodes(item) {
-        dbg.log0('_remove_hideable_nodes: start running', item.node.host_id);
         if (item.node.force_hide) return;
         const host_nodes = this._get_nodes_by_host_id(item.node.host_id);
         if (this._is_host_hideable(host_nodes)) {
+            dbg.log0('_remove_hideable_nodes: hiding host', item.node.host_id);
             this._hide_host(host_nodes);
         }
     }
 
     _uninstall_deleting_node(item) {
-        dbg.log0('_uninstall_deleting_node: start running', item.node.host_id);
         if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true; // S3 won't WIPE so will go directly to uninstall
         if (item.node.is_cloud_node && item.ready_to_uninstall) item.ready_to_be_deleted = true; // No need to uninstall - skipping...
         if (!item.ready_to_uninstall) return;
@@ -1256,6 +1255,7 @@ class NodesMonitor extends EventEmitter {
         if (!item.connection) return;
         if (!item.node_from_store) return;
 
+        dbg.log0('_uninstall_deleting_node: start running', item.node.host_id);
         const host_nodes = this._get_nodes_by_host_id(item.node.host_id);
         const host = this._consolidate_host(host_nodes);
 

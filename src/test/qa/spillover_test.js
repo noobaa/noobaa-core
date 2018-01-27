@@ -420,7 +420,6 @@ return azf.authenticate()
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;
-        throw err;
     })
     .then(() => {
         if (failures_in_test) {

@@ -39,7 +39,8 @@ const {
     help = false,
     data_frags = 1,
     parity_frags = 0,
-    replicas = 3
+    replicas = 3,
+    iterations_number = 2
 } = argv;
 
 function usage() {
@@ -54,6 +55,7 @@ function usage() {
     --vnet                  -   azure vnet on the resource group
     --agents_number         -   number of agents to add (default: ${agents_number})
     --failed_agents_number  -   number of agents to fail (default: ${failed_agents_number})
+    --iterations_number     -   number circles with stopping and running agents (default: ${iterations_number})
     --server_ip             -   noobaa server ip.
     --help                  -   show this help.
     `);
@@ -251,6 +253,34 @@ function clean_up_dataset() {
         .catch(err => console.error(`Errors during deleting `, err));
 }
 
+function stopAgentAndCheckRebuildReplicas() {
+    return af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses)
+        .then(res => {
+        stopped_oses = res;
+        //waiting for rebuild files by chunks and parts
+        return P.each(files, file => waitForRebuildReplicasParts(file));
+        })
+        //Read and verify the read
+        .then(() => P.each(files, file => getRebuildReplicasStatus(file)
+            .then(res => {
+                if (res === true) {
+                    console.log('File ' + file + ' rebuild replicas parts successfully');
+                } else {
+                    saveErrorAndResume('File ' + file + ' didn\'t rebuild replicas parts');
+                }
+            })))
+        .then(() => P.each(files, file => waitForRebuildChunks(file))
+            .then(() => P.each(files, file => getFilesChunksHealthStatus(file)
+                .then(res => {
+                    if (res === true) {
+                        console.log('File ' + file + ' rebuild files chunks successfully');
+                    } else {
+                        saveErrorAndResume('File ' + file + ' didn\'t rebuild files chunks');
+                    }
+                }))))
+        .then(readFiles);
+}
+
 return azf.authenticate()
     .then(changeTierSetting)
     .then(() => af.clean_agents(azf, osesSet, suffix))
@@ -260,60 +290,11 @@ return azf.authenticate()
         //Create a dataset on it (1 GB per agent)
         return uploadAndVerifyFiles(agents_number);
     })
-    //Power down agents (random number between 1 to the max amount)
-    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses))
-    .then(res => {
-        stopped_oses = res;
-        //waiting for rebuild files by chunks and parts
-        return P.each(files, file => waitForRebuildReplicasParts(file));
-    })
-    //Read and verify the read
-    .then(() => P.each(files, file => getRebuildReplicasStatus(file)
-        .then(res => {
-            if (res === true) {
-                console.log('File ' + file + ' rebuild replicas parts successfully');
-            } else {
-                saveErrorAndResume('File ' + file + ' didn\'t rebuild replicas parts');
-            }
-        })))
-    .then(() => P.each(files, file => waitForRebuildChunks(file))
-        .then(() => P.each(files, file => getFilesChunksHealthStatus(file)
-            .then(res => {
-                if (res === true) {
-                    console.log('File ' + file + ' rebuild files chunks successfully');
-                } else {
-                    saveErrorAndResume('File ' + file + ' didn\'t rebuild files chunks');
-                }
-            }))))
-    .then(readFiles)
-    //Power on the powered off agents and wait for them to be on
-    .then(() => af.startOfflineAgents(azf, server_ip, suffix, stopped_oses))
-    //Power down agents (random number between 1 to the max amount)
-    .then(() => af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses))
-    .then(res => {
-        stopped_oses = res;
-        //waiting for rebuild files by chunks and parts
-        return P.each(files, file => waitForRebuildReplicasParts(file));
-    })
-    //Read and verify the read
-    .then(() => P.each(files, file => getRebuildReplicasStatus(file)
-        .then(res => {
-            if (res === true) {
-                console.log('File ' + file + ' rebuild replicas parts successfully');
-            } else {
-                saveErrorAndResume('File ' + file + ' didn\'t rebuild replicas parts');
-            }
-        })))
-    .then(() => P.each(files, file => waitForRebuildChunks(file))
-        .then(() => P.each(files, file => getFilesChunksHealthStatus(file)
-            .then(res => {
-                if (res === true) {
-                    console.log('File ' + file + ' rebuild files chunks successfully');
-                } else {
-                    saveErrorAndResume('File ' + file + ' didn\'t rebuild files chunks');
-                }
-            }))))
-    .then(readFiles)
+    .then(() => promise_utils.loop(iterations_number, cycle => {
+        console.log(`starting cycle number: ${cycle}`);
+        return stopAgentAndCheckRebuildReplicas()
+            .then(() => af.startOfflineAgents(azf, server_ip, suffix, stopped_oses));
+    }))
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;

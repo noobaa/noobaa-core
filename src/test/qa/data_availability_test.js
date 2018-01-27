@@ -166,15 +166,11 @@ return azf.authenticate()
     .then(() => promise_utils.loop(iterationsNumber, cycle => {
         console.log(`starting cycle number: ${cycle}`);
         return stopAgentsAndCheckFiles()
-            .then(() => {
-                oses.push(stopped_oses);
-                return af.startOfflineAgents(azf, server_ip, suffix, stopped_oses);
-        });
+            .then(() => af.startOfflineAgents(azf, server_ip, suffix, stopped_oses));
     }))
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;
-        throw err;
     })
     .then(() => {
         if (failures_in_test) {

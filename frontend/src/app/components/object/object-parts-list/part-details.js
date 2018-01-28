@@ -13,6 +13,7 @@ export default class PartDetailsViewModel {
     }
 
     onState(partSeq, partDistribution, system) {
+        const lastPartSeq = this.partSeq();
         const tables = partDistribution
             .map((group, i) => {
                 const table = this.blockTables.get(i) || new BlocksTableViewModel();
@@ -20,10 +21,7 @@ export default class PartDetailsViewModel {
                 return table;
             });
 
-        if (this.partSeq() && partSeq + 1 !== this.partSeq()) {
-            this.fade(true);
-        }
-
+        this.fade(lastPartSeq && partSeq + 1 !== lastPartSeq);
         this.partSeq(partSeq + 1);
         this.blockTables(tables, system);
     }

@@ -63,7 +63,7 @@
     <section class="column details-pane">
         <div class="column greedy hpad no-wrap" ko.with="partDetails">
             <div class="row content-middle">
-                <h2 class="heading3 greedy push-next">Part Destribution Details</h2>
+                <h2 class="heading3 greedy push-next">Part {{partSeq}} Distribution Details</h2>
                 <button class="icon-btn no-outline" ko.click="onX">
                     <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
                 </button>
@@ -94,7 +94,9 @@
                         data: rows,
                     ">
                         <template name="marking">
-                            <span ko.text="$data"></span>
+                            <span ko.text="$data().text"
+                                ko.tooltip="$data().tooltip"
+                            ></span>
                         </template>
                     </data-table>
                 </section>

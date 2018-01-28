@@ -27,8 +27,6 @@ function _summrizeResiliency(resiliency) {
 class ObjectPartsListViewModel extends Observer {
     pageSize = paginationPageSize;
     pathname = '';
-    bucket = '';
-    objKey = '';
     selectedRow = -1;
     partsLoaded = ko.observable();
     page = ko.observable();
@@ -57,38 +55,34 @@ class ObjectPartsListViewModel extends Observer {
                 ['objects', 'items'],
                 ['objectParts', 'items'],
                 'accounts',
-                ['session', 'user']
+                ['session', 'user'],
+                'location'
             ),
             this.onState
         );
     }
 
     onLocation(location) {
-        const { pathname, query, params } = location;
-        const { system, bucket, object } = params;
-        if (!object) return;
-
-        const page = query.page == null ? 0 : Number(query.page);
-        const selectedRow = query.row === null ? -1  : Number(query.row);
-
-        this.system = system;
-        this.bucketName = bucket;
-        this.objId = getObjectId(bucket, object);
-        this.page(page);
-        this.pathname = pathname;
-        this.selectedRow = selectedRow;
+        const { bucket, object } = location.params;
+        const { page } = location.query;
+        if (!bucket || !object) return;
 
         action$.onNext(fetchObjectParts({
             bucket: bucket,
             key: object,
-            skip: page * this.pageSize,
+            skip: (Number(page) || 0) * this.pageSize,
             limit: this.pageSize
         }));
     }
 
-    onState([buckets, objects, parts, accounts, user]) {
-        const bucket = buckets && buckets[this.bucketName];
-        const object = objects && objects[this.objId];
+    onState([buckets, objects, parts, accounts, user, location]) {
+        const { pathname, query, params } = location;
+        const { system, bucket: bucketName, object: objId } = params;
+        const page = Number(query.page) || 0;
+        const selectedRow = query.row === null ? -1  : Number(query.row);
+        const bucket = buckets && buckets[bucketName];
+        const object = objects && objects[getObjectId(bucketName, objId)];
+
         if (!bucket || !accounts || !object || !parts) {
             if (!bucket || !object) {
                 this.partCount(0);
@@ -117,10 +111,11 @@ class ObjectPartsListViewModel extends Observer {
             const rows = parts
                 .map((part, i) => {
                     const row = this.rows.get(i) || new PartRowViewModel(() => this.onSelectRow(i));
-                    row.onState(part, partDistributions[i], this.selectedRow === i);
+                    row.onState(part, partDistributions[i], selectedRow === i);
                     return row;
                 });
 
+            this.pathname = pathname;
             this.notOwner(!isOwner);
             this.s3SignedUrl(object.s3SignedUrl);
             this.partCount(object.partCount);
@@ -130,8 +125,15 @@ class ObjectPartsListViewModel extends Observer {
             this.downloadTooltip(downloadTooltip);
             this.previewTooltip(previewTooltip);
             this.rows(rows);
-            this.isRowSelected(this.selectedRow >= 0);
-            this.partDetails.onState(partDistributions[this.selectedRow], this.system);
+            this.page(page);
+            this.isRowSelected(selectedRow >= 0);
+
+            if (selectedRow >= 0) {
+                const { seq } = parts[selectedRow];
+                const distribution = partDistributions[selectedRow];
+                this.partDetails.onState(seq, distribution, system);
+            }
+
             this.partsLoaded(true);
         }
     }

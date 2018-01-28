@@ -43,27 +43,45 @@ export function handleFetch(state, query, view, timestamp, queryLimit, itemLimit
     );
 }
 
-export function handleFetchCompleted(state, query, items, extras, queryLimit, itemLimit) {
+export function handleFetchCompleted(state, query, newItems, extras, queryLimit, itemLimit) {
     const queryKey = _generateQueryKey(query);
-    const queryState = {
-        ...state.queries[queryKey],
-        fetching: false,
-        error: false,
-        result: {
-            items: Object.keys(items),
-            ...extras
-        }
-    };
+    let { queries, items } =  state;
+    const queryState = queries[queryKey];
+
+    // If the query is still valid we update the
+    // query and add the new items (override the current items).
+    if (queryState) {
+        queries = {
+            ...queries,
+            [queryKey]: {
+                ...queryState,
+                fetching: false,
+                error: false,
+                result: {
+                    items: Object.keys(newItems),
+                    ...extras
+                }
+            }
+        };
+
+        items = {
+            ...state.items,
+            ...newItems
+        };
+
+    // If the query is not valid we use the new items to
+    // update the items that are already in the cache.
+    } else {
+        items = mapValues(
+            items,
+            (item, key) => newItems[key] || items[key]
+        );
+    }
+
     const newState = {
         ...state,
-        queries: {
-            ...state.queries,
-            [queryKey]: queryState
-        },
-        items: {
-            ...state.items,
-            ...items
-        }
+        queries: queries,
+        items: items
     };
 
     return _clearOverallocated(
@@ -75,16 +93,20 @@ export function handleFetchCompleted(state, query, items, extras, queryLimit, it
 
 export function handleFetchFailed(state, query) {
     const queryKey = _generateQueryKey(query);
+    const queryState = state.queries[queryKey];
+    if (!queryState) return state;
+
+    const updatedQueryState = {
+        ...queryState,
+        fetching: false,
+        error: true
+    };
 
     return {
         ...state,
         queries: {
             ...state.queries,
-            [queryKey]: {
-                ...state.queries[queryKey],
-                fetching: false,
-                error: true
-            }
+            [queryKey]: updatedQueryState
         }
     };
 }
@@ -165,15 +187,17 @@ function _clearOverallocated(state, queryLimit, hostLimit) {
             queries[query.key] = undefined;
             --overallocatedQueries;
 
-            const lockedItems = new Set(flatMap(
-                Object.values(queries),
-                query => (query && !query.fetching) ? query.result.items : []
-            ));
+            if (query.result) {
+                const lockedItems = new Set(flatMap(
+                    Object.values(queries),
+                    query => query.result ? query.result.items : []
+                ));
 
-            for (const itemKey of query.result.items) {
-                if (!lockedItems.has(itemKey)) {
-                    items[itemKey] = undefined;
-                    --overallocatedHosts;
+                for (const itemKey of query.result.items) {
+                    if (!lockedItems.has(itemKey)) {
+                        items[itemKey] = undefined;
+                        --overallocatedHosts;
+                    }
                 }
             }
 
@@ -182,11 +206,10 @@ function _clearOverallocated(state, queryLimit, hostLimit) {
             }
         }
 
-        // Use mapValues to omit undefined keys.
         return {
             ...state,
-            queries: mapValues(queries, echo),
-            items: mapValues(items, echo)
+            queries: omitUndefined(queries),
+            items: omitUndefined(items)
         };
 
     } else {

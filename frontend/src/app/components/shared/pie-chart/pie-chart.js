@@ -15,7 +15,7 @@ const defaultLineWidth = 20;
 const baseAngle = PI / 1.3;
 const separator = (2 * PI) / 1000;
 const threshold = 2 * separator;
-const silhouetteColor = style['color1'];
+const defaultSilhouetteColor = style['color1'];
 const changeResilience = 3;
 
 const sumTextStyle = deepFreeze({
@@ -119,12 +119,14 @@ class PieChartViewModel {
         format,
         radius = defaultRadius,
         lineWidth = defaultLineWidth,
+        silhouetteColor = defaultSilhouetteColor,
         enableHover = true,
         showSum = true,
         showValues = true
     }) {
         this.radius = radius;
         this.lineWidth = lineWidth;
+        this.silhouetteColor = silhouetteColor;
         this.enableHover = enableHover;
 
         const diameter = ko.pureComputed(
@@ -238,7 +240,7 @@ class PieChartViewModel {
         ctx.save();
 
         ctx.rotate(baseAngle);
-        this.drawArc(ctx, 0, 1, silhouetteColor);
+        this.drawArc(ctx, 0, 1, ko.unwrap(this.silhouetteColor));
 
         const colors = this.colors();
         const hasSeparator = this.values.filter(value => value() > 0).length > 1;

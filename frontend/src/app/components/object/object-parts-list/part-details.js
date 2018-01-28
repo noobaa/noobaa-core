@@ -4,17 +4,15 @@ import BlocksTableViewModel from './blocks-table';
 import ko from 'knockout';
 
 export default class PartDetailsViewModel {
+    partSeq = ko.observable();
     blockTables = ko.observableArray();
 
     constructor(close) {
+
         this.close = close;
     }
 
-    onState(partDistribution, system) {
-        if (!partDistribution) {
-            return;
-        }
-
+    onState(partSeq, partDistribution, system) {
         const tables = partDistribution
             .map((group, i) => {
                 const table = this.blockTables.get(i) || new BlocksTableViewModel();
@@ -22,6 +20,7 @@ export default class PartDetailsViewModel {
                 return table;
             });
 
+        this.partSeq(partSeq + 1);
         this.blockTables(tables, system);
     }
 

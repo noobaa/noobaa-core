@@ -30,7 +30,7 @@ export function summerizePartDistribution(bucket, part) {
         block => _getBlockGroupID(
             block,
             placementMirroSets,
-            spillover.mirrorSet,
+            spillover && spillover.mirrorSet,
             resiliency.kind
         ),
     );

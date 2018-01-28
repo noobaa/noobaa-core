@@ -29,6 +29,31 @@ const blockModeToState = deepFreeze({
 });
 
 function _getBlockMarking(block) {
+    switch (block.kind) {
+        case 'REPLICA': {
+            return {
+                text: 'R',
+                tooltip: 'Replica'
+            };
+        }
+
+        case 'DATA': {
+            const digit = block.seq + 1;
+            return {
+                text: `R${digit}`,
+                tooltip: `Data Fragment ${digit}`
+            };
+
+        }
+        case 'PARITY': {
+            const digit = block.seq + 1;
+            return {
+                text: `P${digit}`,
+                tooltip: `Parity Fragment ${digit}`
+            };
+        }
+    }
+
     const letter = block.kind[0];
     const digit = block.seq == null ? '' : (block.seq + 1);
     return `${letter}${digit}`;

@@ -97,7 +97,7 @@ class BarViewModel {
         }
     }
 
-    _drawBar(ctx, width ) {
+    _drawBar(ctx, width) {
         const teeth = ko.unwrap(this.teeth);
         const items = ko.deepUnwrap(this.values);
         const values = normalizeValues(
@@ -113,7 +113,7 @@ class BarViewModel {
 
         let offset = 0;
         values.forEach((value, i) => {
-            if (value === 0) return;
+            if (Number.isNaN(value) || value === 0) return;
 
             ctx.fillStyle = items[i].color;
             ctx.fillRect(
@@ -123,7 +123,7 @@ class BarViewModel {
                 barHeight
             );
 
-            if (teeth) {
+            if (teeth && i > 0) {
                 ctx.fillStyle = teethColor;
                 ctx.fillRect(Math.round(offset), barOffset, 1, barHeight + 2 * teeth);
             }
@@ -131,9 +131,11 @@ class BarViewModel {
             offset += value * width;
         });
 
-        if (items.length && teeth) {
+        // Draw external teeth.
+        if (teeth) {
             ctx.fillStyle = teethColor;
-            ctx.fillRect(Math.round(offset) - 1 , barOffset, 1, barHeight + 2 * teeth);
+            ctx.fillRect(0, barOffset, 1, barHeight + 2 * teeth);
+            ctx.fillRect(width - 1 , barOffset, 1, barHeight + 2 * teeth);
         }
     }
 

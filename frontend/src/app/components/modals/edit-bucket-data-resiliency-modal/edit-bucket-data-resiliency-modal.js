@@ -193,20 +193,25 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
         if (resiliencyType === 'REPLICATION') {
             if (Number.isNaN(replicas) || replicas < 1) {
                 errors.replicas = 'Please enter a number bigger then 0';
+
+            } else if (replicas > 32) {
+                errors.replicas = 'Replicas must be below 32';
             }
         }
 
         if (values.resiliencyType === 'ERASURE_CODING') {
             if (Number.isNaN(dataFrags) || dataFrags < 1) {
                 errors.dataFrags = 'Please enter a number bigger then 0';
+
+            } else if (dataFrags > 32) {
+                errors.dataFrags = 'Data must be below 32';
             }
 
             if (Number.isNaN(parityFrags) || parityFrags < 1) {
                 errors.parityFrags = 'Please enter a number bigger then 0';
-            }
 
-            if (dataFrags + parityFrags > 256) {
-                errors.dataFrags = 'Data + parity must be below 256';
+            } else if (parityFrags > 32) {
+                errors.parityFrags = 'Parity must be below 32';
             }
         }
 

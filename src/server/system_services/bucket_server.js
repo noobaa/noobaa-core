@@ -836,7 +836,8 @@ function find_bucket(req, bucket_name = req.rpc_params.name) {
     return bucket;
 }
 
-function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) {
+function get_bucket_info(bucket, nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier,
+    num_of_objects, cloud_sync_policy) {
     const info = {
         name: bucket.name,
         namespace: bucket.namespace ? {
@@ -865,7 +866,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
     let spillover_allowed_in_policy = false;
     let spillover_tier_in_policy;
     let has_any_pool_configured = false;
-    let has_any_valid_pool_configured = false;
+    let has_enough_healthy_nodes_for_tiering = false;
+    let has_ehough_total_nodes_for_tiering = false;
 
     _.each(bucket.tiering.tiers, tier_and_order => {
         if (tier_and_order.spillover) {
@@ -878,25 +880,29 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         }
         const ccc = _.get(tier_and_order, 'tier.chunk_config.chunk_coder_config');
         const required_valid_nodes = ccc ? (ccc.data_frags + ccc.parity_frags) * ccc.replicas : config.NODES_MIN_COUNT;
-        let mirror_with_valid_pool = 0;
+        let mirrors_with_valid_pool = 0;
+        let mirrors_with_enough_nodes = 0;
         tier_and_order.tier.mirrors.forEach(mirror_object => {
-            let num_valid_nodes;
+            let num_valid_nodes = 0;
+            let num_nodes_in_mirror_group = 0;
             let has_internal_or_cloud_pool = false;
             let has_valid_pool = false;
             _.compact((mirror_object.spread_pools || []).map(pool => {
                     has_any_pool_configured = has_any_pool_configured || !tier_and_order.spillover;
                     const spread_pool = system_store.data.pools.find(pool_rec => String(pool_rec._id) === String(pool._id));
                     tiering_pools_used_agg.push(_.get(spread_pool, 'storage_stats.blocks_size') || 0);
-                    return tiering_pools_status[tier_and_order.tier._id].pools[pool._id];
+                    return _.extend({ pool_id: pool._id }, tiering_pools_status[tier_and_order.tier._id].pools[pool._id]);
                 }))
                 .forEach(pool_status => {
-                    num_valid_nodes = (num_valid_nodes || 0) + (pool_status.num_nodes || 0);
+                    const pool_num_nodes = _.get(hosts_aggregate_pool, `groups.${pool_status.pool_id}.nodes.by_service.STORAGE`) || 0;
+                    num_nodes_in_mirror_group += pool_num_nodes;
+                    num_valid_nodes += (pool_status.num_nodes || 0);
                     has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
                     has_internal_or_cloud_pool = has_internal_or_cloud_pool || (pool_status.resource_type !== 'HOSTS');
-                    // has_any_valid_pool_configured = has_any_valid_pool_configured || has_valid_pool;
                 });
             // let valid = ;
-            if (has_valid_pool || ((num_valid_nodes || 0) >= required_valid_nodes)) mirror_with_valid_pool += 1;
+            if (has_valid_pool || ((num_valid_nodes || 0) >= required_valid_nodes)) mirrors_with_valid_pool += 1;
+            if (num_nodes_in_mirror_group >= required_valid_nodes) mirrors_with_enough_nodes += 1;
             // return valid;
             const exitsting_minimum = _.isUndefined(info.num_of_nodes) ? Number.MAX_SAFE_INTEGER : info.num_of_nodes;
             const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : num_valid_nodes;
@@ -904,10 +910,10 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
             info.num_of_nodes = Math.min(exitsting_minimum, potential_new_minimum);
         });
         info.num_of_nodes = info.num_of_nodes || 0;
-        info.writable = mirror_with_valid_pool > 0;
-        if (!tier_and_order.spillover &&
-            (tier_and_order.tier.mirrors.length > 0 && mirror_with_valid_pool === tier_and_order.tier.mirrors.length)) {
-            has_any_valid_pool_configured = true;
+        info.writable = mirrors_with_valid_pool > 0;
+        if (!tier_and_order.spillover && tier_and_order.tier.mirrors.length > 0) {
+            if (mirrors_with_valid_pool === tier_and_order.tier.mirrors.length) has_enough_healthy_nodes_for_tiering = true;
+            if (mirrors_with_enough_nodes === tier_and_order.tier.mirrors.length) has_ehough_total_nodes_for_tiering = true;
         }
     });
 
@@ -1040,7 +1046,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         calc_namespace_mode() :
         calc_bucket_mode({
             has_any_pool_configured,
-            has_any_valid_pool_configured,
+            has_ehough_total_nodes_for_tiering,
+            has_enough_healthy_nodes_for_tiering,
             is_no_storage,
             is_storage_low,
             is_quota_low,
@@ -1060,7 +1067,10 @@ function calc_bucket_mode(metrics) {
     if (!metrics.has_any_pool_configured) {
         return metrics.spillover_allowed_in_policy ? 'SPILLOVER_NO_RESOURCES' : 'NO_RESOURCES';
     }
-    if (!metrics.has_any_valid_pool_configured) {
+    if (!metrics.has_ehough_total_nodes_for_tiering) {
+        return metrics.spillover_allowed_in_policy ? 'SPILLOVER_NOT_ENOUGH_RESOURCES' : 'NOT_ENOUGH_RESOURCES';
+    }
+    if (!metrics.has_enough_healthy_nodes_for_tiering) {
         return metrics.spillover_allowed_in_policy ? 'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES' : 'NOT_ENOUGH_HEALTHY_RESOURCES';
     }
     if (metrics.is_no_storage) {

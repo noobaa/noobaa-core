@@ -26,6 +26,8 @@ export default {
                 enum: [
                     'NO_RESOURCES',
                     'SPILLOVER_NO_RESOURCES',
+                    'NOT_ENOUGH_RESOURCES',
+                    'SPILLOVER_NOT_ENOUGH_RESOURCES',
                     'NOT_ENOUGH_HEALTHY_RESOURCES',
                     'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
                     'NO_CAPACITY',

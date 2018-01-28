@@ -19,6 +19,7 @@ import modals from './modals';
 import hostParts from './host-parts';
 import hostPools from './host-pools';
 import objects from './objects';
+import objectParts from './object-parts';
 import state from './state.js';
 
 const schemas = {
@@ -41,6 +42,7 @@ const schemas = {
     hostParts,
     hostPools,
     objects,
+    objectParts,
     state
 };
 

@@ -44,12 +44,16 @@ function _getQuotaMarkers(quota) {
     return [{ placement, label }];
 }
 
+function formatAvailablityLimits(val) {
+    return val === 0 ? '0' : formatSize(val);
+}
+
 class BucketSummrayViewModel extends Observer {
-    formatSize = formatSize;
     bucketLoaded = ko.observable();
     state = ko.observable();
     dataPlacement = ko.observable();
 
+    availablityLimitsFormatter = formatAvailablityLimits;
     availablityMarkers = ko.observableArray();
     availablityTime = ko.observable();
     availablity = [
@@ -57,7 +61,7 @@ class BucketSummrayViewModel extends Observer {
             label: 'Used Data',
             color: style['color8'],
             value: ko.observable(),
-            tooltip: 'The total amount of data uploaded to this bucket. does not include data optimisation or data resiliency'
+            tooltip: 'The total amount of data uploaded to this bucket. does not include data optimization or data resiliency'
         },
         {
             label: 'Overused',

@@ -22,8 +22,8 @@
         <div class="column align-middle greedy">
             <div class="row content-middle push-next-half">
                 <h2 class="heading3 greedy push-next">Storage Availability</h2>
-                <p class="row remark content-middle">
-                    <svg-icon class="icon-small push-next-half" params="name: 'clock'"></svg-icon>
+                <p class="remark content-middle">
+                    <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
                     Updated: {{availablityTime}}
                 </p>
             </div>
@@ -35,7 +35,7 @@
             <div class="greedy row">
                 <bar class="align-middle" params="
                     values: availablity,
-                    limits: formatSize,
+                    limits: availablityLimitsFormatter,
                     teeth: 5,
                     minRatio: 0,
                     markers: availablityMarkers,

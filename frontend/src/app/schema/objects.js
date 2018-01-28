@@ -1,74 +1,85 @@
 export default {
     type: 'object',
     required: [
+        'views',
         'queries',
-        'objects'
+        'items'
     ],
     properties: {
+        views: {
+            type: 'object',
+            additionalProperties: {
+                type: 'integer'
+            }
+        },
         queries: {
             type: 'object',
             additionalProperties: {
                 type: 'object',
                 required: [
-                    'fetching',
                     'timestamp',
-                    'result'
+                    'fetching',
+                    'error'
                 ],
                 properties: {
+                    timestamp: {
+                        type: 'integer'
+                    },
                     fetching: {
                         type: 'boolean'
                     },
-                    timestamp: {
-                        instanceof: 'Date'
+                    error: {
+                        type: 'boolean'
                     },
                     result: {
                         type: 'object',
                         required: [
                             'counters',
-                            'objects'
+                            'items'
                         ],
                         properties: {
                             counters: {
                                 type: 'object',
                                 required: [
-                                    'completed',
+                                    'optimal',
                                     'uploading'
                                 ],
                                 properties: {
-                                    nonPaginated: {
-                                        type: 'number'
-                                    },
-                                    completed: {
-                                        type: 'number'
+                                    optimal: {
+                                        type: 'integer'
                                     },
                                     uploading: {
-                                        type: 'number'
+                                        type: 'integer'
                                     }
                                 }
                             },
-                            objects: {
+                            items: {
                                 type: 'array',
                                 items: {
                                     type: 'string'
                                 }
+
                             }
                         }
                     }
                 }
             }
         },
-        objects: {
+        items: {
             type: 'object',
             additionalProperties: {
                 type: 'object',
                 required: [
-                    'bucket',
                     'key',
+                    'bucket',
                     'mode',
                     'size',
                     'contentType',
-                    'creationTime',
-                    'readCount'
+                    'createTime',
+                    'lastReadTime',
+                    'readCount',
+                    'partCount',
+                    's3SignedUrl'
                 ],
                 properties: {
                     key: {
@@ -80,7 +91,7 @@ export default {
                     mode: {
                         type: 'string',
                         enum: [
-                            'COMPLETED',
+                            'OPTIMAL',
                             'UPLOADING'
                         ]
                     },
@@ -90,8 +101,7 @@ export default {
                     size: {
                         type: 'object',
                         required: [
-                            'original',
-                            'onDisk'
+                            'original'
                         ],
                         properties: {
                             original: {
@@ -105,7 +115,7 @@ export default {
                     contentType: {
                         type: 'string'
                     },
-                    creationTime: {
+                    createTime: {
                         type: 'integer'
                     },
                     lastReadTime: {
@@ -113,6 +123,12 @@ export default {
                     },
                     readCount: {
                         type: 'integer'
+                    },
+                    partCount: {
+                        type: 'integer'
+                    },
+                    s3SignedUrl:  {
+                        type: 'string'
                     }
                 }
             }

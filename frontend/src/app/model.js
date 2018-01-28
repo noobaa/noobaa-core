@@ -24,16 +24,6 @@ export const systemInfo = ko.observable();
 
 // Hold the current cloud sync information.
 export const cloudBucketList = ko.observableArray();
-export const isCloudConnectionValid = ko.observable(true)
-    .extend({ notify: 'always' });
-
-// Hold the current node info.
-export const objectInfo = ko.observable();
-
-// Hold the parts of the curr object.
-export const objectPartList = ko.observableArray();
-objectPartList.count = ko.observable(0);
-objectPartList.page = ko.observable(0);
 
 // Hold the audit log
 export const auditLog = ko.observableArray();
@@ -41,9 +31,6 @@ auditLog.loadedCategories = ko.observableArray();
 
 // Hold node test information.
 export const nodeTestInfo = ko.observable();
-
-// hold system upgrade status.
-export const upgradeStatus = ko.observable();
 
 // hold system upload ssl certificate status.
 export const sslCertificateUploadStatus = ko.observable();

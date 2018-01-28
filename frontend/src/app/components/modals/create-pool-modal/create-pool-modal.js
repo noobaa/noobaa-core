@@ -165,7 +165,7 @@ class CreatePoolModalViewModel extends Observer {
         this.rows = ko.observableArray();
         this.selectedMessage = ko.observable();
         this.filteredHostCount = ko.observable();
-        this.emptyMessage = ko.observable('Current filter does not match any host');
+        this.emptyMessage = ko.observable('Current filter does not match any node');
         this.form = new FormViewModel({
             name: formName,
             fields: {
@@ -252,7 +252,7 @@ class CreatePoolModalViewModel extends Observer {
         const filteredHostCount = result ? result.counters.nonPaginated : 0;
         const emptyMessage = hostCount === 0 ?
             'The system contains no nodes' :
-            'Current filter does not match any host';
+            'Current filter does not match any node';
 
         // Start a new fetch if needded.
         const { sortBy, order } = formValues.sorting;

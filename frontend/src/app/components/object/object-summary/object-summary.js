@@ -36,13 +36,16 @@ class ObjectSummaryViewModel extends Observer {
             value: this.sizeOnDisk
         }
     ];
-    chartValues = this.size
-        .map(item => ({
-            label: item.label,
-            parts: [
-                pick(item, ['color', 'value'])
-            ]
-        }));
+    chart = {
+        visible: ko.observable(),
+        values: this.size
+            .map(item => ({
+                label: item.label,
+                parts: [
+                    pick(item, ['color', 'value'])
+                ]
+            }))
+    }
 
     constructor(params) {
         super();
@@ -67,6 +70,8 @@ class ObjectSummaryViewModel extends Observer {
             moment(object.lastRead).format(timeShortFormat) :
             'File not read';
         const readCount = numeral(object.readCount).format(',');
+        const sizeOnDisk = toBytes(object.size.onDisk || 0);
+        const isChartVisible = object.size.onDisk !== null;
 
         this.bucketName(object.bucket);
         this.contentType(object.contentType);
@@ -74,7 +79,8 @@ class ObjectSummaryViewModel extends Observer {
         this.lastReadTime(lastReadTime);
         this.readCount(readCount);
         this.originalSize(toBytes(object.size.original));
-        this.sizeOnDisk(toBytes(object.size.onDisk || 0));
+        this.sizeOnDisk(sizeOnDisk);
+        this.chart.visible(isChartVisible);
         this.objectLoaded(true);
     }
 }

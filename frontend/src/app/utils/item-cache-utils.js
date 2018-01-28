@@ -18,7 +18,6 @@ export function handleFetch(state, query, view, timestamp, queryLimit, itemLimit
     const queryKey = _generateQueryKey(query);
     const queryState = {
         ...(state.queries[queryKey] || {}),
-        key: queryKey,
         timestamp: timestamp,
         fetching: true,
         error: false

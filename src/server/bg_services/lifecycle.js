@@ -35,7 +35,7 @@ function background_worker() {
                             if (!lifecycle_rule.last_sync) {
                                 dbg.log0('LIFECYCLE HANDLING bucket:', bucket.name, 'rule id', lifecycle_rule.id,
                                     'status:', lifecycle_rule.status, ' setting yesterday time');
-                                lifecycle_rule.last_sync = now - 1000 * 60 * 60 * 24; //set yesterday as last sync
+                                lifecycle_rule.last_sync = now - (1000 * 60 * 60 * 24); //set yesterday as last sync
                             }
                             dbg.log0('LIFECYCLE HANDLING bucket:', bucket.name, 'rule id(', j, ')', lifecycle_rule.id,
                                 'status:', lifecycle_rule.status, 'last_sync',
@@ -81,7 +81,6 @@ function background_worker() {
         })
         .then(function() {
             dbg.log0('LIFECYCLE:', 'END');
-            return;
         });
 }
 

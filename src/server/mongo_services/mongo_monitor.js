@@ -43,10 +43,7 @@ function test_mongo_status() {
                 return;
             }
             dbg.log1('PRIMARY member found:', master);
-            if (!previous_master) {
-                dbg.log0('initing previous master to', master.name);
-                previous_master = master.name;
-            } else {
+            if (previous_master) {
                 dbg.log2(`previous_master=${previous_master}  new_master=${master.name}`);
                 // check if master is chaged:
                 if (master.name !== previous_master) {
@@ -54,6 +51,9 @@ function test_mongo_status() {
                     dbg.log0(`MASTER CHANGED to ${master.name} restarting the following services: bg_workers, hosted_agents, s3rver, webserver`);
                     return promise_utils.exec('supervisorctl restart bg_workers hosted_agents s3rver webserver');
                 }
+            } else {
+                dbg.log0('initing previous master to', master.name);
+                previous_master = master.name;
             }
         });
 }

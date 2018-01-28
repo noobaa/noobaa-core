@@ -12,7 +12,8 @@ var end_point = '127.0.0.1';
 mocha.describe('UPLOAD TESTS:', function() {
     var index = 0;
     [basic_size, 10 * basic_size, 100 * basic_size].forEach(function(file_size) {
-        var file_name = basic_name + (index++);
+        var file_name = basic_name + index;
+        index += 1;
         mocha.it('Upload single file of size:' + file_size + ' MB in one thread', function() {
             console.info('> Uploading file: ' + file_name + ' to Noobaa with size of:' + file_size + ' MB');
             return promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + file_name + ' --size ' + file_size)

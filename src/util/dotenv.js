@@ -95,7 +95,11 @@ module.exports = {
                 // matching "KEY' and 'VAL' in 'KEY=VAL'
                 var keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
                 // matched?
-                if (keyValueArr !== null) {
+                if (keyValueArr === null) {
+                    DROPPED_LINES.INDICES.push(idx);
+                    DROPPED_LINES.LINES.push(line);
+                    // console.warn('line', line);
+                } else {
                     var key = keyValueArr[1];
 
                     // default undefined or missing values to empty string
@@ -111,10 +115,6 @@ module.exports = {
                     value = value.replace(/(^['"]|['"]$)/g, '').trim();
 
                     obj[key] = value;
-                } else {
-                    DROPPED_LINES.INDICES.push(idx);
-                    DROPPED_LINES.LINES.push(line);
-                    // console.warn('line', line);
                 }
                 idx += 1;
             });

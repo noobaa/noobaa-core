@@ -224,8 +224,10 @@ function read_bucket(req) {
             cloud_sync_server.get_cloud_sync(req, bucket),
             node_allocator.refresh_tiering_alloc(bucket.tiering)
         )
-        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) => get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier,
-            num_of_objects, cloud_sync_policy));
+        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) =>
+            get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier,
+                num_of_objects, cloud_sync_policy)
+        );
 }
 
 function get_bucket_namespaces(req) {
@@ -758,7 +760,9 @@ function get_cloud_buckets(req) {
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
                     .timeout(EXTERNAL_BUCKET_LIST_TO)
-                    .then(data => data.entries.map(entry => _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)));
+                    .then(data => data.entries.map(entry =>
+                        _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)
+                    ));
             } else if (connection.endpoint_type === 'NET_STORAGE') {
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets('NET_STORAGE',
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
@@ -794,7 +798,9 @@ function get_cloud_buckets(req) {
             });
             return P.ninvoke(s3, "listBuckets")
                 .timeout(EXTERNAL_BUCKET_LIST_TO)
-                .then(data => data.Buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)));
+                .then(data => data.Buckets.map(bucket =>
+                    _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)
+                ));
         })
         .catch(P.TimeoutError, err => {
             dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);

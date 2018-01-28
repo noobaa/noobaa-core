@@ -266,8 +266,6 @@ function collect_statistics(req) {
             let current_clustering = system_store.get_local_cluster_info();
             if (stats_aggregator && !((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master)) {
                 return stats_aggregator.get_all_stats(req);
-            } else {
-                return;
             }
         })
         .catch(function(err) {
@@ -277,8 +275,6 @@ function collect_statistics(req) {
             if (stats_aggregator) {
                 var stats_data = JSON.stringify(restats);
                 return fs.writeFileAsync(TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
-            } else {
-                return;
             }
         })
         .catch(function(err) {

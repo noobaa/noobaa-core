@@ -260,7 +260,8 @@ function run_basic_test() {
             return promise_utils.pwhile(
                 () => i < file_sizes.length,
                 () => {
-                    let fname = file_names[i++];
+                    let fname = file_names[i];
+                    i += 1;
                     console.log('calling upload_file(', fname, ')');
                     return ops.upload_file(TEST_CTX.source_ip, fname, source_params.bucket, fname)
                         .delay(1000);
@@ -298,7 +299,8 @@ function run_basic_test() {
             return promise_utils.pwhile(
                 () => i < file_sizes.length,
                 () => {
-                    let fname = file_names[i++];
+                    let fname = file_names[i];
+                    i += 1;
                     console.log('calling upload_file(', fname, ')');
                     return ops.upload_file(TEST_CTX.target_ip, fname, target_params.bucket, fname)
                         .delay(1000);
@@ -320,7 +322,8 @@ function run_basic_test() {
             return promise_utils.pwhile(
                 () => i < file_sizes.length,
                 () => {
-                    let fname = file_names[i++];
+                    let fname = file_names[i];
+                    i += 1;
                     let obj_path = {
                         bucket: source_params.bucket,
                         key: fname
@@ -384,7 +387,8 @@ function run_basic_test() {
             return promise_utils.pwhile(
                 () => i < file_sizes.length,
                 () => {
-                    let fname = file_names[i++];
+                    let fname = file_names[i];
+                    i += 1;
                     console.log('calling upload_file(', fname, ')');
                     return ops.upload_file(TEST_CTX.source_ip, fname, source_params.bucket, fname)
                         .delay(1000);
@@ -406,7 +410,8 @@ function run_basic_test() {
             return promise_utils.pwhile(
                 () => i < file_sizes.length,
                 () => {
-                    let fname = file_names[i++];
+                    let fname = file_names[i];
+                    i += 1;
                     let obj_path = {
                         bucket: source_params.bucket,
                         key: fname
@@ -459,7 +464,8 @@ function run_basic_test() {
             return promise_utils.pwhile(
                 () => i < file_sizes.length,
                 () => {
-                    let fname = file_names[i++];
+                    let fname = file_names[i];
+                    i += 1;
                     console.log('calling upload_file(', fname, ')');
                     return ops.upload_file(TEST_CTX.target_ip, fname, target_params.bucket, fname)
                         .delay(1000);
@@ -481,7 +487,8 @@ function run_basic_test() {
             return promise_utils.pwhile(
                 () => i < file_sizes.length,
                 () => {
-                    let fname = file_names[i++];
+                    let fname = file_names[i];
+                    i += 1;
                     let obj_path = {
                         bucket: target_params.bucket,
                         key: fname

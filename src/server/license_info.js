@@ -164,16 +164,16 @@ function format_csv(info) {
             // (Q6) Function/ Use with Product/Importance of the Open Source Material
             '',
             // (Q7) Interaction with Product (e.g., dynamically or statically linked)
-            l.path.includes('/native/') && 'Static linking' ||
-            l.path.includes('/node_modules/') && 'No linking' ||
+            (l.path.includes('/native/') && 'Static linking') ||
+            (l.path.includes('/node_modules/') && 'No linking') ||
             'Dynamic linking',
             // (Q8) Modified? (Y/N)
             'N',
             //(Q9) Distribution- Downloadable/Internally used/ SaaS (if distributed, specify if distributed in source code or object code form)
-            l.path.includes('/node_modules/') && 'Downloadable - Distributed as source' ||
+            (l.path.includes('/node_modules/') && 'Downloadable - Distributed as source') ||
             'Downloadable - Distributed as binary',
             // (Q10) Compiled Together? (specify if Company's Products compiled together with the Open Source Material)
-            l.path.includes('/native/') && 'Y' ||
+            (l.path.includes('/native/') && 'Y') ||
             'N',
         ].map(x => `"${x || ''}"`).join(',') + '\n');
     });

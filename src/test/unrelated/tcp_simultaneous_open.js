@@ -100,21 +100,21 @@ function upgrade_to_tls(conn, is_server) {
     var looper;
     var sconn;
     // conn.removeAllListeners();
-    if (!is_server) {
+    if (is_server) {
+        sconn = new tls.TLSSocket(conn, {
+            isServer: true,
+            // secureContext: tls.createSecureContext({
+            // key: fs.readFileSync('./ryans-key.pem'),
+            // cert: fs.readFileSync('./ryans-cert.pem'),
+            // ca: [fs.readFileSync('./ryans-cert.pem')],
+            // })
+        });
+    } else {
         sconn = tls.connect({
             socket: conn,
             // key: fs.readFileSync('./ryans-key.pem'),
             // cert: fs.readFileSync('./ryans-cert.pem'),
             // ca: [fs.readFileSync('./ryans-cert.pem')],
-        });
-    } else {
-        sconn = new tls.TLSSocket(conn, {
-            isServer: true,
-            // secureContext: tls.createSecureContext({
-                // key: fs.readFileSync('./ryans-key.pem'),
-                // cert: fs.readFileSync('./ryans-cert.pem'),
-                // ca: [fs.readFileSync('./ryans-cert.pem')],
-            // })
         });
     }
     sconn.on('secure', once_connected);

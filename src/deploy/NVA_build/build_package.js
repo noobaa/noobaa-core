@@ -36,11 +36,11 @@ function advance_version(current_ver, inc) {
     var new_part;
     for (var i = 0; i < len; i++) {
         //if current part of increment is not 0, increment
-        if (increment_version_parts[i] !== '0') {
+        if (increment_version_parts[i] === '0') {
+            new_part = current_version_parts[i];
+        } else {
             new_part = parseInt(current_version_parts[i], 10) +
                 parseInt(increment_version_parts[i], 10);
-        } else {
-            new_part = current_version_parts[i];
         }
         output_version += new_part + '.';
     }

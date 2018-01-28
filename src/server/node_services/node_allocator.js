@@ -122,15 +122,17 @@ function get_tiering_status(tiering) {
             tier_pools = _.concat(tier_pools, mirror_object.spread_pools);
         });
 
+        const ccc = _.get(tier, 'chunk_config.chunk_coder_config');
+        const required_valid_nodes = ccc ? (ccc.data_frags + ccc.parity_frags) * ccc.replicas : config.NODES_MIN_COUNT;
         tiering_status_by_tier[tier._id] = {
-            pools: _get_tier_pools_status(tier_pools),
+            pools: _get_tier_pools_status(tier_pools, required_valid_nodes),
             mirrors_storage: _.get(alloc_group_by_tiering, `${tiering._id}.mirrors_storage_by_tier_id.${tier._id}`),
         };
     });
     return tiering_status_by_tier;
 }
 
-function _get_tier_pools_status(pools) {
+function _get_tier_pools_status(pools, required_valid_nodes) {
     let pools_status_by_id = {};
     _.each(pools, pool => {
         let valid_for_allocation = true;
@@ -144,7 +146,7 @@ function _get_tier_pools_status(pools) {
             if (num_nodes !== config.NODES_PER_MONGO_POOL) {
                 valid_for_allocation = false;
             }
-        } else if (num_nodes < config.NODES_MIN_COUNT) {
+        } else if (num_nodes < required_valid_nodes) {
             valid_for_allocation = false;
         }
         pools_status_by_id[pool._id] = {

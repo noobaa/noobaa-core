@@ -876,6 +876,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
                 spillover_tier_in_policy = tier_and_order.tier;
             }
         }
+        const ccc = _.get(tier_and_order, 'tier.chunk_config.chunk_coder_config');
+        const required_valid_nodes = ccc ? (ccc.data_frags + ccc.parity_frags) * ccc.replicas : config.NODES_MIN_COUNT;
         let mirror_with_valid_pool = 0;
         tier_and_order.tier.mirrors.forEach(mirror_object => {
             let num_valid_nodes;
@@ -894,7 +896,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
                     // has_any_valid_pool_configured = has_any_valid_pool_configured || has_valid_pool;
                 });
             // let valid = ;
-            if (has_valid_pool || ((num_valid_nodes || 0) >= config.NODES_MIN_COUNT)) mirror_with_valid_pool += 1;
+            if (has_valid_pool || ((num_valid_nodes || 0) >= required_valid_nodes)) mirror_with_valid_pool += 1;
             // return valid;
             const exitsting_minimum = _.isUndefined(info.num_of_nodes) ? Number.MAX_SAFE_INTEGER : info.num_of_nodes;
             const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : num_valid_nodes;
@@ -904,8 +906,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_ti
         info.num_of_nodes = info.num_of_nodes || 0;
         info.writable = mirror_with_valid_pool > 0;
         if (!tier_and_order.spillover &&
-            ((tier_and_order.tier.mirrors.length > 1 && mirror_with_valid_pool === tier_and_order.tier.mirrors.length) ||
-                (tier_and_order.tier.mirrors.length === 1 && mirror_with_valid_pool === 1))) {
+            (tier_and_order.tier.mirrors.length > 0 && mirror_with_valid_pool === tier_and_order.tier.mirrors.length)) {
             has_any_valid_pool_configured = true;
         }
     });

@@ -102,6 +102,35 @@ module.exports = {
 
         'space-unary-ops': ['error', { words: false, nonwords: false }],
 
+        // max line length is 80 by default, allow some slack
+        // TODO eslint max-len for code lines should be error and reduced to ~100 instead of 140
+        'max-len': ['error', {
+            code: 140,
+            tabWidth: 4,
+            ignoreComments: true,
+            ignoreUrls: true,
+            ignoreStrings: true,
+            ignoreRegExpLiterals: true,
+            ignoreTemplateLiterals: true,
+        }],
+
+        // warn on using ++ operator, should replace with +=1
+        // to avoid shenanigans of the value returned before/after the action
+        'no-plusplus': ['error', { allowForLoopAfterthoughts: true }],
+
+        // use only x|0 for int casting, but avoid other bitwise operators
+        'no-bitwise': ['error', { int32Hint: true }],
+
+        'arrow-body-style': ['error', 'as-needed'],
+
+        // prefer to use function decleration (function foo() {})
+        // instead of expression (foo = function() {})
+        'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
+
+        'lines-between-class-members': ['error', 'always', { exceptAfterSingleLine: true }],
+
+        // use only x|0 for int casting, but avoid other bitwise operators
+        'no-bitwise': ['error', { int32Hint: true }],
 
         //////////////////////////////////////////////////////////////////////
         //                                                                  //
@@ -112,46 +141,7 @@ module.exports = {
         //                                                                  //
         //////////////////////////////////////////////////////////////////////
 
-
-        'arrow-body-style': ['error', 'as-needed'],
-
-        // prefer to use function decleration (function foo() {})
-        // instead of expression (foo = function() {})
-        'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
-
-        'lines-between-class-members': ['warn', 'always', { exceptAfterSingleLine: true }],
-
-        // max line length is 80 by default, allow some slack
-        // TODO eslint max-len for code lines should be error and reduced to ~100 instead of 140
-        'max-len': ['warn', {
-            code: 140,
-            tabWidth: 4,
-            ignoreComments: true,
-            ignoreUrls: true,
-            ignoreTemplateLiterals: true,
-        }],
-
-        // use only x|0 for int casting, but avoid other bitwise operators
-        'no-bitwise': ['warn', { int32Hint: true }],
-
-        // for empty functions we expect at least a comment why it's there
-        'no-empty-function': 'warn',
-
-        // mixing operators in the same statement is considered a readability hell
-        // TODO eslint no-mixed-operators should be error
-        'no-mixed-operators': 'warn',
-
-        // prefer "if (x) doit() else dont()" over "if (!x) dont() else doit()"
-        'no-negated-condition': 'warn',
-
-        // warn on using ++ operator, should replace with +=1
-        // to avoid shenanigans of the value returned before/after the action
-        'no-plusplus': ['warn', { allowForLoopAfterthoughts: true }],
-
-        // constructors that do nothing can be deleted
-        'no-useless-constructor': 'warn',
-        'no-useless-return': 'warn',
-
+        //Hooraay!!! No Warnings
 
         //////////////////////////////////////////////////////////////////////
         //                                                                  //

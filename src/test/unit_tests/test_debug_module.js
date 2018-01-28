@@ -25,7 +25,6 @@ function file_content_verify(flag, expected) {
         } else if (flag === "no_text") { // Verify Log request DOES NOT appear
             assert(content.indexOf(expected) === -1);
         }
-        return;
     });
 }
 

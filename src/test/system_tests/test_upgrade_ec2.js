@@ -98,35 +98,38 @@ function main() {
         console.error('missing upgrade_pack');
     } else if (!_.isUndefined(argv.region)) {
         target_region = argv.region;
-    } else if (!_.isUndefined(process.env.AWS_REGION)) {
-        target_region = process.env.AWS_REGION;
-    } else {
+    } else if (_.isUndefined(process.env.AWS_REGION)) {
         missing_params = true;
         console.error('missing region');
-    }
-    if (!_.isUndefined(argv.name)) {
-        name = argv.name;
     } else {
+        target_region = process.env.AWS_REGION;
+    }
+    if (_.isUndefined(argv.name)) {
         name = 'test_upgrade_ec2.js generated instance (' + argv.base_ami + ')';
+    } else {
+        name = argv.name;
     }
 
     //Actual Test Logic
-    if (!missing_params) {
+    if (missing_params) {
+        show_usage();
+        process.exit(3);
+    } else {
         console.log("Starting test_upgrade_ec2.js, this can take some time...");
         return P.fcall(function() {
-                if (!_.isUndefined(argv.base_ami)) {
-                    return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
-                } else {
-                    return {
-                        instanceid: argv.use_instance
-                    };
-                }
-            })
+            if (_.isUndefined(argv.base_ami)) {
+                return {
+                    instanceid: argv.use_instance
+                };
+            } else {
+                return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
+            }
+        })
             .then(function(res) {
                 return P.fcall(function() {
-                        instance_id = res.instanceid;
-                        return ec2_wrap.get_ip_address(instance_id);
-                    })
+                    instance_id = res.instanceid;
+                    return ec2_wrap.get_ip_address(instance_id);
+                })
                     .then(function(ip) {
                         target_ip = ip;
                         var isNotListening = true;
@@ -146,8 +149,8 @@ function main() {
                                     return P.delay(10000);
                                 });
                             }).then(function() {
-                            return ops.upload_and_upgrade(target_ip, argv.upgrade_pack);
-                        });
+                                return ops.upload_and_upgrade(target_ip, argv.upgrade_pack);
+                            });
                     })
                     .then(function() {
                         return ops.get_agent_setup(target_ip);
@@ -178,10 +181,6 @@ function main() {
                 console.error('ERROR: while creating instance', error);
                 process.exit(1);
             });
-    } else {
-        show_usage();
-        process.exit(3);
-
     }
 }
 

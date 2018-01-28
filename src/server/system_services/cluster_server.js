@@ -1364,7 +1364,9 @@ function upgrade_cluster(req) {
                     dbg.log0('UPGRADE:', 'testing package in all secondary cluster members');
                     // upload package to cluster members
                     return P.all(secondary_members.map(ip => server_rpc.client.cluster_internal.member_pre_upgrade({
-                            filepath: system_store.data.clusters.find(cluster => (String(cluster.owner_address) === String(ip))).upgrade.path,
+                            filepath: system_store.data.clusters
+                                .find(cluster => (String(cluster.owner_address) === String(ip)))
+                                .upgrade.path,
                             mongo_upgrade: false,
                             stage: 'UPGRADE_STAGE'
                         }, {

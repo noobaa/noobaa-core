@@ -25,7 +25,6 @@ function deploy_agents(params) {
         })
         .then(function(res) {
             ec2_wrap.console_inspect('Scale: completed to ' + params.scale, res);
-            return;
             //return ec2_wrap.describe_instances().then(ec2_wrap.print_instances);
         })
         .then(null, function(err) {
@@ -109,15 +108,13 @@ function main() {
                 throw new Error('Error on deploy_agents ' + err);
             });
 
-    } else if (!_.isUndefined(argv.instance)) {
-
+    } else if (_.isUndefined(argv.instance)) {
+        ec2_wrap.describe_instances().then(ec2_wrap.print_instances);
+    } else {
         ec2_wrap.describe_instance(argv.instance)
             .then(function(instance) {
                 ec2_wrap.console_inspect('Instance ' + argv.instance + ':', instance);
             });
-
-    } else {
-        ec2_wrap.describe_instances().then(ec2_wrap.print_instances);
     }
 }
 

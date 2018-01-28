@@ -49,10 +49,10 @@ function get_external_ipv4() {
             }
             if (!ips) {
                 ips = ifc.address;
-            } else if (!_.isArray(ips)) {
-                ips = [ips, ifc.address];
-            } else {
+            } else if (_.isArray(ips)) {
                 ips.push(ifc.address);
+            } else {
+                ips = [ips, ifc.address];
             }
         });
     });

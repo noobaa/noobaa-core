@@ -42,7 +42,7 @@ function Histogram(master_label, structure) {
 Histogram.prototype.add_value = function(value) {
     for (var i = this._bins.length - 1; i >= 0; --i) {
         if (value >= this._bins[i].start_val) {
-            this._bins[i].count++;
+            this._bins[i].count += 1;
             this._bins[i].aggregated_sum += value;
             return;
         }
@@ -77,7 +77,7 @@ Histogram.prototype.get_object_data = function(skip_master_label) {
 };
 
 Histogram.prototype.get_string_data = function() {
-    var str = (typeof(this._master_label) !== 'undefined' ? this._master_label + '  ' : '');
+    var str = (typeof(this._master_label) === 'undefined' ? '' : this._master_label + '  ');
     for (var i = 0; i < this._bins.length; ++i) {
         str += this._bins[i].label +
             ' (' + this._bins[i].start_val +
@@ -93,5 +93,5 @@ Histogram.prototype.get_string_data = function() {
 };
 
 Histogram.prototype.get_master_label = function() {
-    return (typeof(this._master_label) !== 'undefined' ? this._master_label : '');
+    return (typeof(this._master_label) === 'undefined' ? '' : this._master_label);
 };

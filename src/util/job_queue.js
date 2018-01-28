@@ -11,10 +11,10 @@ const DIRECTION_LIFO = 'LIFO';
 class JobQueue {
 
     constructor(params) {
-        this._name = params && params.name || '';
-        this._concurrency = params && params.concurrency || 0;
-        this._job_method = params && params.job_method || 'run';
-        this._direction = params && params.direction || DIRECTION_FIFO;
+        this._name = (params && params.name) || '';
+        this._concurrency = (params && params.concurrency) || 0;
+        this._job_method = (params && params.job_method) || 'run';
+        this._direction = (params && params.direction) || DIRECTION_FIFO;
         this._queue = new LinkedList(this._name);
         this._num_running = 0;
         Object.defineProperty(this, 'length', {
@@ -47,10 +47,10 @@ class JobQueue {
         if (!job) return;
         // submit the job to run in background
         // to be able to return here immediately
-        this._num_running++;
+        this._num_running += 1;
         return P.try(() => job[this._job_method]())
             .finally(() => {
-                this._num_running--;
+                this._num_running -= 1;
                 setImmediate(() => this.process(true));
             });
     }

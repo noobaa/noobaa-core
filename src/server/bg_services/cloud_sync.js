@@ -846,7 +846,6 @@ function sync_from_cloud_single_bucket(policy) {
                 return P.ninvoke(policy.s3rver, 'deleteObjects', params);
             } else {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions c2n, nothing to sync');
-                return;
             }
         })
         .then(() => P.map(bucket_work_lists.c2n_deleted, obj => mark_cloud_synced_deleted(obj)))

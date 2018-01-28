@@ -37,7 +37,6 @@ function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) 
 
                             if (condition_correct) {
                                 isDone = false;
-                                return;
                             } else {
                                 wait_counter += 1;
                                 if (wait_counter >= MAX_RETRIES) {
@@ -55,7 +54,6 @@ function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) 
 
                             if (condition_correct) {
                                 isDone = false;
-                                return;
                             } else {
                                 wait_counter += 1;
                                 if (wait_counter >= MAX_RETRIES) {

@@ -19,38 +19,19 @@ var object_io = new ObjectIO();
 
 if (!bkt) {
     init_api().then(function() {
-        return client.bucket.list_buckets();
-    })
-    .then(function(res) {
-        output.write('\nLIST BUCKETS:\n\n');
-        res.buckets.forEach(function(bucket) {
-            output.write('    ' +
-                ' ' + bucket.name +
-                '\n');
+            return client.bucket.list_buckets();
+        })
+        .then(function(res) {
+            output.write('\nLIST BUCKETS:\n\n');
+            res.buckets.forEach(function(bucket) {
+                output.write('    ' +
+                    ' ' + bucket.name +
+                    '\n');
+            });
+            output.write('\n-------------\n\n');
+            rpc.disconnect_all();
         });
-        output.write('\n-------------\n\n');
-        rpc.disconnect_all();
-    });
-} else if (!key) {
-    init_api().then(function() {
-        return client.object.list_objects({
-            bucket: bkt
-        });
-    })
-    .then(function(res) {
-        output.write('\nLIST OBJECTS:\n\n');
-        res.objects.forEach(function(obj) {
-            output.write('    ' +
-                ' ' + moment(new Date(obj.create_time)).format('YYYY MMM D HH:mm:ss') +
-                ', ' + size_utils.human_size(obj.size) +
-                ', ' + obj.key +
-                // JSON.stringify(obj)+
-                '\n');
-        });
-        output.write('\n-------------\n\n');
-        rpc.disconnect_all();
-    });
-} else {
+} else if (key) {
     init_api().then(function() {
         return object_io.read_object_stream({
                 client: client,
@@ -64,6 +45,25 @@ if (!bkt) {
             })
             .pipe(output);
     });
+} else {
+    init_api().then(function() {
+            return client.object.list_objects({
+                bucket: bkt
+            });
+        })
+        .then(function(res) {
+            output.write('\nLIST OBJECTS:\n\n');
+            res.objects.forEach(function(obj) {
+                output.write('    ' +
+                    ' ' + moment(new Date(obj.create_time)).format('YYYY MMM D HH:mm:ss') +
+                    ', ' + size_utils.human_size(obj.size) +
+                    ', ' + obj.key +
+                    // JSON.stringify(obj)+
+                    '\n');
+            });
+            output.write('\n-------------\n\n');
+            rpc.disconnect_all();
+        });
 }
 
 

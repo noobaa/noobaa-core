@@ -82,7 +82,6 @@ function background_worker() {
             })
             .catch(err => {
                 dbg.error('send_master_update had an error:', err.stack || err);
-                return;
             });
     }
 }

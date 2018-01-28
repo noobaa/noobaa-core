@@ -132,8 +132,6 @@ function upload_file(test_file) {
                         UL_TEST.measurement.points = 0;
                         UL_TEST.measurement.time = 0;
                     }
-
-                    return;
                 }, function(err) {
                     console.log('failed to upload file', test_file, 'with error', err, err.stack);
                 });
@@ -164,7 +162,7 @@ function print_summary() {
         console.log('  for files', (i * 1000) + 1, 'to', (i + 1) * 1000, 'avg ul time', m);
         i += 1;
     });
-    console.log('  for files', (i * 1000) + 1, 'to', (i + 1) * 1000 + UL_TEST.measurement.points, 'avg ul time',
+    console.log('  for files', (i * 1000) + 1, 'to', ((i + 1) * 1000) + UL_TEST.measurement.points, 'avg ul time',
         UL_TEST.measurement.time / UL_TEST.measurement.points);
 }
 
@@ -213,13 +211,12 @@ function main() {
 
     return P.fcall(function() {
             //Pre generate files, so measurement won't be affected
-            if (!UL_TEST.skip_generation) {
-                console.log('Pre generating files');
-                return pre_generation();
-            } else {
+            if (UL_TEST.skip_generation) {
                 console.log('Skipping Pre generation of files');
                 //TODO:: fill out UL_TEST.files according to existing files
-                return;
+            } else {
+                console.log('Pre generating files');
+                return pre_generation();
             }
         })
         .then(function() {
@@ -236,7 +233,6 @@ function main() {
                 return promise_utils.exec('rm -rf /tmp/' + UL_TEST.base_dir);
             }
             console.log('Finished running upload test');
-            return;
         })
         .catch(function() {
             if (!UL_TEST.skip_cleanup) {

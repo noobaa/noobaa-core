@@ -298,14 +298,16 @@ class MongoClient extends EventEmitter {
                 ver += 1;
                 rep_config.version = ver;
                 dbg.log0('Calling replica_update_members', util.inspect(command, false, null));
-                if (!is_config_set) { //connect the mongod server
+                if (is_config_set) {
+                    //connect the server running the config replica set
+                    return P.resolve(this._send_command_config_rs(command));
+                } else {
+                    //connect the mongod server
                     return P.resolve(this.db.admin().command(command))
                         .catch(err => {
                             dbg.error('Failed replica_update_members', set, members, 'with', err.message);
                             throw err;
                         });
-                } else { //connect the server running the config replica set
-                    return P.resolve(this._send_command_config_rs(command));
                 }
             });
     }
@@ -447,7 +449,7 @@ class MongoClient extends EventEmitter {
     _build_replica_config(set, members, port, is_config_set) {
         var rep_config = {
             _id: set,
-            configsvr: (!_.isUndefined(is_config_set)) ? is_config_set : false,
+            configsvr: (_.isUndefined(is_config_set)) ? false : is_config_set,
             members: []
         };
         var id = 0;

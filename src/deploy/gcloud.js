@@ -101,11 +101,11 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
             var instances_per_zone = _.groupBy(instances, 'zone');
 
             var zones_names = instances.zones;
-            if (!_.isUndefined(filter_region)) {
+            if (_.isUndefined(filter_region)) {
+                console.log('No Filters. Zones:', zones_names);
+            } else {
                 console.log('Filter and use only region:', filter_region);
                 zones_names = [filter_region];
-            } else {
-                console.log('No Filters. Zones:', zones_names);
             }
 
             //console.log('instances_per_zone',instances_per_zone);
@@ -152,7 +152,10 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
                     new_count += zone_count;
                 }
 
-                return scale_region(zone_name, zone_count, zone_instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
+                return scale_region(
+                    zone_name, zone_count, zone_instances, allow_terminate,
+                    is_docker_host, number_of_dockers, is_win, agent_conf
+                );
             }));
         })
         .catch(function(err) {
@@ -779,7 +782,6 @@ function main() {
                 console.error('You must provide region weave routing machine (--region)');
                 console.error('In order to create this router, use "gcloud --set_router --region xxxx"');
                 console.error('****************************************************\n\n');
-                return;
             } else {
                 //add router
                 cloud_context.counter = 0;
@@ -802,15 +804,14 @@ function main() {
                     }
                     throw err;
                 });
-        } else if (!_.isUndefined(argv.instance)) {
-
+        } else if (_.isUndefined(argv.instance)) {
+            //console.log('desc instances');
+            describe_instances().then(print_instances);
+        } else {
             describe_instance(argv.instance)
                 .then(function(instance) {
                     console_inspect('Instance ' + argv.instance + ':', instance);
                 });
-        } else {
-            //console.log('desc instances');
-            describe_instances().then(print_instances);
         }
     });
 

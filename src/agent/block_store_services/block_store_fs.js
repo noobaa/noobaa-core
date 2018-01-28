@@ -223,7 +223,7 @@ class BlockStoreFs extends BlockStoreBase {
 
     _get_alloc() {
         return this._read_config()
-            .then(config => config && config.alloc || 0);
+            .then(config => (config && config.alloc) || 0);
     }
 
     _set_alloc(size) {

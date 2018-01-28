@@ -19,10 +19,10 @@ function SliceReader(source, params) {
     stream.Readable.call(self, params);
     self._source = source;
     self._pos =
-        typeof(params.start) !== 'undefined' && Number(params.start) || 0;
+        typeof(params.start) !== ('undefined' && Number(params.start)) || 0;
     self._end =
-        typeof(params.end) !== 'undefined' && Number(params.end) ||
-        typeof(source.size) === 'undefined' && Number(source.size) ||
+        typeof(params.end) !== ('undefined' && Number(params.end)) ||
+        typeof(source.size) === ('undefined' && Number(source.size)) ||
         Infinity;
 
     if (params.FileReader) {
@@ -32,11 +32,11 @@ function SliceReader(source, params) {
         self._fr.onloadend = function(e) {
             var data = e.target.result;
             var buf = Buffer.from(data);
-            if (!buf.length) {
-                self.push(null);
-            } else {
+            if (buf.length) {
                 self._pos += buf.length;
                 self.push(buf);
+            } else {
+                self.push(null);
             }
         };
         self._fr.onerror = function(e) {

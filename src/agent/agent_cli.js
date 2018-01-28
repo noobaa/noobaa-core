@@ -478,7 +478,6 @@ AgentCLI.prototype.create = function(number_of_nodes, paths_to_work_on) {
                 .then(function(files) {
                     if (files.length > 0 && number_of_nodes === 0) {
                         //if new HD introduced,  skip existing HD.
-                        return;
                     } else {
                         return self.create_node_helper(current_storage_path);
                     }
@@ -491,13 +490,12 @@ AgentCLI.prototype.create = function(number_of_nodes, paths_to_work_on) {
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {
                             //if new HD introduced,  skip existing HD.
-                            return;
                         } else {
                             return self.create_node_helper(storage_paths_to_add[0]);
                         }
                     });
             } else if (number_of_nodes === 0) {
-                return;
+                return undefined;
             } else {
                 return self.create_node_helper(storage_paths_to_add[0]);
             }

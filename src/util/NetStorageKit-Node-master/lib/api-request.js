@@ -11,7 +11,10 @@ class Requestor {
         this.requestorOptions = requestorOptions;
         if (!(this.requestorOptions instanceof Object)) {
             throw new TypeError('[Requestor Error] options should be an object');
-        } else if (!(this.requestorOptions.hostname && this.requestorOptions.keyName && this.requestorOptions.key && this.requestorOptions.ssl !== undefined)) {
+        } else if (!(this.requestorOptions.hostname &&
+                this.requestorOptions.keyName &&
+                this.requestorOptions.key &&
+                this.requestorOptions.ssl !== undefined)) {
             throw new Error('[Requestor Error] options object should contain key, keyName, hostname, and ssl attributes');
         }
 

@@ -124,12 +124,12 @@ export default {
             },
 
             edit_policy: {
-                message: 'Bucket Edit Policy',
+                message: 'Edit Bucket Policy',
                 entityId: ({ bucket }) => bucket && bucket.name
             },
 
             edit_resiliency: {
-                message: 'Bucket Edit Data Resiliency',
+                message: 'Edit Bucket Data Resiliency',
                 entityId: ({ bucket }) => bucket && bucket.name
             },
 

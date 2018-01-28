@@ -258,7 +258,7 @@ function preprocessElement(node) {
 
 function preprocessTextNode(node) {
     node.normalize();
-    const before = node.nodeValue.trim();
+    const before = node.nodeValue;
     const after = before.replace(/\{\{[\s\S]*?\}\}/g, match => {
         const expr = match.substr(2, match.length - 4);
         return `'+ko.unwrap(${expr})+'`;

@@ -111,7 +111,7 @@ class SystemHealthViewModel extends Observer {
                 label: 'Available',
                 value: ko.observable(),
                 color: style['color15'],
-                tooltip: 'The free space available for writes and redundancy in the system'
+                tooltip: 'The total free space for upload prior to data resiliency considerations'
             }
         ];
 

@@ -870,9 +870,11 @@ module.exports = {
             enum: [
                 'SPILLOVER_NO_RESOURCES',
                 'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
+                'SPILLOVER_NOT_ENOUGH_RESOURCES',
                 'SPILLOVER_NO_CAPACITY',
                 'NO_RESOURCES',
                 'NOT_ENOUGH_HEALTHY_RESOURCES',
+                'NOT_ENOUGH_RESOURCES',
                 'NO_CAPACITY',
                 'LOW_CAPACITY',
                 'APPROUCHING_QOUTA',

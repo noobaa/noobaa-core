@@ -494,6 +494,7 @@ function read_system(req) {
                     let b = bucket_server.get_bucket_info(
                         bucket,
                         nodes_aggregate_pool_with_cloud_and_mongo,
+                        hosts_aggregate_pool,
                         aggregate_data_free_by_tier,
                         obj_count_per_bucket[bucket._id] || 0,
                         cloud_sync_by_bucket[bucket.name]);

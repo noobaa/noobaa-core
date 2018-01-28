@@ -3,6 +3,17 @@
 object-parts-list {
     display: block;
 
+    vr {
+        background-color: @color7;
+    }
+
+    .box {
+        background-color: @color15;
+        color: @color6;
+        margin-left: @gutter/4;
+        padding: @gutter/4 @gutter/2;
+    }
+
     .part-list {
         width: 420px;
         margin: (@gutter/2 - 4px) 0;
@@ -60,6 +71,10 @@ object-parts-list {
         padding-top: 4px;
         padding-bottom: 4px;
 
+        &.fade {
+            animation: fade-in 750ms ease;
+        }
+
         > section {
             padding: @gutter 0;
         }
@@ -78,12 +93,6 @@ object-parts-list {
                 .no-wrap();
                 min-width: 250px;
                 max-width: 250px
-            }
-
-            tbody .marking-col > span {
-                padding: @gutter/4 @gutter/2;
-                color: @color6;
-                background-color: @color15;
             }
         }
     }

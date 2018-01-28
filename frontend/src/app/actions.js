@@ -53,12 +53,6 @@ export function redirectTo(route = model.routeContext().pathname, params = {}, q
     action$.onNext(requestLocation(uri, true));
 }
 
-export function reload() {
-    logAction('reload');
-
-    window.location.reload();
-}
-
 export function reloadTo(route = model.routeContext().pathname, params = {},  query = {}) {
     logAction('reloadTo', { route, params, query });
 
@@ -71,16 +65,6 @@ export function reloadTo(route = model.routeContext().pathname, params = {},  qu
 // -----------------------------------------------------
 // High level UI update actions.
 // -----------------------------------------------------
-export function showObject() {
-    logAction('showObject');
-
-    const ctx = model.routeContext();
-    const { object, bucket } = ctx.params;
-    const { page = 0 } = ctx.query;
-
-    loadObjectMetadata(bucket, object);
-    loadObjectPartList(bucket, object, parseInt(page));
-}
 
 export function showFuncs() {
     logAction('showFuncs');
@@ -250,45 +234,6 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
             config: config
         });
     }
-}
-
-export function loadObjectMetadata(bucketName, objectName) {
-    logAction('loadObjectMetadata', { bucketName, objectName });
-
-    // Drop previous data if of diffrent object.
-    if (!!model.objectInfo() && model.objectInfo().key !== objectName) {
-        model.objectInfo(null);
-    }
-
-    api.object.read_object_md({
-        bucket: bucketName,
-        key: objectName,
-        adminfo: {
-            signed_url_endpoint: endpoint
-        }
-    })
-        .then(model.objectInfo)
-        .done();
-}
-
-export function loadObjectPartList(bucketName, objectName, page) {
-    logAction('loadObjectPartList', { bucketName, objectName, page });
-
-    api.object.read_object_mappings({
-        bucket: bucketName,
-        key: objectName,
-        skip: config.paginationPageSize * page,
-        limit: config.paginationPageSize,
-        adminfo: true
-    })
-        .then(
-            ({ total_parts, parts }) => {
-                model.objectPartList(parts);
-                model.objectPartList.page(page);
-                model.objectPartList.count(total_parts);
-            }
-        )
-        .done();
 }
 
 export function loadAuditEntries(categories, count) {
@@ -831,21 +776,6 @@ export function toogleCloudSync(bucket, pause) {
             () => notify(`${pause ? 'Pausing' : 'Resuming'} ${bucket} cloud sync failed`, 'error')
         )
         .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
-export function checkCloudConnection(endpointType, endpoint, identity, secret) {
-    logAction('checkCloudConnection', { endpointType, endpoint, identity, secret });
-
-    const connection = {
-        endpoint_type: endpointType,
-        endpoint: endpoint,
-        identity: identity,
-        secret: secret
-    };
-
-    api.account.check_external_connection(connection)
-        .then(val => model.isCloudConnectionValid(val === 'SUCCESS'))
         .done();
 }
 

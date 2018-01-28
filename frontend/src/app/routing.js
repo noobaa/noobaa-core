@@ -47,7 +47,7 @@ export default function routing(page) {
     registerRouteHandler(page, routes.buckets);
     registerRouteHandler(page, routes.bucket);
     registerRouteHandler(page, routes.namespaceBucket);
-    registerRouteHandler(page, routes.object, actions.showObject);
+    registerRouteHandler(page, routes.object);
     registerRouteHandler(page, routes.resources);
     registerRouteHandler(page, routes.pool);
     registerRouteHandler(page, routes.host);

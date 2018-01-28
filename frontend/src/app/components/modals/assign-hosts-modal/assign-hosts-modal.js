@@ -89,7 +89,7 @@ function _getTableEmptyMessage(hostCount, releventHostsCount) {
     } else if (releventHostsCount === 0) {
         return 'All nodes are already in this pool';
     } else {
-        return 'Current filter does not match any host';
+        return 'Current filter does not match any node';
     }
 }
 

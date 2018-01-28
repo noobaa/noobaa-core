@@ -5,12 +5,20 @@ object-summary {
     position: relative;
     min-height: 186px;
 
+    > div {
+        min-height: inherit;
+    }
+
     .summary  {
         opacity: 0;
 
         &.visible {
             opacity: 1;
             transition: opacity 250ms ease-out;
+        }
+
+        .size-not-avail {
+            font-size: @font-size4;
         }
     }
 }

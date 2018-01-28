@@ -52,6 +52,12 @@ export default {
         },
         hostPools: {
             $ref: '#/def/hostPools'
+        },
+        objects: {
+            $ref: '#/def/objects'
+        },
+        objectParts: {
+            $ref: '#/def/objectParts'
         }
     }
 };

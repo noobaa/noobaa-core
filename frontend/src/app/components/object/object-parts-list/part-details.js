@@ -4,11 +4,11 @@ import BlocksTableViewModel from './blocks-table';
 import ko from 'knockout';
 
 export default class PartDetailsViewModel {
+    fade = ko.observable();
     partSeq = ko.observable();
     blockTables = ko.observableArray();
 
     constructor(close) {
-
         this.close = close;
     }
 
@@ -20,8 +20,16 @@ export default class PartDetailsViewModel {
                 return table;
             });
 
+        if (this.partSeq() && partSeq + 1 !== this.partSeq()) {
+            this.fade(true);
+        }
+
         this.partSeq(partSeq + 1);
         this.blockTables(tables, system);
+    }
+
+    onAnimationEnd() {
+        this.fade(false);
     }
 
     onX() {

@@ -69,15 +69,20 @@
                 </button>
             </div>
             <hr />
-            <div class="greedy block-tables" ko.foreach="blockTables">
+            <div class="greedy block-tables"
+                ko.css.fade="fade"
+                ko.event.animationend="onAnimationEnd"
+                ko.foreach="blockTables"
+            >
                 <section class="column">
                     <div class="row content-middle push-next-half">
-                        <p class="row greedy push-next">
+                        <p class="row greedy push-next content-middle">
                             <span class="highlight push-next-half">{{label}}:</span>
                             {{policy}}
                             <!-- ko if: resources -->
-                            | Resides on
-                            <span ko.text="resources().text"
+                            | Resides on
+                            <span class="box"
+                                ko.text="resources().text"
                                 ko.tooltip="resources().tooltip"
                             ></span>
                             <!-- /ko -->
@@ -89,12 +94,13 @@
                         ></svg-icon>
                     </div>
 
-                    <data-table class="alt-bg blocks-table" params="
+                    <data-table class="alt-bg" params="
                         columns: columns,
                         data: rows,
                     ">
                         <template name="marking">
-                            <span ko.text="$data().text"
+                            <span class="box"
+                                ko.text="$data().text"
                                 ko.tooltip="$data().tooltip"
                             ></span>
                         </template>

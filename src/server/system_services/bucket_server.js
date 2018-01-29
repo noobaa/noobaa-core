@@ -903,7 +903,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, hosts_aggregate_pool, agg
                 });
             // let valid = ;
             if (has_valid_pool || ((num_valid_nodes || 0) >= required_valid_nodes)) mirrors_with_valid_pool += 1;
-            if (num_nodes_in_mirror_group >= required_valid_nodes) mirrors_with_enough_nodes += 1;
+            if (num_nodes_in_mirror_group >= required_valid_nodes || has_internal_or_cloud_pool) mirrors_with_enough_nodes += 1;
             // return valid;
             const exitsting_minimum = _.isUndefined(info.num_of_nodes) ? Number.MAX_SAFE_INTEGER : info.num_of_nodes;
             const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : num_valid_nodes;

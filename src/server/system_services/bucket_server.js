@@ -222,11 +222,12 @@ function read_bucket(req) {
                 bucket.tiering.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id),
             MDStore.instance().count_objects_of_bucket(bucket._id),
             cloud_sync_server.get_cloud_sync(req, bucket),
-            node_allocator.refresh_tiering_alloc(bucket.tiering)
+            node_allocator.refresh_tiering_alloc(bucket.tiering),
+            nodes_client.instance().aggregate_hosts_by_pool(null, req.system._id)
         )
-        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy) =>
-            get_bucket_info(bucket, nodes_aggregate_pool, aggregate_data_free_by_tier,
-                num_of_objects, cloud_sync_policy)
+        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy, hosts_aggregate_pool) =>
+            get_bucket_info(bucket, nodes_aggregate_pool, hosts_aggregate_pool,
+                aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy)
         );
 }
 

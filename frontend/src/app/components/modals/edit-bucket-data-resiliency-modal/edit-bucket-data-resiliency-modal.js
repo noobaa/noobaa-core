@@ -9,6 +9,7 @@ import { state$, action$ } from 'state';
 import { deepFreeze, pick } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
 import { summrizeResiliency } from 'utils/bucket-utils';
+import { dataCenterArticles as articles } from 'config';
 import {
     closeModal,
     updateForm,
@@ -105,6 +106,7 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
     ecRequiredHosts = ko.observable();
     ecRebuildEffort = ko.observable();
     ecIsPolicyRisky = false;
+    learnMoreUrl = articles.editDataResiliency;
 
     constructor({ bucketName }) {
         super();
@@ -191,27 +193,18 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
         const { resiliencyType, replicas, dataFrags, parityFrags } = values;
 
         if (resiliencyType === 'REPLICATION') {
-            if (Number.isNaN(replicas) || replicas < 1) {
-                errors.replicas = 'Please enter a number bigger then 0';
-
-            } else if (replicas > 32) {
-                errors.replicas = 'Replicas must be below 32';
+            if (Number.isNaN(replicas) || replicas < 1 || replicas > 32) {
+                errors.replicas = 'Please enter a value between 1-32';
             }
         }
 
         if (values.resiliencyType === 'ERASURE_CODING') {
-            if (Number.isNaN(dataFrags) || dataFrags < 1) {
-                errors.dataFrags = 'Please enter a number bigger then 0';
-
-            } else if (dataFrags > 32) {
-                errors.dataFrags = 'Data must be below 32';
+            if (Number.isNaN(dataFrags) || dataFrags < 1 || dataFrags > 32) {
+                errors.dataFrags = 'Please enter a value between 1-32';
             }
 
-            if (Number.isNaN(parityFrags) || parityFrags < 1) {
-                errors.parityFrags = 'Please enter a number bigger then 0';
-
-            } else if (parityFrags > 32) {
-                errors.parityFrags = 'Parity must be below 32';
+            if (Number.isNaN(parityFrags) || parityFrags < 1 || parityFrags > 32) {
+                errors.parityFrags = 'Please enter a value between 1-32';
             }
         }
 

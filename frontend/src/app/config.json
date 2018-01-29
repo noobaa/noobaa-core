@@ -50,6 +50,9 @@
         "missingOVAMailSubject": "Please help me find my original OVA",
         "upgradeFailedSubject": "My system upgrade has failed"
     },
+    "dataCenterArticles": {
+        "editDataResiliency": "https://noobaa.desk.com/customer/en/portal/articles/2918448-how-to-edit-bucket-data-resiliency-"
+    },
     "releaseNotes": {
         "baseUrl": "https://storage.googleapis.com/noobaa-fe-assets/release-notes",
         "suffix": "txt"

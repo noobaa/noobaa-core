@@ -40,7 +40,7 @@ function _getBlockMarking(block) {
         case 'DATA': {
             const digit = block.seq + 1;
             return {
-                text: `R${digit}`,
+                text: `D${digit}`,
                 tooltip: `Data Fragment ${digit}`
             };
 

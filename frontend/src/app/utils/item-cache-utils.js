@@ -175,21 +175,21 @@ function _clearOverallocated(state, queryLimit, hostLimit) {
 
     if (overallocatedQueries > 0 || overallocatedHosts > 0) {
         const lockedQueries = new Set(Object.values(state.views));
-        const cadidateQueries =  Object.values(state.queries)
-            .filter(query => !lockedQueries.has(query.key) && !query.fetching)
-            .sort(createCompareFunc(query => query.timestamp));
+        const candidateQueryPairs =  Object.entries(state.queries)
+            .filter(([key, query]) => !lockedQueries.has(key) && !query.fetching)
+            .sort(createCompareFunc(([, query]) => query.timestamp));
 
         // Remove queries or items
         const queries = { ...state.queries };
         const items = { ...state.items };
-        for (const query of cadidateQueries) {
-            queries[query.key] = undefined;
+        for (const [key, query] of candidateQueryPairs) {
+            queries[key] = undefined;
             --overallocatedQueries;
 
             if (query.result) {
                 const lockedItems = new Set(flatMap(
                     Object.values(queries),
-                    query => query.result ? query.result.items : []
+                    _getQueryItems
                 ));
 
                 for (const itemKey of query.result.items) {
@@ -214,6 +214,14 @@ function _clearOverallocated(state, queryLimit, hostLimit) {
     } else {
         return state;
     }
+}
+
+function _getQueryItems(query) {
+    if (!query || !query.result) {
+        return [];
+    }
+
+    return query.result.items;
 }
 
 function _generateQueryKey(query) {

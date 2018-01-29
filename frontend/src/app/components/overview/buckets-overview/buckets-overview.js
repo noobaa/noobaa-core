@@ -4,7 +4,7 @@ import Observer from 'observer';
 import template from './buckets-overview.html';
 import { realizeUri } from 'utils/browser-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { deepFreeze, mapValues, last } from 'utils/core-utils';
+import { deepFreeze, mapValues, last, flatMap } from 'utils/core-utils';
 import { sumSize, interpolateSizes, toBytes, formatSize } from 'utils/size-utils';
 import { hexToRgb } from 'utils/color-utils';
 import { state$, action$ } from 'state';
@@ -68,6 +68,19 @@ const chartDatasets = deepFreeze([
 ]);
 
 const firstSampleHideDuration = moment.duration(1, 'hours').asMilliseconds();
+
+function _getChartEmptyMessage(showSamples, samples, selectedDatasets) {
+    if (!selectedDatasets.length) return 'No resources selected for display';
+    if (!showSamples) return 'Not enough usage history to display';
+
+    const datasetKeys = selectedDatasets.map(set => set.key);
+    const sum = sumSize(...flatMap(
+        datasetKeys,
+        key => samples.map(sample => sample[key])
+    ));
+
+    return toBytes(sum) === 0 ? 'No data uploaded yet' : '';
+}
 
 function _shouldRedraw(lastDuration, currentDuration, lastPoints, currentPoints) {
     const shouldNotRedraw = lastDuration === currentDuration &&
@@ -228,9 +241,10 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
             internal: record.internal.used || 0
         }));
     const [firstSample, secondSample] = historySamples;
-    const showSamples = secondSample ||(firstSample && (now - firstSample.timestamp > firstSampleHideDuration));
+    const showSamples = secondSample || (firstSample && (now - firstSample.timestamp > firstSampleHideDuration));
     const allSamples = showSamples ? [...historySamples, currSample] : [];
     const filteredSamples = _filterSamples(allSamples, start, end);
+    const emptyChartMessage = _getChartEmptyMessage(showSamples, filteredSamples, selectedDatasets);
     const options = _getChartOptions(selectedDatasets, filteredSamples, durationSettings, start, end, timezone);
     const datasets = selectedDatasets
         .map(({ key, color }) => ({
@@ -254,7 +268,8 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
 
     return {
         options,
-        data: { datasets }
+        data: { datasets },
+        emptyChartMessage
     };
 }
 
@@ -281,7 +296,7 @@ class BucketsOverviewViewModel extends Observer{
         this.hideCloud = ko.observable();
         this.hideInternal = ko.observable();
         this.chartParams = ko.observable();
-        this.noChartData = ko.observable();
+        this.emptyChartMessage = ko.observable();
         this.usedValues = [
             {
                 label: 'Used on Nodes',
@@ -367,11 +382,10 @@ class BucketsOverviewViewModel extends Observer{
         const { timezone } = Object.values(servers).find(server => server.isMaster);
         const datasets = chartDatasets.filter(({ key }) => !hiddenDatasets.includes(key));
         const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
-        const hasChartData = chartParams.data.datasets
-            .some(dataset => Boolean(dataset.data.length));
         const currentDataPoints = chartParams.data.datasets
             .map(ds => last(ds.data))
             .filter(Boolean);
+
 
         this.bucketsLinkText(bucketsLinkText);
         this.bucketsLinkHref(bucketsLinkHref);
@@ -383,7 +397,7 @@ class BucketsOverviewViewModel extends Observer{
         this.usedValues[0].value(used.hostPools);
         this.usedValues[1].value(used.cloudResources);
         this.usedValues[2].value(used.internalResources);
-        this.noChartData(!hasChartData);
+        this.emptyChartMessage(chartParams.emptyChartMessage);
 
         if (_shouldRedraw(
                 this.lastDurationFilter,

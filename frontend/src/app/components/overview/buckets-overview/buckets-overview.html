@@ -31,9 +31,9 @@
             options: chartParams().options,
             data: chartParams().data
         "></chartjs>
-        <div class="fill column content-middle" ko.visible="noChartData">
+        <div class="fill column content-middle" ko.visible="emptyChartMessage">
             <p class="row greedy content-middle">
-                No data uploaded yet
+                {{emptyChartMessage}}
             </p>
         </div>
     </div>

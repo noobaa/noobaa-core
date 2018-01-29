@@ -3,6 +3,7 @@
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getHostDisplayName } from 'utils/host-utils';
 import * as routes from 'routes';
 
 const blockModeToState = deepFreeze({
@@ -67,7 +68,7 @@ function _getBlockResource(block, system) {
     const { kind, pool, host } = block.storage || {};
     switch (kind) {
         case 'HOSTS': {
-            const text = host;
+            const text = getHostDisplayName(host);
             const href = realizeUri(routes.host, { system, pool, host });
             return { text, href };
         }

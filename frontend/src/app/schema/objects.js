@@ -78,7 +78,6 @@ export default {
                     'createTime',
                     'lastReadTime',
                     'readCount',
-                    'partCount',
                     's3SignedUrl'
                 ],
                 properties: {

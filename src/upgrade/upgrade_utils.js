@@ -249,7 +249,7 @@ function new_pre_upgrade() {
         .then(() => extract_new_pre_upgrade_params())
         .then(params => new_pre_upgrade_checkups(params))
         .then(() => packages_upgrade())
-        .timeout(360000, 'PACKAGE_INSTALLATION_TIMEOUT');
+        .timeout(20 * 60 * 1000, 'PACKAGE_INSTALLATION_TIMEOUT');
 }
 
 function pre_upgrade_checkups(params) {

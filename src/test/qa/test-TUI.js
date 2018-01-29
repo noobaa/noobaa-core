@@ -121,6 +121,13 @@ class Expect {
 
 // const UP = '\x1BOA';
 const DOWN = '\x1BOB';
+const DEL = '\x1B[3~';
+const END = '\x1BOF~';
+const DELETE = `${END}${DEL}${DEL}${DEL}${DEL}${DEL}${
+    DEL}${DEL}${DEL}${DEL}${DEL}${DEL}${
+    DEL}${DEL}${DEL}${DEL}${DEL}${DEL}${
+    DEL}${DEL}${DEL}`;
+// const HOME = '\x1BOE~';
 // const RIGHT = '\x1BOC';
 // const LEFT = '\x1BOD';
 
@@ -158,9 +165,9 @@ function ntp_Configuration(configureTZ) {
     //runing with or without TZ
     let ntpString;
     if (configureTZ) {
-        ntpString = `pool.ntp.org${DOWN}Asia/Jerusalem\r`;
+        ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}Asia/Jerusalem\r`;
     } else {
-        ntpString = `pool.ntp.org\r`;
+        ntpString = `${DELETE}pool.ntp.org\r`;
     }
 
     return Promise.resolve()
@@ -195,13 +202,13 @@ function dns_Configuration(configureSecoundery, reachableDns) {
     //runing with or without secoundery and wit or without valid ip
     let dnsString;
     if (configureSecoundery && reachableDns) {
-        dnsString = `8.8.8.8${DOWN}8.8.4.4\r`;
+        dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8.8.4.4\r`;
     } else if (configureSecoundery && !reachableDns) {
-        dnsString = `1.1.1.1${DOWN}1.1.4.4\r`;
+        dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}1.1.4.4\r`;
     } else if (!configureSecoundery && reachableDns) {
-        dnsString = `8.8.8.8\r`;
+        dnsString = `${DELETE}8.8.8.8\r`;
     } else {
-        dnsString = `1.1.1.1\r`;
+        dnsString = `${DELETE}1.1.1.1\r`;
     }
 
     return Promise.resolve()

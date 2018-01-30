@@ -106,9 +106,10 @@ function do_heartbeat() {
                     let name = server_name + '-' + current_clustering.owner_secret;
                     return Dispatcher.instance().alert('MAJOR',
                         system_store.data.systems[0]._id,
-                        `Server ${name} configuration is below minimum requirements, consult server page for more information`,
+                        `Server ${name} configuration is below minimum requirements. This can result in overall performance issues,
+                         especially on internal storage performance. Consult server page for more information.`,
                         Dispatcher.rules.only_once_by_regex(
-                            `^Server .*${current_clustering.owner_secret} configuration is below minimum requirements, consult server page for more information$`
+                            `^Server .*${current_clustering.owner_secret} configuration is below minimum requirements.*`
                         ));
                 }
                 return P.resolve();

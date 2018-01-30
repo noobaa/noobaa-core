@@ -160,6 +160,21 @@ function _findStoragePolicy(resources, resiliency, blocks) {
     }
 }
 
+function _fillInFragBlocks(blocks, target, fragType) {
+    const bySeq = groupBy(blocks, block => block.seq);
+    const result = [];
+    let i = 0;
+    while (result.length < target) {
+        if (bySeq[i]) {
+            result.push(...bySeq[i]);
+        } else {
+            result.push(_mockBlock(fragType, i));
+        }
+        ++i;
+    }
+    return result;
+}
+
 function _fillInMissingBlocks(blocks, storagePolicy) {
     const { replicas, dataFrags, parityFrags } = storagePolicy;
 
@@ -179,21 +194,11 @@ function _fillInMissingBlocks(blocks, storagePolicy) {
     }
 
     if (dataFrags > 0) {
-        dataBlocks = new Array(Math.max(dataFrags, dataBlocks.length))
-            .fill(true)
-            .map((_, i) =>
-                dataBlocks.find(block => block.seq === i) ||
-                _mockBlock('DATA', i)
-            );
+        dataBlocks = _fillInFragBlocks(dataBlocks, dataFrags, 'DATA');
     }
 
     if (parityFrags > 0) {
-        parityBlocks = new Array(Math.max(parityFrags, parityBlocks.length))
-            .fill(true)
-            .map((_, i) =>
-                parityBlocks.find(block => block.seq === i) ||
-                _mockBlock('PARITY', i)
-            );
+        dataBlocks = _fillInFragBlocks(parityBlocks, parityFrags, 'PARITY');
     }
 
     return [

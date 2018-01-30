@@ -90,7 +90,7 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
 
         const internalStorageSize = sumSize(...resourceList.map(res => res.storage.total));
         if (spillover) {
-            const usage = `${formatSize(spillover.usage)} of ${formatSize(internalStorageSize)} used`;
+            const usage = `${formatSize(spillover.usage)} of ${formatSize(internalStorageSize)} used by this bucket`;
             this.spilloverState('Enabled');
             this.spilloverUsage(usage);
             this.toggleText('Disable Spillover');

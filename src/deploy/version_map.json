@@ -9,6 +9,11 @@
             "ver": "2.0.1",
             "vhd": "2.0.1-855c22f.vhd",
             "released": true
+        },
+        {
+            "ver": "2.1.0",
+            "vhd": "2.1.0-8c1f04c.vhd",
+            "released": true
         }
     ]
 }

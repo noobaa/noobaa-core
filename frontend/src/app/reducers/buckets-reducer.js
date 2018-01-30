@@ -58,7 +58,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
             unit: quota.unit
         },
         objectCount: bucket.num_objects,
-        resiliencyHostCountMetric: bucket.num_of_nodes,
+        resiliencyDriveCountMetric: bucket.num_of_nodes,
         cloudSync: cloud_sync && {
             state: cloud_sync.status
         },

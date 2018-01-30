@@ -36,7 +36,7 @@ const failureToleranceTooltip = deepFreeze({
     text: 'Failure tolerance is below 2, in case of 1 failure data may be lost'
 });
 
-const requiredHostsTooltip = deepFreeze({
+const requiredDrivesTooltip = deepFreeze({
     position: 'above',
     text: 'Current resources does not support this configured resiliency policy'
 });
@@ -70,12 +70,12 @@ function _getFailureToleranceInfo(failureTolerance) {
     };
 }
 
-function _getRequiredHostsInfo(requiredHosts, hostCountMetric) {
-    const warn = requiredHosts > hostCountMetric;
+function _getRequiredDrivesInfo(requiredDrives, driveCountMetric) {
+    const warn = requiredDrives > driveCountMetric;
     return {
-        text: requiredHosts,
+        text: requiredDrives,
         css:  warn ? 'warning' : '',
-        tooltip: warn ? requiredHostsTooltip : undefined
+        tooltip: warn ? requiredDrivesTooltip : undefined
     };
 }
 
@@ -97,13 +97,13 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
     repCopies = ko.observable();
     repStorageOverhead = ko.observable();
     repFailureTolerance = ko.observable();
-    repRequiredHosts = ko.observable();
+    repRequiredDrives = ko.observable();
     repRebuildEffort = ko.observable();
     repIsPolicyRisky = false;
     ecDisribution = ko.observable();
     ecStorageOverhead = ko.observable();
     ecFailureTolerance = ko.observable();
-    ecRequiredHosts = ko.observable();
+    ecRequiredDrives = ko.observable();
     ecRebuildEffort = ko.observable();
     ecIsPolicyRisky = false;
     learnMoreUrl = articles.editDataResiliency;
@@ -123,7 +123,7 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
     onState([form, bucket]) {
         if (!bucket) return;
 
-        const hostCountMetric = bucket.resiliencyHostCountMetric;
+        const driveCountMetric = bucket.resiliencyDriveCountMetric;
         const values = form ? getFormValues(form) : _getFormInitalValues(bucket);
         this.bucketName = bucket.name;
         this.tierName = bucket.tierName;
@@ -140,7 +140,7 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             this.repCopies(summary.replicas);
             this.repStorageOverhead(numeral(summary.storageOverhead).format('%'));
             this.repFailureTolerance(_getFailureToleranceInfo(summary.failureTolerance));
-            this.repRequiredHosts(_getRequiredHostsInfo(summary.requiredHosts, hostCountMetric));
+            this.repRequiredDrives(_getRequiredDrivesInfo(summary.requiredDrives, driveCountMetric));
             this.repRebuildEffort(rebuildEffortToDisplay[summary.rebuildEffort]);
             this.repIsPolicyRisky = summary.failureTolerance < 2;
         }
@@ -154,7 +154,7 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             this.ecDisribution(`${summary.dataFrags} + ${summary.parityFrags}`);
             this.ecStorageOverhead(numeral(summary.storageOverhead).format('%'));
             this.ecFailureTolerance(_getFailureToleranceInfo(summary.failureTolerance));
-            this.ecRequiredHosts(_getRequiredHostsInfo(summary.requiredHosts, hostCountMetric));
+            this.ecRequiredDrives(_getRequiredDrivesInfo(summary.requiredDrives, driveCountMetric));
             this.ecRebuildEffort(_getErasureCodingRebuildEffortInfo(summary.rebuildEffort));
             this.ecIsPolicyRisky = summary.failureTolerance < 2;
         }

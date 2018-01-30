@@ -17,10 +17,44 @@ import {
 const policyName = 'data-resiliency';
 
 const rebuildEffortToDisplay = deepFreeze({
-    LOW: 'Low',
-    HIGH: 'High',
-    VERY_HIGH: 'Very High'
+    LOW: {
+        text: 'Low',
+        css: '',
+        tooltip: ''
+    },
+    HIGH: {
+        text: 'High',
+        css: '',
+        tootlip: ''
+    },
+    VERY_HIGH: {
+        text: 'Very High',
+        css: 'error',
+        tooltip: 'Parity fragments rebuild time might take a while, varies according to data placement policy resources and type'
+    }
 });
+
+function _getFailureTolerance(tolerance) {
+    const warn = tolerance < 2;
+    return {
+        text: tolerance,
+        css: warn ? 'warning' : '',
+        tooltip: warn ?
+            'Failure tolerance is below 2, in case of 1 failure data may be lost' :
+            ''
+    };
+}
+
+function _getRequiredDrives(requiredDrives, driveCountMetric) {
+    const warn = requiredDrives > driveCountMetric;
+    return {
+        text: `${requiredDrives} drives per mirror set`,
+        css: warn ? 'warning' : '',
+        tooltip: warn ?
+            'Current resources does not support this configured resiliency policy' :
+             ''
+    };
+}
 
 class BucketDataResiliencyPolicyFormViewModel extends Observer {
     isExpanded = ko.observable();
@@ -35,7 +69,7 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
     numOfParityFrags = ko.observable();
     storageOverhead = ko.observable();
     failureTolerance = ko.observable();
-    requiredHosts = ko.observable();
+    requiredDrives = ko.observable();
     rebuildEffort = ko.observable()
     info = [
         {
@@ -63,14 +97,17 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
         },
         {
             label: 'Failure Tolerance',
+            template: 'messageWithSeverity',
             value: this.failureTolerance
         },
         {
             label: 'Minimum Required Drives',
-            value: this.requiredHosts
+            template: 'messageWithSeverity',
+            value: this.requiredDrives
         },
         {
             label: 'Rebuild time effort',
+            template: 'messageWithSeverity',
             value: this.rebuildEffort
         }
     ];
@@ -89,14 +126,21 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
         this.isExpanded(section === policyName);
 
         if (!buckets || !buckets[bucket]) {
+            this.failureTolerance({});
+            this.requiredDrives({});
+            this.rebuildEffort({});
             return;
         }
 
         const toggleSection = section === policyName ? undefined : policyName;
+        const driveCountMetric = buckets[bucket].resiliencyDriveCountMetric;
         const resiliency = summrizeResiliency(buckets[bucket].resiliency);
         const dataDistribution = resiliency.type === 'REPLICATION' ?
             `${resiliency.replicas} copies` :
             `${resiliency.dataFrags} data + ${resiliency.parityFrags} parity fragments`;
+        const failureTolerance = _getFailureTolerance(resiliency.failureTolerance);
+        const requiredDrives = _getRequiredDrives(resiliency.requiredDrives, driveCountMetric);
+        const rebuildEffort = rebuildEffortToDisplay[resiliency.rebuildEffort];
 
         this.bucketName = bucket;
         this.toggleUri = realizeUri(
@@ -111,9 +155,9 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
         this.numOfDataFrags(resiliency.dataFrags);
         this.numOfParityFrags(resiliency.parityFrags);
         this.storageOverhead(numeral(resiliency.storageOverhead).format('%'));
-        this.failureTolerance(`${resiliency.failureTolerance} drives`);
-        this.requiredHosts(`${resiliency.requiredHosts} drives per mirror set`);
-        this.rebuildEffort(rebuildEffortToDisplay[resiliency.rebuildEffort]);
+        this.failureTolerance(failureTolerance);
+        this.requiredDrives(requiredDrives);
+        this.rebuildEffort(rebuildEffort);
     }
 
     onToggleSection() {

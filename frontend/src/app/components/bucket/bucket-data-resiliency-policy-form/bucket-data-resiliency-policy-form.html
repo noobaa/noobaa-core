@@ -25,6 +25,16 @@
     </div>
     <div class="column" ko.expand="isExpanded">
         <property-sheet class="push-prev" params="properties: info">
+            <template name="messageWithSeverity">
+                <p ko.css="$data.css" >
+                    {{$data.text}}
+                    <svg-icon class="icon-small"
+                        ko.visible="$data.css"
+                        ko.tooltip="$data.tooltip"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                </p>
+            </template>
         </property-sheet>
     </div>
 </section>

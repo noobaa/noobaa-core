@@ -11,7 +11,7 @@ export default {
             'objectCount',
             'placement',
             'resiliency',
-            'resiliencyHostCountMetric',
+            'resiliencyDriveCountMetric',
             'io'
         ],
         properties: {
@@ -121,7 +121,7 @@ export default {
                     }
                 }
             },
-            resiliencyHostCountMetric: {
+            resiliencyDriveCountMetric: {
                 type: 'integer'
             },
             resiliency: {

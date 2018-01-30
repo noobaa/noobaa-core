@@ -212,7 +212,7 @@ export function summrizeResiliency(resiliency) {
                 replicas: replicas,
                 storageOverhead: copies,
                 failureTolerance: copies,
-                requiredHosts: replicas,
+                requiredDrives: replicas,
                 rebuildEffort: 'LOW'
             };
         }
@@ -225,7 +225,7 @@ export function summrizeResiliency(resiliency) {
                 parityFrags: parityFrags,
                 storageOverhead: dataFrags > 0 ? parityFrags / dataFrags : 0,
                 failureTolerance: parityFrags,
-                requiredHosts: dataFrags + parityFrags,
+                requiredDrives: dataFrags + parityFrags,
                 rebuildEffort: dataFrags <= 4 ? 'HIGH' : 'VERY_HIGH'
             };
         }

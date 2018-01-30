@@ -66,7 +66,7 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
             value: this.failureTolerance
         },
         {
-            label: 'Minimum Required Nodes',
+            label: 'Minimum Required Drives',
             value: this.requiredHosts
         },
         {
@@ -112,7 +112,7 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
         this.numOfParityFrags(resiliency.parityFrags);
         this.storageOverhead(numeral(resiliency.storageOverhead).format('%'));
         this.failureTolerance(`${resiliency.failureTolerance} drives`);
-        this.requiredHosts(`${resiliency.requiredHosts} nodes per mirror set`);
+        this.requiredHosts(`${resiliency.requiredHosts} drives per mirror set`);
         this.rebuildEffort(rebuildEffortToDisplay[resiliency.rebuildEffort]);
     }
 

@@ -297,6 +297,7 @@ function read_mac_linux_drives(include_all) {
                     .then(() => linux_volume_to_drive(vol))
                     .catch(() => {
                         dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
+                        return linux_volume_to_drive(vol, true);
                     });
             }))
             .then(res => _.compact(res)));
@@ -348,15 +349,16 @@ function read_windows_drives() {
         });
 }
 
-function linux_volume_to_drive(vol) {
-    return {
+function linux_volume_to_drive(vol, skip) {
+    return _.omitBy({
         mount: vol.mount,
         drive_id: vol.filesystem,
         storage: {
             total: vol.size * 1024,
             free: vol.available * 1024,
-        }
-    };
+        },
+        temporary_drive: skip
+    }, _.isUndefined);
 }
 
 function windows_volume_to_drive(vol) {

@@ -121,6 +121,7 @@ AgentCLI.prototype.init = function() {
             }
         })
         .then(() => os_utils.get_disk_mount_points())
+        .then(mount_points => self.update_ignored_drives(mount_points))
         .tap(mount_points => self.rename_agent_storage(mount_points))
         .then(function(mount_points) {
             if (self.params.test_hostname) {
@@ -195,6 +196,8 @@ AgentCLI.prototype.detect_new_drives = function() {
             let added_paths = _.differenceWith(added_mount_points, self.params.all_storage_paths,
                 (a, b) => String(a.drive_id) === String(b.drive_id));
             if (_.isEmpty(added_paths)) return P.resolve();
+            added_paths = _.filter(added_paths, added_path => !_.includes(self.params.ignore_drives || [], added_path.drive_id));
+            if (_.isEmpty(added_paths)) return P.resolve();
             dbg.log0('identified new drives:', added_paths);
             return self.load(added_paths)
                 .then(function() {
@@ -231,6 +234,19 @@ AgentCLI.prototype.rename_agent_storage = function(mount_points) {
     });
 };
 
+AgentCLI.prototype.update_ignored_drives = function(mount_points) {
+    if (os.type() === 'Darwin') return; // skip rename in mac os
+    this.params.ignore_drives = this.params.ignore_drives || [];
+    return P.map(mount_points, mount_point => {
+        if (mount_point.temporary_drive) {
+            if (!_.find(this.params.ignore_drives, drive => drive === mount_point.drive_id)) {
+                dbg.log0(`found new drive to ignore ${mount_point.drive_id}`);
+                this.params.ignore_drives.push(mount_point.drive_id);
+                this.agent_conf.update({ ignore_drives: this.params.ignore_drives });
+            }
+        }
+    }).then(() => _.filter(mount_points, mount_point => mount_point.temporary_drive));
+};
 
 /**
  *

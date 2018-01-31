@@ -5,10 +5,14 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { summrizeResiliency, getResiliencyTypeDisplay } from 'utils/bucket-utils';
 import ko from 'knockout';
 import numeral from 'numeral';
 import * as routes from 'routes';
+import {
+    summrizeResiliency,
+    getResiliencyTypeDisplay,
+    getResiliencyRequirementsWarning
+ } from 'utils/bucket-utils';
 import {
     requestLocation,
     openEditBucketDataResiliencyModal
@@ -45,14 +49,14 @@ function _getFailureTolerance(tolerance) {
     };
 }
 
-function _getRequiredDrives(requiredDrives, driveCountMetric) {
+function _getRequiredDrives(resiliency, driveCountMetric) {
+    const { type, requiredDrives } = resiliency;
     const warn = requiredDrives > driveCountMetric;
+    const tooltip = getResiliencyRequirementsWarning(type, driveCountMetric);
     return {
         text: `${requiredDrives} drives per mirror set`,
         css: warn ? 'warning' : '',
-        tooltip: warn ?
-            'Current resources does not support this configured resiliency policy' :
-             ''
+        tooltip: warn ? tooltip : ''
     };
 }
 
@@ -139,7 +143,7 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
             `${resiliency.replicas} copies` :
             `${resiliency.dataFrags} data + ${resiliency.parityFrags} parity fragments`;
         const failureTolerance = _getFailureTolerance(resiliency.failureTolerance);
-        const requiredDrives = _getRequiredDrives(resiliency.requiredDrives, driveCountMetric);
+        const requiredDrives = _getRequiredDrives(resiliency, driveCountMetric);
         const rebuildEffort = rebuildEffortToDisplay[resiliency.rebuildEffort];
 
         this.bucketName = bucket;

@@ -2,6 +2,7 @@
 
 import { deepFreeze, isUndefined } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
+import { stringifyAmount, pluralize } from 'utils/string-utils';
 
 const bucketStateToIcon = deepFreeze({
     NO_RESOURCES: {
@@ -120,6 +121,11 @@ const writableStates = deepFreeze([
     'OPTIMAL'
 ]);
 
+const resiliencyTypeToBlockType = deepFreeze({
+    REPLICATION: 'replica',
+    ERASURE_CODING: 'fragment'
+});
+
 export function getBucketStateIcon(bucket, align) {
     if (isUndefined(align)) {
         return bucketStateToIcon[bucket.mode];
@@ -234,4 +240,15 @@ export function summrizeResiliency(resiliency) {
 
 export function getResiliencyTypeDisplay(resiliencyType) {
     return resiliencyTypeToDisplay[resiliencyType];
+}
+
+
+export function getResiliencyRequirementsWarning(resiliencyType, drivesCount) {
+    const subject = resiliencyTypeToBlockType[resiliencyType];
+
+    return `The current placement policy allows for a maximum of ${
+        stringifyAmount(subject, drivesCount)
+    }. The number of possible ${
+        pluralize(subject)
+    } is derived from the minimal number of available drives across all mirror sets.`;
 }

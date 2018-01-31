@@ -87,7 +87,7 @@ export function isDigit(str) {
     return !isNaN(Number(str)) && str.length === 1;
 }
 
-export function pluralize(word, amount) {
+export function pluralize(word, amount = 2) {
     if (amount === 1) {
         return word;
     }

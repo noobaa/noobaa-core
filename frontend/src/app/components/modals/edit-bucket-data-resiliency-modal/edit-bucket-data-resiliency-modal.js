@@ -8,7 +8,7 @@ import numeral from 'numeral';
 import { state$, action$ } from 'state';
 import { deepFreeze, pick } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
-import { summrizeResiliency } from 'utils/bucket-utils';
+import { summrizeResiliency, getResiliencyRequirementsWarning } from 'utils/bucket-utils';
 import { dataCenterArticles as articles } from 'config';
 import {
     closeModal,
@@ -36,10 +36,6 @@ const failureToleranceTooltip = deepFreeze({
     text: 'Failure tolerance is below 2, in case of 1 failure data may be lost'
 });
 
-const requiredDrivesTooltip = deepFreeze({
-    position: 'above',
-    text: 'Current resources does not support this configured resiliency policy'
-});
 const rebuildEffortTooltip = deepFreeze({
     position: 'above',
     text: 'Parity fragments rebuild time might take a while, varies according to data placement policy resources and type'
@@ -70,12 +66,17 @@ function _getFailureToleranceInfo(failureTolerance) {
     };
 }
 
-function _getRequiredDrivesInfo(requiredDrives, driveCountMetric) {
+function _getRequiredDrivesInfo(resiliencyType, requiredDrives, driveCountMetric) {
     const warn = requiredDrives > driveCountMetric;
+    const tooltip = {
+        position: 'above',
+        text: getResiliencyRequirementsWarning(resiliencyType, driveCountMetric)
+    };
+
     return {
         text: requiredDrives,
         css:  warn ? 'warning' : '',
-        tooltip: warn ? requiredDrivesTooltip : undefined
+        tooltip: warn ? tooltip : undefined
     };
 }
 
@@ -137,10 +138,16 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
                 kind: 'REPLICATION',
                 replicas: values.replicas
             });
+            const requiredDrives = _getRequiredDrivesInfo(
+                'REPLICATION',
+                summary.requiredDrives,
+                driveCountMetric,
+            );
+
             this.repCopies(summary.replicas);
             this.repStorageOverhead(numeral(summary.storageOverhead).format('%'));
             this.repFailureTolerance(_getFailureToleranceInfo(summary.failureTolerance));
-            this.repRequiredDrives(_getRequiredDrivesInfo(summary.requiredDrives, driveCountMetric));
+            this.repRequiredDrives(requiredDrives);
             this.repRebuildEffort(rebuildEffortToDisplay[summary.rebuildEffort]);
             this.repIsPolicyRisky = summary.failureTolerance < 2;
         }
@@ -151,10 +158,16 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
                 dataFrags: values.dataFrags,
                 parityFrags: values.parityFrags
             });
+            const requiredDrives = _getRequiredDrivesInfo(
+                'ERASURE_CODING',
+                summary.requiredDrives,
+                driveCountMetric
+            );
+
             this.ecDisribution(`${summary.dataFrags} + ${summary.parityFrags}`);
             this.ecStorageOverhead(numeral(summary.storageOverhead).format('%'));
             this.ecFailureTolerance(_getFailureToleranceInfo(summary.failureTolerance));
-            this.ecRequiredDrives(_getRequiredDrivesInfo(summary.requiredDrives, driveCountMetric));
+            this.ecRequiredDrives(requiredDrives);
             this.ecRebuildEffort(_getErasureCodingRebuildEffortInfo(summary.rebuildEffort));
             this.ecIsPolicyRisky = summary.failureTolerance < 2;
         }

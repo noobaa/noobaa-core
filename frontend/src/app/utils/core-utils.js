@@ -146,8 +146,8 @@ export function bitsToNumber(...bits) {
 
 export function flatMap(arr, predicate = echo) {
     return arr.reduce(
-        (result, item) => {
-            let mappedValue = predicate(item);
+        (result, item, i) => {
+            let mappedValue = predicate(item, i);
 
             if (Array.isArray(mappedValue)) {
                 result.push(...mappedValue);
@@ -316,10 +316,9 @@ export function ensureArray(val) {
 export function unique(values) {
     return Array.from(new Set(values).values());
 }
-global.unique = unique;
 
 export function union(...arrays) {
-    return unique(flatMap(...arrays));
+    return unique(flatMap(arrays));
 }
 
 export function hashCode(value) {

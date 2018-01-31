@@ -615,7 +615,8 @@ function analyze_special_chunks(chunks, parts, objects) {
         var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
         var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
         _.forEach(tmp_objects, obj => {
-            if (_.includes(config.SPECIAL_CHUNK_CONTENT_TYPES, obj.content_type)) {
+            if (config.SPECIAL_CHUNK_CONTENT_TYPES
+                .some(type => obj.content_type.toLowerCase().startsWith(type.toLowerCase()))) {
                 let obj_parts = _.filter(tmp_parts, part => String(part.obj) === String(obj._id));
                 _.forEach(obj_parts, part => {
                     if (part.start === 0 || part.end === obj.size) {

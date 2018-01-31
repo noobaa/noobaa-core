@@ -411,7 +411,8 @@ function load_single_policy(bucket_id, system_id) {
             endpoint: policy.endpoint,
             accessKeyId: policy.access_keys.access_key,
             secretAccessKey: policy.access_keys.secret_key,
-            region: 'us-east-1'
+            region: 'us-east-1',
+            signatureVersion: 'v4'
         });
     } else {
         //S3 compatible
@@ -500,30 +501,9 @@ function update_c2n_worklist(policy) {
                 listObjectsResponse.IsTruncated = false;
                 return P.ninvoke(policy.s3cloud, 'listObjects', params)
                     .catch(function(error) {
-                        dbg.error('ERROR statusCode', error.statusCode,
-                            error.statusCode === 400, error.statusCode === 301);
-                        if (error.statusCode === 400 ||
-                            error.statusCode === 301) {
-                            dbg.log0('Resetting (list objects) signature type to v4', params);
-                            // change default region from US to EU due to restricted signature of v4 and end point
-                            //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
-                            policy.s3cloud = new AWS.S3({
-                                //endpoint: https://aws.amazon.com
-                                accessKeyId: policy.access_keys.access_key,
-                                secretAccessKey: policy.access_keys.secret_key,
-                                signatureVersion: 'v4',
-                            });
-                            return P.ninvoke(policy.s3cloud, 'listObjects', params)
-                                .catch(function() {
-                                    dbg.error('update_c2n_worklist failed to list files from cloud: sys',
-                                        policy.system._id, 'bucket', policy.bucket.id, error, error.stack);
-                                    throw new Error('update_c2n_worklist failed to list files from cloud');
-                                });
-                        } else {
-                            dbg.error('update_c2n_worklist failed to list files from cloud: sys',
-                                policy.system._id, 'bucket', policy.bucket.id, error, error.stack);
-                            throw new Error('update_c2n_worklist failed to list files from cloud');
-                        }
+                        dbg.error('update_c2n_worklist failed to list files from cloud: sys',
+                            policy.system._id, 'bucket', policy.bucket.id, error, error.stack);
+                        throw new Error('update_c2n_worklist failed to list files from cloud');
                     })
                     .then(function(res) {
                         listObjectsResponse.IsTruncated = res.IsTruncated;
@@ -637,29 +617,6 @@ function sync_single_file_to_cloud(policy, object, target) {
     return P.join(promise_utils.wait_for_event(body, 'end'),
             managed_upload.promise())
         .catch(function(err) {
-            dbg.error('ERROR ', err, ' statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
-            if (err.statusCode === 400 ||
-                err.statusCode === 301) {
-                //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
-                dbg.log0('Resetting (upload) signature type and region to eu-central-1 and v4');
-                policy.s3cloud = new AWS.S3({
-                    //endpoint: https://aws.amazon.com
-                    accessKeyId: policy.access_keys.access_key,
-                    secretAccessKey: policy.access_keys.secret_key,
-                    signatureVersion: 'v4',
-                    region: 'eu-central-1'
-                });
-                managed_upload = policy.s3cloud.upload(params);
-                return P.join(promise_utils.wait_for_event(body, 'end'),
-                        managed_upload.promise())
-                    .catch(function(err2) {
-                        managed_upload.abort();
-                        read_request.abort();
-                        dbg.error('Error (upload) sync_single_file_to_cloud', object.key, '->', policy.bucket.name + '/' + object.key,
-                            err2, err2.stack);
-                        throw new Error('Failed to sync file from NooBaa to cloud');
-                    });
-            }
             managed_upload.abort();
             read_request.abort();
             dbg.error('Error sync_single_file_to_cloud', object.key, '->', policy.bucket.name + '/' + object.key,
@@ -753,27 +710,8 @@ function sync_to_cloud_single_bucket(policy) {
                 .then(() => P.all(_.each(params_array, params =>
                     P.ninvoke(policy.s3cloud, 'deleteObjects', params)
                     .catch(function(err) {
-                        // change default region from US to EU due to restricted signature of v4 and end point
-                        if (err.statusCode === 400 ||
-                            err.statusCode === 301) {
-                            dbg.log0('Resetting (delete) signature type and region to eu-central-1 and v4');
-                            //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
-                            policy.s3cloud = new AWS.S3({
-                                //endpoint: https://aws.amazon.com
-                                accessKeyId: policy.access_keys.access_key,
-                                secretAccessKey: policy.access_keys.secret_key,
-                                signatureVersion: 'v4',
-                                region: 'eu-central-1'
-                            });
-                            return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
-                                .catch(function(err2) {
-                                    dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err2, err2.stack);
-                                    throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err2);
-                                });
-                        } else {
-                            dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err, err.stack);
-                            throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err);
-                        }
+                        dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err, err.stack);
+                        throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err);
                     }))));
         })
         .then(function() {

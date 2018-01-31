@@ -51,7 +51,7 @@ function clean_ova(server_ip, secret) {
         })
         .then(cssh => {
             client_ssh = cssh;
-            return ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a');
+            return ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a -d');
         })
         .then(() => ssh.ssh_exec(client_ssh, 'sudo reboot -fn'))
         .then(() => client_ssh.end());

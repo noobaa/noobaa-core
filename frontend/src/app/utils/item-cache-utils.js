@@ -141,7 +141,7 @@ export function handleRemoveItem(state, itemKey, handleExtras = echo) {
     if (!item) return state;
 
     const items = omitUndefined({
-        ...items,
+        ...state.items,
         [itemKey]: undefined
     });
 

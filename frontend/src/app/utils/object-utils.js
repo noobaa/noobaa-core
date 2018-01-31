@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, unique, groupBy } from 'utils/core-utils';
+import { deepFreeze, unique, groupBy, flatMap, makeArray } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 
 const resiliencyTypeToBlockTypes = deepFreeze({
@@ -162,17 +162,18 @@ function _findStoragePolicy(resources, resiliency, blocks) {
 
 function _fillInFragBlocks(blocks, target, fragType) {
     const bySeq = groupBy(blocks, block => block.seq);
-    const result = [];
-    let i = 0;
-    while (result.length < target) {
-        if (bySeq[i]) {
-            result.push(...bySeq[i]);
-        } else {
-            result.push(_mockBlock(fragType, i));
-        }
-        ++i;
-    }
-    return result;
+    const lengths = Object.values(bySeq).map(group => group.length);
+
+    // We need to ensure that we show at least 1 copy for each block.
+    const copyCount = Math.max(1, ...lengths);
+
+    return flatMap(
+        makeArray(target, i => bySeq[i] || []),
+        (copies, i) => makeArray(
+            copyCount,
+            j => copies[j] || _mockBlock(fragType, i)
+        )
+    );
 }
 
 function _fillInMissingBlocks(blocks, storagePolicy) {
@@ -198,7 +199,7 @@ function _fillInMissingBlocks(blocks, storagePolicy) {
     }
 
     if (parityFrags > 0) {
-        dataBlocks = _fillInFragBlocks(parityBlocks, parityFrags, 'PARITY');
+        parityBlocks = _fillInFragBlocks(parityBlocks, parityFrags, 'PARITY');
     }
 
     return [

@@ -11,6 +11,7 @@ const assert = require('assert');
 const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
+const zip_utils = require('../../util/zip_utils');
 const config = require('../../../config');
 
 mocha.describe('system_servers', function() {
@@ -341,6 +342,53 @@ mocha.describe('system_servers', function() {
                     },
                     () => _.noop) // update bucket with 0 quota should fail
             );
+    });
+
+    mocha.it('lambda triggers works', function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        return P.resolve()
+            .then(() => zip_utils.zip_from_files([{
+                path: 'main.js',
+                data: `
+                    /* Copyright (C) 2016 NooBaa */
+                    'use strict';
+                    exports.handler = function(event, context, callback) {
+                    console.log('func event', event);
+                    callback();
+                    };
+                    `
+            }]))
+            .then(zipfile => zip_utils.zip_to_buffer(zipfile))
+            .then(zipbuffer => rpc_client.func.create_func({
+                config: {
+                    name: 'func1',
+                    version: '$LATEST',
+                    handler: 'main.handler'
+                },
+                code: { zipfile_b64: zipbuffer.toString('base64') }
+            }))
+            .then(() => rpc_client.bucket.add_bucket_lambda_trigger({
+                bucket_name: BUCKET,
+                event_name: 'ObjectCreated',
+                func_name: 'func1',
+                object_prefix: '/bla/'
+            }))
+            .then(() => rpc_client.bucket.read_bucket({
+                name: BUCKET,
+            }))
+            .tap(bucket => rpc_client.bucket.update_bucket_lambda_trigger({
+                bucket_name: BUCKET,
+                id: bucket.triggers[0].id,
+                enabled: false
+            }))
+            .then(bucket => rpc_client.bucket.delete_bucket_lambda_trigger({
+                bucket_name: BUCKET,
+                id: bucket.triggers[0].id,
+            }))
+            .then(() => rpc_client.func.delete_func({
+                name: 'func1',
+                version: '$LATEST'
+            }));
     });
 
     mocha.it('namespace works', function() {

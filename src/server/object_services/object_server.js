@@ -27,6 +27,7 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
+const events_dispatcher = require('./events_dispatcher');
 
 /**
  *
@@ -164,14 +165,17 @@ function complete_object_upload(req) {
             return MDStore.instance().update_object_by_id(obj._id, set_updates, unset_updates);
         })
         .then(() => {
-            const bucket = system_store.data.get_by_id(obj.bucket);
+            const event_name = 'ObjectCreated:Put';
+            return dispatch_triggers(req.bucket, obj, event_name, req.account._id, req.auth_token);
+        })
+        .then(() => {
             Dispatcher.instance().activity({
                 system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: obj._id,
                 actor: req.account && req.account._id,
-                desc: `${obj.key} was uploaded by ${req.account && req.account.email} into bucket ${bucket.name}`,
+                desc: `${obj.key} was uploaded by ${req.account && req.account.email} into bucket ${req.bucket.name}`,
             });
             return {
                 etag: set_updates.etag
@@ -182,8 +186,6 @@ function complete_object_upload(req) {
             throw err;
         });
 }
-
-
 
 function update_bucket_write_counters(req) {
     const bucket = req.system.buckets_by_name[req.rpc_params.bucket];
@@ -343,6 +345,10 @@ function complete_multipart(req) {
                 set_updates.sha256_b64 = req.rpc_params.sha256_b64;
             }
             set_updates.num_parts = req.rpc_params.num_parts;
+        })
+        .then(() => {
+            const event_name = 'ObjectCreated:CompleteMultipartUpload';
+            return dispatch_triggers(req.bucket, obj, event_name, req.account._id, req.auth_token);
         })
         .then(() => MDStore.instance().update_multipart_by_id(multipart_id, set_updates))
         .then(() => ({
@@ -543,6 +549,10 @@ function delete_object(req) {
                 actor: req.account && req.account._id,
                 desc: `${obj.key} was deleted by ${req.account && req.account.email}`,
             });
+        })
+        .then(() => {
+            const event_name = 'ObjectRemoved:Delete';
+            return dispatch_triggers(req.bucket, obj, event_name, req.account._id, req.auth_token);
         })
         .catch(err => {
             if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
@@ -874,7 +884,7 @@ function load_bucket(req) {
     if (!bucket) {
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }
-    req.check_bucket_permission(bucket);
+    req.check_s3_bucket_permission(bucket);
     req.bucket = bucket;
 }
 
@@ -1037,6 +1047,12 @@ function check_quota(bucket) {
             `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(bucket.quota.value)}`,
             Dispatcher.rules.once_daily);
     }
+}
+
+function dispatch_triggers(bucket, obj, event_name, actor, token) {
+    const triggers_to_run = events_dispatcher.get_triggers_for_event(bucket, obj, event_name);
+    if (!triggers_to_run) return;
+    setTimeout(() => events_dispatcher.run_bucket_triggers(triggers_to_run, bucket, obj, actor, token), 1000);
 }
 
 // EXPORTS

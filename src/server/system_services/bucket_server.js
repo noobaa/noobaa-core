@@ -23,8 +23,10 @@ const http_utils = require('../../util/http_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const nodes_client = require('../node_services/nodes_client');
 const pool_server = require('../system_services/pool_server');
+const auth_server = require('../common_services/auth_server');
 const system_server = require('../system_services/system_server');
 const system_store = require('../system_services/system_store').get_instance();
+const func_store = require('../func_services/func_store');
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
@@ -58,7 +60,8 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
         stats: {
             reads: 0,
             writes: 0,
-        }
+        },
+        lambda_triggers: []
     };
 }
 
@@ -198,7 +201,7 @@ function create_bucket(req) {
         .then(() => {
             req.load_auth();
             let created_bucket = find_bucket(req);
-            return get_bucket_info(created_bucket);
+            return get_bucket_info({ bucket: created_bucket });
         });
 }
 
@@ -219,19 +222,18 @@ function read_bucket(req) {
     pools = _.compact(pools);
 
     let pool_names = pools.map(pool => pool.name);
-    return P.join(
-            nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
-            nodes_client.instance().aggregate_data_free_by_tier(
+    return P.props({
+            bucket,
+            nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
+            hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, req.system._id),
+            aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
                 bucket.tiering.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id),
-            MDStore.instance().count_objects_of_bucket(bucket._id),
-            cloud_sync_server.get_cloud_sync(req, bucket),
-            node_allocator.refresh_tiering_alloc(bucket.tiering),
-            nodes_client.instance().aggregate_hosts_by_pool(null, req.system._id)
-        )
-        .spread((nodes_aggregate_pool, aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy, hosts_aggregate_pool) =>
-            get_bucket_info(bucket, nodes_aggregate_pool, hosts_aggregate_pool,
-                aggregate_data_free_by_tier, num_of_objects, cloud_sync_policy)
-        );
+            num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
+            cloud_sync_policy: cloud_sync_server.get_cloud_sync(req, bucket),
+            func_configs: get_bucket_func_configs(req, bucket),
+            unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
+        })
+        .then(get_bucket_info);
 }
 
 function get_bucket_namespaces(req) {
@@ -521,6 +523,40 @@ function update_bucket_s3_access(req) {
                 desc: desc_string.join('\n'),
             });
         })
+        .then(() => { // checking if new problems for running lambda triggers has been added
+            const new_updates = [];
+            if (!removed_accounts.length) return;
+            if (!bucket.lambda_triggers || !bucket.lambda_triggers.length) return;
+            // const removed_account_ids = _.map(removed_accounts, account => account._id);
+            return P.map(bucket.lambda_triggers, trigger =>
+                    func_store.instance().read_func(req.system._id, trigger.func_name, trigger.func_version)
+                    .then(func => {
+                        if (_.find(removed_accounts, acc => acc._id.toString() === func.exec_account.toString())) {
+                            const account = system_store.data.get_by_id(func.exec_account);
+                            new_updates.push({
+                                $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
+                                $set: { 'lambda_triggers.$.permission_problem': true }
+                            });
+                            trigger.permission_problem = true;
+                            Dispatcher.instance().alert('MAJOR', req.system._id,
+                                `Account’s ${account.email} ${bucket.name} bucket access was removed. 
+                            The configured lambda trigger for function ${func.name} will no longer be invoked`);
+                        }
+                        if (_.find(added_accounts, acc => acc._id.toString() === func.exec_account.toString())) {
+                            new_updates.push({
+                                $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
+                                $set: { 'lambda_triggers.$.permission_problem': true }
+                            });
+                        }
+                    }))
+                .then(() => {
+                    system_store.make_changes({
+                        update: {
+                            buckets: new_updates
+                        }
+                    });
+                });
+        })
         .return();
 }
 
@@ -640,7 +676,7 @@ function delete_bucket_lifecycle(req) {
 function list_buckets(req) {
     var buckets_by_name = _.filter(
         req.system.buckets_by_name,
-        bucket => req.has_bucket_permission(bucket)
+        bucket => req.has_s3_bucket_permission(bucket)
     );
     return {
         buckets: _.map(buckets_by_name, function(bucket) {
@@ -817,6 +853,126 @@ function get_cloud_buckets(req) {
 
 }
 
+/**
+ *
+ * ADD_BUCKET_LAMBDA_TRIGGER
+ *
+ */
+function add_bucket_lambda_trigger(req) {
+    dbg.log0('add new bucket lambda trigger', req.rpc_params);
+    const new_trigger = req.rpc_params;
+    new_trigger.func_version = new_trigger.func_version || '$LATEST';
+    const bucket = find_bucket(req, req.rpc_params.bucket_name);
+    return P.resolve()
+        .then(() => validate_trigger_update(req, bucket, new_trigger))
+        .then(() => {
+            const trigger = _.omitBy({
+                _id: system_store.generate_id(),
+                event_name: new_trigger.event_name,
+                func_name: new_trigger.func_name,
+                func_version: new_trigger.func_version,
+                enabled: new_trigger.enabled !== false,
+                permission_problem: new_trigger.permission_problem,
+                object_prefix: new_trigger.object_prefix || undefined,
+                object_suffix: new_trigger.object_suffix || undefined
+            }, _.isUndefined);
+            return system_store.make_changes({
+                update: {
+                    buckets: [{
+                        _id: bucket._id,
+                        $push: { lambda_triggers: trigger },
+                    }]
+                }
+            });
+        })
+        .return();
+}
+
+/**
+ *
+ * DELETE_BUCKET_LAMBDA_TRIGGER
+ *
+ */
+function delete_bucket_lambda_trigger(req) {
+    dbg.log0('delete bucket lambda trigger', req.rpc_params);
+    const trigger_id = req.rpc_params.id;
+    var bucket = find_bucket(req, req.rpc_params.bucket_name);
+    const trigger = bucket.lambda_triggers.find(trig => trig._id.toString() === trigger_id);
+    if (!trigger) {
+        throw new RpcError('NO_SUCH_TRIGGER', 'This trigger does not exists: ' + trigger_id);
+    }
+    return P.resolve()
+        .then(() => system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: bucket._id,
+                    $pull: {
+                        lambda_triggers: {
+                            _id: trigger._id
+                        }
+                    }
+                }]
+            }
+        })).return();
+}
+
+function update_bucket_lambda_trigger(req) {
+    dbg.log0('update bucket lambda trigger', req.rpc_params);
+    const updates = _.pick(req.rpc_params, 'event_name', 'func_name', 'func_version', 'enabled', 'object_prefix', 'object_suffix');
+    if (_.isEmpty(updates)) return;
+    updates.func_version = updates.func_version || '$LATEST';
+    var bucket = find_bucket(req, req.rpc_params.bucket_name);
+    const trigger = _.find(bucket.lambda_triggers, trig => trig._id.toString() === req.rpc_params.id);
+    if (!trigger) {
+        throw new RpcError('NO_SUCH_TRIGGER', 'This trigger does not exists: ' + req.rpc_params._id);
+    }
+    const validate_trigger = Object.assign({}, trigger, updates);
+    return P.resolve()
+        .then(() => validate_trigger_update(req, bucket, validate_trigger))
+        .then(() => {
+            const new_updates = _.mapKeys(updates, (value, key) => `lambda_triggers.$.${key}`);
+            new_updates['lambda_triggers.$.permission_problem'] = validate_trigger.permission_problem;
+            system_store.make_changes({
+                update: {
+                    buckets: [{
+                        $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
+                        $set: new_updates
+                    }]
+                }
+            });
+        })
+        .return();
+}
+
+function validate_trigger_update(req, bucket, validated_trigger) {
+    dbg.log0('validate_trigger_update: Chekcing new trigger is legal:', validated_trigger);
+    _.forEach(bucket.lambda_triggers, trigger => {
+        if (validated_trigger._id && trigger._id === validated_trigger._id) return; // it's ok to be identical to yourself
+        if ((trigger.event_name === validated_trigger.event_name) &&
+            (trigger.func_name === validated_trigger.func_name) &&
+            (trigger.object_prefix === validated_trigger.object_prefix) &&
+            (trigger.object_suffix === validated_trigger.object_suffix)) {
+            throw new RpcError('TRIGGER_DUPLICATE', 'This trigger is the same as an existing one');
+        }
+    });
+    return func_store.instance().read_func(bucket.system._id, validated_trigger.func_name, validated_trigger.func_version)
+        .then(func => req.check_bucket_permission(bucket, func.exec_account));
+}
+
+// function is_prefix_overlapping(prefix1, prefix2) {
+//     if (prefix1 === prefix2) return true;
+//     if (!prefix1 || !prefix2) return true;
+//     if (prefix1.startsWith(prefix2) || prefix2.startsWith(prefix1)) return true;
+//     return false;
+// }
+
+// function is_suffix_overlapping(suffix1, suffix2) {
+//     if (suffix1 === suffix2) return true;
+//     if (!suffix1 || !suffix2) return true;
+//     if (suffix1.endsWith(suffix2) || suffix2.endsWith(suffix1)) return true;
+//     return false;
+// }
+
 function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
     let res = {
         name: target_name
@@ -842,12 +998,19 @@ function find_bucket(req, bucket_name = req.rpc_params.name) {
         dbg.error('BUCKET NOT FOUND', bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + bucket_name);
     }
-    req.check_bucket_permission(bucket);
+    req.check_s3_bucket_permission(bucket);
     return bucket;
 }
 
-function get_bucket_info(bucket, nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier,
-    num_of_objects, cloud_sync_policy) {
+function get_bucket_info({
+    bucket,
+    nodes_aggregate_pool,
+    hosts_aggregate_pool,
+    aggregate_data_free_by_tier,
+    num_of_objects,
+    cloud_sync_policy,
+    func_configs
+}) {
     const info = {
         name: bucket.name,
         namespace: bucket.namespace ? {
@@ -1066,7 +1229,31 @@ function get_bucket_info(bucket, nodes_aggregate_pool, hosts_aggregate_pool, agg
             is_no_storage_on_spillover
         });
 
+    info.triggers = _.map(bucket.lambda_triggers, trigger => {
+        const ret_trigger = _.omit(trigger, '_id');
+        ret_trigger.id = trigger._id.toString();
+        const func = _.find(func_configs, func_config =>
+            func_config.name === trigger.func_name &&
+            func_config.version === trigger.func_version
+        );
+        const exec_account = system_store.get_account_by_email(func.exec_account);
+        ret_trigger.permission_problem = !auth_server.has_bucket_permission(bucket, exec_account);
+        return ret_trigger;
+    });
+
     return info;
+}
+
+function get_bucket_func_configs(req, bucket) {
+    if (!bucket.lambda_triggers || !bucket.lambda_triggers.length) return;
+    return P.map(bucket.lambda_triggers, trigger =>
+        server_rpc.client.func.read_func({
+            name: trigger.func_name,
+            version: trigger.func_version
+        }, {
+            auth_token: req.auth_token
+        })
+        .then(func_info => func_info.config));
 }
 
 function calc_namespace_mode() {
@@ -1155,3 +1342,7 @@ exports.toggle_cloud_sync = cloud_sync_server.toggle_cloud_sync;
 //Temporary - TODO: move to new server
 exports.get_cloud_buckets = get_cloud_buckets;
 exports.export_bucket_bandwidth_usage = export_bucket_bandwidth_usage;
+//Triggers
+exports.add_bucket_lambda_trigger = add_bucket_lambda_trigger;
+exports.update_bucket_lambda_trigger = update_bucket_lambda_trigger;
+exports.delete_bucket_lambda_trigger = delete_bucket_lambda_trigger;

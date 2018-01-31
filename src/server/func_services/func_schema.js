@@ -9,6 +9,7 @@ module.exports = {
         'system',
         'pools',
         'name',
+        'exec_account',
         'version',
         'runtime',
         'handler',
@@ -35,6 +36,9 @@ module.exports = {
         },
         name: {
             type: 'string'
+        },
+        exec_account: {
+            objectid: true
         },
         version: {
             type: 'string'

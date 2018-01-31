@@ -535,6 +535,7 @@ class SystemStore extends EventEmitter {
      *   update: {
      *      systems: [{_id:123, ...}],
      *      buckets: [{_id:456, ...}],
+     *      buckets: [{ $find: { _id: 543, 'lambda_triggers._id': 567}, $set: {...}}]
      *   },
      *   remove: {
      *      systems: [123, 789],
@@ -578,7 +579,8 @@ class SystemStore extends EventEmitter {
                     const col = get_collection(name);
                     _.each(list, item => {
                         data.check_indexes(col, item);
-                        let updates = _.omit(item, '_id');
+                        let updates = _.omit(item, '_id', '$find');
+                        let finds = item.$find || _.pick(item, '_id');
                         if (_.isEmpty(updates)) return;
                         let keys = _.keys(updates);
 
@@ -606,9 +608,7 @@ class SystemStore extends EventEmitter {
                         //     this._check_schema(col, updates.$set, 'warn');
                         // }
                         get_bulk(name)
-                            .find({
-                                _id: item._id
-                            })
+                            .find(finds)
                             .updateOne(updates);
                     });
                 });

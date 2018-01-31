@@ -251,6 +251,40 @@ module.exports = {
                 }
             }
         },
+        lambda_triggers: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['_id', 'event_name', 'func_name', 'func_version', 'enabled'],
+                properties: {
+                    _id: {
+                        objectid: true
+                    },
+                    event_name: {
+                        type: 'string',
+                        enum: ['ObjectCreated', 'ObjectRemoved', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ]
+                    },
+                    func_name: {
+                        type: 'string'
+                    },
+                    func_version: {
+                        type: 'string'
+                    },
+                    enabled: {
+                        type: 'boolean',
+                    },
+                    last_run: {
+                        idate: true
+                    },
+                    object_prefix: {
+                        type: 'string'
+                    },
+                    object_suffix: {
+                        type: 'string'
+                    },
+                }
+            }
+        },
         stats: {
             type: 'object',
             // required: [],

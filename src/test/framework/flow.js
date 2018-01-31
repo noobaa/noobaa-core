@@ -130,6 +130,17 @@ var steps = [
         //Restore DB to defaults
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
+    }, {
+        //Bucket Lambda Triggers Test
+        name: 'Bucket Lambda Triggers Test',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_bucket_lambda_triggers'
+        }],
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
     }
 ];
 

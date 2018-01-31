@@ -423,26 +423,32 @@ function _prepare_auth_request(req) {
         dbg.log3('load auth system:', req.system);
     };
 
-    req.has_bucket_permission = function(bucket, optional_account) {
-        let account = optional_account || req.account;
+    req.has_bucket_permission = function(bucket) {
+        return has_bucket_permission(bucket, req.account);
+    };
+
+    req.check_bucket_permission = function(bucket) {
+        if (!req.has_bucket_permission(bucket)) {
+            throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
+        }
+    };
+
+    req.has_s3_bucket_permission = function(bucket) {
 
         /*if (req.role === 'admin' || account.is_support) {
             return true;
         }*/
+
         // If the token includes S3 data, then we check for permissions
         if (req.auth_token && typeof req.auth_token === 'object') {
-            return _.get(account, 'allowed_buckets.full_permission', false) ||
-                _.find(
-                    _.get(account, 'allowed_buckets.permission_list') || [],
-                    allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
-                );
+            return req.has_bucket_permission(bucket);
         } else {
             return true;
         }
     };
 
-    req.check_bucket_permission = function(bucket) {
-        if (!req.has_bucket_permission(bucket)) {
+    req.check_s3_bucket_permission = function(bucket) {
+        if (!req.has_s3_bucket_permission(bucket)) {
             throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
         }
     };
@@ -472,6 +478,14 @@ function _get_auth_info(account, system, role, extra) {
     }
 
     return response;
+}
+
+function has_bucket_permission(bucket, account) {
+    return _.get(account, 'allowed_buckets.full_permission', false) ||
+        _.find(
+            _.get(account, 'allowed_buckets.permission_list') || [],
+            allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
+        );
 }
 
 /**
@@ -504,7 +518,6 @@ function make_auth_token(options) {
 }
 
 
-
 // EXPORTS
 exports.create_auth = create_auth;
 exports.read_auth = read_auth;
@@ -513,3 +526,4 @@ exports.create_access_key_auth = create_access_key_auth;
 // it reads and prepares the authorized info on the request (req.auth).
 exports.authorize = authorize;
 exports.make_auth_token = make_auth_token;
+exports.has_bucket_permission = has_bucket_permission;

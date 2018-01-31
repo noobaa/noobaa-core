@@ -8,6 +8,7 @@ const request = require('request');
 
 const P = require('../../util/promise');
 const api = require('../../api');
+const { RpcError } = require('../../rpc');
 const dbg = require('../../util/debug_module')(__filename);
 const FuncNode = require('../../agent/func_services/func_node');
 const url_utils = require('../../util/url_utils');
@@ -15,6 +16,7 @@ const server_rpc = require('../server_rpc');
 const func_store = require('./func_store');
 const func_stats_store = require('./func_stats_store');
 const system_store = require('../system_services/system_store').get_instance();
+const auth_server = require('../common_services/auth_server');
 const node_allocator = require('../node_services/node_allocator');
 const AWS = require('aws-sdk');
 
@@ -48,6 +50,7 @@ function create_func(req) {
         FUNC_CONFIG_DEFAULTS);
     func._id = func_store.instance().make_func_id();
     func.system = req.system._id;
+    func.exec_account = req.account._id;
     func.name = func_config.name;
     func.version = '$LATEST';
     func.last_modified = new Date();
@@ -235,6 +238,7 @@ const server_func_node = new FuncNode({
 function invoke_func(req) {
     const time = new Date();
     return _load_func(req)
+        .then(() => check_event_permission(req))
         .then(() => P.map(req.func.pools,
             pool => node_allocator.refresh_pool_alloc(pool)))
         .then(() => {
@@ -269,6 +273,23 @@ function invoke_func(req) {
             })
             .return(res)
         );
+}
+
+function check_event_permission(req) {
+    const event = req.params.event;
+    if (event && event.Records) {
+        _.forEach(event.Records, record => {
+            const bucket_name = record && record.s3 && record.s3.bucket && record.s3.bucket.name;
+            if (typeof(bucket_name) === 'string') {
+                const bucket = req.system.buckets_by_name[bucket_name];
+                if (!bucket) throw new RpcError('UNAUTHORIZED', 'No such bucket');
+                const account = system_store.data.get_by_id(req.func.exec_account);
+                if (!auth_server.has_bucket_permission(bucket, account)) {
+                    throw new RpcError('UNAUTHORIZED', 'No bucket permission for trigger');
+                }
+            }
+        });
+    }
 }
 
 function _get_func_code_stream(req, func_code) {
@@ -341,6 +362,7 @@ function _get_func_info(func) {
         if (pool.name) return pool.name;
         return system_store.data.get_by_id(pool).name;
     });
+    config.exec_account = system_store.data.get_by_id(func.exec_account).email;
     const code_location = {
         url: '',
         repository: ''
@@ -354,9 +376,15 @@ function _get_func_info(func) {
 function _make_rpc_options(req) {
     // TODO copied from base_address calc from system_server, better define once
     const base_address = req.system.base_address || api.get_base_address(ip_module.address());
+    const account = system_store.data.get_by_id(req.func.exec_account);
+    const auth_token = auth_server.make_auth_token({
+        system_id: req.system._id,
+        account_id: account._id,
+        role: 'admin',
+    });
     return {
         address: base_address,
-        auth_token: req.auth_token,
+        auth_token: auth_token,
     };
 }
 
@@ -367,7 +395,8 @@ function _make_aws_config(req) {
         url_utils.quick_parse(req.system.base_address).hostname :
         ip_module.address();
     const ep_port = parseInt(process.env.ENDPOINT_PORT, 10) || 80;
-    const account_keys = req.account.access_keys[0];
+    const account = system_store.data.get_by_id(req.func.exec_account);
+    const account_keys = account.access_keys[0];
     return {
         region: 'us-east-1',
         endpoint: `http://${ep_host}:${ep_port}`,

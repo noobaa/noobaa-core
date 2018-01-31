@@ -233,6 +233,9 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
+                exec_account: {
+                    type: 'string'
+                },
                 description: {
                     type: 'string'
                 },

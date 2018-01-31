@@ -543,8 +543,43 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+        add_bucket_lambda_trigger: {
+            method: 'PUT',
+            params: {
+                $ref: '#/definitions/new_lambda_trigger'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        delete_bucket_lambda_trigger: {
+            method: 'DELETE',
+            required: ['id', 'bucket_name'],
+            params: {
+                type: 'object',
+                properties: {
+                    id: {
+                        objectid: true
+                    },
+                    bucket_name: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        update_bucket_lambda_trigger: {
+            method: 'PUT',
+            params: {
+                $ref: '#/definitions/update_lambda_trigger'
+            },
+            auth: {
+                system: 'admin'
+            }
         }
-
     },
 
     definitions: {
@@ -690,6 +725,12 @@ module.exports = {
                 undeletable: {
                     $ref: '#/definitions/undeletable_bucket_reason'
                 },
+                triggers: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/lambda_trigger_info'
+                    }
+                }
             }
         },
 
@@ -886,5 +927,103 @@ module.exports = {
             enum: ['LAST_BUCKET', 'NOT_EMPTY'],
             type: 'string',
         },
-    },
+
+        event_name: { // Based on AWS: https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html#supported-notification-event-types
+            enum: ['ObjectCreated', 'ObjectRemoved', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ],
+            type: 'string',
+        },
+
+        new_lambda_trigger: {
+            type: 'object',
+            required: ['bucket_name', 'event_name', 'func_name'],
+            properties: {
+                bucket_name: {
+                    type: 'string'
+                },
+                event_name: {
+                    $ref: '#/definitions/event_name'
+                },
+                func_name: {
+                    type: 'string'
+                },
+                func_version: {
+                    type: 'string'
+                },
+                enabled: {
+                    type: 'boolean',
+                },
+                object_prefix: {
+                    type: 'string'
+                },
+                object_suffix: {
+                    type: 'string'
+                },
+            }
+        },
+
+        update_lambda_trigger: {
+            type: 'object',
+            required: ['id'],
+            properties: {
+                id: {
+                    objectid: true
+                },
+                bucket_name: {
+                    type: 'string'
+                },
+                event_name: {
+                    $ref: '#/definitions/event_name'
+                },
+                func_name: {
+                    type: 'string'
+                },
+                func_version: {
+                    type: 'string'
+                },
+                enabled: {
+                    type: 'boolean',
+                },
+                object_prefix: {
+                    type: 'string'
+                },
+                object_suffix: {
+                    type: 'string'
+                },
+            }
+        },
+
+        lambda_trigger_info: {
+            type: 'object',
+            required: ['id', 'event_name', 'func_name'],
+            properties: {
+                id: {
+                    objectid: true
+                },
+                event_name: {
+                    $ref: '#/definitions/event_name'
+                },
+                func_name: {
+                    type: 'string'
+                },
+                func_version: {
+                    type: 'string'
+                },
+                enabled: {
+                    type: 'boolean',
+                },
+                permission_problem: {
+                    type: 'boolean',
+                },
+                last_run: {
+                    idate: true
+                },
+                object_prefix: {
+                    type: 'string'
+                },
+                object_suffix: {
+                    type: 'string'
+                },
+            }
+        },
+    }
 };

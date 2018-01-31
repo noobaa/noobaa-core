@@ -413,7 +413,13 @@ function read_system(req) {
             MongoCtrl.get_hb_rs_status()
             .catch(err => {
                 dbg.error('failed getting updated rs_status on read_system', err);
-            }) : undefined
+            }) : undefined,
+
+        func_configs: P.resolve(
+                server_rpc.client.func.list_funcs({}, { auth_token: req.auth_token })
+            )
+            .then(res => _.map(res.functions, func => func.config))
+
     }).then(({
         nodes_aggregate_pool_no_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_and_mongo,
@@ -425,7 +431,8 @@ function read_system(req) {
         has_ssl_cert,
         aggregate_data_free_by_tier,
         deletable_buckets,
-        rs_status
+        rs_status,
+        func_configs
     }) => {
         const cluster_info = cutil.get_cluster_info(rs_status);
         const objects_sys = {
@@ -495,13 +502,15 @@ function read_system(req) {
             }),
             buckets: _.map(system.buckets_by_name,
                 bucket => {
-                    let b = bucket_server.get_bucket_info(
+                    let b = bucket_server.get_bucket_info({
                         bucket,
-                        nodes_aggregate_pool_with_cloud_and_mongo,
+                        nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
                         hosts_aggregate_pool,
                         aggregate_data_free_by_tier,
-                        obj_count_per_bucket[bucket._id] || 0,
-                        cloud_sync_by_bucket[bucket.name]);
+                        num_of_objects: obj_count_per_bucket[bucket._id] || 0,
+                        cloud_sync_policy: cloud_sync_by_bucket[bucket.name],
+                        func_configs
+                    });
                     if (deletable_buckets[bucket.name]) {
                         b.undeletable = deletable_buckets[bucket.name];
                     }

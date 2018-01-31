@@ -359,7 +359,7 @@ function find_bucket(req, bucket_name = req.rpc_params.name) {
         dbg.error('BUCKET NOT FOUND', bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + bucket_name);
     }
-    req.check_bucket_permission(bucket);
+    req.check_s3_bucket_permission(bucket);
     return bucket;
 }
 

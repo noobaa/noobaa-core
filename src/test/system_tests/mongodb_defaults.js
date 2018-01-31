@@ -12,6 +12,9 @@ db.datablocks.remove({});
 db.datachunks.remove({});
 db.objectparts.remove({});
 db.objectmds.remove({});
+db.func_code_gridfs.chunks.remove({});
+db.func_code_gridfs.files.remove({});
+db.funcs.remove({});
 db.tiers.update({
     name: {
         $regex: 'first\\.bucket.*'

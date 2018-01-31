@@ -135,30 +135,54 @@ function configure_ips_dialog {
 
 function configure_dns_dialog {
     local cur_dns=($(grep forwarders /etc/noobaa_configured_dns.conf | awk -F "{" '{print $2}' | awk -F "}" '{print $1}' | awk -F ";" '{print $1" " $2}'))
-    local dns0=${cur_dns[0]}
-    local dns1=${cur_dns[1]}
+    local dns1=${cur_dns[0]}
+    local dns2=${cur_dns[1]}
+    local error=0
     ok_dns1=1
     cancel=0 
     
     while [ $ok_dns1 -eq 1 ] && [ $cancel -eq 0 ]; do
-      dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 65 4 "Primary DNS:" 1 1 "${dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${dns2}" 2 25 25 30 2> answer_dns
+      if [ ${error} -eq 1 ]; then
+        dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\n\Z1Primary DNS server is not valid\Zn\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 65 4 "Primary DNS:" 1 1 "${dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${dns2}" 2 25 25 30 2> answer_dns
+      elif [ ${error} -eq 2 ]; then
+        dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\n\Z1Secondary DNS server is not valid\Zn\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 65 4 "Primary DNS:" 1 1 "${dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${dns2}" 2 25 25 30 2> answer_dns
+      else
+        dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 65 4 "Primary DNS:" 1 1 "${dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "${dns2}" 2 25 25 30 2> answer_dns
+      fi
       cancel=$?
       if [ $cancel -eq 0 ] ; then #ok press
         dns1=$(head -1 answer_dns)
+        if [ -z ${dns1}]; then
+          error=1
+          continue
+        fi
         ipcalc -cs ${dns1}
         ok_dns1=$?
-        if [ $ok_dns -eq 1 ] ; then
+        if [ $ok_dns1 -eq 1 ] ; then
+          error=1
+          continue
+        fi
+        local num_lines=$(cat answer_ntp | wc -l)
+        if [ $num_lines -eq 1]; then
           continue
         fi
         dns2=$(tail -1 answer_dns)
-        ipcalc -cs ${dns1}
+        ipcalc -cs ${dns2}
         ok_dns2=$?
         # sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
-        if [ $ok_dns2 -eq 0 ] ; then
+        if [ -n ${dns2} -a $ok_dns2 -eq 1 ]; then
+            ok_dns1=1
+            error=2
+            continue
+        fi
+        if [ -n ${dns2} ]; then
+          echo "updating both" >> /tmp/dns #NBNB
           sudo bash -c "echo \"forwarders { ${dns1}; ${dns2}; };\" > /etc/noobaa_configured_dns.conf"
         else
+          echo "updating one" >> /tmp/dns #NBNB
           sudo bash -c "echo \"forwarders { ${dns1}; };\" > /etc/noobaa_configured_dns.conf"
         fi
+        
         sudo bash -c "echo \"forward only;\" >> /etc/noobaa_configured_dns.conf"
         sudo dmesg -n 1 # need to restart network to update /etc/resolv.conf - supressing too much logs
         sudo systemctl restart named &> /dev/null

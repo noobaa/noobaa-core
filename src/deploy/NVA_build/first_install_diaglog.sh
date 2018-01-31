@@ -231,13 +231,13 @@ function generate_entropy(){
     echo "Generate entropy for /dev/random (openssl and such) for 5m"
     for path in $(find /dev/disk/by-uuid/ -type l )
     do
-        md5sum ${path} &
+        sudo md5sum ${path} &
         pid+=($!)
     done
     ps -ef | grep md5 | grep -v grep
     sleep 300
     echo "killing md5sum (pid: ${pid[@]})"
-    kill -9 ${pid[@]} 2> /dev/null
+    sudo kill -9 ${pid[@]} 2> /dev/null
 }
 
 function configure_ntp_dialog {

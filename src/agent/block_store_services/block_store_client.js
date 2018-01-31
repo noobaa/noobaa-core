@@ -114,7 +114,8 @@ class BlockStoreClient {
                 const req_options = {
                     url: signed_url,
                     method: 'PUT',
-                    body: params.data
+                    body: params.data,
+                    followAllRedirects: true
                 };
                 if (delegation_info.proxy) {
                     req_options.proxy = delegation_info.proxy;
@@ -146,7 +147,8 @@ class BlockStoreClient {
                 const req_options = {
                     url: delegation_info.signed_url,
                     method: 'GET',
-                    encoding: null // get a Buffer
+                    encoding: null, // get a Buffer
+                    followAllRedirects: true
                 };
                 if (delegation_info.proxy) {
                     req_options.proxy = delegation_info.proxy;
@@ -187,6 +189,7 @@ class BlockStoreClient {
                     err = new Error(xml_obj.Error.Message[0]);
                     err.code = xml_obj.Error.Code[0];
                 }
+                err.statusCode = res.statusCode;
                 err.raw_error = res.body.toString();
                 throw err;
             });

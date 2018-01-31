@@ -10,6 +10,9 @@ const http_utils = require('../../util/http_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
 
+
+const DEFAULT_REGION = 'us-east-1';
+
 class BlockStoreS3 extends BlockStoreBase {
 
     constructor(options) {
@@ -24,6 +27,7 @@ class BlockStoreS3 extends BlockStoreBase {
             size: 0,
             count: 0
         };
+
         // upload copy to s3 cloud storage.
         if (this.cloud_info.endpoint === 'https://s3.amazonaws.com') {
             const httpOptions = this.proxy ? {
@@ -35,7 +39,8 @@ class BlockStoreS3 extends BlockStoreBase {
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
                 s3ForcePathStyle: true,
                 httpOptions,
-                region: 'us-east-1'
+                signatureVersion: 'v4',
+                region: DEFAULT_REGION
             });
         } else {
             this.s3cloud = new AWS.S3({
@@ -48,6 +53,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 }
             });
         }
+
     }
 
     init() {
@@ -55,6 +61,7 @@ class BlockStoreS3 extends BlockStoreBase {
             Bucket: this.cloud_info.target_bucket,
             Key: this.usage_path
         };
+
         return P.ninvoke(this.s3cloud, 'headObject', params)
             .then(head => {
                 let usage_data = head.Metadata[this.usage_md_key];
@@ -142,9 +149,6 @@ class BlockStoreS3 extends BlockStoreBase {
                 block_md: this._decode_block_md(data.Metadata.noobaa_block_md)
             }))
             .catch(err => {
-                if (this._try_change_region(err)) {
-                    return this._read_block(block_md);
-                }
                 dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
                 if (err.code === 'NoSuchBucket') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
@@ -193,7 +197,6 @@ class BlockStoreS3 extends BlockStoreBase {
         if (usage) {
             this._update_usage({ size: -usage.size, count: -usage.count });
         }
-        this._try_change_region(err);
         dbg.error('BlockStoreS3 operation failed:', err, this.cloud_info);
         if (err.code === 'NoSuchBucket') {
             throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
@@ -217,9 +220,6 @@ class BlockStoreS3 extends BlockStoreBase {
     _put_object(params) {
         return P.ninvoke(this.s3cloud, 'putObject', params)
             .catch(err => {
-                if (this._try_change_region(err)) {
-                    return this._put_object(params);
-                }
                 dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
                 throw err;
             });
@@ -244,9 +244,6 @@ class BlockStoreS3 extends BlockStoreBase {
                         }
                     })
                     .catch(err => {
-                        if (this._try_change_region(err)) {
-                            return this._delete_blocks(block_ids);
-                        }
                         dbg.error('_delete_blocks failed:', err, _.omit(this.cloud_info, 'secret_key'));
                         throw err;
                     });
@@ -293,19 +290,6 @@ class BlockStoreS3 extends BlockStoreBase {
 
     _decode_block_md(noobaa_block_md) {
         return JSON.parse(Buffer.from(noobaa_block_md, 'base64'));
-    }
-
-    _try_change_region(err) {
-        // try to change default region from US to EU
-        // due to restricted signature of v4 and end point
-        if ((err.statusCode === 400 || err.statusCode === 301) &&
-            this.s3cloud.config.signatureVersion !== 'v4') {
-            dbg.log0('Resetting signature type and region to eu-central-1 and v4');
-            this.s3cloud.config.signatureVersion = 'v4';
-            this.s3cloud.config.region = 'eu-central-1';
-            return true;
-        }
-        return false;
     }
 
 }

@@ -26,7 +26,7 @@ function enable_nooba_login(server_ip, secret) {
         //enabling noobaa user login
         .then(cssh => {
             client_ssh = cssh;
-            return client_ssh.ssh_exec(client_ssh, `
+            return ssh.ssh_exec(client_ssh, `
         if sudo grep -q 'Match User noobaa' /etc/ssh/sshd_config
         then
             sudo sed -i 's/Match User noobaa//g' /etc/ssh/sshd_config
@@ -53,7 +53,7 @@ function clean_ova(server_ip, secret) {
             client_ssh = cssh;
             return ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a -d');
         })
-        .then(() => ssh.ssh_exec(client_ssh, 'sudo reboot -fn'))
+        .then(() => ssh.ssh_exec(client_ssh, 'sudo reboot -fn', true))
         .then(() => client_ssh.end());
 }
 

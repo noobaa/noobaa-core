@@ -165,15 +165,19 @@ function expect_override_conf(e, timeout) {
 }
 
 function expect_an_error_and_get_back(e, errorMassage, timeout) {
-    if (expectFail) {
-        return P.resolve()
-            .then(() => e.expect(errorMassage, timeout))
-            .delay(5 * 1000)
-            .then(() => e.send(`${SHIFTTAB}\r`));
-    } else {
-        return P.resolve();
-    }
+    return P.resolve()
+        .then(() => e.expect(errorMassage, timeout))
+        .delay(5 * 1000)
+        .then(() => e.send(`${SHIFTTAB}\r`));
 }
+
+function expect_a_resoult_and_get_back(e, text, timeout) {
+    return P.resolve()
+        .then(() => e.expect(text, timeout))
+        .delay(5 * 1000)
+        .then(() => e.send(`${SHIFTTAB}\r`));
+}
+
 
 //this function will run NTP configuration from the TUI
 function ntp_Configuration(configureTZ = true, reachable = true) {
@@ -185,6 +189,7 @@ function ntp_Configuration(configureTZ = true, reachable = true) {
 
     //runing with or without TZ
     let ntpString;
+    let toExpect;
     expectFail = false;
     if (Math.floor(Math.random() * 5) === 0) {
         expectFail = true;
@@ -192,19 +197,24 @@ function ntp_Configuration(configureTZ = true, reachable = true) {
     } else if (configureTZ && reachable) {
         console.log('Configuring reachable NTP with TZ');
         ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}Asia/Jerusalem\r`;
+        toExpect = 'pool.ntp.org';
     } else if (!configureTZ && reachable) {
         console.log('Configuring reachable NTP without TZ');
         ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}\r`;
+        toExpect = 'pool.ntp.org';
     } else if (configureTZ && !reachable) {
         console.log('Configuring unreachable NTP with TZ');
         ntpString = `${DELETE}unreachable${DOWN}${DELETE}Asia/Jerusalem\r`;
+        toExpect = 'unreachable';
     } else if (configureTZ && !reachable) {
         console.log('Configuring unreachable NTP without TZ');
         ntpString = `${DELETE}unreachable${DOWN}${DELETE}\r`;
+        toExpect = 'unreachable';
     } else {
         //making sure that we are not missing states... 
         console.log('Configuring reachable NTP with TZ');
         ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}Asia/Jerusalem\r`;
+        toExpect = 'pool.ntp.org';
     }
 
     return P.resolve()
@@ -217,7 +227,15 @@ function ntp_Configuration(configureTZ = true, reachable = true) {
         .then(() => e.send(`2\r`))
         .then(() => e.expect('Please supply an NTP server address and Time Zone'))
         .then(() => e.send(`${ntpString}`))
-        .then(() => expect_an_error_and_get_back(e, 'NTP Server must be set', 120 * 1000))
+        .then(() => {
+            if (expectFail) {
+                return expect_an_error_and_get_back(e, 'NTP Server must be set', 120 * 1000);
+            } else {
+                return e.expect('NTP Configuration')
+                    .then(() => e.send(`2\r`))
+                    .then(() => expect_a_resoult_and_get_back(e, toExpect, 120 * 1000));
+            }
+        })
         .then(() => e.expect('6*Exit', 120 * 1000))
         .delay(1 * 1000)
         .then(() => e.send('6\r'))
@@ -240,6 +258,7 @@ function dns_Configuration(configurePrimary = true, configureSecondary = true, r
 
     //runing with or without Secondary and wit or without valid ip
     let dnsString;
+    let toExpect;
     expectFail = false;
     if (Math.floor(Math.random() * 9) === 0) {
         expectFail = true;
@@ -249,25 +268,32 @@ function dns_Configuration(configurePrimary = true, configureSecondary = true, r
         } else {
             console.log('Configuring secondary DNS ip with wrong ip format');
             dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8,8.4.4\r`;
+            toExpect = '8.8.8.8';
         }
     } else if (configurePrimary && configureSecondary && reachablePrimaryDns && reachableSecondaryDns) {
         console.log('Configuring reachable Primary DNS with reachable Secondary DNS');
         dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8.8.4.4\r`;
+        toExpect = '8.8.8.8';
     } else if (configurePrimary && configureSecondary && !reachablePrimaryDns && !reachableSecondaryDns) {
         console.log('Configuring unreachable Primary DNS with unreachable Secondary DNS');
         dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}1.1.4.4\r`;
+        toExpect = '1.1.1.1';
     } else if (configurePrimary && configureSecondary && !reachablePrimaryDns && reachableSecondaryDns) {
         console.log('Configuring unreachable Primary DNS with reachable Secondary DNS');
         dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}8.8.4.4\r`;
+        toExpect = '1.1.1.1';
     } else if (configurePrimary && configureSecondary && reachablePrimaryDns && !reachableSecondaryDns) {
         console.log('Configuring reachable Primary DNS with unreachable Secondary DNS');
         dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}1.1.4.4\r`;
+        toExpect = '8.8.8.8';
     } else if (configurePrimary && !configureSecondary && reachablePrimaryDns) {
         console.log('Configuring reachable Primary DNS without Secondary DNS');
         dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}\r`;
+        toExpect = '8.8.8.8';
     } else if (configurePrimary && !configureSecondary && !reachablePrimaryDns) {
         console.log('Configuring unreachable Primary DNS without Secondary DNS');
         dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}\r`;
+        toExpect = '1.1.1.1';
     } else if (!configurePrimary && configureSecondary && reachableSecondaryDns) {
         expectFail = true;
         console.log('Configuring reachable Secondary DNS without Primary DNS');
@@ -280,6 +306,7 @@ function dns_Configuration(configurePrimary = true, configureSecondary = true, r
         //making sure that we are not missing states... 
         console.log('Configuring reachable Primary DNS with reachable Secondary DNS');
         dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8.8.4.4\r`;
+        toExpect = '8.8.8.8';
     }
 
     return P.resolve()
@@ -294,8 +321,15 @@ function dns_Configuration(configurePrimary = true, configureSecondary = true, r
         .then(() => e.send(`2\r`))
         .then(() => e.expect('Please supply a primary and secondary DNS servers'))
         .then(() => e.send(`${dnsString}`))
-        //TODO: make the error a variable and populate it accourding to the error.
-        .then(() => expect_an_error_and_get_back(e, '', 120 * 1000))
+        .then(() => {
+            if (expectFail) {
+                return expect_an_error_and_get_back(e, 'DNS server is not valid', 120 * 1000);
+            } else {
+                return e.expect('DNS Settings')
+                    .then(() => e.send(`2\r`))
+                    .then(() => expect_a_resoult_and_get_back(e, toExpect, 120 * 1000));
+            }
+        })
         .then(() => e.expect('4*Exit', 120 * 1000))
         .delay(1 * 1000)
         .then(() => e.send('4\r'))
@@ -325,6 +359,7 @@ function hostname_Settings() {
     if ((Math.floor(Math.random() * 2)) === 0) {
         hostname = 'noobaa-TUI';
     } else {
+        expectFail = true;
         hostname = '';
     }
 
@@ -342,6 +377,15 @@ function hostname_Settings() {
         .then(() => e.send(`3\r`))
         .then(() => e.expect('Please supply a hostname for this'))
         .then(() => e.send(`${hostname}\r`))
+        .then(() => {
+            if (expectFail) {
+                return P.resolve();
+            } else {
+                return e.expect('Hostname Settings')
+                    .then(() => e.send(`3\r`))
+                    .then(() => expect_a_resoult_and_get_back(e, hostname, 120 * 1000));
+            }
+        })
         .then(() => e.expect('4*Exit', 120 * 1000))
         .delay(1 * 1000)
         .then(() => e.send('4\r'))

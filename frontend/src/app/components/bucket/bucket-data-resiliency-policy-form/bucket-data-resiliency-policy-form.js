@@ -44,7 +44,7 @@ function _getFailureTolerance(tolerance) {
         text: tolerance,
         css: warn ? 'warning' : '',
         tooltip: warn ?
-            'Failure tolerance is below 2, in case of 1 failure data may be lost' :
+            'It is not recommended to use a resiliency policy which results in less than a fault tolerance value of 2' :
             ''
     };
 }

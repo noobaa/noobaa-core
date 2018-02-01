@@ -56,9 +56,11 @@ function init_clients() {
             password: TEST_CFG.secret,
             keepaliveInterval: 5000,
         })
-        .then(client => {
-            //ssh_client = client;
-        })
+        .then(client =>
+            //Change cluster HB interval to 5sec instead of 60
+            ssh_functions.ssh_exec(client, `sudo bash -c "sed -i 's:config.CLUSTER_HB_INTERVAL.*:config.CLUSTER_HB_INTERVAL = 5000:' /root/node_modules/noobaa-core/config.js"`)
+            .then(() => ssh_functions.ssh_exec(client, `sudo bash -c "supervisorctl restart all"`))
+            .delay(20000))
         .then(() => {
             rpc = api.new_rpc('wss://' + TEST_CFG.ip + ':8443');
             rpc_client = rpc.new_client({});
@@ -127,9 +129,9 @@ function check_arguments_and_update() {
 }
 
 /*
-* Recieve expected upgrade status and failed condition, read_system until either one is met and fail/success 
-* according to which one was reached
-*/
+ * Recieve expected upgrade status and failed condition, read_system until either one is met and fail/success 
+ * according to which one was reached
+ */
 function _verify_upgrade_status(expected, failed, message) {
     let reachedEndState = false;
     let success = true;
@@ -157,8 +159,8 @@ function _verify_upgrade_status(expected, failed, message) {
 }
 
 /*
-* Fill local disk of the server to reach just below the min threshold for upgrade
-*/
+ * Fill local disk of the server to reach just below the min threshold for upgrade
+ */
 function _fill_local_disk() {
     return rpc_client.system.read_system()
         .then(res => {
@@ -183,10 +185,10 @@ function _fill_local_disk() {
 }
 
 /*
-* Verify we cannot downgrade from the current installed version :
-* X.Y.Z - Verify patch downgrade (Z), Minor (Y) and Major (X)
-* Per each test, generate a fake package.json file, pack it and upload to the server & verify failure
-*/
+ * Verify we cannot downgrade from the current installed version :
+ * X.Y.Z - Verify patch downgrade (Z), Minor (Y) and Major (X)
+ * Per each test, generate a fake package.json file, pack it and upload to the server & verify failure
+ */
 function _verify_downgrade_fails() {
     let server_version;
     let test_version;
@@ -302,11 +304,37 @@ function test_first_step() {
 }
 
 function test_second_step() {
-    return P.resolve();
-    //Full local disk
-    //No phone home connectivity
-    //Time skew 
-    //All OK - Upgrade
+    //TODO:: missing phone home connectivity test
+    return P.resolve()
+        .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
+        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before local disk'))
+        .then(() => _fill_local_disk() //Full local disk & verify failure
+            .delay(10000)
+            .then(() => rpc_client.cluster_internal.upgrade_cluster())
+            .then(() => _verify_upgrade_status('FAILED', 'SUCCESS', '2nd step of upgrade, verify failure on not enough local disk'))
+            .then(() => agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
+            .delay(10000)) //clean local disk
+        .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
+        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before time skew'))
+        //verify fail on time skew
+        .then(() => rpc_client.cluster_server.update_time_config({
+                target_secret: TEST_CFG.secret,
+                timezone: "Asia/Jerusalem",
+                epoch: 1514798132
+            })
+            .then(() => rpc_client.cluster_internal.upgrade_cluster())
+            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew'))
+            //Reset time back to normal
+            .then(() => rpc_client.cluster_server.update_time_config({
+                target_secret: TEST_CFG.secret,
+                timezone: "Asia/Jerusalem",
+                ntp_server: "pool.ntp.org"
+            }))
+            .delay(25000)) //time update restarts the services
+        .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
+        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time'))
+        .then(() => rpc_client.cluster_internal.upgrade_cluster());
+    //NBNB need to wait for server and verify upgrade was successfull
 }
 
 function run_test() {

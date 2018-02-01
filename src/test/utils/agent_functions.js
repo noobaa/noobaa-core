@@ -8,7 +8,6 @@ const pool = 'first.pool';
 const crypto = require('crypto');
 const ssh_functions = require('./ssh_functions');
 const promise_utils = require('../../util/promise_utils');
-const ssh = require('./ssh_functions');
 
 
 // Environment Setup
@@ -124,8 +123,8 @@ function createAgents(azf, server_ip, storage, vnet, exclude_drives = [], suffix
                     storage,
                     vnet,
                     os: azf.getImagesfromOSname(osname),
-                    serverName: server_ip,
-                    agentConf
+                    agentConf,
+                    serverIP: server_ip
                 }))
                 .catch(err => {
                     console.error(`Creating vm extension is FAILED `, err);
@@ -161,26 +160,7 @@ function createAgentsWithList(params) {
             }));
 }
 
-function getAgentConf(server_ip, exclude_drives = []) {
-    const rpc = api.new_rpc('wss://' + server_ip + ':8443');
-    const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
-    return client.create_auth_token(auth_params)
-        .then(() => client.system.get_node_installation_string({
-            pool: pool,
-            exclude_drives
-        }))
-        .then(installationString => {
-            const agentConfArr = installationString.LINUX.split(" ");
-            return agentConfArr[agentConfArr.length - 1];
-        });
-}
-
-function getAgentConfCommand(server_ip, osType, exclude_drives = []) {
+function getAgentConfInstallString(server_ip, osType, exclude_drives = []) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     let auth_params = {
@@ -204,6 +184,14 @@ function getAgentConfCommand(server_ip, osType, exclude_drives = []) {
         });
 }
 
+function getAgentConf(server_ip, exclude_drives = []) {
+    return getAgentConfInstallString(server_ip, 'Linux', exclude_drives)
+        .then(installationString => {
+            const agentConfArr = installationString.split(" ");
+            return agentConfArr[agentConfArr.length - 1];
+        });
+}
+
 const agentCommandGeneratorForOS = {
     LINUX: agentCommand => `
         sudo bash -c '${agentCommand}'
@@ -215,10 +203,10 @@ const agentCommandGeneratorForOS = {
 
 function runAgentCommandViaSsh(agent_server_ip, username, password, agentCommand, osType) {
     let client;
-    return ssh.ssh_connect(null, {
+    return ssh_functions.ssh_connect({
             host: agent_server_ip,
-            username,
-            password,
+            username: username,
+            password: password,
             keepaliveInterval: 5000,
         })
         //becoming root and running the agent command
@@ -226,9 +214,8 @@ function runAgentCommandViaSsh(agent_server_ip, username, password, agentCommand
             client = res;
             const generateOSCommand = agentCommandGeneratorForOS[osType.toUpperCase()];
             if (!generateOSCommand) throw new Error('Unknown os type: ', osType);
-            return ssh.ssh_exec(client, generateOSCommand(agentCommand));
-        })
-        .then(() => ssh.ssh_stick(client));
+            return ssh_functions.ssh_exec(client, generateOSCommand(agentCommand));
+        });
 }
 
 function activeAgents(server_ip, deactivated_nodes_list) {
@@ -490,7 +477,7 @@ function manipulateLocalDisk(params) {
 exports.list_nodes = list_nodes;
 exports.getTestNodes = getTestNodes;
 exports.getAgentConf = getAgentConf;
-exports.getAgentConfCommand = getAgentConfCommand;
+exports.getAgentConfInstallString = getAgentConfInstallString;
 exports.runAgentCommandViaSsh = runAgentCommandViaSsh;
 exports.activeAgents = activeAgents;
 exports.deactiveAgents = deactiveAgents;

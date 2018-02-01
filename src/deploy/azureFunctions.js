@@ -35,6 +35,9 @@ const system = {
     activation_code: DEV_ACTIVATION_KEY
 };
 
+const NTP = 'pool.ntp.org';
+const TZ = 'Asia/Jerusalem';
+
 const blobSvc = azure_storage.createBlobService();
 
 function _makeArray(size, handler) {
@@ -153,8 +156,8 @@ class AzureFunctions {
             .then(res => res.ipAddress);
     }
 
-    createAgent(params) {
-        const { vmName, storage, vnet, os, serverName, agentConf } = params;
+    createAgent({ vmName, storage, vnet, os, agentConf, serverIP }) {
+        const osDetails = this.getImagesfromOSname(os);
         return this.getSubnetInfo(vnet)
             .then(subnetInfo => this.createPublicIp(vmName + '_pip')
                 .then(ipInfo => [subnetInfo, ipInfo])
@@ -163,13 +166,13 @@ class AzureFunctions {
             .then(nic => {
                 console.log(`Network Interface ${vmName}_nic was created`);
                 var image = {
-                    publisher: os.publisher,
-                    offer: os.offer,
-                    sku: os.sku,
+                    publisher: osDetails.publisher,
+                    offer: osDetails.offer,
+                    sku: osDetails.sku,
                     version: 'latest'
                 };
                 let diskSizeGB = 40;
-                if (os.osType === 'Windows') {
+                if (osDetails.osType === 'Windows') {
                     diskSizeGB = 140;
                 }
                 return this.createVirtualMachine({
@@ -183,17 +186,25 @@ class AzureFunctions {
             .then(() => this.getIpAddress(vmName + '_pip'))
             .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
             .then(ip => {
-                // only install noobaa agent if given a server and agent conf
-                if (serverName && agentConf) {
-                    return this.createAgentExtension(_.defaults({ ip }, params));
+                if (agentConf && serverIP) {
+                    return this.createAgentExtension(_.defaults({ ip }, {
+                        vmName,
+                        storage,
+                        vnet,
+                        os,
+                        agentConf,
+                        serverIP
+                    }));
+                } else {
+                    console.log(`Skipping creation of extension, both ip ${serverIP} and agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
+                    return ip;
                 }
-                return ip;
             });
     }
 
     // runAgentCommand(agent_server_ip, agentCommand) {
     //     let client;
-    //     return ssh.ssh_connect(null, {
+    //     return ssh.ssh_connect({
     //         host: agent_server_ip,
     //         //  port: 22,
     //         username: qaUsername,
@@ -278,7 +289,7 @@ class AzureFunctions {
                 });
             })
             .delay(20 * 1000)
-            .then(() => af.getAgentConfCommand(server_ip, osType, exclude_drives))
+            .then(() => af.getAgentConfInstallString(server_ip, osType, exclude_drives))
             .then(res => {
                 agentCommand = res;
                 console.log(agentCommand);
@@ -289,7 +300,7 @@ class AzureFunctions {
     }
 
     createAgentExtension(params) {
-        const { vmName, os, serverName, agentConf, ip } = params;
+        const { vmName, os, serverIP, agentConf, ip } = params;
         console.log('Started the Virtual Machine!');
         var extension = {
             publisher: 'Microsoft.OSTCExtensions',
@@ -298,7 +309,7 @@ class AzureFunctions {
             autoUpgradeMinorVersion: true,
             settings: {
                 fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/init_agent.sh'],
-                commandToExecute: 'bash init_agent.sh ' + serverName + ' ' + agentConf
+                commandToExecute: 'bash init_agent.sh ' + serverIP + ' ' + agentConf
             },
             protectedSettings: {
                 storageAccountName: 'pluginsstorage',
@@ -312,7 +323,7 @@ class AzureFunctions {
             extension.typeHandlerVersion = '1.7';
             extension.settings = {
                 fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/init_agent.ps1'],
-                commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + serverName +
+                commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + serverIP +
                     ' ' + agentConf
             };
         }
@@ -662,6 +673,11 @@ class AzureFunctions {
             });
     }
 
+    deleteVMOsDisk(vmName) {
+        console.log('Deleting OS Disk ' + vmName);
+        return P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback));
+    }
+
     deleteBlobDisks(vmName, container = 'datadisks') {
         console.log('Deleting data disks of:', vmName);
         return P.all(
@@ -788,7 +804,7 @@ class AzureFunctions {
                 )));
     }
 
-    // creates new noobaa server and returns it's secret
+    // creates new noobaa server and returns it's secret if system was created
     createServer(params) {
         const {
             serverName,
@@ -799,26 +815,29 @@ class AzureFunctions {
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
             latesetRelease = false,
+            createSystem = false,
         } = params;
         let { imagename } = params;
-        var rpc;
-        var client;
+        let rpc;
+        let client;
+        let secret;
         return P.resolve()
             .then(() => {
-                if (!imagename) {
+                if (imagename) {
+                    console.log(`using image ${imagename} as base server image`);
+                    return P.resolve();
+                } else {
                     return fs.readFileAsync('src/deploy/version_map.json')
                         .then(buf => {
                             const ver_map = JSON.parse(buf.toString());
-                            console.log('available images', ver_map);
                             if (latesetRelease) {
                                 imagename = ver_map.versions[_.findLastIndex(ver_map.versions, obj => obj.released === true)].vhd;
                             } else {
                                 imagename = ver_map.versions[ver_map.versions.length - 1].vhd;
                             }
-                            console.log(`selected ${imagename} from available images`);
+                            console.log(`using image ${imagename} as base server image`);
                         });
                 }
-                console.log(`using image ${imagename}`);
             })
             .then(() => this.copyVHD({
                 image: imagename,
@@ -837,22 +856,36 @@ class AzureFunctions {
             .then(() => this.getIpAddress(serverName + '_pip'))
             .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
             .then(ip => {
-                rpc = api.new_rpc('wss://' + ip + ':8443');
-                rpc.disable_validation();
-                client = rpc.new_client({});
-                return client.system.create_system(system);
+                if (createSystem) {
+                    rpc = api.new_rpc('wss://' + ip + ':8443');
+                    rpc.disable_validation();
+                    client = rpc.new_client({});
+                    return client.system.create_system(system)
+                        .then(res => {
+                            client.options.auth_token = res.token;
+                            return client.system.read_system({});
+                        })
+                        .then(res => {
+                            console.log('System created successfully, setting NTP');
+                            secret = res.cluster.master_secret;
+                            return client.cluster_server.update_time_config({
+                                    target_secret: secret,
+                                    timezone: TZ,
+                                    ntp_server: NTP
+                                })
+                                .then(() => rpc.disconnect_all());
+                        });
+                } else {
+                    console.log('Skipping system creation');
+                    return P.resolve();
+                }
             })
-            .then(res => {
-                client.options.auth_token = res.token;
-                return client.system.read_system({});
-            })
-            .then(res => {
-                var secret = res.cluster.master_secret;
-                console.log('Server ', serverName, 'was successfuly created');
-                rpc.disconnect_all();
+            .then(() => {
+                console.log('Server', serverName, 'was successfuly created');
                 return secret;
             })
             .catch(err => {
+                console.log('failed create server with', err);
                 if (rpc) rpc.disconnect_all();
                 throw err;
             });

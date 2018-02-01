@@ -63,7 +63,15 @@ class BlockStoreBase {
     delegate_read_block(req) {
         const { block_md } = req.rpc_params;
         const cached_data = this.block_cache.peek_cache(block_md);
-        if (cached_data) return { cached_data };
+        if (cached_data) {
+            const ret = {
+                cached_data: {
+                    block_md,
+                },
+                [RPC_BUFFERS]: { data: cached_data.data }
+            };
+            return ret;
+        }
         return this._delegate_read_block(block_md);
     }
 

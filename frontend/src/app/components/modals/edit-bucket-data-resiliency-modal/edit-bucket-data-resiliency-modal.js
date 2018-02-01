@@ -33,7 +33,7 @@ const rebuildEffortToDisplay = deepFreeze({
 
 const failureToleranceTooltip = deepFreeze({
     position: 'above',
-    text: 'Failure tolerance is below 2, in case of 1 failure data may be lost'
+    text: 'It is not recommended to use a resiliency policy which results in less than a fault tolerance value of 2'
 });
 
 const rebuildEffortTooltip = deepFreeze({

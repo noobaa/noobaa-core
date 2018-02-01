@@ -67,8 +67,12 @@ function onFailFetchAlerts(state, { payload }) {
     const loading = state.loading - 1;
 
     if (loading === 0) {
-        const { error: loadError } = payload;
-        return { ...state, loading, loadError };
+        const { message: loadError } = payload.error;
+        return {
+            ...state,
+            loading,
+            loadError
+        };
 
     } else {
         return { ...state, loading };

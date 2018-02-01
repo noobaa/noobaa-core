@@ -62,11 +62,11 @@
             border-top-color: @bg-color;
         }
 
-        &.start {
-            transform: translate(0, -100%);
-        }
-
         &.left-pos {
+            &.start {
+                transform: translate(0, -100%);
+            }
+
             &.center {
                 transform: translate(-50%, -100%);
             }
@@ -77,12 +77,16 @@
         }
 
         &.right-pos {
-            &.center {
+            &.start {
                 transform: translate(100%, -100%);
             }
 
-            &.end {
+            &.center {
                 transform: translate(50%, -100%);
+            }
+
+            &.end {
+                transform: translate(0, -100%);
             }
         }
     }
@@ -99,7 +103,6 @@
             top: -@arrow-size;
             border-bottom-color: @bg-color;
         }
-
 
         &.left-pos {
             &.start {

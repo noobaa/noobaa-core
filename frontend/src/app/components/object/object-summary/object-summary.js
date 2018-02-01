@@ -24,7 +24,7 @@ class ObjectSummaryViewModel extends Observer {
     sizeOnDisk = ko.observable();
     size = [
         {
-            label: 'Original size',
+            label: 'Original Size',
             color: style['color7'],
             tooltip: 'The original size of the file as written prior to optimization or data resiliency',
             value: this.originalSize

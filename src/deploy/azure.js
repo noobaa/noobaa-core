@@ -115,22 +115,24 @@ function vmOperations(operationCallback) {
     //named createVM() that encapsulates the steps to create a VM. Other tasks are   //
     //fairly simple in comparison. Hence we don't have a wrapper method for them.    //
     ///////////////////////////////////////////////////////////////////////////////////
-    if (_.isUndefined(argv.app)) {
+    if (_.isUndefined(argv.app) && _.isUndefined(argv.lg)) {
 
         console.error('\n\n******************************************');
         console.error('Please provide --app (used to be heroku app name.');
         console.error('currently just tag for reference - use the metadata server address)');
         console.error('******************************************\n\n');
         throw new Error('MISSING --app');
+    } else if (argv.lg) {
+        serverName = 'LG';
     } else {
         serverName = argv.app;
     }
-    if (_.isUndefined(argv.scale) && _.isUndefined(argv.addallimages) && _.isUndefined(argv.servers)) {
+    if (_.isUndefined(argv.scale) && _.isUndefined(argv.addallimages) && _.isUndefined(argv.servers) && _.isUndefined(argv.lg)) {
 
         console.error('\n\n******************************************');
         console.error('Please provide --scale (choose the number of agents you want to add) or --addallimages of --servers');
         console.error('******************************************\n\n');
-        throw new Error('MISSING --scale/--addallimages/--servers');
+        throw new Error('MISSING --scale/--addallimages/--servers/--lg');
     } else {
         machineCount = argv.scale;
     }
@@ -147,6 +149,14 @@ function vmOperations(operationCallback) {
         .then(old_machines => {
             console.log('Machines with this prefix which are online', old_machines.length);
             var machines = [];
+            if (argv.lg) {
+                return azf.createLGFromImage({
+                        vmName: 'LG',
+                        vnet: vnetName,
+                        storage: storageAccountName,
+                    })
+                    .then(() => process.exit(0));
+            }
             if (argv.addallimages) {
                 console.log('adding all prossible machine types');
                 return P.map(oses, osname => {
@@ -167,12 +177,12 @@ function vmOperations(operationCallback) {
                             }));
                     } else { //TODO: when Win can be copied from an image remove the else, everything should be called with createAgentFromImage
                         return azf.createAgentFromImage({
-                            vmName: machine_name,
-                            storage: storageAccountName,
-                            vnet: vnetName,
-                            server_ip,
-                            os: osname,
-                        })
+                                vmName: machine_name,
+                                storage: storageAccountName,
+                                vnet: vnetName,
+                                server_ip,
+                                os: osname,
+                            })
                             .catch(err => console.log('got error with agent', err));
                     }
                 });
@@ -209,8 +219,7 @@ function vmOperations(operationCallback) {
                     })
                     .then(() => {
                         const server = servers[servers.length - 1];
-                        console.log('Cluster/Server:', server.name, 'was successfuly created, ip is:'
-                            , server.ip, ' The secret is:', server.secret);
+                        console.log('Cluster/Server:', server.name, 'was successfuly created, ip is:', server.ip, ' The secret is:', server.secret);
                     });
             }
             if (old_machines.length < machineCount || !delete_agents) {
@@ -239,12 +248,12 @@ function vmOperations(operationCallback) {
                             });
                     } else { //TODO: when Win can be copied from an image remove the else, everything should be called with createAgentFromImage
                         return azf.createAgentFromImage({
-                            vmName: machine,
-                            storage: storageAccountName,
-                            vnet: vnetName,
-                            server_ip,
-                            os: argv.os,
-                        })
+                                vmName: machine,
+                                storage: storageAccountName,
+                                vnet: vnetName,
+                                server_ip,
+                                os: argv.os,
+                            })
                             .catch(err => console.log('got error with agent', err));
                     }
                 });

@@ -192,7 +192,8 @@ function configure_dns_dialog {
 }
 
 function configure_hostname_dialog {
-    dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
+    local current_name=$(hostname)
+    dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "${current_name}" 1 25 25 30 2> answer_host
 
     local host=$(tail -1 answer_host)
     rc=$(sudo sysctl kernel.hostname=${host})

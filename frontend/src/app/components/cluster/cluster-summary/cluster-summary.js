@@ -165,8 +165,8 @@ class ClusterSummaryViewModel extends BaseViewModel {
             },
             {
                 label: ko.pureComputed(
-                    () => `Missing installed servers for ${
-                        serverCount() > 3 ? 'next fault tolerance': 'H/A'
+                    () => `Missing Installed Servers for ${
+                        serverCount() > 3 ? 'next Fault Tolerance': 'H/A'
                     }:`
                 ),
                 color: style['color15'],

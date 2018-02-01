@@ -49,19 +49,19 @@ const durations = deepFreeze({
 const chartDatasets = deepFreeze([
     {
         key: 'hosts',
-        label: 'Used on nodes',
+        label: 'Used on Nodes',
         labelPadding: 10,
         color: style['color8']
     },
     {
         key: 'cloud',
-        label: 'Used on cloud',
+        label: 'Used on Cloud',
         labelPadding: 10,
         color: style['color6']
     },
     {
         key: 'internal',
-        label: 'Used on internal',
+        label: 'Used on Internal',
         labelPadding: 10,
         color: style['color16']
     }
@@ -284,7 +284,7 @@ class BucketsOverviewViewModel extends Observer{
         this.noChartData = ko.observable();
         this.usedValues = [
             {
-                label: 'Used on nodes',
+                label: 'Used on Nodes',
                 value: ko.observable(),
                 disabled: ko.pc(
                     this.hideHosts,
@@ -293,7 +293,7 @@ class BucketsOverviewViewModel extends Observer{
                 color : style['color8']
             },
             {
-                label: 'Used on cloud',
+                label: 'Used on Cloud',
                 value: ko.observable(),
                 disabled: ko.pc(
                     this.hideCloud,
@@ -302,7 +302,7 @@ class BucketsOverviewViewModel extends Observer{
                 color : style['color6']
             },
             {
-                label: 'Used on internal',
+                label: 'Used on Internal',
                 value: ko.observable(),
                 disabled: ko.pc(
                     this.hideInternal,

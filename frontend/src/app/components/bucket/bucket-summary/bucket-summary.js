@@ -71,13 +71,13 @@ class BucketSummrayViewModel extends Observer {
             tooltip: 'Data that was written and exceeded the bucket configured quota'
         },
         {
-            label: 'Available according to policies',
+            label: 'Available According to Policies',
             color: style['color15'],
             value: ko.observable(),
             tooltip: 'The actual free space on this bucket for data writes taking into account the current configured resiliency policy'
         },
         {
-            label: 'Available on spillover',
+            label: 'Available on Spillover',
             color: style['color18'],
             value: ko.observable(),
             visible: ko.observable(),

@@ -83,6 +83,8 @@ function install_platform {
     echo "GRUB_HIDDEN_TIMEOUT=0" >> /etc/default/grub
     echo "GRUB_FORCE_HIDDEN_MENU=true" >> /etc/default/grub
     grub2-mkconfig --output=/boot/grub2/grub.cfg
+    sed -i 's/GRUB_TIMEOUT=5/GRUB_TIMEOUT=0' /etc/default/grub
+    grub2-mkconfig –o /boot/grub2/grub.cfg
 
 	# easy_install is for Supervisord and comes from python-setuptools
 	easy_install supervisor

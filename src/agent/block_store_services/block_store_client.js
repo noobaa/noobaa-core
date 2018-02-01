@@ -114,8 +114,8 @@ class BlockStoreClient {
                 const req_options = {
                     url: signed_url,
                     method: 'PUT',
-                    body: params.data,
-                    followAllRedirects: true
+                    followAllRedirects: true,
+                    body: data
                 };
                 if (delegation_info.proxy) {
                     req_options.proxy = delegation_info.proxy;
@@ -143,7 +143,12 @@ class BlockStoreClient {
         const { timeout = config.IO_READ_BLOCK_TIMEOUT } = options;
         return rpc_client.block_store.delegate_read_block({ block_md: params.block_md }, options)
             .then(delegation_info => {
-                if (delegation_info.cached_data) return delegation_info.cached_data;
+                if (delegation_info.cached_data) {
+                    return {
+                        block_md: delegation_info.cached_data.block_md,
+                        [RPC_BUFFERS]: delegation_info[RPC_BUFFERS]
+                    };
+                }
                 const req_options = {
                     url: delegation_info.signed_url,
                     method: 'GET',

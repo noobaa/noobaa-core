@@ -23,7 +23,7 @@ function ssh_disconnect(client) {
 }
 
 //will execute command via ssh
-function ssh_exec(client, command) {
+function ssh_exec(client, command, ignore_rc = false) {
     console.log('Execute ssh command ' + command);
     return P.fromCallback(callback => client.exec(command, { pty: true }, callback))
         .then(stream => new P((resolve, reject) => {
@@ -32,6 +32,9 @@ function ssh_exec(client, command) {
                 .once('close', code => {
                     if (code === 0) {
                         console.log(`ssh_exec: Done. command ${command} successful`);
+                        resolve();
+                    } else if (ignore_rc) {
+                        console.log(`ssh_exec: command ${command}, ignoring return code: ${code}`);
                         resolve();
                     } else {
                         console.log(`ssh_exec: Failed. ${command} exited with code ${code}`);

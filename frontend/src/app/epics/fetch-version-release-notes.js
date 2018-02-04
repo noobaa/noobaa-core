@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_VERSION_RELEASE_NOTES } from 'action-types';
 import { releaseNotes } from 'config';
 import {
@@ -24,7 +25,10 @@ export default function(action$, { fetch }) {
                 return completeFetchVersionReleaseNotes(version, notes);
 
             } catch (error) {
-                return failFetchVersionReleaseNotes(version, error);
+                return failFetchVersionReleaseNotes(
+                    version,
+                    mapErrorObject(error)
+                );
             }
         });
 }

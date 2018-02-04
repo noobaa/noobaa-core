@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { SIGN_IN } from 'action-types';
 import { completeSignIn, failSignIn } from 'action-creators';
 
@@ -18,7 +19,10 @@ export default function(action$, { api }) {
                 return completeSignIn(token, info, persistent);
 
             } catch (error) {
-                return failSignIn(email, error);
+                return failSignIn(
+                    email,
+                    mapErrorObject(error)
+                );
             }
         });
 }

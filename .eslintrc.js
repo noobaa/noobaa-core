@@ -14,6 +14,10 @@ module.exports = {
         'header'
     ],
 
+    parserOptions: {
+        ecmaVersion: 2017
+    },
+
     // RULES METHODOLOGY:
     // -----------------
     // we turn ON all of eslint rules by extending eslint:all
@@ -300,5 +304,8 @@ module.exports = {
 
         // accept var decleration in mid function, since we already check used before defined
         'vars-on-top': 'off',
+
+        // Allow await in the body of loops.
+        'no-await-in-loop': 'off'
     }
 };

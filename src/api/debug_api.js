@@ -30,6 +30,7 @@ module.exports = {
                 system: 'admin'
             }
         },
+
         get_coverage_data: {
             method: 'GET',
             reply: {
@@ -46,5 +47,24 @@ module.exports = {
                 system: 'admin'
             }
         },
+
+        upload_fe_dump: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name', 'dump'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    dump: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
     }
 };

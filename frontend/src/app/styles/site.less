@@ -214,6 +214,22 @@ pre {
     .disabled & {
         color: @color15;
     }
+
+    &.warning, .warning & {
+        .warning();
+    }
+
+    &.success, .succss & {
+        .success();
+    }
+
+    &.error, .error & {
+        .error();
+    }
+
+    &.info, .info & {
+        .info();
+    }
 }
 
 .success {

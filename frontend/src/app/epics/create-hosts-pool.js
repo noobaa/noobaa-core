@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_HOSTS_POOL } from 'action-types';
 import { completeCreateHostsPool, failCreateHostsPool } from 'action-creators';
 
@@ -14,7 +15,10 @@ export default  function(action$, { api }) {
                 return completeCreateHostsPool(name);
 
             } catch (error) {
-                return failCreateHostsPool(name, error);
+                return failCreateHostsPool(
+                    name,
+                    mapErrorObject(error)
+                );
             }
         });
 }

@@ -749,3 +749,19 @@ export function openChangeClusterConnectivityIpModal(secret) {
         }
     };
 }
+
+export function openManagementConsoleErrorModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'management-console-error-modal',
+            options: {
+                title: 'Management Console Error',
+                size: 'xsmall',
+                severity: 'error',
+                backdropClose: false,
+                closeButton: 'hidden'
+            }
+        }
+    };
+}

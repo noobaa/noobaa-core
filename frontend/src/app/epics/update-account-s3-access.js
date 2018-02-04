@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_ACCOUNT_S3_ACCESS } from 'action-types';
 import { completeUpdateAccountS3Access, failUpdateAccountS3Access } from 'action-creators';
 
@@ -29,7 +30,10 @@ export default function(action$, { api }) {
                 return completeUpdateAccountS3Access(accountName);
 
             } catch (error) {
-                return failUpdateAccountS3Access(accountName, error);
+                return failUpdateAccountS3Access(
+                    accountName,
+                    mapErrorObject(error)
+                );
             }
         });
 }

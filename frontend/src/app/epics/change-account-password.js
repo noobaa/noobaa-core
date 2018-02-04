@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { CHANGE_ACCOUNT_PASSWORD } from 'action-types';
 import { completeChangeAccountPassword, failChangeAccountPassword } from 'action-creators';
 
@@ -20,7 +21,10 @@ export default function(action$, { api }) {
                 return completeChangeAccountPassword(payload.accountName, payload.expireNewPassword);
 
             } catch (error) {
-                return failChangeAccountPassword(payload.accountName, error);
+                return failChangeAccountPassword(
+                    payload.accountName,
+                    mapErrorObject(error)
+                );
             }
         });
 }

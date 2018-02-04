@@ -35,6 +35,13 @@ const staticAssetsSelector = [
     '!src/assets/icons/*.svg'
 ];
 
+const injectParams = {
+    filter: '*.html',
+    package_file: '../package.json',
+    prepend: '',
+    replace: '%%NOOBAA_VERSION%%'
+};
+
 const libs = [
     {
         name: 'knockout',
@@ -85,7 +92,7 @@ const libs = [
     {
         name: 'rxjs',
         exposeAs: 'rx',
-        module: 'dist/rx.lite.js'
+        module: 'dist/rx.all.js'
     },
     {
         name: 'big-integer',
@@ -120,6 +127,7 @@ gulp.task('build', cb => {
             'build-lib',
             'build-api',
             'build-app',
+            'build-debug',
             'compile-styles',
             'generate-svg-icons',
             'copy'
@@ -191,7 +199,11 @@ gulp.task('build-api', () => {
 });
 
 gulp.task('build-app', ['lint-app', 'build-js-style'], () => {
-    return bundleApp(false);
+    return bundleCode('app', false);
+});
+
+gulp.task('build-debug', ['lint-debug'], () => {
+    return bundleCode('debug', false);
 });
 
 gulp.task('compile-styles', () => {
@@ -213,10 +225,11 @@ gulp.task('generate-svg-icons', () => {
 });
 
 gulp.task('copy', () => {
-    return gulp.src(
-        staticAssetsSelector,
-        { base: 'src' }
-    )
+    return gulp.src(staticAssetsSelector, { base: 'src' })
+        .pipe($.if(
+            injectParams.filter,
+            $.injectVersion(injectParams)
+        ))
         .pipe(gulp.dest(buildPath));
 });
 
@@ -255,12 +268,11 @@ gulp.task('install-deps', () => {
 });
 
 gulp.task('lint-app', () => {
-    return gulp.src('src/app/**/*.js')
-        .pipe($.eslint())
-        .pipe($.eslint.format())
-        .pipe($.eslint.results(
-            result => { lintErrors = result.errorCount; }
-        ));
+    return lint('app');
+});
+
+gulp.task('lint-debug', () => {
+    return lint('debug');
 });
 
 gulp.task('verify-build', cb => {
@@ -290,6 +302,7 @@ gulp.task('watch', cb => {
             'build-api',
             'watch-lib',
             'watch-app',
+            'watch-debug',
             'watch-styles',
             'watch-svg-icons',
             'watch-assets'
@@ -307,7 +320,11 @@ gulp.task('watch-lib', ['build-lib'], () => {
 });
 
 gulp.task('watch-app', ['lint-app', 'build-js-style'], () => {
-    return bundleApp(true);
+    return bundleCode('app', true);
+});
+
+gulp.task('watch-debug', ['lint-debug'], () => {
+    return bundleCode('debug', true);
 });
 
 gulp.task('watch-styles', ['compile-styles'], () => {
@@ -328,6 +345,10 @@ gulp.task('watch-assets', ['copy'], () => {
         vinyl => {
             // Copy the file that changed.
             gulp.src(vinyl.path, { base: 'src' })
+                .pipe($.if(
+                    injectParams.filter,
+                    $.injectVersion(injectParams)
+                ))
                 .pipe(gulp.dest(buildPath));
         }
     );
@@ -359,12 +380,13 @@ function spawnAsync(command, options) {
     });
 }
 
-function createBundler(useWatchify) {
-    let bundler;
+function createBundler(folder, useWatchify) {
+    const paths = [`./src/${folder}`];
+
     if (useWatchify) {
-        bundler = browserify({
+        return browserify({
             debug: true,
-            paths: ['./src/app'],
+            paths: paths,
             cache: {},
             packageCache: {},
             plugin: [ watchify ]
@@ -377,17 +399,15 @@ function createBundler(useWatchify) {
             ));
 
     } else {
-        bundler = browserify({
+        return browserify({
             debug: true,
-            paths: ['./src/app']
+            paths: paths
         });
     }
-
-    return bundler;
 }
 
-function bundleApp(watch) {
-    const bundler = createBundler(watch);
+function bundleCode(folder, watch) {
+    const bundler = createBundler(folder, watch);
     bundler
         .require(buildPath + '/style.json', { expose: 'style' })
         .transform(babelify, {
@@ -400,14 +420,14 @@ function bundleApp(watch) {
             ]
         })
         .transform(stringify({ minify: uglify }))
-        .add('src/app/main');
+        .add(`src/${folder}/main`);
 
     libs.forEach(lib => bundler.external(lib.exposeAs || lib.name));
     bundler.external('nb-api');
 
     const bundle = () => bundler.bundle()
         .on('error', errorHandler)
-        .pipe(sourceStream('app.js'))
+        .pipe(sourceStream(`${folder}.js`))
         .pipe(buffer())
         .pipe($.sourcemaps.init({ loadMaps: true }))
             .pipe($.if(uglify, $.uglify()))
@@ -461,6 +481,15 @@ function cssClassToJson() {
 
         callback();
     });
+}
+
+function lint(folder) {
+    return gulp.src(`src/${folder}/**/*.js`)
+        .pipe($.eslint())
+        .pipe($.eslint.format())
+        .pipe($.eslint.results(
+            result => { lintErrors = result.errorCount; }
+        ));
 }
 
 function errorHandler(err) {

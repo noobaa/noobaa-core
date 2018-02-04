@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { RETRUST_HOST } from 'action-types';
 import { completeRetrustHost, failRetrustHost } from 'action-creators';
 
@@ -13,7 +14,7 @@ export default function(action$, { api }) {
                 return completeRetrustHost(host);
 
             } catch (error) {
-                return failRetrustHost(host, error);
+                return failRetrustHost(host, mapErrorObject(error));
             }
         });
 }

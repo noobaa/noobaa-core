@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_NAMESPACE_RESOURCE } from 'action-types';
 import { completeDeleteNamespaceResource, failDeleteNamespaceResource } from 'action-creators';
 
@@ -14,7 +15,10 @@ export default  function(action$, { api }) {
                 return completeDeleteNamespaceResource(name);
 
             } catch (error) {
-                return failDeleteNamespaceResource(name, error);
+                return failDeleteNamespaceResource(
+                    name,
+                    mapErrorObject(error)
+                );
             }
         });
 }

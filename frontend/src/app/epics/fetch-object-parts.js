@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_OBJECT_PARTS } from 'action-types';
 import { completeFetchObjectParts, failFetchObjectParts } from 'action-creators';
 
@@ -21,7 +22,10 @@ export default  function(action$, { api }) {
                 return completeFetchObjectParts(query, parts);
 
             } catch (error) {
-                return failFetchObjectParts(query, error);
+                return failFetchObjectParts(
+                    query,
+                    mapErrorObject(error)
+                );
             }
         });
 }

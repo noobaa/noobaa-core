@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 (function(global) {
     const pingUrl = '/version';
     const redirectUrl = '/fe';

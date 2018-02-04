@@ -76,6 +76,13 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected /etc/noobaa files successfully'))
                 .catch(err => diag_log('collecting /etc/noobaa files failed with error: ' + err)),
 
+                () => promise_utils.exec(`cp -fpR /var/log/nbfedump ${TMP_WORK_DIR}`, {
+                    ignore_rc: false,
+                    return_stdout: false,
+                    timeout: LONG_EXEC_TIMEOUT
+                })
+                .then(() => diag_log('collected /var/log/nbfedump directory successfully'))
+                .catch(err => diag_log('collecting /var/log/nbfedump directory failed with error: ' + err)),
 
                 () => promise_utils.exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out', {
                     ignore_rc: false,

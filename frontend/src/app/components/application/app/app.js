@@ -4,7 +4,7 @@ import template from './app.html';
 import ko from 'knockout';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { requestLocation } from 'action-creators';
+import { requestLocation, openManagementConsoleErrorModal } from 'action-creators';
 import * as routes from 'routes';
 import { realizeUri } from 'utils/browser-utils';
 
@@ -16,12 +16,22 @@ class AppViewModel extends Observer {
         this.css = ko.observable();
 
         this.observe(
-            state$.getMany('session', 'location', ['env']),
+            state$.getMany(
+                'session',
+                'location',
+                'env',
+                'lastError'
+            ),
             this.onState
         );
     }
 
-    onState([ session, location = {}, env ]) {
+    onState([ session, location = {}, env, lastError ]) {
+        if (lastError) {
+            action$.onNext(openManagementConsoleErrorModal());
+            return;
+        }
+
         if (session && !location.route) {
             // Redirect to the system routes
             const url = realizeUri(routes.system, { system: session.system });

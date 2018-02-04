@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_UNREAD_ALERTS_COUNT } from 'action-types';
 import { completeFetchUnreadAlertsCount, failFetchUnreadAlertsCount } from 'action-creators';
 
@@ -12,7 +13,7 @@ export default function(action$, { api }) {
                 return completeFetchUnreadAlertsCount(CRIT, MAJOR, INFO);
 
             } catch (error) {
-                return failFetchUnreadAlertsCount(error);
+                return failFetchUnreadAlertsCount(mapErrorObject(error));
             }
         });
 }

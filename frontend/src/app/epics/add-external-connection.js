@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { ADD_EXTERNAL_CONNECTION } from 'action-types';
 import { completeAddExternalConnection, failAddExternalConnection } from 'action-creators';
 
@@ -57,7 +58,10 @@ export default function(action$, { api }) {
                 return completeAddExternalConnection(name);
 
             } catch (error) {
-                return failAddExternalConnection(name, error);
+                return failAddExternalConnection(
+                    name,
+                    mapErrorObject(error)
+                );
             }
         });
 }

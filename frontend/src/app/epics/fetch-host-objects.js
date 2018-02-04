@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_HOST_OBJECTS } from 'action-types';
 import { completeFetchHostObjects, failFetchHostObjects } from 'action-creators';
 
@@ -20,7 +21,12 @@ export default  function(action$, { api }) {
                 return completeFetchHostObjects(host, skip, limit, response);
 
             } catch (error) {
-                return failFetchHostObjects(host, skip, limit, error);
+                return failFetchHostObjects(
+                    host,
+                    skip,
+                    limit,
+                    mapErrorObject(error)
+                );
             }
         });
 }

@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_EXTERNAL_CONNECTION } from 'action-types';
 import { completeDeleteExternalConnection, failDeleteExternalConnection } from 'action-creators';
 
@@ -15,8 +16,12 @@ export default function(action$, { api }) {
                 });
 
                 return completeDeleteExternalConnection(connection);
+
             } catch (error) {
-                return failDeleteExternalConnection(connection, error);
+                return failDeleteExternalConnection(
+                    connection,
+                    mapErrorObject(error)
+                );
             }
         });
 }

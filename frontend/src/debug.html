@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Noobaa Debug Console</title>
+    <link rel="stylesheet" type="text/css" href="/fe/styles.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="nbversion" content="%%NOOBAA_VERSION%%" />
+
+    <style>
+        header {
+            height: 60px;
+        }
+
+        .message-list {
+            min-width: 380px;
+            overflow-y: auto;
+        }
+
+        .message-row {
+            cursor: pointer;
+        }
+
+        .tabs, .tabs > nav {
+            background-color: #15181c;
+        }
+
+        code {
+            overflow-y: auto;
+        }
+
+        .diff .set { background-color: #3cb37126 }
+        .diff .set .prefix { color: #08955b; }
+
+        .diff .unset { background-color: #8b000052 }
+        .diff .unset .prefix { color: #d01c27; }
+
+        .json {
+            display: block;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .json > .key { color: #92836e; }
+        .json > .number { color: #967c9c; }
+        .json > .string { color: #009688 ; }
+        .json > .boolean { color: #b7813f; }
+        .json > .null { color: #E91E63; }
+    </style>
+
+</head>
+<body class="column fill">
+    <header class="row border-bottom content-middle hpad">
+        <h1 class="heading2 greedy push-next" data-bind="text: title"></h1>
+        <input type="search" class="push-next-half" placeholder="Filter Actions" data-bind="
+            textInput: ko.pureComputed({ read: filter, write: onFilterMessages })
+        "/>
+        <vr class="push-both"></vr>
+        <button class="icon-btn" data-bind="click: onEmptyLog" title="Clear log">
+            <svg-icon>
+                <svg>
+                    <use xlink:href href="#bin-closed-icon"></use>
+                </svg>
+            </svg-icon>
+        </button>
+        <vr class="push-both"></vr>
+        <button class="icon-btn" data-bind="click: onFindConsole" title="Go to mangement console">
+            <svg-icon>
+                <svg>
+                    <use xlink:href href="#arrow-right-icon"></use>
+                </svg>
+            </svg-icon>
+        </button>
+    </header>
+
+    <main class="row greedy">
+        <section class="message-list border-right" data-bind="with: messageList">
+            <p class="alt-bg text-center remark" data-bind="
+                visible: $parent.hasHiddenMessages
+            ">
+                <span data-bind="text: $parent.hiddenCount"></span>
+                messages are hidden by filters.
+                <button class="link alt-colors no-outline" data-bind="
+                    click: $root.onShowAllMessages
+                ">Show all</button>
+            </p>
+            <ul class="list-no-style push-next" data-bind="foreach: rows">
+                <li class="pad border-bottom message-row" data-bind="
+                    click: row => $root.onSelectRow(row),
+                    css: css
+                ">
+                    <div class="highlight" data-bind="text: action"></div>
+                    <div>at <span data-bind="text: time"></span></div>
+                </li>
+            </ul>
+        </section>
+        <!-- ko if: isMessageSelected -->
+        <section class="column greedy">
+            <div class="tabs c5">
+                <nav>
+                    <a class="selected">Action Payload</a>
+                </nav>
+                <div class="tabs-row">
+                    <div class="tab column selected">
+                        <code class="greedy hpad push-both-half json" data-bind="
+                            html: actionPayload
+                        "></code>
+                    </div>
+                </div>
+            </div>
+            <hr class="push-both-half">
+            <div class="tabs c7">
+                <nav>
+                    <a data-bind="
+                        css: { selected: selectedStateTab() === 'diff' },
+                        click: onStateDiffsTab
+                    ">
+
+                        State Diff
+                    </a>
+                    <a data-bind="
+                        css: { selected: selectedStateTab() === 'full' },
+                        click: onFullStateTab
+                    ">
+                        Full State
+                    </a>
+                </nav>
+                <div class="tabs-row">
+                    <div class="tab column" data-bind="
+                        css: { selected: selectedStateTab() === 'diff' }
+                    ">
+                        <code class="greedy hpad push-both-half">
+                            <!-- ko if: stateDiff -->
+                            <ul class="column list-no-style diff" data-bind="foreach: stateDiff">
+                                <li class="column push-next-half">
+                                    <span data-bind="text: heading"></span>
+                                    <p data-bind="html: html"></p>
+                                </li>
+                            </ul>
+                            <!-- /ko -->
+                            <!-- ko ifnot: stateDiff -->
+                            [No Difference]
+                            <!-- /ko -->
+                        </code>
+                    </div>
+                    <div class="tab column selected" data-bind="
+                        css: { selected: selectedStateTab() === 'full' }
+                    ">
+                        <code class="greedy hpad push-both-half json" data-bind="
+                            html: fullState
+                        "></code>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- /ko -->
+    </main>
+
+    <frame></frame>
+
+    <script src="/fe/lib.js"></script>
+    <script src="/fe/debug.js"></script>
+</body>
+</html>

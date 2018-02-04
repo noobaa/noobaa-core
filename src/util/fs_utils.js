@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const P = require('./promise');
 const Semaphore = require('./semaphore');
 const promise_utils = require('./promise_utils');
+const get_folder_size = P.promisify(require('get-folder-size'));
 
 const is_windows = (process.platform === "win32");
 const is_mac = (process.platform === "darwin");
@@ -320,3 +321,4 @@ exports.replace_file = replace_file;
 exports.ignore_eexist = ignore_eexist;
 exports.ignore_enoent = ignore_enoent;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;
+exports.get_folder_size = get_folder_size;

@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_CLOUD_TARGETS } from 'action-types';
 import { completeFetchCloudTargets, failFetchCloudTargets } from 'action-creators';
 
@@ -12,8 +13,12 @@ export default  function(action$, { api }) {
             try {
                 const response = await api.bucket.get_cloud_buckets({ connection });
                 return completeFetchCloudTargets(connection, response);
+
             } catch (error) {
-                return failFetchCloudTargets(connection,  error);
+                return failFetchCloudTargets(
+                    connection,
+                    mapErrorObject(error)
+                );
             }
         });
 }

@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_HOSTS } from 'action-types';
 import { completeFetchHosts, failFetchHosts } from 'action-creators';
 
@@ -31,7 +32,10 @@ export default function(action$, { api }) {
                 );
 
             } catch (error) {
-                return failFetchHosts(query, error);
+                return failFetchHosts(
+                    query,
+                    mapErrorObject(error)
+                );
             }
         });
 }

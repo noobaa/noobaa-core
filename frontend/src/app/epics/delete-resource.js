@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_RESOURCE } from 'action-types';
 import { completeDeleteResource, failDeleteResource } from 'action-creators';
 
@@ -13,7 +14,10 @@ export default function(action$, { api }) {
                 return completeDeleteResource(resource);
 
             } catch (error) {
-                return failDeleteResource(resource, error);
+                return failDeleteResource(
+                    resource,
+                    mapErrorObject(error)
+                );
             }
         });
 }

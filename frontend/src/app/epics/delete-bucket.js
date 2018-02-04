@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_BUCKET } from 'action-types';
 import { completeDeleteBucket, failDeleteBucket } from 'action-creators';
 
@@ -13,7 +14,10 @@ export default function(action$, { api }) {
                 return completeDeleteBucket(bucket);
 
             } catch (error) {
-                return failDeleteBucket(bucket, error);
+                return failDeleteBucket(
+                    bucket,
+                    mapErrorObject(error)
+                );
             }
         });
 }

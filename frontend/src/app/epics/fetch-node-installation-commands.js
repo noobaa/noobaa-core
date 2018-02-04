@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_NODE_INSTALLATION_COMMANDS } from 'action-types';
 import {
     completeFetchNodeInstallationCommands,
@@ -21,7 +22,7 @@ export default function(action$, { api }) {
                 return completeFetchNodeInstallationCommands(targetPool, excludedDrives, commands);
 
             } catch (error) {
-                return failFetchNodeInstallationCommands(error);
+                return failFetchNodeInstallationCommands(mapErrorObject(error));
             }
         });
 }

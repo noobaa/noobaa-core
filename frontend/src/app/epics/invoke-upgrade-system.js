@@ -1,5 +1,6 @@
 /* Copyright (C) 2017 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { INVOKE_UPGRADE_SYSTEM } from 'action-types';
 import { completeInvokeUpgradeSystem, failInvokeUpgradeSystem } from 'action-creators';
 
@@ -12,7 +13,7 @@ export default function(action$, { api }) {
                 return completeInvokeUpgradeSystem();
 
             } catch (error) {
-                return failInvokeUpgradeSystem(error);
+                return failInvokeUpgradeSystem(mapErrorObject(error));
             }
         });
 }

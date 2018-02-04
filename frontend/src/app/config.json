@@ -48,7 +48,8 @@
         "helpDesk": "https://noobaa.desk.com",
         "upgradeToEnterpriseMailSubject": "Application for upgrade from Community Edition to Enterprise Edition license",
         "missingOVAMailSubject": "Please help me find my original OVA",
-        "upgradeFailedSubject": "My system upgrade has failed"
+        "upgradeFailedSubject": "My system upgrade has failed",
+        "managementConsoleSubject": "My NooBaa management console has crushed"
     },
     "dataCenterArticles": {
         "editDataResiliency": "https://noobaa.desk.com/customer/en/portal/articles/2918448-how-to-edit-bucket-data-resiliency-"

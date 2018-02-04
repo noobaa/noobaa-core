@@ -2443,7 +2443,7 @@ class NodesMonitor extends EventEmitter {
         host_item.node.ports_allowed = host_nodes.every(item => item.node.ports_allowed);
 
         //trusted, and untrusted reasons if exist
-        host_item.trusted = host_nodes.every(item => item.trusted);
+        host_item.trusted = host_nodes.every(item => item.trusted !== false);
         if (!host_item.trusted) {
             host_item.untrusted_reasons = _.map(
                 _.filter(host_nodes, item => (!item.trusted && item.node.node_type !== 'ENDPOINT_S3')),

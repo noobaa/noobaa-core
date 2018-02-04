@@ -1,5 +1,6 @@
 /* Copyright (C) 2017 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { TRY_DELETE_ACCOUNT } from 'action-types';
 import {
     completeDeleteAccount,
@@ -21,7 +22,10 @@ export default function(action$, { api }) {
                     return completeDeleteAccount(email, isCurrentUser);
                 }
             } catch (error) {
-                return failDeleteAccount(email, error);
+                return failDeleteAccount(
+                    email,
+                    mapErrorObject(error)
+                );
             }
         });
 }

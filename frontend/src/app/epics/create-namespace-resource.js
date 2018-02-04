@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_NAMESPACE_RESOURCE } from 'action-types';
 import { completeCreateNamespaceResource, failCreateNamespaceResource } from 'action-creators';
 
@@ -14,7 +15,10 @@ export default  function(action$, { api }) {
                 return completeCreateNamespaceResource(name);
 
             } catch (error) {
-                return failCreateNamespaceResource(name, error);
+                return failCreateNamespaceResource(
+                    name,
+                    mapErrorObject(error)
+                );
             }
         });
 }

@@ -48,7 +48,7 @@ class BucketS3AccessTableViewModel extends Observer {
         }
 
         const { sortBy = 'name', order = 1 } = location.query;
-        const { compareKey } = columns.find(column => column.name === sortBy);
+        const { compareKey } = columns.find(column => column.name === sortBy) || columns[0];
         const compareOp = createCompareFunc(compareKey, order);
         const accountList = Object.values(accounts);
         const filteredAccounts = accountList

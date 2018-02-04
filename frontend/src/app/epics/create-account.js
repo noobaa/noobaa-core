@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { sleep, all } from 'utils/promise-utils';
 import { CREATE_ACCOUNT } from 'action-types';
 import { completeCreateAccount, failCreateAccount } from 'action-creators';
@@ -39,7 +40,10 @@ export default function(action$, { api }) {
                 return completeCreateAccount(accountName, password);
 
             } catch (error) {
-                return failCreateAccount(accountName, error);
+                return failCreateAccount(
+                    accountName,
+                    mapErrorObject(error)
+                );
             }
         }
     );

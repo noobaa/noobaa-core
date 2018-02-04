@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { noop } from 'utils/core-utils';
 import restoreSessionEpic  from 'epics/restore-session';
 import { restoreSession, completeRestoreSession, failRestoreSession } from 'action-creators';
@@ -92,7 +93,7 @@ describe('Restore session', () => {
         });
     });
 
-    describe('when encountering and UNAUTHORIZED rpc error', () => {
+    describe('when encountering andUNAUTHORIZED rpc error', () => {
         it('should return a FAIL_RESTORE_SESSION action with the returned error in the payload', () => {
             const token = 'token';
             const error = new Error('UNAUTHORIZED');
@@ -106,7 +107,7 @@ describe('Restore session', () => {
             return test(services).then(
                 action => assert.deepEqual(
                     action,
-                    failRestoreSession(token, error),
+                    failRestoreSession(token, mapErrorObject(error)),
                     'Returned action was not of type FAIL_RESTORE_SESSION or has a payload with wrong error'
                 )
             );

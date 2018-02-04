@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { SET_ACCOUNT_IP_RESTRICTIONS } from 'action-types';
 import { completeSetAccountIpRestrictions, failSetAccountIpRestrictions } from 'action-creators';
 import { splitIPRange } from 'utils/net-utils';
@@ -16,7 +17,10 @@ export default function(action$, { api }) {
                 return completeSetAccountIpRestrictions(email);
 
             } catch (error) {
-                return failSetAccountIpRestrictions(email, error);
+                return failSetAccountIpRestrictions(
+                    email,
+                    mapErrorObject(error)
+                );
             }
         });
 }

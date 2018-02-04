@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_ALERTS } from 'action-types';
 import { completeUpdateAlerts, failUpdateAlerts } from 'action-creators';
 
@@ -14,7 +15,11 @@ export default function(action$, { api }) {
                 return completeUpdateAlerts(query, read);
 
             } catch (error) {
-                return failUpdateAlerts(query, read, error);
+                return failUpdateAlerts(
+                    query,
+                    read,
+                    mapErrorObject(error)
+                );
             }
         });
 }

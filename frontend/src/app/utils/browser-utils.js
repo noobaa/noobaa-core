@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { isUndefined, runAsync } from './core-utils';
-import { toCammelCase, toDashedCase } from './string-utils';
+import { toCammelCase, toDashedCase, randomString } from './string-utils';
 import { sleep } from './promise-utils';
 
 export function parseQueryString(str) {
@@ -78,11 +78,11 @@ export function copyTextToClipboard(text) {
     input.remove();
 }
 
-export function downloadFile(url) {
+export function downloadFile(url, name = '') {
     let body = window.document.body;
 
     let link = window.document.createElement('a');
-    link.download = '';
+    link.download = name;
     link.href = url;
     body.appendChild(link);
     link.click();
@@ -212,4 +212,32 @@ export function reloadBrowser(url) {
     } else {
         global.location.reload();
     }
+}
+
+export function toObjectUrl(data) {
+    const json = JSON.stringify(data, undefined, 2);
+    const blob = new Blob([json], { type: 'text/json' });
+    return global.URL.createObjectURL(blob);
+}
+
+export function openInNewTab(url, name) {
+    if (name) {
+        global.open(url, name);
+    } else {
+        global.open(url);
+    }
+
+}
+
+export function createBroadcastChannel(name) {
+    return new BroadcastChannel(name);
+}
+
+export function getDocumentMetaTag(name) {
+    const metaElm = document.querySelector(`meta[name=${name}]`);
+    return metaElm && metaElm.content;
+}
+
+export function getWindowName() {
+    return global.name || (global.name = `NooBaa:${randomString()}`);
 }

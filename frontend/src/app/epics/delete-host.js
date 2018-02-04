@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_HOST } from 'action-types';
 import { completeDeleteHost, failDeleteHost } from 'action-creators';
 
@@ -13,7 +14,10 @@ export default function(action$, { api }) {
                 return completeDeleteHost(host);
 
             } catch (error) {
-                return failDeleteHost(host, error);
+                return failDeleteHost(
+                    host,
+                    mapErrorObject(error)
+                );
             }
         });
 }

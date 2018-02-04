@@ -1,17 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { Subject } from 'rx';
+import { Subject }  from 'rx';
 import reducer from 'reducers';
 import stateSchema from './schema';
 import { deepFreeze, isObject, noop } from 'utils/core-utils';
 import { createSchemaValidator } from 'utils/schema-utils';
+import { mapErrorObject } from 'utils/state-utils';
 
-
-// Actions stream.
-export const action$ = global.action$ = new Subject();
-action$.ofType = function(...types) {
-    return this.filter(action => types.includes(action.type));
-};
+const schemaValidator = createSchemaValidator(stateSchema);
 
 function _filterMishapedActions(action) {
     if (!isObject(action)) {
@@ -27,34 +23,68 @@ function _filterMishapedActions(action) {
     return true;
 }
 
-// Check state against schema
-const schemaValidator = createSchemaValidator(stateSchema);
-function _validateState(state) {
-    const errors = schemaValidator(state);
-    if (errors) {
-        console.error('INVALID STATE', { state, errors });
-        throw new Error('Invalid state');
+function _reduceState(prevState, action) {
+    try {
+        const state = deepFreeze(reducer(prevState, action));
+        const violations = schemaValidator(state);
+
+        if (violations) {
+            const error = {
+                type: 'STATE_SCHEMA_VAIOLATIONS',
+                violations
+            };
+
+            console.error('Invalid state', error);
+            return {
+                ...prevState,
+                lastError: error
+            };
+
+        } else {
+            return {
+                ...state,
+                lastError: prevState.lastError
+            };
+        }
+
+    } catch (exp) {
+        console.error(exp);
+        const error = {
+            type: 'STATE_REDUCER_ERROR',
+            ...mapErrorObject(exp)
+        };
+
+        return {
+            ...prevState,
+            lastError: error
+        };
     }
 }
 
+function _reduceRecords(prev, action) {
+    const state = _reduceState(prev.state || {}, action);
+    const timestamp = Date.now();
+    return { timestamp, action, state };
+}
 
-// Project action stream into a state stream.
-export const state$ = action$
+// Actions stream.
+export const action$ = new Subject();
+action$.ofType = function(...types) {
+    return this.filter(action => types.includes(action.type));
+};
+
+export const record$ = action$
     .filter(_filterMishapedActions)
-    .tap(action => console.log(
-        `DISPATCHING %c${action.type}`,
-        'color: #08955b',
-        'with',
-        action.payload
-    ))
-    .scan((state, action) => deepFreeze(reducer(state, action)), {})
-    .tap(_validateState)
-    .switchMap(state => Promise.resolve(state))
-    .tap(state => console.log('UPDATING VIEW with', state))
+    .scan(_reduceRecords, {})
+    .share();
+
+export const state$ = record$
+    .pluck('state')
+    .distinctUntilChanged(undefined, Object.is)
+    .switchMap(value => Promise.resolve(value))
     .shareReplay(1);
 
-state$.subscribe(
-    noop,
-    error => console.error('STATE STREAM ERROR:', error),
-    () => console.error('STATE STREAM TERMINATED')
-);
+
+// Subcribe so we will not loose action that are dispatched
+// before any other subscription.
+state$.subscribe(noop);

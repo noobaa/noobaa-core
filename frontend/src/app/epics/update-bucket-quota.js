@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_BUCKET_QUOTA } from 'action-types';
 import { completeUpdateBucketQuota, failUpdateBucketQuota } from 'action-creators';
 
@@ -14,7 +15,10 @@ export default function(action$, { api }) {
                 return completeUpdateBucketQuota(bucket);
 
             } catch (error) {
-                return failUpdateBucketQuota(bucket, error);
+                return failUpdateBucketQuota(
+                    bucket,
+                    mapErrorObject(error)
+                );
             }
         });
 }

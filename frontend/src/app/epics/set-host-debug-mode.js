@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { SET_HOST_DEBUG_MODE } from 'action-types';
 import { completeSetHostDebugMode, failSetHostDebugMode } from 'action-creators';
 
@@ -18,7 +19,11 @@ export default function(action$, { api }) {
                 return completeSetHostDebugMode(host, on);
 
             } catch (error) {
-                return failSetHostDebugMode(host, on, error);
+                return failSetHostDebugMode(
+                    host,
+                    on,
+                    mapErrorObject(error)
+                );
             }
         });
 }

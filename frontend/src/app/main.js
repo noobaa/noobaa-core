@@ -11,15 +11,24 @@ import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
 import page from 'page';
 import configureRouter from 'routing';
-import { action$, state$ } from 'state';
+import { action$, state$, record$ } from 'state';
 import { api, AWS } from 'services';
 import { restoreSession, setupEnv } from 'action-creators';
 import devCLI from 'dev-cli';
 import actionsModelBridge from 'actions-model-bridge';
 import rootEpic from 'epics';
 import installStateSideEffects from 'state-side-effects';
-import { downloadFile, reloadBrowser, httpRequest, httpWaitForResponse } from 'utils/browser-utils';
-import { recognizeBrowser } from 'utils/browser-utils';
+import installSupportability from 'supportability.js';
+import {
+    recognizeBrowser,
+    downloadFile,
+    reloadBrowser,
+    httpRequest,
+    httpWaitForResponse,
+    createBroadcastChannel,
+    getDocumentMetaTag,
+    getWindowName
+} from 'utils/browser-utils';
 
 function configureKnockout(ko) {
     // Enable knockout 3.4 deferred updates.
@@ -47,9 +56,11 @@ function registerSideEffects(action$, state$) {
         reload: reloadBrowser,
         downloadFile: downloadFile,
         httpRequest: httpRequest,
-        httpWaitForResponse: httpWaitForResponse
+        httpWaitForResponse: httpWaitForResponse,
+        createBroadcastChannel: createBroadcastChannel,
+        getDocumentMetaTag: getDocumentMetaTag,
+        getWindowName: getWindowName
     };
-
 
     const injectedServices = {
         random: Math.random,
@@ -67,6 +78,7 @@ function registerSideEffects(action$, state$) {
         .filter(Boolean)
         .subscribe(action$);
 
+    installSupportability(record$, injectedServices);
     installStateSideEffects(state$, injectedServices);
 }
 

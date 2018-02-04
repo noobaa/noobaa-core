@@ -11,10 +11,6 @@ const rpc_proto = WebSocket ?
 const base_address = `${rpc_proto}//${location.host}`;
 const rpc = new_rpc_default_only(base_address);
 
-rpc.set_request_logger(
-    (...args) => console.info(...args)
-);
-
 rpc.register_service(
     rpc.schema.frontend_notifications_api,
     notifications,

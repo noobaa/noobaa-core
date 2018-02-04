@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_SYSTEM_INFO } from 'action-types';
 import { completeFetchSystemInfo, failFetchSystemInfo } from 'action-creators';
 
@@ -12,7 +13,7 @@ export default function(action$, { api }) {
                 return completeFetchSystemInfo(info);
 
             } catch (error) {
-                return failFetchSystemInfo(error);
+                return failFetchSystemInfo(mapErrorObject(error));
             }
         });
 }

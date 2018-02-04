@@ -1,3 +1,6 @@
+/* Copyright (C) 2016 NooBaa */
+
+import { mapErrorObject } from 'utils/state-utils';
 import { ASSIGN_HOSTS_TO_POOL } from 'action-types';
 import { completeAssignHostsToPool, failAssignHostsToPool } from 'action-creators';
 
@@ -12,7 +15,10 @@ export default  function(action$, { api }) {
                 return completeAssignHostsToPool(name, hosts);
 
             } catch (error) {
-                return failAssignHostsToPool(name, error);
+                return failAssignHostsToPool(
+                    name,
+                    mapErrorObject(error)
+                );
             }
         });
 }

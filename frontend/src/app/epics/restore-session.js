@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { RESTORE_SESSION } from 'action-types';
 import { completeRestoreSession, failRestoreSession } from 'action-creators';
 import { readAuthRetryCount, readAuthRetryDelay } from 'config';
@@ -33,7 +34,10 @@ export default function(action$, { api, localStorage, sessionStorage }) {
 
             if (!token) {
                 const error = _createUnauthorizedException('Token not available');
-                return Rx.Observable.of(failRestoreSession(token, error));
+                return Rx.Observable.of(failRestoreSession(
+                    token,
+                    mapErrorObject(error)
+                ));
             }
 
             api.options.auth_token = token;
@@ -58,7 +62,7 @@ export default function(action$, { api, localStorage, sessionStorage }) {
                 })
                 .catch(error => {
                     if (error.rpc_code !== UNAUTHORIZED) throw error;
-                    return Rx.Observable.of(failRestoreSession(token, error));
+                    return Rx.Observable.of(failRestoreSession(token, mapErrorObject(error)));
                 });
         });
 }

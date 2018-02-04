@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { TOGGLE_BUCKETS_SPILLOVER } from 'action-types';
 import { completeToggleBucketsSpillover, failToggleBucketsSpillover } from 'action-creators';
 
@@ -18,7 +19,7 @@ export default function(action$, { api }) {
                 return completeToggleBucketsSpillover();
 
             } catch (error) {
-                return failToggleBucketsSpillover(error);
+                return failToggleBucketsSpillover(mapErrorObject(error));
             }
         });
 }

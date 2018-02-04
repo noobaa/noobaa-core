@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_BUCKET_PLACEMENT_POLICY } from 'action-types';
 import { completeUpdateBucketPlacementPolicy, failUpdateBucketPlacementPolicy } from 'action-creators';
 
@@ -19,7 +20,10 @@ export default function(action$, { api }) {
                 return completeUpdateBucketPlacementPolicy(bucket);
 
             } catch (error) {
-                return failUpdateBucketPlacementPolicy(bucket, error);
+                return failUpdateBucketPlacementPolicy(
+                    bucket,
+                    mapErrorObject(error)
+                );
             }
         });
 }

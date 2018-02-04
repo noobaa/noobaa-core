@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_NAMESPACE_BUCKET } from 'action-types';
 import { completeCreateNamespaceBucket, failCreateNamespaceBucket } from 'action-creators';
 
@@ -19,7 +20,10 @@ export default  function(action$, { api }) {
                 return completeCreateNamespaceBucket(name);
 
             } catch (error) {
-                return failCreateNamespaceBucket(name, error);
+                return failCreateNamespaceBucket(
+                    name,
+                    mapErrorObject(error)
+                );
             }
         });
 }

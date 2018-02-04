@@ -81,6 +81,7 @@
     "forever": "0.15.3",
     "forever-service": "0.5.11",
     "ftp-srv": "2.14.0",
+    "get-folder-size": "1.0.1",
     "getos": "3.1.0",
     "glob-to-regexp": "0.3.0",
     "googleapis": "23.0.0",

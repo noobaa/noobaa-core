@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_BUCKET_S3_ACCESS } from 'action-types';
 import { completeUpdateBucketS3Access, failUpdateBucketS3Access } from 'action-creators';
 
@@ -18,7 +19,10 @@ export default function(action$, { api }) {
                 return completeUpdateBucketS3Access(bucketName);
 
             } catch (error) {
-                return failUpdateBucketS3Access(bucketName, error);
+                return failUpdateBucketS3Access(
+                    bucketName,
+                    mapErrorObject(error)
+                );
             }
         });
 }

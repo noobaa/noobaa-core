@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_SYSTEM } from 'action-types';
 import { completeCreateSystem, failCreateSystem } from 'action-creators';
 
@@ -31,7 +32,7 @@ export default function(action$, { api }) {
                 return completeCreateSystem(systemName, ownerEmail, token);
 
             } catch (error) {
-                return failCreateSystem(error);
+                return failCreateSystem(mapErrorObject(error));
             }
         });
 }

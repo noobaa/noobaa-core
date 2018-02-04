@@ -2,6 +2,14 @@
 
 import { omitUndefined } from 'utils/core-utils';
 
+export function mapErrorObject(exp) {
+    return omitUndefined({
+        message: exp.message,
+        stack: exp.stack,
+        rpc_code: exp.rpc_code
+    });
+}
+
 export function mapApiStorage(storage, lastUpdate) {
     return omitUndefined({
         lastUpdate: lastUpdate,
@@ -14,4 +22,3 @@ export function mapApiStorage(storage, lastUpdate) {
         reserved: storage.reserved
     });
 }
-

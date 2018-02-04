@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_BUCKET_RESILIENCY_POLICY } from 'action-types';
 import { completeUpdateBucketResiliencyPolicy, failUpdateBucketResiliencyPolicy } from 'action-creators';
 
@@ -19,7 +20,10 @@ export default function(action$, { api }) {
                 return completeUpdateBucketResiliencyPolicy(bucket);
 
             } catch (error) {
-                return failUpdateBucketResiliencyPolicy(bucket, error);
+                return failUpdateBucketResiliencyPolicy(
+                    bucket,
+                    mapErrorObject(error)
+                );
             }
         });
 }

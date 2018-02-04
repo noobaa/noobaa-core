@@ -4,6 +4,7 @@ import * as actionCreators from 'action-creators';
 import schema from 'schema';
 import api from 'services/api';
 import { mapValues } from 'utils/core-utils';
+import { toObjectUrl, openInNewTab, downloadFile, getWindowName } from 'utils/browser-utils';
 
 const actions = mapValues(
     actionCreators,
@@ -12,11 +13,18 @@ const actions = mapValues(
     }
 );
 
-function printJsonInNewTab(data) {
-    const json = JSON.stringify(data, undefined, 2);
-    const blob = new Blob([json], { type: 'text/json' });
-    const url = global.URL.createObjectURL(blob);
-    global.open(url);
+function printAsJsonInNewTab(data) {
+    openInNewTab(toObjectUrl(data));
+}
+
+function downloadAsJson(data, name = 'data.json') {
+    downloadFile(toObjectUrl(data), name);
+}
+
+function openDebugConsole() {
+    const [,windowId] = getWindowName().split(':');
+    openInNewTab('/fe/debug', `NobaaDebugConsole:${windowId}`);
+    return windowId;
 }
 
 const cli = Object.seal({
@@ -26,7 +34,9 @@ const cli = Object.seal({
     state: undefined,
     api: api,
     utils: {
-        printJsonInNewTab
+        printAsJsonInNewTab,
+        downloadAsJson,
+        openDebugConsole
     }
 });
 

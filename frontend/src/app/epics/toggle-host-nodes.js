@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mapErrorObject } from 'utils/state-utils';
 import { TOGGLE_HOST_NODES } from 'action-types';
 import { completeToggleHostNodes, failToggleHostNodes } from 'action-creators';
 
@@ -24,7 +25,10 @@ export default function(action$, { api }) {
                 return completeToggleHostNodes(host);
 
             } catch (error) {
-                return failToggleHostNodes(host, error);
+                return failToggleHostNodes(
+                    host,
+                    mapErrorObject(error)
+                );
             }
         });
 }

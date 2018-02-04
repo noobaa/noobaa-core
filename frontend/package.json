@@ -29,6 +29,7 @@
     "gulp-filter": "5.0.0",
     "gulp-if": "^2.0.0",
     "gulp-inject-string": "^1.1.0",
+    "gulp-inject-version": "1.0.1",
     "gulp-install": "1.1.0",
     "gulp-less": "^3.0.3",
     "gulp-less-import": "^1.0.0",

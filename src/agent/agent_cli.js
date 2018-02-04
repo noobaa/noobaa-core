@@ -245,7 +245,7 @@ AgentCLI.prototype.update_ignored_drives = function(mount_points) {
                 this.agent_conf.update({ ignore_drives: this.params.ignore_drives });
             }
         }
-    }).then(() => _.filter(mount_points, mount_point => mount_point.temporary_drive));
+    }).then(() => _.filter(mount_points, mount_point => !this.params.ignore_drives.includes(mount_point.drive_id)));
 };
 
 /**

@@ -204,20 +204,17 @@ class InternalDebugLogger {
             showLevel: false,
             formatter: options => {
                 var proc = '[' + this._proc_name + '/' + this._pid + ']';
-                var formatted_level = ' \x1B[31m[';
+                var formatted_level = ' \x1B[31m';
                 if (this._levels[options.level]) {
-                    formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
+                    formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m' : ' \x1B[36m';
                 }
-                var message = options.message || '';
-                var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
+                const padded_level = `[${options.level}]`.padStart(7);
+                const prefix = '\x1B[32m' + formatted_time() + '\x1B[35m ' + proc + formatted_level + padded_level + '\x1B[39m ';
+                var message = (options.message || '').replace(/\n/g, `\n${prefix}`);
+                var suffix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
                 // remove newlines from message?
                 // message = message.replace(/(\r\n|\n|\r)/gm, '');
-                return '\x1B[32m' + formatted_time() +
-                    '\x1B[35m ' + proc +
-                    formatted_level +
-                    options.level + ']\x1B[39m ' +
-                    message +
-                    postfix;
+                return prefix + message + suffix;
             }
         })];
 
@@ -370,8 +367,18 @@ class InternalDebugLogger {
         };
     }
 
-    log_internal(level) {
+    log_always(level) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        if (console_wrapper) {
+            console_wrapper.original_console();
+        }
 
+        let syslog_msg = this.syslog_formatter(level, arguments);
+        return this.log_internal(level, args, syslog_msg);
+    }
+
+
+    log_throttled(level) {
         var args = Array.prototype.slice.call(arguments, 1);
         if (console_wrapper) {
             console_wrapper.original_console();
@@ -392,11 +399,11 @@ class InternalDebugLogger {
                     return;
                 }
 
-                const msg_prefix = lru_item.hit_count === 2 ?
-                    `[This exact message was already printed at ${new Date(lru_item.time)}, and will be silenced for ${THROTTLING_PERIOD_SEC} seconds]` :
-                    `[This exact message was printed ${lru_item.hit_count} times since ${new Date(lru_item.time)}]: `;
-                syslog_msg.message = msg_prefix + syslog_msg.message;
-                args[0] = msg_prefix + args[0];
+                const msg_suffix = lru_item.hit_count === 2 ?
+                    ` - \x1B[33m[Duplicated message. Suppressing for ${THROTTLING_PERIOD_SEC} seconds]\x1B[39m` :
+                    ` - \x1B[33m[message repeated ${lru_item.hit_count} times since ${new Date(lru_item.time)}]\x1B[39m`;
+                syslog_msg.message += msg_suffix;
+                args[args.length - 1] += msg_suffix;
             } else {
                 // message not in lru. set hit count to 1
                 lru_item.hit_count = 1;
@@ -404,6 +411,11 @@ class InternalDebugLogger {
         } catch (err) {
             console.log('got error on log suppression:', err.message);
         }
+
+        return this.log_internal(level, args, syslog_msg);
+    }
+
+    log_internal(level, args, syslog_msg) {
 
         if (this._file_path) {
             var winston_log = this._logs_by_file[this._file_path.name];
@@ -514,10 +526,10 @@ function DebugLogger(mod) {
 /*
  * Populate the logX and logX_withbt functions automatically
  */
-var fnName = "log";
+var log_func_name = "log";
 var i;
 
-function log_builder(idx) {
+function log_builder(idx, options) {
 
     /**
      * @this instance of DebugLogger
@@ -531,12 +543,16 @@ function log_builder(idx) {
                 args.unshift(" " + this._name + ":: ");
             }
             args.unshift("L" + idx);
-            int_dbg.log_internal.apply(int_dbg, args);
+            if (options.throttled) {
+                int_dbg.log_throttled.apply(int_dbg, args);
+            } else {
+                int_dbg.log_always.apply(int_dbg, args);
+            }
         }
     };
 }
 for (i = 0; i < 5; ++i) {
-    DebugLogger.prototype[fnName + i] = log_builder(i);
+    DebugLogger.prototype[log_func_name + i] = log_builder(i, { throttled: true });
 }
 
 function log_bt_builder(idx) {
@@ -556,12 +572,12 @@ function log_bt_builder(idx) {
                 args.push(bt);
             }
             args.unshift("L" + idx);
-            int_dbg.log_internal.apply(int_dbg, args);
+            int_dbg.log_throttled.apply(int_dbg, args);
         }
     };
 }
 for (i = 0; i < 5; ++i) {
-    DebugLogger.prototype[fnName + i + "_withbt"] = log_bt_builder(i);
+    DebugLogger.prototype[log_func_name + i + "_withbt"] = log_bt_builder(i);
 }
 
 /*
@@ -580,7 +596,7 @@ function log_syslog_builder(syslevel) {
             args.unshift(" " + this._name + ":: ");
         }
         args.unshift(syslevel.toUpperCase());
-        int_dbg.log_internal.apply(int_dbg, args);
+        int_dbg.log_always.apply(int_dbg, args);
     };
 }
 

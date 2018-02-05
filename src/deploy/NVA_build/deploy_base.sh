@@ -39,12 +39,6 @@ function install_platform {
     #yum install -y epel-release || true
     yum clean expire-cache
 
-    #fix swap
-    dd if=/dev/zero of=/swapfile count=4096 bs=1M
-    chmod 600 /swapfile
-    mkswap /swapfile
-    swapon /swapfile
-
     yum install -y \
 		sudo \
 		lsof \

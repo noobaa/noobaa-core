@@ -82,7 +82,7 @@ class ChunkMapper {
  */
 class MirrorMapper {
 
-    constructor(mirror, chunk_coder_config) {
+    constructor(mirror, chunk_coder_config, mirror_index) {
         const { spread_pools } = mirror;
         this.spread_pools = spread_pools;
         this.chunk_coder_config = chunk_coder_config;
@@ -91,31 +91,28 @@ class MirrorMapper {
         const pools_partitions = _.partition(spread_pools, _pool_has_redundancy);
         this.redundant_pools = pools_partitions[0];
         this.regular_pools = pools_partitions[1];
+        this.mirror_index = mirror_index;
     }
 
     update_status(tier_status) {
-        const { regular_pools, redundant_pools } = this;
-        const pool_valid = pool => _get_valid_for_allocation(tier_status, pool._id);
+        const { redundant_pools } = this;
         this.regular_pools_valid = false;
         this.redundant_pools_valid = false;
 
         // to decide which mirror to use for the first writing mirror
         // we set a weight for each mirror_mapper based on the pool types
         // when all are regular pools we
-        let regular_weight = 0;
+        const { regular_free, redundant_free } = _.get(tier_status, `mirrors_storage.${this.mirror_index}`, {});
+        this.regular_pools_valid = size_utils.json_to_bigint(regular_free).greater(config.MIN_TIER_FREE_THRESHOLD);
+        this.redundant_pools_valid = size_utils.json_to_bigint(redundant_free).greater(config.MIN_TIER_FREE_THRESHOLD);
+        const regular_weight = this.regular_pools_valid ? 3 : 0;
         let redundant_weight = 0;
-        for (let i = 0; i < regular_pools.length; ++i) {
-            const pool = regular_pools[i];
-            if (pool_valid(pool)) {
-                this.regular_pools_valid = true;
-                regular_weight = 3;
-            }
-        }
-        for (let i = 0; i < redundant_pools.length; ++i) {
-            const pool = redundant_pools[i];
-            if (pool_valid(pool)) {
-                this.redundant_pools_valid = true;
-                redundant_weight = Math.min(redundant_weight, pool.mongo_pool_info ? 1 : 2);
+        if (this.redundant_pools_valid) {
+            const redundant_has_mongo = redundant_pools.some(pool => Boolean(pool.mongo_pool_info));
+            if (redundant_has_mongo) {
+                redundant_weight = 1;
+            } else {
+                redundant_weight = 2;
             }
         }
         this.weight = redundant_weight || regular_weight;
@@ -326,7 +323,7 @@ class TierMapper {
         this.spillover = spillover;
         const { chunk_coder_config } = tier.chunk_config;
         this.mirror_mappers = tier.mirrors
-            .map(mirror => new MirrorMapper(mirror, chunk_coder_config));
+            .map((mirror, mirror_index) => new MirrorMapper(mirror, chunk_coder_config, mirror_index));
         this.write_mapper = this.mirror_mappers[0];
     }
 
@@ -731,10 +728,6 @@ function get_block_md(chunk, frag, block) {
         digest_type: chunk.chunk_coder_config.frag_digest_type,
         digest_b64: frag.digest_b64 || (frag.digest && frag.digest.toString('base64')),
     };
-}
-
-function _get_valid_for_allocation(tier_status, pool_id) {
-    return _.get(tier_status, `pools.${pool_id}.valid_for_allocation`, false);
 }
 
 function _is_block_accessible(block) {

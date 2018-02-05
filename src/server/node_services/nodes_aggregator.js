@@ -50,20 +50,25 @@ function _aggregate_data_free_for_tier(tier_id, system) {
                 })
             })
             .then(res_nodes => {
-                let free = BigInteger.zero;
+                let redundant_free = BigInteger.zero;
                 const spread_free = [];
                 for (let i = 0; i < res_nodes.nodes.length; ++i) {
                     const node = res_nodes.nodes[i];
                     const node_free = size_utils.json_to_bigint(node.storage.free || 0);
                     if (!node_free.greater(BigInteger.zero)) continue;
                     if (node.is_cloud_node || node.is_mongo_node) {
-                        free = free.plus(node_free);
+                        redundant_free = redundant_free.plus(node_free);
                     } else {
                         spread_free.push(node_free);
                     }
                 }
-                free = free.plus(_calculate_spread_free(spread_free, num_blocks_per_chunk));
-                mirror_available_storage.push({ free: size_utils.bigint_to_json(free) });
+                let regular_free = _calculate_spread_free(spread_free, num_blocks_per_chunk);
+                let free = regular_free.plus(redundant_free);
+                mirror_available_storage.push({
+                    free: size_utils.bigint_to_json(free),
+                    redundant_free: size_utils.bigint_to_json(redundant_free),
+                    regular_free: size_utils.bigint_to_json(regular_free),
+                });
             }))
         .return(mirror_available_storage);
 }

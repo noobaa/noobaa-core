@@ -86,12 +86,20 @@ coretest.describe_mapper_test_case({
     const pools_by_tier_id = _.fromPairs(_.map(tiering.tiers,
         ({ tier }) => [tier._id, _.flatMap(tier.mirrors, 'spread_pools')]
     ));
+
+    const ZERO_STORAGE = { free: 0, regular_free: 0, redundant_free: 0 };
+    const FULL_STORAGE = {
+        free: { peta: 2, n: 0 },
+        regular_free: { peta: 1, n: 0 },
+        redundant_free: { peta: 1, n: 0 }
+    };
+
     const default_tiering_status = _.fromPairs(_.map(tiering.tiers,
         ({ tier, spillover }) => [tier._id, {
             pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
                 pool => [pool._id, { valid_for_allocation: true, num_nodes: config.NODES_MIN_COUNT }]
             )),
-            mirrors_storage: tier.mirrors.map(mirror => ({ free: { peta: 1, n: 0 } }))
+            mirrors_storage: tier.mirrors.map(mirror => FULL_STORAGE)
         }]
     ));
     const spillover_tiering_status = _.fromPairs(_.map(tiering.tiers,
@@ -99,7 +107,7 @@ coretest.describe_mapper_test_case({
             pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
                 pool => [pool._id, { valid_for_allocation: true, num_nodes: config.NODES_MIN_COUNT }]
             )),
-            mirrors_storage: tier.mirrors.map(mirror => ({ free: spillover ? { peta: 1, n: 0 } : 0 }))
+            mirrors_storage: tier.mirrors.map(mirror => (spillover ? FULL_STORAGE : ZERO_STORAGE))
         }]
     ));
     const empty_tiering_status = _.fromPairs(_.map(tiering.tiers,
@@ -107,7 +115,7 @@ coretest.describe_mapper_test_case({
             pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
                 pool => [pool._id, { valid_for_allocation: true, num_nodes: config.NODES_MIN_COUNT }]
             )),
-            mirrors_storage: tier.mirrors.map(mirror => ({ free: 0 }))
+            mirrors_storage: tier.mirrors.map(mirror => ZERO_STORAGE)
         }]
     ));
     const regular_tiering_status = _.fromPairs(_.map(tiering.tiers,
@@ -115,7 +123,7 @@ coretest.describe_mapper_test_case({
             pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
                 pool => [pool._id, { valid_for_allocation: true, num_nodes: config.NODES_MIN_COUNT }]
             )),
-            mirrors_storage: tier.mirrors.map(mirror => ({ free: spillover ? 0 : { peta: 1, n: 0 } }))
+            mirrors_storage: tier.mirrors.map(mirror => (spillover ? ZERO_STORAGE : FULL_STORAGE))
         }]
     ));
 

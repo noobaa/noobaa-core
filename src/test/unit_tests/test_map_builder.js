@@ -195,7 +195,11 @@ coretest.describe_mapper_test_case({
                     pools: _.fromPairs(_.map(system_store.data.pools,
                         pool => [pool._id, { valid_for_allocation: true, num_nodes: 1000 }]
                     )),
-                    mirrors_storage: tier.mirrors.map(mirror => ({ free: { peta: 1, n: 0 } }))
+                    mirrors_storage: tier.mirrors.map(mirror => ({
+                        free: { peta: 2, n: 0 },
+                        regular_free: { peta: 1, n: 0 },
+                        redundant_free: { peta: 1, n: 0 },
+                    }))
                 }]
             ));
             chunk.chunk_coder_config = chunk_coder_config;

@@ -405,7 +405,18 @@ module.exports = {
                         mirrors_storage: {
                             type: 'array',
                             items: {
-                                $ref: 'common_api#/definitions/storage_info'
+                                type: 'object',
+                                properties: {
+                                    free: {
+                                        $ref: 'common_api#/definitions/bigint'
+                                    },
+                                    regular_free: {
+                                        $ref: 'common_api#/definitions/bigint'
+                                    },
+                                    redundant_free: {
+                                        $ref: 'common_api#/definitions/bigint'
+                                    },
+                                }
                             }
                         }
                     },

@@ -29,6 +29,7 @@ const POOL_STORAGE_DEFAULTS = Object.freeze({
 });
 const POOL_NODES_INFO_DEFAULTS = Object.freeze({
     count: 0,
+    storage_count: 0,
     online: 0,
     by_mode: {},
 });

@@ -901,7 +901,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, hosts_aggregate_pool, agg
                     return _.extend({ pool_id: pool._id }, tiering_pools_status[tier_and_order.tier._id].pools[pool._id]);
                 }))
                 .forEach(pool_status => {
-                    const pool_num_nodes = _.get(hosts_aggregate_pool, `groups.${pool_status.pool_id}.nodes.by_service.STORAGE`) || 0;
+                    const pool_num_nodes = _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.nodes.storage_count`) || 0;
                     num_nodes_in_mirror_group += pool_num_nodes;
                     num_valid_nodes += (pool_status.num_nodes || 0);
                     has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;

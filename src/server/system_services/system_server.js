@@ -61,6 +61,7 @@ const SYS_STORAGE_DEFAULTS = Object.freeze({
 });
 const SYS_NODES_INFO_DEFAULTS = Object.freeze({
     count: 0,
+    storage_count: 0,
     online: 0,
     by_mode: {},
 });
@@ -519,7 +520,7 @@ function read_system(req) {
                 used: objects_sys.size,
             }, nodes_aggregate_pool_no_cloud_and_mongo.storage, SYS_STORAGE_DEFAULTS)),
             nodes: _.defaults({}, nodes_aggregate_pool_no_cloud_and_mongo.nodes, SYS_NODES_INFO_DEFAULTS),
-            hosts: _.defaults({}, hosts_aggregate_pool.nodes, SYS_NODES_INFO_DEFAULTS),
+            hosts: _.omit(_.defaults({}, hosts_aggregate_pool.nodes, SYS_NODES_INFO_DEFAULTS), 'storage_count'),
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report || 0,
             maintenance_mode: maintenance_mode,

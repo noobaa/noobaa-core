@@ -2866,6 +2866,7 @@ class NodesMonitor extends EventEmitter {
 
     _aggregate_nodes_list(list) {
         let count = 0;
+        let storage_count = 0;
         let online = 0;
         const by_mode = {};
         let storage = {
@@ -2879,6 +2880,7 @@ class NodesMonitor extends EventEmitter {
         const data_activities = {};
         _.each(list, item => {
             count += 1;
+            if (item.node.node_type !== 'ENDPOINT_S3') storage_count += 1;
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
             if (item.online) online += 1;
 
@@ -2909,6 +2911,7 @@ class NodesMonitor extends EventEmitter {
         return {
             nodes: {
                 count,
+                storage_count,
                 online,
                 by_mode,
             },

@@ -235,7 +235,7 @@ AgentCLI.prototype.rename_agent_storage = function(mount_points) {
 };
 
 AgentCLI.prototype.update_ignored_drives = function(mount_points) {
-    if (os.type() === 'Darwin') return; // skip rename in mac os
+    if (os.type() === 'Darwin') return mount_points; // skip rename in mac os
     this.params.ignore_drives = this.params.ignore_drives || [];
     return P.map(mount_points, mount_point => {
         if (mount_point.temporary_drive) {

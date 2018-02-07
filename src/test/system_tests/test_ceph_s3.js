@@ -1,10 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-var P = require('../../util/promise');
 var config = require('../../../config.js');
 var promise_utils = require('../../util/promise_utils');
 var _ = require('lodash');
+
+var api = require('../../api');
+var rpc = api.new_rpc();
+var client = rpc.new_client({
+    address: 'ws://127.0.0.1:' + process.env.PORT
+});
+let auth_params = {
+    email: 'demo@noobaa.com',
+    password: 'DeMo1',
+    system: 'demo'
+};
 
 var CEPH_TEST = {
     test_dir: 'src/test/system_tests/',
@@ -12,7 +22,7 @@ var CEPH_TEST = {
     ceph_config: 'ceph_s3_config.conf',
     ceph_deploy: 'ceph_s3_tests_deploy.sh',
     rpc_shell_file: 'src/tools/rpc_shell.js',
-    new_account_json: {
+    new_account: {
         name: 'cephalt',
         email: 'ceph.alt@noobaa.com',
         password: 'ceph',
@@ -314,45 +324,19 @@ function main() {
 }
 
 function run_test() {
-    var createAccountCommand = `node ${CEPH_TEST.rpc_shell_file} --run call --api account --func create_account --params '${JSON.stringify(CEPH_TEST.new_account_json)}'`;
-    var readSystemCommand = `node ${CEPH_TEST.rpc_shell_file} --run call --api system --func read_system --json`;
-
-    return P.fcall(function() {
-            return deploy_ceph();
-        })
-        .then(() => promise_utils.exec(createAccountCommand, {
-            ignore_rc: false,
-            return_stdout: true
-        }))
-        .then(res => console.log(res))
-        .then(() => promise_utils.exec(readSystemCommand, {
-            ignore_rc: false,
-            return_stdout: true
-        }))
-        .then(res => {
-            console.log(res);
-
-            /*
-                The folowing parsing is needed because even when running the rpc_shell in
-                non-interactive mode (--run) we still get all internal console.logs
-                in the stdout (which is not advisable when programing an non-interactive tool).
-                The best practice (for non-intractive tools) implies returning the JSON result or
-                an error JSON in case of an errors.
-            */
-            const jsonText = res.split('Got back result:')[1];
-            if (jsonText) {
-                return JSON.parse(jsonText.trim());
-            }
-        })
+    return client.create_auth_token(auth_params)
+        .then(() => deploy_ceph())
+        .then(() => client.account.create_account(CEPH_TEST.new_account))
+        .then(() => client.system.read_system())
         .then(system_info => {
             const access_keys = system_info.accounts.find(
-                account => account.email === CEPH_TEST.new_account_json.email
+                account => account.email === CEPH_TEST.new_account.email
             ).access_keys;
-            CEPH_TEST.new_account_json.access_keys = access_keys;
+            CEPH_TEST.new_account.access_keys = access_keys;
             console.log('CEPH TEST CONFIGURATION:', JSON.stringify(CEPH_TEST));
         })
-        .then(() => promise_utils.exec(`echo access_key = ${CEPH_TEST.new_account_json.access_keys[0].access_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`, false, true))
-        .then(() => promise_utils.exec(`echo secret_key = ${CEPH_TEST.new_account_json.access_keys[0].secret_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`, false, true))
+        .then(() => promise_utils.exec(`echo access_key = ${CEPH_TEST.new_account.access_keys[0].access_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`, false, true))
+        .then(() => promise_utils.exec(`echo secret_key = ${CEPH_TEST.new_account.access_keys[0].secret_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`, false, true))
         .then(() => system_ceph_test())
         .catch(function(err) {
             throw new Error('System Ceph Tests Failed:', err);

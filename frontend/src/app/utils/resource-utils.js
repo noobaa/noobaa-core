@@ -171,6 +171,13 @@ const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
     }
 });
 
+export function getResourceStateIcon(resource, type) {
+    return true &&
+        type === 'HOSTS' && getHostsPoolStateIcon(resource) ||
+        type === 'CLOUD' && getCloudResourceStateIcon(resource) ||
+        type === 'INTERNAL' && getInternalResourceStateIcon(resource);
+}
+
 export function getHostsPoolStateIcon(pool) {
     const { mode } = pool;
     const state = hostsPoolModeToStateIcon[mode];

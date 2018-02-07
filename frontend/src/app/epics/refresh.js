@@ -21,8 +21,6 @@ export default function(action$) {
             types.COMPLETE_CREATE_NAMESPACE_RESOURCE,
             types.COMPLETE_DELETE_NAMESPACE_RESOURCE,
             types.COMPLETE_UPDATE_BUCKET_QUOTA,
-            types.COMPLETE_TOGGLE_BUCKET_SPILLOVER,
-            types.COMPLETE_TOGGLE_BUCKETS_SPILLOVER,
             types.COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
             types.COMPLETE_UPDATE_BUCKET_RESILIENCY_POLICY,
             types.COMPLETE_DELETE_BUCKET,
@@ -41,7 +39,8 @@ export default function(action$) {
             types.COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
             types.COMPLETE_ADD_BUCKET_TRIGGER,
             types.COMPLETE_UPDATE_BUCKET_TRIGGER,
-            types.COMPLETE_REMOVE_BUCKET_TRIGGER
+            types.COMPLETE_REMOVE_BUCKET_TRIGGER,
+            types.COMPLETE_UPDATE_BUCKET_SPILLOVER
         )
         .map(() => refreshLocation());
 }

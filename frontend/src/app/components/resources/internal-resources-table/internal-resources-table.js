@@ -8,7 +8,7 @@ import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { requestLocation, openEditSpilloverTargetsModal } from 'action-creators';
+import { requestLocation } from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -65,10 +65,9 @@ class InternalResourcesTableViewModel extends Observer {
             return;
         }
 
-        const { filter = '', sortBy = 'name', order = 1, page = 0 } = location.query;
+        const { sortBy = 'name', order = 1, page = 0 } = location.query;
         const pageStart = Number(page) * this.pageSize;
-        const resourceList = Object.values(resources)
-            .filter(pool => !filter || pool.name.includes(filter.toLowerCase()));
+        const resourceList = Object.values(resources);
 
         const bucketList = Object.values(buckets);
         const bucketsWithSpillover = bucketList
@@ -84,20 +83,11 @@ class InternalResourcesTableViewModel extends Observer {
             });
 
         this.pathname = location.pathname;
-        this.filter = ko.observable(filter);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
         this.resourceCount(resourceList.length);
         this.rows(rows);
         this.resourcesLoaded(true);
-    }
-
-    onEditSpilloverTargets() {
-        action$.onNext(openEditSpilloverTargetsModal());
-    }
-
-    onFilter(filter) {
-        this._query({ filter });
     }
 
     onSort(sorting) {
@@ -110,14 +100,12 @@ class InternalResourcesTableViewModel extends Observer {
 
     _query(params) {
         const {
-            filter = this.filter(),
             sorting = this.sorting(),
             page = this.page()
         } = params;
 
         const { sortBy, order } = sorting;
         const query = {
-            filter: filter || undefined,
             sortBy: sortBy,
             order: order,
             page: page

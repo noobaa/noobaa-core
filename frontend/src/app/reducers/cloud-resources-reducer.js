@@ -42,13 +42,26 @@ function _mapResource(resource, bucketsByPools) {
     };
 }
 
-function _mapPoolsToBuckets(buckets, tiers) {
-    const bucketsByTierName = keyBy(
+function _mapTiersToBucket(buckets) {
+    const pairs = flatMap(
         buckets,
-        bucket => bucket.tiering.tiers[0].tier,
-        bucket => bucket.name
+        bucket => bucket.tiering.tiers
+            .map(item => {
+                const bucketName = bucket.name;
+                const tierName = item.tier;
+                return { bucketName, tierName };
+            })
     );
 
+    return keyBy(
+        pairs,
+        pair => pair.tierName,
+        pair => pair.bucketName
+    );
+}
+
+function _mapPoolsToBuckets(buckets, tiers) {
+    const bucketsByTierName = _mapTiersToBucket(buckets);
     const pairs = flatMap(
         tiers,
         tier => tier.attached_pools.map(

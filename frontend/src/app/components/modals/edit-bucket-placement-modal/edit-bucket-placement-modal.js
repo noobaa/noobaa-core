@@ -10,7 +10,8 @@ import { getFieldValue } from 'utils/form-utils';
 import ko from 'knockout';
 import {
     openEmptyBucketPlacementWarningModal,
-    updateBucketPlacementPolicy
+    updateBucketPlacementPolicy,
+    updateForm
  } from 'action-creators';
 
 const formName = 'editBucketPlacement';
@@ -57,6 +58,8 @@ class EditBucketPlacementModalViewModel extends Observer {
         this.allResourceNames = [];
         this.isMixedPolicy = false;
         this.isPolicyRisky = false;
+        this.spilloverResource = '';
+        this.selectableResourceIds = [];
 
         this.observe(
             state$.getMany(
@@ -75,6 +78,7 @@ class EditBucketPlacementModalViewModel extends Observer {
             return;
         }
 
+        const { name: spilloverResource } = bucket.spillover || {};
         const poolList = Object.values(hostPools)
             .map(resource => ({ type: 'HOSTS', resource }));
 
@@ -97,12 +101,15 @@ class EditBucketPlacementModalViewModel extends Observer {
         const rows = resourceList
             .map((pair, i) => {
                 const row = this.rows.get(i) || new ResourceRow(rowParams);
-                row.onResource(pair.type,  pair.resource, selectedResources);
+                row.onResource(pair.type,  pair.resource, selectedResources, spilloverResource);
                 return row;
             });
 
+        this.spilloverResource = spilloverResource;
+        this.selectableResourceIds = resourceList
+            .filter(pair => pair.resource.name !== spilloverResource)
+            .map(pair => ({ type: pair.type, name: pair.resource.name }));
 
-        this.resourceList = resourceList;
         this.rows(rows);
 
         if (!form) {
@@ -137,14 +144,11 @@ class EditBucketPlacementModalViewModel extends Observer {
     }
 
     onSelectAll() {
-        const ids = this.resourceList
-            .map(pair => ({ type: pair.type, name: pair.resource.name }));
-
-        this.form.selectedResources(ids);
+        action$.onNext(updateForm(formName, { selectedResources: this.selectableResourceIds }));
     }
 
     onClearAll() {
-        this.form.selectedResources([]);
+        action$.onNext(updateForm(formName, { selectedResources: [] }));
     }
 
     onCancel() {

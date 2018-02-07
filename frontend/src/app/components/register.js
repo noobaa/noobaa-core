@@ -89,7 +89,6 @@ export default function register(ko) {
     ko.components.register('edit-namespace-bucket-data-placement-modal',    require('./modals/edit-namespace-bucket-data-placement-modal/edit-namespace-bucket-data-placement-modal').default);
     ko.components.register('edit-bucket-placement-modal',                   require('./modals/edit-bucket-placement-modal/edit-bucket-placement-modal').default);
     ko.components.register('empty-bucket-placement-warning-modal',          require('./modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal').default);
-    ko.components.register('edit-spillover-targets-modal',                  require('./modals/edit-spillover-targets-modal/edit-spillover-targets-modal').default);
     ko.components.register('set-node-as-trusted-modal',                     require('./modals/set-node-as-trusted-modal/set-node-as-trusted-modal').default);
     ko.components.register('confirm-delete-host-modal',                     require('./modals/confirm-delete-host-modal/confirm-delete-host-modal').default);
     ko.components.register('upgrade-system-modal',                          require('./modals/upgrade-system-modal/upgrade-system-modal').default);
@@ -104,6 +103,7 @@ export default function register(ko) {
     ko.components.register('add-bucket-trigger-modal',                      require('./modals/add-bucket-trigger-modal/add-bucket-trigger-modal').default);
     ko.components.register('edit-bucket-trigger-modal',                     require('./modals/edit-bucket-trigger-modal/edit-bucket-trigger-modal').default);
     ko.components.register('attach-server-modal',                           require('./modals/attach-server-modal/attach-server-modal').default);
+    ko.components.register('edit-bucket-spillover-modal',                   require('./modals/edit-bucket-spillover-modal/edit-bucket-spillover-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------

@@ -1,28 +1,53 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
 import {
+    getHostsPoolStateIcon,
+    getCloudResourceStateIcon,
     getInternalResourceStateIcon,
-    getInternalResourceDisplayName
+    getInternalResourceDisplayName,
+    getCloudResourceTypeIcon
 } from 'utils/resource-utils';
 
-const spilloverResourceType = deepFreeze({
-    name: 'internal-storage',
-    tooltip: 'Internal Storage Resource'
-});
+function _getResourceStateIcon(type, resource) {
+    return true &&
+        type === 'HOSTS' && getHostsPoolStateIcon(resource) ||
+        type === 'CLOUD' && getCloudResourceStateIcon(resource) ||
+        type === 'INTERNAL' && getInternalResourceStateIcon(resource);
+}
 
-export default class SpilloverRowViewModel {
-    constructor() {
-        this.state = ko.observable();
-        this.type = spilloverResourceType;
-        this.resourceName = ko.observable();
-        this.bucketUsage = ko.observable();
+function _getResourceTypeIcon(type, resource) {
+    if (type === 'HOSTS') {
+        return {
+            name: 'nodes-pool',
+            tooltip: 'Nodes Pool Resource'
+        };
     }
 
-    onResource(resource, bucketUsage) {
-        this.resourceName(getInternalResourceDisplayName(resource));
-        this.state(getInternalResourceStateIcon(resource));
+    if (type === 'CLOUD') {
+        return getCloudResourceTypeIcon(resource);
+    }
+
+    if (type === 'INTERNAL') {
+        return {
+            name: 'internal-storage',
+            tooltip: 'Internal Storage Resource'
+        };
+    }
+}
+
+export default class SpilloverRowViewModel {
+    state = ko.observable();
+    type = ko.observable();
+    resourceName = ko.observable();
+    bucketUsage = ko.observable();
+
+    onResource(type, resource, bucketUsage) {
+        const name = type === 'INTERNAL' ? getInternalResourceDisplayName(resource) : resource.name;
+
+        this.resourceName(name);
+        this.state(_getResourceStateIcon(type, resource));
+        this.type(_getResourceTypeIcon(type, resource));
         this.bucketUsage({
             total: resource.storage.total,
             used: bucketUsage

@@ -7,15 +7,17 @@ import {
 } from 'utils/resource-utils';
 
 export default class ResourceRowViewModel {
-    constructor({ onToggle }) {
+    _id = '';
+    select = ko.observable();
+    state = ko.observable();
+    type = ko.observable();
+    name = ko.observable();
+    onlineHostCount = ko.observable();
+    usage = ko.observable();
+    disabledCss = ko.observable();
+    tooltip = ko.observable();
 
-        this._id = '';
-        this.select = ko.observable();
-        this.state = ko.observable();
-        this.type = ko.observable();
-        this.name = ko.observable();
-        this.onlineHostCount = ko.observable();
-        this.usage = ko.observable();
+    constructor({ onToggle }) {
 
         // This computed is used as a glue with table checkbox-cell
         // A better approch will be a cell implementation that communicate
@@ -27,7 +29,13 @@ export default class ResourceRowViewModel {
         });
     }
 
-    onResource(type, resource, selected) {
+    onResource(type, resource, selected, spilloverResource) {
+        const disabled = spilloverResource === resource.name;
+        const tooltip = disabled ? 'Resource is already used for bucket spillover' : '';
+        const disabledCss = disabled ? 'disabled-row' : '';
+
+        this.disabledCss(disabledCss);
+        this.tooltip(tooltip);
         switch (type) {
             case 'HOSTS': {
                 this._onHostPool(resource, selected);
@@ -45,10 +53,12 @@ export default class ResourceRowViewModel {
         const { name, storage, hostCount, hostsByMode } = pool;
         const onlineHostCount = numeral(hostCount - (hostsByMode.OFFLINE || 0)).format('0,0');
         const isSelected = selected.some(record => record.type === 'HOSTS' && record.name === name);
+        const state = getHostsPoolStateIcon(pool);
+
 
         this._id = { type: 'HOSTS', name };
         this._selected(isSelected);
-        this.state(getHostsPoolStateIcon(pool));
+        this.state(state);
         this.type('nodes-pool');
         this.name({ text: name, tooltip: name });
         this.onlineHostCount(onlineHostCount);
@@ -58,10 +68,11 @@ export default class ResourceRowViewModel {
     _onCloudResource(resource, selected) {
         const { name, storage } = resource;
         const isSelected = selected.some(record => record.type === 'CLOUD' && record.name === name);
+        const state = getCloudResourceStateIcon(resource);
 
         this._id = { type: 'CLOUD', name };
         this._selected(isSelected);
-        this.state(getCloudResourceStateIcon(resource));
+        this.state(state);
         this.type(getCloudResourceTypeIcon(resource));
         this.name({ text: name, tooltip: name });
         this.onlineHostCount('---');

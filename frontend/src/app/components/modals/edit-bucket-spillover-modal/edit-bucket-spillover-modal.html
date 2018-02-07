@@ -1,0 +1,39 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: isFormInitialized -->
+<form class="column greedy" ko.submit="form.submit">
+    <section class="column greedy">
+        <p>The selected resource for spillover will automatically be used when this bucket storage is not enough to stroke new data. Once possible, data will be spilled back.</p>
+        <editor params="label: 'Spillover for this bucket'">
+            <toggle-switch params="
+                value: form.useSpillover,
+                onLabel: 'Enabled',
+                offLabel: 'Disabled'
+            "></toggle-switch>
+        </editor>
+        <editor params="
+            label: 'Spillover Resource',
+            disabled: !form.useSpillover()
+        ">
+            <dropdown params="
+                options: resourceOptions,
+                selected: form.target,
+                disabled: !form.useSpillover(),
+                placeholder: 'Choose Resource'
+                "
+                ko.validationCss="form.useSpillover"
+            ></dropdown>
+            <validation-message params="field: form.target"></validation-message>
+        </editor>
+    </section>
+
+    <div class="row align-end">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">
+            save
+        </button>
+    </div>
+</form>
+<!-- /ko -->

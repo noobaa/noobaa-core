@@ -595,19 +595,6 @@ export function openEditNamespaceBucketDataPlacementModal(bucket) {
     };
 }
 
-export function openEditSpilloverTargetsModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'edit-spillover-targets-modal',
-            options: {
-                title: 'Edit Spillover Targets',
-                size: 'medium'
-            }
-        }
-    };
-}
-
 export function openSetNodeAsTrustedModal(host, untrustedReasons) {
     return {
         type: OPEN_MODAL,
@@ -806,6 +793,22 @@ export function openEditBucketTriggerModal(bucketName, triggerId) {
             options: {
                 size: 'medium',
                 title: 'Edit Trigger'
+            }
+        }
+    };
+}
+
+export function openEditBucketSpilloverModal(bucketName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-bucket-spillover-modal',
+                params: { bucketName }
+            },
+            options: {
+                title: 'Edit Spillover',
+                size: 'small'
             }
         }
     };

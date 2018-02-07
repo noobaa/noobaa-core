@@ -42,20 +42,36 @@ function _mapResource(resource, bucketsByPools) {
     };
 }
 
-function _mapPoolsToBuckets(buckets, tiers) {
-    const bucketsByTierName = keyBy(
+function _mapTiersToBuckets(buckets) {
+    const pairs = flatMap(
         buckets,
-        bucket => bucket.tiering.tiers[0].tier,
-        bucket => bucket.name
+        bucket => bucket.tiering.tiers
+            .map(item => {
+                const bucketName = bucket.name;
+                const tierName = item.tier;
+                return { bucketName, tierName };
+            })
     );
 
+    return keyBy(
+        pairs,
+        pair => pair.tierName,
+        pair => pair.bucketName
+    );
+}
+
+function _mapPoolsToBuckets(buckets, tiers) {
+    const bucketsByTierName = _mapTiersToBuckets(buckets);
     const pairs = flatMap(
         tiers,
-        tier => tier.attached_pools.map(
-            poolName => ({
-                bucket: bucketsByTierName[tier.name],
-                pool: poolName
-            })
+        tier => flatMap(
+            tier.mirror_groups,
+            mirrorGroup => mirrorGroup.pools.map(
+                poolName => ({
+                    bucket: bucketsByTierName[tier.name],
+                    pool: poolName
+                })
+            )
         )
     );
 

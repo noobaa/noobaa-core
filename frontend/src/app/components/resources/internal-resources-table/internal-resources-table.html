@@ -1,18 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="column alt-bg pad">
-    <div class="row content-middle push-next">
-        <div class="greedy">
-            <input type="search"
-                placeholder="Filter by resource name"
-                ko.textInput="ko.pc(filter, onFilterThrottled)" />
-        </div>
-        <button class="btn"
-            ko.click="onEditSpilloverTargets"
-            ko.disable="!resourcesLoaded()">
-            Edit Spillover Targets
-        </button>
-    </div>
     <p>Internal storage is a resource which resides on the local VM’s disks.  It can only be used for spilled-over data from buckets.</p>
 </div>
 

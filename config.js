@@ -295,7 +295,8 @@ config.SUPERVISOR_DEFAULTS = {
 
 
 config.SERVER_MIN_REQUIREMENTS = {
-    RAM_GB: 16,
+    // We are interested in setting the minimum to 16GB, we take a buffer of 1GB
+    RAM_GB: 15,
     STORAGE_GB: 120,
     CPU_COUNT: 8
 };

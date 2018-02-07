@@ -16,8 +16,10 @@ const argv = require('minimist')(process.argv);
 const http = require('http');
 const https = require('https');
 const cluster = require('cluster');
-const numCPUs = require('os').cpus().length;
 const FtpSrv = require('ftp-srv');
+const os = require('os');
+const size_utils = require('../util/size_utils');
+const numCPUs = os.cpus().length;
 
 
 const P = require('../util/promise');
@@ -44,7 +46,8 @@ function start_all() {
     dbg.set_process_name('Endpoint');
     if (cluster.isMaster && config.ENDPOINT_FORKS_ENABLED && argv.address) {
         // Fork workers
-        for (let i = 0; i < numCPUs; i++) {
+        const NUM_OF_FORKS = (os.totalmem() >= (config.SERVER_MIN_REQUIREMENTS.RAM_GB * size_utils.GIGABYTE)) ? numCPUs : 1;
+        for (let i = 0; i < NUM_OF_FORKS; i++) {
             console.warn('Spawning Endpoint Server', i + 1);
             cluster.fork();
         }

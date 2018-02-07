@@ -229,10 +229,14 @@ function get_cluster_info(rs_status) {
             shard.high_availabilty = num_connected > (shard.servers.length + 1) / 2;
         }
     });
+    const min_requirements = get_min_requirements();
+    // This is a fix for the buffer of 1GB that we take in config.js
+    min_requirements.ram += size_utils.GIGABYTE;
+
     let cluster_info = {
         master_secret: _get_master_secret(rs_status),
         shards: shards,
-        min_requirements: get_min_requirements()
+        min_requirements
     };
     return cluster_info;
 }

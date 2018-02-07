@@ -12,7 +12,6 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const { RpcError } = require('../../rpc');
 const size_utils = require('../../util/size_utils');
-const server_utils = require('../utils/system_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('./system_store').get_instance();
@@ -113,10 +112,12 @@ function _convert_pools_to_data_placement_structure(pool_ids, data_placement) {
     let mirrors = [];
     if (data_placement === 'MIRROR') {
         _.forEach(pool_ids, pool_id => mirrors.push({
+            _id: system_store.generate_id(),
             spread_pools: [pool_id]
         }));
     } else {
         mirrors.push({
+            _id: system_store.generate_id(),
             spread_pools: pool_ids
         });
     }
@@ -384,10 +385,11 @@ function policy_defaults_from_req(req) {
 function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier) {
     const mirrors_storage = [];
     let attached_pools = [];
+    const mirror_groups = [];
 
-    _.forEach(tier.mirrors, mirror_object => {
+    _.forEach(tier.mirrors, mirror => {
         let spread_storage;
-        const pools_storage = _.map(mirror_object.spread_pools, pool =>
+        const pools_storage = _.map(mirror.spread_pools, pool =>
             _.defaults(_.get(nodes_aggregate_pool, ['groups', String(pool._id), 'storage']), {
                 used: 0,
                 total: 0,
@@ -408,11 +410,14 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
         });
 
         mirrors_storage.push(spread_storage);
-        attached_pools = _.concat(attached_pools, mirror_object.spread_pools);
+        attached_pools = _.concat(attached_pools, mirror.spread_pools);
+        mirror_groups.push({
+            name: String(mirror._id),
+            pools: _.map(mirror.spread_pools, 'name')
+        });
     });
 
     attached_pools = _.compact(attached_pools).map(pool => pool.name);
-    const mirror_groups = server_utils.get_tier_mirror_groups(tier);
 
     const storage = _.defaults(
         size_utils.reduce_storage(size_utils.reduce_sum, mirrors_storage), {

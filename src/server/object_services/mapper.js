@@ -677,7 +677,7 @@ function get_frag_info(chunk, frag, blocks, adminfo) {
         parity_index: frag.parity_index,
         lrc_index: frag.lrc_index,
         digest_b64: frag.digest && frag.digest.toString('base64'),
-        blocks: blocks && _.map(blocks, block => get_block_info(chunk, frag, block, adminfo)),
+        blocks: blocks ? _.map(blocks, block => get_block_info(chunk, frag, block, adminfo)) : [],
     };
 }
 
@@ -687,8 +687,24 @@ function get_block_info(chunk, frag, block, adminfo) {
         const node = block.node;
         const system = system_store.data.get_by_id(block.system);
         const pool = system.pools_by_name[node.pool];
+        const bucket = system_store.data.get_by_id(chunk.bucket);
+
+        // Setting mirror_group for the block:
+        // We return mirror_group undefined to mark blocks that are no longer relevant to the tiering policy,
+        // such as disabled tiers or pools that were removed completely from the tierig policy.
+        let mirror_group;
+        _.forEach(bucket.tiering.tiers, ({ tier, disabled }) => {
+            if (disabled) return;
+            _.forEach(tier.mirrors, mirror => {
+                if (_.find(mirror.spread_pools, pool)) {
+                    mirror_group = String(mirror._id);
+                }
+            });
+        });
+
         adminfo = {
             pool_name: pool.name,
+            mirror_group,
             node_name: node.os_info.hostname + '#' + node.host_seq,
             host_name: node.os_info.hostname,
             node_ip: node.ip,

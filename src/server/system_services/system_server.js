@@ -177,7 +177,10 @@ function new_system_changes(name, owner_account) {
         }),
     };
     system.default_chunk_config = default_chunk_config._id;
-    const tier_mirrors = [{ spread_pools: [pool._id] }];
+    const tier_mirrors = [{
+        _id: system_store.generate_id(),
+        spread_pools: [pool._id]
+    }];
     const tier = tier_server.new_tier_defaults(
         bucket_with_suffix,
         system._id,
@@ -1235,6 +1238,7 @@ function create_internal_tier(system, mongo_pool) {
         `${config.SPILLOVER_TIER_NAME}-${system._id}`,
         system._id,
         system.default_chunk_config._id, [{
+            _id: system_store.generate_id(),
             spread_pools: [mongo_pool._id]
         }]
     );

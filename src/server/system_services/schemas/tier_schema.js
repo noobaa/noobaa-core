@@ -44,8 +44,9 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'object',
-                // required: ['spread_pools'],
+                required: ['_id', 'spread_pools'],
                 properties: {
+                    _id: { objectid: true },
                     spread_pools: {
                         type: 'array',
                         items: { objectid: true } // pool id

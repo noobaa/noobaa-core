@@ -20,6 +20,7 @@ db.tiers.update({
     $set: {
         data_placement: 'SPREAD',
         mirrors: [{
+            _id: new ObjectId(),
             spread_pools: [
                 db.pools.find({
                     name: 'first.pool'

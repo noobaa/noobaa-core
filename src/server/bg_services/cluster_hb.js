@@ -43,8 +43,8 @@ function do_heartbeat() {
                     heartbeat.health.os_info = os_info;
                     //Adjust tolerance of minimum RAM requirement to 1 GB below actual minimum
                     const min_ram = clustering_utils.get_min_requirements().ram;
-                    if (heartbeat.health.os_info.totalmem < min_ram &&
-                        heartbeat.health.os_info.totalmem > (min_ram - size_utils.GIGABYTE)) {
+                    if (heartbeat.health.os_info.totalmem < (min_ram + size_utils.GIGABYTE) &&
+                        heartbeat.health.os_info.totalmem >= min_ram) {
                         heartbeat.health.os_info.totalmem = min_ram;
                     }
                     heartbeat.health.usage = os_utils.calc_cpu_usage(os.cpus(), this.cpu_info);

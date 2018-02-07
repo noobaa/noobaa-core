@@ -21,7 +21,7 @@ const rawUsageTooltip = deepFreeze({
 });
 
 const dataUsageTooltip = deepFreeze({
-    text: 'Data optimization consist of duplication and compression',
+    text: 'Data optimization consist of deduplication and compression',
     align: 'end'
 });
 
@@ -142,7 +142,7 @@ class BucketSummrayViewModel extends Observer {
             value: ko.observable()
         },
         {
-            label: 'Shared Resource Usage',
+            label: 'Shared Resources Usage',
             color: style['color14'],
             value: ko.observable()
         }

@@ -201,26 +201,6 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_TOGGLE_BUCKET_SPILLOVER]: ({ bucket, state }) => ({
-        message: `Spillover ${state ? 'enabled' : 'disabled'} successfully for ${bucket}`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_TOGGLE_BUCKET_SPILLOVER]: ({ bucket, state }) => ({
-        message: `${state ? 'Enabling' : 'Disabling'} spillover for ${bucket} failed`,
-        severity: 'error'
-    }),
-
-    [types.COMPLETE_TOGGLE_BUCKETS_SPILLOVER]: () => ({
-        message: 'Spillover targets updated successfully',
-        severity: 'success'
-    }),
-
-    [types.FAIL_TOGGLE_BUCKETS_SPILLOVER]: () => ({
-        message: 'Updating spillover targets failed',
-        severity: 'error'
-    }),
-
     [types.COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
         message: `${bucket} placement policy updated successfully`,
         severity: 'success'
@@ -388,6 +368,16 @@ const actionToNotification = deepFreeze({
 
     [types.FAIL_ATTACH_SERVER_TO_CLUSTER]: ({ secret, hostname }) => ({
         message: `Attaching ${getServerDisplayName({ secret, hostname })} to cluster failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_BUCKET_SPILLOVER]: ({ bucket }) => ({
+        message: `${bucket} spillover policy was updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_BUCKET_SPILLOVER]: ({ bucket }) => ({
+        message: `Updating spillover policy for ${bucket} failed`,
         severity: 'error'
     })
 });

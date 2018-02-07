@@ -2,12 +2,9 @@ import {
     UPDATE_BUCKET_QUOTA,
     COMPLETE_UPDATE_BUCKET_QUOTA,
     FAIL_UPDATE_BUCKET_QUOTA,
-    TOGGLE_BUCKET_SPILLOVER,
-    COMPLETE_TOGGLE_BUCKET_SPILLOVER,
-    FAIL_TOGGLE_BUCKET_SPILLOVER,
-    TOGGLE_BUCKETS_SPILLOVER,
-    COMPLETE_TOGGLE_BUCKETS_SPILLOVER,
-    FAIL_TOGGLE_BUCKETS_SPILLOVER,
+    UPDATE_BUCKET_SPILLOVER,
+    COMPLETE_UPDATE_BUCKET_SPILLOVER,
+    FAIL_UPDATE_BUCKET_SPILLOVER,
     UPDATE_BUCKET_PLACEMENT_POLICY,
     COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
     FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
@@ -67,42 +64,24 @@ export function failUpdateBucketQuota(bucket, error) {
     };
 }
 
-export function toggleBucketSpillover(bucket, state) {
+export function updateBucketSpillover(bucket, resource) {
     return {
-        type: TOGGLE_BUCKET_SPILLOVER,
-        payload: { bucket, state }
+        type: UPDATE_BUCKET_SPILLOVER,
+        payload: { bucket, resource }
     };
 }
 
-export function completeToggleBucketSpillover(bucket, state) {
+export function completeUpdateBucketSpillover(bucket) {
     return {
-        type: COMPLETE_TOGGLE_BUCKET_SPILLOVER,
-        payload: { bucket, state }
+        type: COMPLETE_UPDATE_BUCKET_SPILLOVER,
+        payload: { bucket }
     };
 }
 
-export function failToggleBucketSpillover(bucket, state, error) {
+export function failUpdateBucketSpillover(bucket, error) {
     return {
-        type: FAIL_TOGGLE_BUCKET_SPILLOVER,
-        payload: { bucket, state, error }
-    };
-}
-
-export function toggleBucketsSpillover(settings) {
-    return {
-        type: TOGGLE_BUCKETS_SPILLOVER,
-        payload: settings
-    };
-}
-
-export function completeToggleBucketsSpillover() {
-    return { type: COMPLETE_TOGGLE_BUCKETS_SPILLOVER };
-}
-
-export function failToggleBucketsSpillover(error) {
-    return {
-        type: FAIL_TOGGLE_BUCKETS_SPILLOVER,
-        payload: { error }
+        type: FAIL_UPDATE_BUCKET_SPILLOVER,
+        payload: { bucket, error }
     };
 }
 

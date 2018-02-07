@@ -23,29 +23,45 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _mapPoolsToBuckets(buckets, tiers) {
-    const bucketsByTierName = keyBy(
-        buckets,
-        bucket => bucket.tiering.tiers[0].tier
+
+function _mapTiersToBucket(buckets) {
+    const dataBuckets = buckets.filter(bucket => bucket.bucket_type === 'REGULAR');
+    const pairs = flatMap(
+        dataBuckets,
+        bucket => bucket.tiering.tiers
+            .map(item => {
+                const bucketName = bucket.name;
+                const tierName = item.tier;
+                return { bucketName, tierName };
+            })
     );
 
-    const relevantTiers = tiers
-        .filter(tier =>
-            bucketsByTierName[tier.name] && bucketsByTierName[tier.name].bucket_type === 'REGULAR'
-        );
+    return keyBy(
+        pairs,
+        pair => pair.tierName,
+        pair => pair.bucketName
+    );
+}
 
+function _mapPoolsToBuckets(buckets, tiers) {
+    const bucketsByTierName = _mapTiersToBucket(buckets);
     const pairs = flatMap(
-        relevantTiers,
-        tier => tier.attached_pools.map(pool => ({
-            bucket: bucketsByTierName[tier.name],
-            pool
-        }))
+        tiers,
+        tier => flatMap(
+            tier.mirror_groups,
+            mirrorGroup => mirrorGroup.pools.map(
+                poolName => ({
+                    bucket: bucketsByTierName[tier.name],
+                    pool: poolName
+                })
+            )
+        )
     );
 
     return groupBy(
         pairs,
         pair => pair.pool,
-        pair => pair.bucket.name
+        pair => pair.bucket
     );
 }
 

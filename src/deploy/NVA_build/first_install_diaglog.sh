@@ -215,10 +215,10 @@ function configure_networking_dialog {
       menu_entry=$(cat choice)
       if [ "${menu_entry}" -eq "1" ]; then
         configure_ips_dialog
-        /usr/bin/supervisorctl restart all #Restart services after IP and DNS changes
+        sudo /usr/bin/supervisorctl restart all 1> /dev/null #Restart services after IP and DNS changes
       elif [ "${menu_entry}" -eq "2" ]; then
         configure_dns_dialog
-        /usr/bin/supervisorctl restart all #Restart services after IP and DNS changes
+        sudo /usr/bin/supervisorctl restart all 1> /dev/null #Restart services after IP and DNS changes
       elif [ "${menu_entry}" -eq "3" ]; then
         configure_hostname_dialog
       fi

@@ -968,7 +968,7 @@ class ObjectIO {
             );
         } else {
             const read_next_block = i => {
-                if (i >= frag.blocks.length) return; // no more blocks
+                if (i >= frag.blocks.length) return P.resolve(); // no more blocks
                 const block = frag.blocks[i];
                 return this._read_block(params, block.block_md)
                     .then(buffer => {

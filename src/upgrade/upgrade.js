@@ -406,6 +406,7 @@ function mongo_upgrade_database_metadata(params) {
             dbg.log0(`mongo_upgrade_database_metadata: secret is ${params.secret} - should_mongo_upgrade = ${should_mongo_upgrade}`);
             if (should_mongo_upgrade === "true") {
                 UPGRADE_SCRIPTS = [
+                    'mongo_upgrade_2_1_3.js',
                     'mongo_upgrade_mark_completed.js'
                 ];
             } else {

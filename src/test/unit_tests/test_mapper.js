@@ -38,9 +38,21 @@ coretest.describe_mapper_test_case({
     const external_pools = _.times(num_pools, i => ({ _id: new mongodb.ObjectId(), name: 'external_pool' + i, }));
     const pool_by_id = _.keyBy(_.concat(regular_pools, spill_pools, external_pools), '_id');
     const regular_mirrors = data_placement === 'MIRROR' ?
-        regular_pools.map(pool => ({ spread_pools: [pool] })) : [{ spread_pools: regular_pools }];
+        regular_pools.map(pool => ({
+            _id: new mongodb.ObjectId(),
+            spread_pools: [pool]
+        })) : [{
+            _id: new mongodb.ObjectId(),
+            spread_pools: regular_pools
+        }];
     const spill_mirrors = data_placement === 'MIRROR' ?
-        spill_pools.map(pool => ({ spread_pools: [pool] })) : [{ spread_pools: spill_pools }];
+        spill_pools.map(pool => ({
+            _id: new mongodb.ObjectId(),
+            spread_pools: [pool]
+        })) : [{
+            _id: new mongodb.ObjectId(),
+            spread_pools: spill_pools
+        }];
     const regular_tier = {
         _id: new mongodb.ObjectId(),
         name: 'regular_tier',

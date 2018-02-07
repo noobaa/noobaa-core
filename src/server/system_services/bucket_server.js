@@ -112,7 +112,10 @@ function create_bucket(req) {
             changes.insert.chunk_configs = [chunk_config];
         }
         const bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
-        const mirrors = [{ spread_pools: [default_pool._id] }];
+        const mirrors = [{
+            _id: system_store.generate_id(),
+            spread_pools: [default_pool._id]
+        }];
         const tier = tier_server.new_tier_defaults(
             bucket_with_suffix,
             req.system._id,

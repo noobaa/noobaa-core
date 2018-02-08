@@ -322,10 +322,12 @@ class MapBuilder {
             pools, avoid_nodes, allocated_hosts, { special_replica }
         );
 
-        if (!node) throw new Error(`MapBuilder.allocate_block: no nodes for allocation. block ${block_id} chunk ${chunk._id} frag ${util.inspect(frag)}`);
+        if (!node) {
+            dbg.log0('MapBuilder.allocate_block: no nodes for allocation', block_id, 'chunk', chunk._id, 'frag', frag);
+            throw new Error('MapBuilder.allocate_block: no nodes for allocation');
+        }
 
-        dbg.log0('MapBuilder.allocate_block: block', block_id,
-            'node', node._id, node.name, 'chunk', chunk._id, 'frag', frag);
+        dbg.log0('MapBuilder.allocate_block: block', block_id, 'node', node._id, node.name, 'chunk', chunk._id, 'frag', frag);
 
         const block = {
             _id: block_id,

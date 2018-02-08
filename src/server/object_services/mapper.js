@@ -376,8 +376,31 @@ class TierMapper {
 
         if (accessible && !tier_mapping.allocations) {
             const { blocks } = chunk_mapper.chunk;
-            const unused_blocks = _.difference(blocks, tier_mapping.blocks_in_use);
-            if (unused_blocks.length) tier_mapping.deletions = unused_blocks;
+            const used_blocks = _.uniq(tier_mapping.blocks_in_use);
+            const unused_blocks = _.uniq(_.difference(blocks, used_blocks));
+            if (unused_blocks.length) {
+                // Protect from too many deletions by checking:
+                // - the number of unused blocks to delete does not include all blocks
+                // - the number of unused blocks to delete does not exceed number blocks that should exist
+                // - the number of used blocks against the the expected number of blocks
+                const min_num_blocks = this.tier.chunk_config.chunk_coder_config.data_frags || 1;
+                if (unused_blocks.length >= blocks.length ||
+                    unused_blocks.length > blocks.length - min_num_blocks ||
+                    used_blocks.length < min_num_blocks) {
+                    dbg.error('TierMapper.map_tier: ASSERT protect from too many deletions!',
+                        'min_num_blocks', min_num_blocks,
+                        'blocks.length', blocks.length,
+                        'used_blocks.length', used_blocks.length,
+                        'unused_blocks.length', unused_blocks.length,
+                        'tier', this.tier,
+                        'tier_mapping', tier_mapping,
+                        'chunk', chunk_mapper.chunk,
+                        'used_blocks', used_blocks,
+                        'unused_blocks', unused_blocks);
+                } else {
+                    tier_mapping.deletions = unused_blocks;
+                }
+            }
         }
 
         return tier_mapping;

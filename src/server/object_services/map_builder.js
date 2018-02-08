@@ -181,6 +181,7 @@ class MapBuilder {
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (mapping.accessible && !mapping.allocations && mapping.deletions) {
+                dbg.log0('MapBuilder.build_chunks: print mapping on deletions', mapping);
                 this.delete_blocks = this.delete_blocks || [];
                 js_utils.array_push_all(this.delete_blocks, mapping.deletions);
             }

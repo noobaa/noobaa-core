@@ -18,6 +18,7 @@ export default {
                     'INITIALIZING',
                     'IO_ERRORS',
                     'ALL_NODES_OFFLINE',
+                    'LOW_CAPACITY',
                     'NO_CAPACITY'
                 ]
             },

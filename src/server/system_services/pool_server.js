@@ -580,6 +580,7 @@ function calc_mongo_pool_mode(p) {
         (by_mode.IO_ERRORS && 'IO_ERRORS') ||
         (by_mode.INITIALIZING && 'INITIALIZING') ||
         (by_mode.OFFLINE && 'ALL_NODES_OFFLINE') ||
+        (by_mode.LOW_CAPACITY && 'LOW_CAPACITY') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
         'ALL_NODES_OFFLINE';
 }

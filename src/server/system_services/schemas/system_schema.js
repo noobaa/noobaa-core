@@ -91,6 +91,31 @@ module.exports = {
             }
         },
 
+        bg_workers_info: {
+            type: 'object',
+            properties: {
+                mirror_writer_info: {
+                    type: 'object',
+                    properties: {
+                        start_marker: {
+                            objectid: true
+                        },
+                        retry_range: {
+                            type: 'object',
+                            properties: {
+                                start: {
+                                    objectid: true
+                                },
+                                end: {
+                                    objectid: true
+                                },
+                            }
+                        }
+                    },
+                }
+            }
+        },
+
         // //NTP configuration
         // ntp: {
         //     type: 'object',

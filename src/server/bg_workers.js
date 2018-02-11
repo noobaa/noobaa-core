@@ -21,6 +21,7 @@ var cloud_sync = require('./bg_services/cloud_sync');
 var cluster_hb = require('./bg_services/cluster_hb');
 var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
+var { MirrorWriter } = require('./bg_services/mirror_writer');
 var cluster_master = require('./bg_services/cluster_master');
 var AgentBlocksVerifier = require('./bg_services/agent_blocks_verifier').AgentBlocksVerifier;
 var AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
@@ -35,6 +36,7 @@ var db_cleaner = require('./bg_services/db_cleaner');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
+    'mirror_writer',
     'cloud_sync_refresher',
     'system_server_stats_aggregator',
     'md_aggregator',
@@ -114,6 +116,15 @@ function run_master_workers() {
         }, scrubber.background_worker);
     } else {
         dbg.warn('SCRUBBER NOT ENABLED');
+    }
+
+    if (config.MIRROR_WRITER_ENABLED) {
+        register_bg_worker(new MirrorWriter({
+            name: 'mirror_writer',
+            client: server_rpc.client
+        }));
+    } else {
+        dbg.warn('MIRROR_WRITER NOT ENABLED');
     }
 
     if (config.DEDUP_INDEXER_ENABLED) {

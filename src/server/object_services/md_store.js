@@ -783,6 +783,32 @@ class MDStore {
             .then(chunks => this.load_blocks_for_chunks(chunks));
     }
 
+    iterate_all_chunks_in_buckets(lower_marker, upper_marker, buckets, limit) {
+        return this._chunks.col().find(compact({
+                _id: lower_marker ? compact({
+                    $gt: lower_marker,
+                    $lte: upper_marker
+                }) : undefined,
+                deleted: null,
+                bucket: {
+                    $in: buckets
+                }
+            }), {
+                fields: {
+                    _id: 1
+                },
+                sort: {
+                    _id: 1
+                },
+                limit: limit,
+            })
+            .toArray()
+            .then(chunks => ({
+                chunk_ids: mongo_utils.uniq_ids(chunks, '_id'),
+                marker: chunks.length ? chunks[chunks.length - 1]._id : null,
+            }));
+    }
+
     iterate_all_chunks(marker, limit) {
         return this._chunks.col().find(compact({
                 _id: marker ? {

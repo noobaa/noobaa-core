@@ -48,6 +48,8 @@ require('./test_s3_ops');
 require('./test_s3_list_objects');
 require('./test_nb_native_b64');
 require('./test_node_allocator');
+require('./test_bucket_chunks_builder');
+require('./test_mirror_writer');
 
 // SERVERS
 require('./test_agent');

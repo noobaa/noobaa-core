@@ -49,9 +49,14 @@ node('pipeline') {
 			sh script: """
 			export NVM_DIR=/opt/nvm
 			. /opt/nvm/nvm.sh
-			 #nvm install 8
-			 #nvm alias default 8
-			 #nvm use default
+			nodever=\$(node -v) 
+			noderc=\$(cat $WORKSPACE/.nvmrc)
+			if [ \${nodever//v/} != \${noderc} ]
+			then
+				nvm install \${noderc}
+			 	nvm alias default \${noderc}
+			 	nvm use default
+			fi
 			 #cd $WORKSPACE
 			 #npm install
 			 #npm install azure cloud-cd

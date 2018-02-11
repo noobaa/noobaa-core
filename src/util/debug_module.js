@@ -589,6 +589,7 @@ function log_syslog_builder(syslevel) {
      * @this instance of DebugLogger
      */
     return function() {
+        if (this._cur_level.__level < 0) return;
         var args = Array.prototype.slice.call(arguments);
         if (typeof(args[0]) === 'string') { //Keep string formatting if exists
             args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '');

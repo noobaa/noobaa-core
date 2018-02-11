@@ -12,8 +12,6 @@ const system_utils = require('../utils/system_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const md_aggregator = require('./md_aggregator');
 
-dbg.set_level(5);
-
 const LIMIT = 100;
 
 /**************

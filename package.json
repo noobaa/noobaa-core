@@ -119,6 +119,7 @@
     "rimraf": "2.6.2",
     "serve-favicon": "2.4.5",
     "setimmediate": "1.0.5",
+    "sinon": "4.3.0",
     "ssh2": "0.5.5",
     "utf-8-validate": "4.0.0",
     "uuid": "3.1.0",

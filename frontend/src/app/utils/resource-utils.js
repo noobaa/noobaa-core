@@ -109,6 +109,16 @@ const internalResourceModeToStateIcon = deepFreeze({
         css: 'warning',
         name: 'working'
     },
+    LOW_CAPACITY: pool => {
+        const free = toBytes(pool.storage.free);
+        const limit = formatSize(Math.max(30 * GB, .2 * free));
+
+        return {
+            tooltip: `Available capacity is below ${limit}`,
+            css: 'warning',
+            name: 'problem'
+        };
+    },
     ALL_NODES_OFFLINE: {
         tooltip: 'Resource is offline',
         css: 'error',
@@ -175,7 +185,8 @@ export function getCloudResourceStateIcon(resource) {
 
 export function getInternalResourceStateIcon(resource) {
     const { mode } = resource;
-    return internalResourceModeToStateIcon[mode];
+    const state = internalResourceModeToStateIcon[mode];
+    return isFunction(state) ? state(resource) : state;
 }
 
 export function getInternalResourceDisplayName(resource) {

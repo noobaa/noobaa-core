@@ -161,15 +161,25 @@ class BlockStoreFs extends BlockStoreBase {
 
 
     _delete_blocks(block_ids) {
+        let failed_to_delete_block_ids = [];
         return P.map(block_ids,
-            block_id => this._delete_block(block_id)
-            .catch(err => {
-                // TODO handle failed deletions - report to server and reclaim later
-                dbg.warn('delete block failed due to', err);
-            }), {
-                // limit concurrency with semaphore
-                concurrency: 10
-            });
+                block_id => this._delete_block(block_id)
+                .catch(err => {
+                    // This check is already performed inside _delete_block by calling ignore_not_found
+                    // but just in case something changes we perform it once again here explicitly
+                    if (err.code !== 'ENOENT') {
+                        failed_to_delete_block_ids.push(block_id);
+                    }
+                    // TODO handle failed deletions - report to server and reclaim later
+                    dbg.warn('delete block failed due to', err);
+                }), {
+                    // limit concurrency with semaphore
+                    concurrency: 10
+                })
+            .then(() => ({
+                failed_block_ids: failed_to_delete_block_ids,
+                succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
+            }));
     }
 
     _delete_block(block_id) {

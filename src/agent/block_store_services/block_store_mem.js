@@ -68,8 +68,12 @@ class BlockStoreMem extends BlockStoreBase {
                 this._blocks.delete(block_id);
             }
         });
+        // Just a place filler since we always succeed in deletions
+        return {
+            failed_block_ids: [],
+            succeeded_block_ids: _.difference(block_ids, [])
+        };
     }
-
 }
 
 // EXPORTS

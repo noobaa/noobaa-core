@@ -230,6 +230,7 @@ class BlockStoreS3 extends BlockStoreBase {
             size: 0,
             count: 0
         };
+        let failed_to_delete_block_ids = [];
         // Todo: Assuming that all requested blocks were deleted, which a bit naive
         return this._get_blocks_usage(block_ids)
             .then(ret_usage => {
@@ -245,10 +246,15 @@ class BlockStoreS3 extends BlockStoreBase {
                     })
                     .catch(err => {
                         dbg.error('_delete_blocks failed:', err, _.omit(this.cloud_info, 'secret_key'));
+                        failed_to_delete_block_ids = block_ids;
                         throw err;
                     });
             })
-            .then(() => this._update_usage(deleted_storage));
+            .then(() => this._update_usage(deleted_storage))
+            .then(() => ({
+                failed_block_ids: failed_to_delete_block_ids,
+                succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
+            }));
     }
 
 

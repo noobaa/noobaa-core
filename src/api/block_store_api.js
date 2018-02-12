@@ -28,6 +28,21 @@ module.exports = {
             },
         },
 
+        verify_blocks: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['verify_blocks'],
+                properties: {
+                    verify_blocks: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/block_md'
+                        }
+                    }
+                },
+            },
+        },
 
         handle_delegator_error: {
             method: 'POST',
@@ -158,6 +173,25 @@ module.exports = {
                             type: 'string'
                         }
                     }
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['succeeded_block_ids', 'failed_block_ids'],
+                properties: {
+                    failed_block_ids: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    succeeded_block_ids: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+
                 },
             },
         },

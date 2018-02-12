@@ -20,7 +20,7 @@ class Pipeline {
         });
         this._input = input;
         this._pipes = [];
-        input.once('close', () => this.close());
+        input.once('close', () => this.close(new Error('INPUT STREAM CLOSED UNEXPECTEDLY')));
         input.on('error', err => this.close(err));
     }
 
@@ -46,6 +46,8 @@ class Pipeline {
     }
 
     close(err) {
+        if (this._closed) return;
+        this._closed = true;
         err = err || new Error('pipeline closed');
         this._reject(err);
         this._pipes.forEach(strm => strm.emit('close'));

@@ -34,6 +34,7 @@ module.exports = {
         // block size is the size of the fragment
         // this is the same as the chunk size when not using erasure coding since the chunk has a single fragment
         size: { type: 'integer' },
+        reclaimed: { date: true },
 
     }
 };

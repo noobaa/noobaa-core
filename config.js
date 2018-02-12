@@ -120,6 +120,28 @@ config.IO_SEMAPHORE_CAP = Math.floor(
 
 config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
 
+///////////////////////////
+// AGENT BLOCKS VERIFIER //
+///////////////////////////
+
+config.AGENT_BLOCKS_VERIFIER_ENABLED = true;
+// TODO: Should check what is the optiomal amount of batch
+config.AGENT_BLOCKS_VERIFIER_BATCH_SIZE = 1000;
+config.AGENT_BLOCKS_VERIFIER_BATCH_DELAY = 50;
+config.AGENT_BLOCKS_VERIFIER_ERROR_DELAY = 3000;
+config.AGENT_BLOCKS_VERIFIER_RESTART_DELAY = 30000;
+config.AGENT_BLOCKS_VERIFIER_TIMEOUT = 120 * 1000;
+
+////////////////////////////
+// AGENT BLOCKS RECLAIMER //
+////////////////////////////
+
+config.AGENT_BLOCKS_RECLAIMER_ENABLED = true;
+// TODO: Should check what is the optiomal amount of batch
+config.AGENT_BLOCKS_RECLAIMER_BATCH_SIZE = 1000;
+config.AGENT_BLOCKS_RECLAIMER_BATCH_DELAY = 50;
+config.AGENT_BLOCKS_RECLAIMER_ERROR_DELAY = 3000;
+config.AGENT_BLOCKS_RECLAIMER_RESTART_DELAY = 30000;
 
 ////////////////////
 // REBUILD CONFIG //

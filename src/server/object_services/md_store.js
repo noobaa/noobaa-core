@@ -144,6 +144,10 @@ class MDStore {
         return mongo_utils.populate(docs, doc_path, this._objects.col(), fields);
     }
 
+    populate_chunks(docs, doc_path, fields) {
+        return mongo_utils.populate(docs, doc_path, this._chunks.col(), fields);
+    }
+
     find_objects({ bucket_id, key, upload_mode, max_create_time, skip, limit, sort, order, pagination }) {
         const query = compact({
             bucket: bucket_id,
@@ -958,6 +962,29 @@ class MDStore {
     // BLOCKS //
     ////////////
 
+    iterate_all_blocks(marker, limit, deleted_only) {
+        const query = compact({
+            _id: marker ? {
+                $lt: marker
+            } : undefined,
+            deleted: null
+        });
+        if (deleted_only) {
+            query.deleted = {
+                $exists: true
+            };
+            query.reclaimed = {
+                $exists: false
+            };
+        }
+        return this._blocks.col().find(query, {
+                sort: {
+                    _id: -1
+                },
+                limit: limit,
+            })
+            .toArray();
+    }
 
     insert_blocks(blocks) {
         if (!blocks || !blocks.length) return;

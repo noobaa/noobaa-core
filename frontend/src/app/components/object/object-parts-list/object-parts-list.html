@@ -17,7 +17,7 @@
 
     <div class="column push-next" ko.tooltip="downloadTooltip">
         <a class="btn" download
-            ko.css.disabled="notOwner"
+            ko.css.disabled="!areActionsAllowed()"
             ko.click="onDownloadClick"
             ko.attr.href="s3SignedUrl" >
             Download File
@@ -26,7 +26,7 @@
 
     <div ko.tooltip="previewTooltip">
         <button class="btn"
-            ko.disable="notOwner"
+            ko.disable="!areActionsAllowed()"
             ko.click="onPreviewFile">
             Preview File
         </button>

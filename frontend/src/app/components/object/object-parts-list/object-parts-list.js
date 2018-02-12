@@ -11,9 +11,8 @@ import { flatMap } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getObjectId, summerizePartDistribution } from 'utils/object-utils';
 import { getPlacementTypeDisplayName, getResiliencyTypeDisplay } from 'utils/bucket-utils';
+import { capitalize } from 'utils/string-utils';
 import ko from 'knockout';
-
-const operationNotAvailableTooltip = 'This operation is only available for the system owner';
 
 function _summrizeResiliency(resiliency) {
     const { kind, replicas, dataFrags, parityFrags } = resiliency;
@@ -24,13 +23,31 @@ function _summrizeResiliency(resiliency) {
     return `${getResiliencyTypeDisplay(kind)} (${counts})`;
 }
 
+function _getActionsTooltip(isOwner, httpsNoCert, verb, align) {
+    if (!isOwner) {
+        return {
+            text: `${capitalize(verb)} is only available for the system owner`,
+            align: align
+        };
+
+    }
+
+    if (httpsNoCert) {
+        return {
+            text: `A certificate must be installed in order to ${verb} the file via https`,
+            align: align
+        };
+    }
+
+    return '';
+}
+
 class ObjectPartsListViewModel extends Observer {
     pageSize = paginationPageSize;
     pathname = '';
     selectedRow = -1;
     partsLoaded = ko.observable();
     page = ko.observable();
-    notOwner = ko.observable();
     s3SignedUrl = ko.observable();
     partCount = ko.observable();
     placementType = ko.observable();
@@ -41,6 +58,8 @@ class ObjectPartsListViewModel extends Observer {
     rows = ko.observableArray();
     isRowSelected = ko.observable();
     partDetails = new PartDetailsViewModel(() => this.onCloseDetails())
+    areActionsAllowed = ko.observable();
+    actionsTooltip = ko.observable();
 
     constructor() {
         super();
@@ -56,7 +75,8 @@ class ObjectPartsListViewModel extends Observer {
                 ['objectParts', 'items'],
                 'accounts',
                 ['session', 'user'],
-                'location'
+                'location',
+                ['system', 'sslCert']
             ),
             this.onState
         );
@@ -75,7 +95,7 @@ class ObjectPartsListViewModel extends Observer {
         }));
     }
 
-    onState([buckets, objects, parts, accounts, user, location]) {
+    onState([buckets, objects, parts, accounts, user, location, sslCert]) {
         const { pathname, query, params } = location;
         const { system, bucket: bucketName, object: objId } = params;
         const page = Number(query.page) || 0;
@@ -83,7 +103,7 @@ class ObjectPartsListViewModel extends Observer {
         const bucket = buckets && buckets[bucketName];
         const object = objects && objects[getObjectId(bucketName, objId)];
 
-        if (!bucket || !accounts || !object || !parts) {
+        if (!bucket || !accounts || !user || !object || !parts) {
             if (!bucket || !object) {
                 this.partCount(0);
                 this.placementType('');
@@ -91,19 +111,18 @@ class ObjectPartsListViewModel extends Observer {
                 this.resourceCount('');
             }
             this.partsLoaded(false);
+            this.areActionsAllowed(false);
 
         } else {
             const { isOwner } = accounts[user];
             const { placement, resiliency } = bucket;
+            const httpsNoCert = location.protocol === 'https' && !sslCert;
             const placementType = getPlacementTypeDisplayName(placement.policyType);
             const resilinecySummary = _summrizeResiliency(resiliency);
             const resources = flatMap(
                 placement.mirrorSets,
                 mirrorSet => mirrorSet.resources
             );
-
-            const downloadTooltip = !isOwner ? operationNotAvailableTooltip : '';
-            const previewTooltip = !isOwner ? operationNotAvailableTooltip: '';
 
             const partDistributions = parts
                 .map(part => summerizePartDistribution(bucket, part));
@@ -116,17 +135,17 @@ class ObjectPartsListViewModel extends Observer {
                 });
 
             this.pathname = pathname;
-            this.notOwner(!isOwner);
             this.s3SignedUrl(object.s3SignedUrl);
             this.partCount(object.partCount);
             this.placementType(placementType);
             this.resilinecySummary(resilinecySummary);
             this.resourceCount(resources.length);
-            this.downloadTooltip(downloadTooltip);
-            this.previewTooltip(previewTooltip);
+            this.downloadTooltip(_getActionsTooltip(isOwner, httpsNoCert, 'download'));
+            this.previewTooltip(_getActionsTooltip(isOwner, httpsNoCert, 'preview', 'end'));
             this.rows(rows);
             this.page(page);
             this.isRowSelected(selectedRow >= 0);
+            this.areActionsAllowed(isOwner && !httpsNoCert);
 
             if (selectedRow >= 0) {
                 const { seq } = parts[selectedRow];
@@ -143,7 +162,7 @@ class ObjectPartsListViewModel extends Observer {
     }
 
     onDownloadClick() {
-        return !this.notOwner();
+        return this.areActionsAllowed();
     }
 
     onSelectRow(row) {

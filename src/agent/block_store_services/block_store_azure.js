@@ -10,6 +10,7 @@ const azure_storage = require('../../util/azure_storage_wrap');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
 const url = require('url');
+const _ = require('lodash');
 
 class BlockStoreAzure extends BlockStoreBase {
 
@@ -163,6 +164,7 @@ class BlockStoreAzure extends BlockStoreBase {
             size: 0,
             count: 0
         };
+        let failed_to_delete_block_ids = [];
         return P.map(block_ids, block_id => {
                 const block_key = this._block_key(block_id);
                 let info;
@@ -189,6 +191,9 @@ class BlockStoreAzure extends BlockStoreBase {
                         deleted_storage.count -= 1;
                     })
                     .catch(err => {
+                        if (err.code !== 'BlobNotFound') {
+                            failed_to_delete_block_ids.push(block_id);
+                        }
                         dbg.warn('BlockStoreAzure _delete_blocks failed for block',
                             this.container_name, block_key, err);
                     });
@@ -196,7 +201,11 @@ class BlockStoreAzure extends BlockStoreBase {
                 // limit concurrency to 10
                 concurrency: 10
             })
-            .then(() => this._update_usage(deleted_storage));
+            .then(() => this._update_usage(deleted_storage))
+            .then(() => ({
+                failed_block_ids: failed_to_delete_block_ids,
+                succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
+            }));
     }
 
     _handle_delegator_error(err, usage) {

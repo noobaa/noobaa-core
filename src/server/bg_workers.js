@@ -22,6 +22,8 @@ var cluster_hb = require('./bg_services/cluster_hb');
 var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
 var cluster_master = require('./bg_services/cluster_master');
+var AgentBlocksVerifier = require('./bg_services/agent_blocks_verifier').AgentBlocksVerifier;
+var AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
 var stats_aggregator = require('./system_services/stats_aggregator');
 var aws_usage_metering = require('./system_services/aws_usage_metering');
 var usage_aggregator = require('./bg_services/usage_aggregator');
@@ -39,7 +41,9 @@ const MASTER_BG_WORKERS = [
     'usage_aggregator',
     'dedup_indexer',
     'db_cleaner',
-    'aws_usage_metering'
+    'aws_usage_metering',
+    'agent_blocks_verifier',
+    'agent_blocks_reclaimer'
 ];
 
 dbg.set_process_name('BGWorkers');
@@ -63,15 +67,16 @@ function register_rpc() {
 }
 
 
-function register_bg_worker(options, run_batch_function) {
-    if (!options.name || !_.isFunction(run_batch_function)) {
-        console.error('Name and run function must be supplied for registering bg worker', options.name);
-        throw new Error('Name and run function must be supplied for registering bg worker ' + options.name);
+function register_bg_worker(worker, run_batch_function) {
+    dbg.log0('Registering', worker.name, 'bg worker');
+    if (run_batch_function) {
+        worker.run_batch = run_batch_function;
     }
-
-    dbg.log0('Registering', options.name, 'bg worker');
-    options.run_batch = run_batch_function;
-    background_scheduler.run_background_worker(options);
+    if (!worker.name || !_.isFunction(worker.run_batch)) {
+        console.error('Name and run function must be supplied for registering bg worker', worker.name);
+        throw new Error('Name and run function must be supplied for registering bg worker ' + worker.name);
+    }
+    background_scheduler.run_background_worker(worker);
 }
 
 function remove_master_workers() {
@@ -125,6 +130,18 @@ function run_master_workers() {
         }, db_cleaner.background_worker);
     } else {
         dbg.warn('DB CLEANER NOT ENABLED');
+    }
+
+    if (config.AGENT_BLOCKS_VERIFIER_ENABLED) {
+        register_bg_worker(new AgentBlocksVerifier('agent_blocks_verifier'));
+    } else {
+        dbg.warn('AGENT BLOCKS VERIFIER NOT ENABLED');
+    }
+
+    if (config.AGENT_BLOCKS_RECLAIMER_ENABLED) {
+        register_bg_worker(new AgentBlocksReclaimer('agent_blocks_reclaimer'));
+    } else {
+        dbg.warn('AGENT BLOCKS RECLAIMER NOT ENABLED');
     }
 
     if (config.LIFECYCLE_DISABLED !== 'true') {

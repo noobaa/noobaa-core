@@ -56,7 +56,8 @@ class BlockStoreBase {
             'delegate_read_block',
             'replicate_block',
             'delete_blocks',
-            'handle_delegator_error'
+            'handle_delegator_error',
+            'verify_blocks'
         ]);
     }
 
@@ -106,6 +107,36 @@ class BlockStoreBase {
                 this.stats.inflight_reads -= 1;
             });
     }
+
+    verify_blocks(req) {
+        const { verify_blocks } = req.rpc_params;
+        dbg.log0('verify_blocks', 'blocks_to_verify:', verify_blocks);
+        return P.map(verify_blocks, block_md =>
+                P.join(this._read_block(block_md), this.block_cache.peek_cache(block_md))
+                .spread((block_from_store, block_from_cache) => {
+                    if (!block_from_store) {
+                        // TODO: Should trigger further action in order to resolve the issue
+                        dbg.error('verify_blocks BLOCK NOT EXISTS',
+                            ' on block:', block_md);
+                        return;
+                    }
+                    return P.all([
+                        this._verify_block(block_md, block_from_store.data, block_from_store.block_md),
+                        P.resolve(block_from_cache && this._verify_block(block_md, block_from_cache.data, block_from_cache.block_md))
+                    ]);
+                })
+                .catch(err => {
+                    // TODO: Should trigger further action in order to resolve the issue
+                    dbg.error('verify_blocks HAD ERROR:', err,
+                        ' on block:', block_md);
+                }), {
+                    // TODO: Should measure and decide on the value
+                    concurrency: 10
+                }
+            )
+            .return();
+    }
+
 
     write_block(req) {
         const block_md = req.rpc_params.block_md;
@@ -165,7 +196,7 @@ class BlockStoreBase {
         dbg.log0('delete_blocks', block_ids, 'node', this.node_name);
         this.block_cache.multi_invalidate_keys(block_ids);
         return this.block_modify_lock.surround_keys(block_ids.map(block_id => String(block_id)),
-            () => P.resolve(this._delete_blocks(block_ids)).return());
+            () => P.resolve(this._delete_blocks(block_ids)));
     }
 
     _verify_block(block_md, data, block_md_from_store) {

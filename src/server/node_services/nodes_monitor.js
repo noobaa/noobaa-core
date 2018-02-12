@@ -1458,7 +1458,7 @@ class NodesMonitor extends EventEmitter {
                     return;
                 }
                 if (!item.io_test_errors) {
-                    dbg.log0('_test_store_perf:: node has io_test_errors', item.node.name);
+                    dbg.error('_test_store_perf:: node has io_test_errors', item.node.name, err);
                     item.io_test_errors = Date.now();
                 }
             });
@@ -1495,9 +1495,9 @@ class NodesMonitor extends EventEmitter {
                     item.gateway_errors = 0;
                 }
             })
-            .catch(() => {
+            .catch(err => {
                 if (!item.gateway_errors) {
-                    dbg.log0('_test_network_to_server:: node has gateway_errors', item.node.name);
+                    dbg.error('_test_network_to_server:: node has gateway_errors', item.node.name, err);
                     item.gateway_errors = Date.now();
                 }
             });
@@ -1532,9 +1532,9 @@ class NodesMonitor extends EventEmitter {
                     item.n2n_errors = 0;
                 }
             })
-            .catch(() => {
+            .catch(err => {
                 if (!item.n2n_errors) {
-                    dbg.log0('_test_network_perf:: node has n2n_errors', item.node.name);
+                    dbg.error('_test_network_perf:: node has n2n_errors', item.node.name, err);
                     item.n2n_errors = Date.now();
                 }
             });

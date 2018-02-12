@@ -8,6 +8,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('./md_store').MDStore;
 const server_rpc = require('../server_rpc');
+const mongo_utils = require('../../util/mongo_utils');
 
 /**
  *
@@ -51,7 +52,15 @@ function delete_blocks_from_nodes(blocks) {
     // TODO: If the overload of these calls is too big, we should protect
     // ourselves in a similar manner to the replication
     const blocks_by_node = _.values(_.groupBy(blocks, block => String(block.node._id)));
-    return P.map(blocks_by_node, delete_blocks_from_node);
+    return P.map(blocks_by_node, delete_blocks_from_node)
+        .then(succeeded_block_ids => {
+            const block_ids = _.flatten(succeeded_block_ids).map(block_id => mongo_utils.make_object_id(block_id));
+            return MDStore.instance().update_blocks_by_ids(block_ids, { reclaimed: new Date() });
+        })
+        .catch(err => {
+            dbg.warn('delete_blocks_from_nodes: Failed to mark blocks as reclaimed', err);
+        })
+        .return();
 }
 
 
@@ -71,11 +80,18 @@ function delete_blocks_from_node(blocks) {
             address: node.rpc_address,
             timeout: config.IO_DELETE_BLOCK_TIMEOUT,
         })
-        .then(() => {
-            dbg.log0('delete_blocks_from_node: DONE. node', node._id, node.rpc_address,
-                'block_ids', block_ids.length);
+        .then(res => {
+            if (res.failed_block_ids.length) {
+                dbg.warn('delete_blocks_from_node: node', node._id, node.rpc_address,
+                    'failed_block_ids', res.failed_block_ids.length);
+            }
+            if (res.succeeded_block_ids.length) {
+                dbg.log0('delete_blocks_from_node: node', node._id, node.rpc_address,
+                    'succeeded_block_ids', res.succeeded_block_ids.length);
+            }
+            return res.succeeded_block_ids;
         }, err => {
-            dbg.log0('delete_blocks_from_node: ERROR node', node._id, node.rpc_address,
+            dbg.warn('delete_blocks_from_node: ERROR node', node._id, node.rpc_address,
                 'block_ids', block_ids.length, err);
         });
 }

@@ -187,25 +187,38 @@ class BlockStoreMongo extends BlockStoreBase {
     }
 
     _delete_blocks(block_ids) {
+        let failed_to_delete_block_ids = [];
         const block_names = _.map(block_ids, block_id => this._block_key(block_id));
         return P.map(block_names, block_name => this._blocks_fs.gridfs().find({
                     filename: block_name
                 })
                 .toArray()
-                .then(blocks => P.map(blocks, block => this._blocks_fs.gridfs().delete(block._id), {
-                    concurrency: 10
-                })), {
+                .then(blocks => P.map(blocks, block => this._blocks_fs.gridfs().delete(block._id)
+                    .catch(err => {
+                        dbg.error('_delete_blocks: could not delete', block, err);
+                        failed_to_delete_block_ids.push(this._key_block(block.filename));
+                        throw err;
+                    }), {
+                        concurrency: 10
+                    })), {
                     concurrency: 10
                 })
             .catch(err => {
                 dbg.error('_delete_blocks failed:', err);
-                throw err;
-            });
+            })
+            .then(() => ({
+                failed_block_ids: failed_to_delete_block_ids,
+                succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
+            }));
     }
 
     _block_key(block_id) {
         const block_dir = this._get_block_internal_dir(block_id);
         return `${this.blocks_path}/${block_dir}/${block_id}`;
+    }
+
+    _key_block(key) {
+        return key.split('/')[2];
     }
 
     _encode_block_md(block_md) {

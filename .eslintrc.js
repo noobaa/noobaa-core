@@ -9,6 +9,10 @@ module.exports = {
         es6: true,
     },
 
+    parserOptions: {
+        ecmaVersion: 2017
+    },
+
     plugins: [
         // eslint-plugin-header validates copyright header
         'header'
@@ -262,6 +266,8 @@ module.exports = {
 
         // turn off todo/fixme comments - will grep it to a different report
         'no-warning-comments': 'off',
+
+        'no-await-in-loop': 'off',
 
         // the rule object-property-newline is better than object-curly-newline
         'object-property-newline': 'off',

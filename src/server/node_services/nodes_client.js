@@ -212,6 +212,7 @@ class NodesClient {
             .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
+    // TODO: Fields doesn't seem to filter and work
     populate_nodes(system_id, docs, doc_path, fields) {
         const docs_list = docs && !_.isArray(docs) ? [docs] : docs;
         const ids = mongo_utils.uniq_ids(docs_list, doc_path);

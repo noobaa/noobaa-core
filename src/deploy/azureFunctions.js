@@ -196,7 +196,8 @@ class AzureFunctions {
                         serverIP
                     }));
                 } else {
-                    console.log(`Skipping creation of extension, both ip ${serverIP} and agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
+                    console.log(`Skipping creation of extension (agent installation), both ip ${serverIP} and 
+                        agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
                     return ip;
                 }
             });

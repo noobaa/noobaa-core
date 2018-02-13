@@ -88,7 +88,8 @@ function prepare_server() {
             vnet,
             storage,
             vmSize,
-            latestRelease: true
+            latestRelease: true,
+            createSystem: true
         })
         .then(new_secret => {
             server.secret = new_secret;

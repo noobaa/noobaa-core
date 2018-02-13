@@ -249,6 +249,7 @@ function create_env() {
             vnet: TEST_CFG.vnet,
             storage: TEST_CFG.storage,
             latesetRelease: true,
+            createSystem: true
         }))
         .then(secret => {
             TEST_CFG.secret = secret;

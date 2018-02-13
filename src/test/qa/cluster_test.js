@@ -354,7 +354,8 @@ function prepareServers(requestedServers) {
         serverName: server.name,
         vnet,
         storage,
-        ipType: 'Static'
+        ipType: 'Static',
+        createSystem: true
     })
         .then(new_secret => {
             console.log(`${YELLOW}${server.name} secret is: ${new_secret}${NC}`);

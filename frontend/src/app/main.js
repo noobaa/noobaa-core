@@ -11,7 +11,7 @@ import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
 import page from 'page';
 import configureRouter from 'routing';
-import { action$, state$, record$ } from 'state';
+import { action$, state$, appLog$ } from 'state';
 import { api, AWS } from 'services';
 import { restoreSession, setupEnv } from 'action-creators';
 import devCLI from 'dev-cli';
@@ -78,7 +78,7 @@ function registerSideEffects(action$, state$) {
         .filter(Boolean)
         .subscribe(action$);
 
-    installSupportability(record$, injectedServices);
+    installSupportability(appLog$, injectedServices);
     installStateSideEffects(state$, injectedServices);
 }
 

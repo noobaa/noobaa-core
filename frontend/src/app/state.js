@@ -7,6 +7,7 @@ import { deepFreeze, isObject, noop } from 'utils/core-utils';
 import { createSchemaValidator } from 'utils/schema-utils';
 import { mapErrorObject } from 'utils/state-utils';
 
+const maxLogSize = 450;
 const schemaValidator = createSchemaValidator(stateSchema);
 
 function _filterMishapedActions(action) {
@@ -67,13 +68,19 @@ function _reduceRecords(prev, action) {
     return { timestamp, action, state };
 }
 
+function _reduceLog(log, record) {
+    return log
+        .concat(record)
+        .slice(-maxLogSize);
+}
+
 // Actions stream.
 export const action$ = new Subject();
 action$.ofType = function(...types) {
     return this.filter(action => types.includes(action.type));
 };
 
-export const record$ = action$
+const record$ = action$
     .filter(_filterMishapedActions)
     .scan(_reduceRecords, {})
     .share();
@@ -84,6 +91,9 @@ export const state$ = record$
     .switchMap(value => Promise.resolve(value))
     .shareReplay(1);
 
+export const appLog$ = record$
+    .scan(_reduceLog, [])
+    .shareReplay(1);
 
 // Subcribe so we will not loose action that are dispatched
 // before any other subscription.

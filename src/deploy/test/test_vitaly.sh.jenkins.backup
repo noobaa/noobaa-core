@@ -1,0 +1,50 @@
+#!/bin/bash
+
+mkdir -p report
+
+#TODO: add those variable form jenkins.
+echo "branch: ${branch}" 
+echo "package_location: $WORKSPACE"
+
+cat /etc/issue
+#echo "vitaly current ip: 52.191.139.95"
+#echo "secret: e3e018ad"
+#making sure that we can sudo in this system.
+#sed -i  "s/Defaults.*requiretty/Defaults \!requiretty/g" /etc/sudoers
+
+echo "download package"
+
+#rm -rf /tmp/archive*
+#curl -u tamireran:e9565b4316c023886db5c81f6febdead79f8e452 -L $WORKSPACE/artifact/*zip*/archive.zip >/tmp/archive.zip
+#mv /tmp/archive.zip /tmp/noobaa-NVA-${GIT_COMMIT:0:7}.zip
+fname=$(ls $WORKSPACE | grep tar)
+#fname=$(sudo unzip -o /tmp/noobaa-NVA-${GIT_COMMIT:0:7}.zip -d  /tmp/|grep "tar.gz"|awk '{ print $2 }')
+if [ -z ${fname} ]
+then
+  echo "variable fname is not exist, Exiting."
+  exit 1
+fi
+
+pwd
+
+#TODO: add those variable form jenkins.
+echo "AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}" > .env
+echo "CLIENT_ID=${CLIENT_ID}" >> .env 
+echo "APPLICATION_SECRET=${APPLICATION_SECRET}" >> .env
+echo "DOMAIN=noobaa.com " >> .env
+echo "AZURE_STORAGE_CONNECTION_STRING=\'${AZURE_STORAGE_CONNECTION_STRING}\'" >> .env
+
+npm install
+npm install azure
+
+pwd 
+
+# next line will build env, upgrade and run tests
+node src/test/framework/test_env_builder.js \
+--resource jenkins-7-vitaly \
+--vnet jenkins-7-vitaly-vnet \
+--storage jenkins7vitalydisks \
+--name ${branch//_/-} \
+--id ${BUILD_NUMBER} \
+--upgrade $WORKSPACE/$fname \
+--js_script src/test/framework/remote_runner.js 

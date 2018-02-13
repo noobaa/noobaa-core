@@ -1,42 +1,21 @@
 #!groovy​
 def branch = 'master'
+//defining env variables
+def resource = 'jenkins-7-pipeline'
+def vnet = 'jenkins-7-pipeline-vnet'
+def storage = 'jenkinspipeline7'
+def vm_size = 'B'
+def azureEnv = " --resource ${resource} --vnet ${vnet} --storage ${storage} --vm_size ${vm_size}"
 //dataset
 def dataset_ip = '52.151.45.46'
-def noobaa_server = 'datasetpipeline.westus2.cloudapp.azure.com'
 def dataset_size = '51200' //MB
 def aging_time = '300' //min
-//machinekiller
-def start_killing_time = '30' // start killing after 30 minutes
-def service = 'azure'
-def resource = 'pipeline-dataset'
-def zone = 'westus2'
-def prefix = 'qa-dataset-agent'
-def min_machines = '0' // minimum 3 machine
-def max_machines = '3' // maximum 10 machines
-//cluster
-def clusterResource = 'pipelie-cluster'
-def clusterVnet = 'pipelie-cluster-vnet'
-def clusterStorage = 'pipelieclusterdisks'
-//agentMatrix
-def azureName = 'agentMatrix0'
-def serverName = 'agentmatrix.westus2.cloudapp.azure.com'
-def serverIP = '52.183.97.185'
-def agentsResource = 'pipeline-agents'
-def agentsVnet = 'pipeline-agents-vnet'
-def agentsStorage = 'pipelineagentsdisks'
-//systemConfig
-def nodeLocalIP = '10.1.12.0'
-def serverLocalIP = '52.191.139.47'
-def severExternalIP = '52.191.139.47'
-//agent rg
-def data_ip = '52.151.56.24'
-def ip = '40.65.102.142'
-def ip_spillover = '52.151.62.82'
 
 node('pipeline') {
 	def buildResult = "SUCCESS"
 	try {
 		stage('Get code from GIT') {
+            echo "start time: \$(date)"
 			echo 'node name: pipeline, ip: 52.183.114.248'
 			echo 'Checkouting from git!'
 			checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '22686b32-d2c1-4a6f-9248-d89614dd8a3f', url: 'git@github.com:noobaa/noobaa-core.git']]])
@@ -57,99 +36,216 @@ node('pipeline') {
 			 	nvm alias default \${noderc}
 			 	nvm use default
 			fi
-			 #cd $WORKSPACE
-			 #npm install
+			 cd $WORKSPACE
+			 npm install
 			 #npm install azure cloud-cd
 			 #npm install minimist
 			 nvm --version
 			 node -v
 			 npm -v
 			 """
-			 echo 'Deleting log file'
-			 sh script: """
-			 rm -rf $WORKSPACE/logs/noobaa.log
-			 """
-            //    echo 'Getting last successful package build'
-            //    sh script: """
-            //    curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/Build/job/Build-Package/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
-            //    isMaster=\$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<displayName>" '{print \$2}' | awk -F "</displayName>" '{print \$1}')
-             //        if [[ "\${isMaster}" =~ "master" ]]
-             //        then
-             //        curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/Build/job/Build-Package/lastSuccessfulBuild/artifact/*zip*/archive.zip >/tmp/noobaa-NVA-latest.zip
-             //    """
+            echo 'Deleting log file'
+            sh script: """
+            rm -rf $WORKSPACE/logs/noobaa.log
+            """
+            echo 'Getting last successful package build'
+            sh script: """
+            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
+            buildPath=\$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<relativePath>" '{print \$2}' | awk -F "</relativePath>" '{print \$1}' | xargs)
+            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Test/job/Test-Pipeline/api/xml >/tmp/pipeline.xml
+            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/artifact/\${buildPath} >/tmp/noobaa-NVA-latest.tar.gz
+            tar -zxvf /tmp/noobaa-NVA-latest.tar.gz -C /tmp/
+            cp -r /tmp/noobaa-core/src $WORKSPACE/
+            """
 		}
         stage('Setting env file agents rg') {
             sh script: """
             rm .env
-            touch .env
-            echo 'AZURE_SUBSCRIPTION_ID=a3556050-2d88-42a4-a4e3-f0a2087edc60' >> .env
-            echo 'DOMAIN=noobaa.com' >> .env
-            echo 'APPLICATION_SECRET=JRqvAUh95fF+3aBaz0SJcB21ocTO8+MCtjJ7adg9fhE=' >> .env
-            echo 'AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=pipelineagentsdisks;AccountKey=p9Ed8m+87P5ZwcOcvXqfvCJ9NExeZBRutsDdSCkXU2JKj9wPIV60e1yYaZ4UIKuSLvedMhVS2dSKUtDYSbujKQ==;EndpointSuffix=core.windows.net"' >> .env
-            echo 'CLIENT_ID=199522b3-407d-45eb-b7fb-023d21ab6406' >> .env
+            cp /tmp/.env .env
             """
         }
 		stage('Tests') {
-		parallel (
-		"account_test": {
-            echo 'Doing account tests!'
+		parallel (  
+        "account_test": {
+            echo 'Running account tests!'
             sh script: """
             export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/account_test.js --server_ip '${ip}' --system_ip '${ip}'
+            . /opt/nvm/nvm.sh &> /dev/null
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)1
+            flags="${azureEnv} --name account --id \${id} "
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+                --js_script $WORKSPACE/src/test/qa/account_test.js
             """
-		},
+            echo 'Deleting account env'
+            sh script: """
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)1
+            flags="${azureEnv} --name account --id \${id} --skip_agent_creation"
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --clean_only
+            """
+        },
         "namespace": {
             echo 'Loading data to namespace resources!'
             sh script: """
             export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/namespace_test.js --server_ip '${ip}'
+            . /opt/nvm/nvm.sh &> /dev/null
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)2
+            flags="${azureEnv} --name namespace --id \${id} --skip_agent_creation"
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+                --js_script $WORKSPACE/src/test/qa/namespace_test.js
+            """
+            echo 'Deleting namespace env'
+            sh script: """
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)2
+            flags="${azureEnv} --name namespace --id \${id} "
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --clean_only
             """
         },
         "replica_test": {
             echo 'Uploading data with switching off agents and checking files chunks and parts'
             sh script: """
             export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/rebuild_replicas_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${ip}' --failed_agents_number 2 --agents_number 10
+            . /opt/nvm/nvm.sh &> /dev/null
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)3
+            flags="${azureEnv} --name replica --id \${id} --skip_agent_creation"
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+                --js_script $WORKSPACE/src/test/qa/rebuild_replicas_test.js --failed_agents_number 2 --agents_number 10
+            """
+            echo 'Deleting replica env'
+            sh script: """
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)3
+            flags="${azureEnv} --name replica --id \${id} "
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --clean_only
             """
         },
         "data_availability": {
             echo 'Uploading data with switching off agents and checking files'
             sh script: """
             export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/data_availability_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${data_ip}' --iterationsNumber 2 --failed_agents_number 1 --agents_number 6
+            . /opt/nvm/nvm.sh &> /dev/null
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)4
+            flags="${azureEnv} --name dataAvailability --id \${id} --skip_agent_creation"
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+                --js_script $WORKSPACE/src/test/qa/data_availability_test.js --iterationsNumber 2 --failed_agents_number 1 --agents_number 6
+            """
+            echo 'Deleting data_availability env'
+            sh script: """
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)4
+            flags="${azureEnv} --name dataAvailability --id \${id} "
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --clean_only
             """
         },
-		"spillover": {
-            echo 'Uploading data on spillover, add agents, upload over pool resources size'
+        //TODO: need to fix the test due to changes in the spillover (on the server)
+        //
+		// "spillover": {
+        //     echo 'Uploading data on spillover, add agents, upload over pool resources size'
+        //     sh script: """
+        //     export NVM_DIR=/opt/nvm
+        //     . /opt/nvm/nvm.sh &> /dev/null
+        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)5
+        //     flags="${azureEnv} --name spillover --id \${id} --skip_agent_creation"
+        //     node src/test/framework/test_env_builder.js \
+        //         \${flags} \
+        //         --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+        //         --js_script $WORKSPACE/src/test/qa/spillover_test.js
+        //     """
+        //     echo 'Deleting spillover env'
+        //     sh script: """
+        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)5
+        //     flags="${azureEnv} --name spillover --id \${id} "
+        //     node src/test/framework/test_env_builder.js \
+        //         \${flags} \
+        //         --clean_only
+        //     """
+        // },
+        //TODO: need to get the internal ip of the server and run into it.
+        // "dataset": {
+        //     echo 'Running dataset'
+        //     sh script: """
+        //     export NVM_DIR=/opt/nvm
+        //     . /opt/nvm/nvm.sh &> /dev/null
+        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)6
+        //     flags="${azureEnv} --name dataset --id \${id} "
+        //     node src/test/framework/test_env_builder.js \
+        //         \${flags} \
+        //         --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+        //         --js_script $WORKSPACE/src/test/qa/dataset.js --server ${dataset_ip} --aging_timeout 1 --dataset_size 1024
+        //     """
+        //     echo 'Deleting agent_matrix env'
+        //     sh script: """
+        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)6
+        //     flags="${azureEnv} --name dataset --id \${id} "
+        //     node src/test/framework/test_env_builder.js \
+        //         \${flags} \
+        //         --clean_only
+        //     """
+        // },
+        "agents_matrix": {
+            echo 'Running agent_matrix'
             sh script: """
             export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/spillover_test.js --resource '${agentsResource}' --vnet '${agentsVnet}' --storage '${agentsStorage}' --server_ip '${ip_spillover}'
+            . /opt/nvm/nvm.sh &> /dev/null
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)7
+            flags="${azureEnv} --name agentsMatrix --id \${id} --skip_agent_creation"
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+                --js_script $WORKSPACE/src/test/qa/agents_matrix.js 
+            """
+            echo 'Deleting agent_matrix env'
+            sh script: """
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)7
+            flags="${azureEnv} --name agentsMatrix --id \${id} "
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --clean_only
             """
         },
-        "dataset": {
-            echo 'Doing clean ova and set system config'
+        "Upgrade": {
+            echo 'Running Upgrad test'
             sh script: """
             export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh
-            node $WORKSPACE/src/test/qa/dataset.js --server '${dataset_ip}' --aging_timeout 1 --dataset_size 1024
+            . /opt/nvm/nvm.sh &> /dev/null
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)8
+            flags="${azureEnv} --name upgrade --id \${id}" 
+            node src/test/qa/two_step_upgrade_test.js \
+                \${flags} \
+                --upgrade_package /tmp/noobaa-NVA-latest.tar.gz \
             """
-        }
-		)}
+          }
+        )}
 	} catch (e) {
 		buildResult = "FAILED"
         echo 'build failed with error ' + e
         throw e
 	} finally {
+            echo 'Deleting all the tmp files'
+            sh script: """
+            rm -rf /tmp/lastSuccessfulBuild.xml
+            rm -rf /tmp/noobaa-NVA-latest.tar.gz
+            rm -rf /tmp/pipeline.xml
+            rm -rf /tmp/noobaa-core/
+            """
 			def subject = "Job '${JOB_NAME}' (${BUILD_NUMBER}) version is " + buildResult
 			def appLog = readFile("${WORKSPACE}/logs/noobaa.log")
 			def details = "Please go to ${BUILD_URL} and verify the build. noobaa logs: " + appLog
 			mail subject: subject,
 			body: details,
-			to:  'yuliia.kovalenko@noobaa.com, liran.mauda@noobaa.com, nimrod.becker@noobaa.com'
+			to:  'liran.mauda@noobaa.com, nimrod.becker@noobaa.com'
 	}
 }

@@ -862,6 +862,11 @@ function get_account_info(account, include_connection_cache) {
     if (account.is_support) {
         info.is_support = true;
         info.has_login = true;
+        //Support does not have access_keys nor do we want to really create a pair, return a mock in order to stay with the schema
+        info.access_keys = [{
+            access_key: 'Not Accesible',
+            secret_key: 'Not Accesible'
+        }];
     }
 
     if (account.next_password_change) {

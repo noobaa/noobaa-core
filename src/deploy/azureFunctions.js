@@ -15,9 +15,9 @@ const promise_utils = require('../util/promise_utils');
 const azure_storage = require('../util/azure_storage_wrap');
 const af = require('../test/utils/agent_functions');
 
-const adminUsername = 'notadmin';
-const qaUsername = 'qaadmin';
-const adminPassword = '0bj3ctSt0r3!';
+const ADMIN_USER_NAME = 'notadmin';
+const QA_USER_NAME = 'qaadmin';
+const ADMIN_PASSWORD = '0bj3ctSt0r3!';
 let DEFAULT_SIZE = 'Standard_B2s';
 
 
@@ -44,8 +44,18 @@ function _makeArray(size, handler) {
     return [...Array(30).keys()].map(handler);
 }
 
-
 class AzureFunctions {
+    static get ADMIN_USER_NAME() {
+        return ADMIN_USER_NAME;
+    }
+
+    static get QA_USER_NAME() {
+        return QA_USER_NAME;
+    }
+
+    static get ADMIN_PASSWORD() {
+        return ADMIN_PASSWORD;
+    }
 
     constructor(clientId, domain, secret, subscriptionId, resourceGroupName, location) {
         this.clientId = clientId;
@@ -76,7 +86,8 @@ class AzureFunctions {
             offer: 'UbuntuServer',
             sku: '14.04.5-LTS',
             version: 'latest',
-            osType: 'Linux'
+            osType: 'Linux',
+            hasImage: true
         };
         if (osname === 'ubuntu16') {
             // Ubuntu 16 config
@@ -85,6 +96,7 @@ class AzureFunctions {
             os.sku = '16.04.0-LTS';
             os.version = 'latest';
             os.osType = 'Linux';
+            os.hasImage = true;
         } else if (osname === 'ubuntu12') {
             // Ubuntu 12 config
             os.publisher = 'Canonical';
@@ -92,6 +104,7 @@ class AzureFunctions {
             os.sku = '12.04.5-LTS';
             os.version = 'latest';
             os.osType = 'Linux';
+            os.hasImage = true;
         } else if (osname === 'centos6') {
             // Centos 6.8 config
             os.publisher = 'OpenLogic';
@@ -99,6 +112,7 @@ class AzureFunctions {
             os.sku = '6.8';
             os.version = 'latest';
             os.osType = 'Linux';
+            os.hasImage = true;
         } else if (osname === 'centos7') {
             // Centos 6.8 config
             os.publisher = 'OpenLogic';
@@ -106,6 +120,7 @@ class AzureFunctions {
             os.sku = '7.2';
             os.version = 'latest';
             os.osType = 'Linux';
+            os.hasImage = true;
         } else if (osname === 'redhat6') {
             // RHEL 6.8 config
             os.publisher = 'RedHat';
@@ -113,6 +128,7 @@ class AzureFunctions {
             os.sku = '6.8';
             os.version = 'latest';
             os.osType = 'Linux';
+            os.hasImage = true;
         } else if (osname === 'redhat7') {
             // RHEL 7.2 config
             os.publisher = 'RedHat';
@@ -120,6 +136,7 @@ class AzureFunctions {
             os.sku = '7.2';
             os.version = 'latest';
             os.osType = 'Linux';
+            os.hasImage = false;
         } else if (osname === 'win2012') {
             // Windows 2012R2 config
             os.publisher = 'MicrosoftWindowsServer';
@@ -127,6 +144,7 @@ class AzureFunctions {
             os.sku = '2012-R2-Datacenter';
             os.version = 'latest';
             os.osType = 'Windows';
+            os.hasImage = false;
         } else if (osname === 'win2008') {
             // Windows 2008R2 config
             os.publisher = 'MicrosoftWindowsServer';
@@ -134,6 +152,7 @@ class AzureFunctions {
             os.sku = '2008-R2-SP1';
             os.version = 'latest';
             os.osType = 'Windows';
+            os.hasImage = false;
         } else if (osname === 'win2016') {
             // Windows 2016 config
             os.publisher = 'MicrosoftWindowsServer';
@@ -141,6 +160,7 @@ class AzureFunctions {
             os.sku = '2016-Datacenter';
             os.version = 'latest';
             os.osType = 'Windows';
+            os.hasImage = false;
         }
         return os;
     }
@@ -187,14 +207,15 @@ class AzureFunctions {
             .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
             .then(ip => {
                 if (agentConf && serverIP) {
-                    return this.createAgentExtension(_.defaults({ ip }, {
+                    return this.createAgentExtension({
+                        ip,
                         vmName,
                         storage,
                         vnet,
-                        os,
+                        os: osDetails,
                         agentConf,
                         serverIP
-                    }));
+                    });
                 } else {
                     console.log(`Skipping creation of extension (agent installation), both ip ${serverIP} and 
                         agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
@@ -208,8 +229,8 @@ class AzureFunctions {
     //     return ssh.ssh_connect({
     //         host: agent_server_ip,
     //         //  port: 22,
-    //         username: qaUsername,
-    //         password: adminPassword,
+    //         username: QA_USER_NAME,
+    //         password: ADMIN_PASSWORD,
     //         keepaliveInterval: 5000,
     //     })
     //         //becoming root and running the agent command
@@ -263,8 +284,10 @@ class AzureFunctions {
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
             exclude_drives = [],
+            shouldInstall = false
         } = params;
         let agentCommand;
+        let agent_ip;
         const osType = this.getImagesfromOSname(os).osType;
         return P.resolve()
             .then(() => this.copyVHD({
@@ -290,19 +313,25 @@ class AzureFunctions {
                 });
             })
             .delay(20 * 1000)
-            .then(() => af.getAgentConfInstallString(server_ip, osType, exclude_drives))
-            .then(res => {
-                agentCommand = res;
-                console.log(agentCommand);
-                return this.getIpAddress(vmName + '_pip');
-            })
-            .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
-            .then(ip => af.runAgentCommandViaSsh(ip, qaUsername, adminPassword, agentCommand, osType));
+            .then(() => this.getIpAddress(vmName + '_pip'))
+            .then(ip => {
+                console.log(`${vmName} agent ip is: ${ip}`);
+                agent_ip = ip;
+                if (shouldInstall) {
+                    return af.getAgentConfInstallString(server_ip, osType, exclude_drives)
+                        .then(res => {
+                            agentCommand = res;
+                            console.log(agentCommand);
+                            return af.runAgentCommandViaSsh(agent_ip, QA_USER_NAME, ADMIN_PASSWORD, agentCommand, osType);
+                        });
+                } else {
+                    return agent_ip;
+                }
+            });
     }
 
     createAgentExtension(params) {
         const { vmName, os, serverIP, agentConf, ip } = params;
-        console.log('Started the Virtual Machine!');
         var extension = {
             publisher: 'Microsoft.OSTCExtensions',
             virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
@@ -401,8 +430,8 @@ class AzureFunctions {
             // },
             osProfile: {
                 computerName: vmName,
-                adminUsername: adminUsername,
-                adminPassword: adminPassword
+                adminUsername: ADMIN_USER_NAME,
+                adminPassword: ADMIN_PASSWORD
             },
             hardwareProfile: {
                 vmSize
@@ -445,8 +474,8 @@ class AzureFunctions {
             plan: plan,
             osProfile: {
                 computerName: vmName,
-                adminUsername: adminUsername,
-                adminPassword: adminPassword
+                adminUsername: ADMIN_USER_NAME,
+                adminPassword: ADMIN_PASSWORD
             },
             hardwareProfile: {
                 vmSize
@@ -503,8 +532,8 @@ class AzureFunctions {
                     plan: machine_info.plan,
                     osProfile: {
                         computerName: newMachine,
-                        adminUsername: adminUsername,
-                        adminPassword: adminPassword
+                        adminUsername: ADMIN_USER_NAME,
+                        adminPassword: ADMIN_PASSWORD
                     },
                     hardwareProfile: machine_info.hardwareProfile,
                     storageProfile: {
@@ -611,8 +640,8 @@ class AzureFunctions {
                     plan: machine_info.plan,
                     osProfile: {
                         computerName: vmName,
-                        adminUsername: adminUsername,
-                        adminPassword: adminPassword
+                        adminUsername: ADMIN_USER_NAME,
+                        adminPassword: ADMIN_PASSWORD
                     },
                     hardwareProfile: machine_info.hardwareProfile,
                     storageProfile: {
@@ -815,8 +844,9 @@ class AzureFunctions {
             vmSize = DEFAULT_SIZE,
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
-            latesetRelease = false,
+            latesetRelease = true,
             createSystem = false,
+            updateNTP = false,
         } = params;
         let { imagename } = params;
         let rpc;
@@ -867,14 +897,19 @@ class AzureFunctions {
                             return client.system.read_system({});
                         })
                         .then(res => {
-                            console.log('System created successfully, setting NTP');
                             secret = res.cluster.master_secret;
-                            return client.cluster_server.update_time_config({
-                                    target_secret: secret,
-                                    timezone: TZ,
-                                    ntp_server: NTP
-                                })
-                                .then(() => rpc.disconnect_all());
+                            if (updateNTP) {
+                                console.log('System created successfully, setting NTP');
+                                return client.cluster_server.update_time_config({
+                                        target_secret: secret,
+                                        timezone: TZ,
+                                        ntp_server: NTP
+                                    })
+                                    .then(() => rpc.disconnect_all());
+                            } else {
+                                console.log('System created successfuly');
+                                return P.resolve();
+                            }
                         });
                 } else {
                     console.log('Skipping system creation');

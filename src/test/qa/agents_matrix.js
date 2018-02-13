@@ -136,7 +136,7 @@ function createAgents(isInclude, excludeList) {
                     vmName: osname,
                     storage,
                     vnet,
-                    os: azf.getImagesfromOSname(osname),
+                    os: osname,
                     agentConf,
                     serverIP: server_ip
                 }))

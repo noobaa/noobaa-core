@@ -6,14 +6,18 @@
  */
 'use strict';
 
-const util = require('util');
-const P = require('../util/promise');
 const AzureFunctions = require('./azureFunctions');
-const crypto = require('crypto');
-const argv = require('minimist')(process.argv.slice(2));
-const net = require('net');
-const _ = require('lodash');
+
+const P = require('../util/promise');
 const af = require('../test/utils/agent_functions'); //TODO: remove from here when Win can be copied from an image
+const dbg = require('../util/debug_module')(__filename);
+
+const _ = require('lodash');
+const net = require('net');
+const util = require('util');
+const argv = require('minimist')(process.argv.slice(2));
+const crypto = require('crypto');
+
 
 const locationDefault = 'westus2';
 
@@ -35,10 +39,12 @@ Usage Printers
 */
 
 function print_usage_top_level() {
+    dbg.original_console();
     console.log(`
+azure.js
 Usage:
-    --help                      Show this usage
-    --help [server/agent/lg]    Show usage of the appropriate command
+    --help                    Show this usage
+    --help [server/agent/lg]  Show usage of the appropriate command
     server <args>             Create / destroy NooBaa servers on Azure
     agent <args>              Create / destroy NooBaa agents on Azure
     lg <args>                 Create / destroy NooBaa LGs on Azure
@@ -46,8 +52,10 @@ Usage:
 }
 
 function print_usage_server() {
+    dbg.original_console();
     console.log(`
-    Usage:
+azure.js
+Usage:
       --help server               Show this usage
       --name <name>               The name of the newly created server(s)
       --location <location>       The azure location you want to use (default: ${locationDefault})
@@ -56,30 +64,50 @@ function print_usage_server() {
       --vnet <vnet>               The azure virtual network to use
       --servers                   How many servers to create, default is 1
       --clusterize                If the number of servers > 1, this flag will clusterize all the servers together, default is false
-      --nosystem                  Skip system creation, defaults is to create one. If clusterize is turned on, a system will be created.
+      --nosystem                  Skip system creation, defaults is to create one. If clusterize is turned on, a system will be created
+      --setNTP                    If supplied will set NTP to local IL time and TZ. Default is off
+      \n
+      Examples:
+      \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name test1 --servers 1 --setNTP
+      \t\tWould result in creating 1 new server with the name test1 with a system created and an NTP congiured\n
+      \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name test1 --servers 1 --nosystem
+      \t\tWould result in creating 1 new server with the name test1 with no system and no NTP configured\n
+      \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name clust1 --servers 3 --clusterize
+      \t\tWould result in creating 3 new servers in the names of cluster101, cluster102, cluster103 and clusterizing them\n
     `);
 }
 
 function print_usage_agent() {
+    dbg.original_console();
     console.log(`
-    Usage:
+azure.js
+Usage:
     --help agent                Show this usage
     --ip <noobaa-ip>            The IP of noobaa server to add agents to
-    --add <agents-number>       The number of agents to add
     --location <location>       The azure location you want to use (default: ${locationDefault})
     --resource <resource-group> The azure resource group to use
     --storage <storage-account> The azure storage account to use
     --vnet <vnet>               The azure virtual network to use
     --delete <agents-number>    Number of agents to delete
+    --add <agents-number>       The number of agents to add
     --os <name>                 The desired os for the agent (default is centos7). Supported OS types:
                                 ubuntu12/ubuntu14/ubuntu16/centos6/centos7/redhat6/redhat7/win2008/win2012/win2016
     --allimages                 Creates 1 agent per each supported OSs. If the number of agents requested exceeds the number of OSs
                                 duplicates would be created.
     --usemarket                 Use OS Images from the market and not prepared VHDs
+    \n
+    Examples:
+    \tnode src/deploy/azure.js agent --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --ip 20.190.61.158 --add 1 --os redhat6 --usemarket
+    \t\tWould result in adding 1 new agent to the server at 20.190.61.158, of type redhar6 using the market image\n
+    \tnode src/deploy/azure.js agent --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --ip 20.190.61.158 --add 12 --allimages
+    \t\tWould result in adding 12 agents, from all supported OSs (round robin). All agents will be created form the pre-prepared images if such are available\n
+    \tnode src/deploy/azure.js agent --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --ip 20.190.61.158 --delete 2
+    \t\tWould result in deleting 2 agents which are connected to the server at 20.190.61.158\n
 `);
 }
 
 function print_usage_lg() {
+    dbg.original_console();
     console.log(`
     Usage:
       --help lg                   show this usage
@@ -103,8 +131,6 @@ const OSNAMES = [
     { type: 'win2016', shortname: 'w16' },
 ];
 
-// Environment Setup
-require('../util/dotenv').load();
 let azf;
 
 
@@ -219,6 +245,7 @@ function _run() {
 function _runServer() {
     const serverName = argv.name;
     const numServers = argv.servers || 1;
+    const setNTP = Boolean(argv.clusterize || argv.setNTP);
     let createSystem;
     if (argv.clusterize) {
         createSystem = true;
@@ -242,7 +269,8 @@ function _runServer() {
                         serverName: server.name,
                         vnet: argv.vnet,
                         storage: argv.storage,
-                        createSystem: createSystem
+                        createSystem: createSystem,
+                        setNTP: setNTP
                     })
                     .then(new_secret => {
                         server.secret = new_secret;
@@ -306,8 +334,8 @@ function _runAgent() {
                     console.log(`Provisioning ${util.inspect(machine)}`);
                     return P.resolve()
                         .then(() => {
-                            //TODO: remove from here when Win can be copied from an image 
-                            if (machine.os.includes('win') || machine.os.includes('redhat7') || argv.usemarket) {
+                            //TODO: remove from here when Win/redhat7 can be copied from an image 
+                            if (!machine.hasimage || argv.usemarket) {
                                 return af.getAgentConf(serverIP)
                                     .then(agentConf => azf.createAgent({
                                         vmName: machine.name,
@@ -318,13 +346,13 @@ function _runAgent() {
                                         serverIP: serverIP,
                                     }));
                             } else {
-                                //TODO: when Win can be copied from an image remove the else, everything should be called with createAgentFromImage
                                 return azf.createAgentFromImage({
                                     vmName: machine.name,
                                     storage: argv.storage,
                                     vnet: argv.vnet,
                                     os: machine.os,
                                     server_ip: serverIP,
+                                    shouldInstall: true
                                 });
                             }
                         })
@@ -364,9 +392,11 @@ function agents_plan_builder(count, os, prefix) {
         let dateSha = shasum.digest('hex');
         let postfix = dateSha.substring(dateSha.length - 3);
         vmName += `-${OSNAMES[curOs].shortname}-${postfix}`;
+        const hasImage = azf.getImagesfromOSname(OSNAMES[curOs].type).hasImage;
         VMPlan.push({
             name: vmName,
             os: OSNAMES[curOs].type,
+            hasimage: hasImage
         });
         if (os === 'ALL') { //if all images, round robin the os types
             curOs += 1;

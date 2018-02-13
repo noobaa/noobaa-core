@@ -12,7 +12,7 @@ const {
 } = argv;
 
 function main() {
-    console.log(`running runner tests on ${server_name}`);
+    console.log(`running runner tests on ${server_name}, IP ${server_ip} Secret ${server_secret}`);
     let ssh_client;
     return ssh.ssh_connect({
             host: server_ip,
@@ -29,7 +29,7 @@ function main() {
                 process.exit(0);
             },
             err => {
-                console.error('TESTS FAILED:', err.message);
+                console.error('Remote Runner FAILED:', err.message);
                 process.exit(1);
             }
         );

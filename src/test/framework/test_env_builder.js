@@ -63,7 +63,6 @@ function main() {
         })
         // create server and agents vms
         .then(() => P.join(prepare_server(), prepare_agents()))
-        // take agent_conf from the server and install agents
         .spread((dummy, agents_ips) => install_agents())
         .then(upgrade_test_env)
         .then(run_tests)
@@ -107,23 +106,41 @@ function prepare_server() {
 
 function prepare_agents() {
     console.log(`starting the create agents stage`);
-    return P.map(agents, agent => azf.createAgent({
-                vmName: agent.name,
-                storage,
-                vnet,
-                os: azf.getImagesfromOSname(agent.os),
-                serverIP: server_ip
-            })
-            .then(ip => {
-                console.log(`assign ip ${ip} to ${agent.name}`);
-                agent.prepared = true;
-                agent.ip = ip;
-                created_agents.push(agent);
-            })
-            .catch(err => {
-                console.error(`Creating agent ${agent.name} VM failed`, err);
-            })
-        )
+    return P.map(agents, agent => {
+            const hasImage = azf.getImagesfromOSname(agent.os).hasImage;
+            return P.resolve()
+                .then(() => {
+                    if (hasImage) {
+                        console.log('Creating new agent from an image');
+                        return azf.createAgentFromImage({
+                            vmName: agent.name,
+                            storage,
+                            vnet,
+                            os: agent.os,
+                            server_ip: server_ip,
+                            shouldInstall: false
+                        });
+                    } else {
+                        console.log('Creating new agent from the marketplace');
+                        return azf.createAgent({
+                            vmName: agent.name,
+                            storage,
+                            vnet,
+                            os: agent.os,
+                            serverIP: server_ip
+                        });
+                    }
+                })
+                .then(ip => {
+                    console.log(`agent created: ip ${ip} name ${agent.name} of type ${agent.os}`);
+                    agent.prepared = true;
+                    agent.ip = ip;
+                    created_agents.push(agent);
+                })
+                .catch(err => {
+                    console.error(`Creating agent ${agent.name} VM failed`, err);
+                });
+        })
         .then(() => {
             if (created_agents.length < min_required_agents) {
                 console.error(`could not create the minimum number of required agents (${min_required_agents})`);
@@ -136,35 +153,50 @@ function prepare_agents() {
 
 function install_agents() {
     let num_installed = 0;
+    console.log(`Starting to install ${created_agents.length} Agents`);
     return agent_functions.getAgentConf(server.ip, [])
-        .then(agent_conf => {
-            console.log(`got agent conf: ${agent_conf}`);
-            return P.map(created_agents, agent => {
-                    console.log(`installing agent on ${agent.name}`);
-                    return azf.createAgentExtension({
-                            vmName: agent.name,
-                            storage,
-                            vnet,
-                            os: azf.getImagesfromOSname(agent.os),
-                            serverName: server.ip,
-                            agentConf: agent_conf,
-                            serverIP: server_ip
-                        })
-                        .then(
-                            () => { // successfully installed
-                                num_installed += 1;
-                            },
-                            err => { // failed installation
-                                console.error(`failed installing agent on ${agent.name}`, err);
+        .then(agent_conf => P.map(created_agents, agent => {
+                const os = azf.getImagesfromOSname(agent.os);
+                return P.resolve()
+                    .then(() => {
+                        if (os.hasImage) {
+                            console.log(`installing agent ${agent.name} type ${agent.os} using ssh`);
+                            return (agent_functions.getAgentConfInstallString(server.ip, os.osType, []))
+                                .then(inst_string => agent_functions.runAgentCommandViaSsh(
+                                    agent.ip,
+                                    AzureFunctions.QA_USER_NAME,
+                                    AzureFunctions.ADMIN_PASSWORD,
+                                    inst_string,
+                                    os.osType));
+                        } else {
+                            console.log(`installing agent ${agent.name} type ${agent.os} using extension`);
+                            return azf.createAgentExtension({
+                                vmName: agent.name,
+                                storage,
+                                vnet,
+                                ip: agent.ip,
+                                os,
+                                agentConf: agent_conf,
+                                serverIP: server.ip
                             });
-                })
-                .then(() => {
-                    if (num_installed < min_required_agents) {
-                        console.error(`could not install the minimum number of required agents (${min_required_agents})`);
-                        throw new Error(`could not install the minimum number of required agents (${min_required_agents})`);
-                    }
-                });
-        });
+                        }
+                    })
+                    .then(
+                        () => { // successfully installed
+                            num_installed += 1;
+                            console.log(`Finished creating agent extension on ${agent.name}`);
+                        },
+                        err => { // failed installation
+                            console.error(`failed installing agent on ${agent.name}`, err);
+                        });
+            })
+            .then(() => {
+                if (num_installed < min_required_agents) {
+                    console.error(`could not install the minimum number of required agents (${min_required_agents})`);
+                    throw new Error(`could not install the minimum number of required agents (${min_required_agents})`);
+                }
+                console.log('All required agents were installed');
+            }));
 }
 
 

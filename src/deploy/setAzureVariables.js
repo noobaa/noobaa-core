@@ -7,7 +7,7 @@ const argv = require('minimist')(process.argv);
 
 //TODO: add get azure storage and vnet from the resorce group and remove this if
 if (argv.storage === undefined) {
-    console.error('Must use --storage flag that state the azure storage account');
+    console.error('The --storage flag must be provided');
     process.exit(1);
 }
 

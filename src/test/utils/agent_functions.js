@@ -122,7 +122,7 @@ function createAgents(azf, server_ip, storage, vnet, exclude_drives = [], suffix
                     vmName: osname + suffix,
                     storage,
                     vnet,
-                    os: azf.getImagesfromOSname(osname),
+                    os: osname,
                     agentConf,
                     serverIP: server_ip
                 }))
@@ -212,6 +212,7 @@ function runAgentCommandViaSsh(agent_server_ip, username, password, agentCommand
         //becoming root and running the agent command
         .then(res => {
             client = res;
+            console.log(`running agent command om ${agent_server_ip}`);
             const generateOSCommand = agentCommandGeneratorForOS[osType.toUpperCase()];
             if (!generateOSCommand) throw new Error('Unknown os type: ', osType);
             return ssh_functions.ssh_exec(client, generateOSCommand(agentCommand));

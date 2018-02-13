@@ -7,6 +7,8 @@ const argv = require('minimist')(process.argv);
 const s3ops = require('../utils/s3ops');
 const _ = require('lodash');
 const promise_utils = require('../../util/promise_utils');
+const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('accounts');
 let rpc;
 let client;
 const bucketName = 'first.bucket';
@@ -20,7 +22,7 @@ const {
         password = 'Password',
         server_ip = '127.0.0.1',
         s3_access = true,
-        cycles = 1,
+        cycles = 30,
         accounts_number = 1,
         to_delete = true,
         skip_create = false

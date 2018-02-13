@@ -9,6 +9,8 @@ const s3ops = require('../utils/s3ops');
 const blobops = require('../utils/blobops');
 const api = require('../../api');
 const crypto = require('crypto');
+const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('namespace');
 
 require('../../util/dotenv').load();
 

@@ -9,10 +9,11 @@ const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
 
-const P = require('../util/promise');
+const P = require('./promise');
+const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
-const os_utils = require('../util/os_utils');
-const fs_utils = require('../util/fs_utils');
+const os_utils = require('./os_utils');
+const fs_utils = require('./fs_utils');
 
 const TMP_WORK_DIR = get_tmp_workdir();
 
@@ -59,7 +60,7 @@ function pack_diagnostics(dst, working_dir) {
         .then(() => fs_utils.file_delete(dst))
         .then(() => fs_utils.create_path(path.dirname(dst)))
         .then(() => fs_utils.tar_pack(dst, work_dir))
-        .then(() => archive_diagnostics_pack(dst))
+        .then(() => dbg.log0('Successfully created a tar package'))
         .catch(err => {
             //The reason is that every distribution has its own issues.
             //We had a case where it failed due to file change during the file.
@@ -68,11 +69,17 @@ function pack_diagnostics(dst, working_dir) {
             console.error("failed to tar, an attempt to ignore file changes", err);
             return P.resolve()
                 .then(() => fs_utils.tar_pack(dst, work_dir, 'ignore_file_changes'))
-                .then(() => archive_diagnostics_pack(dst))
                 .catch(err2 => {
-                    console.error('Error in packing diagnostics', err2);
-                    throw new Error('Error in packing diagnostics ' + err2);
+                    console.error('failed to tar with ignore file changes');
+                    throw new Error('Error while creating tar package ' + err2);
                 });
+        })
+        .then(() => fs.statAsync(dst))
+        .then(stats => dbg.log0(`created diag tar package sized ${stats.size}`))
+        .then(() => archive_diagnostics_pack(dst))
+        .catch(err => {
+            console.error('Error in packing diagnostics', err);
+            throw new Error('Error in packing diagnostics ' + err);
         });
 }
 

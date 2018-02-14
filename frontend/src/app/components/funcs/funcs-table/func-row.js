@@ -10,6 +10,10 @@ export default class FuncRowViewModel extends BaseViewModel {
     constructor(func) {
         super();
 
+        const _func = ko.pureComputed(
+            () => func() || {}
+        );
+
         this.state = ko.pureComputed(
             () => ({
                 name: 'healthy',
@@ -20,17 +24,17 @@ export default class FuncRowViewModel extends BaseViewModel {
 
         this.name = ko.pureComputed(
             () => ({
-                text: func().name,
-                href: { route: 'func', params: { func: func().name } }
+                text: _func().name,
+                href: { route: 'func', params: { func: _func().name } }
             })
         );
 
         this.version = ko.pureComputed(
-            () => func().version
+            () => _func().version || ''
         );
 
         const config = ko.pureComputed(
-            () => func() ? func().config : {}
+            () => _func().config || {}
         );
 
         this.description = ko.pureComputed(
@@ -58,7 +62,9 @@ export default class FuncRowViewModel extends BaseViewModel {
         this.deleteButton = {
             subject: 'func',
             tooltip: 'delete func function',
-            onDelete: () => deleteFunc(config().name, config().version)
+            onDelete: () => {
+                return deleteFunc(this.name().text, this.version());
+            }
         };
 
     }

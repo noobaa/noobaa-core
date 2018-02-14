@@ -151,11 +151,12 @@ function onRemoveHost(state, { payload } ) {
         host,
         extras => {
             const { nonPaginated, byMode } = extras.counters;
+            const hostMode = state.items[host].mode;
             const counters = {
                 nonPaginated: nonPaginated - 1,
                 byMode: {
                     ...byMode,
-                    [host]: byMode[host] - 1
+                    [hostMode] : byMode[hostMode] ? byMode[hostMode] - 1 : 0
                 }
             };
             return { counters };
@@ -180,6 +181,12 @@ function _mapDataToHost(host = {}, data, fetchTime) {
             return { reason, time };
         })
     );
+
+    const cpuUnits = os_info.cpus
+        .map( cpu => ({
+            model: cpu.model,
+            speed: cpu.speed
+        }));
 
     const activities = (storage_nodes_info.data_activities || [])
         .map(activity => ({
@@ -216,7 +223,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         upTime: os_info.uptime,
         os: os_info.ostype,
         cpus: {
-            units: os_info.cpus,
+            units: cpuUnits,
             usedByOther: os_info.cpu_usage - data.process_cpu_usage,
             usedByNoobaa: data.process_cpu_usage
         },

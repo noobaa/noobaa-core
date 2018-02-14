@@ -35,7 +35,6 @@ function _mapResource(resource, bucketsByPools) {
         name,
         mode,
         type: cloud_info.endpoint_type,
-        state: 'HEALTHY',
         target: cloud_info.target_bucket,
         storage: mapApiStorage(storage),
         usedBy: bucketsByPools[name] || [],

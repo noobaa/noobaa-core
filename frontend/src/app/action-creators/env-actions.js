@@ -10,10 +10,10 @@ export function togglePreviewContent() {
     return { type: TOGGLE_PREVIEW_CONTENT };
 }
 
-export function setupEnv(browser) {
+export function setupEnv(browser, previewContent) {
     return {
         type: SETUP_ENV,
-        payload: { browser }
+        payload: { browser, previewContent }
     };
 }
 

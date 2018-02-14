@@ -71,7 +71,7 @@ class LoadingServerInformationFormViewModel extends BaseViewModel {
         this.errors = ko.validation.group(this);
     }
 
-    onCheckConenction() {
+    onCheckConnection() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
 

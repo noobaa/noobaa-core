@@ -331,23 +331,53 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_DELETE_CLOUD_SYNC_POLICY]: ({ bucket }) => ({
-        message: `${bucket} cloud sync policy removed successfully`,
+    [types.COMPLETE_DELETE_CLOUD_SYNC_POLICY]: ({ bucketName }) => ({
+        message: `${bucketName} cloud sync policy removed successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_DELETE_CLOUD_SYNC_POLICY]: ({ bucket }) => ({
-        message: `Removing ${bucket} cloud sync policy failed`,
+    [types.FAIL_DELETE_CLOUD_SYNC_POLICY]: ({ bucketName }) => ({
+        message: `Removing ${bucketName} cloud sync policy failed`,
         severity: 'error'
     }),
 
-    [types.COMPLETE_TOGGLE_CLOUD_SYNC_POLICY]: ({ bucket, paused }) => ({
-        message: `${bucket} cloud sync has been ${paused ? 'paused' : 'resumed'}`,
+    [types.COMPLETE_TOGGLE_CLOUD_SYNC_POLICY]: ({ bucketName, paused }) => ({
+        message: `${bucketName} cloud sync has been ${paused ? 'paused' : 'resumed'}`,
         severity: 'success'
     }),
 
-    [types.FAIL_TOGGLE_CLOUD_SYNC_POLICY]: ({ bucket, paused }) => ({
-        message: `${paused ? 'Pausing' : 'Resuming'} ${bucket} cloud sync failed`,
+    [types.FAIL_TOGGLE_CLOUD_SYNC_POLICY]: ({ bucketName, paused }) => ({
+        message: `${paused ? 'Pausing' : 'Resuming'} ${bucketName} cloud sync failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_ADD_BUCKET_TRIGGER]: ({ bucketName }) => ({
+        message: `A trigger added to ${bucketName} successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_ADD_BUCKET_TRIGGER]: ({ bucketName }) => ({
+        message: `Adding a trigger to ${bucketName} failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_BUCKET_TRIGGER]: ({ bucketName }) => ({
+        message: `A trigger updated for ${bucketName} successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_BUCKET_TRIGGER]: ({ bucketName }) => ({
+        message: `Updating a trigger for ${bucketName} failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_REMOVE_BUCKET_TRIGGER]: ({ bucketName }) => ({
+        message: `A trigger removed from ${bucketName} successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_REMOVE_BUCKET_TRIGGER]: ({ bucketName }) => ({
+        message: `Removing a trigger from ${bucketName} failed`,
         severity: 'error'
     })
 });

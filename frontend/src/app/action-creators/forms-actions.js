@@ -7,6 +7,7 @@ import {
     TOUCH_FORM,
     SET_FORM_VALIDITY,
     SUBMIT_FORM,
+    COMPLETE_SUBMIT_FORM,
     DROP_FROM
 } from 'action-types';
 
@@ -59,6 +60,13 @@ export function submitForm(form) {
     return {
         type: SUBMIT_FORM,
         payload: { form }
+    };
+}
+
+export function completeSubmitForm(form, errors = {}) {
+    return {
+        type: COMPLETE_SUBMIT_FORM,
+        payload: { form, errors }
     };
 }
 

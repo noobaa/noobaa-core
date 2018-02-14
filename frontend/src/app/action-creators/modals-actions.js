@@ -765,3 +765,35 @@ export function openManagementConsoleErrorModal() {
         }
     };
 }
+
+export function openAddBucketTriggerModal(bucketName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'add-bucket-trigger-modal',
+                params: { bucketName }
+            },
+            options: {
+                size: 'medium',
+                title: 'Add Trigger'
+            }
+        }
+    };
+}
+
+export function openEditBucketTriggerModal(bucketName, triggerId) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-bucket-trigger-modal',
+                params: { bucketName, triggerId }
+            },
+            options: {
+                size: 'medium',
+                title: 'Edit Trigger'
+            }
+        }
+    };
+}

@@ -62,6 +62,9 @@ import updateServerAddress from './update-server-address';
 import updateBucketS3Access from './update-bucket-s3-access';
 import deleteCloudSyncPolicy from './delete-cloud-sync-policy';
 import toggleCloudSyncPolicy from './toggle-cloud-sync-policy';
+import addBucketTrigger from './add-bucket-trigger';
+import updateBucketTrigger from './update-bucket-trigger';
+import removeBucketTrigger from './remove-bucket-trigger';
 import closeModalsOnLocationChange from './close-modals-on-location-change';
 
 const generalEpics = [
@@ -127,7 +130,10 @@ const bucketRelatedEpics = [
     deleteNamespaceBucket,
     updateBucketS3Access,
     deleteCloudSyncPolicy,
-    toggleCloudSyncPolicy
+    toggleCloudSyncPolicy,
+    addBucketTrigger,
+    updateBucketTrigger,
+    removeBucketTrigger
 ];
 
 const objectRelatedEpics = [

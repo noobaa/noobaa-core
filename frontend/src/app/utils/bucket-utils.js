@@ -127,6 +127,17 @@ const resiliencyTypeToBlockType = deepFreeze({
     ERASURE_CODING: 'fragment'
 });
 
+export const bucketEvents = deepFreeze([
+    {
+        value: 'ObjectCreated',
+        label: 'Object Created'
+    },
+    {
+        value: 'ObjectRemoved',
+        label: 'Object Removed'
+    }
+]);
+
 export function getBucketStateIcon(bucket, align) {
     if (isUndefined(align)) {
         return bucketStateToIcon[bucket.mode];

@@ -3,7 +3,7 @@ import { action$, state$, appLog$ } from 'state';
 import * as actionCreators from 'action-creators';
 import schema from 'schema';
 import api from 'services/api';
-import { mapValues, noop } from 'utils/core-utils';
+import { mapValues } from 'utils/core-utils';
 import { createDumpPkg } from 'utils/debug-utils';
 import {
     toObjectUrl,
@@ -12,6 +12,8 @@ import {
     getWindowName,
     getDocumentMetaTag
 } from 'utils/browser-utils';
+
+const logToConsole = console.log.bind(console);
 
 const actions = mapValues(
     actionCreators,
@@ -34,12 +36,14 @@ function openDebugConsole() {
     return windowId;
 }
 
-function toggleApiLogging(enable = false) {
-    const logger = enable ?
-        console.log.bind(console) :
-        noop;
-
+function toggleApiLogging(enable = !api.rpc.get_request_logger()) {
+    const logger = enable ? logToConsole : null;
     api.rpc.set_request_logger(logger);
+    return Boolean(logger);
+}
+
+function togglePreviewContent() {
+    actions.togglePreviewContent();
 }
 
 function dumpAppLog() {
@@ -65,7 +69,8 @@ const cli = Object.seal({
         downloadAsJson,
         openDebugConsole,
         toggleApiLogging,
-        dumpAppLog
+        dumpAppLog,
+        togglePreviewContent
     }
 });
 

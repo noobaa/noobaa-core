@@ -153,8 +153,8 @@ class BucketObjectsTableViewModel extends Observer {
     }
 
     onLocation(location) {
-        const { bucket, system } = location.params;
-        if (!bucket) return;
+        const { tab, bucket, system } = location.params;
+        if (!bucket || tab !== 'objects') return;
 
         const {
             stateFilter = 'ALL',

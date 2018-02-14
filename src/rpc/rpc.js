@@ -904,6 +904,10 @@ RPC.prototype.enable_validation = function() {
     this._disable_validation = false;
 };
 
+RPC.prototype.get_request_logger = function() {
+    return this._request_logger;
+};
+
 RPC.prototype.set_request_logger = function(request_logger) {
     this._request_logger = request_logger;
 };

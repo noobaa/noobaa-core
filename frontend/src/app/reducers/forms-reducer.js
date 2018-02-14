@@ -9,6 +9,7 @@ import {
     TOUCH_FORM,
     SET_FORM_VALIDITY,
     SUBMIT_FORM,
+    COMPLETE_SUBMIT_FORM,
     DROP_FROM
 } from 'action-types';
 
@@ -22,8 +23,10 @@ const initialFormState = {
     warnings: {},
     syncErrors: {},
     asyncErrors: {},
+    submitErrors: {},
     validatingAsync: null,
     validated: false,
+    submitting: false,
     submitted: false
 };
 
@@ -73,7 +76,9 @@ function onUpdateForm(forms, { payload }) {
             ...form,
             fields,
             validated: false,
-            submitted: false
+            submitted: false,
+            submitting: false,
+            submitErrors: {}
         }
     };
 }
@@ -163,7 +168,7 @@ function onSetFormValidity(forms, { payload }) {
 
 function onSubmitForm(forms, { payload }) {
     const form = forms[payload.form];
-    if (!form) return forms;
+    if (!form || form.submitted) return forms;
 
     // Touch all the fields.
     const fields = mapValues(
@@ -171,15 +176,42 @@ function onSubmitForm(forms, { payload }) {
         field => ({ ...field, touched: true })
     );
 
-    const isValid = form.validated && Object.values(form.fields)
-        .every(field => field.validity === 'VALID');
+    const isValid = form.validated &&
+        Object.keys(form.syncErrors).length === 0 &&
+        Object.keys(form.asyncErrors).length === 0;
 
     return {
         ...forms,
         [payload.form]: {
             ...form,
             fields,
-            submitted: isValid
+            submitting: isValid
+        }
+    };
+}
+
+function onCompleteSubmitForm(forms, { payload }) {
+    const form = forms[payload.form];
+    if (!form || !form.submitting) return forms;
+
+    const { errors } = payload;
+    const submitted = Object.keys(errors).length === 0;
+    const fields = mapValues(
+        form.fields,
+        (field, key) => ({
+            ...field,
+            validity: errors.hasOwnProperty(key) ? 'INVALID' : 'VALID'
+        })
+    );
+
+    return {
+        ...forms,
+        [payload.form]: {
+            ...form,
+            fields,
+            submitting: false,
+            submitted: submitted,
+            submitErrors: errors
         }
     };
 }
@@ -211,6 +243,7 @@ export default createReducer(initialState, {
     [TOUCH_FORM]: onTouchForm,
     [SET_FORM_VALIDITY]: onSetFormValidity,
     [SUBMIT_FORM]: onSubmitForm,
+    [COMPLETE_SUBMIT_FORM]: onCompleteSubmitForm,
     [DROP_FROM]: onDropForm
 });
 

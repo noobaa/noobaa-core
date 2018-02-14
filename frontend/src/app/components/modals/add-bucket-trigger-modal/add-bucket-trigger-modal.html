@@ -1,0 +1,76 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: isFormReady -->
+<form class="column" ko.submit="form.submit">
+    <p>Triggers will automatically invoke the selected function.</p>
+
+    <editor params="label: 'Function'">
+        <dropdown params="
+            options: funcOptions,
+            selected: form.func,
+            placeholder: 'Choose Function',
+            loading: !areFuncsLoaded(),
+            invalid: form.func.isInvalidTouched
+        "></dropdown>
+        <validation-message params="field: form.func"></validation-message>
+    </editor>
+
+    <editor params="label: 'Event Type'">
+        <dropdown params="
+            options: eventOptions,
+            selected: form.event,
+            placeholder: 'Choose Event',
+            invalid: form.event.isInvalidTouched
+        "></dropdown>
+        <validation-message params="field: form.event"></validation-message>
+    </editor>
+
+    <editor params="label: 'Prefix'">
+        <input type="text"
+            placeholder="e.g. Images/"
+            ko.value="form.prefix"
+            ko.validationCss="form.prefix"
+        />
+        <p class="hint">optional</p>
+    </editor>
+
+    <editor params="label: 'Suffix'">
+        <input type="text"
+            placeholder="e.g. .jpg"
+            ko.value="form.suffix"
+            ko.validationCss="form.suffix"
+        />
+        <p class="hint">optional</p>
+    </editor>
+
+    <editor params="label: 'Trigger Active'">
+        <toggle-switch params="value: form.active"></toggle-switch>
+    </editor>
+
+    <div class="row content-middle">
+        <div class="row content-middle greedy push-next remark">
+            <!-- ko if: form.errors().global -->
+            <svg-icon class="error icon-small push-next-half" params="name: 'problem'"></svg-icon>
+            <p class="error">{{form.errors().global}}</p>
+            <!-- /ko -->
+
+            <!-- ko ifnot: form.errors().global -->
+            <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+            <p>
+               To create a new function go to
+               <a class="link" ko.attr.href="funcsUrl">Functions </a>
+               &gt; Create Function
+            </p>
+            <!-- /ko -->
+       </div>
+        <button class="link alt-colors push-next"
+            ko.click="onCancel"
+        >
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">
+            Save
+        </button>
+    </div>
+</form>
+<!-- /ko -->

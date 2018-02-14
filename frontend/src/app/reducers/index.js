@@ -25,6 +25,7 @@ import objectsReducer from './objects-reducer';
 import objectPartsReducer from './object-parts-reducer';
 import storageHistoryReducer from './storage-history-reducer';
 import systemReducer from './system-reducer';
+import functionsReducer from './functions-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -50,5 +51,6 @@ export default combineReducers({
     objectUploads: objectUploadsReducer,
     objectParts: objectPartsReducer,
     storageHistory: storageHistoryReducer,
-    system: systemReducer
+    system: systemReducer,
+    functions: functionsReducer
 });

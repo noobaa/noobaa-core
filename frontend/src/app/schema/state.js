@@ -72,6 +72,9 @@ export default {
         },
         hosts: {
             $ref: '#/def/hosts'
+        },
+        functions: {
+            $ref: '#/def/functions'
         }
     }
 };

@@ -20,6 +20,11 @@ import hostParts from './host-parts';
 import hostPools from './host-pools';
 import objects from './objects';
 import objectParts from './object-parts';
+import accounts from './accounts';
+import env from './env';
+import forms from './forms';
+import cloudResources from './cloud-resources';
+import hosts, { host, node } from './hosts';
 import state from './state.js';
 
 const schemas = {
@@ -43,6 +48,13 @@ const schemas = {
     hostPools,
     objects,
     objectParts,
+    accounts,
+    env,
+    forms,
+    cloudResources,
+    hosts,
+    host,
+    node,
     state
 };
 

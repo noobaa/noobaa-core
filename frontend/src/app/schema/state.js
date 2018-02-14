@@ -1,6 +1,5 @@
 export default {
     type: 'object',
-    additionalProperties: true,
     properties: {
         location: {
             $ref: '#/def/location'
@@ -58,6 +57,21 @@ export default {
         },
         objectParts: {
             $ref: '#/def/objectParts'
+        },
+        accounts: {
+            $ref: '#/def/accounts'
+        },
+        env: {
+            $ref: '#/def/env'
+        },
+        forms: {
+            $ref: '#/def/forms'
+        },
+        cloudResources: {
+            $ref: '#/def/cloudResources'
+        },
+        hosts: {
+            $ref: '#/def/hosts'
         }
     }
 };

@@ -18,6 +18,11 @@
             "ver": "2.1.2",
             "vhd": "2.1.2-52e964c.vhd",
             "released": true
+        },
+        {
+            "ver": "2.1.3",
+            "vhd": "2.1.3-b3379aa.vhd",
+            "released": true
         }
     ]
 }

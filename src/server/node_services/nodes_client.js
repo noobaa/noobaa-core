@@ -24,6 +24,7 @@ const NODE_FIELDS_FOR_MAP = [
     'writable',
     'storage_full',
     'latency_of_disk_read',
+    'latency_of_disk_write',
     // ... more?
 ];
 

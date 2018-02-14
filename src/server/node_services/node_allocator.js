@@ -187,12 +187,10 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
     // If we are allocating a node for content tiering special replicas,
     // we should run an additional sort, in order to get the best read latency nodes
     if (content_tiering_params && content_tiering_params.special_replica) {
-        alloc_group.nodes = _.sortBy(alloc_group.nodes, node =>
-            // In order to sort the nodes by the best read latency values.
-            // We need to get the average of all the latency disk read values,
-            // and sort the nodes by the average that we've calculated.
-            _.sum(node.latency_of_disk_read) / node.latency_of_disk_read.length
-        );
+        // In order to sort the nodes by the best read latency values.
+        // We need to get the average of all the latency disk read values,
+        // and sort the nodes by the average that we've calculated.
+        alloc_group.nodes = _.sortBy(alloc_group.nodes, item => _.mean(item.latency_of_disk_read));
     }
 
     let num_nodes = alloc_group ? alloc_group.nodes.length : 0;
@@ -205,23 +203,52 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
         return;
     }
 
+    const ssd_partitions = _.partition(alloc_group.nodes, item =>
+        _.mean(item.latency_of_disk_write) <= config.SSD_LATENCY_MS);
+
+    return _allocate_from_ssd_partitions_list(ssd_partitions, avoid_nodes, allocated_hosts);
+
+}
+
+function _allocate_from_ssd_partitions_list(node_partitions, avoid_nodes, allocated_hosts) {
+    // There are two partitions. First one is SSD and the second is regular drives
+    // All of the logic below is relevant firstly for SSD and only afterwards for regular drives
+    // Except the error nodes logic which will be in lowest priority after valid drive checks
     // allocate first tries from nodes with no error,
     // but if non can be found then it will try to allocate from nodes with error.
     // this allows pools with small number of nodes to overcome transient errors
     // without failing to allocate.
     // nodes with error that are indeed offline they will eventually
     // be filtered by refresh_pool_alloc.
+    if (node_partitions[0].length) {
+        const ssd_node = allocate_from_list(node_partitions[0], avoid_nodes, allocated_hosts, {
+                unique_hosts: true, // try to allocate from unique hosts first
+                use_nodes_with_errors: false
+            }) ||
+            allocate_from_list(node_partitions[0], avoid_nodes, allocated_hosts, {
+                unique_hosts: false, // second try - allocate from allocated hosts
+                use_nodes_with_errors: false
+            });
+        if (ssd_node) return ssd_node;
+    }
 
+    if (node_partitions[1].length) {
+        const regular_node = allocate_from_list(node_partitions[1], avoid_nodes, allocated_hosts, {
+                unique_hosts: true, // try to allocate from unique hosts first
+                use_nodes_with_errors: false
+            }) ||
+            allocate_from_list(node_partitions[1], avoid_nodes, allocated_hosts, {
+                unique_hosts: false, // second try - allocate from allocated hosts
+                use_nodes_with_errors: false
+            });
+        if (regular_node) return regular_node;
+    }
     // on the first try, filter out nodes (drives) from hosts that already hold a similar block
-    return allocate_from_list(alloc_group.nodes, avoid_nodes, allocated_hosts, {
-            unique_hosts: true, // try to allocate from unique hosts first
-            use_nodes_with_errors: false
+    return allocate_from_list(node_partitions[0], avoid_nodes, allocated_hosts, {
+            unique_hosts: false,
+            use_nodes_with_errors: true // last try - allocated also from nodes with errors
         }) ||
-        allocate_from_list(alloc_group.nodes, avoid_nodes, allocated_hosts, {
-            unique_hosts: false, // second try - allocate from allocated hosts
-            use_nodes_with_errors: false
-        }) ||
-        allocate_from_list(alloc_group.nodes, avoid_nodes, allocated_hosts, {
+        allocate_from_list(node_partitions[1], avoid_nodes, allocated_hosts, {
             unique_hosts: false,
             use_nodes_with_errors: true // last try - allocated also from nodes with errors
         });

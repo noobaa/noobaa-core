@@ -101,6 +101,8 @@ export default function register(ko) {
     ko.components.register('risky-bucket-data-resiliency-warning-modal',    require('./modals/risky-bucket-data-resiliency-warning-modal/risky-bucket-data-resiliency-warning-modal').default);
     ko.components.register('change-cluster-connectivity-ip-modal',          require('./modals/change-cluster-connectivity-ip-modal/change-cluster-connectivity-ip-modal').default);
     ko.components.register('management-console-error-modal',                require('./modals/management-console-error-modal/management-console-error-modal').default);
+    ko.components.register('add-bucket-trigger-modal', require('./modals/add-bucket-trigger-modal/add-bucket-trigger-modal').default);
+    ko.components.register('edit-bucket-trigger-modal', require('./modals/edit-bucket-trigger-modal/edit-bucket-trigger-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -134,6 +136,7 @@ export default function register(ko) {
     ko.components.register('bucket-quota-policy-form',              require('./bucket/bucket-quota-policy-form/bucket-quota-policy-form').default);
     ko.components.register('bucket-data-resiliency-policy-form',    require('./bucket/bucket-data-resiliency-policy-form/bucket-data-resiliency-policy-form').default);
     ko.components.register('bucket-data-placement-policy-form',     require('./bucket/bucket-data-placement-policy-form/bucket-data-placement-policy-form').default);
+    ko.components.register('bucket-triggers-form', require('./bucket/bucket-triggers-form/bucket-triggers-form').default);
     /** INJECT:bucket **/
 
     // -------------------------------

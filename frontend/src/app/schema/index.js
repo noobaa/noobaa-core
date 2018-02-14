@@ -25,6 +25,7 @@ import env from './env';
 import forms from './forms';
 import cloudResources from './cloud-resources';
 import hosts from './hosts';
+import functions from './functions';
 import state from './state.js';
 
 const schemas = {
@@ -53,6 +54,7 @@ const schemas = {
     forms,
     cloudResources,
     hosts,
+    functions,
     state
 };
 

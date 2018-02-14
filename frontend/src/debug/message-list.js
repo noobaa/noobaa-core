@@ -16,4 +16,10 @@ export default class MessageListViewModel {
 
         this.rows(rows);
     }
+
+    onAfterRender(nodes) {
+        const elms = nodes.filter(node => node.nodeType === Node.ELEMENT_NODE);
+        const lastElm = elms[elms.length - 1];
+        lastElm.scrollIntoView();
+    }
 }

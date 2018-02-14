@@ -19,6 +19,11 @@
         >
             S3 Access
         </a>
+        <a ko.css.selected="selectedTab.eq('triggers')"
+            ko.attr.href="tabHref('triggers')"
+        >
+            Triggers
+        </a>
         <a ko.css.selected="selectedTab.eq('cloud-sync')"
             ko.attr.href="tabHref('cloud-sync')"
         >
@@ -41,6 +46,11 @@
             ko.css.selected="selectedTab.eq('s3-access')"
             params="bucketName: bucket"
         ></bucket-s3-access-table>
+
+        <bucket-triggers-form class="tab column"
+            ko.css.selected="selectedTab.eq('triggers')"
+            params="bucketName: bucket"
+        ></bucket-triggers-form>
 
         <bucket-cloud-sync-form class="tab"
             ko.css.selected="selectedTab.eq('cloud-sync')"

@@ -9,3 +9,4 @@ export { default as checkbox } from './checkbox-cell.html';
 export { default as capacity } from './capacity-cell.html';
 export { default as delete } from './delete-cell.html';
 export { default as button } from './button-cell.html';
+export { default as iconButton } from './icon-button-cell.html';

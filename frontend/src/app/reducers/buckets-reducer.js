@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 NooBaa */
+    /* Copyright (C) 2016 NooBaa */
 
 import { keyByProperty, groupBy, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
@@ -54,7 +54,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         record => tiersByName[record.tier]
     );
 
-    const { storage, data, quota, cloud_sync, stats } = bucket;
+    const { storage, data, quota, cloud_sync, stats, triggers } = bucket;
     return {
         name: bucket.name,
         tierName: placementTiers[0].name,
@@ -72,7 +72,8 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         placement: _mapPlacement(placementTiers[0], resTypeByName, resUsageByName),
         resiliency: _mapResiliency(placementTiers[0]),
         spillover: _mapSpillover(spilloverTiers[0], resTypeByName, resUsageByName),
-        io: _mapIO(stats)
+        io: _mapIO(stats),
+        triggers: _mapTriggers(triggers)
     };
 }
 
@@ -174,6 +175,37 @@ function _mapIO(stats = {}) {
         writeCount: writes,
         lastWrite: last_write
     };
+}
+
+function _calcTriggerMode(trigger) {
+    if (!trigger.enabled) {
+        return 'DISABLED';
+    }
+
+    if (trigger.permission_problem) {
+        return 'MISSING_PERMISSIONS';
+    }
+
+    return 'OPTIMAL';
+}
+
+function _mapTriggers(triggers) {
+    return keyByProperty(
+        triggers,
+        'id',
+        trigger => ({
+            id: trigger.id,
+            mode: _calcTriggerMode(trigger),
+            event: trigger.event_name,
+            func: {
+                name: trigger.func_name,
+                version: trigger.func_version
+            },
+            prefix: trigger.object_prefix || '',
+            suffix: trigger.object_suffix || '',
+            lastRun: trigger.last_run
+        })
+    );
 }
 
 // ------------------------------

@@ -34,7 +34,16 @@ import {
     FAIL_DELETE_CLOUD_SYNC_POLICY,
     TOGGLE_CLOUD_SYNC_POLICY,
     COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
-    FAIL_TOGGLE_CLOUD_SYNC_POLICY
+    FAIL_TOGGLE_CLOUD_SYNC_POLICY,
+    ADD_BUCKET_TRIGGER,
+    COMPLETE_ADD_BUCKET_TRIGGER,
+    FAIL_ADD_BUCKET_TRIGGER,
+    UPDATE_BUCKET_TRIGGER,
+    COMPLETE_UPDATE_BUCKET_TRIGGER,
+    FAIL_UPDATE_BUCKET_TRIGGER,
+    REMOVE_BUCKET_TRIGGER,
+    COMPLETE_REMOVE_BUCKET_TRIGGER,
+    FAIL_REMOVE_BUCKET_TRIGGER
 } from 'action-types';
 
 export function updateBucketQuota(bucket, quota) {
@@ -245,45 +254,109 @@ export function failUpdateBucketS3Access(bucketName, error) {
     };
 }
 
-export function deleteCloudSyncPolicy(bucket) {
+export function deleteCloudSyncPolicy(bucketName) {
     return {
         type: DELETE_CLOUD_SYNC_POLICY,
-        payload: { bucket }
+        payload: { bucketName }
     };
 }
 
-export function completeDeleteCloudSyncPolicy(bucket) {
+export function completeDeleteCloudSyncPolicy(bucketName) {
     return {
         type: COMPLETE_DELETE_CLOUD_SYNC_POLICY,
-        payload: { bucket }
+        payload: { bucketName }
     };
 }
 
-export function failDeleteCloudSyncPolicy(bucket, error) {
+export function failDeleteCloudSyncPolicy(bucketName, error) {
     return {
         type: FAIL_DELETE_CLOUD_SYNC_POLICY,
-        payload: { bucket, error }
+        payload: { bucketName, error }
     };
 }
 
-export function toggleCloudSyncPolicy(bucket, paused) {
+export function toggleCloudSyncPolicy(bucketName, paused) {
     return {
         type: TOGGLE_CLOUD_SYNC_POLICY,
-        payload: { bucket, paused }
+        payload: { bucketName, paused }
     };
 }
 
-export function completeToggleCloudSyncPolicy(bucket, paused) {
+export function completeToggleCloudSyncPolicy(bucketName, paused) {
     return {
         type: COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
-        payload: { bucket, paused }
+        payload: { bucketName, paused }
     };
 }
 
-export function failToggleCloudSyncPolicy(bucket, paused, error) {
+export function failToggleCloudSyncPolicy(bucketName, paused, error) {
     return {
         type: FAIL_TOGGLE_CLOUD_SYNC_POLICY,
-        payload: { bucket, paused, error }
+        payload: { bucketName, paused, error }
     };
 }
 
+export function addBucketTrigger(bucketName, config) {
+
+    return {
+        type: ADD_BUCKET_TRIGGER,
+        payload: { bucketName, config }
+    };
+}
+
+export function completeAddBucketTrigger(bucketName) {
+    return {
+        type: COMPLETE_ADD_BUCKET_TRIGGER,
+        payload: { bucketName }
+    };
+}
+
+export function failAddBucketTrigger(bucketName, error) {
+    return {
+        type: FAIL_ADD_BUCKET_TRIGGER,
+        payload: { bucketName, error }
+    };
+}
+
+export function updateBucketTrigger(bucketName, triggerId, config) {
+
+    return {
+        type: UPDATE_BUCKET_TRIGGER,
+        payload: { bucketName, triggerId, config }
+    };
+}
+
+export function completeUpdateBucketTrigger(bucketName) {
+    return {
+        type: COMPLETE_UPDATE_BUCKET_TRIGGER,
+        payload: { bucketName }
+    };
+}
+
+export function failUpdateBucketTrigger(bucketName, error) {
+    return {
+        type: FAIL_UPDATE_BUCKET_TRIGGER,
+        payload: { bucketName, error }
+    };
+}
+
+export function removeBucketTrigger(bucketName, triggerId) {
+    return {
+        type: REMOVE_BUCKET_TRIGGER,
+        payload: { bucketName, triggerId }
+    };
+}
+
+export function completeRemoveBucketTrigger(bucketName) {
+    return {
+        type: COMPLETE_REMOVE_BUCKET_TRIGGER,
+        payload: { bucketName }
+    };
+}
+
+export function failRemoveBucketTrigger(bucketName, error) {
+    return {
+        type: FAIL_REMOVE_BUCKET_TRIGGER,
+        payload: { bucketName, error }
+    };
+}

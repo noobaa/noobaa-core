@@ -154,7 +154,7 @@
     </header>
 
     <main class="row greedy">
-        <section class="message-list border-right" data-bind="with: messageList">
+        <section class="column border-right" data-bind="with: messageList">
             <p class="alt-bg text-center remark" data-bind="
                 visible: $parent.hasHiddenMessages
             ">
@@ -164,7 +164,12 @@
                     click: $root.onShowAllMessages
                 ">Show all</button>
             </p>
-            <ul class="list-no-style push-next" data-bind="foreach: rows">
+            <ul class="list-no-style greedy message-list push-next" data-bind="
+                foreach: {
+                    data: rows,
+                    afterRender: onAfterRender
+                }
+            ">
                 <li class="pad border-bottom message-row" data-bind="
                     click: row => $root.onSelectRow(row),
                     css: css

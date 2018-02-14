@@ -50,7 +50,9 @@
                         checkedValue: value
                     "/>
                     <!-- ko if: icon -->
-                    <svg-icon params="name: $component.optionIcon($data)"></svg-icon>
+                    <svg-icon ko.css="$component.optionIconCss($data)"
+                        params="name: $component.optionIconName($data)"
+                    ></svg-icon>
                     <!-- /ko -->
                     <div class="option-label no-wrap greedy" >
                         <div data-bind="css: css, text: label"></div>

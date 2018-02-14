@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { isDefined, mapValues, noop, pick } from 'utils/core-utils';
+import { isDefined, isFunction, mapValues, noop, pick } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
 import Observer from 'observer';
 import ko from 'knockout';
@@ -12,6 +12,7 @@ import {
     resetForm,
     setFormValidity,
     submitForm,
+    completeSubmitForm,
     dropForm
 } from 'action-creators';
 
@@ -25,6 +26,7 @@ export default class FormViewModel extends Observer {
         onWarn,
         onValidate,
         onValidateAsync,
+        onValidateSubmit,
         asyncTriggers,
         onSubmit = noop
     }) {
@@ -37,6 +39,7 @@ export default class FormViewModel extends Observer {
         this._warnHandler = onWarn;
         this._validateHandler = onValidate;
         this._validateAsyncHandler = onValidateAsync;
+        this._validateSubmitHandler = onValidateSubmit;
         this._asyncTriggers = asyncTriggers;
         this._asyncValidationHandle = null;
 
@@ -47,18 +50,25 @@ export default class FormViewModel extends Observer {
             () => Boolean(state() && state().validatingAsync)
         );
 
-        this.isValid = ko.pureComputed(() =>
-            Boolean(state()) &&
-            state().validated &&
-            Object.values(state().fields).every(
-                field => field.validity === 'VALID'
-            )
-        );
+        this.isValid = ko.pureComputed(() => {
+            if (!state()) return false;
+
+            const { validated, syncErrors, asyncErrors, submitErrors } = state();
+            return true &&
+                validated &&
+                Object.keys(syncErrors).length === 0 &&
+                Object.keys(asyncErrors).length === 0 &&
+                Object.keys(submitErrors).length === 0;
+        });
 
         this.isDirty = ko.pureComputed(
             () => Boolean(state()) && Object.values(state().fields).some(
                 field => field.value === field.initial
             )
+        );
+
+        this.isSubmitting = ko.pureComputed(
+            () => Boolean(state()) && state().submitting
         );
 
         this.isSubmitted = ko.pureComputed(
@@ -70,7 +80,11 @@ export default class FormViewModel extends Observer {
         );
 
         this.errors = ko.pureComputed(
-            () => state() ? { ...state().errors, ...state().asyncErrors }: {}
+            () => state() ? {
+                ...state().syncErrors,
+                ...state().asyncErrors,
+                ...state().submitErrors
+            }: {}
         );
 
         // Bind form action to the form view model.
@@ -201,6 +215,9 @@ export default class FormViewModel extends Observer {
         if (changes.length > 0) {
             this._validate(values, changes);
 
+        } else if (state.submitting) {
+            this._handleSubmitting(values);
+
         } else if (state.submitted) {
             this._submitHandler(values);
         }
@@ -284,5 +301,15 @@ export default class FormViewModel extends Observer {
                 touch: true
             }
         ));
+    }
+
+    async _handleSubmitting(values) {
+        if (isFunction(this._validateSubmitHandler)) {
+            const errors = await this._validateSubmitHandler(values);
+            action$.onNext(completeSubmitForm(this.name, errors));
+
+        } else {
+            action$.onNext(completeSubmitForm(this.name));
+        }
     }
 }

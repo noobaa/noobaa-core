@@ -7,8 +7,10 @@ export default {
             'warnings',
             'syncErrors',
             'asyncErrors',
+            'submitErrors',
             'validatingAsync',
             'validated',
+            'submitting',
             'submitted'
         ],
         properties: {
@@ -55,6 +57,12 @@ export default {
                     type: 'string'
                 }
             },
+            submitErrors: {
+                type: 'object',
+                additionalProperties: {
+                    type: 'string'
+                }
+            },
             validatingAsync: {
                 oneOf: [
                     {
@@ -69,6 +77,9 @@ export default {
                 ]
             },
             validated: {
+                type: 'boolean'
+            },
+            submitting: {
                 type: 'boolean'
             },
             submitted: {

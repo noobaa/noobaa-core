@@ -415,10 +415,9 @@ function read_system(req) {
                 dbg.error('failed getting updated rs_status on read_system', err);
             }) : undefined,
 
-        func_configs: P.resolve(
-                server_rpc.client.func.list_funcs({}, { auth_token: req.auth_token })
-            )
-            .then(res => _.map(res.functions, func => func.config))
+        funcs: P.resolve()
+            .then(() => server_rpc.client.func.list_funcs({}, { auth_token: req.auth_token }))
+            .then(res => res.functions)
 
     }).then(({
         nodes_aggregate_pool_no_cloud_and_mongo,
@@ -432,7 +431,7 @@ function read_system(req) {
         aggregate_data_free_by_tier,
         deletable_buckets,
         rs_status,
-        func_configs
+        funcs
     }) => {
         const cluster_info = cutil.get_cluster_info(rs_status);
         const objects_sys = {
@@ -502,6 +501,7 @@ function read_system(req) {
             }),
             buckets: _.map(system.buckets_by_name,
                 bucket => {
+                    const func_configs = funcs.map(func => func.config);
                     let b = bucket_server.get_bucket_info({
                         bucket,
                         nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
@@ -525,6 +525,8 @@ function read_system(req) {
                 tier => tier_server.get_tier_info(tier,
                     nodes_aggregate_pool_with_cloud_and_mongo,
                     aggregate_data_free_by_tier[String(tier._id)])),
+            accounts: accounts,
+            functions: funcs,
             storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
             }, nodes_aggregate_pool_with_cloud_no_mongo.storage, SYS_STORAGE_DEFAULTS)),
@@ -566,7 +568,6 @@ function read_system(req) {
         response.ip_address = res.ip_address;
         response.dns_name = res.dns_name;
 
-        response.accounts = accounts;
         return response;
     });
 }

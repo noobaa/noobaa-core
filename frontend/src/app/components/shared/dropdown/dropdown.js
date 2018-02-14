@@ -7,8 +7,14 @@ import ko from 'knockout';
 
 const inputThrottle = 1000;
 
-function matchByPrefix({ label }, input) {
+function _matchByPrefix({ label }, input) {
     return label.toLowerCase().startsWith(input);
+}
+
+function _normalizeIcon(icon) {
+    if (!icon) return;
+    const { name = icon, css ='' } = icon;
+    return { name, css };
 }
 
 class DropdownViewModel {
@@ -17,7 +23,7 @@ class DropdownViewModel {
         options = [],
         placeholder = 'Choose...',
         disabled = false,
-        matchOperator = matchByPrefix,
+        matchOperator = _matchByPrefix,
         hasFocus = false,
         loading = false,
         invalid,
@@ -53,7 +59,17 @@ class DropdownViewModel {
                             selectedFound = true;
                         }
 
-                        return { value ,label, remark, css, tooltip, disabled, selectedIcon, icon };
+
+                        return {
+                            value ,
+                            label,
+                            remark,
+                            css,
+                            tooltip,
+                            disabled,
+                            selectedIcon: _normalizeIcon(selectedIcon),
+                            icon: _normalizeIcon(icon)
+                        };
                     });
 
                 if (selected.peek() && !selectedFound) {
@@ -82,11 +98,14 @@ class DropdownViewModel {
         );
         this.emptyMessage = ko.pureComputed(
             () => {
-                const naked = ko.deepUnwrap(emptyMessage) || {};
-                const { text = naked, isError = false } = naked;
+                const naked = ko.deepUnwrap(emptyMessage);
+                const { text = naked || 'Empty', isError = false } = naked || {};
+                const visible = !ko.unwrap(loading) &&
+                    Boolean(text) &&
+                    this.options().length === 0;
 
                 return {
-                    visible: !ko.unwrap(loading) && text && this.options().length === 0,
+                    visible: visible,
                     text: text,
                     css: isError ? 'error' : ''
                 };
@@ -113,6 +132,15 @@ class DropdownViewModel {
     optionIcon(option) {
         const { value, icon, selectedIcon } = option;
         return this.selected() === value ? selectedIcon : icon;
+    }
+
+    optionIconCss(option) {
+        const { css } = this.optionIcon(option);
+        return css || 'default-css';
+    }
+
+    optionIconName(option) {
+        return this.optionIcon(option).name;
     }
 
     onClick() {

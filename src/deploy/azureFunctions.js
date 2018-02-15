@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+require('./setAzureVariables');
 const _ = require('lodash');
 const util = require('util');
 const msRestAzure = require('ms-rest-azure');

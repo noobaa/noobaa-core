@@ -62,13 +62,15 @@ import updateServerAddress from './update-server-address';
 import updateBucketS3Access from './update-bucket-s3-access';
 import deleteCloudSyncPolicy from './delete-cloud-sync-policy';
 import toggleCloudSyncPolicy from './toggle-cloud-sync-policy';
+import closeModalsOnLocationChange from './close-modals-on-location-change';
 
 const generalEpics = [
     handleLocationRequests,
     notify,
     downloadFile,
     fetchCloudTargets,
-    reloadAfterSystemUpgrade
+    reloadAfterSystemUpgrade,
+    closeModalsOnLocationChange
 ];
 
 const sessionRelatedEpics = [

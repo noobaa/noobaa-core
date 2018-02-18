@@ -7,6 +7,7 @@ const AWS = require('aws-sdk');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const http_utils = require('../../util/http_utils');
+const cloud_utils = require('../../util/cloud_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
 
@@ -28,28 +29,30 @@ class BlockStoreS3 extends BlockStoreBase {
             count: 0
         };
 
+        const endpoint = this.cloud_info.endpoint;
         // upload copy to s3 cloud storage.
-        if (this.cloud_info.endpoint === 'https://s3.amazonaws.com') {
+        if (cloud_utils.is_aws_endpoint(endpoint)) {
             const httpOptions = this.proxy ? {
-                agent: http_utils.get_unsecured_http_agent(this.cloud_info.endpoint, this.proxy)
+                agent: http_utils.get_unsecured_http_agent(endpoint, this.proxy)
             } : undefined;
             this.s3cloud = new AWS.S3({
-                endpoint: this.cloud_info.endpoint,
+                endpoint: endpoint,
                 accessKeyId: this.cloud_info.access_keys.access_key,
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
                 s3ForcePathStyle: true,
                 httpOptions,
-                signatureVersion: 'v4',
+                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint),
                 region: DEFAULT_REGION
             });
         } else {
             this.s3cloud = new AWS.S3({
-                endpoint: this.cloud_info.endpoint,
+                endpoint: endpoint,
                 s3ForcePathStyle: true,
                 accessKeyId: this.cloud_info.access_keys.access_key,
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
+                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint),
                 httpOptions: {
-                    agent: http_utils.get_unsecured_http_agent(this.cloud_info.endpoint, this.proxy)
+                    agent: http_utils.get_unsecured_http_agent(endpoint, this.proxy)
                 }
             });
         }
@@ -126,14 +129,15 @@ class BlockStoreS3 extends BlockStoreBase {
         if (data_length) {
             this._update_usage(usage);
         }
+        const signed_url = this.s3cloud.getSignedUrl('putObject', {
+            Bucket: this.cloud_info.target_bucket,
+            Key: block_key,
+            Metadata: metadata
+        });
 
         return {
             usage,
-            signed_url: this.s3cloud.getSignedUrl('putObject', {
-                Bucket: this.cloud_info.target_bucket,
-                Key: block_key,
-                Metadata: metadata
-            }),
+            signed_url,
             proxy: this.proxy
         };
     }

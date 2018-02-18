@@ -13,10 +13,7 @@ const fs = require('fs');
 const api = require('../api');
 const promise_utils = require('../util/promise_utils');
 const azure_storage = require('../util/azure_storage_wrap');
-// const ssh = require('../test/utils/ssh_functions');
 const af = require('../test/utils/agent_functions');
-
-require('../util/dotenv').load();
 
 const adminUsername = 'notadmin';
 const qaUsername = 'qaadmin';

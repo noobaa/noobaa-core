@@ -12,7 +12,6 @@ const ssh = require('./ssh_functions');
 
 
 // Environment Setup
-require('../../util/dotenv').load();
 const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 
@@ -217,11 +216,11 @@ const agentCommandGeneratorForOS = {
 function runAgentCommandViaSsh(agent_server_ip, username, password, agentCommand, osType) {
     let client;
     return ssh.ssh_connect(null, {
-        host: agent_server_ip,
-        username,
-        password,
-        keepaliveInterval: 5000,
-    })
+            host: agent_server_ip,
+            username,
+            password,
+            keepaliveInterval: 5000,
+        })
         //becoming root and running the agent command
         .then(res => {
             client = res;
@@ -468,10 +467,10 @@ function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suff
 }
 
 /*
-* Write or remove fake local disk usage from an agent (or a server)
-* if sizeMB is supplied, will allocate a local file equal to that size
-* Otherwise will delete the previously allocated local file
-*/
+ * Write or remove fake local disk usage from an agent (or a server)
+ * if sizeMB is supplied, will allocate a local file equal to that size
+ * Otherwise will delete the previously allocated local file
+ */
 function manipulateLocalDisk(params) {
     return ssh_functions.ssh_connect({
             host: params.ip,

@@ -752,6 +752,7 @@ function check_aws_connection(params) {
         endpoint: params.endpoint,
         accessKeyId: params.identity,
         secretAccessKey: params.secret,
+        signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint),
         httpOptions: {
             agent: http_utils.get_unsecured_http_agent(params.endpoint, params.proxy)
         }

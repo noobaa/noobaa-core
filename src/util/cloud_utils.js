@@ -31,7 +31,7 @@ function get_signed_url(params) {
         },
         s3ForcePathStyle: true,
         sslEnabled: false,
-        signatureVersion: 'v4',
+        signatureVersion: get_s3_endpoint_signature_ver(params.endpoint),
         region: 'eu-central-1',
         httpOptions: {
             agent: agent
@@ -61,6 +61,20 @@ function get_azure_connection_string(params) {
     return connection_string;
 }
 
+
+function is_aws_endpoint(endpoint) {
+    const endpoint_url = url.parse(endpoint);
+    const is_aws = endpoint_url.host && endpoint_url.host.endsWith('amazonaws.com');
+    return is_aws;
+}
+
+function get_s3_endpoint_signature_ver(endpoint) {
+    if (is_aws_endpoint(endpoint)) {
+        return 'v4';
+    } else {
+        return 'v2';
+    }
+}
 
 function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace_resources) {
     const cloud_sync_targets = bucket_list ? bucket_list.filter(bucket =>
@@ -97,3 +111,5 @@ exports.find_cloud_connection = find_cloud_connection;
 exports.get_azure_connection_string = get_azure_connection_string;
 exports.get_signed_url = get_signed_url;
 exports.get_used_cloud_targets = get_used_cloud_targets;
+exports.get_s3_endpoint_signature_ver = get_s3_endpoint_signature_ver;
+exports.is_aws_endpoint = is_aws_endpoint;

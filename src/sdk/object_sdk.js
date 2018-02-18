@@ -163,7 +163,7 @@ class ObjectSDK {
                 accessKeyId: ns_info.access_key,
                 secretAccessKey: ns_info.secret_key,
                 // region: 'us-east-1', // TODO needed?
-                // signatureVersion: 's3',
+                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(ns_info.endpoint),
                 s3ForcePathStyle: true,
                 // computeChecksums: false, // disabled by default for performance
                 // s3DisableBodySigning: true, // disabled by default for performance

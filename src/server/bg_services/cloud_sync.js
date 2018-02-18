@@ -9,6 +9,7 @@ const http = require('http');
 const https = require('https');
 
 const P = require('../../util/promise');
+const cloud_utils = require('../../util/cloud_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const MDStore = require('../object_services/md_store').MDStore;
 const system_store = require('../system_services/system_store').get_instance();
@@ -405,14 +406,14 @@ function load_single_policy(bucket_id, system_id) {
         }
     });
 
-    if (policy.endpoint === "https://s3.amazonaws.com") {
+    if (cloud_utils.is_aws_endpoint(policy.endpoint)) {
         //Amazon S3
         policy.s3cloud = new AWS.S3({
             endpoint: policy.endpoint,
             accessKeyId: policy.access_keys.access_key,
             secretAccessKey: policy.access_keys.secret_key,
             region: 'us-east-1',
-            signatureVersion: 'v4'
+            signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(policy.endpoint)
         });
     } else {
         //S3 compatible
@@ -421,6 +422,7 @@ function load_single_policy(bucket_id, system_id) {
             s3ForcePathStyle: true,
             accessKeyId: policy.access_keys.access_key,
             secretAccessKey: policy.access_keys.secret_key,
+            signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(policy.endpoint),
             httpOptions: {
                 agent: get_shared_http_agent(policy.endpoint)
             }

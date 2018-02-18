@@ -16,7 +16,6 @@ const _ = require('lodash');
 const af = require('../test/utils/agent_functions'); //TODO: remove from here when Win can be copied from an image
 
 // Environment Setup
-require('../util/dotenv').load();
 _validateEnvironmentVariables();
 const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;

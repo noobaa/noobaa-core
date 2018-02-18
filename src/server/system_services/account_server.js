@@ -683,14 +683,14 @@ function check_azure_connection(params) {
                 return blob;
             })
             .catch(err => {
-                dbg.warn(`got error on createBlobService with params`, params, ` error: ${err}`);
+                dbg.warn(`got error on createBlobService with params`, _.omit(params, 'secret'), ` error: ${err}`);
                 throw err_to_status(err, err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');
             })
         )
         .then(blob_svc => P.fromCallback(callback => blob_svc.listContainersSegmented(null, callback))
             .then(() => blob_svc)
             .catch(err => {
-                dbg.warn(`got error on listContainersSegmented with params`, params, ` error: ${err}`);
+                dbg.warn(`got error on listContainersSegmented with params`, _.omit(params, 'secret'), ` error: ${err}`);
                 if (err.code === 'AuthenticationFailed' &&
                     err.authenticationerrordetail && err.authenticationerrordetail.indexOf('Request date header too old') > -1) {
                     throw err_to_status(err, 'TIME_SKEW');
@@ -700,7 +700,7 @@ function check_azure_connection(params) {
         )
         .then(blob_svc => P.fromCallback(callback => blob_svc.getServiceProperties(callback))
             .catch(err => {
-                dbg.warn(`got error on getServiceProperties with params`, params, ` error: ${err}`);
+                dbg.warn(`got error on getServiceProperties with params`, _.omit(params, 'secret'), ` error: ${err}`);
                 throw err_to_status(err, 'NOT_SUPPORTED');
             })
         )
@@ -757,7 +757,7 @@ function check_aws_connection(params) {
         .then(
             ret => ({ status: 'SUCCESS' }),
             err => {
-                dbg.warn(`got error on listBuckets with params`, params, ` error: ${err}`, err.message);
+                dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'), ` error: ${err}`, err.message);
                 const status = aws_error_mapping[err.code] || 'UNKNOWN_FAILURE';
                 return {
                     status,
@@ -791,7 +791,7 @@ function check_net_storage_connection(params) {
         .then(
             ret => ({ status: 'SUCCESS' }),
             err => {
-                dbg.warn(`got error on dir with params`, params, ` error: ${err}`, err.message);
+                dbg.warn(`got error on dir with params`, _.omit(params, 'secret'), ` error: ${err}`, err.message);
                 const status = net_storage_error_mapping[err.code] || 'UNKNOWN_FAILURE';
                 return {
                     status,

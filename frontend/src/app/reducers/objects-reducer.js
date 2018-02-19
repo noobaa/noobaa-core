@@ -43,7 +43,7 @@ function onCompleteFetchObjects(state, { payload }) {
     const { response } = payload;
     const items = keyBy(
         response.objects,
-        obj => getObjectId(obj.bucket, obj.key, obj.uploadId),
+        obj => getObjectId(obj.bucket, obj.key, _getUploadId(obj)),
         _mapObject
     );
 
@@ -93,7 +93,7 @@ function onDropObjectsView(state, { payload }) {
 
 function _mapObject(obj) {
     const mode = obj.upload_started ? 'UPLOADING' : 'OPTIMAL';
-    const uploadId = mode === 'UPLOADING' ? obj.obj_id : undefined;
+    const uploadId = _getUploadId(obj);
     const { reads = 0, last_read } = obj.stats || {};
 
     return {
@@ -112,6 +112,10 @@ function _mapObject(obj) {
         partCount: obj.num_parts,
         s3SignedUrl: obj.s3_signed_url
     };
+}
+
+function _getUploadId(obj) {
+    return obj.upload_started ? obj.obj_id : undefined;
 }
 
 // ------------------------------

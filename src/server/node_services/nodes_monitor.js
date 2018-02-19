@@ -10,6 +10,7 @@ const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
 const moment = require('moment');
 
+const kmeans = require('../../util/kmeans');
 const P = require('../../util/promise');
 const ssl_utils = require('../../util/ssl_utils');
 const api = require('../../api');
@@ -3374,11 +3375,52 @@ class NodesMonitor extends EventEmitter {
             if (String(item.node.pool) !== String(pool_id)) continue;
             list.push(item);
         }
-        list.sort(js_utils.sort_compare_by(item => item.node.storage.used, 1));
-        const max = 1000;
-        const res_list = list.length < max ? list : list.slice(0, max);
+
+        const latency_groups = [];
+        // Not all nodes always have the avg_disk_write.
+        // KMeans needs valid vectors so we exclude the nodes and assume that they are the slowest
+        // Since we assume them to be the slowest we will place them in the last KMeans group
+        const partition_avg_disk_write = _.partition(list, item => !_.isUndefined(item.avg_disk_write));
+        const nodes_with_avg_disk_write = partition_avg_disk_write[0];
+        const nodes_without_avg_disk_write = partition_avg_disk_write[1];
+        if (nodes_with_avg_disk_write.length >= config.NODE_ALLOCATOR_NUM_CLUSTERS) {
+            // TODO: 
+            // Not handling noise at all. 
+            // This means that we can have a group of 1 noisy drive.
+            // I rely on avg_disk_write as an average reading to handle any noise.
+            const kmeans_clusters = kmeans.run(
+                nodes_with_avg_disk_write.map(item => [item.avg_disk_write]), {
+                    k: config.NODE_ALLOCATOR_NUM_CLUSTERS
+                }
+            );
+
+            // Sort the groups by latency (centroid is the computed centralized latency for each group)
+            kmeans_clusters.sort(js_utils.sort_compare_by(item => item.centroid[0], 1));
+
+            kmeans_clusters.forEach(kmeans_cluster =>
+                latency_groups.push(kmeans_cluster.clusterInd.map(index => list[index]))
+            );
+
+            if (nodes_without_avg_disk_write.length) {
+                latency_groups[latency_groups.length - 1] =
+                    _.concat(latency_groups[latency_groups.length - 1], nodes_without_avg_disk_write);
+            }
+
+        } else {
+            latency_groups.push(list);
+        }
+
         return {
-            nodes: _.map(res_list, item => this._get_node_info(item, params.fields))
+            latency_groups: latency_groups.map(cluster => {
+                const max = 1000;
+                // This is done in order to get the most unused or free drives
+                // Since we sclice the response up to 1000 drives
+                cluster.sort(js_utils.sort_compare_by(item => item.node.storage.used, 1));
+                const nodes_set = (cluster.length < max) ? cluster : cluster.slice(0, max);
+                return {
+                    nodes: nodes_set.map(item => this._get_node_info(item, params.fields))
+                };
+            }) || { nodes: [] }
         };
     }
 

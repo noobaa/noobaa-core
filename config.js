@@ -31,7 +31,7 @@ config.NODE_IO_DETENTION_TEST_NODES = 2;
 
 config.HOSTED_AGENTS_HOST_ID = 'hosted_agents';
 
-config.SSD_LATENCY_MS = 1;
+config.NODE_ALLOCATOR_NUM_CLUSTERS = 2;
 
 ////////////////
 // RPC CONFIG //

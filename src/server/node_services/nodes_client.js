@@ -24,7 +24,6 @@ const NODE_FIELDS_FOR_MAP = [
     'writable',
     'storage_full',
     'latency_of_disk_read',
-    'latency_of_disk_write',
     // ... more?
 ];
 
@@ -210,7 +209,7 @@ class NodesClient {
                     role: 'admin'
                 })
             }))
-            .tap(res => mongo_utils.fix_id_type(res.nodes));
+            .tap(res => res.latency_groups.forEach(group => mongo_utils.fix_id_type(group.nodes)));
     }
 
     // TODO: Fields doesn't seem to filter and work

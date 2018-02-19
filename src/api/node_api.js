@@ -342,12 +342,21 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['nodes'],
+                required: ['latency_groups'],
                 properties: {
-                    nodes: {
+                    latency_groups: {
                         type: 'array',
                         items: {
-                            $ref: '#/definitions/node_info'
+                            type: 'object',
+                            required: ['nodes'],
+                            properties: {
+                                nodes: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/definitions/node_info'
+                                    }
+                                }
+                            }
                         }
                     }
                 }

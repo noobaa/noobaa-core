@@ -56,9 +56,9 @@ function refresh_pool_alloc(pool) {
         .then(res => {
             group.last_refresh = Date.now();
             group.promise = null;
-            group.nodes = res.nodes;
+            group.latency_groups = res.latency_groups;
             dbg.log1('refresh_pool_alloc: updated pool', pool.name,
-                'nodes', _.map(group.nodes, 'name'));
+                'nodes', _.map(_.flatMap(group.latency_groups, 'nodes'), 'name'));
             _.each(alloc_group_by_pool_set, (g, pool_set) => {
                 if (_.includes(pool_set, String(pool._id))) {
                     dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
@@ -137,7 +137,7 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
     _.each(pools, pool => {
         let valid_for_allocation = true;
         let alloc_group = alloc_group_by_pool[String(pool._id)];
-        let num_nodes = alloc_group ? alloc_group.nodes.length : 0;
+        const num_nodes = alloc_group ? _.sumBy(alloc_group.latency_groups, 'nodes.length') : 0;
         if (pool.cloud_pool_info) {
             if (num_nodes !== config.NODES_PER_CLOUD_POOL) {
                 valid_for_allocation = false;
@@ -175,84 +175,67 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
     let alloc_group = alloc_group_by_pool_set[pool_set];
 
     if (!alloc_group) {
+        const pools_latency_groups = [{ nodes: [] }];
+        // TODO:
+        // We allocate using pool sets and not single pools
+        // This is why we need to somehow merge the KMEANS of each pool into an aggregated pool set
+        // It is a problem which breaks the KMEANS groups since we just merge the groups by index
+        // Example of the problematic case:
+        // Pool A: Has 20 slow nodes (It will be divided to 2 slow groups)
+        // Pool B: Has 20 fast nodes (It will be divided to 2 fast groups)
+        // Since we will merge the two groups we will eventually have two average groups
+        // This is bad since we will have two groups with each having fast and slow drives
+        pools.forEach(pool => {
+            let group = alloc_group_by_pool[pool._id];
+            if (group && group.latency_groups) {
+                group.latency_groups.forEach((value, index) => {
+                    if (pools_latency_groups[index]) {
+                        pools_latency_groups[index].nodes =
+                            _.concat(pools_latency_groups[index].nodes, value.nodes);
+                    } else {
+                        pools_latency_groups[index] = value;
+                    }
+                });
+            }
+        });
         alloc_group = {
-            nodes: chance.shuffle(_.flatMap(pools, pool => {
-                let group = alloc_group_by_pool[pool._id];
-                return group && group.nodes;
+            latency_groups: _.map(pools_latency_groups, group => ({
+                nodes: chance.shuffle(group.nodes)
             }))
         };
         alloc_group_by_pool_set[pool_set] = alloc_group;
     }
 
-    // If we are allocating a node for content tiering special replicas,
-    // we should run an additional sort, in order to get the best read latency nodes
-    if (content_tiering_params && content_tiering_params.special_replica) {
-        // In order to sort the nodes by the best read latency values.
-        // We need to get the average of all the latency disk read values,
-        // and sort the nodes by the average that we've calculated.
-        alloc_group.nodes = _.sortBy(alloc_group.nodes, item => _.mean(item.latency_of_disk_read));
-    }
+    const num_nodes = alloc_group ? _.sumBy(alloc_group.latency_groups, 'nodes.length') : 0;
 
-    let num_nodes = alloc_group ? alloc_group.nodes.length : 0;
     dbg.log1('allocate_node: pool_set', pool_set,
         'num_nodes', num_nodes,
         'alloc_group', alloc_group);
+
     if (num_nodes < 1) {
         dbg.error('allocate_node: no nodes for allocation in pool set',
             pools, avoid_nodes, allocated_hosts, content_tiering_params);
         return;
     }
 
-    const ssd_partitions = _.partition(alloc_group.nodes, item =>
-        _.mean(item.latency_of_disk_write) <= config.SSD_LATENCY_MS);
+    const ALLOC_BEST = { unique_hosts: true, use_nodes_with_errors: false };
+    const ALLOC_ALLOW_SAME_HOST = { unique_hosts: false, use_nodes_with_errors: false };
+    const ALLOC_ALLOW_ANY = { unique_hosts: false, use_nodes_with_errors: true };
 
-    return _allocate_from_ssd_partitions_list(ssd_partitions, avoid_nodes, allocated_hosts);
-
+    let node;
+    alloc_group.latency_groups.forEach(group => {
+        if (node) return false; // This is done in order to break the loop
+        node = allocate_from_list(group.nodes, avoid_nodes, allocated_hosts, ALLOC_BEST) ||
+            allocate_from_list(group.nodes, avoid_nodes, allocated_hosts, ALLOC_ALLOW_SAME_HOST);
+    });
+    if (node) return node;
+    alloc_group.latency_groups.forEach(group => {
+        if (node) return false; // This is done in order to break the loop
+        node = allocate_from_list(group.nodes, avoid_nodes, allocated_hosts, ALLOC_ALLOW_ANY);
+    });
+    return node;
 }
 
-function _allocate_from_ssd_partitions_list(node_partitions, avoid_nodes, allocated_hosts) {
-    // There are two partitions. First one is SSD and the second is regular drives
-    // All of the logic below is relevant firstly for SSD and only afterwards for regular drives
-    // Except the error nodes logic which will be in lowest priority after valid drive checks
-    // allocate first tries from nodes with no error,
-    // but if non can be found then it will try to allocate from nodes with error.
-    // this allows pools with small number of nodes to overcome transient errors
-    // without failing to allocate.
-    // nodes with error that are indeed offline they will eventually
-    // be filtered by refresh_pool_alloc.
-    if (node_partitions[0].length) {
-        const ssd_node = allocate_from_list(node_partitions[0], avoid_nodes, allocated_hosts, {
-                unique_hosts: true, // try to allocate from unique hosts first
-                use_nodes_with_errors: false
-            }) ||
-            allocate_from_list(node_partitions[0], avoid_nodes, allocated_hosts, {
-                unique_hosts: false, // second try - allocate from allocated hosts
-                use_nodes_with_errors: false
-            });
-        if (ssd_node) return ssd_node;
-    }
-
-    if (node_partitions[1].length) {
-        const regular_node = allocate_from_list(node_partitions[1], avoid_nodes, allocated_hosts, {
-                unique_hosts: true, // try to allocate from unique hosts first
-                use_nodes_with_errors: false
-            }) ||
-            allocate_from_list(node_partitions[1], avoid_nodes, allocated_hosts, {
-                unique_hosts: false, // second try - allocate from allocated hosts
-                use_nodes_with_errors: false
-            });
-        if (regular_node) return regular_node;
-    }
-    // on the first try, filter out nodes (drives) from hosts that already hold a similar block
-    return allocate_from_list(node_partitions[0], avoid_nodes, allocated_hosts, {
-            unique_hosts: false,
-            use_nodes_with_errors: true // last try - allocated also from nodes with errors
-        }) ||
-        allocate_from_list(node_partitions[1], avoid_nodes, allocated_hosts, {
-            unique_hosts: false,
-            use_nodes_with_errors: true // last try - allocated also from nodes with errors
-        });
-}
 
 function allocate_from_list(nodes, avoid_nodes, allocated_hosts, options) {
     for (var i = 0; i < nodes.length; ++i) {

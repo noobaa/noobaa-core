@@ -183,7 +183,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
     );
 
     const cpuUnits = os_info.cpus
-        .map( cpu => ({
+        .map(cpu => ({
             model: cpu.model,
             speed: cpu.speed
         }));

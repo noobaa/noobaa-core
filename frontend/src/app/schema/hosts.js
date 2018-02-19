@@ -1,4 +1,4 @@
-export const node = {
+const storageNode = {
     type: 'object',
     required: [
         'name',
@@ -17,7 +17,6 @@ export const node = {
         mode: {
             type: 'string',
             enum: [
-
                 'OFFLINE',
                 'UNTRUSTED',
                 'INITIALIZING',
@@ -80,7 +79,6 @@ export const node = {
                         'WIPING'
                     ]
                 }
-
             }
         },
         untrusted: {
@@ -111,7 +109,7 @@ export const node = {
     }
 };
 
-export const host = {
+const host = {
     type: 'object',
     required: [
         'name',
@@ -353,9 +351,7 @@ export const host = {
                         },
                         nodes: {
                             type: 'array',
-                            items:  {
-                                $ref: '#/def/node'
-                            }
+                            items: storageNode
                         }
                     }
                 }
@@ -379,7 +375,10 @@ export const host = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        additionalProperties: true,
+                        required: [
+                            'model',
+                            'speed'
+                        ],
                         properties: {
                             model: {
                                 type: 'string'
@@ -599,9 +598,7 @@ export default {
         },
         items: {
             type: 'object',
-            additionalProperties: {
-                $ref: '#/def/host'
-            }
+            additionalProperties: host
         }
     }
 };

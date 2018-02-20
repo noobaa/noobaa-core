@@ -601,8 +601,8 @@ module.exports = {
                 tiering: {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
                 },
-                spillover_enabled: {
-                    type: 'boolean'
+                spillover: {
+                    type: 'string'
                 },
                 storage: {
                     type: 'object',
@@ -886,8 +886,12 @@ module.exports = {
                         }
                     }]
                 },
-                use_internal_spillover: {
-                    type: 'boolean',
+                spillover: {
+                    oneOf: [{
+                        type: 'string'
+                    }, {
+                        type: 'null'
+                    }]
                 },
                 namespace: {
                     type: 'object',

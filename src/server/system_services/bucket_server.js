@@ -439,6 +439,7 @@ function create_bucket_spillover_tier(system, bucket_id, pool_id) {
         `${config.SPILLOVER_TIER_NAME}-${bucket_id}`,
         system._id,
         system.default_chunk_config._id, [{
+            _id: system_store.generate_id(),
             spread_pools: [pool_id]
         }]
     );

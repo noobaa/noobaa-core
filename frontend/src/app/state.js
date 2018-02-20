@@ -26,7 +26,7 @@ function _filterMishapedActions(action) {
 
 function _reduceState(prevState, action) {
     try {
-        const state = deepFreeze(reducer(prevState, action));
+        const state = reducer(prevState, action);
         const violations = schemaValidator(state);
 
         if (violations) {
@@ -36,16 +36,16 @@ function _reduceState(prevState, action) {
             };
 
             console.error('Invalid state', error);
-            return {
+            return deepFreeze({
                 ...prevState,
                 lastError: error
-            };
+            });
 
         } else {
-            return {
+            return deepFreeze({
                 ...state,
                 lastError: prevState.lastError
-            };
+            });
         }
 
     } catch (exp) {
@@ -55,10 +55,10 @@ function _reduceState(prevState, action) {
             ...mapErrorObject(exp)
         };
 
-        return {
+        return deepFreeze({
             ...prevState,
             lastError: error
-        };
+        });
     }
 }
 

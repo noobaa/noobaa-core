@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { Subject } from 'rx';
 
 const maxLogSize = 200;

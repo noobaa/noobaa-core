@@ -1,3 +1,5 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,25 +28,104 @@
 
         code {
             overflow-y: auto;
+            padding-bottom: 3em;
         }
 
-        .diff .set { background-color: #3cb37126 }
-        .diff .set .prefix { color: #08955b; }
+        .diff .set {
+            background-color: #3cb37126;
+            padding-left: 4px;
+        }
 
-        .diff .unset { background-color: #8b000052 }
-        .diff .unset .prefix { color: #d01c27; }
+        .diff .set .prefix {
+            color: #08955b;
+        }
 
-        .json {
+        .diff .unset {
+            background-color: #8b000052;
+            padding-left: 4px;
+        }
+
+        .diff .unset .prefix {
+            color: #d01c27;
+        }
+
+        .inspector {
             display: block;
-            white-space: pre-wrap;
+            white-space: wrap;
             word-break: break-all;
+            font-size: 12px;
+            line-height: 1.4;
         }
 
-        .json > .key { color: #92836e; }
-        .json > .number { color: #967c9c; }
-        .json > .string { color: #009688 ; }
-        .json > .boolean { color: #b7813f; }
-        .json > .null { color: #E91E63; }
+        .inspector .number {
+            color: #967c9c;
+        }
+
+        .inspector .string {
+            color: #009688 ;
+        }
+
+        .inspector .boolean {
+            color: #b7813f;
+        }
+
+        .inspector .null {
+            color: #E91E63;
+        }
+
+        .inspector .obj {
+            display: block;
+        }
+
+        .inspector .prop {
+            display: block;
+        }
+
+        .inspector input {
+            display: none;
+        }
+
+        .inspector .key {
+            color: #92836e;
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        .inspector input + .key::before {
+            content: '';
+            display: inline-block;
+            vertical-align: top;
+            border: solid transparent;
+            border-width: 3px 0 3px 6px;
+            margin: 6px 5px 6px -11px;
+            border-left-color: #f20092;
+        }
+
+        .inspector input:checked + .key::before {
+            border-width: 6px 3px 0 3px;
+            border-left-color: transparent;
+            border-top-color: #f20092;
+        }
+
+        .inspector input ~ .obj {
+            display: none;
+        }
+
+        .inspector input:checked ~ .obj {
+            display: block;
+        }
+
+        .inspector .i0 { padding-left: 14px; }
+        .inspector .i1 { padding-left: 28px; }
+        .inspector .i2 { padding-left: 42px; }
+        .inspector .i3 { padding-left: 56px; }
+        .inspector .i4 { padding-left: 70px; }
+        .inspector .i5 { padding-left: 84px; }
+        .inspector .i6 { padding-left: 98px; }
+        .inspector .i7 { padding-left: 122px; }
+        .inspector .i8 { padding-left: 136px; }
+        .inspector .i9 { padding-left: 150px; }
+        .inspector .i10 { padding-left: 164px; }
     </style>
 
 </head>
@@ -94,21 +175,21 @@
             </ul>
         </section>
         <!-- ko if: isMessageSelected -->
-        <section class="column greedy">
-            <div class="tabs c5">
+        <section class="row greedy">
+            <div class="tabs c6">
                 <nav>
                     <a class="selected">Action Payload</a>
                 </nav>
                 <div class="tabs-row">
                     <div class="tab column selected">
-                        <code class="greedy hpad push-both-half json" data-bind="
+                        <code class="greedy hpad push-both-half inspector" data-bind="
                             html: actionPayload
                         "></code>
                     </div>
                 </div>
             </div>
-            <hr class="push-both-half">
-            <div class="tabs c7">
+            <vr class="push-both-half"></vr>
+            <div class="tabs c6">
                 <nav>
                     <a data-bind="
                         css: { selected: selectedStateTab() === 'diff' },
@@ -138,14 +219,14 @@
                             </ul>
                             <!-- /ko -->
                             <!-- ko ifnot: stateDiff -->
-                            [No Difference]
+                            <span class="remark">[No Difference]</span>
                             <!-- /ko -->
                         </code>
                     </div>
                     <div class="tab column selected" data-bind="
                         css: { selected: selectedStateTab() === 'full' }
                     ">
-                        <code class="greedy hpad push-both-half json" data-bind="
+                        <code class="greedy hpad push-both-half inspector" data-bind="
                             html: fullState
                         "></code>
                     </div>

@@ -196,7 +196,7 @@ export default {
                     type: {
                         type: 'string',
                         enum: [
-                            'INTERNAL'
+                            'INTERNAL', 'CLOUD', 'HOSTS'
                         ]
                     },
                     name: {

@@ -36,7 +36,9 @@ db.pools.remove({
 });
 db.tiers.remove({
     name: {
-        $nin: [/first\.bucket#/, /system-internal-spillover-tier.*/]
+        $nin: [/first\.bucket#/, "bucket-spillover-tier-" + (db.buckets.find({
+            name: 'first.bucket'
+        })[0]._id).valueOf()]
     }
 });
 db.tieringpolicies.remove({

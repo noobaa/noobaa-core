@@ -231,6 +231,7 @@ function create_system(req) {
     const changes = new_system_changes(account.name, account);
     const system_id = changes.insert.systems[0]._id;
     const default_pool = changes.insert.pools[0]._id;
+    const default_bucket = changes.insert.buckets[0]._id;
     const owner_secret = system_store.get_server_secret();
     let reply_token;
     let ntp_configured = false;
@@ -349,7 +350,7 @@ function create_system(req) {
                 auth_token: reply_token
             });
         })
-        .then(() => _ensure_spillover_structure(system_id))
+        .then(() => _ensure_spillover_structure(system_id, default_bucket))
         .then(() => _init_system(system_id))
         .then(() => system_utils.mongo_wrapper_system_created())
         .then(() => ({
@@ -1241,19 +1242,7 @@ function _init_system(sysid) {
         ));
 }
 
-function create_internal_tier(system, mongo_pool) {
-    if (tier_server.get_internal_storage_tier(system)) return;
-    return tier_server.new_tier_defaults(
-        `${config.SPILLOVER_TIER_NAME}-${system._id}`,
-        system._id,
-        system.default_chunk_config._id, [{
-            _id: system_store.generate_id(),
-            spread_pools: [mongo_pool._id]
-        }]
-    );
-}
-
-function _ensure_spillover_structure(system_id) {
+function _ensure_spillover_structure(system_id, bucket_id) {
     return P.resolve()
         .then(() => {
             const system = system_store.data.get_by_id(system_id);
@@ -1275,10 +1264,9 @@ function _ensure_spillover_structure(system_id) {
         .then(() => {
             const system = system_store.data.get_by_id(system_id);
             if (!system) throw new Error('SYSTEM DOES NOT EXIST');
-            if (tier_server.get_internal_storage_tier(system)) return;
             const mongo_pool = pool_server.get_internal_mongo_pool(system);
             if (!mongo_pool) throw new Error('MONGO POOL CREATION FAILURE');
-            const internal_tier = create_internal_tier(system, mongo_pool);
+            const internal_tier = bucket_server.create_bucket_spillover_tier(system, bucket_id, mongo_pool._id);
 
             return system_store.make_changes({
                 insert: {
@@ -1379,7 +1367,6 @@ function _communicate_license_server(params, proxy_address) {
 // EXPORTS
 exports._init = _init;
 exports.new_system_defaults = new_system_defaults;
-exports.create_internal_tier = create_internal_tier;
 exports.new_system_changes = new_system_changes;
 
 exports.create_system = create_system;

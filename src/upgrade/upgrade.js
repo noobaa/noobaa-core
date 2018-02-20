@@ -407,6 +407,7 @@ function mongo_upgrade_database_metadata(params) {
             if (should_mongo_upgrade === "true") {
                 UPGRADE_SCRIPTS = [
                     'mongo_upgrade_2_1_3.js',
+                    'mongo_upgrade_2_3_0.js',
                     'mongo_upgrade_mark_completed.js'
                 ];
             } else {

@@ -24,6 +24,7 @@ const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
+const ph_utils = require('../../util/phone_home');
 const { RpcError } = require('../../rpc');
 const ssl_utils = require('../../util/ssl_utils');
 const nb_native = require('../../util/nb_native');
@@ -936,11 +937,24 @@ function update_phone_home_config(req) {
         update.phone_home_proxy_address = req.rpc_params.proxy_address;
     }
 
-    return system_store.make_changes({
+    dbg.log0(`testing internet connectivity using proxy ${req.rpc_params.proxy_address}`);
+    return ph_utils.verify_connection_to_phonehome({ proxy: req.rpc_params.proxy_address })
+        .then(res => {
+            if (res === 'CONNECTED') {
+                dbg.log0('connectivity test passed. configuring proxy address:', desc_line);
+            } else {
+                dbg.error(`Failed connectivity test using proxy ${req.rpc_params.proxy_address}. test result: ${res}`);
+                if (req.rpc_params.proxy_address) {
+                    throw new RpcError('CONNECTIVITY_TEST_FAILED', `Failed connectivity test using proxy ${req.rpc_params.proxy_address}`);
+                }
+                dbg.warn('No connectivity without proxy! removing proxy settings anyway');
+            }
+        })
+        .then(() => system_store.make_changes({
             update: {
                 systems: [update]
             }
-        })
+        }))
         .then(() => os_utils.set_yum_proxy(req.rpc_params.proxy_address))
         .then(() => server_rpc.client.hosted_agents.stop())
         .then(() => server_rpc.client.hosted_agents.start())

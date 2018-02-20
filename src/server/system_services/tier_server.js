@@ -475,10 +475,6 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate
     return info;
 }
 
-function get_internal_storage_tier(system) {
-    return system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${system._id}`];
-}
-
 function get_associated_tiering_policies(tier) {
     const associated_tiering_policies = _.filter(tier.system.tiering_policies_by_name,
         policy => _.find(policy.tiers, t => String(t.tier._id) === String(tier._id))
@@ -490,7 +486,6 @@ function get_associated_tiering_policies(tier) {
 
 // EXPORTS
 exports.get_associated_tiering_policies = get_associated_tiering_policies;
-exports.get_internal_storage_tier = get_internal_storage_tier;
 exports.new_tier_defaults = new_tier_defaults;
 exports.new_policy_defaults = new_policy_defaults;
 exports.get_tier_info = get_tier_info;

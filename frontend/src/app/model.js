@@ -61,3 +61,6 @@ export const regenerateCredentialState = ko.observable();
 
 // Hold verification state for attach server oprtations.
 export const serverVerificationState = ko.observable();
+
+// Holds the a boolean indicating if the a proxy test is currently running.
+export const isProxyTestRunning = ko.observable();

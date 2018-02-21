@@ -522,44 +522,26 @@ function update_bucket_s3_access(req) {
                 bucket: bucket._id,
                 desc: desc_string.join('\n'),
             });
-        })
-        .then(() => { // checking if new problems for running lambda triggers has been added
-            const new_updates = [];
-            if (!removed_accounts.length) return;
-            if (!bucket.lambda_triggers || !bucket.lambda_triggers.length) return;
-            // const removed_account_ids = _.map(removed_accounts, account => account._id);
-            return P.map(bucket.lambda_triggers, trigger =>
-                    func_store.instance().read_func(req.system._id, trigger.func_name, trigger.func_version)
-                    .then(func => {
-                        if (_.find(removed_accounts, acc => acc._id.toString() === func.exec_account.toString())) {
-                            const account = system_store.data.get_by_id(func.exec_account);
-                            new_updates.push({
-                                $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
-                                $set: { 'lambda_triggers.$.permission_problem': true }
-                            });
-                            trigger.permission_problem = true;
-                            Dispatcher.instance().alert('MAJOR', req.system._id,
-                                `Account’s ${account.email} ${bucket.name} bucket access was removed. 
-                            The configured lambda trigger for function ${func.name} will no longer be invoked`);
-                        }
-                        if (_.find(added_accounts, acc => acc._id.toString() === func.exec_account.toString())) {
-                            new_updates.push({
-                                $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
-                                $set: { 'lambda_triggers.$.permission_problem': true }
-                            });
-                        }
-                    }))
-                .then(() => {
-                    system_store.make_changes({
-                        update: {
-                            buckets: new_updates
-                        }
-                    });
-                });
+            check_for_lambda_permission_issue(req, bucket, removed_accounts);
         })
         .return();
 }
 
+function check_for_lambda_permission_issue(req, bucket, removed_accounts) {
+    if (!removed_accounts.length) return;
+    if (!bucket.lambda_triggers || !bucket.lambda_triggers.length) return;
+    _.forEach(bucket.lambda_triggers, trigger =>
+        func_store.instance().read_func(req.system._id, trigger.func_name, trigger.func_version)
+        .then(func => {
+            const account = _.find(removed_accounts, acc => acc._id.toString() === func.exec_account.toString());
+            if (account) {
+                Dispatcher.instance().alert('MAJOR', req.system._id,
+                    `Account’s ${account.email} ${bucket.name} bucket access was removed. 
+                    The configured lambda trigger for function ${func.name} will no longer be invoked`);
+            }
+        })
+    );
+}
 
 /**
  *
@@ -872,7 +854,6 @@ function add_bucket_lambda_trigger(req) {
                 func_name: new_trigger.func_name,
                 func_version: new_trigger.func_version,
                 enabled: new_trigger.enabled !== false,
-                permission_problem: new_trigger.permission_problem,
                 object_prefix: new_trigger.object_prefix || undefined,
                 object_suffix: new_trigger.object_suffix || undefined
             }, _.isUndefined);
@@ -929,34 +910,42 @@ function update_bucket_lambda_trigger(req) {
     const validate_trigger = Object.assign({}, trigger, updates);
     return P.resolve()
         .then(() => validate_trigger_update(req, bucket, validate_trigger))
-        .then(() => {
-            const new_updates = _.mapKeys(updates, (value, key) => `lambda_triggers.$.${key}`);
-            new_updates['lambda_triggers.$.permission_problem'] = validate_trigger.permission_problem;
-            system_store.make_changes({
-                update: {
-                    buckets: [{
-                        $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
-                        $set: new_updates
-                    }]
-                }
-            });
-        })
+        .then(() => system_store.make_changes({
+            update: {
+                buckets: [{
+                    $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
+                    $set: _.mapKeys(updates, (value, key) => `lambda_triggers.$.${key}`)
+                }]
+            }
+        }))
         .return();
 }
 
 function validate_trigger_update(req, bucket, validated_trigger) {
     dbg.log0('validate_trigger_update: Chekcing new trigger is legal:', validated_trigger);
+    let validate_function = true;
     _.forEach(bucket.lambda_triggers, trigger => {
-        if (validated_trigger._id && trigger._id === validated_trigger._id) return; // it's ok to be identical to yourself
-        if ((trigger.event_name === validated_trigger.event_name) &&
-            (trigger.func_name === validated_trigger.func_name) &&
-            (trigger.object_prefix === validated_trigger.object_prefix) &&
-            (trigger.object_suffix === validated_trigger.object_suffix)) {
+        const is_same_trigger = String(trigger._id) === String(validated_trigger._id);
+        const is_same_func =
+            validated_trigger.func_name === trigger.func_name &&
+            validated_trigger.func_version === trigger.func_version;
+        if (is_same_trigger && is_same_func) validate_function = false; // if this is update and function didn't change - don't validate
+        if (!is_same_trigger &&
+            is_same_func &&
+            trigger.event_name === validated_trigger.event_name &&
+            trigger.object_prefix === validated_trigger.object_prefix &&
+            trigger.object_suffix === validated_trigger.object_suffix) {
             throw new RpcError('TRIGGER_DUPLICATE', 'This trigger is the same as an existing one');
         }
     });
+    if (!validate_function) return P.resolve(); // if update doesn't change function - no need to validate access
     return func_store.instance().read_func(bucket.system._id, validated_trigger.func_name, validated_trigger.func_version)
-        .then(func => req.check_bucket_permission(bucket, func.exec_account));
+        .then(func => {
+            const exec_account = system_store.data.get_by_id(func.exec_account);
+            if (!auth_server.has_bucket_permission(bucket, exec_account)) {
+                throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
+            }
+        });
 }
 
 // function is_prefix_overlapping(prefix1, prefix2) {
@@ -1346,3 +1335,5 @@ exports.export_bucket_bandwidth_usage = export_bucket_bandwidth_usage;
 exports.add_bucket_lambda_trigger = add_bucket_lambda_trigger;
 exports.update_bucket_lambda_trigger = update_bucket_lambda_trigger;
 exports.delete_bucket_lambda_trigger = delete_bucket_lambda_trigger;
+
+exports.check_for_lambda_permission_issue = check_for_lambda_permission_issue;

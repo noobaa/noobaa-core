@@ -35,11 +35,15 @@
             "/>
        </editor>
 
-        <button class="btn align-start push-prev" data-bind="
-            click: applyChanges,
-            shakeOnClick: errors().length
-        ">
+        <working-button class="align-start push-prev"
+            data-bind="shakeOnClick: errors().length"
+            params="
+                click: applyChanges,
+                working: isProxyTestRunning,
+                workingLabel: 'Testing...'
+            "
+        >
             Apply Changes
-        </button>
+        </working-button>
     </section>
 </collapsible-section>

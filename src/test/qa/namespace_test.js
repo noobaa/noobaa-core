@@ -11,6 +11,7 @@ const api = require('../../api');
 const crypto = require('crypto');
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('namespace');
+const bf = require('../utils/bucket_functions');
 
 require('../../util/dotenv').load();
 
@@ -286,9 +287,7 @@ function uploadFileToNoobaaS3(bucket, file_name) {
 
 function deleteGatewayBucket(bucket) {
     console.log('Deleting gateway bucket ' + bucket);
-    return client.bucket.delete_bucket({
-            name: bucket
-        })
+    return bf.deleteBucket(server_ip, bucket)
         .catch(err => {
             saveErrorAndResume(`Failed to delete gateway bucket with error`, err);
             throw err;

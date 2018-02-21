@@ -816,16 +816,32 @@ export function exitMaintenanceMode() {
         .done();
 }
 
-export function updatePhoneHomeConfig(proxyAddress) {
+export async function updatePhoneHomeConfig(proxyAddress) {
     logAction('updatePhoneHomeConfig', { proxyAddress });
 
-    api.system.update_phone_home_config({ proxy_address: proxyAddress })
-        .then(
-            () => notify('Phone home proxy settings updated successfully', 'success'),
-            () => notify('Updating phone home proxy settings failed', 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
+    const { isProxyTestRunning } = model;
+    if (isProxyTestRunning()) return;
+
+    if (proxyAddress) {
+        isProxyTestRunning(true);
+        notify('Checking external services connectivity using configure proxy');
+    }
+
+    try {
+        await api.system.update_phone_home_config({ proxy_address: proxyAddress });
+        notify('Phone home proxy settings updated successfully', 'success');
+
+        action$.onNext(fetchSystemInfo());
+
+    } catch (error) {
+        const message = error.rpc_code === 'CONNECTIVITY_TEST_FAILED' ?
+            'External services could not be reached using configured proxy' :
+            'Updating phone home proxy settings failed';
+
+        notify(message, 'error');
+    }
+
+    isProxyTestRunning(false);
 }
 
 export function enableRemoteSyslog(protocol, address, port) {

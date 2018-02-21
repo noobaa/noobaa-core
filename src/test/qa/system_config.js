@@ -295,7 +295,7 @@ P.fcall(function() {
         }
     })
     .then(() => { // phone home configuration -
-        console.log('Setting Phone home Proxy');
+        console.log('Setting Proxy');
         return P.resolve(client.system.update_phone_home_config({
             proxy_address: 'http://' + my_external_ip + ':' + ph_proxy_port
         }));
@@ -325,9 +325,9 @@ P.fcall(function() {
     .then(result => {
         let proxy = result.phone_home_config.proxy_address;
         if (proxy === 'http://' + my_external_ip + ':' + ph_proxy_port) {
-            console.log(`The defined phone home proxy is ${proxy} - as should`);
+            console.log(`The defined proxy is ${proxy} - as should`);
         } else {
-            saveErrorAndResume(`The defined phone home proxy is ${proxy} - failure`);
+            saveErrorAndResume(`The defined proxy is ${proxy} - failure`);
             failures_in_test = true;
         }
     })
@@ -353,14 +353,14 @@ P.fcall(function() {
     .then(res => {
         let ph_status = res.cluster.shards[0].servers[0].services_status.phonehome_proxy;
         if (ph_status === 'OPERATIONAL') {
-            console.log('The service monitor see the phone home proxy status as OPERATIONAL - as should');
+            console.log('The service monitor see the proxy status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume(`The service monitor see the phone home proxy status as ${ph_status} - failure!!!`);
+            saveErrorAndResume(`The service monitor see the proxy status as ${ph_status} - failure!!!`);
             failures_in_test = true;
         }
     })
     .then(() => { // phone home configuration -
-        console.log('Setting disable Phone home Proxy');
+        console.log('Setting disable Proxy');
         return P.resolve(client.system.update_phone_home_config({
             proxy_address: null
         }));
@@ -389,7 +389,7 @@ P.fcall(function() {
         let proxy = result.phone_home_config;
         console.log('Phone home config is: ' + JSON.stringify(proxy));
         if (JSON.stringify(proxy).includes('proxy_address') === false) {
-            console.log('The defined phone home proxy is no use proxy - as should');
+            console.log('The defined proxy is no use proxy - as should');
         } else {
             saveErrorAndResume(`The defined phone home with disable proxy is ${proxy} - failure`);
             failures_in_test = true;
@@ -418,9 +418,9 @@ P.fcall(function() {
         console.log(JSON.stringify(result.cluster.shards[0].servers[0].services_status));
         let ph_status = result.cluster.shards[0].servers[0].services_status.phonehome_server.status;
         if (ph_status === 'OPERATIONAL') {
-            console.log('The service monitor see the phone home proxy status as OPERATIONAL - as should');
+            console.log('The service monitor see the proxy status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume(`The service monitor see the phone home proxy after disable status as ${ph_status} - failure!!!`);
+            saveErrorAndResume(`The service monitor see the proxy after disable status as ${ph_status} - failure!!!`);
             failures_in_test = true;
         }
     })

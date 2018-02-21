@@ -31,7 +31,7 @@ export function getServerIssues(server, systemVersion, minRequirements) {
 
     const { phonehome_proxy } = services_status;
     if (phonehome_proxy && phonehome_proxy !== 'OPERATIONAL') {
-        issues.phoneHomeProxy = _formatIssueMessage('Phone Home proxy', phonehome_proxy);
+        issues.phoneHomeProxy = _formatIssueMessage('Proxy', phonehome_proxy);
     }
 
     const { ntp_server } = services_status;

@@ -229,12 +229,13 @@ function configure_networking_dialog {
 function generate_entropy(){
     local path
     echo "Generate entropy for /dev/random (openssl and such) for 5m"
-    for path in $(find /dev/disk/by-uuid/ -type l )
+    for path in $(find /dev/disk/by-uuid/ -type l)
     do
-        sudo md5sum ${path} &
-    done
+        sudo md5sum ${path}
+    done &
+    pid=$!
     sleep 300
-    sudo kill -9 $(ps -ef | grep md5 | grep -v grep | awk '{print $2}' | xargs) 2> /dev/null
+    sudo kill -9 ${pid} 2> /dev/null
 }
 
 function configure_ntp_dialog {

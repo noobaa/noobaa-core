@@ -3,7 +3,7 @@
 import template from './phone-home-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { systemInfo } from 'model';
+import { systemInfo, isProxyTestRunning } from 'model';
 import { updatePhoneHomeConfig } from 'actions';
 
 class PhoneHomeFormViewModel extends BaseViewModel {
@@ -11,6 +11,7 @@ class PhoneHomeFormViewModel extends BaseViewModel {
         super();
 
         this.isCollapsed = isCollapsed;
+        this.isProxyTestRunning = isProxyTestRunning;
 
         let config = ko.pureComputed(
             () => systemInfo() && systemInfo().phone_home_config

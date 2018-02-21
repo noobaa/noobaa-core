@@ -8,6 +8,7 @@ const api = require('../../api');
 const promise_utils = require('../../util/promise_utils');
 const AzureFunctions = require('../../deploy/azureFunctions');
 const af = require('../utils/agent_functions');
+const bf = require('../utils/bucket_functions');
 
 require('../../util/dotenv').load();
 
@@ -88,19 +89,7 @@ function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
 }
-//for bucket set enable(true)/disable(false) spillover
-function setSpillover(bucket_name, status) {
-    console.log('Setting spillover ' + status + ' for bucket ' + bucket_name);
-    return client.bucket.update_bucket({
-        name: bucket_name,
-        use_internal_spillover: status
-    })
-        .catch(err => {
-            saveErrorAndResume('Failed to set spillover ' + status + ' for bucket ' + bucket_name + err);
-            failures_in_test = true;
-            throw err;
-        });
-}
+
 
 function createBucketWithEnableSpillover() {
     bucket = 'spillover.bucket' + (Math.floor(Date.now() / 1000));
@@ -114,7 +103,7 @@ function createBucketWithEnableSpillover() {
                 saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list`, res);
             }
         })
-        .then(() => setSpillover(bucket, true))
+        .then(() => bf.setSpillover(server_ip, bucket, true))
         .catch(err => {
             saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
             failures_in_test = true;
@@ -138,46 +127,6 @@ function checkIsSpilloverHasStatus(bucket_name, status) {
         });
 }
 
-function checkAvailableSpace(bucket_name) {
-    console.log('Checking available space in bucket ' + bucket_name);
-    return client.system.read_system({})
-        .then(res => {
-            let buckets = res.buckets;
-            let indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            let space = buckets[indexBucket].data.free;
-            console.log('Available space in bucket ' + bucket_name + ' is ' + space);
-            return space;
-        });
-}
-
-function setQuotaBucket(bucket_name, size, unit) {
-    console.log('Setting quota ' + size + unit + ' for bucket ' + bucket_name);
-    return client.bucket.update_bucket({
-        name: bucket_name,
-        quota: {
-            size,
-            unit //'GIGABYTE', 'TERABYTE', 'PETABYTE'
-        }
-    })
-        .catch(err => {
-            saveErrorAndResume(`${server_ip} FAILED setting quota bucket `, err);
-            failures_in_test = true;
-            throw err;
-        });
-}
-
-function disableQuotaBucket(bucket_name) {
-    console.log('Disabling quota bucket');
-    return client.bucket.update_bucket({
-        name: bucket_name,
-        quota: null
-    })
-        .catch(err => {
-            saveErrorAndResume(`${server_ip} FAILED disable quota bucket `, err);
-            failures_in_test = true;
-            throw err;
-        });
-}
 
 function uploadAndDeleteFiles(dataset_size, isOverSized, files) {
     let parts = 20;
@@ -356,24 +305,24 @@ return azf.authenticate()
     .then(() => editBucketDataPlacement(healthy_pool, bucket))
     .then(() => checkFileInPool('spillover_file', healthy_pool))
     //Set Quota of X on the bucket, X should be smaller then the available space on the bucket
-    .then(() => setQuotaBucket(bucket, 1, 'GIGABYTE'))
+    .then(() => bf.setQuotaBucket(server_ip, bucket, 1, 'GIGABYTE'))
     //Start writing and and deleting data on it (more writes than deletes since we want the size to grow) and see that we are failing when we get into the quota
     .then(() => uploadAndDeleteFiles(1000, false, pool_files))
     .then(() => P.each(pool_files, file => checkFileInPool(file, healthy_pool)))
     //Change the Quota of X on the bucket, X should be larger then the available space on the bucket
-    .then(() => checkAvailableSpace(bucket))
+    .then(() => bf.checkAvailableSpace(server_ip, bucket))
     .then(res => {
         let quotaGB = Math.floor(res / 1024 / 1024 / 1024);
         let overQuota = quotaGB + 1;
         let uploadSizeMB = res / 1024 / 1024;
         console.log('Setting quota ' + overQuota + ' GB with available size ' + uploadSizeMB + 'MB');
-        return setQuotaBucket(bucket, overQuota, 'GIGABYTE')
+        return bf.setQuotaBucket(server_ip, bucket, overQuota, 'GIGABYTE')
         //Start writing and and deleting data on it (more writes than deletes since we want the size to grow)
             .then(() => uploadAndDeleteFiles(uploadSizeMB, true, pool_files));
     })
     .then(() => P.each(pool_files, file => checkFileInPool(file, healthy_pool)))
     //Remove the quota
-    .then(() => disableQuotaBucket(bucket))
+    .then(() => bf.disableQuotaBucket(server_ip, bucket))
     //Continue to write and see that the writes pass
     .then(() => uploadAndDeleteFiles(500, false, over_files))
     .then(() => P.each(over_files, file => checkFileInPool(file, 'system-internal-storage-pool')))
@@ -384,7 +333,7 @@ return azf.authenticate()
         let fileNumber = 0;
         return promise_utils.pwhile(
             () => freeSpace === false,
-            () => P.resolve(checkAvailableSpace(bucket))
+            () => P.resolve(bf.checkAvailableSpace(server_ip, bucket))
                 .then(res => {
                     let space = res / 1024 / 1024 / 1024;
                     if (space >= 1) {
@@ -401,14 +350,14 @@ return azf.authenticate()
     //Monitor the over uploaded objects , see that they start to be moved into the pool from the internal storage
     .then(() => checkFileInPool(over_files[0], healthy_pool))
     //write again and see that we writing into the internal storage again
-    .then(() => checkAvailableSpace(bucket))
+    .then(() => bf.checkAvailableSpace(server_ip, bucket))
     .then(res => {
             let uploadSizeMB = Math.floor(res / 1024 / 1024);
             return uploadAndDeleteFiles(uploadSizeMB, true, pool_files);
     })
     .then(() => checkFileInPool(pool_files[pool_files.length - 1], 'system-internal-storage-pool'))
     //stop the writes and disable the spillover on the bucket
-    .then(() => setSpillover(bucket, false))
+    .then(() => bf.setSpillover(server_ip, bucket, false))
     //try to write some more see that it fails
     .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file_without_internal_storage', 10, data_multiplier)
             .catch(error => {

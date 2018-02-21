@@ -7,6 +7,7 @@ const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
 const s3ops = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
+const bf = require('../utils/bucket_functions');
 const api = require('../../api');
 
 require('../../util/dotenv').load();
@@ -102,18 +103,6 @@ function saveErrorAndResume(message) {
 
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
-
-
-function changeTierSetting() {
-    const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
-    const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => client.bucket.read_bucket({ name: bucket }))
-        .then(res => client.tier.update_tier({
-            name: res.tiering.tiers[0].tier,
-            chunk_coder_config: { data_frags, parity_frags, replicas }
-        }));
-}
 
 function uploadAndVerifyFiles(dataset_size_GB) {
     let { data_multiplier } = unit_mapping.MB;
@@ -282,7 +271,7 @@ function stopAgentAndCheckRebuildReplicas() {
 }
 
 return azf.authenticate()
-    .then(changeTierSetting)
+    .then(() => bf.changeTierSetting(server_ip, bucket, data_frags, parity_frags, replicas))
     .then(() => af.clean_agents(azf, osesSet, suffix))
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {

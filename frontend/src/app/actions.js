@@ -780,8 +780,8 @@ export function updatePhoneHomeConfig(proxyAddress) {
 
     api.system.update_phone_home_config({ proxy_address: proxyAddress })
         .then(
-            () => notify('Phone home proxy settings updated successfully', 'success'),
-            () => notify('Updating phone home proxy settings failed', 'error')
+            () => notify('Proxy settings updated successfully', 'success'),
+            () => notify('Updating proxy settings failed', 'error')
         )
         .then(() => action$.onNext(fetchSystemInfo()))
         .done();

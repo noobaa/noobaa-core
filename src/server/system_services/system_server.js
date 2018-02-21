@@ -910,7 +910,7 @@ function update_phone_home_config(req) {
     dbg.log0('update_phone_home_config', req.rpc_params);
 
     const previous_value = system_store.data.systems[0].phone_home_proxy_address;
-    let desc_line = `Phone home proxy address was `;
+    let desc_line = `Proxy address was `;
     desc_line += req.rpc_params.proxy_address ? `set to ${req.rpc_params.proxy_address}. ` : `cleared. `;
     desc_line += previous_value ? `Was previously set to ${previous_value}` : `Was not previously set`;
 

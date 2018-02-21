@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <collapsible-section params="
-    title: 'Phone Home Proxy',
+    title: 'Proxy Server',
     collapsed: isCollapsed
 ">
     <section class="row" data-name="collapsed">
@@ -15,8 +15,7 @@
     </section>
 
     <section class="column" data-name="expanded">
-        <p class="push-next">Phone home enables the appliance to communicate support related information and help us provide better remote support services (no personal data will be sent)<br>
-        If the appliance is not directly connected to the Internet you may need to configure an HTTP proxy.</p>
+        <p class="push-next">If the appliance is not directly connected to the Internet you may need to configure an HTTP proxy to reach external resources and servers</p>
 
         <editor params="label: 'Use Proxy'">
             <toggle-switch params="value: usingProxy"></toggle-switch>
@@ -31,7 +30,7 @@
 
         <editor params="label: 'Proxy port', disabled: !usingProxy()">
             <input type="number" min="1" max="65535" placeholder="Port" data-bind="
-                value: proxyPort,
+                value: proxyPort,P
                 enable: usingProxy
             "/>
        </editor>

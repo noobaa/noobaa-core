@@ -19,6 +19,8 @@ var client = rpc.new_client({
     address: 'ws://' + argv.ip + ':' + process.env.PORT
 });
 
+let internal_pool;
+
 const TEST_BUCKET_NAME = 'bucket1';
 const TEST_QUOTA_BUCKET_NAME = 'bucketquota';
 
@@ -36,7 +38,9 @@ function get_hosts_auth() {
     return P.fcall(function() {
             return client.create_auth_token(auth_params);
         })
-        .then(function() {
+        .then(() => client.system.read_system())
+        .then(function(system) {
+            internal_pool = _.find(system.pools, pool => pool.name.includes(config.INTERNAL_STORAGE_POOL_NAME)).name;
             return client.host.list_hosts({
                 query: {
                     mode: ['OPTIMAL'],
@@ -163,13 +167,6 @@ function run_test() {
         .then(console.log, console.error);
 }
 
-function perform_spillover_tests(fkey) {
-    console.log('Testing spillover');
-    return P.resolve()
-        .then(() => update_bucket_policy_to_spillover_only())
-        .then(() => check_file_validity_on_spillover(fkey))
-        .then(() => perform_upload_test_without_spillover());
-}
 
 function perform_quota_tests() {
     console.log('Testing Quota');
@@ -240,7 +237,43 @@ function update_quota_on_bucket(limit_gb) {
         });
 }
 
-function update_bucket_policy_to_spillover_only() {
+function perform_spillover_tests(fkey) {
+    console.log('Testing spillover');
+    return P.each([{
+                pool_name: internal_pool,
+                replicas: 1
+            }, {
+                pool_name: 'pool2',
+                replicas: 3
+            }], spillover_pool => P.resolve()
+            .then(() => console.log('updating bucket to spillover only - pool', spillover_pool.pool_name))
+            .then(() => update_bucket_policy_to_spillover_only(spillover_pool.pool_name))
+            .then(() => console.log('making sure file in on spillover only - pool', spillover_pool.pool_name))
+            .then(() => check_file_validity_on_pool(fkey, spillover_pool.pool_name, spillover_pool.replicas)) // only on spillover pool
+            .then(() => console.log('updating bucket to pool1 with spillover on pool', spillover_pool.pool_name))
+            .then(() => update_bucket_policy_to_with_spillover(spillover_pool.pool_name))
+            .then(() => console.log('making sure file in on pool1 only - spillback'))
+            .then(() => check_file_validity_on_pool(fkey, 'pool1', 3)) // only on pool  - spillback
+        )
+        .then(() => update_bucket_policy_to_spillover_only(internal_pool))
+        .then(() => perform_upload_test_without_spillover());
+}
+
+function update_bucket_policy_to_with_spillover(pool) {
+    return P.resolve()
+        .then(() => client.tier.update_tier({
+            name: 'tier1',
+            attached_pools: ['pool1'],
+            data_placement: 'SPREAD'
+        }))
+        .then(() => client.bucket.update_bucket({
+            name: TEST_BUCKET_NAME,
+            tiering: 'tiering1',
+            spillover: pool
+        }));
+}
+
+function update_bucket_policy_to_spillover_only(pool) {
     return P.resolve()
         .then(() => client.tier.update_tier({
             name: 'tier1',
@@ -250,11 +283,11 @@ function update_bucket_policy_to_spillover_only() {
         .then(() => client.bucket.update_bucket({
             name: TEST_BUCKET_NAME,
             tiering: 'tiering1',
-            use_internal_spillover: true
+            spillover: pool
         }));
 }
 
-function check_file_validity_on_spillover(fkey) {
+function check_file_validity_on_pool(fkey, pool, replicas) {
     let abort_timeout_sec = 3 * 60;
     let first_iteration = true;
     let blocks_correct = false;
@@ -266,8 +299,8 @@ function check_file_validity_on_spillover(fkey) {
         },
         function() {
             blocks_correct = true;
-            let not_in_spillover_pool_error = false;
-            let replicas_not_correct_error = false;
+            let not_in_correct_pool_error = false;
+            let replicas_not_correct_number = 0;
             return client.object.read_object_mappings({
                     bucket: TEST_BUCKET_NAME,
                     key: fkey,
@@ -279,16 +312,15 @@ function check_file_validity_on_spillover(fkey) {
                         _.each(part.chunk.frags, frag => {
                             _.each(frag.blocks, block => {
                                 blocks_per_chunk_count += 1;
-                                if (!block.adminfo.pool_name
-                                    .includes(config.INTERNAL_STORAGE_POOL_NAME)) {
+                                if (!(block.adminfo.pool_name === pool)) {
                                     blocks_correct = false;
-                                    not_in_spillover_pool_error = true;
+                                    not_in_correct_pool_error = true;
                                 }
                             });
                         });
-                        if (blocks_per_chunk_count !== 1) {
+                        if (blocks_per_chunk_count !== replicas) {
                             blocks_correct = false;
-                            replicas_not_correct_error = true;
+                            replicas_not_correct_number = blocks_per_chunk_count;
                         }
                     });
                     if (blocks_correct) {
@@ -302,11 +334,11 @@ function check_file_validity_on_spillover(fkey) {
                         let diff = Date.now() - start_ts;
                         if (diff > abort_timeout_sec * 1000) {
                             console.error('Failed check_file_validity_on_spillover!!! aborting after ' + abort_timeout_sec + ' seconds');
-                            if (not_in_spillover_pool_error) {
+                            if (not_in_correct_pool_error) {
                                 console.error("check_file_validity_on_spillover BLOCK NOT IN SPILLOVER POOL");
                             }
-                            if (replicas_not_correct_error) {
-                                console.error("check_file_validity_on_spillover REPLICAS ON SPILLOVER NOT CORRECT!");
+                            if (replicas_not_correct_number) {
+                                console.error("check_file_validity_on_spillover REPLICAS ON SPILLOVER NOT CORRECT!", replicas_not_correct_number);
                             }
                             throw new Error('aborted check_file_validity_on_spillover after ' + abort_timeout_sec + ' seconds');
                         }
@@ -317,6 +349,7 @@ function check_file_validity_on_spillover(fkey) {
         });
 }
 
+
 function perform_upload_test_without_spillover() {
     let catch_received = false;
     const err_timeout = new Error('TIMED OUT FROM PROMISE');
@@ -324,7 +357,7 @@ function perform_upload_test_without_spillover() {
         .then(() => client.bucket.update_bucket({
             name: TEST_BUCKET_NAME,
             tiering: 'tiering1',
-            use_internal_spillover: false
+            spillover: null
         }))
         .then(() => basic_server_ops.generate_random_file(1))
         .then(fl => basic_server_ops.upload_file(argv.ip, fl, TEST_BUCKET_NAME, fl)
@@ -334,10 +367,10 @@ function perform_upload_test_without_spillover() {
             .timeout(10000, err_timeout)
             .catch(err => {
                 if (err === err_timeout) {
-                    console.error('DESIRED ERROR', err);
+                    console.log('DESIRED ERROR - ', err.message);
                     catch_received = true;
                 } else {
-                    console.warn('UNDESIRED ERROR', err);
+                    console.warn('UNDESIRED ERROR - ', err);
                 }
             })
             .then(() => {

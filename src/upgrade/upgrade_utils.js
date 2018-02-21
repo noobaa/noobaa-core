@@ -148,7 +148,7 @@ function do_upgrade(upgrade_file, is_clusterized, err_handler) {
     }
 }
 
-function test_ntp_timeskew(ntp_server) {
+function test_ntp_timeskew(ntp_server, proxy_address) {
     const defaultNtpPort = 123;
     const defaultNtpServer = "pool.ntp.org";
     return P.fromCallback(callback => ntp_client.getNetworkTime(
@@ -157,12 +157,17 @@ function test_ntp_timeskew(ntp_server) {
             callback
         ))
         .catch(err => {
+            if (proxy_address && !ntp_server) {
+                // if couldn't get time from ntp server, and there is a proxy configured
+                // and ntp is not configured, then ignore the error
+                return;
+            }
             dbg.error('test_ntp_timeskew failed', err);
             throw new Error('NTP_COMMUNICATION_ERROR');
         })
         .then(date => {
             const FIFTEEN_MINUTES_IN_MILLISECONDS = 900000;
-            if (Math.abs(date.getTime() - Date.now()) > FIFTEEN_MINUTES_IN_MILLISECONDS) {
+            if (date && Math.abs(date.getTime() - Date.now()) > FIFTEEN_MINUTES_IN_MILLISECONDS) {
                 throw new Error('NTP_TIMESKEW_FAILED');
             }
         });
@@ -304,7 +309,7 @@ function new_pre_upgrade_checkups(params) {
     return P.join(
         test_internet_connectivity(params.phone_home_proxy_address),
         // TODO: Check the NTP with consideration to the proxy
-        test_ntp_timeskew(params.ntp_server),
+        test_ntp_timeskew(params.ntp_server, params.phone_home_proxy_address),
         test_local_harddrive_memory()
     );
 }

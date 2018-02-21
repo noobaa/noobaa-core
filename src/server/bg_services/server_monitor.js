@@ -327,7 +327,7 @@ function _check_proxy_configuration() {
                 system_store.data.systems[0]._id,
                 `Proxy server ${system.phone_home_proxy_address} could not be reached, check Proxy configuration or connectivity`,
                 Dispatcher.rules.once_daily);
-            dbg.warn('Error when trying to check phone home proxy status.', err.stack || err);
+            dbg.warn('Error when trying to check proxy status.', err.stack || err);
         });
 }
 

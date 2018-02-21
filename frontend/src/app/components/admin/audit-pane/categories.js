@@ -314,7 +314,7 @@ export default {
             },
 
             set_phone_home_proxy_address: {
-                message: 'Phone Home Proxy Address Set',
+                message: 'Proxy Address Set',
                 entityId: () => ''
             },
 

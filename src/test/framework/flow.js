@@ -9,14 +9,10 @@ var steps = [
     },
     {
         //Run FE Unit tests
-        ignore_failure: true,
         name: 'FE Unit Tests',
+        working_dir: 'frontend',
         action: 'gulp',
         params: [{
-            arg: '--cwd'
-        }, {
-            arg: 'frontend'
-        }, {
             arg: 'test'
         }],
     },
@@ -155,6 +151,7 @@ module.exports = steps;
         arg: 'value',
         input_arg: argument name of arg which was sent to the runner
       ]
+  working_dir: if exsits this value will be set as the cwd of the the action process (child process).
   blocking: if true, will stop execution on failure of this step
   ignore_failure: if true the test will only report fail\pass without failing the run
 }

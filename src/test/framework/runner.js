@@ -289,7 +289,10 @@ class TestRunner {
                 }
             }
         }));
-        var options = _.pick(current_step, 'env');
+        const options = _.omitBy({
+            env: current_step.env,
+            cwd: current_step.working_dir
+        }, _.isUndefined);
         return promise_utils.spawn(command, args, options, false, false, current_step.timeout || DEFAULT_TEST_TIMEOUT)
             .then(res => {
                 this.tests_results.push({ name: current_step.name, success: true });

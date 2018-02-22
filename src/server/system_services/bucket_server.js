@@ -837,6 +837,7 @@ function get_cloud_buckets(req) {
                 accessKeyId: connection.access_key,
                 secretAccessKey: connection.secret_key,
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint),
+                s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(connection.endpoint),
                 httpOptions: {
                     agent: http_utils.get_unsecured_http_agent(connection.endpoint, proxy)
                 }

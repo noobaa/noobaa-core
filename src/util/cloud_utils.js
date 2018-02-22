@@ -32,6 +32,7 @@ function get_signed_url(params) {
         s3ForcePathStyle: true,
         sslEnabled: false,
         signatureVersion: get_s3_endpoint_signature_ver(params.endpoint),
+        s3DisableBodySigning: disable_s3_compatible_bodysigning(params.endpoint),
         region: 'eu-central-1',
         httpOptions: {
             agent: agent
@@ -66,6 +67,12 @@ function is_aws_endpoint(endpoint) {
     const endpoint_url = url.parse(endpoint);
     const is_aws = endpoint_url.host && endpoint_url.host.endsWith('amazonaws.com');
     return is_aws;
+}
+
+function disable_s3_compatible_bodysigning(endpoint) {
+    const endpoint_url = url.parse(endpoint);
+    const disable_sign = Boolean(!is_aws_endpoint(endpoint) && endpoint_url.protocol === 'http:');
+    return disable_sign;
 }
 
 function get_s3_endpoint_signature_ver(endpoint) {
@@ -113,3 +120,4 @@ exports.get_signed_url = get_signed_url;
 exports.get_used_cloud_targets = get_used_cloud_targets;
 exports.get_s3_endpoint_signature_ver = get_s3_endpoint_signature_ver;
 exports.is_aws_endpoint = is_aws_endpoint;
+exports.disable_s3_compatible_bodysigning = disable_s3_compatible_bodysigning;

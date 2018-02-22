@@ -423,6 +423,7 @@ function load_single_policy(bucket_id, system_id) {
             accessKeyId: policy.access_keys.access_key,
             secretAccessKey: policy.access_keys.secret_key,
             signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(policy.endpoint),
+            s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(policy.endpoint),
             httpOptions: {
                 agent: get_shared_http_agent(policy.endpoint)
             }

@@ -1003,6 +1003,31 @@ class NodesMonitor extends EventEmitter {
             }
             item._dispatched_online = item.online;
         }
+
+        if (this._is_cloud_node(item)) {
+            const pool = system_store.data.get_by_id(item.node.pool);
+            if (pool) {
+                switch (item.mode) {
+                    case 'IO_ERRORS':
+                        this._cloud_node_alert(`Cloud resource ${pool.name} has read/write problems`);
+                        break;
+                    case 'AUTH_FAILED':
+                        this._cloud_node_alert(`Authentication failed for cloud resource ${pool.name}`);
+                        break;
+                    case 'STORAGE_NOT_EXIST':
+                        {
+                            const storage_container = item.node.node_type === 'BLOCK_STORE_S3' ? 'S3 bucket' : 'Azure container';
+                            this._cloud_node_alert(`The target ${storage_container} does not exist for cloud resource ${pool.name}`);
+                        }
+                        break;
+                    case 'OFFLINE':
+                        this._cloud_node_alert(`Cloud resource ${pool.name} is offline`);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
     }
 
     /**
@@ -1451,7 +1476,7 @@ class NodesMonitor extends EventEmitter {
                 } else if (err.rpc_code === 'AUTH_FAILED' && !item.auth_failed) {
                     dbg.error('got AUTH_FAILED error from node', item.node.name, err.message);
                     item.auth_failed = Date.now();
-                } else if ((item.node.node_type === 'BLOCK_STORE_S3' || item.node.node_type === 'BLOCK_STORE_AZURE') &&
+                } else if ((this._is_cloud_node(item)) &&
                     // for cloud nodes allow some errors before putting to detention
                     item.num_io_test_errors < config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS) {
                     item.num_io_test_errors += 1;
@@ -1890,6 +1915,13 @@ class NodesMonitor extends EventEmitter {
         item.mode = this._get_item_mode(item);
 
         this._update_data_activity(item);
+    }
+
+    _cloud_node_alert(msg) {
+        return Dispatcher.instance().alert('MAJOR',
+            system_store.data.systems[0]._id,
+            msg,
+            Dispatcher.rules.once_daily);
     }
 
     _dispatch_node_event(item, event, description, actor) {
@@ -3462,6 +3494,14 @@ class NodesMonitor extends EventEmitter {
             BigInteger.zero);
 
         return size_utils.to_bigint_storage(reply);
+    }
+
+    _is_cloud_node(item) {
+        const cloud_node_types = [
+            'BLOCK_STORE_S3',
+            'BLOCK_STORE_AZURE'
+        ];
+        return cloud_node_types.includes(item.node.node_type);
     }
 }
 

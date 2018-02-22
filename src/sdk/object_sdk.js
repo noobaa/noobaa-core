@@ -154,9 +154,9 @@ class ObjectSDK {
         }
         if (ns_info.endpoint_type === 'AWS' ||
             ns_info.endpoint_type === 'S3_COMPATIBLE') {
-            const httpOptions = ns_info.proxy ? {
+            const httpOptions = (ns_info.endpoint_type === 'AWS' && !ns_info.proxy) ? undefined : {
                 agent: http_utils.get_unsecured_http_agent(ns_info.endpoint, ns_info.proxy)
-            } : undefined;
+            };
             return new NamespaceS3({
                 params: { Bucket: ns_info.target_bucket },
                 endpoint: ns_info.endpoint,

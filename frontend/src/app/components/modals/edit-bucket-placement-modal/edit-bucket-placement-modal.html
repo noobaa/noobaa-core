@@ -46,7 +46,14 @@
         <data-table class="resource-table greedy" params="
             columns: columns,
             data: rows
-        "></data-table>
+        ">
+            <template name="selected">
+                <checkbox params="
+                    checked: $data().isSelected,
+                    disabled: $data().disabled
+                "></checkbox>
+            </template>
+        </data-table>
         <validation-message params="field: form.selectedResources"></validation-message>
     </section>
 

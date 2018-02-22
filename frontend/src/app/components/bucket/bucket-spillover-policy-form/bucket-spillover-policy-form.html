@@ -15,10 +15,9 @@
                 Automatically used when this bucket storage is not enough to store new data
             </p>
         </div>
-        <button class="btn push-both"
-            ko.click="onToggleSpillover"
-            ko.text="toggleText"
-        ></button>
+        <button class="btn push-both" ko.click="onEditSpillover">
+            Edit Spillover
+        </button>
         <svg-icon class="icon-small rotate"
             ko.css="{ 'deg-90': !isExpanded() }"
             params="name: 'chevron'"
@@ -29,7 +28,7 @@
             <data-table class="spillover-table alt-bg push-prev" params="
                 columns: columns,
                 data: rows,
-                disabled: isSpilloverDisabled
+                emptyMessage: 'Spillover disabled'
             "></data-table>
         </div>
     </div>

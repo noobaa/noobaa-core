@@ -19,7 +19,7 @@ const columns = deepFreeze([
     {
         name: 'selected',
         label: '',
-        type: 'checkbox'
+        type: 'selected'
     },
     {
         name: 'state',
@@ -57,6 +57,7 @@ class EditBucketPlacementModalViewModel extends Observer {
         this.allResourceNames = [];
         this.isMixedPolicy = false;
         this.isPolicyRisky = false;
+        this.spillover = null;
 
         this.observe(
             state$.getMany(
@@ -75,6 +76,7 @@ class EditBucketPlacementModalViewModel extends Observer {
             return;
         }
 
+        const { spillover } = bucket;
         const poolList = Object.values(hostPools)
             .map(resource => ({ type: 'HOSTS', resource }));
 
@@ -97,11 +99,11 @@ class EditBucketPlacementModalViewModel extends Observer {
         const rows = resourceList
             .map((pair, i) => {
                 const row = this.rows.get(i) || new ResourceRow(rowParams);
-                row.onResource(pair.type,  pair.resource, selectedResources);
+                row.onResource(pair.type,  pair.resource, selectedResources, spillover);
                 return row;
             });
 
-
+        this.spillover = spillover;
         this.resourceList = resourceList;
         this.rows(rows);
 
@@ -138,6 +140,7 @@ class EditBucketPlacementModalViewModel extends Observer {
 
     onSelectAll() {
         const ids = this.resourceList
+            .filter(item => !this.spillover || this.spillover.name !== item.resource.name)
             .map(pair => ({ type: pair.type, name: pair.resource.name }));
 
         this.form.selectedResources(ids);

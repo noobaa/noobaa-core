@@ -88,22 +88,9 @@ function create_bucket(req) {
 
     const mongo_pool = pool_server.get_internal_mongo_pool(req.system);
     if (!mongo_pool) throw new RpcError('MONGO_POOL_NOT_FOUND');
-    const internal_storage_tier = tier_server.get_internal_storage_tier(req.system);
-    if (!internal_storage_tier) throw new RpcError('INTERNAL_TIER_NOT_FOUND');
 
     if (req.rpc_params.tiering) {
         tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
-        changes.update.tieringpolicies = [{
-            _id: tiering_policy._id,
-            $push: {
-                tiers: {
-                    tier: internal_storage_tier._id,
-                    order: 1,
-                    spillover: true,
-                    disabled: true
-                }
-            }
-        }];
     } else {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
@@ -133,15 +120,8 @@ function create_bucket(req) {
                 order: 0,
                 spillover: false,
                 disabled: false
-            }, {
-                tier: internal_storage_tier._id,
-                order: 1,
-                spillover: true,
-                disabled: true
             }]
         );
-
-        changes.insert.tieringpolicies = [tiering_policy];
         changes.insert.tiers = [tier];
     }
 
@@ -150,6 +130,31 @@ function create_bucket(req) {
         req.system._id,
         tiering_policy._id,
         req.rpc_params.tag);
+
+    const bucket_spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, mongo_pool._id);
+    if (req.rpc_params.tiering) {
+        changes.update.tieringpolicies = [{
+            _id: tiering_policy._id,
+            $push: {
+                tiers: {
+                    tier: bucket_spillover_tier._id,
+                    order: 1,
+                    spillover: true,
+                    disabled: true
+                }
+            }
+        }];
+        changes.insert.tiers = [bucket_spillover_tier];
+    } else {
+        tiering_policy.tiers.push({
+            tier: bucket_spillover_tier._id,
+            order: 1,
+            spillover: true,
+            disabled: true
+        });
+        changes.insert.tieringpolicies = [tiering_policy];
+        changes.insert.tiers.push(bucket_spillover_tier);
+    }
 
     if (req.rpc_params.namespace) {
         const read_resources = _.compact(req.rpc_params.namespace.read_resources
@@ -278,7 +283,7 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         alerts: []
     };
     let quota = update_request.quota;
-    const spillover_sent = !_.isUndefined(update_request.use_internal_spillover);
+    const spillover_sent = !_.isUndefined(update_request.spillover);
 
     let single_bucket_update = {
         _id: bucket._id
@@ -373,14 +378,14 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
 
     }
     if (spillover_sent) {
+        const spillover_pool = req.system.pools_by_name[update_request.spillover];
         const tiering = tiering_policy || bucket.tiering;
         let spillover_tier = tiering.tiers.find(tier_and_order => tier_and_order.spillover);
         if (!spillover_tier) {
-            const internal_mongo_pool = pool_server.get_internal_mongo_pool(req.system);
-            if (!internal_mongo_pool) throw new RpcError('INTERNAL POOL NOT FOUND');
-            spillover_tier = tier_server.get_internal_storage_tier(req.system);
+            if (!spillover_pool) throw new RpcError('POOL NOT FOUND');
+            spillover_tier = req.system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${bucket._id}`];
             if (!spillover_tier) {
-                spillover_tier = system_server.create_internal_tier(req.system, internal_mongo_pool);
+                spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, spillover_pool._id);
                 changes.inserts.tiers = changes.inserts.tiers || [];
                 changes.inserts.tiers.push(spillover_tier);
             }
@@ -388,10 +393,18 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
                 tier: spillover_tier,
                 order: 1,
                 spillover: true,
-                disabled: !update_request.use_internal_spillover
+                disabled: !update_request.spillover
             });
         }
-        spillover_tier.disabled = !update_request.use_internal_spillover;
+        if (spillover_pool) {
+            changes.updates.tiers = [{
+                _id: spillover_tier.tier._id,
+                mirrors: [{
+                    spread_pools: [spillover_pool._id]
+                }]
+            }];
+        }
+        spillover_tier.disabled = !update_request.spillover;
         changes.updates.tieringpolicies = changes.updates.tieringpolicies || [];
         changes.updates.tieringpolicies.push({
             _id: tiering._id,
@@ -404,10 +417,10 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         });
 
         let desc;
-        if (update_request.use_internal_spillover) {
-            desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
+        if (update_request.spillover) {
+            desc = `Bucket ${bucket.name} spillover on resource ${update_request.spillover} was set by ${req.account && req.account.email}`;
         } else {
-            desc = `Bucket ${bucket.name} spillover was turned on by ${req.account && req.account.email}`;
+            desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
         }
         changes.events.push({
             event: 'bucket.spillover',
@@ -421,7 +434,17 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     return changes;
 }
 
-
+function create_bucket_spillover_tier(system, bucket_id, pool_id) {
+    if (system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${bucket_id}`]) return;
+    return tier_server.new_tier_defaults(
+        `${config.SPILLOVER_TIER_NAME}-${bucket_id}`,
+        system._id,
+        system.default_chunk_config._id, [{
+            _id: system_store.generate_id(),
+            spread_pools: [pool_id]
+        }]
+    );
+}
 
 /**
  *
@@ -1022,7 +1045,7 @@ function get_bucket_info({
         tag: bucket.tag ? bucket.tag : '',
         num_objects: num_of_objects || 0,
         writable: false,
-        spillover_enabled: false,
+        spillover: undefined,
         storage: undefined,
         data: undefined,
         usage_by_pool: undefined,
@@ -1095,7 +1118,7 @@ function get_bucket_info({
         count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
     };
 
-    info.spillover_enabled = spillover_allowed_in_policy;
+    info.spillover = spillover_tier_in_policy && spillover_tier_in_policy.mirrors[0].spread_pools[0].name;
 
     const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
     const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity') || 0);
@@ -1325,6 +1348,7 @@ exports.read_bucket = read_bucket;
 exports.update_bucket = update_bucket;
 exports.delete_bucket = delete_bucket;
 exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
+exports.create_bucket_spillover_tier = create_bucket_spillover_tier;
 exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
 exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;
 exports.get_bucket_namespaces = get_bucket_namespaces;

@@ -211,16 +211,6 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_TOGGLE_BUCKETS_SPILLOVER]: () => ({
-        message: 'Spillover targets updated successfully',
-        severity: 'success'
-    }),
-
-    [types.FAIL_TOGGLE_BUCKETS_SPILLOVER]: () => ({
-        message: 'Updating spillover targets failed',
-        severity: 'error'
-    }),
-
     [types.COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
         message: `${bucket} placement policy updated successfully`,
         severity: 'success'

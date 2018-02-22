@@ -35,8 +35,7 @@ import fetchHostObjects from './fetch-host-objects';
 import tryDeleteAccount from './try-delete-account';
 import signOutDeletedUser from './sign-out-deleted-user';
 import updateBucketQuota from './update-bucket-quota';
-import toggleBucketSpillover from './toggle-bucket-spillover';
-import toggleBucketsSpillover from './toggle-buckets-spillover';
+import toggleBucketSpillover from './update-bucket-spillover';
 import updateBucketPlacementPolicy from './update-bucket-placement-policy';
 import updateBucketResiliencyPolicy from './update-bucket-resiliency-policy';
 import deleteBucket from './delete-bucket';
@@ -121,7 +120,6 @@ const accountRelatedEpics = [
 const bucketRelatedEpics = [
     updateBucketQuota,
     toggleBucketSpillover,
-    toggleBucketsSpillover,
     updateBucketPlacementPolicy,
     updateBucketResiliencyPolicy,
     deleteBucket,

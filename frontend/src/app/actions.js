@@ -788,14 +788,14 @@ export async function updatePhoneHomeConfig(proxyAddress) {
 
     try {
         await api.system.update_phone_home_config({ proxy_address: proxyAddress });
-        notify('Phone home proxy settings updated successfully', 'success');
+        notify('Proxy settings updated successfully', 'success');
 
         action$.onNext(fetchSystemInfo());
 
     } catch (error) {
         const message = error.rpc_code === 'CONNECTIVITY_TEST_FAILED' ?
             'External services could not be reached using configured proxy' :
-            'Updating phone home proxy settings failed';
+            'Updating Proxy settings failed';
 
         notify(message, 'error');
     }

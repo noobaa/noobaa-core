@@ -39,6 +39,7 @@ const RUN_NODE_CONCUR = 5;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 30;
 const AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // 10 minutes grace period before an agent is consideref offline
+const CLOUD_ALERT_GRACE_TIME = 3 * 60 * 1000; // 3 minutes grace period before dispatching alert on cloud node status
 const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
 const AGENT_TEST_CONNECTION_TIMEOUT = 10 * 1000;
 const NO_NAME_PREFIX = 'a-node-has-no-name-';
@@ -1005,26 +1006,44 @@ class NodesMonitor extends EventEmitter {
         }
 
         if (this._is_cloud_node(item)) {
+            let alert;
             const pool = system_store.data.get_by_id(item.node.pool);
             if (pool) {
                 switch (item.mode) {
                     case 'IO_ERRORS':
-                        this._cloud_node_alert(`Cloud resource ${pool.name} has read/write problems`);
+                        alert = `Cloud resource ${pool.name} has read/write problems`;
                         break;
                     case 'AUTH_FAILED':
-                        this._cloud_node_alert(`Authentication failed for cloud resource ${pool.name}`);
+                        alert = `Authentication failed for cloud resource ${pool.name}`;
                         break;
                     case 'STORAGE_NOT_EXIST':
                         {
                             const storage_container = item.node.node_type === 'BLOCK_STORE_S3' ? 'S3 bucket' : 'Azure container';
-                            this._cloud_node_alert(`The target ${storage_container} does not exist for cloud resource ${pool.name}`);
+                            alert = `The target ${storage_container} does not exist for cloud resource ${pool.name}`;
                         }
                         break;
                     case 'OFFLINE':
-                        this._cloud_node_alert(`Cloud resource ${pool.name} is offline`);
+                        alert = `Cloud resource ${pool.name} is offline`;
                         break;
                     default:
                         break;
+                }
+
+                if (alert) {
+                    // if there is an alert wait some time before dispatching it
+                    const now = Date.now;
+                    if (item.dispatched_cloud_alert &&
+                        now > item.dispatched_cloud_alert + CLOUD_ALERT_GRACE_TIME) {
+                        // if grace time has passed cloud alert, dispatch it and reset indication
+                        item.dispatched_cloud_alert = null;
+                        this._cloud_node_alert(alert);
+                    } else {
+                        // 
+                        item.dispatched_cloud_alert = item.dispatched_cloud_alert || now;
+                    }
+                } else {
+                    // no message. reset cloud alert indication
+                    item.dispatched_cloud_alert = null;
                 }
             }
         }
@@ -1918,7 +1937,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _cloud_node_alert(msg) {
-        return Dispatcher.instance().alert('MAJOR',
+        Dispatcher.instance().alert('MAJOR',
             system_store.data.systems[0]._id,
             msg,
             Dispatcher.rules.once_daily);

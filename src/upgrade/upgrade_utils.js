@@ -67,7 +67,7 @@ function pre_upgrade(params) {
             dbg.log0('new_pre_upgrade spawn');
             // TODO: Should probably do some sort of timeout on the spawn or something
             // Since we already had problems of it just getting stuck and not returning
-            return promise_utils.exec(`chmod 777 ${SPAWN_SCRIPT}; ${SPAWN_SCRIPT}`, {
+            return promise_utils.exec(`chmod 777 ${SPAWN_SCRIPT}; ${SPAWN_SCRIPT} > /var/log/upgrade_log.log`, {
                     ignore_rc: false,
                     return_stdout: true,
                     trim_stdout: true
@@ -239,6 +239,7 @@ function test_package_extraction() {
 }
 
 function new_pre_upgrade() {
+    dbg.log0(`starting new_pre_upgrade `);
     return P.resolve()
         .then(() => extract_new_pre_upgrade_params())
         .then(params => new_pre_upgrade_checkups(params))
@@ -264,10 +265,14 @@ function extract_new_pre_upgrade_params() {
         .then(() => P.join(
             _get_phone_home_proxy_address(),
             _get_ntp_address()
-        ).spread((phone_home_proxy_address, ntp_server) => ({
-            ntp_server,
-            phone_home_proxy_address
-        })))
+        ).spread((phone_home_proxy_address, ntp_server) => {
+            const params = {
+                ntp_server,
+                phone_home_proxy_address
+            };
+            dbg.log0('extract_new_pre_upgrade_params: params =', params);
+            return params;
+        }))
         .catch(err => {
             dbg.error('extract_new_pre_upgrade_params had errors', err);
             throw new Error('COULD_NOT_EXTRACT_PARAMS');
@@ -295,6 +300,7 @@ function _get_ntp_address() {
 }
 
 function new_pre_upgrade_checkups(params) {
+    dbg.log0(`running new params checkups`);
     return P.join(
         test_internet_connectivity(params.phone_home_proxy_address),
         // TODO: Check the NTP with consideration to the proxy

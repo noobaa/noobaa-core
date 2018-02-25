@@ -24,6 +24,8 @@ const CORE_DIR = "/root/node_modules/noobaa-core";
 const SPAWN_SCRIPT = `${NEW_TMP_ROOT}/src/deploy/NVA_build/two_step_upgrade_checkups_spawn.sh`;
 const ERRORS_PATH = `${TMP_PATH}/new_tests_errors.json`;
 
+ntp_client.ntpReplyTimeout = 2 * 60000; // increase timeout to 2 minutes
+
 const ERROR_MAPPING = {
     COULD_NOT_COPY_PACKAGE: 'Failed to prepare the package for extraction, try to re-download the upgrade package and upload again.',
     COULD_NOT_RUN_TESTS: 'Failed to perform pre-upgrade tests, try to re-download the upgrade package and upload again.',
@@ -67,7 +69,7 @@ function pre_upgrade(params) {
             dbg.log0('new_pre_upgrade spawn');
             // TODO: Should probably do some sort of timeout on the spawn or something
             // Since we already had problems of it just getting stuck and not returning
-            return promise_utils.exec(`chmod 777 ${SPAWN_SCRIPT}; ${SPAWN_SCRIPT}`, {
+            return promise_utils.exec(`chmod 777 ${SPAWN_SCRIPT}; ${SPAWN_SCRIPT} > /var/log/upgrade_log.log`, {
                     ignore_rc: false,
                     return_stdout: true,
                     trim_stdout: true
@@ -148,6 +150,13 @@ function do_upgrade(upgrade_file, is_clusterized, err_handler) {
 }
 
 function test_ntp_timeskew(ntp_server, proxy_address) {
+    if (proxy_address && !ntp_server) {
+        // if couldn't get time from ntp server, and there is a proxy configured
+        // and ntp is not configured, then skip the test
+        dbg.log0('system is behind proxy and no local ntp. cannot reach default ntp server (pool.ntp.org) - skipping test');
+        return;
+    }
+
     const defaultNtpPort = 123;
     const defaultNtpServer = "pool.ntp.org";
     return P.fromCallback(callback => ntp_client.getNetworkTime(
@@ -156,11 +165,6 @@ function test_ntp_timeskew(ntp_server, proxy_address) {
             callback
         ))
         .catch(err => {
-            if (proxy_address && !ntp_server) {
-                // if couldn't get time from ntp server, and there is a proxy configured
-                // and ntp is not configured, then ignore the error
-                return;
-            }
             dbg.error('test_ntp_timeskew failed', err);
             throw new Error('NTP_COMMUNICATION_ERROR');
         })
@@ -247,6 +251,7 @@ function test_package_extraction() {
 }
 
 function new_pre_upgrade() {
+    dbg.log0(`starting new_pre_upgrade `);
     return P.resolve()
         .then(() => extract_new_pre_upgrade_params())
         .then(params => new_pre_upgrade_checkups(params))
@@ -272,10 +277,14 @@ function extract_new_pre_upgrade_params() {
         .then(() => P.join(
             _get_phone_home_proxy_address(),
             _get_ntp_address()
-        ).spread((phone_home_proxy_address, ntp_server) => ({
-            ntp_server,
-            phone_home_proxy_address
-        })))
+        ).spread((phone_home_proxy_address, ntp_server) => {
+            const params = {
+                ntp_server,
+                phone_home_proxy_address
+            };
+            dbg.log0('extract_new_pre_upgrade_params: params =', params);
+            return params;
+        }))
         .catch(err => {
             dbg.error('extract_new_pre_upgrade_params had errors', err);
             throw new Error('COULD_NOT_EXTRACT_PARAMS');
@@ -303,6 +312,7 @@ function _get_ntp_address() {
 }
 
 function new_pre_upgrade_checkups(params) {
+    dbg.log0(`running new params checkups`);
     return P.join(
         test_internet_connectivity(params.phone_home_proxy_address),
         // TODO: Check the NTP with consideration to the proxy

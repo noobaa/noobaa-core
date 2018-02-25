@@ -268,8 +268,6 @@ if (!is_windows) {
     process.env.ProgramData = '/tmp';
 }
 
-config.GOOGLE_CLOUD_PROJECTID = 'noobaa-test-1';
-
 config.PHONE_HOME_BASE_URL = 'https://phonehome.noobaa.com';
 config.central_stats = {
     send_stats: 'true',

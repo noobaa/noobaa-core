@@ -12,7 +12,7 @@ const request = require('request');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-// const pkg = require('../../../package.json');
+const pkg = require('../../../package.json');
 const Histogram = require('../../util/histogram');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -24,7 +24,7 @@ const server_rpc = require('../server_rpc');
 const size_utils = require('../../util/size_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
-
+const google_storage = require('googleapis').storage('v1');
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
@@ -757,62 +757,71 @@ function background_worker() {
         .return();
 }
 
-function _notify_latest_version() {
-    return P.resolve();
-    // TODO: Change to work with existing require of google api and not storage apis
-    // Also figure out how to manage listing because google does not support annonymous
-    // .then(() => {
-    //     const g_storage = new GoogleStorage({
-    //         projectId: config.GOOGLE_CLOUD_PROJECTID,
-    //     });
+async function _notify_latest_version() {
+    try {
+        const results = await P.fromCallback(callback => google_storage.objects.list({
+            bucket: 'noobaa-fe-assets',
+            prefix: 'release-notes/',
+            delimiter: '/',
+        }, callback));
 
-    //     const bucketName = 'noobaa-releases';
-    //     const release_folder = 'release-notes/';
+        const items = results.items;
+        const [current_major, current_minor, current_patch] = pkg.version.split('-')[0].split('.').map(str => Number(str));
+        const current_val = (current_major * 10000) + (current_minor * 100) + current_patch;
+        const files = _.compact(items.map(fl => fl.name
+            .replace('release-notes/', '')
+            .replace('.txt', '')
+        ).sort((a, b) => {
+            const [a_major, a_minor, a_patch] = a.split('-')[0].split('.').map(str => Number(str));
+            const [b_major, b_minor, b_patch] = b.split('-')[0].split('.').map(str => Number(str));
+            const a_val = (a_major * 10000) + (a_minor * 100) + a_patch;
+            const b_val = (b_major * 10000) + (b_minor * 100) + b_patch;
+            if (a_val < b_val) return -1;
+            if (a_val > b_val) return 1;
+            return 0;
+        }));
 
-    //     const options = {
-    //         prefix: release_folder,
-    //         delimiter: '/'
-    //     };
+        dbg.log0('_notify_latest_version gcloud response:', files);
 
-    //     return g_storage
-    //         .bucket(bucketName)
-    //         .getFiles(options)
-    //         .then(results => {
-    //             const current_major_version = pkg.version.split('.')[0];
-    //             const files = _.compact(results[0].map(fl => fl.name
-    //                 .replace('release-notes/', '')
-    //                 .replace('.txt', '')
-    //             ).sort());
-    //             dbg.log0('_notify_latest_version gcloud response:', files);
-    //             const same_major_latest = _.last(
-    //                 _.filter(files, ver => ver.startsWith(`${current_major_version}.`))
-    //             );
-    //             const latest_version = _.last(files);
-    //             dbg.log0('_notify_latest_version latest_version:', latest_version, ' same_major_latest:', same_major_latest);
-    //             return ({ latest_version, same_major_latest });
-    //         });
-    // })
-    // .then(latest_versions => {
-    //     if (latest_versions.same_major_latest &&
-    //         (String(pkg.version) < String(latest_versions.same_major_latest))) {
-    //         Dispatcher.instance().alert('INFO',
-    //             system_store.data.systems[0]._id,
-    //             `A newer version of NooBaa, ${latest_versions.same_major_latest}, is now available, check your inbox for details or send us a download request to support@noobaa.com`,
-    //             Dispatcher.rules.once_weekly);
-    //     }
-    //     if ((latest_versions.same_major_latest &&
-    //             (String(latest_versions.same_major_latest) < String(latest_versions.latest_version))) ||
-    //         (!latest_versions.same_major_latest &&
-    //             (String(pkg.version) < String(latest_versions.latest_version)))) {
-    //         Dispatcher.instance().alert('INFO',
-    //             system_store.data.systems[0]._id,
-    //             `A new NooBaa platform version is now available, for migrating to the new platform please contact support at support@noobaa.com`,
-    //             Dispatcher.rules.once_weekly);
-    //     }
-    // })
-    // .catch(err => {
-    //     dbg.error('_notify_latest_version had error', err);
-    // });
+        const same_major_latest = _.last(
+            _.filter(files, ver => {
+                const major = Number(ver.split('-')[0].split('.')[0]);
+                return Boolean(major === current_major);
+            })
+        );
+        const latest_version = _.last(files);
+
+        dbg.log0('_notify_latest_version latest_version:', latest_version, ' same_major_latest:', same_major_latest, ' current_val:', current_val);
+
+        let latest_version_val;
+        let same_major_latest_val;
+        if (latest_version) {
+            const [major, minor, patch] = latest_version.split('-')[0].split('.').map(str => Number(str));
+            latest_version_val = (major * 10000) + (minor * 100) + patch;
+        }
+        if (same_major_latest) {
+            const [major, minor, patch] = same_major_latest.split('-')[0].split('.').map(str => Number(str));
+            same_major_latest_val = (major * 10000) + (minor * 100) + patch;
+        }
+
+        if (same_major_latest && current_val < same_major_latest_val) {
+            Dispatcher.instance().alert('INFO',
+                system_store.data.systems[0]._id,
+                `A newer version of NooBaa, ${same_major_latest}, is now available, check your inbox for details or send us a download request to support@noobaa.com`,
+                Dispatcher.rules.once_weekly);
+        }
+        if ((same_major_latest &&
+                same_major_latest_val < latest_version_val) ||
+            (!same_major_latest &&
+                current_val < latest_version_val)) {
+            Dispatcher.instance().alert('INFO',
+                system_store.data.systems[0]._id,
+                `A new NooBaa platform version is now available, for migrating to the new platform please contact support at support@noobaa.com`,
+                Dispatcher.rules.once_weekly);
+        }
+    } catch (err) {
+        dbg.error('_notify_latest_version had error', err);
+    }
 }
 
 // EXPORTS

@@ -800,7 +800,7 @@ function get_cloud_buckets(req) {
             if (connection.endpoint_type === 'AZURE') {
                 let blob_svc = azure_storage.createBlobService(cloud_utils.get_azure_connection_string(connection));
                 blob_svc.setProxy(proxy ? url.parse(proxy) : null);
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AZURE',
+                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
                     .timeout(EXTERNAL_BUCKET_LIST_TO)
@@ -808,7 +808,7 @@ function get_cloud_buckets(req) {
                         _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)
                     ));
             } else if (connection.endpoint_type === 'NET_STORAGE') {
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets('NET_STORAGE',
+                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
 
                 const ns = new NetStorage({
@@ -830,7 +830,7 @@ function get_cloud_buckets(req) {
                         return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
                     });
             } //else if AWS
-            let used_cloud_buckets = cloud_utils.get_used_cloud_targets('AWS',
+            let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE'],
                 system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
             var s3 = new AWS.S3({
                 endpoint: connection.endpoint,

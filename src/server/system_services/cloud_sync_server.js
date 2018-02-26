@@ -138,7 +138,7 @@ function set_cloud_sync(req) {
         additions_only: js_utils.default_value(req.rpc_params.policy.additions_only, false)
     };
 
-    const already_used_by = cloud_utils.get_used_cloud_targets(cloud_sync.endpoint_type,
+    const already_used_by = cloud_utils.get_used_cloud_targets([cloud_sync.endpoint_type],
             system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
         .find(candidate_target => (candidate_target.endpoint === cloud_sync.endpoint &&
             candidate_target.target_name === cloud_sync.target_bucket));

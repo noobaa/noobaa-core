@@ -2,9 +2,9 @@
 
 <div class="column alt-bg pad">
     <div class="row content-middle push-next">
-        <input type="search" placeholder="Filter by resource name" data-bind="
-            textInput: filter
-        " />
+        <input type="search"
+           placeholder="Filter by resource name"
+           ko.textInput="ko.pc(filter, onFilterThrottled)" />
         <dropdown class="push-prev greedy" params="
             options: resourceTypeOptions,
             selected: selectedResourceType
@@ -22,8 +22,15 @@
 
 <data-table class="resources-table greedy" params="
     columns: columns,
-    rowFactory: resource => newResourceRow(resource),
-    sorting: sorting,
-    data: resources,
+    sorting: ko.pc(sorting, onSort, $component),
+    data: rows,
+    loading: !resourcesLoaded(),
     emptyMessage: emptyMessage
 "></data-table>
+
+<paginator params="
+    itemCount: resourceCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>
+

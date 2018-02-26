@@ -14,7 +14,7 @@ const promise_utils = require('../util/promise_utils');
 const phone_home_utils = require('../util/phone_home');
 const argv = require('minimist')(process.argv);
 const mongo_client = require('../util/mongo_client');
-const ntp_client = require('ntp-client');
+const net_utils = require('../util/net_utils');
 
 const TMP_PATH = '/tmp';
 const EXTRACTION_PATH = `${TMP_PATH}/test`;
@@ -149,13 +149,7 @@ function do_upgrade(upgrade_file, is_clusterized, err_handler) {
 }
 
 function test_ntp_timeskew(ntp_server) {
-    const defaultNtpPort = 123;
-    const defaultNtpServer = "pool.ntp.org";
-    return P.fromCallback(callback => ntp_client.getNetworkTime(
-            ntp_server || defaultNtpServer,
-            defaultNtpPort,
-            callback
-        ))
+    return net_utils.get_ntp_time({ server: ntp_server })
         .catch(err => {
             dbg.error('test_ntp_timeskew failed', err);
             throw new Error('NTP_COMMUNICATION_ERROR');

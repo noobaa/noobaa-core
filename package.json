@@ -112,7 +112,6 @@
     "node-addon-api": "1.1.0",
     "node-df": "0.1.1",
     "node-gyp": "3.6.2",
-    "ntp-client": "0.5.3",
     "performance-now": "2.1.0",
     "proxy-agent": "2.1.0",
     "request": "2.83.0",

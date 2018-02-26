@@ -134,7 +134,7 @@ function create_namespace_resource(req) {
         endpoint_type: connection.endpoint_type || 'AWS'
     }, _.isUndefined));
 
-    const already_used_by = cloud_utils.get_used_cloud_targets(namespace_resource.connection.endpoint_type,
+    const already_used_by = cloud_utils.get_used_cloud_targets([namespace_resource.connection.endpoint_type],
             system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
         .find(candidate_target => (candidate_target.endpoint === namespace_resource.connection.endpoint &&
             candidate_target.target_name === namespace_resource.connection.target_bucket));
@@ -177,7 +177,7 @@ function create_cloud_pool(req) {
     };
 
 
-    const already_used_by = cloud_utils.get_used_cloud_targets(cloud_info.endpoint_type,
+    const already_used_by = cloud_utils.get_used_cloud_targets([cloud_info.endpoint_type],
             system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
         .find(candidate_target => (candidate_target.endpoint === cloud_info.endpoint &&
             candidate_target.target_name === cloud_info.target_bucket));

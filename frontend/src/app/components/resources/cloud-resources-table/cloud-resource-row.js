@@ -1,78 +1,60 @@
-/* Copyright (C) 2016 NooBaa */
+/* Copyright (C) 2018 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
-import { deleteCloudResource } from 'actions';
-import { getResourceTypeIcon, getPoolStateIcon } from 'utils/ui-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { formatSize } from 'utils/size-utils';
+import { getCloudResourceStateIcon, getCloudResourceTypeIcon } from 'utils/resource-utils';
 
 const undeletableReasons = deepFreeze({
-    IN_USE: 'Cannot delete a resource which is used in a bucket data placement policy'
+    IN_USE: 'Cannot delete a resource in use'
 });
 
-export default class CloudResourceRowViewModel extends BaseViewModel {
-    constructor(resource, resourcesToBuckets, deleteGroup) {
-        super();
+export default class CloudResourceRowViewModel {
+    state = ko.observable();
+    type = ko.observable();
+    name = ko.observable();
+    buckets = ko.observable();
+    usage = ko.observable();
+    cloudBucket = ko.observable();
+    deleteButton = {
+        id: ko.observable(),
+        subject: 'resources',
+        group: null,
+        tooltip: ko.observable(),
+        disabled: ko.observable(),
+        onDelete: null
+    };
 
-        this.state = ko.pureComputed(
-            () => {
-                if (!resource()) {
-                    return '';
-                }
+    constructor({ deleteGroup, onDelete }) {
+        this.deleteButton.group = deleteGroup;
+        this.deleteButton.onDelete = name => onDelete(name);
+    }
 
-                const icon = getPoolStateIcon(resource());
-                return {
-                    ...icon,
-                    tooltip: {
-                        text: icon.tooltip,
-                        align: 'start'
-                    }
-                };
+    onState(resource) {
+        const { name, usedBy, target, undeletable } = resource;
+        const icon = getCloudResourceStateIcon(resource);
+        const state = {
+            ...icon,
+            tooltip: {
+                text: icon.tooltip,
+                align: 'start'
             }
-        );
-
-        this.type = ko.pureComputed(
-            () => resource() ? getResourceTypeIcon(resource()) : ''
-        );
-
-        this.name = ko.pureComputed(
-            () => resource() ? resource().name : ''
-        );
-
-        this.buckets = ko.pureComputed(
-            () => {
-                let buckets = resourcesToBuckets()[this.name()] || [];
-                let count = buckets.length;
-
-                return {
-                    text: `${count} bucket${count != 1 ? 's' : ''}`,
-                    tooltip: count ? buckets : null
-                };
-            }
-        );
-
-        this.usage = ko.pureComputed(
-            () => resource() && resource().storage.used
-        ).extend({
-            formatSize: true
-        });
-
-        this.cloudBucket = ko.pureComputed(
-            () => resource() ? resource().cloud_info.target_bucket : ''
-        );
-
-        let undeletable = ko.pureComputed(
-            () => resource() ? resource().undeletable : ''
-        );
-
-        this.deleteBtn = {
-            subject: 'resources',
-            group: deleteGroup,
-            disabled: undeletable,
-            tooltip: ko.pureComputed(
-                () => undeletable() ? undeletableReasons[undeletable()] : 'delete resources'
-            ),
-            onDelete: () => deleteCloudResource(this.name())
         };
+        const buckets = {
+            text: stringifyAmount('bucket', usedBy.length),
+            tooltip: usedBy
+        };
+        const deleteTooltip = undeletable ? undeletableReasons[undeletable] : 'delete resources';
+
+        this.state(state);
+        this.type(getCloudResourceTypeIcon(resource));
+        this.name(name);
+        this.buckets(buckets);
+        this.usage(formatSize(resource.storage.used));
+        this.cloudBucket(target);
+        this.deleteButton.id(name);
+        this.deleteButton.disabled(Boolean(undeletable));
+        this.deleteButton.tooltip(deleteTooltip);
     }
 }

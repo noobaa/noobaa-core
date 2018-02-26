@@ -132,6 +132,8 @@ class ServerRpc {
             require('./bg_services/cloud_sync'), options);
         rpc.register_service(schema.scrubber_api,
             require('./bg_services/scrubber'), options);
+        rpc.register_service(schema.cluster_master_api,
+            require('./bg_services/cluster_master'), options);
     }
 
     register_hosted_agents_services() {

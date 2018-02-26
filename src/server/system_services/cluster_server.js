@@ -214,7 +214,7 @@ function add_member_to_cluster_invoke(req, my_address) {
                 ssl_certs: { root_ca, server_cert, client_cert }
             }, {
                 address: server_rpc.get_base_address(req.rpc_params.address),
-                timeout: 60000 //60s
+                timeout: 2 * 60000 // 2 minutes timeout
             });
         })
         .then(res => {
@@ -379,7 +379,7 @@ function get_version(req) {
 function join_to_cluster(req) {
     dbg.log0('Got join_to_cluster request with topology', cutil.pretty_topology(req.rpc_params.topology),
         'existing topology is:', cutil.pretty_topology(cutil.get_topology()));
-    return P.resolve()
+    return server_rpc.client.cluster_master.set_master_updates({ enabled: false })
         .then(() => _verify_join_preconditons(req)
             .catch(err => {
                 dbg.error('join_to_cluster: HAD ERROR', err);
@@ -472,7 +472,7 @@ function join_to_cluster(req) {
         // restart bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
         .then(() => _restart_services())
         .then(() => MongoCtrl.add_mongo_monitor_program())
-        .return();
+        .finally(() => server_rpc.client.cluster_master.set_master_updates({ enabled: true }));
 }
 
 function verify_new_ip(req) {

@@ -6,6 +6,7 @@ var argv = require('minimist')(process.argv);
 var fs_utils = require('../util/fs_utils');
 var fs = require('fs');
 const path = require('path');
+const _ = require('lodash');
 
 var promise_utils = require('../util/promise_utils');
 const spawn = require('child_process').spawn;
@@ -81,12 +82,26 @@ function enable_autostart() {
 function disable_supervisord() {
     dbg.log0(`disable_supervisord`);
     let services;
-    return promise_utils.exec(`${SUPERCTL} status | grep pid | sed 's:.*pid \\(.*\\), uptime.*:\\1:'`, {
-            ignore_rc: false,
-            return_stdout: true,
-        })
-        .then(res => {
-            services = res.split('\n');
+    return P.join(
+            promise_utils.exec(`${SUPERCTL} status | grep pid | sed 's:.*pid \\(.*\\), uptime.*:\\1:'`, {
+                ignore_rc: false,
+                return_stdout: true,
+            }),
+            promise_utils.exec('ps axf | ' +
+                'grep -e mongo_wrapper.sh ' +
+                '-e bg_workers.js ' +
+                '-e hosted_agents_starter.js ' +
+                '-e s3rver_starter.js ' +
+                '-e web_server.js ' +
+                '-e mongod | ' +
+                'grep -v grep | ' +
+                "awk '{print $1}'", {
+                    ignore_rc: false,
+                    return_stdout: true,
+                }),
+        )
+        .spread((super_services, detached_services) => {
+            services = _.uniq(_.concat(super_services.split('\n'), detached_services.split('\n')));
             dbg.log0('disable_supervisord services pgids:', services);
         })
         .then(() => promise_utils.exec(`${SUPERCTL} shutdown`, {
@@ -108,13 +123,13 @@ function disable_supervisord() {
                 });
             }
         }))
-        .then(() => promise_utils.exec(`ps -ef | grep mongod`, {
+        .then(() => promise_utils.exec(`ps -ef | grep -e mongod -e supervisord`, {
             ignore_rc: false,
             return_stdout: true,
             trim_stdout: true
         }))
         .then(res => {
-            dbg.log0(`Mongo status after disabling supervisord ${res}`);
+            dbg.log0(`Mongo and Supervisord status after disabling supervisord ${res}`);
         })
         .catch(err => {
             dbg.error('disable_supervisord: Failure', err);

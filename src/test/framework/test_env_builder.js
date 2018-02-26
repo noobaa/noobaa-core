@@ -36,11 +36,16 @@ const {
     server_secret,
     js_script,
     shell_script,
+    skip_agent_creation = false,
+    skip_server_creation = false,
+    num_agents = oses.length,
     help,
     min_required_agents = 7
 } = argv;
 
-const agents = oses.map(osname => ({ name: osname + '-' + id, os: osname }));
+dbg.set_process_name('test_env_builder');
+
+const agents = create_agents_plan();
 const server = { name: name + '-' + id, ip: server_ip, secret: server_secret };
 const created_agents = [];
 
@@ -70,15 +75,27 @@ function main() {
             console.error('got error:', err);
             exit_code = 1;
         })
-        .finally(() => {
+        .then(() => {
             if (cleanup) return clean_test_env();
         })
-        .finally(() => process.exit(exit_code));
+        .catch(err => {
+            console.error('got error on cleanup:', err);
+            exit_code = 1;
+        })
+        .then(() => process.exit(exit_code));
 }
 
 
 //this function is getting servers array creating and upgrading them.
 function prepare_server() {
+    if (skip_server_creation) {
+        console.log('skipping server creation');
+        if (!server_ip || !server_secret) {
+            console.error('Cannot skip server creation without ip and secret supplied, please use --server_ip and --server_secret');
+            throw new Error('Failed using existing server');
+        }
+        return P.resolve();
+    }
     console.log(`prepare_server: creating server ${server.name}`);
     const vmSize = 'Standard_A2_v2';
     console.log(`NooBaa server vmSize is: ${vmSize}`);
@@ -105,6 +122,10 @@ function prepare_server() {
 }
 
 function prepare_agents() {
+    if (skip_agent_creation) {
+        console.log('skipping agents creation');
+        return P.resolve();
+    }
     console.log(`starting the create agents stage`);
     return P.map(agents, agent => {
             const hasImage = azf.getImagesfromOSname(agent.os).hasImage;
@@ -152,6 +173,10 @@ function prepare_agents() {
 }
 
 function install_agents() {
+    if (skip_agent_creation) {
+        console.log('skipping agents installation');
+        return P.resolve();
+    }
     let num_installed = 0;
     console.log(`Starting to install ${created_agents.length} Agents`);
     return agent_functions.getAgentConf(server.ip, [])
@@ -245,6 +270,24 @@ function clean_test_env() {
     );
 }
 
+function create_agents_plan() {
+    let plan = [];
+    let osname;
+    let curOs = 0;
+    if (skip_agent_creation) {
+        return plan;
+    }
+    for (let i = 0; i < num_agents; i++) {
+        osname = oses[curOs];
+        plan.push({ name: osname + '-' + id, os: osname });
+        curOs += 1;
+        if (curOs === oses.length) {
+            curOs = 0;
+        }
+    }
+    return plan;
+}
+
 
 function print_usage() {
     console.log(`
@@ -262,6 +305,12 @@ Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storag
   --upgrade                   path to an upgrade package
   --js_script                 js script to run after env is ready (receives server_name, server_ip server_secret arguments)
   --shell_script              shell script to run after env is ready
+  --min_required_agents       min number of agents required to run the desired tests, will fail if could not create this number of agents
+  --num_agents                number of agents to create, default is ${oses.length}
+  --skip_agent_creation       do not create new agents
+  --skip_server_creation      do not create a new server, --server_ip and --server_secret must be supplied
+  --server_secret             existing server ip
+  --server_ip                 existing server secret
 `);
 }
 

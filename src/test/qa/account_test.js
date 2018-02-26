@@ -7,8 +7,6 @@ const argv = require('minimist')(process.argv);
 const s3ops = require('../utils/s3ops');
 const _ = require('lodash');
 const promise_utils = require('../../util/promise_utils');
-const serverName = argv.server_ip || '127.0.0.1';
-const systemName = argv.system_ip;
 let rpc;
 let client;
 const bucketName = 'first.bucket';
@@ -17,14 +15,15 @@ let s3AccessKeys = {};
 let errors = [];
 
 const {
-        name = 'account',
-    emailSuffix = '@email.email',
-    password = 'Password',
-    s3_access = true,
-    cycles = 1,
-    accounts_number = 1,
-    to_delete = true,
-    skip_create = false
+    name = 'account',
+        emailSuffix = '@email.email',
+        password = 'Password',
+        server_ip = '127.0.0.1',
+        s3_access = true,
+        cycles = 1,
+        accounts_number = 1,
+        to_delete = true,
+        skip_create = false
 } = argv;
 
 function saveErrorAndResume(message) {
@@ -106,8 +105,8 @@ function create_account(has_login, account_name) {
 function delete_account(email) {
     console.log('Deleting account: ' + email);
     return client.account.delete_account({
-        email: email
-    })
+            email: email
+        })
         .delay(10000)
         .catch(err => {
             console.error('Deleting account with error: ', err);
@@ -118,9 +117,9 @@ function delete_account(email) {
 function regenerate_s3Access(email) {
     console.log('Regenerating account keys: ' + email);
     return client.account.generate_account_keys({
-        email,
-        verification_password: 'DeMo1'
-    })
+            email,
+            verification_password: 'DeMo1'
+        })
         .catch(err => {
             console.error('Regenerating account keys with error: ', err);
             throw err;
@@ -130,9 +129,9 @@ function regenerate_s3Access(email) {
 function edit_s3Access(email, s3Access) {
     console.log('Editing account s3 access: ' + email + 'with access to bucket ' + s3Access);
     return client.account.update_account_s3_access({
-        email,
-        s3_access: s3Access
-    })
+            email,
+            s3_access: s3Access
+        })
         .catch(err => {
             console.error('Editing access with error: ', err);
             throw err;
@@ -142,9 +141,9 @@ function edit_s3Access(email, s3Access) {
 function restrict_ip_access(email, ips) {
     console.log('Restrictions ip for account s3 access: ' + email);
     return client.account.update_account({
-        email,
-        ips
-    })
+            email,
+            ips
+        })
         .catch(err => {
             console.error('Editing restriction ip access with error: ', err);
             throw err;
@@ -153,7 +152,7 @@ function restrict_ip_access(email, ips) {
 
 function verify_s3_access(email) {
     return get_s3_account_access(email)
-        .then(keys => s3ops.get_list_buckets(systemName, keys.accessKeyId, keys.secretAccessKey))
+        .then(keys => s3ops.get_list_buckets(server_ip, keys.accessKeyId, keys.secretAccessKey))
         .then(buckets => {
             if (buckets.includes(bucketName)) {
                 console.log('Created account has access to s3 bucket' + bucketName);
@@ -165,16 +164,16 @@ function verify_s3_access(email) {
 }
 
 function login_user(email) {
-    rpc = api.new_rpc('wss://' + serverName + ':8443');
+    rpc = api.new_rpc('wss://' + server_ip + ':8443');
     client = rpc.new_client({});
     return P.fcall(() => {
-        let auth_params = {
-            email,
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    })
+            let auth_params = {
+                email,
+                password: 'DeMo1',
+                system: 'demo'
+            };
+            return client.create_auth_token(auth_params);
+        })
         .then(res => {
             if (res.token !== null && res.token !== '') {
                 console.log('Account ', email, 'has access to server');
@@ -229,7 +228,7 @@ function checkAccountFeatures() {
                     .then(() => verify_s3_access(newAccount))
                     .then(() => restrict_ip_access(newAccount, []))
                     .then(() => get_s3_account_access(newAccount))
-                    .then(keys => s3ops.get_list_buckets(systemName, keys.accessKeyId, keys.secretAccessKey)
+                    .then(keys => s3ops.get_list_buckets(server_ip, keys.accessKeyId, keys.secretAccessKey)
                         .catch(err => {
                             if (err.code === 'AccessDenied') {
                                 console.log('Account doesn\'t have access to buckets after switch off access with err - as should', err);
@@ -251,7 +250,7 @@ function checkAccountFeatures() {
                             saveErrorAndResume('S3 access wasn\'t changed to false after edit');
                             failures_in_test = true;
                         }
-                        return s3ops.get_list_buckets(systemName, keys.accessKeyId, keys.secretAccessKey)
+                        return s3ops.get_list_buckets(server_ip, keys.accessKeyId, keys.secretAccessKey)
                             .then(buckets => {
                                 if (buckets.length === 0) {
                                     console.log('Account doesn\'t have access to buckets after changing access - as should');
@@ -313,14 +312,14 @@ function doCycle(cycle_num, count) {
 }
 
 return promise_utils.loop(cycles, cycle => login_user('demo@noobaa.com')
-    .then(() => checkAccountFeatures())
-    .then(() => rpc.disconnect_all())
-    .then(() => login_user('demo@noobaa.com'))
-    .then(() => doCycle(cycle, accounts_number))
-    .delay(10000)
-    .then(() => checkAccountFeatures())
-    .then(() => rpc.disconnect_all())
-)
+        .then(() => checkAccountFeatures())
+        .then(() => rpc.disconnect_all())
+        .then(() => login_user('demo@noobaa.com'))
+        .then(() => doCycle(cycle, accounts_number))
+        .delay(10000)
+        .then(() => checkAccountFeatures())
+        .then(() => rpc.disconnect_all())
+    )
     .catch(err => {
         console.error('something went wrong :(' + err + errors);
         failures_in_test = true;

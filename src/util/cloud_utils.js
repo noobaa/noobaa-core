@@ -85,7 +85,7 @@ function get_s3_endpoint_signature_ver(endpoint) {
 
 function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace_resources) {
     const cloud_sync_targets = bucket_list ? bucket_list.filter(bucket =>
-            (bucket.cloud_sync && bucket.cloud_sync.endpoint_type === endpoint_type))
+            (bucket.cloud_sync && _.includes(endpoint_type, bucket.cloud_sync.endpoint_type)))
         .map(bucket_with_cloud_sync => ({
             endpoint: bucket_with_cloud_sync.cloud_sync.endpoint,
             endpoint_type: bucket_with_cloud_sync.cloud_sync.endpoint_type,
@@ -94,7 +94,7 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace
             usage_type: 'CLOUD_SYNC'
         })) : [];
     const cloud_resource_targets = pool_list ? pool_list.filter(pool =>
-            (pool.cloud_pool_info && !pool.cloud_pool_info.pending_delete && pool.cloud_pool_info.endpoint_type === endpoint_type))
+            (pool.cloud_pool_info && !pool.cloud_pool_info.pending_delete && _.includes(endpoint_type, pool.cloud_pool_info.endpoint_type)))
         .map(pool_with_cloud_resource => ({
             endpoint: pool_with_cloud_resource.cloud_pool_info.endpoint,
             endpoint_type: pool_with_cloud_resource.cloud_pool_info.endpoint_type,
@@ -102,7 +102,8 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace
             target_name: pool_with_cloud_resource.cloud_pool_info.target_bucket,
             usage_type: 'CLOUD_RESOURCE'
         })) : [];
-    const namespace_resource_targets = namespace_resources ? namespace_resources.filter(ns => ns.connection.endpoint_type === endpoint_type)
+    const namespace_resource_targets = namespace_resources ?
+        namespace_resources.filter(ns => _.includes(endpoint_type, ns.connection.endpoint_type))
         .map(ns_rec => (_.omitBy({
             endpoint: ns_rec.connection.endpoint,
             endpoint_type: ns_rec.connection.endpoint_type,

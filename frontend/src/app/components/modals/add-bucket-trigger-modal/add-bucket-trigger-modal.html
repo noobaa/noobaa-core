@@ -6,22 +6,25 @@
 
     <editor params="label: 'Function'">
         <dropdown params="
-            options: funcOptions,
-            selected: form.func,
-            placeholder: 'Choose Function',
-            loading: !areFuncsLoaded(),
-            invalid: form.func.isInvalidTouched
-        "></dropdown>
+                options: funcOptions,
+                selected: form.func,
+                placeholder: 'Choose Function',
+                loading: !areFuncsLoaded(),
+                hasFocus: true
+            "
+            ko.validationCss="form.func"
+        ></dropdown>
         <validation-message params="field: form.func"></validation-message>
     </editor>
 
     <editor params="label: 'Event Type'">
         <dropdown params="
-            options: eventOptions,
-            selected: form.event,
-            placeholder: 'Choose Event',
-            invalid: form.event.isInvalidTouched
-        "></dropdown>
+                options: eventOptions,
+                selected: form.event,
+                placeholder: 'Choose Event'
+            "
+            ko.validationCss="form.event"
+        ></dropdown>
         <validation-message params="field: form.event"></validation-message>
     </editor>
 

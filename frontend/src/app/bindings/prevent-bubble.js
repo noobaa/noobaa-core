@@ -1,12 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
+import { ensureArray } from 'utils/core-utils';
 
 export default {
     init: function(element, valueAccessor) {
-        const events = ko.unwrap(valueAccessor());
-
-        (Array.isArray(events) ? events : [events]).forEach(
+        ensureArray(ko.unwrap(valueAccessor())).forEach(
             eventName => ko.utils.registerEventHandler(
                 element,
                 eventName,
@@ -18,7 +17,5 @@ export default {
                 }
             )
         );
-
-
     }
 };

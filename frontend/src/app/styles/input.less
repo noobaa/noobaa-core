@@ -238,6 +238,10 @@ textarea {
             color: @color15;
             background-color: @color6;
         }
+
+        &:focus {
+            outline-color: @color1;
+        }
     }
 }
 
@@ -267,6 +271,10 @@ textarea {
     &:disabled {
         cursor: default;
         color: @color15;
+    }
+
+    &:focus {
+        .focused(3px);
     }
 }
 

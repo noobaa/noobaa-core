@@ -683,7 +683,7 @@ export function openAttachServerModal() {
     };
 }
 
-export function replaceWidthPreUpgradeSystemFailedModal() {
+export function replaceWithPreUpgradeSystemFailedModal() {
     return {
         type: REPLACE_MODAL,
         payload: {

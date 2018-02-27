@@ -302,7 +302,11 @@ export function equalItems(arr1, arr2) {
 }
 
 export function ensureArray(val) {
-    if ((isString(val) || !isFunction(val[Symbol.iterator]))) {
+    if (isUndefined(val)) {
+        return [];
+    }
+
+    if (val === null || isString(val) || !isFunction(val[Symbol.iterator])) {
         return [val];
     }
 

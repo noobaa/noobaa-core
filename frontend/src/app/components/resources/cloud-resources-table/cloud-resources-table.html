@@ -3,12 +3,15 @@
 <div class="column alt-bg pad">
     <div class="row content-middle push-next">
         <input type="search"
+           class="push-next"
            placeholder="Filter by resource name"
            ko.textInput="ko.pc(filter, onFilterThrottled)" />
-        <dropdown class="push-prev greedy" params="
-            options: resourceTypeOptions,
-            selected: ko.pc(typeFilter, onTypeFilter, $component)
-        "></dropdown>
+        <div class="greedy push-next row content-middle">
+            <dropdown params="
+                options: resourceTypeOptions,
+                selected: ko.pc(typeFilter, onTypeFilter, $component)
+            "></dropdown>
+        </div>
         <button class="btn align-end" ko.click="onAddCloudResource">
             Add Cloud Resource
         </button>

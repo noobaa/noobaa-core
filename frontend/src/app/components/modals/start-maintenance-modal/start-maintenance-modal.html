@@ -9,8 +9,12 @@
 <div class="greedy push-both">
     <editor params="label: 'Maintenance duration', insertValMessages: false">
         <div class="row">
-            <input class="push-next" type="number" min="0"
-                data-bind="value: duration"/>
+            <input class="push-next"
+                type="number"
+                min="0"
+                ko.value="duration"
+                ko.hasFocus="true"
+            />
 
             <dropdown class="duration-unit" params="
                 options: durationUnitOptions,
@@ -22,12 +26,12 @@
 </div>
 
 <div class="row content-middle align-end">
-    <button class="link alt-colors push-next" data-bind="click: cancel">
+    <button class="link alt-colors push-next" ko.click="cancel">
         Cancel
     </button>
-    <button class="btn" data-bind="
-        click: start,
-        shakeOnClick: errors().length
+    <button class="btn"
+        ko.click="start",
+        ko.shakeOnClick="errors().length"
     ">
         Start maintenance
     </button>

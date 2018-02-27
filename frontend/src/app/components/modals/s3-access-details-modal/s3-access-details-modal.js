@@ -1,10 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './s3-access-details-modal.html';
-import ko from 'knockout';
 import { closeModal } from 'action-creators';
 import { action$ } from 'state';
-import { copyTextToClipboard } from 'utils/browser-utils';
 
 class S3AccessDetailsModalViewModel {
     details = null;
@@ -18,11 +16,7 @@ class S3AccessDetailsModalViewModel {
         ];
     }
 
-    copyToClipboard(text) {
-        copyTextToClipboard(ko.unwrap(text));
-    }
-
-    close() {
+    onClose() {
         action$.onNext(closeModal());
     }
 }

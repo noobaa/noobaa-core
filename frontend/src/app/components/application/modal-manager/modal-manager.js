@@ -48,6 +48,15 @@ class ModalManagerViewModel extends Observer {
         action$.onNext(closeModal());
     }
 
+    onKeyDown(_, evt) {
+        if (evt.code.toLowerCase() === 'escape') {
+            action$.onNext(closeModal());
+            return false;
+        }
+
+        return true;
+    }
+
     onUpdateOptions(options) {
         action$.onNext(updateModal(options));
     }

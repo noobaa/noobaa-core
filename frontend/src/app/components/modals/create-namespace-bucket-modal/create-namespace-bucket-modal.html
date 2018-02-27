@@ -19,6 +19,7 @@
                     class="push-next-half"
                     ko.textInput="throttledBucketName"
                     ko.validationCss="form.bucketName"
+                    ko.hasFocus="true"
                 />
                 <ul class="restriction-list" ko.foreach="nameRestrictionList">
                     <li ko.text="label" ko.css="css"></li>
@@ -45,11 +46,12 @@
                     disabled: isWritePolicyDisabled
                 ">
                     <dropdown params="
-                        options: writePolicyOptions,
-                        selected: form.writePolicy,
-                        disabled: isWritePolicyDisabled,
-                        invalid: form.writePolicy.isInvalidTouched
-                    "></dropdown>
+                            options: writePolicyOptions,
+                            selected: form.writePolicy,
+                            disabled: isWritePolicyDisabled,
+                        "
+                        ko.validationCss="form.writePolicy"
+                    ></dropdown>
                     <validation-message params="field: form.writePolicy"></validation-message>
                 </editor>
             </div>

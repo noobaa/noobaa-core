@@ -20,11 +20,12 @@
             disabled: isWritePolicyDisabled
         ">
             <dropdown params="
-                options: writePolicyOptions,
-                selected: form.writePolicy,
-                disabled: isWritePolicyDisabled,
-                invalid: form.writePolicy.isInvalidTouched
-            "></dropdown>
+                    options: writePolicyOptions,
+                    selected: form.writePolicy,
+                    disabled: isWritePolicyDisabled,
+                "
+                ko.validationCss="form.writePolicy"
+            ></dropdown>
             <validation-message params="field: form.writePolicy"></validation-message>
         </editor>
     </div>

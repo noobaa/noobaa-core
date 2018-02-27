@@ -8,7 +8,8 @@
     <editor params="label: 'Config type'">
         <radio-group params="
             options: configTypes,
-            selected: selectedConfigType
+            selected: selectedConfigType,
+            hasFocus: true
         "></radio-group>
     </editor>
 
@@ -16,16 +17,16 @@
 
     <div class="forms row push-next greedy">
         <date-time-chooser params="time: time, timezone: timezone"
-            class="manual-form" data-bind="visibility: usingManualTime">
+            class="manual-form" ko.visible="usingManualTime">
         </date-time-chooser>
 
-        <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
+        <editor class="ntp-form" params="label: 'NTP Server'" ko.visible="usingNTP">
             <div class="row content-middle"
                  data-bind="validationOptions: { insertMessages: false }"
             >
                 <input type="text" placeholder="IP or DNS name" ko.value="ntpServer" />
                 <svg-icon class="spin push-prev-half"
-                    data-bind="visible: ntpServer.isValidating"
+                    ko.visible="ntpServer.isValidating"
                     params="name: 'in-progress'"></svg-icon>
             </div>
             <span class="val-msg" data-bind="validationMessage: ntpServer"></span>
@@ -33,12 +34,12 @@
     </div>
 
     <div class="row content-middle align-end push-prev">
-        <button class="link push-next alt-colors" data-bind="click: cancel">
+        <button class="link push-next alt-colors" ko.click="cancel">
             Cancel
         </button>
-        <button class="btn" data-bind="
-            click: save,
-            shakeOnClick: !isValid()
+        <button class="btn"
+            ko.click="save"
+            ko.shakeOnClick="!isValid()"
         ">
             save
         </button>

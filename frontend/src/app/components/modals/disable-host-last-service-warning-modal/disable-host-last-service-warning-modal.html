@@ -8,7 +8,16 @@
 </p>
 
 <div class="row content-middle align-end">
-    <button class="link push-next alt-colors" ko.click="onCancel">Cancel</button>
-    <button class="btn" ko.click="onApprove">Yes, Disable This Node {{serviceName}} </button>
+    <button class="link push-next alt-colors"
+        ko.click="onCancel"
+        ko.hasFocus="true"
+    >
+        Cancel
+    </button>
+    <button class="btn"
+        ko.click="onApprove"
+    >
+        Yes, Disable This Node {{serviceName}}
+    </button>
 </div>
 

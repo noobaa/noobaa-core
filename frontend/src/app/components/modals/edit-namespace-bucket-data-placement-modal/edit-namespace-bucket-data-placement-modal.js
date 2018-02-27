@@ -106,7 +106,7 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
         const errors = {};
 
         if (readPolicy.length === 0) {
-            errors.readPolicy = 'Please select at least on namespace resources';
+            errors.readPolicy = 'Please select at least one namespace resources';
 
         } else if (!writePolicy) {
             errors.writePolicy = 'Please select a namespace resource';

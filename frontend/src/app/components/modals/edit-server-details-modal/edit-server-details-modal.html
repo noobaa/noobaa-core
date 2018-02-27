@@ -6,15 +6,18 @@
 ">
     <div class="greedy">
         <editor params="label: 'Hostname'">
-            <input type="text" data-bind="value: hostname"/>
+            <input type="text"
+                ko.value="hostname"
+                ko.hasFocus="true"
+            />
         </editor>
         <editor params="label: 'Location Tag'">
-            <input type="text" data-bind="value: locationTag"/>
+            <input type="text" ko.value="locationTag"/>
             <p class="hint">optional</p>
         </editor>
     </div>
     <div class="row content-middle align-end">
-        <button class="link alt-colors push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn" data-bind="click: save">save</button>
+        <button class="link alt-colors push-next" ko.click="cancel">Cancel</button>
+        <button class="btn" ko.click="save">save</button>
     </div>
 </modal>

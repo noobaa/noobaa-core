@@ -7,7 +7,7 @@
         label: label,
         value: value,
         disabled: disabled,
-        tooltip: tooltip
-        hasFocus: $component.hasFocus && $index() === 0
+        tooltip: tooltip,
+        hasFocus: ko.unwrap($component.hasFocus) && $index() === 0
     "></radio-btn>
 </div>

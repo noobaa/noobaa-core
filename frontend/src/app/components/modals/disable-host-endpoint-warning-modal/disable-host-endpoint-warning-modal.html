@@ -14,6 +14,15 @@
 </p>
 
 <div class="row content-middle align-end">
-    <button class="link push-next alt-colors" ko.click="onCancel">Cancel</button>
-    <button class="btn" ko.click="onApprove">Yes, Disable This Node S3 Endpoint </button>
+    <button class="link push-next alt-colors"
+        ko.hasFocus="true"
+        ko.click="onCancel"
+    >
+        Cancel
+    </button>
+    <button class="btn"
+        ko.click="onApprove"
+    >
+        Yes, Disable This Node S3 Endpoint
+    </button>
 </div>

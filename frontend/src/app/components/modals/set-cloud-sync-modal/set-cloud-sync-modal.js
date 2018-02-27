@@ -48,11 +48,6 @@ const directionOptions = deepFreeze([
     }
 ]);
 
-const addConnectionOption = deepFreeze({
-    label: 'Add new connection',
-    value: '__ADD_NEW_CONNECTION__'
-});
-
 const allowedServices = deepFreeze([
     'AWS',
     'S3_COMPATIBLE'
@@ -84,43 +79,31 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
         );
 
         this.connectionOptions = ko.pureComputed(
-            () => [
-                addConnectionOption,
-                null,
-                ...cloudConnections()
-                    .filter(
-                        connection => allowedServices.some(
-                            service => connection.endpoint_type === service
-                        )
-                    )
-                    .map(
-                        connection => {
-                            const { identity, name = identity, endpoint_type } = connection;
-                            const { icon, selectedIcon } = getCloudServiceMeta(endpoint_type);
-                            return {
-                                label: name,
-                                value: connection,
-                                remark: identity,
-                                icon: icon,
-                                selectedIcon: selectedIcon
-                            };
-                        }
-                    )
-            ]
+            () => cloudConnections()
+                .filter(connection => allowedServices.some(
+                    service => connection.endpoint_type === service
+                ))
+                .map(connection => {
+                    const { identity, name = identity, endpoint_type } = connection;
+                    const { icon, selectedIcon } = getCloudServiceMeta(endpoint_type);
+                    return {
+                        label: name,
+                        value: connection,
+                        remark: identity,
+                        icon: icon,
+                        selectedIcon: selectedIcon
+                    };
+                })
         );
 
-        let _connection = ko.observable();
-        this.connection = ko.pureComputed({
-            read: _connection,
-            write: value => {
-                if (value !== addConnectionOption.value) {
-                    _connection(value);
-                } else {
-                    _connection(_connection() || null);
-                    action$.onNext(openAddCloudConnectionModal(allowedServices));
-                }
+        this.connectionActions = deepFreeze([
+            {
+                label: 'Add new connection',
+                onClick: this.onAddNewConnection.bind(this)
             }
-        })
+        ]);
+
+        this.connection = ko.observable()
             .extend({
                 required: { message: 'Please select a connection from the list' }
             });
@@ -208,6 +191,10 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
     loadBucketsList() {
         this.fetchingTargetBucketsOptions(true);
         loadCloudBucketList(this.connection().name);
+    }
+
+    onAddNewConnection() {
+        action$.onNext(openAddCloudConnectionModal(allowedServices));
     }
 
     cancel() {

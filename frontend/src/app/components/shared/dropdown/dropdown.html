@@ -1,71 +1,105 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="dropdown-wrapper no-outline" data-bind="
-    event: {
-        blur: () => active(false),
-        click: () => onClick(),
-        keydown: (_, evt) => onKeyPress(evt)
-    },
-    attr: { tabindex: !ko.unwrap(disabled) && '0' },
-    hasFocus: hasFocus,
-    css: {
-        disabled: disabled,
-        active: active,
-        invalid: invalid(),
-        placeholder: selected() == null
-    },
-    validationOptions: { insertMessages: false },
-    let: { $wrapper: $element }
-">
-    <div class="value no-wrap" data-bind="
-        value: selected,
-        text: selectedLabel
-    "></div>
+<div class="dd-wrapper">
+    <div class="dd-summary input no-wrap"
+        ko.css.focus="focus"
+        ko.css.disabled="disabled"
+        ko.css.placeholder="usingPlacholderText"
+        ko.attr.tabindex="tabIndex"
+        ko.event.keydown="onSummaryKeyDown"
+        ko.click="onSummaryClick"
+        ko.hasFocus="ko.pc(summaryHasFocus, onSummaryFocus, $data)"
+    >
+        {{summary}}
+    </div>
+    <svg-icon class="icon-small dd-chevron" params="name: 'chevron'"></svg-icon>
+    <div class="fill dd-list column content-stretch"
+        ko.visible="isListVisible"
+        ko.event.keydown="onListKeydown"
+        ko.keyboardNavigation="true"
+    >
+        <!-- ko if: isFilterVisible -->
+        <div class="column dd-filter">
+            <input type="search"
+                placeholder="Search"
+                ko.textInput="filter"
+                ko.event.keydown="onFilterKeyDown"
+                ko.hasFocus="ko.pc(filterHasFocus, onFilterFocus, $data)"
+            />
+        </div>
+        <hr>
+        <!-- /ko -->
 
-    <svg-icon class="icon-small chevron" params="name: 'chevron'" data-bind="
-        event: { mousedown: () => $wrapper.focus() }
-    "></svg-icon>
+        <!-- ko if: actionRows().length -->
+        <div class="dd-actions" ko.foreach="actionRows">
+            <div ko.tooltip="tooltip">
+                <button type="button"
+                    class="text-left no-wrap no-outline dd-action"
+                    ko.click="$component.onActionClick.bind($component)"
+                    ko.disable="disabled"
+                    ko.hasFocus="ko.pc(hasFocus, onFocus, $data)"
+                    ko.event.mousedown="onMouseDown"
+                >
+                    {{label}}
+                </button>
+            </div>
+        </div>
+        <hr>
+        <!-- /ko -->
 
-    <div class="options" data-bind="
-        visible: active,
-        event: {
-            click: () => active(false) && true,
-            mousedown: () => $wrapper.focus()
-        },
-        clickBubble: false
-    ">
-        <loading-indicator class="alt-colors align-middle pad" data-bind="visible: loading"></loading-indicator>
-        <ul class="list-no-style"  data-bind="foreach: options, scrollTo: selectedIndex, visible: isOptionsVisible">
-            <li data-bind="css: { seperator: !$data }, if: $data">
-                <label class="option row content-middle" data-bind="
-                    css: { disabled: disabled },
-                    tooltip: tooltip,
-                    click: () => true,
-                    clickBubble: !ko.unwrap(disabled)
-                ">
-                    <input type="radio" data-bind="
-                        attr: { name: $component.name },
-                        disable: disabled,
-                        checked: $component.selected,
-                        checkedValue: value
-                    "/>
-                    <!-- ko if: icon -->
-                    <svg-icon ko.css="$component.optionIconCss($data)"
-                        params="name: $component.optionIconName($data)"
-                    ></svg-icon>
-                    <!-- /ko -->
-                    <div class="option-label no-wrap greedy" >
-                        <div data-bind="css: css, text: label"></div>
-                        <div class="remark" data-bind="text: remark"></div>
-                    </div>
-                </label>
-            </li>
-        </ul>
-        <div class="empty-dropdown"
-            ko.css="emptyMessage().css"
-            ko.visible="emptyMessage().visible"
+        <!-- ko if: optionRows().length -->
+        <!-- ko if: isSelectAllVisible-->
+        <label class="row content-middle no-outline dd-option"
+            tabindex="0"
+            ko.css.selected="selectAllValue.eq('ALL')"
+            ko.css.partial="selectAllValue.eq('SOME')"
+            ko.keysToClicks="['space', 'enter']"
+            ko.click="onSelectAllClick"
+            ko.hasFocus="ko.pc(selectAllHasFocus, onSelectAllFocus, $data)"
         >
+            <span class="dd-checkbox push-next-half"></span>
+            <div class="no-wrap greedy dd-option-label">Select All</div>
+        </label>
+        <hr>
+        <!-- /ko -->
+
+        <div class="dd-options">
+            <!-- ko foreach: optionRows -->
+            <label class="row content-middle no-outline dd-option"
+                tabindex="0"
+                ko.click="$component.onOptionClick.bind($component)"
+                ko.attr.tabIndex="tabIndex"
+                ko.tooltip="tooltip"
+                ko.css="css"
+                ko.css.selected="selected"
+                ko.css.disabled="disabled"
+                ko.keysToClicks="['space', 'enter']"
+                ko.hasFocus="ko.pc(hasFocus, onFocus, $data)"
+                ko.event.mousedown="onMouseDown"
+            >
+                <span class="dd-checkbox push-next-half"
+                    ko.visible="$component.multiselect"
+                ></span>
+                <!-- ko if: icon -->
+                <svg-icon class="push-next-half" params="name: icon"></svg-icon>
+                <!-- /ko -->
+                <div class="no-wrap greedy dd-option-label">
+                    <div class="no-wrap">{{label}}</div>
+                    <div class="no-wrap remark">{{remark}}</div>
+                </div>
+            </label>
+            <!-- /ko -->
+        </div>
+        <!-- /ko -->
+
+        <!-- ko if: loading -->
+        <loading-indicator class="alt-colors align-middle pad"></loading-indicator>
+        <!-- /ko -->
+
+        <!-- ko if: emptyMessage -->
+        <div class="dd-empty" ko.css.error="emptyMessage().isError">
             {{emptyMessage().text}}
         </div>
+        <!-- /ko -->
     </div>
 </div>

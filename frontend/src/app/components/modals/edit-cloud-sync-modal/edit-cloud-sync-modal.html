@@ -15,7 +15,12 @@
     </div>
     <editor params="label: 'Sync Bucket Every', insertValMessages: false">
         <div class="row">
-            <input class="push-next" type="Number"  min="1" ko.value="frequency"/>
+            <input class="push-next"
+                type="Number"
+                min="1"
+                ko.value="frequency"
+                ko.hasFocus="true"
+            />
 
             <dropdown class="freq-unit" params="
                 selected: frequencyUnit,

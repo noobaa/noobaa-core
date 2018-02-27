@@ -297,7 +297,7 @@ pre {
 }
 
 .hide {
-    position: fixed;
+    position: absolute; /* Changed from fixed to absolute to prevent the lost of parentOffset */
     z-index: -1;
     pointer-events: none;
     opacity: 0;

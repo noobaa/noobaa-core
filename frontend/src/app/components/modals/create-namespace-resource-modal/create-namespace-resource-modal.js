@@ -5,6 +5,7 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
+import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta, getCloudTargetTooltip } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
 import { inputThrottle } from 'config';
@@ -14,6 +15,7 @@ import {
     fetchCloudTargets,
     updateForm,
     dropCloudTargets,
+    openAddCloudConnectionModal,
     closeModal,
     createNamespaceResource
 } from 'action-creators';
@@ -21,16 +23,24 @@ import {
 const formName = 'createNSResourceForm';
 
 class CreateNamespaceResourceModalViewModel extends Observer {
+    fetchingTargets = ko.observable();
+    targetOptions = ko.observableArray();
+    existingNames = null;
+    nameRestrictionList = ko.observableArray();
+    myConnectionsHref = ko.observable();
+    loadTargetsEmptyMessage = ko.observable();
+    form = null;
+    connectionOptions = ko.observableArray();
+    conenctionActions = deepFreeze([
+        {
+            label: 'Add new connection',
+            onClick: this.onAddNewConnection.bind(this)
+        }
+    ]);
+
     constructor() {
         super();
 
-        this.connectionOptions = ko.observableArray();
-        this.fetchingTargets = ko.observable();
-        this.targetOptions = ko.observableArray();
-        this.existingNames = null;
-        this.nameRestrictionList = ko.observableArray();
-        this.myConnectionsHref = ko.observable();
-        this.loadTargetsEmptyMessage = ko.observable();
         this.form = new FormViewModel({
             name: formName,
             fields: {
@@ -174,6 +184,10 @@ class CreateNamespaceResourceModalViewModel extends Observer {
 
     onCancel() {
         action$.onNext(closeModal());
+    }
+
+    onAddNewConnection() {
+        action$.onNext(openAddCloudConnectionModal());
     }
 
     dispose() {

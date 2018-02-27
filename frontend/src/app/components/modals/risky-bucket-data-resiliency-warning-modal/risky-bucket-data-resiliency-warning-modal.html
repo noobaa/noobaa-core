@@ -9,7 +9,10 @@
         <div class="row content-middle">
             <password-field class="push-next-half"
                 ko.validationCss="form.password"
-                params="value: form.password"
+                params="
+                    value: form.password,
+                    hasFocus: true
+                "
             ></password-field>
             <validation-indicator params="field: form.password"></validation-indicator>
         </div>

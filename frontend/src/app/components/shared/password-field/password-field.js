@@ -20,12 +20,20 @@ const iconMapping = deepFreeze({
 const barTweenDuration = 250;
 
 class PasswordFieldViewModel {
-    constructor({ value, disabled, placeholder = '', strengthCalc}) {
+    constructor(params) {
+        const {
+            value,
+            disabled,
+            placeholder = '',
+            hasFocus = false,
+            strengthCalc
+        } = params;
+
         this.value = value;
         this.disabled = disabled;
         this.type = ko.observable('password');
         this.placeholder = placeholder;
-        this.hasFocus = ko.observable();
+        this.hasFocus = hasFocus;
 
         this.icon = ko.pureComputed(
             () => iconMapping[this.type()].icon

@@ -1,238 +1,396 @@
 /* Copyright (C) 2016 NooBaa */
 
+// import './dropdown-binding';
 import template from './dropdown.html';
-import { randomString } from 'utils/string-utils';
-import { isDefined, isString, clamp } from 'utils/core-utils';
+import Observer from 'observer';
+import OptionRowViewModel from './option-row';
+import ActionRowViewModel from './action-row';
 import ko from 'knockout';
+import { isObject } from 'utils/core-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { inputThrottle } from 'config';
 
-const inputThrottle = 1000;
+// Cannot use ensure array util (core utils) because
+// of the special case of an empty string (which in this case)
+// should become an empty string.
+function _toArray(value) {
+    if (Array.isArray(value)) {
+        return value;
+    }
 
-function _matchByPrefix({ label }, input) {
-    return label.toLowerCase().startsWith(input);
+    if (value) {
+        return [value];
+    }
+
+    return [];
 }
 
-function _normalizeIcon(icon) {
-    if (!icon) return;
-    const { name = icon, css ='' } = icon;
-    return { name, css };
+function _summarizeSelected(subject, labels, placeholder) {
+    const count = labels.length;
+    return false ||
+        (count === 0 && placeholder) ||
+        (count === 1 && labels[0]) ||
+        `${stringifyAmount(subject, count)} selected`;
 }
 
-class DropdownViewModel {
-    constructor({
-        selected = ko.observable(),
-        options = [],
-        placeholder = 'Choose...',
-        disabled = false,
-        matchOperator = _matchByPrefix,
-        hasFocus = false,
-        loading = false,
-        invalid,
-        emptyMessage
-    }) {
-        this.name = randomString(5);
+function _getEmptyMessage(
+    optionCount,
+    visibleCount,
+    isLoading,
+    inError,
+    errorMessage,
+    emptyMessage,
+    filterMessage
+) {
+    if (isLoading) {
+        return null;
+    }
 
-        this.options = ko.pureComputed(
-            () => {
-                let selectedFound = false;
-                const normalized = (ko.deepUnwrap(options) || [])
-                    .map(option => {
-                        // Handle seperators
-                        if (!option) return null;
+    if (inError) {
+        return {
+            text: errorMessage,
+            isError: true
+        };
+    }
 
-                        // Normalize option.
-                        const {
-                            value = option,
-                            label = value,
-                            remark,
-                            css,
-                            icon,
-                            selectedIcon = icon,
-                            tooltip: _tooltip,
-                            disabled = false
-                        } = option;
+    if (optionCount === 0) {
+        return {
+            text: emptyMessage,
+            isError: false
+        };
+    }
 
-                        const tooltip = (isString(_tooltip) || Array.isArray(_tooltip)) ?
-                             { text: _tooltip, position: 'after' } :
-                             _tooltip;
+    if (visibleCount === 0) {
+        return {
+            text: filterMessage,
+            isError: false
+        };
+    }
 
-                        if (selected.peek() === value) {
-                            selectedFound = true;
-                        }
+    return null;
+}
 
+function _matchOption(option, filter) {
+    const { value = option, text = value } = option;
+    return !filter || text.toLowerCase().includes(filter);
+}
 
-                        return {
-                            value ,
-                            label,
-                            remark,
-                            css,
-                            tooltip,
-                            disabled,
-                            selectedIcon: _normalizeIcon(selectedIcon),
-                            icon: _normalizeIcon(icon)
-                        };
-                    });
+function _findFirstFocusId(filterVisible, actionRows, selectAllVisible, optionRows) {
+    if (filterVisible) {
+        return 'FILTER';
+    }
 
-                if (selected.peek() && !selectedFound) {
-                    selected(null);
+    const [actionFocusId] = actionRows
+        .filter(row => !row.disabled())
+        .map(row => row.focusId);
+
+    if (actionFocusId) {
+        return actionFocusId;
+    }
+
+    if (selectAllVisible) {
+        return 'SELECT_ALL';
+    }
+
+    const [optionFocusId] = optionRows
+        .filter(row => !row.disabled())
+        .map(row => row.focusId);
+
+    if (optionFocusId) {
+        return optionFocusId;
+    }
+
+    return 'SUMMARY';
+}
+
+class DropdownViewModel extends Observer {
+    sub = null;
+    subject = '';
+    selectableValues = [];
+    selected = null;
+    fistItemFocusId = '';
+    summary = ko.observable();
+    usingPlacholderText = ko.observable();
+    multiselect = ko.observable();
+    disabled = ko.observable();
+    focus = ko.observable('');
+    active = ko.observable(false);
+    loading = ko.observable();
+    isListVisible = ko.observable();
+    optionRows = ko.observableArray();
+    actionRows = ko.observableArray();
+    isFilterVisible = ko.observable();
+    isSelectAllVisible = ko.observable();
+    filter = ko.observable().throttle(inputThrottle);
+    selectAllValue = ko.observable();
+    emptyMessage = ko.observable();
+    tabIndex = ko.observable();
+    summaryHasFocus = ko.observable();
+    filterHasFocus = ko.observable();
+    selectAllHasFocus = ko.observable();
+    rowParams = {
+        onFocus: this.focus
+    };
+
+    constructor({ selected, filter, hasFocus,...rest }) {
+        super();
+
+        // Check if the dropdown should be focused on initial render.
+        if (ko.unwrap(hasFocus)) {
+            this.focus('SUMMARY');
+        }
+
+        this.selected = ko.isWritableObservable(selected) ?
+            selected :
+            ko.observable();
+
+        const comp = ko.pureComputed(() => ko.deepUnwrap({
+            ...rest,
+            hasFilter: filter,
+            selected: this.selected,
+            filter: this.filter,
+            focus: this.focus,
+            active: this.active
+        })).extend({
+            rateLimit: 10
+        });
+
+        this.onUpdate(comp());
+        this.sub = comp.subscribe(val => this.onUpdate(val));
+    }
+
+    onUpdate(args) {
+        const {
+            subject = 'item',
+            placeholder = 'Choose...',
+            hasFilter = false,
+            multiselect = false,
+            disabled = false,
+            loading = false,
+            error = false,
+            emptyMessage = 'Empty',
+            errorMessage = 'Ooops... Someting went wrong',
+            filterMessage = 'No Match',
+            actions = [],
+            options = [],
+            selected,
+            focus,
+            active,
+            filter = ''
+        } = args;
+
+        // Fix active in case we lost the focus.
+        if (!focus && active) {
+            // Updating active will create a second onUpdate.
+            // so in order to prevent duplicate updates we terminate the
+            // currnet update.
+            this.active(false);
+            this.filter('');
+            return;
+        }
+
+        const isFilterVisible = hasFilter && !loading && !error && options.length > 0;
+        const isSelectAllVisible = multiselect && !filter;
+        const selectedValues = _toArray(selected);
+        const normalizedFilter = filter.trim().toLowerCase();
+        const usingPlacholderText = selectedValues.length === 0;
+        const tabIndex = disabled ? false : '0';
+
+        const visibleOptions = options
+            .filter(option => !error && _matchOption(option, normalizedFilter));
+
+        const selectAllValue =
+            (selectedValues.length === options.length && 'ALL') ||
+            (selectedValues.length > 0 && 'SOME') ||
+            'NONE';
+
+        const emptyMessageInfo = _getEmptyMessage(
+            options.length,
+            visibleOptions.length,
+            loading,
+            error,
+            errorMessage,
+            emptyMessage,
+            filterMessage
+        );
+
+        const actionRows = actions
+            .map((action, i) => {
+                const row = this.actionRows.get(i) || new ActionRowViewModel(this.rowParams);
+                row.onUpdate(action, focus);
+                return row;
+            });
+
+        const optionRows = visibleOptions
+            .map((option, i) => {
+                const row = this.optionRows.get(i) || new OptionRowViewModel(this.rowParams);
+                row.onUpdate(option, multiselect, selectedValues, focus);
+                return row;
+            });
+
+        const selectableValues = options
+            .filter(option => !option.disabled)
+            .map(option => isObject(option) ? option.value : option);
+
+        const selectedLabels = optionRows
+            .filter(row => row.selected())
+            .map(row => row.label());
+
+        const firstItemFocusId = _findFirstFocusId(
+            isFilterVisible,
+            actionRows,
+            isSelectAllVisible,
+            optionRows
+        );
+
+        this.isListVisible(active);
+        this.selectableValues = selectableValues;
+        this.isFilterVisible(isFilterVisible);
+        this.isSelectAllVisible(isSelectAllVisible);
+        this.multiselect(multiselect);
+        this.disabled(disabled);
+        this.selectAllValue(selectAllValue);
+        this.loading(loading);
+        this.tabIndex(tabIndex);
+        this.summary(_summarizeSelected(subject, selectedLabels, placeholder));
+        this.usingPlacholderText(usingPlacholderText);
+        this.emptyMessage(emptyMessageInfo);
+        this.actionRows(actionRows);
+        this.optionRows(optionRows);
+        this.summaryHasFocus(focus === 'SUMMARY');
+        this.filterHasFocus(focus === 'FILTER');
+        this.selectAllHasFocus(focus === 'SELECT_ALL');
+        this.firstItemFocusId = firstItemFocusId;
+    }
+
+    onSummaryFocus(val) {
+        this.focus(val ? 'SUMMARY' : '');
+    }
+
+    onSummaryClick() {
+        this._toggleList();
+    }
+
+    onSummaryKeyDown(_, evt) {
+        const code = evt.code.toLowerCase();
+
+        switch (code) {
+            case 'space':
+            case 'enter': {
+                this._toggleList();
+                return false;
+            }
+
+            case 'arrowup': {
+                this._toggleList(true);
+                return false;
+            }
+
+            case 'escape': {
+                if (this.active()) {
+                    evt.stopPropagation();
+                    this._toggleList(true);
+                    return false;
+                }
+                return true;
+            }
+
+            case 'arrowdown': {
+                if (!this.active()) {
+                    this.active(true);
+
+                } else {
+                    this.focus(this.firstItemFocusId);
                 }
 
-                return normalized;
+                return false;
             }
-        );
+        }
+    }
 
-        this.selected = selected;
-        this.selectedIndex = ko.pureComputed(
-            () => this.options().findIndex(
-                opt => opt && opt.value === ko.unwrap(selected)
-            )
-        );
-        this.selectedLabel = ko.pureComputed(
-            () => {
-                const selected = this.selected();
-                const selectedOpt = isDefined(selected) ? this.options().find(
-                    opt => !!opt && opt.value === selected
-                ) : null;
+    onListKeydown(_, evt) {
+        const code = evt.code.toLowerCase();
 
-                return selectedOpt ? selectedOpt.label : ko.unwrap(placeholder);
+        switch (code) {
+            case 'escape': {
+                evt.stopPropagation();
+                this._toggleList(true);
+                return false;
             }
-        );
-        this.emptyMessage = ko.pureComputed(
-            () => {
-                const naked = ko.deepUnwrap(emptyMessage);
-                const { text = naked || 'Empty', isError = false } = naked || {};
-                const visible = !ko.unwrap(loading) &&
-                    Boolean(text) &&
-                    this.options().length === 0;
 
-                return {
-                    visible: visible,
-                    text: text,
-                    css: isError ? 'error' : ''
-                };
+            case 'arrowup': {
+                if (this.focus() === this.firstItemFocusId) {
+                    this.focus('SUMMARY');
+                    return false;
+                }
             }
-        );
+        }
 
-        this.isOptionsVisible = ko.pureComputed(
-            () => this.options().length && !ko.unwrap(loading)
-        );
 
-        this.invalid = isDefined(invalid) ? invalid : ko.pureComputed(
-            () => ko.unwrap(selected.isModified) && !ko.unwrap(selected.isValid)
-        );
-
-        this.disabled = disabled;
-        this.hasFocus = hasFocus;
-        this.loading = loading;
-        this.active = ko.observable(false);
-        this.matchOperator = matchOperator;
-        this.searchInput = '';
-        this.lastInput = 0;
+        return true;
     }
 
-    optionIcon(option) {
-        const { value, icon, selectedIcon } = option;
-        return this.selected() === value ? selectedIcon : icon;
+    onSelectAllFocus(val) {
+        this.focus(val ? 'SELECT_ALL' : '');
     }
 
-    optionIconCss(option) {
-        const { css } = this.optionIcon(option);
-        return css || 'default-css';
+    onSelectAllClick() {
+        const selected = _toArray(this.selected());
+        const values = selected.length === 0 ?
+            this.selectableValues :
+            [];
+
+        this.selected(values);
     }
 
-    optionIconName(option) {
-        return this.optionIcon(option).name;
+    onFilterKeyDown(_, evt) {
+        // Prevent enter on filter form submitting outer forms.
+        return evt.code.toLowerCase() !== 'enter';
     }
 
-    onClick() {
-        if (!ko.unwrap(this.disabled)) {
-            this.active.toggle();
+    onFilterFocus(val) {
+        this.focus(val ? 'FILTER' : '');
+    }
+
+    onActionClick(actionRow) {
+        actionRow.onClick();
+        this._toggleList(true);
+    }
+
+    onOptionClick(optionRow) {
+        if (optionRow.disabled()) {
+            return;
+        }
+
+        if (this.multiselect()) {
+            const value = optionRow.value();
+            const before = _toArray(this.selected());
+            const after = before.filter(other => other !== value);
+            if (before.length === after.length) after.push(value);
+
+            this.selected(after);
+
+        } else {
+            this.selected(optionRow.value());
+            this._toggleList(true);
         }
 
         return true;
     }
 
-    onKeyPress({ which }) {
-        const optionsCount = this.options().length;
-
-        switch (which) {
-            case 9: /* tab */
-                this.searchInput = '';
-                this.active(false);
-                return true;
-
-            case 13: /* enter */
-                this.searchInput = '';
-                this.active.toggle();
-                return false;
-
-            case 33: /* page up */
-                this.active(true);
-                this.moveSelectionBy(-6);
-                return false;
-
-            case 34: /* page down */
-                this.active(true);
-                this.moveSelectionBy(6);
-                return false;
-
-            case 35: /* end */
-                this.active(true);
-                this.moveSelectionBy(optionsCount);
-                return false;
-
-            case 36: /* home */
-                this.active(true);
-                this.moveSelectionBy(-optionsCount);
-                return false;
-
-            case 38: /* up arrow */
-                this.active(true);
-                this.moveSelectionBy(-1);
-                return false;
-
-            case 40: /* down arrow */
-                this.active(true);
-                this.moveSelectionBy(1);
-                return false;
-
-            default:
-                this.sreachBy(which);
-                return true;
+    _toggleList(close = this.active()) {
+        if (close) {
+            this.focus('SUMMARY');
+            this.active(false);
+            this.filter('');
+        } else {
+            this.active(true);
         }
+
     }
 
-    moveSelectionBy(step) {
-        const options = this.options();
-        const last = options.length - 1;
-
-        let i = clamp(this.selectedIndex() + step, 0, last);
-        const dir = clamp(step, -1, 1);
-        while (options[i] === null || (options[i] || {}).disabled) {
-            i += dir;
-        }
-
-        if (options[i]) {
-            this.selected(options[i].value);
-        }
-        this.searchInput = '';
-    }
-
-    sreachBy(keyCode) {
-        const char = String.fromCharCode(keyCode).toLowerCase();
-        this.searchInput = Date.now() - this.lastInput <= inputThrottle ?
-            this.searchInput + char :
-            char;
-
-        const option = this.options().find(
-            option => option && !option.disabled &&
-                this.matchOperator(option, this.searchInput)
-        );
-
-        if (option) {
-            this.selected(option.value);
-        }
-
-        this.lastInput = Date.now();
+    dispose() {
+        this.sub.dispose();
     }
 }
 

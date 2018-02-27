@@ -138,9 +138,9 @@ function prepare_agents() {
                     if (hasImage) {
                         console.log('Creating new agent from an image');
                         return azf.createAgentFromImage({
-                            vmName: agent.name,
-                            storage,
-                            vnet,
+        vmName: agent.name,
+        storage,
+        vnet,
                             os: agent.os,
                             vmSize,
                             server_ip: server_ip,
@@ -157,17 +157,17 @@ function prepare_agents() {
                             serverIP: server_ip
                         });
                     }
-                })
-                .then(ip => {
+    })
+        .then(ip => {
                     console.log(`agent created: ip ${ip} name ${agent.name} of type ${agent.os}`);
-                    agent.prepared = true;
-                    agent.ip = ip;
-                    created_agents.push(agent);
-                })
-                .catch(err => {
-                    console.error(`Creating agent ${agent.name} VM failed`, err);
-                });
+            agent.prepared = true;
+            agent.ip = ip;
+            created_agents.push(agent);
         })
+        .catch(err => {
+            console.error(`Creating agent ${agent.name} VM failed`, err);
+                });
+            })
         .then(() => {
             if (created_agents.length < min_required_agents) {
                 console.error(`could not create the minimum number of required agents (${min_required_agents})`);

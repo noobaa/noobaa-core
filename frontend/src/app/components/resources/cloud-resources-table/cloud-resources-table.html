@@ -7,7 +7,7 @@
            ko.textInput="ko.pc(filter, onFilterThrottled)" />
         <dropdown class="push-prev greedy" params="
             options: resourceTypeOptions,
-            selected: selectedResourceType
+            selected: ko.pc(typeFilter, onTypeFilter, $component)
         "></dropdown>
         <button class="btn align-end" ko.click="onAddCloudResource">
             Add Cloud Resource

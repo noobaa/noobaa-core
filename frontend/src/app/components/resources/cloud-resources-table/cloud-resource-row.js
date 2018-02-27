@@ -28,7 +28,7 @@ export default class CloudResourceRowViewModel {
 
     constructor({ deleteGroup, onDelete }) {
         this.deleteButton.group = deleteGroup;
-        this.deleteButton.onDelete = name => onDelete(name);
+        this.deleteButton.onDelete = onDelete;
     }
 
     onState(resource) {
@@ -36,16 +36,13 @@ export default class CloudResourceRowViewModel {
         const icon = getCloudResourceStateIcon(resource);
         const state = {
             ...icon,
-            tooltip: {
-                text: icon.tooltip,
-                align: 'start'
-            }
+            tooltip: icon.tooltip
         };
         const buckets = {
             text: stringifyAmount('bucket', usedBy.length),
             tooltip: usedBy
         };
-        const deleteTooltip = undeletable ? undeletableReasons[undeletable] : 'delete resources';
+        const deleteTooltip = undeletableReasons[undeletable] || '';
 
         this.state(state);
         this.type(getCloudResourceTypeIcon(resource));

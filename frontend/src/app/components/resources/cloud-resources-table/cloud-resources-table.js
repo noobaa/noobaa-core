@@ -10,13 +10,12 @@ import { inputThrottle, paginationPageSize } from 'config';
 import { action$, state$ } from 'state';
 import { openAddCloudResrouceModal, requestLocation, deleteResource } from 'action-creators';
 
-
 const columns = deepFreeze([
     {
         name: 'state',
         type: 'icon',
         sortable: true,
-        compareKey: () => true
+        compareKey: resource => resource.mode
     },
     {
         name: 'type',
@@ -58,7 +57,7 @@ const columns = deepFreeze([
 
 const resourceTypeOptions = [
     {
-        value: '',
+        value: 'ALL',
         label: 'All Resource Types'
     },
     {
@@ -81,11 +80,26 @@ const resourceTypeOptions = [
     }
 ];
 
+function _matchFilters(resource, typeFilter, nameFilter) {
+    const { type, name } = resource;
+
+    // Filter by resource type:
+    if (typeFilter !== 'ALL' && type !== typeFilter) {
+        return false;
+    }
+
+    // Filter by resource name:
+    if (nameFilter && !name.toLowerCase().includes(nameFilter)) {
+        return false;
+    }
+
+    return true;
+}
+
 class CloudResourcesTableViewModel extends Observer {
     columns = columns;
     pageSize = paginationPageSize;
     resourceTypeOptions = resourceTypeOptions;
-    selectedResourceType = ko.observable(resourceTypeOptions[0].value);
     resourcesLoaded = ko.observable();
     rows = ko.observableArray();
     filter = ko.observable();
@@ -103,8 +117,6 @@ class CloudResourcesTableViewModel extends Observer {
 
     constructor() {
         super();
-
-        this.typeSub = this.selectedResourceType.subscribe(value => this.onSelectResourceType(value));
 
         this.observe(
             state$.getMany(
@@ -125,27 +137,23 @@ class CloudResourcesTableViewModel extends Observer {
         const { tab = 'pools' } = params;
         if (tab !== 'cloud') return;
 
-        const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete, typeFilter = '' } = query;
+        const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete, typeFilter = 'ALL' } = query;
         const { compareKey } = columns.find(column => column.name === sortBy);
         const cloudResourceList = Object.values(cloudResources);
         const pageStart = Number(page) * this.pageSize;
+        const nameFilter = filter.trim().toLowerCase();
+        const filteredRows = cloudResourceList
+            .filter(resource => _matchFilters(resource, typeFilter, nameFilter));
+        const emptyMessage = filteredRows.length > 0 ?
+            'The current filter does not match any cloud resource' :
+            'System does not contain any cloud resources';
         const rowParams = {
             deleteGroup: this.deleteGroup,
             onDelete: this.onDeleteCloudResource.bind(this)
         };
 
-        const filteredRows = cloudResourceList
-            .filter(
-                ({ type, name }) => (!filter || name.toLowerCase().includes(filter)) &&
-                    (!typeFilter || type === typeFilter)
-            );
-
-        const emptyMessage = filteredRows.length > 0 ?
-            'The current filter does not match any cloud resource' :
-            'System does not contain any cloud resources';
-
         const rows = filteredRows
-            .sort(createCompareFunc(compareKey, order))
+            .sort(createCompareFunc(compareKey, Number(order)))
             .slice(pageStart, pageStart + this.pageSize)
             .map((resource, i) => {
                 const row = this.rows.get(i) || new CloudResourceRowViewModel(rowParams);
@@ -165,7 +173,7 @@ class CloudResourcesTableViewModel extends Observer {
         this.resourcesLoaded(true);
     }
 
-    onSelectResourceType(type) {
+    onTypeFilter(type) {
         this._query({
             typeFilter: type,
             page: 0,
@@ -197,30 +205,6 @@ class CloudResourcesTableViewModel extends Observer {
         });
     }
 
-    _query(params) {
-        const {
-            typeFilter = this.typeFilter(),
-            filter = this.filter(),
-            sorting = this.sorting(),
-            page = this.page(),
-            selectedForDelete = this.selectedForDelete()
-        } = params;
-
-        const { sortBy, order } = sorting;
-        const query = {
-            typeFilter: typeFilter || undefined,
-            filter: filter || undefined,
-            sortBy: sortBy,
-            order: order,
-            page: page || undefined,
-            selectedForDelete: selectedForDelete || undefined
-        };
-
-        action$.onNext(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
-    }
-
     onSelectForDelete(selected) {
         const selectedForDelete = this.selectedForDelete() === selected ? null : selected;
         this._query({ selectedForDelete });
@@ -234,8 +218,28 @@ class CloudResourcesTableViewModel extends Observer {
         action$.onNext(deleteResource(name));
     }
 
-    dispose() {
-        this.typeSub && this.typeSub.dispose();
+    _query(params) {
+        const {
+            typeFilter = this.typeFilter(),
+            filter = this.filter(),
+            sorting = this.sorting(),
+            page = this.page(),
+            selectedForDelete = this.selectedForDelete()
+        } = params;
+
+        const { sortBy, order } = sorting;
+        const query = {
+            typeFilter: typeFilter,
+            filter: filter || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: page || undefined,
+            selectedForDelete: selectedForDelete || undefined
+        };
+
+        action$.onNext(requestLocation(
+            realizeUri(this.pathname, {}, query)
+        ));
     }
 }
 

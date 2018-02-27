@@ -14,10 +14,13 @@
 </p>
 
 <div class="greedy align-middle">
-    <img data-bind="attr: { src: giftImageUrl }"/>
+    <img ko.attr.src="giftImageUrl"/>
 </div>
 
 
-<button class="btn align-middle push-prev" data-bind="click: close">
+<button class="btn align-middle push-prev"
+    ko.click="onClose"
+    ko.hasFocus="true"
+>
     Got it, thanks
 </button>

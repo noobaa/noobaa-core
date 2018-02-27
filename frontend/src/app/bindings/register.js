@@ -16,19 +16,23 @@ export default function register(ko) {
     registerHandler('value', require('./value-ex').default);
 
     // Registering new handlers
-    registerHandler('let',              require('./let').default);
-    registerHandler('visibility',       require('./visibility').default);
-    registerHandler('href',             require('./href').default);
-    registerHandler('scroll',           require('./scroll').default);
-    registerHandler('canvas',           require('./canvas').default);
-    registerHandler('expand',           require('./expand').default);
-    registerHandler('tooltip',          require('./tooltip').default);
-    registerHandler('scrollTo',         require('./scroll-to').default);
-    registerHandler('hover',            require('./hover').default);
-    registerHandler('shakeOnClick',     require('./shake-on-click').default);
-    registerHandler('childEvent',       require('./child-event').default);
-    registerHandler('globalEvent',      require('./global-event').default);
-    registerHandler('selection',        require('./selection').default);
-    registerHandler('preventBubble',    require('./prevent-bubble').default);
-    registerHandler('validationCss',    require('./validation-css').default);
+    registerHandler('let',                  require('./let').default);
+    registerHandler('visibility',           require('./visibility').default);
+    registerHandler('href',                 require('./href').default);
+    registerHandler('scroll',               require('./scroll').default);
+    registerHandler('canvas',               require('./canvas').default);
+    registerHandler('expand',               require('./expand').default);
+    registerHandler('tooltip',              require('./tooltip').default);
+    registerHandler('scrollTo',             require('./scroll-to').default);
+    registerHandler('hover',                require('./hover').default);
+    registerHandler('shakeOnClick',         require('./shake-on-click').default);
+    registerHandler('childEvent',           require('./child-event').default);
+    registerHandler('globalEvent',          require('./global-event').default);
+    registerHandler('selection',            require('./selection').default);
+    registerHandler('preventBubble',        require('./prevent-bubble').default);
+    registerHandler('validationCss',        require('./validation-css').default);
+    registerHandler('bubbleEvents',         require('./bubble-events').default);
+    registerHandler('trapFocus',            require('./trap-focus').default);
+    registerHandler('keysToClicks',         require('./keys-to-clicks').default);
+    registerHandler('keyboardNavigation',   require('./keyboard-navigation').default);
 }

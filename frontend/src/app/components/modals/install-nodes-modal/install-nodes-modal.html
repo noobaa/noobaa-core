@@ -16,11 +16,13 @@
             </p>
             <editor params="label: 'Target Pool'">
                 <dropdown params="
-                    options: poolOptions,
-                    selected: form.targetPool,
-                    placeholder: 'Choose pool...',
-                    invalid: form.targetPool.isInvalidTouched
-                "></dropdown>
+                        options: poolOptions,
+                        selected: form.targetPool,
+                        placeholder: 'Choose pool...',
+                        hasFocus: true
+                    "
+                    ko.validationCss="form.targetPool"
+                ></dropdown>
                 <validation-message params="field: form.targetPool"></validation-message>
             </editor>
         </section>

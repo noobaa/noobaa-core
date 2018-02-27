@@ -1,7 +1,15 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<label ko.css.disabled="disabled">
-    <input class="hide" type="checkbox" ko.checked="value" ko.disable="disabled" />
+<label ko.css.disabled="disabled"
+    ko.keysToClicks="['space', 'enter']"
+>
+    <input class="hide"
+        type="checkbox"
+        ko.checked="value"
+        ko.disable="disabled"
+        ko.hasFocus="hasFocus"
+    />
+
     <span class="toggle-box"></span>
     <span class="toggle-label" ko.text="label"></span>
 </label>

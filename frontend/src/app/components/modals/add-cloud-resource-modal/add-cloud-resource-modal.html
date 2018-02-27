@@ -5,10 +5,14 @@
 <section class=" column greedy">
     <editor params="label: 'Target Connection'">
         <dropdown params="
-            placeholder: 'Choose a connection',
-            options: connectionOptions,
-            selected: connection
-        "></dropdown>
+                placeholder: 'Choose a connection',
+                actions: connectionActions,
+                options: connectionOptions,
+                selected: connection,
+                hasFocus: true
+            "
+            ko.css.invalid="connection.isModified() && !connection.isValid()"
+        ></dropdown>
         <div class="val-msg" ko.validationMessage="connection"></div>
     </editor>
 
@@ -17,12 +21,15 @@
         disabled: !targetBucketsOptions()
     ">
         <dropdown params="
-            placeholder: targetBucketPlaceholder,
-            disabled: !targetBucketsOptions(),
-            options: targetBucketsOptions,
-            loading: fetchingTargetBucketsOptions,
-            selected: targetBucket
-        "></dropdown>
+                filter: true,
+                placeholder: targetBucketPlaceholder,
+                disabled: !targetBucketsOptions(),
+                options: targetBucketsOptions,
+                loading: fetchingTargetBucketsOptions,
+                selected: targetBucket
+            "
+            ko.css.invalid="targetBucket.isModified() && !targetBucket.isValid()"
+        ></dropdown>
         <div class="val-msg" ko.validationMessage="targetBucket"></div>
     </editor>
 

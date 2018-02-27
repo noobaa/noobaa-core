@@ -1,10 +1,15 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <modal params="onClose: () => close()" class="modal-large">
-    <div class="column" data-bind="if: uri">
-        <iframe allowfullscreen class="push-both" data-bind="attr: { src: uri }"></iframe>
+    <div class="column" ko.if="uri">
+        <iframe class="push-both"
+            ko.attr.src="uri"
+        ></iframe>
 
-        <button class="align-end btn" data-bind="click: () => close()">
+        <button class="align-end btn"
+            ko.click="close"
+            ko.hasFocus="true"
+        >
             Close
         </button>
     </div>

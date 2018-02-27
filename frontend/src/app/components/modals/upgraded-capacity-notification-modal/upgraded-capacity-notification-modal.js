@@ -1,22 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './upgraded-capacity-notification-modal.html';
-import BaseViewModel from 'components/base-view-model';
 import { dismissUpgradedCapacityNotification } from 'actions';
 import { realizeUri } from 'utils/browser-utils';
+import { action$ } from 'state';
+import { closeModal } from 'action-creators';
 import { asset as assetRoute } from 'routes';
 
-class UpgradedCapacityNotificationModalViewModel extends BaseViewModel {
-    constructor({ onClose }) {
-        super();
 
-        this.onClose = onClose;
+class UpgradedCapacityNotificationModalViewModel {
+    constructor() {
+
         this.giftImageUrl =  realizeUri(assetRoute, { asset: 'gift.png' });
     }
 
-    close() {
+    onClose() {
         dismissUpgradedCapacityNotification();
-        this.onClose();
+        action$.onNext(closeModal());
     }
 }
 

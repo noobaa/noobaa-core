@@ -21,7 +21,16 @@
     </section>
 </div>
 <div class="row content-middle align-end">
-    <button class="link alt-colors push-next" ko.click="onCancel">Cancel</button>
-    <button class="btn" ko.click="onRetrust">Yes, trust this node</button>
+    <button class="link alt-colors push-next"
+        ko.click="onCancel"
+        ko.hasFocus="true"
+    >
+        Cancel
+    </button>
+    <button class="btn"
+        ko.click="onRetrust"
+    >
+        Yes, trust this node
+    </button>
 </div>
 

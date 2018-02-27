@@ -8,25 +8,30 @@
     <section class="coulmn greedy">
         <editor params="label: 'Target Connection'">
             <dropdown params="
-                options: connectionOptions,
-                selected: form.connection,
-                placeholder: 'Choose Connection',
-                invalid: form.connection.isInvalidTouched,
-                emptyMessage: 'No connections'
-            "></dropdown>
+                    actions: conenctionActions,
+                    options: connectionOptions,
+                    selected: form.connection,
+                    placeholder: 'Choose Connection',
+                    emptyMessage: 'No connections',
+                    hasFocus: true
+                "
+                ko.validationCss="form.connection"
+            ></dropdown>
             <validation-message params="field: form.connection"></validation-message>
         </editor>
 
         <editor params="label: 'Target Bucket', disabled: !form.connection()">
             <dropdown params="
-                options: targetOptions,
-                selected: form.target,
-                disabled: !form.connection(),
-                loading: fetchingTargets,
-                placeholder: 'Choose Bucket',
-                emptyMessage: loadTargetsEmptyMessage,
-                invalid: form.target.isInvalidTouched
-            "></dropdown>
+                    filter: true,
+                    options: targetOptions,
+                    selected: form.target,
+                    disabled: !form.connection(),
+                    loading: fetchingTargets,
+                    placeholder: 'Choose Bucket',
+                    emptyMessage: loadTargetsEmptyMessage,
+                "
+                ko.validationCss="form.target"
+            ></dropdown>
             <validation-message params="field: form.target"></validation-message>
         </editor>
 
@@ -48,15 +53,11 @@
         </editor>
     </section>
 
-    <div class="row">
-        <div class="row greedy remark align-middle push-next">
-            <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
-            <p>
-                To add a new connection go to current account &gt;
-                <a class="link" ko.attr.href="myConnectionsHref">My Connections</a>
-            </p>
-        </div>
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+    <div class="row align-end">
+        <button type="button"
+            class="link alt-colors push-next"
+            ko.click="onCancel"
+        >
             Cancel
         </button>
         <button class="btn" ko.shakeOnClick="!form.isValid()">

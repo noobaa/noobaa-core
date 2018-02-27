@@ -1,29 +1,25 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './update-system-name-modal.html';
-import BaseViewModel from 'components/base-view-model';
 import { updateHostname } from 'actions';
 import ko from 'knockout';
 import { action$ } from 'state';
-import { lockModal } from 'action-creators';
+import { lockModal, closeModal } from 'action-creators';
 
-class UpdatingSystemNameModalViewModel extends BaseViewModel {
-    constructor({ name, onClose }) {
-        super();
-
+class UpdatingSystemNameModalViewModel {
+    constructor({ name }) {
         this.name = name;
-        this.onClose = onClose;
         this.updating = ko.observable(false);
     }
 
-    update() {
+    onUpdate() {
         this.updating(true);
         action$.onNext(lockModal());
         updateHostname(ko.unwrap(this.name));
     }
 
-    cancel() {
-        this.onClose();
+    onCancel() {
+        action$.onNext(closeModal());
     }
 }
 

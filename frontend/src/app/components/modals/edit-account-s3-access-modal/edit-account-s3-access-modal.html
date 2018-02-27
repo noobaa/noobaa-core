@@ -7,7 +7,8 @@
                 value: form.hasS3Access,
                 onLabel: 'Enabled',
                 offLabel: 'Disabled',
-                disabled: isS3AccessToggleDisabled
+                disabled: isS3AccessToggleDisabled,
+                hasFocus: true
             ">
             </toggle-switch>
         </div>
@@ -16,13 +17,13 @@
     <editor params="label: 'S3 default placement', disabled: !form.hasS3Access()">
         <div class="row">
             <dropdown params="
-                options: resourceOptions,
-                selected: form.defaultResource,
-                disabled: !form.hasS3Access(),
-                placeholder: 'Choose Resource',
-                invalid: form.defaultResource.isInvalidTouched
-            ">
-            </dropdown>
+                    options: resourceOptions,
+                    selected: form.defaultResource,
+                    disabled: !form.hasS3Access(),
+                    placeholder: 'Choose Resource'
+                "
+                ko.validationCss="form.defaultResource"
+            ></dropdown>
             <svg-icon class="icon-small push-prev-half align-middle"
                 params="name: 'question'"
                 ko.tooltip="s3PlacementToolTip"

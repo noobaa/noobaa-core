@@ -5,9 +5,7 @@ export default {
         required: [
             'accessKeys',
             'allowedBuckets',
-            'defaultResource',
             'externalConnections',
-            'hasAccessToAllBuckets',
             'hasLoginAccess',
             'hasS3Access',
             'isOwner',

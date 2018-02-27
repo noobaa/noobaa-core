@@ -2,13 +2,14 @@
 
 <!-- ko if: hasModals -->
 <div class="modals-backdrop fixed fade-in"
+    ko.event.keydown="onKeyDown"
     ko.click="(_, evt) => (evt.target === $element && onBackdrop(), true)"
 >
     <!-- ko foreach: modals -->
     <div class="modal column text-left pop-centered"
         tabindex="-1"
-        ko.css="css"
         ko.hasFocus="true"
+        ko.css="css"
     >
         <!-- ko if: titleText -->
         <h1 class="row heading2 modal-heading content-middle" ko.css="titleCss">
@@ -20,16 +21,21 @@
 
             <span class="greedy push-next" ko.text="titleText"></span>
 
-            <button class="close-btn icon-btn no-outline highlight" tabindex="-1"
+            <button class="close-btn icon-btn no-outline highlight"
+                tabindex="-1"
                 ko.visible="isXButtonVisible"
                 ko.disable="isXButtonDisabled"
                 ko.click="onX"
+
             ">
                 <svg-icon params="name: 'x'"></svg-icon>
             </button>
         </h1>
         <!-- /ko -->
-        <section class="column greedy" ko.component="component"></section>
+        <section class="column greedy"
+            ko.trapFocus="true"
+            ko.component="component"
+        ></section>
     </div>
     <!-- /ko -->
 </div>

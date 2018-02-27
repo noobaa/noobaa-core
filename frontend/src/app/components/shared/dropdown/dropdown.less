@@ -2,108 +2,174 @@
 
 dropdown {
     display: inline-block;
-
-    .dropdown-wrapper {
-        .input();
-        max-width: 100%;
-        position: relative;
-    }
-
-    .value {
-        width: 100%;
-        padding-right: 32px;
-    }
-
-    .chevron {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-    }
-
-    .options {
-        position: absolute;
-        left: -1px;
-        right: -1px;
-        background-color: @color6;
-        margin-top: 2px;
-        padding: 2px;
-        z-index: 1;
-
-        > ul {
-            min-height: 2em;
-            max-height: 17em;
-            overflow-y: auto;
-        }
-    }
-
-    .seperator {
-        border: none;
-        margin: 2px 0;
-        border-top: 1px solid @color7;
-    }
-
-    .option {
-        margin-right: 2px;
-        padding: 0 @gutter/2;
-        color: @color1;
-        border: 1px solid transparent;
-
-        > input {
-            display: none;
-        }
-
-        .option-label {
-            display: block;
-            margin: 0;
-            font-weight: @font-regular;
-            padding: @gutter/2;
-            line-height: 1.2;
-        }
-
-        svg-icon.default-css {
-            fill: @color5;
-        }
-
-        .remark {
-            color: inherit;
-        }
-
-        &.disabled {
-            cursor: default;
-            opacity: .4;
-        }
-
-        &:hover {
-            border-color: @color7;
-
-            &:not(.disabled) {
-                background-color: @color7;
-            }
-        }
-
-        :checked {
-            ~ .option-label {
-                color: @color8;
-            }
-
-             ~ svg-icon.default-css {
-                fill: @color8;
-             }
-        }
-    }
+    width: 274px;
 
     ::-webkit-scrollbar-thumb  {
         border-color: @color6;
     }
 
-    .empty-dropdown {
+    hr {
+        border-top: 1px solid @color7;
+        margin: 2px auto;
+    }
+
+    .dd-wrapper {
+        position: relative;
+    }
+
+    .dd-summary {
+        padding-right: 32px;
+        width: 100%;
+
+        &::before {
+            content: attr(data-placeholder);
+        }
+
+        &.placehodler {
+            color: @color7;
+        }
+    }
+
+    &.invalid .dd-summary:not(.disabled) {
+        &, &:focus {
+            border-color: @color10;
+        }
+    }
+
+    .dd-chevron {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        pointer-events: none;
+    }
+
+    .dd-list {
+        display: block;
+        top: auto;
+        bottom: auto;
+        background-color: @color6;
+        margin-top: 2px;
+        padding: 2px 0;
+        z-index: 1;
+    }
+
+    .dd-filter > input {
+        border: none;
+        width: auto;
+        color: black;
+    }
+
+    .dd-options {
+        min-height: 24px;
+        max-height: 170px;
+        overflow-y: auto;
+    }
+
+    .dd-actions {
+        margin: 0 2px;
+    }
+
+    .dd-option,
+    .dd-action {
+        color: @color1;
+        font-size: @font-size3;
+        cursor: pointer;
+        padding: @gutter/2;
+        border: 1px solid transparent;
+        background: none;
+
+        &:disabled, &.disabled {
+            cursor: default;
+            opacity: .4;
+        }
+
+        &:focus {
+            outline: 1px dashed @color8;
+        }
+
+        &:hover {
+            border-color: @color7;
+
+            &:focus {
+                outline: none;
+            }
+
+            &:not(.disabled) {
+                background-color: @color7;
+            }
+        }
+    }
+
+    .dd-action {
+        width: 100%;
+    }
+
+    .dd-option {
+        margin: 0 2px;
+
+        .dd-checkbox {
+            background-color: @color6;
+        }
+
+        &:hover {
+            .dd-checkbox {
+                background-position: -36px 0;
+            }
+
+            &.selected .dd-checkbox {
+                background-position: -72px 0;
+            }
+
+            &.selected.partial .dd-checkbox {
+                background-position: -90px 0;
+            }
+        }
+
+        &.selected {
+            .dd-checkbox {
+                background-position: -18px 0;
+            }
+
+            .dd-option-label {
+                color: @color8;
+            }
+        }
+
+        &.partial .dd-checkbox {
+            background-position: -108px 0;
+        }
+
+        > .dd-checkbox {
+            display: block;
+            width: 18px;
+            height: 18px;
+            background-image: url('@{assets}/checkbox.png');
+        }
+
+        .dd-option-label {
+            display: block;
+            margin: 0;
+            font-weight: @font-regular;
+            line-height: 1.2;
+
+            > .remark {
+                color: inherit;
+            }
+        }
+    }
+
+    .dd-select-all {
+        margin-bottom: 2px;
+    }
+
+    .dd-empty {
         text-align: center;
         position: relative;
         font-size: @font-size1;
         color: @color7;
 
         &.error {
-            .error()
+            .error();
         }
     }
 }

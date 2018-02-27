@@ -15,7 +15,8 @@
                 <toggle-switch params="
                     value: form.hasLoginAccess,
                     onLabel: 'Enabled',
-                    offLabel: 'Disabled'
+                    offLabel: 'Disabled',
+                    hasFocus: true
                 "></toggle-switch>
                 <p class="remark push-prev-half">
                     Enabling login access will generate a password that allows login to <br>
@@ -54,12 +55,13 @@
             <editor params="label: 'S3 default placement', disabled: isS3AccessDisabled">
                 <div class="row">
                     <dropdown params="
-                        options: resourceOptions,
-                        selected: form.defaultResource,
-                        disabled: isS3AccessDisabled,
-                        placeholder: 'Choose Resources',
-                        invalid: form.defaultResource.isInvalidTouched,
-                    ">
+                            options: resourceOptions,
+                            selected: form.defaultResource,
+                            disabled: isS3AccessDisabled,
+                            placeholder: 'Choose Resources'
+                        "
+                        ko.validationCss="form.defaultResource"
+                    >
                     </dropdown>
                     <svg-icon class="icon-small push-prev-half align-middle"
                         params="name: 'question'"

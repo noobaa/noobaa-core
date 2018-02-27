@@ -3,7 +3,8 @@
 export function getFunctionOption(func, accounts, bucket) {
     const { name, version } = func;
     const value = { name, version };
-    const icon = { name: 'healthy', css: 'success' };
+    const css = 'success';
+    const icon = 'healthy';
     const label = name;
     const executor = accounts[func.executor];
     const disabled = !executor.hasAccessToAllBuckets &&
@@ -16,5 +17,5 @@ export function getFunctionOption(func, accounts, bucket) {
             cannot be selected until access is granted.`;
     }
 
-    return { value, icon, label, disabled, tooltip };
+    return { value, icon, label, css, disabled, tooltip };
 }

@@ -18,13 +18,16 @@ ko.observableWithDefault = function(valueAccessor) {
 ko.deepUnwrap = function(value) {
     const naked = ko.unwrap(value);
     if (isObject(naked)) {
-        return Object.keys(naked).reduce(
-            (res, key) => {
-                res[key] = ko.deepUnwrap(naked[key]);
+        let needUnwrap = false;
+        const res = Object.entries(naked).reduce(
+            (res, [key, val]) => {
+                res[key] = ko.deepUnwrap(val);
+                needUnwrap = res[key] !== val || needUnwrap;
                 return res;
             },
             Array.isArray(naked) ? [] : {}
         );
+        return needUnwrap ? res : naked;
     } else {
         return naked;
     }
@@ -130,7 +133,7 @@ ko.subscribable.fn.when = function(condition = Boolean) {
     }
 };
 
-ko.subscribable.fn.throttle = function(duration, owner) {
+ko.subscribable.fn.throttle = function(duration = 1, owner) {
     return ko.pureComputed({
         read: this,
         write: throttle(val => this(val), duration),

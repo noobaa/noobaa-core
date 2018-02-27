@@ -176,7 +176,7 @@ class AzureFunctions {
             .then(res => res.ipAddress);
     }
 
-    createAgent({ vmName, storage, vnet, os, agentConf, serverIP }) {
+    createAgent({ vmName, storage, vnet, os, vmSize, agentConf, serverIP }) {
         const osDetails = this.getImagesfromOSname(os);
         return this.getSubnetInfo(vnet)
             .then(subnetInfo => this.createPublicIp(vmName + '_pip')
@@ -200,7 +200,8 @@ class AzureFunctions {
                     nicId: nic.id,
                     imageReference: image,
                     storageAccountName: storage,
-                    diskSizeGB
+                    diskSizeGB,
+                    vmSize
                 });
             })
             .then(() => this.getIpAddress(vmName + '_pip'))

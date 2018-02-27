@@ -40,7 +40,8 @@ const {
     skip_server_creation = false,
     num_agents = oses.length,
     help,
-    min_required_agents = 7
+    min_required_agents = 7,
+    vm_size = 'A'
 } = argv;
 
 dbg.set_process_name('test_env_builder');
@@ -48,7 +49,7 @@ dbg.set_process_name('test_env_builder');
 const agents = create_agents_plan();
 const server = { name: name + '-' + id, ip: server_ip, secret: server_secret };
 const created_agents = [];
-
+let vmSize;
 
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
@@ -63,7 +64,11 @@ function main() {
         .then(() => {
             if (clean_only) {
                 return clean_test_env()
-                    .then(() => process.exit(0));
+                    .then(() => process.exit(0))
+                    .catch(err => {
+                        console.error('got error on cleanup (clean only):', err);
+                        process.exit(1);
+                    });
             }
         })
         // create server and agents vms
@@ -97,7 +102,6 @@ function prepare_server() {
         return P.resolve();
     }
     console.log(`prepare_server: creating server ${server.name}`);
-    const vmSize = 'Standard_A2_v2';
     console.log(`NooBaa server vmSize is: ${vmSize}`);
     return azf.createServer({
             serverName: server.name,
@@ -138,6 +142,7 @@ function prepare_agents() {
                             storage,
                             vnet,
                             os: agent.os,
+                            vmSize,
                             server_ip: server_ip,
                             shouldInstall: false
                         });
@@ -148,6 +153,7 @@ function prepare_agents() {
                             storage,
                             vnet,
                             os: agent.os,
+                            vmSize,
                             serverIP: server_ip
                         });
                     }
@@ -246,7 +252,7 @@ function run_tests() {
     dbg.original_console();
     if (js_script) {
         console.log(`running js script ${js_script} on ${server.name}`);
-        return promise_utils.fork(js_script, ['--server_name', server.name, '--server_ip', server.ip, '--server_secret', server.secret])
+        return promise_utils.fork(js_script, ['--server_name', server.name, '--server_ip', server.ip, '--server_secret', server.secret].concat(process.argv))
             .catch(err => {
                 console.log('Failed running script', err);
                 throw err;
@@ -288,6 +294,17 @@ function create_agents_plan() {
     return plan;
 }
 
+function verify_args() {
+    //verifying the vm_size
+    if (vm_size === 'A') {
+        vmSize = 'Standard_A2_v2';
+    } else if (vm_size === 'B') {
+        vmSize = 'Standard_B2s';
+    } else {
+        console.error('vm_size can be only A or B');
+        process.exit(1);
+    }
+}
 
 function print_usage() {
     console.log(`
@@ -315,5 +332,6 @@ Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storag
 }
 
 if (require.main === module) {
+    verify_args();
     main();
 }

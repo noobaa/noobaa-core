@@ -33,18 +33,13 @@ export default class CloudResourceRowViewModel {
 
     onState(resource) {
         const { name, usedBy, target, undeletable } = resource;
-        const icon = getCloudResourceStateIcon(resource);
-        const state = {
-            ...icon,
-            tooltip: icon.tooltip
-        };
         const buckets = {
             text: stringifyAmount('bucket', usedBy.length),
             tooltip: usedBy
         };
         const deleteTooltip = undeletableReasons[undeletable] || '';
 
-        this.state(state);
+        this.state(getCloudResourceStateIcon(resource));
         this.type(getCloudResourceTypeIcon(resource));
         this.name(name);
         this.buckets(buckets);

@@ -6,7 +6,9 @@ require('../util/dotenv').load();
 const argv = require('minimist')(process.argv);
 
 //TODO: add get azure storage and vnet from the resorce group and remove this if
-if (argv.storage === undefined) {
+if (argv.help !== undefined) {
+    return;
+} else if (argv.storage === undefined && argv.help === undefined) {
     console.error('The --storage flag must be provided');
     process.exit(1);
 }

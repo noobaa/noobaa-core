@@ -10,7 +10,6 @@ const af = require('../utils/agent_functions');
 const ops = require('../utils/basic_server_ops');
 
 // Environment Setup
-require('../../util/dotenv').load();
 var clientId = process.env.CLIENT_ID;
 var domain = process.env.DOMAIN;
 var secret = process.env.APPLICATION_SECRET;
@@ -37,8 +36,9 @@ let {
 
 const {
     location = 'westus2',
-    bucket = 'first.bucket',
-    server_ip,
+        bucket = 'first.bucket',
+        server_ip,
+        id = 0
 } = argv;
 
 const upgrade_pack = argv.upgrade_pack === true ? undefined : argv.upgrade_pack;
@@ -51,6 +51,7 @@ function usage() {
     --resource      -   azure resource group
     --storage       -   azure storage on the resource group
     --vnet          -   azure vnet on the resource group
+    --id            -   an id that is attached to the agents name
     --upgrade_pack  -   location of the file for upgrade
     --skipsetup     -   skipping creation and deletion of agents.
     --clean         -   will only delete the env and exit.
@@ -94,10 +95,10 @@ function saveErrorAndResume(message) {
 
 function runClean() {
     //deleting the VM machines with the same name as the OS we want to install.
-    return P.map(oses, osname => azf.deleteVirtualMachine(osname)
-        .catch(() => console.log(`VM ${osname} not found - skipping...`)))
+    return P.map(oses, osname => azf.deleteVirtualMachine(osname + '-' + id)
+            .catch(() => console.log(`VM ${osname}-${id} not found - skipping...`)))
         //running all all the VM machines and deleating all the disks.
-        .then(() => P.map(oses, osname => azf.deleteBlobDisks(osname)
+        .then(() => P.map(oses, osname => azf.deleteBlobDisks(osname + '-' + id)
             .catch(saveErrorAndResume)))
         // when clean is called, exiting after delete all agents machine.
         .then(() => clean && process.exit(0));
@@ -133,13 +134,13 @@ function createAgents(isInclude, excludeList) {
         .then(() => {
             if (isInclude) {
                 return P.map(oses, osname => azf.createAgent({
-                    vmName: osname,
-                    storage,
-                    vnet,
-                    os: osname,
-                    agentConf,
-                    serverIP: server_ip
-                }))
+                        vmName: osname + '-' + id,
+                        storage,
+                        vnet,
+                        os: osname,
+                        agentConf,
+                        serverIP: server_ip
+                    }))
                     .catch(saveErrorAndResume);
             } else {
                 return runExtensions('init_agent', `${server_ip} ${agentConf}`)
@@ -195,8 +196,8 @@ function verifyAgent() {
 }
 
 function runExtensions(script_name, flags = '') {
-    return P.map(oses, osname => azf.deleteVirtualMachineExtension(osname)
-        .catch(err => console.log(err.message)))
+    return P.map(oses, osname => azf.deleteVirtualMachineExtension(osname + '-' + id)
+            .catch(err => console.log(err.message)))
         .then(() => P.map(oses, osname => {
             console.log(`running extention: ${script_name}`);
             var extension = {
@@ -224,7 +225,7 @@ function runExtensions(script_name, flags = '') {
                     commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ' + script_name + '.ps1 ' + flags
                 };
             }
-            return azf.createVirtualMachineExtension(osname, extension)
+            return azf.createVirtualMachineExtension(osname + '-' + id, extension)
                 .catch(saveErrorAndResume);
         }));
 }
@@ -275,8 +276,8 @@ function deleteAgent() {
 function addDisksToMachine(diskSize) {
     console.log(`adding disks to the agents machine`);
     return P.map(oses, osname => {
-        console.log(`adding data disk to vm ${osname} of size ${diskSize}`);
-        return azf.addDataDiskToVM(osname, diskSize, storage);
+        console.log(`adding data disk to vm ${osname}-${id} of size ${diskSize}`);
+        return azf.addDataDiskToVM(osname + '-' + id, diskSize, storage);
     });
 }
 

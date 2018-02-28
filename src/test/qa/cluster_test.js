@@ -11,10 +11,9 @@ const s3ops = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 const _ = require('lodash');
 
-require('../../util/dotenv').load();
 const dbg = require('../../util/debug_module')(__filename);
 const testName = 'cluster_test';
-const suffix = testName.replace(/_test/g, '');
+let suffix = testName.replace(/_test/g, '');
 dbg.set_process_name(testName);
 
 //define colors
@@ -36,18 +35,27 @@ let errors = [];
 //defining the required parameters
 const {
     location = 'westus2',
-    configured_ntp = 'pool.ntp.org',
-    configured_timezone = 'Asia/Jerusalem',
-    prefix = 'Server',
-    timeout = 10,
-    breakonerror = false,
-    resource,
-    storage,
-    vnet,
-    upgrade_pack,
-    agents_number = 3,
-    clean = false,
+        configured_ntp = 'pool.ntp.org',
+        configured_timezone = 'Asia/Jerusalem',
+        timeout = 10,
+        breakonerror = false,
+        resource,
+        storage,
+        vnet,
+        upgrade_pack,
+        id,
+        agents_number = 3,
+        clean = false,
 } = argv;
+
+let {
+    prefix = 'Server'
+} = argv;
+
+if (id !== undefined) {
+    prefix = prefix + '-' + id;
+    suffix = suffix + '-' + id;
+}
 
 function usage() {
     console.log(`
@@ -60,6 +68,7 @@ function usage() {
     --resource              -   azure resource group
     --storage               -   azure storage on the resource group
     --vnet                  -   azure vnet on the resource group
+    --id                    -   an id that is attached to the server names
     --upgrade_pack          -   location of the file for upgrade
     --agents_number         -   number of agents to add (default: ${agents_number})
     --servers               -   number of servers to create cluster from (default: ${serversincluster})
@@ -122,24 +131,24 @@ function checkClusterHAReport(serversByStatus, servers) {
                     return promise_utils.pwhile(
                         () => !done,
                         () => client.system.read_system({})
-                            .then(read_system => {
-                                if (read_system.cluster.shards[0].high_availabilty) {
-                                    done = true;
-                                    //setting time out of 300 sec
-                                } else if (timeOut > 300) {
-                                    done = true;
-                                    return P.resolve()
-                                        .then(() => {
-                                            console.log(`Number of live servers is: ${serversUp}, out of ${servers.length}`);
-                                            console.log('read_system high_availabilty status is: ', res.cluster.shards[0].high_availabilty);
-                                            saveErrorAndResume(`Error! Cluster is not highly available although most servers are up!!`);
-                                            failures_in_test = true;
-                                        });
-                                } else {
-                                    timeOut += timeInSec;
-                                    return P.delay(timeInSec * 1000);
-                                }
-                            })
+                        .then(read_system => {
+                            if (read_system.cluster.shards[0].high_availabilty) {
+                                done = true;
+                                //setting time out of 300 sec
+                            } else if (timeOut > 300) {
+                                done = true;
+                                return P.resolve()
+                                    .then(() => {
+                                        console.log(`Number of live servers is: ${serversUp}, out of ${servers.length}`);
+                                        console.log('read_system high_availabilty status is: ', res.cluster.shards[0].high_availabilty);
+                                        saveErrorAndResume(`Error! Cluster is not highly available although most servers are up!!`);
+                                        failures_in_test = true;
+                                    });
+                            } else {
+                                timeOut += timeInSec;
+                                return P.delay(timeInSec * 1000);
+                            }
+                        })
                     );
                 }
             } else if (res.cluster.shards[0].high_availabilty) {
@@ -277,16 +286,16 @@ function startVirtualMachineWithStatus(index, time) {
             return promise_utils.pwhile(
                 () => !done,
                 () => azf.getMachineStatus(servers[index].name)
-                    .then(status => {
-                        console.log(status);
-                        if (status === 'VM running') {
-                            done = true;
-                            servers[index].status = 'CONNECTED';
-                            delayInSec(time);
-                        } else {
-                            return P.delay(10 * 1000);
-                        }
-                    })
+                .then(status => {
+                    console.log(status);
+                    if (status === 'VM running') {
+                        done = true;
+                        servers[index].status = 'CONNECTED';
+                        delayInSec(time);
+                    } else {
+                        return P.delay(10 * 1000);
+                    }
+                })
             );
         });
 }
@@ -298,16 +307,16 @@ function stopVirtualMachineWithStatus(index, time) {
             return promise_utils.pwhile(
                 () => !done,
                 () => azf.getMachineStatus(servers[index].name)
-                    .then(status => {
-                        console.log(status);
-                        if (status === 'VM stopped') {
-                            done = true;
-                            servers[index].status = 'DISCONNECTED';
-                            delayInSec(time);
-                        } else {
-                            return P.delay(10 * 1000);
-                        }
-                    })
+                .then(status => {
+                    console.log(status);
+                    if (status === 'VM stopped') {
+                        done = true;
+                        servers[index].status = 'DISCONNECTED';
+                        delayInSec(time);
+                    } else {
+                        return P.delay(10 * 1000);
+                    }
+                })
             );
         });
 }
@@ -317,13 +326,13 @@ function setNTPConfig(serverIndex) {
     client = rpc.new_client({});
     console.log('Secret is ', servers[serverIndex].secret, 'for server ip ', servers[serverIndex].ip);
     return P.fcall(() => {
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    })
+            let auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo1',
+                system: 'demo'
+            };
+            return client.create_auth_token(auth_params);
+        })
         .then(() => {
             console.log('Setting ntp config');
             return client.cluster_server.update_time_config({
@@ -351,12 +360,12 @@ function setNTPConfig(serverIndex) {
 //this function is getting servers array creating and upgrading them.
 function prepareServers(requestedServers) {
     return P.map(requestedServers, server => azf.createServer({
-        serverName: server.name,
-        vnet,
-        storage,
-        ipType: 'Static',
-        createSystem: true
-    })
+            serverName: server.name,
+            vnet,
+            storage,
+            ipType: 'Static',
+            createSystem: true
+        })
         .then(new_secret => {
             console.log(`${YELLOW}${server.name} secret is: ${new_secret}${NC}`);
             server.secret = new_secret;
@@ -416,7 +425,7 @@ function verifyS3Server() {
 
 function cleanEnv(osToClean) {
     return P.map(servers, server => azf.deleteVirtualMachine(server.name)
-        .catch(err => console.log(`Can't delete old server ${err.message}`)))
+            .catch(err => console.log(`Can't delete old server ${err.message}`)))
         .then(() => af.clean_agents(azf, osToClean, suffix))
         .then(() => clean && process.exit(0));
 }

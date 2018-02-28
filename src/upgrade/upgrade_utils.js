@@ -148,7 +148,14 @@ function do_upgrade(upgrade_file, is_clusterized, err_handler) {
     }
 }
 
-function test_ntp_timeskew(ntp_server) {
+function test_ntp_timeskew(ntp_server, proxy_address) {
+    if (proxy_address && !ntp_server) {
+        // if couldn't get time from ntp server, and there is a proxy configured
+        // and ntp is not configured, then skip the test
+        dbg.log0('system is behind proxy and no local ntp. cannot reach default ntp server (pool.ntp.org) - skipping test');
+        return;
+    }
+
     return net_utils.get_ntp_time({ server: ntp_server })
         .catch(err => {
             dbg.error('test_ntp_timeskew failed', err);

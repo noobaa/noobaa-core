@@ -19,6 +19,7 @@ shasum.update(Date.now().toString());
 
 const dbg = require('../../util/debug_module')(__filename);
 const testName = 'agents_matrix';
+const suffix = 'matrix';
 dbg.set_process_name(testName);
 
 // Sample Config
@@ -127,7 +128,7 @@ function createAgents(isInclude, excludeList) {
         .then(res => {
             agentConf = res;
         })
-        .then(() => af.getTestNodes(server_ip, oses))
+        .then(() => af.getTestNodes(server_ip, suffix))
         .then(res => {
             test_nodes_names = res;
         })
@@ -154,7 +155,7 @@ function createAgents(isInclude, excludeList) {
             previous_agent_number: test_nodes_names.length,
             additional_agents: oses.length,
             print: 'create agent',
-            oses
+            suffix
         }));
 }
 
@@ -293,7 +294,7 @@ function checkIncludeDisk() {
                     server_ip,
                     previous_agent_number: number_befor_adding_disks.length,
                     additional_agents: oses.length,
-                    oses
+                    suffix
                 }));
         });
 }
@@ -315,7 +316,7 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
             previous_agent_number: number_befor_adding_disks,
             additional_agents: 0,
             print: 'exluding small disks',
-            oses
+            suffix
         }))
         //adding disk to check that it is not getting exclude
         .then(() => addDisksToMachine(size))
@@ -327,7 +328,7 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
                 previous_agent_number: number_befor_adding_disks,
                 additional_agents: oses.length,
                 print: 'exlude',
-                oses
+                suffix
             });
             const number_of_disks = number_befor_adding_disks + oses.length;
             return number_of_disks;
@@ -336,7 +337,7 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
 
 function checkExcludeDisk(excludeList) {
     let number_befor_adding_disks;
-    return af.getTestNodes(server_ip, oses)
+    return af.getTestNodes(server_ip, suffix)
         .then(nodes_befor_adding_disks => {
             const includesE = nodes_befor_adding_disks.filter(node => node.includes('-E-'));
             const includesF = nodes_befor_adding_disks.filter(node => node.includes('-F-'));
@@ -348,7 +349,7 @@ function checkExcludeDisk(excludeList) {
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //activate a deactivated node
-        .then(() => af.getTestNodes(server_ip, oses)
+        .then(() => af.getTestNodes(server_ip, suffix)
             .then(test_nodes_names => {
                 const includesE = test_nodes_names.filter(node => node.includes('-E-'));
                 const includes_exclude1 = test_nodes_names.filter(node => node.includes('exclude1'));
@@ -367,12 +368,12 @@ function checkExcludeDisk(excludeList) {
             previous_agent_number: number_befor_adding_disks,
             additional_agents: oses.length,
             print: 'disable and enable entire host',
-            oses
+            suffix
         }))
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //deactivate agents (mounts)
-        .then(() => af.getTestNodes(server_ip, oses)
+        .then(() => af.getTestNodes(server_ip, suffix)
             .then(test_nodes_names => {
                 const excludeE = test_nodes_names.filter(node => node.includes('-E-'));
                 const excludeF = test_nodes_names.filter(node => node.includes('-F-'));

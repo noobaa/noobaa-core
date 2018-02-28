@@ -396,7 +396,7 @@ P.fcall(function() {
     .then(() => deleteConnection(connections_mapping.AWS.name))
     .then(() => deleteConnection(blobops.AzureDefaultConnection.name))
     .catch(err => {
-        console.error('something went wrong :(' + err + errors);
+        saveErrorAndResume('something went wrong :(', err);
     })
     .then(() => {
         if (failures_in_test) {

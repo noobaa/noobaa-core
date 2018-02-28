@@ -37,7 +37,7 @@ const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-const suffix = 'spill';
+const suffix = 'spillover';
 
 function usage() {
     console.log(`
@@ -216,16 +216,17 @@ function createHealthyPool() {
             let hosts = res.hosts;
             return P.each(hosts, host => {
                 let mode = host.mode;
-                if (mode === 'OPTIMAL') {
+                if ((mode === 'OPTIMAL') && (host.name.includes(suffix))) {
                     list.push(host.name);
                 }
             });
         })
-        .then(() => {
+        .then(res => {
+            list = res;
             console.log('Creating pool with online agents: ' + list);
             return client.pool.create_hosts_pool({
-                hosts: list,
-                name: healthy_pool
+                name: healthy_pool,
+                hosts: list
             });
         })
         .catch(error => {
@@ -249,8 +250,8 @@ function assignNodesToPool(pool) {
         .then(() => {
             console.log('Assigning online agents: ' + listAgents + ' to pool ' + pool);
             return client.pool.assign_hosts_to_pool({
-                hosts: listAgents,
-                name: pool
+                name: pool,
+                hosts: listAgents
             });
         })
         .catch(error => {
@@ -279,11 +280,11 @@ function clean_env() {
         .delay(10000)
         .then(() => assignNodesToPool('first.pool'))
         .then(() => deletePool(healthy_pool))
-        .then(() => af.clean_agents(azf, osesSet, suffix));
+        .then(() => af.clean_agents(azf, server_ip, suffix));
 }
 
 return azf.authenticate()
-    .then(() => af.clean_agents(azf, osesSet, suffix))
+    .then(() => af.clean_agents(azf, server_ip, suffix))
     .then(() => P.fcall(function() {
             rpc = api.new_rpc('wss://' + server_ip + ':8443');
             client = rpc.new_client({});

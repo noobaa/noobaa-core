@@ -13,7 +13,11 @@ const promise_utils = require('../../util/promise_utils');
 // Environment Setup
 const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
-
+const auth_params = {
+    email: 'demo@noobaa.com',
+    password: 'DeMo1',
+    system: 'demo'
+};
 //define colors
 const Yellow = "\x1b[33;1m";
 const NC = "\x1b[0m";
@@ -22,11 +26,6 @@ function list_nodes(server_ip) {
     let online_agents;
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => client.host.list_hosts({})
             .then(res => {
@@ -39,25 +38,21 @@ function number_offline_nodes(server_ip) {
     let offline_agents;
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => client.host.list_hosts({})
             .then(res => {
                 offline_agents = res.counters.by_mode.OFFLINE;
+                offline_agents = offline_agents ? offline_agents : 0;
             }))
         .then(() => offline_agents);
 }
 
-function getTestNodes(server_ip, oses, suffix = '') {
+function getTestNodes(server_ip, suffix = '') {
     let test_nodes_names = [];
     return list_nodes(server_ip)
         .then(res => _.map(res, node => {
-            if (_.includes(oses.map(os => os + suffix), node.name.split('-')[0])) {
-                test_nodes_names.push(node.name);
+            if (node.name.includes(suffix)) {
+                test_nodes_names.push(node.name.split('-')[0]);
             }
         }))
         .then(() => {
@@ -70,12 +65,12 @@ function getTestNodes(server_ip, oses, suffix = '') {
         });
 }
 
-function list_optimal_agents(server_ip, oses, suffix = '') {
+function list_optimal_agents(server_ip, suffix = '') {
     let test_optimal_nodes_names = [];
     return list_nodes(server_ip)
         .then(res => _.map(res, node => {
             if (node.mode === 'OPTIMAL') {
-                if (_.includes(oses.map(os => os + suffix), node.name.split('-')[0])) {
+                if (node.name.includes(suffix)) {
                     test_optimal_nodes_names.push(node.name);
                 }
             }
@@ -89,6 +84,30 @@ function list_optimal_agents(server_ip, oses, suffix = '') {
             return test_optimal_nodes_names;
         });
 }
+// Creates agent using map [agentname,agentOs]
+function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives = [], agentmap) {
+    const agents_to_create = Array.from(agentmap.keys());
+    return getAgentConf(server_ip, exclude_drives)
+    .then(res => {
+        const agentConf = res;
+        return P.map(agents_to_create, name => azf.createAgent({
+            vmName: name,
+            storage,
+            vnet,
+            os: azf.getImagesfromOSname(agentmap.get(name)),
+            vmsize: 'Standard_B2s',
+            agentConf,
+            serverIP: server_ip
+        }))
+        .tap(() => console.warn(`Waiting for a 2 min for agents to come up...`))
+        .delay(120000)
+            .catch(err => {
+                console.error(`Creating vm extension is FAILED `, err);
+            });
+    });
+
+}
+
 
 //TODO: the if inside this function and the isInclude is for the use of agent_metrix test, need to make it work.
 // function createAgents(azf, server_ip, storage, resource_vnet, isInclude, exclude_drives = [], ...oses) {
@@ -163,11 +182,6 @@ function createAgentsWithList(params) {
 function getAgentConfInstallString(server_ip, osType, exclude_drives = []) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => client.system.get_node_installation_string({
             pool: pool,
@@ -222,11 +236,6 @@ function runAgentCommandViaSsh(agent_server_ip, username, password, agentCommand
 function activeAgents(server_ip, deactivated_nodes_list) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => P.each(deactivated_nodes_list, name => {
             console.log('calling recommission_node on', name);
@@ -237,11 +246,6 @@ function activeAgents(server_ip, deactivated_nodes_list) {
 function deactiveAgents(server_ip, activated_nodes_list) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => P.each(activated_nodes_list, name => {
             console.log('calling decommission_node on', name);
@@ -253,11 +257,6 @@ function activeAllHosts(server_ip) {
     console.log(`Active All Hosts`);
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => client.host.list_hosts({}))
         .then(res => P.each(res.hosts.filter(node => node.mode === 'DECOMMISSIONED'), names => {
@@ -276,11 +275,6 @@ function deactiveAllHosts(server_ip) {
     console.log(`Deactiveing All Hosts`);
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
     return client.create_auth_token(auth_params)
         .then(() => client.host.list_hosts({}))
         .then(res => P.each(res.hosts.filter(node => node.mode === 'OPTIMAL'), names => {
@@ -298,7 +292,7 @@ function deactiveAllHosts(server_ip) {
 //check how many agents there are now, expecting agent to be included.
 function isIncluded(params) {
     console.log(params);
-    const { server_ip, previous_agent_number, additional_agents, print = 'include', oses, suffix = '' } = params;
+    const { server_ip, previous_agent_number, additional_agents, print = 'include', suffix = '' } = params;
     let expected_count;
     return list_nodes(server_ip)
         .then(res => {
@@ -306,7 +300,7 @@ function isIncluded(params) {
             console.warn(`${Yellow}Number of Excluded agents: ${decommisioned_nodes.length}${NC}`);
             console.warn(`Node names are ${res.map(node => node.name)}`);
             expected_count = previous_agent_number + additional_agents;
-            return list_optimal_agents(server_ip, oses, suffix);
+            return list_optimal_agents(server_ip, suffix);
         })
         .then(test_nodes => {
             const actual_count = test_nodes.length;
@@ -346,41 +340,73 @@ function start_agent(azf, agent) {
         });
 }
 
-function deleteAgents(azf, oses, suffix = '') {
-    return P.map(oses, osname => azf.deleteVirtualMachine(osname + suffix)
-        .catch(err => {
-            console.warn(`${osname}${suffix} not found - skipping. Error: `, err.message.split('\n')[0]);
-        }));
+//removes agents with names that include suffix from Noobaa server
+function deleteAgents(server_ip, suffix = '') {
+    console.log(`Starting the delete agents stage`);
+    const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+    const client = rpc.new_client({});
+    return client.create_auth_token(auth_params)
+        .then(() => client.host.list_hosts({}))
+        .then(res => P.map(res.hosts, host => {
+            if (host.name.includes(suffix)) {
+            console.log('deleting', host.name);
+            return client.host.delete_host({ name: host.name });
+            } else {
+                console.log('skipping', host.name);
+            }
+        }))
+        .delay(120 * 1000)
+        .then(() => list_nodes(server_ip))
+        .then(res => {
+            console.warn(`${Yellow}Num nodes after the delete agent are ${
+                    res.length}${NC}`);
+            });
 }
 
-function clean_agents(azf, oses, suffix = '') {
-    return deleteAgents(azf, oses, suffix)
-        .then(() => P.map(oses, osname => azf.deleteVirtualMachine(osname + suffix, 'osdisks')
+//get a list of agents that names are inculude suffix, deletes corresponding VM and agents from NooBaa server
+function clean_agents(azf, server_ip, suffix = '') {
+    return getTestNodes(server_ip, suffix)
+        .then(res => P.map(res, agentname => azf.deleteVirtualMachine(agentname)
             .catch(err => {
-                console.log(`Blob ${osname}${suffix} not found - skipping. Error: `, err.message.split('\n')[0]);
-            })));
+                console.log(`Blob ${agentname} not found - skipping. Error: `, err.message.split('\n')[0]);
+            })))
+        .then(() => deleteAgents(server_ip, suffix));
 }
 
 function getRandomOsesFromList(amount, oses) {
+    let listforrnd = oses.slice();
     let listOses = [];
-    for (let i = 0; i < amount; i++) {
-        let rand = Math.floor(Math.random() * oses.length);
-        listOses.push(oses[rand]);
-        oses.splice(rand, 1);
+    if (amount <= oses.length) {
+        for (let i = 0; i < amount; i++) {
+            let rand = Math.floor(Math.random() * listforrnd.length);
+            listOses.push(listforrnd[rand]);
+            listforrnd.splice(rand, 1);
+        }
+    } else {
+        for (let i = 0; i < oses.length; i++) {
+            let rand = Math.floor(Math.random() * listforrnd.length);
+            listOses.push(listforrnd[rand]);
+            listforrnd.splice(rand, 1);
+        }
+        for (let i = 0; i < amount - oses.length; i++) {
+            let rand = Math.floor(Math.random() * oses.length);
+            listOses.push(oses[rand]);
+        }
     }
     console.log('Random oses chosen oses ', listOses);
     return listOses;
 }
 
-function stopRandomAgents(azf, server_ip, amount, suffix, oses) {
+function stopRandomAgents(azf, server_ip, amount, suffix, agentlist) {
     let offlineAgents;
     let stopped_agents = [];
     return number_offline_nodes(server_ip)
         .then(res => {
             offlineAgents = res;
-            stopped_agents = getRandomOsesFromList(amount, oses);
-            return P.each(stopped_agents, agent => stop_agent(azf, agent + suffix));
+            stopped_agents = getRandomOsesFromList(amount, agentlist);
+            return P.each(stopped_agents, agent => stop_agent(azf, agent));
         })
+        .delay(100 * 1000)
         .then(() => number_offline_nodes(server_ip))
         .then(res => {
             const offlineAgentsAfter = res;
@@ -391,10 +417,10 @@ function stopRandomAgents(azf, server_ip, amount, suffix, oses) {
                 console.error(`Number of offline agents after stop is: ${offlineAgentsAfter}, expected: ${offlineExpected}`);
             }
         })
-        .then(() => list_optimal_agents(server_ip, oses, suffix))
+        .then(() => list_optimal_agents(server_ip, suffix))
         .then(res => {
             const onlineAgents = res.length;
-            const expectedOnlineAgents = oses.length - amount;
+            const expectedOnlineAgents = agentlist.length - amount;
             if (onlineAgents === expectedOnlineAgents) {
                 console.log(`Number of online agents is: ${onlineAgents} - as should`);
             } else {
@@ -443,14 +469,18 @@ function startOfflineAgents(azf, server_ip, suffix, oses) {
 
 function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suffix, oses) {
     let exclude_drives = [];
+    let agentmap = new Map();
     let createdAgents = getRandomOsesFromList(amount, oses);
-    return createAgents(azf, server_ip, storage, resource_vnet, exclude_drives, suffix, createdAgents)
+    for (let i = 0; i < createdAgents.length; i++) {
+        agentmap.set(suffix + i, createdAgents[i]);
+    }
+    return createAgentsFromMap(azf, server_ip, storage, resource_vnet, exclude_drives, agentmap)
         .then(() => list_nodes(server_ip)
             .then(res => {
                 let node_number_after_create = res.length;
                 console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
                 console.warn(`Node names are ${res.map(node => node.name)}`);
-                return createdAgents;
+                return agentmap;
             }));
 }
 
@@ -484,6 +514,7 @@ exports.activeAgents = activeAgents;
 exports.deactiveAgents = deactiveAgents;
 exports.activeAllHosts = activeAllHosts;
 exports.deactiveAllHosts = deactiveAllHosts;
+exports.createAgentsFromMap = createAgentsFromMap;
 // exports.create_agents = create_agents;
 exports.deleteAgents = deleteAgents;
 exports.clean_agents = clean_agents;
@@ -498,3 +529,4 @@ exports.createRandomAgents = createRandomAgents;
 exports.stopRandomAgents = stopRandomAgents;
 exports.startOfflineAgents = startOfflineAgents;
 exports.manipulateLocalDisk = manipulateLocalDisk;
+exports.getRandomOsesFromList = getRandomOsesFromList;

@@ -275,7 +275,7 @@ return azf.authenticate()
     .then(() => af.clean_agents(azf, osesSet, suffix))
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {
-        oses = res;
+        oses = Array.from(res.keys());
         //Create a dataset on it (1 GB per agent)
         return uploadAndVerifyFiles(agents_number);
     })
@@ -293,7 +293,7 @@ return azf.authenticate()
             console.error(':( :( Errors during rebuild replicas parts test (replicas) ): ):' + errors);
             process.exit(1);
         } else {
-            return af.clean_agents(azf, oses, suffix)
+            return af.clean_agents(azf, server_ip, oses, suffix)
                 .then(clean_up_dataset)
                 .then(() => {
                     console.log(':) :) :) rebuild replicas parts test (replicas) were successful! (: (: (:');

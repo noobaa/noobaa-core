@@ -89,7 +89,6 @@ let osesSet = [
     'win2008', 'win2012', 'win2016'
 ];
 
-let oses = [];
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -423,13 +422,6 @@ function verifyS3Server() {
         });
 }
 
-function cleanEnv(osToClean) {
-    return P.map(servers, server => azf.deleteVirtualMachine(server.name)
-            .catch(err => console.log(`Can't delete old server ${err.message}`)))
-        .then(() => af.clean_agents(azf, osToClean, suffix))
-        .then(() => clean && process.exit(0));
-}
-
 //const timeInMin = timeout * 1000 * 60;
 console.log(`${YELLOW}Timeout: ${timeout} min${NC}`);
 let masterIndex = 0;
@@ -535,7 +527,8 @@ return azf.authenticate()
             });
         }
     })
-    .then(() => cleanEnv(osesSet))
+    .then(() => af.clean_agents(azf, master_ip, suffix)
+        .then(() => clean && process.exit(0)))
     .then(() => prepareServers(servers))
     .then(checkAddClusterRules)
     .then(() => setNTPConfig(1))
@@ -545,16 +538,14 @@ return azf.authenticate()
     .then(() => delayInSec(90))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
     .then(() => af.createRandomAgents(azf, master_ip, storage, vnet, agents_number, suffix, osesSet))
-    .then(res => {
-        oses = res;
-        return verifyS3Server();
-    })
+    .then(res => verifyS3Server())
     .then(() => checkClusterStatus(servers, masterIndex))
     .then(runFirstFlow)
     .then(runSecondFlow)
     .then(runThirdFlow)
     .then(runForthFlow)
-    .then(() => cleanEnv(oses))
+    .then(() => af.clean_agents(azf, master_ip, suffix)
+        .then(() => clean && process.exit(0)))
 
     /*
       .then(() => {
@@ -592,5 +583,5 @@ return azf.authenticate()
         }
         console.log(`Cluster test were successful!`);
         process.exit(0);
-        // return clean ? cleanEnv() : console.log('Clean env is ', clean);
+       // return clean ? cleanEnv() : console.log('Clean env is ', clean);
     });

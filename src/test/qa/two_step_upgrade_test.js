@@ -42,6 +42,7 @@ function usage() {
     --skip_creation     -   Should the test skip creation of env, default is ${TEST_CFG_DEFAULTS.skipCreation}, if supplied --ip and --secret must be provided
     --upgrade_package   -   Path to the upgrade package to be used
     --vnet              -   vnet name for the environment
+    --id                -   adding an id to the machine name.
     --ip / --secret     -   IP and Secret of the server, must be supplied if using the skip_creation options
     --help              -   show this help
     `);
@@ -125,6 +126,9 @@ function check_arguments_and_update() {
     if (!argv.skipCreation) {
         TEST_CFG.ip = argv.ip;
         TEST_CFG.secret = argv.secret;
+    }
+    if (argv.id) {
+        TEST_CFG.serverName = TEST_CFG_DEFAULTS.serverName + '-' + argv.id;
     }
 }
 
@@ -245,7 +249,7 @@ function create_env() {
 
     return azure_functions.authenticate()
         .then(() => azure_functions.createServer({
-            serverName: TEST_CFG_DEFAULTS.serverName,
+            serverName: TEST_CFG.serverName,
             vnet: TEST_CFG.vnet,
             storage: TEST_CFG.storage,
             latesetRelease: true,
@@ -253,7 +257,7 @@ function create_env() {
         }))
         .then(secret => {
             TEST_CFG.secret = secret;
-            return azure_functions.getIpAddress(TEST_CFG_DEFAULTS.serverName + '_pip');
+            return azure_functions.getIpAddress(TEST_CFG.serverName + '_pip');
         })
         .then(ip => {
             TEST_CFG.ip = ip;

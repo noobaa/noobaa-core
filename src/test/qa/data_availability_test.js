@@ -8,8 +8,6 @@ const promise_utils = require('../../util/promise_utils');
 const s3ops = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 
-require('../../util/dotenv').load();
-
 //define colors
 const YELLOW = "\x1b[33;1m";
 const NC = "\x1b[0m";
@@ -18,7 +16,7 @@ const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-const suffix = 'erasure';
+let suffix = 'erasure';
 let stopped_oses = [];
 let failures_in_test = false;
 let errors = [];
@@ -29,18 +27,19 @@ let current_size = 0;
 //defining the required parameters
 const {
     location = 'westus2',
-    resource, // = 'pipeline-agents',
-    storage, // = 'pipelineagentsdisks',
-    vnet, // = 'pipeline-agents-vnet',
-    agents_number = 5,
-    failed_agents_number = 1,
-    server_ip,
-    dataset_size = agents_number * 1024, //MB
-    max_size = 250, //MB
-    min_size = 50, //MB
-    iterationsNumber = 9999,
-    bucket = 'first.bucket',
-    help = false
+        resource, // = 'pipeline-agents',
+        storage, // = 'pipelineagentsdisks',
+        vnet, // = 'pipeline-agents-vnet',
+        agents_number = 5,
+        failed_agents_number = 1,
+        server_ip,
+        dataset_size = agents_number * 1024, //MB
+        max_size = 250, //MB
+        min_size = 50, //MB
+        iterationsNumber = 9999,
+        bucket = 'first.bucket',
+        id,
+        help = false
 } = argv;
 
 function usage() {
@@ -57,8 +56,13 @@ function usage() {
     --max_size              -   max size of uploading files
     --min_size              -   min size of uploading files
     --iterationsNumber      -   number iterations of switch off/switch on agents with checking files
+    --id                    -   an id that is attached to the agents name
     --help                  -   show this help.
     `);
+}
+
+if (process.id !== undefined) {
+    suffix = suffix + '-' + id;
 }
 
 if (help) {
@@ -113,15 +117,15 @@ function uploadAndVerifyFiles() {
     let { data_multiplier } = unit_mapping.MB;
     console.log('Writing and deleting data till size amount to grow ' + dataset_size + ' MB');
     return promise_utils.pwhile(() => current_size < dataset_size, () => {
-        console.log('Uploading files till data size grow to ' + dataset_size + ', current size is ' + current_size);
-        let file_size = set_fileSize();
-        let file_name = 'file_part_' + file_size + (Math.floor(Date.now() / 1000));
-        files.push(file_name);
-        current_size += file_size;
-        console.log('Uploading file with size ' + file_size + ' MB');
-        return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
-            .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
-    })
+            console.log('Uploading files till data size grow to ' + dataset_size + ', current size is ' + current_size);
+            let file_size = set_fileSize();
+            let file_name = 'file_part_' + file_size + (Math.floor(Date.now() / 1000));
+            files.push(file_name);
+            current_size += file_size;
+            console.log('Uploading file with size ' + file_size + ' MB');
+            return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
+                .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
+        })
         .catch(err => {
             saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
             failures_in_test = true;

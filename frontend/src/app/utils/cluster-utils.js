@@ -121,6 +121,26 @@ const clsuterModeToIcon = deepFreeze({
     }
 });
 
+const serverModeToIcon = deepFreeze({
+    CONNECTED: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    },
+
+    IN_PROGRESS: {
+        name: 'in-progress',
+        css: 'warning',
+        tooltip: 'In Progress'
+    },
+
+    DISCONNECTED: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Problem'
+    }
+});
+
 const majorIssues = deepFreeze([
     'version',
     'dnsServers',
@@ -279,4 +299,8 @@ export function aggregateUpgradePackageInfo(serverList) {
                 );
         }
     }
+}
+
+export function getServerStateIcon(server) {
+    return serverModeToIcon[server.mode];
 }

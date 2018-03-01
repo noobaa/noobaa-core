@@ -3543,7 +3543,7 @@ class NodesMonitor extends EventEmitter {
         reply.free = reply.free.minus(reply.reserved);
 
         if (item.has_issues) {
-            reply.unavailable_free = reply.free;
+            if (item.node.enabled) reply.unavailable_free = reply.free;
             reply.free = BigInteger.zero;
         }
 

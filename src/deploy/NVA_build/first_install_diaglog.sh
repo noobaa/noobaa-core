@@ -5,6 +5,7 @@ trap "" 2 20
 
 FIRST_INSTALL_MARK="/etc/first_install.mrk"
 NOOBAANET="/etc/noobaa_network"
+MONGO_SHELL="/usr/bin/mongo nbcore"
 
 function prepare_ifcfg() {
   local interface=${1}
@@ -137,9 +138,11 @@ function configure_dns_dialog {
     local cur_dns=($(grep forwarders /etc/noobaa_configured_dns.conf | awk -F "{" '{print $2}' | awk -F "}" '{print $1}' | awk -F ";" '{print $1" " $2}'))
     local dns1=${cur_dns[0]}
     local dns2=${cur_dns[1]}
+    local command
     local error=0
     ok_dns1=1
     cancel=0 
+    local secret=$(cat /etc/noobaa_sec)
     
     while [ $ok_dns1 -eq 1 ] && [ $cancel -eq 0 ]; do
       if [ ${error} -eq 1 ]; then
@@ -178,14 +181,18 @@ function configure_dns_dialog {
         if [ -n ${dns2} ]; then
           echo "updating both" >> /tmp/dns #NBNB
           sudo bash -c "echo \"forwarders { ${dns1}; ${dns2}; };\" > /etc/noobaa_configured_dns.conf"
+          command="${MONGO_SHELL} --eval 'var update_dns=\"true\", dns_primary=\"${dns1}\", dns_secondary=\"${dns2}\", secret=\"${secret}\"' /root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_update_config.js"
         else
           echo "updating one" >> /tmp/dns #NBNB
           sudo bash -c "echo \"forwarders { ${dns1}; };\" > /etc/noobaa_configured_dns.conf"
+          command="${MONGO_SHELL} --eval 'var update_dns=\"true\", dns_primary=\"${dns1}\", secret=\"${secret}\"' /root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_update_config.js"
         fi
         
         sudo bash -c "echo \"forward only;\" >> /etc/noobaa_configured_dns.conf"
         sudo dmesg -n 1 # need to restart network to update /etc/resolv.conf - supressing too much logs
+        sudo bash -c "${command}" > /dev/null 2>&1
         sudo systemctl restart named &> /dev/null
+        sudo /usr/bin/supervisorctl restart all 1> /dev/null
         sudo dmesg -n 3
       fi
     done
@@ -246,6 +253,7 @@ function configure_ntp_dialog {
   local err_ntp_msg=""
   local err_tz=1
   local err_ntp=1
+  local secret=$(cat /etc/noobaa_sec)
 
   while [ ${err_tz} -eq 1 ] || [ ${err_ntp} -eq 1 ]; do
     dialog --colors --backtitle "NooBaa First Install" --title "NTP Configuration" --form "\nPlease supply an NTP server address and Time Zone (TZ format https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)\nYou can configure NTP later in the management console\n${err_ntp_msg}\n${err_tz_msg}\n(Use \Z4\ZbUp/Down\Zn to navigate)" 15 80 2 "NTP Server:" 1 1 "${ntp_server}" 1 25 25 30  "Time Zone:" 2 1 "${tz}" 2 25 25 30 2> answer_ntp
@@ -280,8 +288,10 @@ function configure_ntp_dialog {
   done
     echo "${ntp_server}" > /tmp/ntp
 
+    local command="${MONGO_SHELL} --eval 'var update_time=\"true\", ntp_server=\"${ntp_server}\", timezone=\"${tz}\", secret=\"${secret}\"' /root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_update_config.js"
     sudo sed -i "s/.*NooBaa Configured NTP Server//" /etc/ntp.conf
     sudo bash -c "echo 'server ${ntp_server} iburst #NooBaa Configured NTP Server' >> /etc/ntp.conf"
+    sudo bash -c "${command}" > /dev/null 2>&1
     sudo /sbin/chkconfig ntpd on 2345
     sudo systemctl restart ntpd.service > /dev/null 2>&1
     sudo systemctl restart rsyslog > /dev/null 2>&1
@@ -375,7 +385,15 @@ function update_noobaa_net {
   done
 }
 
+function check_clustered_mongo {
+  rs_servers=$(sudo grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'@' -f 2 | cut -d'/' -f 1)
+  if [ ! "${rs_servers}" = "" ]; then
+      MONGO_SHELL="/usr/bin/mongors --host mongodb://${rs_servers}/nbcore?replicaSet=shard1"
+  fi
+}
+
 function run_wizard {
+  check_clustered_mongo
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
 is a short first install wizard to help configure \n\Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"

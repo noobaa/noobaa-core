@@ -270,7 +270,7 @@ function _runServer() {
                         vnet: argv.vnet,
                         storage: argv.storage,
                         createSystem: createSystem,
-                        setNTP: setNTP
+                        updateNTP: setNTP
                     })
                     .then(new_secret => {
                         server.secret = new_secret;

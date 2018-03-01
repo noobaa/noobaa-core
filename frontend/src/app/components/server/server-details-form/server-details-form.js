@@ -575,19 +575,19 @@ class ServerDetailsFormViewModel extends BaseViewModel {
     }
 
     onChangeClusterConnectivityIp() {
-        action$.onNext(openChangeClusterConnectivityIpModal(this.secret));
+        action$.onNext(openChangeClusterConnectivityIpModal(this.secret()));
     }
 
     onEditServerDetails() {
-        action$.onNext(openEditServerDetailsModal(this.secret));
+        action$.onNext(openEditServerDetailsModal(this.secret()));
     }
 
     onEditDNSServers() {
-        action$.onNext(openEditServerDNSSettingsModal(this.secret));
+        action$.onNext(openEditServerDNSSettingsModal(this.secret()));
     }
 
     onEditDateAndTime() {
-        action$.onNext(openEditServerTimeSettingsModal(this.secret));
+        action$.onNext(openEditServerTimeSettingsModal(this.secret()));
     }
 }
 

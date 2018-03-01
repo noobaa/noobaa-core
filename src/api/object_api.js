@@ -1211,6 +1211,9 @@ module.exports = {
                         host_name: {
                             type: 'string',
                         },
+                        mount: {
+                            type: 'string',
+                        },
                         pool_name: {
                             type: 'string'
                         },

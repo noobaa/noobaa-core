@@ -62,7 +62,8 @@ module.exports = {
                             'mode',
                             'pool',
                             'services',
-                            'recommended'
+                            'recommended',
+                            'healthy_drives'
                         ]
                     },
                     order: {

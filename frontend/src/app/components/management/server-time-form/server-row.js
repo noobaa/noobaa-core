@@ -1,98 +1,58 @@
-/* Copyright (C) 2016 NooBaa */
+/* Copyright (C) 2018 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { deepFreeze } from 'utils/core-utils';
+import { getServerDisplayName, getServerStateIcon } from 'utils/cluster-utils';
 import { timeLongFormat } from 'config';
-import { action$ } from 'state';
-import { openEditServerTimeSettingsModal } from 'action-creators';
+import moment from 'moment';
 
-const stateIconMapping = deepFreeze({
-    CONNECTED: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    },
+export default class ServerRowViewModel {
+    time = 0;
+    timezone = '';
+    state = ko.observable();
+    serverName = ko.observable();
+    address = ko.observable();
+    timeSettings = ko.observable();
+    ntpServer = ko.observable();
+    formattedTime = ko.observable();
+    edit = {
+        id: ko.observable(),
+        onClick: null,
+        icon: 'edit',
+        tooltip: 'Edit Date and Time'
+    };
 
-    IN_PROGRESS: {
-        name: 'in-progress',
-        css: 'warning',
-        tooltip: 'In Progress'
-    },
 
-    DISCONNECTED: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Problem'
-    }
-});
+    constructor({ onEdit }) {
+        this.edit.onClick = onEdit;
 
-export default class ServerRowViewModel extends BaseViewModel {
-    constructor(server) {
-        super();
-
-        this.state = ko.pureComputed(
-            () => server() ? stateIconMapping[server().status] : ''
-        );
-
-        this.serverName = ko.pureComputed(
+        this.ticker = setInterval(
             () => {
-                if (!server()) {
-                    return '';
-                }
-
-                const { secret, hostname } = server();
-                const masterSecret = systemInfo() && systemInfo().cluster.master_secret;
-                const suffix = secret === masterSecret ? '(Master)' : '';
-                return `${hostname}-${secret} ${suffix}`;
-
-            }
+                this.time += 1000;
+                const formattedTime = moment.tz(this.time, this.timezone).format(timeLongFormat);
+                this.formattedTime(formattedTime);
+            },
+            1000
         );
+    }
 
-        this.address = ko.pureComputed(
-            () => server() ? server().addresses[0] : ''
-        );
+    onState(server) {
+        const serverName = `${getServerDisplayName(server)} ${server.isMaster ? '(Master)' : ''}`;
+        const formattedTime = moment.tz(this.time, this.timezone).format(timeLongFormat);
+        const timeSettings = server.ntp ? 'network time (NTP)' : 'manual server time';
+        const ntpServer = server.ntp ? server.ntp.server : 'Not Configured';
 
-        this.timeSettings = ko.pureComputed(
-            () => server() && (
-                server().ntp_server ? 'network time (NTP)' : 'maunal server time'
-            )
-        );
+        this.time = server.time;
+        this.timezone = server.timezone;
+        this.state(getServerStateIcon(server));
+        this.serverName(serverName);
+        this.address(server.addresses[0]);
+        this.timeSettings(timeSettings);
+        this.ntpServer(ntpServer);
+        this.formattedTime(formattedTime);
+        this.edit.id(server.secret);
+    }
 
-        this.ntpServer = ko.pureComputed(
-            () => (server() && server().ntp_server) || 'Not Configured'
-        );
-
-        const timezone = ko.pureComputed(
-            () => server() && server().timezone
-        );
-
-        const timeFromServer = ko.pureComputed(
-            () => server() && server().time_epoch * 1000
-        );
-
-        const time = ko.observableWithDefault(timeFromServer);
-
-        this.time = time.extend({
-            formatTime: {
-                format: timeLongFormat,
-                timezone: timezone
-            }
-        });
-
-        this.addToDisposeList(timeFromServer.subscribe(time));
-        this.addToDisposeList(
-            setInterval(
-                () => time() && time(time() + 1000),
-                1000
-            ),
-            clearInterval
-        );
-
-        this.actions = {
-            text: 'Edit',
-            click: () => action$.onNext(openEditServerTimeSettingsModal(server().secret))
-        };
+    dispose() {
+        clearInterval(this.ticker);
     }
 }

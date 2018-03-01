@@ -1,26 +1,29 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<collapsible-section params="
-    title: 'Date & Time',
-    collapsed: isCollapsed
-">
-    <section class="row" data-name="collapsed">
-        <p>
-            Master server time:
-            <output class="text-tech" data-bind="value: formattedMasterTime">
-            </output>
-        </p>
-    </section>
-
-    <section class="column" data-name="expanded">
+<section>
+    <div class="row content-middle bucket-policy-summary"
+         ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Date &amp; Time</h2>
+            <p ko.visible="!isExpanded()">
+                Master server time:
+                <span class="text-tech" ko.text="formattedMasterTime"></span>
+            </p>
+        </div>
+        <svg-icon class="icon-small rotate"
+                  ko.css="{ 'deg-90': !isExpanded() }"
+                  params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded" class="column greedy">
         <p class="push-next">
             Servers date and time has to be configured separately for each server
         </p>
 
         <data-table class="servers-table push-next alt-bg" params="
             columns: columns,
-            data: servers,
-            rowFactory: server => createRow(server)
+            data: rows
         "></data-table>
-    </section>
-</collapsible-section>
+    </div>
+</section>

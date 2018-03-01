@@ -29,7 +29,7 @@ const POOL_STORAGE_DEFAULTS = Object.freeze({
 });
 const POOL_NODES_INFO_DEFAULTS = Object.freeze({
     count: 0,
-    storage_count: 0,
+    //    storage_count: 0,
     online: 0,
     by_mode: {},
 });
@@ -521,6 +521,7 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         info.mode = calc_mongo_pool_mode(p_nodes);
     } else {
         info.nodes = _.defaults({}, p_nodes.nodes, POOL_NODES_INFO_DEFAULTS);
+        info.storage_nodes = _.defaults({}, p_nodes.storage_nodes, POOL_NODES_INFO_DEFAULTS);
         info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
         info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {});

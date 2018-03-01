@@ -1043,6 +1043,8 @@ function get_bucket_info({
         stats: undefined,
         cloud_sync: undefined,
         mode: undefined,
+        host_tolerance: undefined,
+        node_tolerance: undefined,
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR'
     };
 
@@ -1066,10 +1068,14 @@ function get_bucket_info({
         }
         const ccc = _.get(tier_and_order, 'tier.chunk_config.chunk_coder_config');
         const required_valid_nodes = ccc ? (ccc.data_frags + ccc.parity_frags) * ccc.replicas : config.NODES_MIN_COUNT;
+        const failure_tolerance = ccc.parity_frags || ccc.replicas - 1;
+
         let mirrors_with_valid_pool = 0;
         let mirrors_with_enough_nodes = 0;
+        let num_of_hosts = Number.MAX_SAFE_INTEGER;
         tier_and_order.tier.mirrors.forEach(mirror_object => {
             let num_valid_nodes = 0;
+            let num_valid_hosts = 0;
             let num_nodes_in_mirror_group = 0;
             let has_internal_or_cloud_pool = false;
             let has_valid_pool = false;
@@ -1080,9 +1086,11 @@ function get_bucket_info({
                     return _.extend({ pool_id: pool._id }, tiering_pools_status[tier_and_order.tier._id].pools[pool._id]);
                 }))
                 .forEach(pool_status => {
-                    const pool_num_nodes = _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.nodes.storage_count`) || 0;
+                    const pool_num_nodes = _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.storage_nodes.count`) || 0;
+                    const pool_num_hosts = _.get(hosts_aggregate_pool, `groups.${pool_status.pool_id}.nodes.online`) || 0;
                     num_nodes_in_mirror_group += pool_num_nodes;
                     num_valid_nodes += (pool_status.num_nodes || 0);
+                    num_valid_hosts += (pool_num_hosts || 0);
                     has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
                     has_internal_or_cloud_pool = has_internal_or_cloud_pool || (pool_status.resource_type !== 'HOSTS');
                 });
@@ -1092,10 +1100,19 @@ function get_bucket_info({
             // return valid;
             const exitsting_minimum = _.isUndefined(info.num_of_nodes) ? Number.MAX_SAFE_INTEGER : info.num_of_nodes;
             const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : num_valid_nodes;
-            const potential_new_minimum = has_internal_or_cloud_pool ? Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
+            const potential_new_minimum = has_internal_or_cloud_pool || tier_and_order.spillover ?
+                Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
             info.num_of_nodes = Math.min(exitsting_minimum, potential_new_minimum);
+            const potential_new_hosts_minimum = has_internal_or_cloud_pool || tier_and_order.spillover ?
+                Number.MAX_SAFE_INTEGER : num_valid_hosts;
+            num_of_hosts = Math.min(num_of_hosts, potential_new_hosts_minimum);
         });
         info.num_of_nodes = info.num_of_nodes || 0;
+        const calc_node_tolerance = ccc.parity_frags ?
+            Math.max(info.num_of_nodes - ccc.parity_frags, 0) : Math.max(info.num_of_nodes - 1, 0);
+        const calc_host_tolerance = ccc.parity_frags ? Math.max(num_of_hosts - ccc.parity_frags, 0) : Math.max(num_of_hosts - 1, 0);
+        info.host_tolerance = tier_and_order.spillover ? info.host_tolerance : Math.min(failure_tolerance, calc_host_tolerance);
+        info.node_tolerance = tier_and_order.spillover ? info.node_tolerance : Math.min(failure_tolerance, calc_node_tolerance);
         info.writable = mirrors_with_valid_pool > 0;
         if (!tier_and_order.spillover && tier_and_order.tier.mirrors.length > 0) {
             if (mirrors_with_valid_pool === tier_and_order.tier.mirrors.length) has_enough_healthy_nodes_for_tiering = true;

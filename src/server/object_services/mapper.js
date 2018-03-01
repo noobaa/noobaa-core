@@ -727,6 +727,7 @@ function get_block_info(chunk, frag, block, adminfo) {
             mirror_group,
             node_name: node.os_info.hostname + '#' + node.host_seq,
             host_name: node.os_info.hostname,
+            mount: node.drive.mount,
             node_ip: node.ip,
             in_cloud_pool: Boolean(node.is_cloud_node),
             in_mongo_pool: Boolean(node.is_mongo_node),

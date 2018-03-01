@@ -2739,6 +2739,8 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => system_store.data.get_by_id(item.node.pool).name, options.order));
         } else if (options.sort === 'recommended') {
             list.sort(js_utils.sort_compare_by(item => item.suggested_pool === options.recommended_hint, options.order));
+        } else if (options.sort === 'healthy_drives') {
+            list.sort(js_utils.sort_compare_by(item => _.countBy(item.storage_nodes, 'mode').OPTIMAL || 0, options.order));
         } else if (options.sort === 'services') {
             list.sort(js_utils.sort_compare_by(item => {
                 // return a binary representation of the services in the following priority:
@@ -2920,7 +2922,9 @@ class NodesMonitor extends EventEmitter {
         let count = 0;
         let storage_count = 0;
         let online = 0;
+        let storage_online = 0;
         const by_mode = {};
+        const storage_by_mode = {};
         let storage = {
             total: 0,
             free: 0,
@@ -2932,7 +2936,12 @@ class NodesMonitor extends EventEmitter {
         const data_activities = {};
         _.each(list, item => {
             count += 1;
-            if (item.node.node_type !== 'ENDPOINT_S3') storage_count += 1;
+            if (item.node.node_type !== 'ENDPOINT_S3') {
+                storage_count += 1;
+                storage_by_mode[item.mode] = (storage_by_mode[item.mode] || 0) + 1;
+                if (item.online) storage_online += 1;
+            }
+
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
             if (item.online) online += 1;
 
@@ -2963,9 +2972,15 @@ class NodesMonitor extends EventEmitter {
         return {
             nodes: {
                 count,
-                storage_count,
+                // storage_count,
                 online,
                 by_mode,
+            },
+            storage_nodes: {
+                // count,
+                count: storage_count,
+                online: storage_online,
+                by_mode: storage_by_mode,
             },
             storage: storage,
             data_activities: _.map(data_activities, a => {

@@ -693,6 +693,12 @@ module.exports = {
                 num_of_nodes: {
                     type: 'integer'
                 },
+                host_tolerance: {
+                    type: 'integer'
+                },
+                node_tolerance: {
+                    type: 'integer'
+                },
                 cloud_sync: {
                     $ref: '#/definitions/cloud_sync_info'
                 },

@@ -1031,7 +1031,7 @@ class MDStore {
                 if (orphan_blocks.length) console.log('ORPHAN BLOCKS (ignoring)', orphan_blocks);
                 const blocks_by_chunk = _.groupBy(blocks, 'chunk');
                 for (let i = 0; i < chunks.length; ++i) {
-                    chunks[i].blocks = blocks_by_chunk[chunks[i]._id];
+                    chunks[i].blocks = blocks_by_chunk[chunks[i]._id] || [];
                 }
                 return chunks;
             });

@@ -169,49 +169,63 @@ class MapBuilder {
     }
 
     build_chunks() {
-        return P.map(this.chunks, chunk => {
-            dbg.log2('MapBuilder.build_chunks: chunk', chunk);
+        return P.map(this.chunks, chunk =>
+            P.resolve()
+            .then(() => this.build_chunk(chunk))
+            .catch(err => {
+                // we make sure to catch and continue here since we process a batch
+                // of chunks concurrently, and if any one of these chunks fails
+                // we still need to call update_db() for all the blocks that succeeded
+                // to be inserted in the DB, otherwise we will leak these blocks on the nodes.
+                dbg.error('MapBuilder.build_chunks: FAILED', chunk, err.stack || err);
+                chunk.had_errors = true;
+                this.had_errors = true;
+            })
+        );
+    }
 
-            if (chunk.had_errors || chunk.bucket.deleted) return;
+    build_chunk(chunk) {
+        dbg.log2('MapBuilder.build_chunks: chunk', chunk);
 
-            const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
-            const mapping = mapper.map_chunk(chunk, chunk.bucket.tiering, tiering_status);
-            dbg.log2('MapBuilder.build_chunks: mapping', mapping);
+        if (chunk.had_errors || chunk.bucket.deleted) return;
 
-            // only delete blocks if the chunk is in good shape,
-            // that is no allocations needed, and is accessible.
-            if (mapping.accessible && !mapping.allocations && mapping.deletions) {
-                dbg.log0('MapBuilder.build_chunks: print mapping on deletions', mapping);
-                this.delete_blocks = this.delete_blocks || [];
-                js_utils.array_push_all(this.delete_blocks, mapping.deletions);
-            }
+        const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
+        const mapping = mapper.map_chunk(chunk, chunk.bucket.tiering, tiering_status);
+        dbg.log2('MapBuilder.build_chunks: mapping', mapping);
 
-            // first allocate the basic allocations of the chunk.
-            // if there are no allocations, then try to allocate extra_allocations for special replicas
-            const current_cycle_allocations = mapping.allocations || mapping.extra_allocations;
-            if (!current_cycle_allocations) return;
-            if (mapping.allocations) {
-                dbg.log0('MapBuilder.build_chunks: allocations needed for chunk',
-                    chunk, _.map(chunk.objects, 'key'));
-            }
+        // only delete blocks if the chunk is in good shape,
+        // that is no allocations needed, and is accessible.
+        if (mapping.accessible && !mapping.allocations && mapping.deletions) {
+            dbg.log0('MapBuilder.build_chunks: print mapping on deletions', mapping);
+            this.delete_blocks = this.delete_blocks || [];
+            js_utils.array_push_all(this.delete_blocks, mapping.deletions);
+        }
 
-            const avoid_blocks = chunk.blocks.filter(block => block.node.node_type === 'BLOCK_STORE_FS');
-            chunk.avoid_nodes = avoid_blocks.map(block => String(block.node._id));
-            chunk.allocated_hosts = avoid_blocks.map(block => block.node.host_id);
-            chunk.rpc_client = server_rpc.rpc.new_client({
-                auth_token: auth_server.make_auth_token({
-                    system_id: chunk.system,
-                    role: 'admin',
-                })
-            });
-            chunk[util.inspect.custom] = custom_inspect_chunk;
+        // first allocate the basic allocations of the chunk.
+        // if there are no allocations, then try to allocate extra_allocations for special replicas
+        const current_cycle_allocations = mapping.allocations || mapping.extra_allocations;
+        if (!current_cycle_allocations) return;
+        if (mapping.allocations) {
+            dbg.log0('MapBuilder.build_chunks: allocations needed for chunk',
+                chunk, _.map(chunk.objects, 'key'));
+        }
 
-            return P.resolve()
-                .then(() => mapping.missing_frags && this.read_entire_chunk(chunk))
-                .then(chunk_info => P.map(current_cycle_allocations,
-                    alloc => this.build_block(chunk, chunk_info, alloc)
-                ));
+        const avoid_blocks = chunk.blocks.filter(block => block.node.node_type === 'BLOCK_STORE_FS');
+        chunk.avoid_nodes = avoid_blocks.map(block => String(block.node._id));
+        chunk.allocated_hosts = avoid_blocks.map(block => block.node.host_id);
+        chunk.rpc_client = server_rpc.rpc.new_client({
+            auth_token: auth_server.make_auth_token({
+                system_id: chunk.system,
+                role: 'admin',
+            })
         });
+        chunk[util.inspect.custom] = custom_inspect_chunk;
+
+        return P.resolve()
+            .then(() => mapping.missing_frags && this.read_entire_chunk(chunk))
+            .then(chunk_info => P.map(current_cycle_allocations,
+                alloc => this.build_block(chunk, chunk_info, alloc)
+            ));
     }
 
     build_block(chunk, chunk_info, alloc) {

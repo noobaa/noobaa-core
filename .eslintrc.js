@@ -312,6 +312,10 @@ module.exports = {
         'vars-on-top': 'off',
 
         // Allow await in the body of loops.
-        'no-await-in-loop': 'off'
+        'no-await-in-loop': 'off',
+
+        // Allow async function without await, for `return P.map(...)`
+        'require-await': 'off',
+
     }
 };

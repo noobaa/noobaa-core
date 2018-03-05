@@ -1,39 +1,42 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<collapsible-section params="
-    title: 'Environment DNS Settings',
-    collapsed: isCollapsed
-">
-    <section class="row" data-name="collapsed">
-        <span class="push-next">
-            Master server DNS settings
-        </span>
-        <span class="push-both">
-            Primary DNS:
-            <span data-bind="
-                css: { 'text-tech': masterPrimaryDNS },
-                text: masterPrimaryDNS() || 'Not set'
-            "></span>
-        </span>
-        <span class="push-next">|</span>
-        <span>
-            Secondary DNS:
-            <span data-bind="
-                css: { 'text-tech': masterSecondaryDNS },
-                text: masterSecondaryDNS() || 'Not set'
-            "></span>
-        </span>
-    </section>
-
-    <section class="column" data-name="expanded">
+<section>
+    <div class="row content-middle bucket-policy-summary"
+         ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Environment DNS Settings</h2>
+            <div class="row" ko.visible="!isExpanded()">
+                <span class="push-next">
+                    Master server DNS settings
+                </span>
+                <span class="push-both">
+                    Primary DNS:
+                    <span ko.css="{ 'text-tech': masterPrimaryDNS }"
+                        ko.text="masterPrimaryDNS"
+                    ></span>
+                </span>
+                <span class="push-next">|</span>
+                    <span>
+                    Secondary DNS:
+                    <span ko.css="{ 'text-tech': masterSecondaryDNS }"
+                        ko.text="masterSecondaryDNS"
+                    ></span>
+                </span>
+            </div>
+        </div>
+        <svg-icon class="icon-small rotate"
+                  ko.css="{ 'deg-90': !isExpanded() }"
+                  params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded" class="column greedy">
         <p class="push-next">
             Servers DNS settings have to be configured separately for each server
         </p>
-
         <data-table class="servers-table push-next alt-bg" params="
             columns: columns,
-            data: servers,
-            rowFactory: server => createRow(server)
+            data: rows
         "></data-table>
-    </section>
-</collapsible-section>
+    </div>
+</section>

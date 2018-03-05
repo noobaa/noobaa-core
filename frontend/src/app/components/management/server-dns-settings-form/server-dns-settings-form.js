@@ -1,12 +1,16 @@
-/* Copyright (C) 2016 NooBaa */
+/* Copyright (C) 2018 NooBaa */
 
 import template from './server-dns-settings-form.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ServerRow from './server-row';
 import ko from 'knockout';
-import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
+import { realizeUri } from 'utils/browser-utils';
+import { action$, state$ } from 'state';
+import * as routes from 'routes';
+import { requestLocation, openEditServerDNSSettingsModal } from 'action-creators';
 
+const sectionName = 'dns-settings';
 const columns = deepFreeze([
     {
         name: 'state',
@@ -26,50 +30,73 @@ const columns = deepFreeze([
         name: 'secondaryDNS'
     },
     {
-        name: 'actions',
+        name: 'edit',
         label: '',
-        type: 'button'
+        type: 'iconButton'
     }
 ]);
 
-class ServerDnsSettingsFormViewModel extends BaseViewModel {
-    constructor({ isCollapsed }) {
+class ServerDnsSettingsFormViewModel extends Observer {
+    columns = columns;
+    isExpanded = ko.observable();
+    serversLoaded = ko.observable();
+    masterPrimaryDNS = ko.observable();
+    masterSecondaryDNS = ko.observable();
+    rows = ko.observableArray();
+    rowParams = {
+        onEdit: this.onEditServerDNS.bind(this)
+    };
+
+    constructor() {
         super();
 
-        this.isCollapsed = isCollapsed;
-
-        this.columns = columns;
-        this.servers = [];
-
-        const cluster = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster
-        );
-
-        this.servers = ko.pureComputed(
-            () => cluster() ? cluster().shards[0].servers : []
-        );
-
-        const masterDNSServers = ko.pureComputed(
-            () => {
-                const master = this.servers().find(
-                    server => server.secret === (cluster() || {}).master_secret
-                );
-
-                return (master && master.dns_servers) || [];
-            }
-        );
-
-        this.masterPrimaryDNS = ko.observableWithDefault(
-            () => masterDNSServers()[0]
-        );
-
-        this.masterSecondaryDNS = ko.observableWithDefault(
-            () => masterDNSServers()[1]
+        this.observe(
+            state$.getMany(
+                ['topology', 'servers'],
+                'location'
+            ),
+            this.onState
         );
     }
 
-    createRow(server) {
-        return new ServerRow(server,);
+    onState([servers, location]) {
+        if (!servers) {
+            this.serversLoaded(false);
+            return;
+        }
+
+        const { system, tab = 'settings', section } = location.params;
+        const toggleSection = section === sectionName ? undefined : sectionName;
+        const toggleUri = realizeUri(
+            routes.management,
+            { system, tab, section: toggleSection }
+        );
+        const serversList = Object.values(servers);
+        const master = serversList.find(server => server.isMaster);
+        const masterPrimaryDNS = master.dns.servers.list[0] || 'Not set';
+        const masterSecondaryDNS = master.dns.servers.list[1] || 'Not set';
+
+        const rows = serversList
+            .map((server, i) => {
+                const row = this.rows.get(i) || new ServerRow(this.rowParams);
+                row.onState(server);
+                return row;
+            });
+
+        this.masterPrimaryDNS(masterPrimaryDNS);
+        this.masterSecondaryDNS(masterSecondaryDNS);
+        this.isExpanded(section === sectionName);
+        this.rows(rows);
+        this.toggleUri = toggleUri;
+        this.serversLoaded(true);
+    }
+
+    onEditServerDNS(secret) {
+        action$.onNext(openEditServerDNSSettingsModal(secret));
+    }
+
+    onToggleSection() {
+        action$.onNext(requestLocation(this.toggleUri));
     }
 }
 

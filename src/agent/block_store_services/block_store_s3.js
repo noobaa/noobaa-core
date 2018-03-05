@@ -154,7 +154,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 block_md: this._decode_block_md(data.Metadata.noobaa_block_md)
             }))
             .catch(err => {
-                dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
+                dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
                 if (err.code === 'NoSuchBucket') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
                 } else if (err.code === 'AccessDenied') {
@@ -188,7 +188,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 return this._update_usage(usage);
             })
             .catch(err => {
-                dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
+                dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
                 if (err.code === 'NoSuchBucket') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
                 } else if (err.code === 'AccessDenied') {
@@ -202,7 +202,7 @@ class BlockStoreS3 extends BlockStoreBase {
         if (usage) {
             this._update_usage({ size: -usage.size, count: -usage.count });
         }
-        dbg.error('BlockStoreS3 operation failed:', err, this.cloud_info);
+        dbg.error('BlockStoreS3 operation failed:', err, _.omit(this.cloud_info, 'access_keys'));
         if (err.code === 'NoSuchBucket') {
             throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
         } else if (err.code === 'AccessDenied') {
@@ -225,7 +225,7 @@ class BlockStoreS3 extends BlockStoreBase {
     _put_object(params) {
         return P.ninvoke(this.s3cloud, 'putObject', params)
             .catch(err => {
-                dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'secret_key'));
+                dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
                 throw err;
             });
     }
@@ -250,7 +250,7 @@ class BlockStoreS3 extends BlockStoreBase {
                         }
                     })
                     .catch(err => {
-                        dbg.error('_delete_blocks failed:', err, _.omit(this.cloud_info, 'secret_key'));
+                        dbg.error('_delete_blocks failed:', err, _.omit(this.cloud_info, 'access_keys'));
                         failed_to_delete_block_ids = block_ids;
                         throw err;
                     });

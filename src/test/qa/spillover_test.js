@@ -103,7 +103,15 @@ function createBucketWithEnableSpillover() {
                 saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list`, res);
             }
         })
-        .then(() => bf.setSpillover(server_ip, bucket, true))
+        .then(() => client.system.read_system({}))
+        .then(system => {
+            for (let i = 0; i < system.pools.length; i++) {
+                if (system.pools[i].resource_type === 'INTERNAL') {
+                    return system.pools[i].name;
+                }
+            }
+        })
+        .then(internalpool => bf.setSpillover(server_ip, bucket, internalpool))
         .catch(err => {
             saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
             failures_in_test = true;
@@ -117,12 +125,12 @@ function checkIsSpilloverHasStatus(bucket_name, status) {
         .then(res => {
             let buckets = res.buckets;
             let indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            let spilloverStatus = res.buckets[indexBucket].spillover_enabled;
-            if (spilloverStatus === status) {
-                console.log('Spillover for bucket ' + bucket_name + ' has status ' + status);
-            } else {
+            let spilloverPool = res.buckets[indexBucket].spillover;
+            if (spilloverPool === null) {
                 saveErrorAndResume('Spillover is disable for bucket ' + bucket_name);
                 failures_in_test = true;
+            } else {
+                console.log('Spillover for bucket ' + bucket_name + ' has status ' + status);
             }
         });
 }
@@ -221,8 +229,7 @@ function createHealthyPool() {
                 }
             });
         })
-        .then(res => {
-            list = res;
+        .then(() => {
             console.log('Creating pool with online agents: ' + list);
             return client.pool.create_hosts_pool({
                 name: healthy_pool,
@@ -315,7 +322,7 @@ return azf.authenticate()
     .then(res => {
         let quotaGB = Math.floor(res / 1024 / 1024 / 1024);
         let overQuota = quotaGB + 1;
-        let uploadSizeMB = res / 1024 / 1024;
+        let uploadSizeMB = Math.floor(res / 1024 / 1024);
         console.log('Setting quota ' + overQuota + ' GB with available size ' + uploadSizeMB + 'MB');
         return bf.setQuotaBucket(server_ip, bucket, overQuota, 'GIGABYTE')
         //Start writing and and deleting data on it (more writes than deletes since we want the size to grow)
@@ -358,7 +365,7 @@ return azf.authenticate()
     })
     .then(() => checkFileInPool(pool_files[pool_files.length - 1], 'system-internal-storage-pool'))
     //stop the writes and disable the spillover on the bucket
-    .then(() => bf.setSpillover(server_ip, bucket, false))
+    .then(() => bf.setSpillover(server_ip, bucket, null))
     //try to write some more see that it fails
     .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file_without_internal_storage', 10, data_multiplier)
             .catch(error => {

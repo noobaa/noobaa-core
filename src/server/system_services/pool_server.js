@@ -186,8 +186,14 @@ function create_cloud_pool(req) {
         throw new Error('Target already in use');
     }
 
-    const pool_node_type = (connection.endpoint_type === 'AWS' ||
-        connection.endpoint_type === 'S3_COMPATIBLE') ? 'BLOCK_STORE_S3' : 'BLOCK_STORE_AZURE';
+    const map_pool_type = {
+        AWS: 'BLOCK_STORE_S3',
+        S3_COMPATIBLE: 'BLOCK_STORE_S3',
+        AZURE: 'BLOCK_STORE_AZURE',
+        GOOGLE: 'BLOCK_STORE_GOOGLE'
+    };
+
+    const pool_node_type = map_pool_type[connection.endpoint_type];
     var pool = new_pool_defaults(name, req.system._id, 'CLOUD', pool_node_type);
     dbg.log0('Creating new cloud_pool', pool);
     pool.cloud_pool_info = cloud_info;

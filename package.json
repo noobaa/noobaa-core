@@ -63,6 +63,7 @@
     "./config-local": false
   },
   "dependencies": {
+    "@google-cloud/storage": "1.6.0",
     "ajv": "5.5.2",
     "aws-sdk": "2.175.0",
     "azure-storage": "2.7.0",

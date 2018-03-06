@@ -26,6 +26,7 @@ const ssl_utils = require('../util/ssl_utils');
 const FuncNode = require('./func_services/func_node');
 const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
+const BlockStoreGoogle = require('./block_store_services/block_store_google').BlockStoreGoogle;
 const BlockStoreMongo = require('./block_store_services/block_store_mongo').BlockStoreMongo;
 const BlockStoreMem = require('./block_store_services/block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_services/block_store_azure').BlockStoreAzure;
@@ -120,6 +121,11 @@ class Agent {
                     };
                     this.node_type = 'BLOCK_STORE_AZURE';
                     this.block_store = new BlockStoreAzure(block_store_options);
+                } else if (params.cloud_info.endpoint_type === 'GOOGLE') {
+                    this.node_type = 'BLOCK_STORE_GOOGLE';
+                    const { project_id, private_key, client_email } = JSON.parse(params.cloud_info.access_keys.secret_key);
+                    block_store_options.cloud_info.google = { project_id, private_key, client_email };
+                    this.block_store = new BlockStoreGoogle(block_store_options);
                 }
             } else if (params.mongo_info) {
                 this.mongo_info = params.mongo_info;

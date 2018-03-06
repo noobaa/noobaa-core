@@ -1,73 +1,37 @@
-/* Copyright (C) 2016 NooBaa */
+/* Copyright (C) 2018 NooBaa */
 
-import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { deepFreeze } from 'utils/core-utils';
-import { action$ } from 'state';
-import { openEditServerDNSSettingsModal } from 'action-creators';
+import { getServerDisplayName, getServerStateIcon } from 'utils/cluster-utils';
 
-const stateIconMapping = deepFreeze({
-    CONNECTED: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    },
+export default class ServerRowViewModel {
+    state = ko.observable();
+    serverName = ko.observable();
+    address = ko.observable();
+    dnsServers = ko.observable();
+    primaryDNS = ko.observable();
+    secondaryDNS = ko.observable();
 
-    IN_PROGRESS: {
-        name: 'in-progress',
-        css: 'warning',
-        tooltip: 'In Progress'
-    },
+    edit = {
+        id: ko.observable(),
+        onClick: null,
+        icon: 'edit',
+        tooltip: 'Edit DNS'
+    };
 
-    DISCONNECTED: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Problem'
+    constructor({ onEdit }) {
+        this.edit.onClick = onEdit;
     }
-});
 
-export default class ServerRowViewModel extends BaseViewModel {
-    constructor(server) {
-        super();
+    onState(server) {
+        const serverName = `${getServerDisplayName(server)} ${server.isMaster ? '(Master)' : ''}`;
+        const primaryDNS = server.dns.servers.list[0] || 'not set';
+        const secondaryDNS = server.dns.servers.list[1] || 'not set';
 
-        this.state = ko.pureComputed(
-            () => server() ? stateIconMapping[server().status] : ''
-        );
-
-        this.serverName = ko.pureComputed(
-            () => {
-                if (!server()) {
-                    return '';
-                }
-
-                const { secret, hostname } = server();
-                const masterSecret = systemInfo() && systemInfo().cluster.master_secret;
-                const suffix = secret === masterSecret ? '(Master)' : '';
-                return `${hostname}-${secret} ${suffix}`;
-
-            }
-        );
-
-        this.address = ko.pureComputed(
-            () => server() ? server().addresses[0] : ''
-        );
-
-        const dnsServers = ko.pureComputed(
-            () => server() ? server().dns_servers : []
-        );
-
-        this.primaryDNS = ko.pureComputed(
-            () => dnsServers()[0] || 'not set'
-        );
-
-        this.secondaryDNS = ko.pureComputed(
-            () => dnsServers()[1] || 'not set'
-        );
-
-        this.actions = {
-            text: 'Edit',
-            click: () => action$.onNext(openEditServerDNSSettingsModal(server().secret))
-        };
+        this.edit.id(server.secret);
+        this.state(getServerStateIcon(server));
+        this.serverName(serverName);
+        this.address(server.addresses[0]);
+        this.primaryDNS(primaryDNS);
+        this.secondaryDNS(secondaryDNS);
     }
 }

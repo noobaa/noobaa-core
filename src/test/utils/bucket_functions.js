@@ -125,17 +125,17 @@ function checkAvailableSpace(server_ip, bucket_name) {
         });
 }
 
-function setSpillover(server_ip, bucket_name, status) {
-    console.log('Setting spillover ' + status + ' for bucket ' + bucket_name);
+function setSpillover(server_ip, bucket_name, pool) {
+    console.log('Setting spillover ' + pool + ' for bucket ' + bucket_name);
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     return client.create_auth_token(auth_params)
         .then(() => client.bucket.update_bucket({
             name: bucket_name,
-            use_internal_spillover: status
+            spillover: pool
         }))
         .catch(err => {
-            console.log('Failed to set spillover ' + status + ' for bucket ' + bucket_name + err);
+            console.log('Failed to set spillover ' + pool + ' for bucket ' + bucket_name + err);
             throw err;
         });
 }

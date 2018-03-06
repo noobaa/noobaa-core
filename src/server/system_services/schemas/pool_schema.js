@@ -107,7 +107,7 @@ module.exports = {
                 },
                 endpoint_type: {
                     type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE']
                 },
                 agent_info: {
                     type: 'object',

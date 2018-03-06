@@ -77,7 +77,8 @@ export default {
                                 'AWS',
                                 'AZURE',
                                 'S3_COMPATIBLE',
-                                'NET_STORAGE'
+                                'NET_STORAGE',
+                                'GOOGLE'
                             ]
                         },
                         endpoint: {

@@ -467,7 +467,7 @@ module.exports = {
                         },
                         endpoint_type: {
                             type: 'string',
-                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE']
                         },
                         target_bucket: {
                             type: 'string'

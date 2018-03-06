@@ -307,7 +307,7 @@ module.exports = {
                     },
                     endpoint_type: {
                         type: 'string',
-                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE', 'GOOGLE']
                     }
 
                 }
@@ -337,10 +337,9 @@ module.exports = {
                     cp_code: {
                         type: 'string'
                     },
-
                     endpoint_type: {
                         type: 'string',
-                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE', 'GOOGLE']
                     }
                 }
             },
@@ -476,7 +475,7 @@ module.exports = {
                                     },
                                     endpoint_type: {
                                         type: 'string',
-                                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
+                                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE', 'GOOGLE']
                                     },
                                     usage: {
                                         type: 'array',

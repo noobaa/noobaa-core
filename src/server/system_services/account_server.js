@@ -11,6 +11,7 @@ const _ = require('lodash');
 const net = require('net');
 const url = require('url');
 const AWS = require('aws-sdk');
+const GoogleStorage = require('@google-cloud/storage');
 const bcrypt = require('bcrypt');
 const { StorageError } = require('azure-storage/lib/common/errors/errors');
 
@@ -661,6 +662,10 @@ function check_external_connection(req) {
                     {
                         return check_net_storage_connection(params);
                     }
+                case 'GOOGLE':
+                    {
+                        return check_google_connection(params);
+                    }
 
                 default:
                     {
@@ -745,6 +750,27 @@ const net_storage_error_mapping = Object.freeze({
     SignatureDoesNotMatch: 'INVALID_CREDENTIALS',
     RequestTimeTooSkewed: 'TIME_SKEW'
 });
+
+async function check_google_connection(params) {
+    try {
+        const key_file = JSON.parse(params.secret);
+        const credentials = _.pick(key_file, 'client_email', 'private_key');
+        const storage = new GoogleStorage({ credentials, projectId: key_file.access_key });
+        await storage.getBuckets();
+        return { status: 'SUCCESS' };
+    } catch (err) {
+        let status = 'UNKNOWN_FAILURE';
+        if (err.code === 403) status = 'INVALID_CREDENTIALS';
+        return {
+            status,
+            error: {
+                code: String(err.code),
+                message: err.message
+            }
+        };
+    }
+}
+
 
 
 function check_aws_connection(params) {

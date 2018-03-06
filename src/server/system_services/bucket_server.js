@@ -6,6 +6,7 @@ const AWS = require('aws-sdk');
 const net = require('net');
 const fs = require('fs');
 const url = require('url');
+const GoogleStorage = require('@google-cloud/storage');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -829,24 +830,42 @@ function get_cloud_buckets(req) {
                         const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
                         return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
                     });
-            } //else if AWS
-            let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE'],
-                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-            var s3 = new AWS.S3({
-                endpoint: connection.endpoint,
-                accessKeyId: connection.access_key,
-                secretAccessKey: connection.secret_key,
-                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint),
-                s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(connection.endpoint),
-                httpOptions: {
-                    agent: http_utils.get_unsecured_http_agent(connection.endpoint, proxy)
+            } else if (connection.endpoint_type === 'GOOGLE') {
+                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE'],
+                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
+                let key_file;
+                try {
+                    key_file = JSON.parse(connection.secret_key);
+                } catch (err) {
+                    throw new RpcError('BAD_REQUEST', 'connection does not contain a key_file in json format');
                 }
-            });
-            return P.ninvoke(s3, "listBuckets")
-                .timeout(EXTERNAL_BUCKET_LIST_TO)
-                .then(data => data.Buckets.map(bucket =>
-                    _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)
-                ));
+                const credentials = _.pick(key_file, 'client_email', 'private_key');
+                const storage = new GoogleStorage({
+                    projectId: key_file.project_id,
+                    credentials
+                });
+                return storage.getBuckets()
+                    .then(data => data[0].map(bucket =>
+                        _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
+            } else { //else if AWS
+                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE'],
+                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
+                var s3 = new AWS.S3({
+                    endpoint: connection.endpoint,
+                    accessKeyId: connection.access_key,
+                    secretAccessKey: connection.secret_key,
+                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint),
+                    s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(connection.endpoint),
+                    httpOptions: {
+                        agent: http_utils.get_unsecured_http_agent(connection.endpoint, proxy)
+                    }
+                });
+                return P.ninvoke(s3, "listBuckets")
+                    .timeout(EXTERNAL_BUCKET_LIST_TO)
+                    .then(data => data.Buckets.map(bucket =>
+                        _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)
+                    ));
+            }
         })
         .catch(P.TimeoutError, err => {
             dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);

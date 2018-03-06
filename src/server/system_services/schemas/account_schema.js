@@ -77,7 +77,7 @@ module.exports = {
                     cp_code: { type: 'string' },
                     endpoint_type: {
                         type: 'string',
-                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA', 'NET_STORAGE']
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA', 'NET_STORAGE', 'GOOGLE']
                     },
                 }
             }

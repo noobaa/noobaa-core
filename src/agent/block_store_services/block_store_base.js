@@ -258,7 +258,8 @@ class BlockStoreBase {
         // which will allow to know if new updates are added while we write
         this.update_usage_needed = false;
 
-        return this._write_usage_internal()
+        return P.resolve()
+            .then(() => this._write_usage_internal())
             .catch(err => {
                 console.error('write_usage ERROR', err);
                 this.update_usage_needed = true;

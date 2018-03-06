@@ -106,7 +106,11 @@ module.exports = {
         // we prefer single var statement per variable
         'one-var': ['error', 'never'],
 
-        'space-before-function-paren': ['error', 'never'],
+        'space-before-function-paren': ['error', {
+            'anonymous': 'never',
+            'named': 'never',
+            'asyncArrow': 'always'
+        }],
 
         'space-unary-ops': ['error', { words: false, nonwords: false }],
 

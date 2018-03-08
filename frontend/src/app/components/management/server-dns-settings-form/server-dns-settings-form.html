@@ -7,10 +7,11 @@
         <div class="column greedy">
             <h2 class="heading3 greedy">Environment DNS Settings</h2>
             <div class="row" ko.visible="!isExpanded()">
-                <span class="push-next">
+                <span>
                     Master server DNS settings
                 </span>
-                <span class="push-prev">
+                <vr class="push-both"></vr>
+                <span>
                     Primary DNS:
                     <span ko.css="{ 'text-tech': masterPrimaryDNS }"
                         ko.text="masterPrimaryDNS"
@@ -25,7 +26,7 @@
                 </span>
             </div>
         </div>
-        <svg-icon class="icon-small rotate"
+        <svg-icon class="icon-small rotate push-next-half"
                   ko.css="{ 'deg-90': !isExpanded() }"
                   params="name: 'chevron'"
         ></svg-icon>

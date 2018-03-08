@@ -13,7 +13,7 @@ export default class BucketRowViewModel {
         this.readPolicy = ko.observable();
         this.writePolicy = ko.observable();
         this.deleteButton = {
-            subject: 'resource',
+            subject: 'bucket',
             id: ko.observable(),
             tooltip: 'Delete Bucket',
             group: deleteGroup,

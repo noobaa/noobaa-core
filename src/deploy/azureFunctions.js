@@ -64,9 +64,6 @@ class AzureFunctions {
         this.subscriptionId = subscriptionId;
         this.resourceGroupName = resourceGroupName;
         this.location = location;
-        if (location !== 'northeurope') {
-            DEFAULT_SIZE = 'Standard_A2_v2';
-        }
     }
 
     authenticate() {

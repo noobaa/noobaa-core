@@ -167,7 +167,8 @@ class InternalDebugLogger {
             L1: 6,
             L2: 7,
             L3: 8,
-            L4: 9
+            L4: 9,
+            LAST: 100
         };
         // map the levels we use to syslog protocol levels
         // ERROR --> LOG_ERR (3)
@@ -202,7 +203,7 @@ class InternalDebugLogger {
         //Define Transports
         const transports = [new winston.transports.Console({
             name: 'console_transp',
-            level: 'ERROR',
+            level: 'LAST',
             showLevel: false,
             formatter: options => {
                 var proc = '[' + this._proc_name + '/' + this._pid + ']';
@@ -226,7 +227,7 @@ class InternalDebugLogger {
 
             transports.push(new winston.transports.File({
                 name: 'file_transp',
-                level: 'ERROR',
+                level: 'LAST',
                 showLevel: false,
                 filename: `noobaa${suffix}.log`,
                 dirname: './logs/',
@@ -431,7 +432,7 @@ class InternalDebugLogger {
                     transports: [
                         new winston.transports.File({
                             name: 'file_transport',
-                            level: 'ERROR',
+                            level: 'LAST',
                             showLevel: false,
                             filename: this._file_path.base,
                             dirname: this._file_path.dir,

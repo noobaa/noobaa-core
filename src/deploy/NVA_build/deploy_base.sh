@@ -61,7 +61,9 @@ function install_platform {
         strace \
         vim \
         net-tools \
-        iptables-services
+        iptables-services \
+        rng-tools \
+        pv
 
     # make iptables run on boot instead of firewalld
     systemctl disable firewalld
@@ -70,6 +72,11 @@ function install_platform {
     # make network service run on boot
     systemctl disable NetworkManager
     systemctl enable network
+
+    # enable random number generator daemon
+    # see https://www.certdepot.net/rhel7-get-started-random-number-generator/
+    systemctl enable rngd
+    systemctl start rngd
 
 	# make crontab start on boot
 	chkconfig crond on

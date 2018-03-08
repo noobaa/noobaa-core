@@ -38,21 +38,6 @@ function aws_specific(){
     shred -u ~/.*history
 }
 
-function generate_entropy(){
-    local path
-    local pid=()
-    echo "Generate entropy for /dev/random (openssl and such) for 5m"
-    for path in $(find /dev/disk/by-uuid/ -type l )
-    do
-        md5sum ${path} &
-        pid+=($!)
-    done
-    ps -ef | grep md5 | grep -v grep
-    sleep 300
-    echo "killing md5sum (pid: ${pid[@]})"
-    kill -9 ${pid[@]} 2> /dev/null
-}
-
 OPTIONS=$( getopt -o 'h,e,a,l,w,d' --long "help,esx,azure,alyun,aws,dev" -- "$@" )
 eval set -- "${OPTIONS}"
 
@@ -176,12 +161,6 @@ mongo nbcore --eval 'db.dropDatabase()'
 sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40mNONE\x1b[0m.:" /etc/issue
 sudo sed -i "s:This server's secret is.*:No Server Secret:" /etc/issue
 sudo sysctl kernel.hostname=noobaa
-
-if ! ${dev}
-then
-    #Generate entropy for /dev/random (openssl and such)
-    generate_entropy
-fi
 
 #reduce VM size
 set +e

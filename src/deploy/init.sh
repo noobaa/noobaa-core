@@ -1,2 +1,2 @@
 #!/bin/bash
-/usr/bin/supervisord
+/usr/bin/supervisord start

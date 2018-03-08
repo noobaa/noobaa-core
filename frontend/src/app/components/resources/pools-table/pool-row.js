@@ -87,8 +87,9 @@ export default class PoolRowViewModel {
         this.usedByOthersCapacity(usedOther);
         this.reservedCapacity(reserved);
 
+        const deleteTooltip = undeletableReasons[undeletable] || null;
         this.deleteButton.id(name);
         this.deleteButton.disabled(Boolean(undeletable));
-        this.deleteButton.tooltip(undeletableReasons[undeletable]);
+        this.deleteButton.tooltip(deleteTooltip);
     }
 }

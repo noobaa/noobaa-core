@@ -23,10 +23,17 @@
     </div>
 </div>
 
-<data-table class="node-table" params="
+<data-table class="greedy node-table" params="
     columns: columns,
     data: rows,
     loading: !hostLoaded(),
     rowCssProp: 'rowCss',
-    emptyMessage: 'Storage service is disabled'
+    emptyMessage: 'Storage service is disabled',
+    sorting: ko.pc(sorting, onSort, $component)
 "></data-table>
+
+<paginator params="
+    pageSize: pageSize,
+    itemCount: itemCount,
+    page: ko.pc(page, onPage, $component)
+"></paginator>

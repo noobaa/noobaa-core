@@ -351,8 +351,8 @@ function fix_security_issues {
 
 function setup_supervisors {
 	deploy_log "setup_supervisors start"
-
     mkdir -p /tmp/supervisor
+    mv /usr/bin/supervisord /usr/bin/supervisord_orig
     # Generate default supervisord config
     echo_supervisord_conf > /etc/supervisord.conf
     sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
@@ -362,7 +362,9 @@ function setup_supervisors {
     # Autostart supervisor
     deploy_log "setup_supervisors autostart"
     cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /usr/bin/supervisord
     chmod 777 /etc/rc.d/init.d/supervisord
+    chmod 777 /usr/bin/supervisord
     chkconfig supervisord on
 
     # Add NooBaa services configuration to supervisor
@@ -370,7 +372,7 @@ function setup_supervisors {
     echo "[include]" >> /etc/supervisord.conf
     echo "files = /etc/noobaa_supervisor.conf" >> /etc/supervisord.conf
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc
-    ${SUPERD}
+    ${SUPERD} start
     ${SUPERCTL} reread
     ${SUPERCTL} update
 

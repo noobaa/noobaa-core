@@ -132,7 +132,7 @@ function init_system_to_ntp() {
         .finally(() => P.resolve()
             .then(() => {
                 console.log('start supervisord');
-                return promise_utils.exec('supervisord', {
+                return promise_utils.exec('supervisord start', {
                     ignore_rc: false,
                     return_stdout: false
                 });

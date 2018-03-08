@@ -157,9 +157,16 @@ function post_upgrade() {
             })
         )
         .then(() => exec(`echo "${agent_version_var}" >> ${CORE_DIR}/.env`))
+        .then(() => fs_utils.file_must_not_exist('/usr/bin/supervisord_orig'))
+        .then(
+            () => exec(`mv /usr/bin/supervisord /usr/bin/supervisord_orig`),
+            err => dbg.log0('supervisord_orig already exists, no changes required', err)
+        )
         .then(() => exec(`cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord`))
+        .then(() => exec(`cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /usr/bin/supervisord`))
         .then(() => dbg.log0('post_upgrade: Override supervisord'))
         .then(() => exec(`chmod 777 /etc/rc.d/init.d/supervisord`))
+        .then(() => exec(`chmod 777 /usr/bin/supervisord`))
         .then(() => dbg.log0('post_upgrade: Configure permissions to supervisord'))
         .then(() => exec(`cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/`))
         .then(() => dbg.log0('post_upgrade: Copying first install dialog into profile.d'))

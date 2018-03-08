@@ -141,7 +141,7 @@ function mongo_upgrade() {
     dbg.log0('mongo_upgrade: Called');
     let secret;
     return disable_autostart()
-        .then(() => promise_utils.exec(`${SUPERD}`, {
+        .then(() => promise_utils.exec(`${SUPERD} start`, {
             ignore_rc: false,
             return_stdout: true,
             trim_stdout: true

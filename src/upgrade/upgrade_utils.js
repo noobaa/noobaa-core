@@ -414,9 +414,14 @@ function packages_upgrade() {
                 'iperf3',
                 'python-setuptools',
                 'bind-utils',
+                'bind',
                 'screen',
                 'strace',
-                'vim'
+                'vim',
+                'net-tools',
+                'iptables-services',
+                'rng-tools', // random number generator tools
+                'pv', // pipe viewer
             ];
             dbg.log0(`install additional packages`);
             return promise_utils.exec(`yum install -y ${packages_to_install.join(' ')}`, {
@@ -428,6 +433,11 @@ function packages_upgrade() {
                     dbg.log0(res);
                 });
         })
+        .then(() => promise_utils.exec(`systemctl enable rngd && systemctl start rngd`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        }))
         .then(do_yum_update)
         .catch(err => {
             dbg.error('packages_upgrade: Failure', err);

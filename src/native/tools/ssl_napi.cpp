@@ -23,6 +23,7 @@ namespace noobaa
 /**
  * X509 certificate
  */
+static napi_value _nb_rand_seed(napi_env env, napi_callback_info info);
 static napi_value _nb_x509(napi_env env, napi_callback_info info);
 static napi_value _nb_x509_verify(napi_env env, napi_callback_info info);
 static napi_value _nb_rsa(napi_env env, napi_callback_info info);
@@ -43,24 +44,48 @@ ssl_napi(napi_env env, napi_value exports)
     OpenSSL_add_all_digests();
     ERR_load_crypto_strings();
 
-#ifndef OPENSSL_SYS_WIN32
-    // https://wiki.openssl.org/index.php/Random_Numbers#Entropy
-    // doing as suggested and seeding with /dev/random
-    do {
-        printf("%s seeding randomness\n", SSLeay_version(SSLEAY_VERSION));
-        if (RAND_load_file("/dev/random", 32) != 32) {
-            abort();
-        }
-    } while (!RAND_status());
-#endif
-
     napi_value func = 0;
+    napi_create_function(env, "rand_seed", NAPI_AUTO_LENGTH, _nb_rand_seed, NULL, &func);
+    napi_set_named_property(env, exports, "rand_seed", func);
     napi_create_function(env, "x509", NAPI_AUTO_LENGTH, _nb_x509, NULL, &func);
     napi_set_named_property(env, exports, "x509", func);
     napi_create_function(env, "x509_verify", NAPI_AUTO_LENGTH, _nb_x509_verify, NULL, &func);
     napi_set_named_property(env, exports, "x509_verify", func);
     napi_create_function(env, "rsa", NAPI_AUTO_LENGTH, _nb_rsa, NULL, &func);
     napi_set_named_property(env, exports, "rsa", func);
+}
+
+// https://wiki.openssl.org/index.php/Random_Numbers#Entropy
+static napi_value
+_nb_rand_seed(napi_env env, napi_callback_info info)
+{
+    printf("%s seeding randomness\n", SSLeay_version(SSLEAY_VERSION));
+
+    size_t argc = 1;
+    napi_value argv[] = { 0 };
+    napi_get_cb_info(env, info, &argc, argv, 0, 0);
+
+    napi_value v_buf = argv[0];
+    bool is_buffer = false;
+    napi_is_buffer(env, v_buf, &is_buffer);
+
+    if (!is_buffer) {
+        napi_throw_type_error(env, 0, "rand_seed(Buffer) - 1st argument should be Buffer");
+        return 0;
+    }
+
+    void* data = 0;
+    size_t len = 0;
+    napi_get_buffer_info(env, v_buf, &data, &len);
+
+    RAND_seed(data, len);
+
+    if (!RAND_status()) {
+        napi_throw_error(env, 0, "rand_seed - rand status is not good");
+        return 0;
+    }
+
+    return 0;
 }
 
 static napi_value
@@ -89,7 +114,7 @@ _nb_x509(napi_env env, napi_callback_info info)
     });
 
     size_t argc = 1;
-    napi_value argv[] = {0};
+    napi_value argv[] = { 0 };
     napi_get_cb_info(env, info, &argc, argv, 0, 0);
 
     napi_value v = 0;
@@ -223,7 +248,7 @@ _nb_x509_verify(napi_env env, napi_callback_info info)
     });
 
     size_t argc = 1;
-    napi_value argv[] = {0};
+    napi_value argv[] = { 0 };
     napi_get_cb_info(env, info, &argc, argv, 0, 0);
 
     napi_value v = 0;
@@ -319,7 +344,7 @@ _nb_rsa(napi_env env, napi_callback_info info)
     int bits = 2048;
 
     size_t argc = 1;
-    napi_value argv[] = {0};
+    napi_value argv[] = { 0 };
     napi_get_cb_info(env, info, &argc, argv, 0, 0);
 
     napi_value v = 0;

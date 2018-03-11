@@ -11,6 +11,7 @@ const AzureFunctions = require('./azureFunctions');
 const P = require('../util/promise');
 const af = require('../test/utils/agent_functions'); //TODO: remove from here when Win can be copied from an image
 const dbg = require('../util/debug_module')(__filename);
+dbg.set_process_name('azureJs');
 
 const _ = require('lodash');
 const net = require('net');

@@ -330,7 +330,7 @@ class AzureFunctions {
 
     createAgentExtension(params) {
         const { vmName, os, serverIP, agentConf, ip } = params;
-        var extension = {
+        let extension = {
             publisher: 'Microsoft.OSTCExtensions',
             virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
             typeHandlerVersion: '1.5',
@@ -357,6 +357,29 @@ class AzureFunctions {
         }
         return this.createVirtualMachineExtension(vmName, extension)
             .then(() => ip);
+    }
+
+    createWinSecurityExtension(vmName) {
+        console.log('Createing IaaSAntimalware extantion');
+        const extension = {
+            publisher: "Microsoft.Azure.Security",
+            virtualMachineExtensionType: 'IaaSAntimalware',
+            typeHandlerVersion: '1.1',
+            settings: {
+                AntimalwareEnabled: 'true',
+            },
+            autoUpgradeMinorVersion: true,
+            RealtimeProtectionEnabled: 'true',
+            ScheduledScanSettings: {
+                isEnabled: 'true',
+                scanType: 'Quick',
+                day: 7,
+                time: 120
+            },
+            protectedSettings: null,
+            location: this.location
+        };
+        return this.createVirtualMachineExtension(vmName, extension, 'WinSecurityExtension');
     }
 
     cloneVM(originalVM, newVmName, networkInterfaceName, ipConfigName, vnet) {
@@ -461,7 +484,12 @@ class AzureFunctions {
         };
         console.log('Creating Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(
-            this.resourceGroupName, vmName, vmParameters, callback));
+                this.resourceGroupName, vmName, vmParameters, callback))
+            .then(() => {
+                if (imageReference.publisher === 'MicrosoftWindowsServer') {
+                    return this.createWinSecurityExtension(vmName);
+                }
+            });
     }
 
     createVirtualMachineFromImage(params) {
@@ -516,6 +544,11 @@ class AzureFunctions {
                 vmParameters.networkProfile.networkInterfaces[0].id = nic.id;
                 return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
                     vmName, vmParameters, callback));
+            })
+            .then(() => {
+                if (osType === 'Windows') {
+                    return this.createWinSecurityExtension(vmName);
+                }
             });
     }
 
@@ -790,10 +823,10 @@ class AzureFunctions {
         );
     }
 
-    createVirtualMachineExtension(vmName, extensionParameters) {
+    createVirtualMachineExtension(vmName, extensionParameters, extensionName = `${vmName}_ext`) {
         console.log('Running Virtual Machine Desired extension');
         return P.fromCallback(callback => this.computeClient.virtualMachineExtensions.createOrUpdate(this.resourceGroupName, vmName,
-            vmName + '_ext', extensionParameters, callback));
+            extensionName, extensionParameters, callback));
     }
 
     deleteVirtualMachineExtension(vmName) {

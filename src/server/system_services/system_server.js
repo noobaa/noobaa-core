@@ -418,7 +418,12 @@ function read_system(req) {
             }) : undefined,
 
         funcs: P.resolve()
-            .then(() => server_rpc.client.func.list_funcs({}, { auth_token: req.auth_token }))
+            // using default domain - will serve the list_funcs from web_server so if 
+            // endpoint is down it will not fail the read_system
+            .then(() => server_rpc.client.func.list_funcs({}, {
+                auth_token: req.auth_token,
+                domain: 'default'
+            }))
             .then(res => res.functions)
 
     }).then(({

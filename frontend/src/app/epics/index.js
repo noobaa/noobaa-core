@@ -67,6 +67,7 @@ import removeBucketTrigger from './remove-bucket-trigger';
 import closeModalsOnLocationChange from './close-modals-on-location-change';
 import attachServerToCluster from './attach-server-to-cluster';
 import createCloudResource from './create-cloud-resource';
+import updateRemoteSyslog from './update-remote-syslog';
 
 const generalEpics = [
     handleLocationRequests,
@@ -93,7 +94,8 @@ const systemRelatedEpics = [
     runUpgradePackageTests,
     fetchVersionReleaseNotes,
     invokeUpgradeSystem,
-    upgradeSystem
+    upgradeSystem,
+    updateRemoteSyslog
 ];
 
 const topologyRelatedEpics = [

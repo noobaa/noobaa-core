@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { isDefined, isFunction, mapValues, noop, pick } from 'utils/core-utils';
-import { getFormValues, isFormValid } from 'utils/form-utils';
+import { getFormValues, isFormValid, isFormDirty } from 'utils/form-utils';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
@@ -55,9 +55,7 @@ export default class FormViewModel extends Observer {
         });
 
         this.isDirty = ko.pureComputed(
-            () => Boolean(state()) && Object.values(state().fields).some(
-                field => field.value === field.initial
-            )
+            () => Boolean(state()) && isFormDirty(state())
         );
 
         this.isSubmitting = ko.pureComputed(

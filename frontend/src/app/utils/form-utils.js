@@ -33,11 +33,10 @@ export function isFieldValid(form, field) {
 }
 
 export function isFieldDirty(form, field) {
-    return getFieldValue(form, field) === getFieldInitialValue(form, field);
+    return getFieldValue(form, field) !== getFieldInitialValue(form, field);
 }
 
 export function getFormValues(form) {
-
     return mapValues(form.fields, field => field.value, false);
 }
 
@@ -45,3 +44,9 @@ export function isFormValid(form) {
     return form.validated && Object.values(form.fields)
         .every(field => field.validity === 'VALID');
 }
+
+export function isFormDirty(form) {
+    return Object.keys(form.fields)
+        .some(field => isFieldDirty(form, field));
+}
+

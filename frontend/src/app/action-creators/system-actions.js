@@ -25,7 +25,10 @@ import {
     RUN_UPGRADE_PACKAGE_TESTS,
     FETCH_VERSION_RELEASE_NOTES,
     COMPLETE_FETCH_VERSION_RELEASE_NOTES,
-    FAIL_FETCH_VERSION_RELEASE_NOTES
+    FAIL_FETCH_VERSION_RELEASE_NOTES,
+    UPDATE_REMOTE_SYSLOG,
+    COMPLETE_UPDATE_REMOTE_SYSLOG,
+    FAIL_UPDATE_REMOTE_SYSLOG
 } from 'action-types';
 
 export function createSystem(
@@ -204,5 +207,38 @@ export function failFetchVersionReleaseNotes(version, error) {
     return {
         type: FAIL_FETCH_VERSION_RELEASE_NOTES,
         payload: { version, error }
+    };
+}
+
+export function setRemoteSyslog(protocol, address, port) {
+    return {
+        type: UPDATE_REMOTE_SYSLOG,
+        payload: {
+            enabled: true,
+            protocol,
+            address,
+            port
+        }
+    };
+}
+
+export function unsetRemoteSyslog() {
+    return {
+        type: UPDATE_REMOTE_SYSLOG,
+        payload: { enabled: false }
+    };
+}
+
+export function completeUpdateRemoteSyslog(enabled) {
+    return {
+        type: COMPLETE_UPDATE_REMOTE_SYSLOG,
+        payload: { enabled }
+    };
+}
+
+export function failUpdateRemoteSyslog(enabled, error) {
+    return {
+        type: FAIL_UPDATE_REMOTE_SYSLOG,
+        payload: { enabled, error }
     };
 }

@@ -389,6 +389,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_CREATE_CLOUD_RESOURCE]: ({ name }) => ({
         message: `Cloud resource ${name} creation failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_REMOTE_SYSLOG]: ({ enabled }) => ({
+        message: `Remote syslog has been ${enabled ? 'enabled' : 'disabled'}`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_REMOTE_SYSLOG]: ({ enabled }) => ({
+        message: `${ enabled ? 'Enabling' : 'Disabling'} remote syslog failed`,
+        severity: 'error'
     })
 });
 

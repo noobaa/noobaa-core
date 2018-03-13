@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 NooBaa */
+/* Copyright (C) 2016 NooBaa */
 
 import template from './server-dns-settings-form.html';
 import Observer from 'observer';

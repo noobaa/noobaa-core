@@ -787,30 +787,6 @@ export async function updatePhoneHomeConfig(proxyAddress) {
     isProxyTestRunning(false);
 }
 
-export function enableRemoteSyslog(protocol, address, port) {
-    logAction ('enableRemoteSyslog', { protocol, address, port });
-
-    api.system.configure_remote_syslog({ enabled: true, protocol, address, port })
-        .then(
-            () => notify('Remote syslog has been enabled', 'success'),
-            () => notify('Enabling remote syslog failed', 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
-export function disableRemoteSyslog() {
-    logAction ('disableRemoteSyslog');
-
-    api.system.configure_remote_syslog({ enabled: false })
-        .then(
-            () => notify('Remote syslog has been disabled', 'success'),
-            () => notify('Enabling remote syslog failed', 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
 export function updateServerDetails(serverSecret, hostname, location) {
     logAction('updateServerDetails', { serverSecret, hostname, location });
 

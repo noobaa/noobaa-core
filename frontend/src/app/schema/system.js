@@ -57,6 +57,25 @@ export default {
                     }
                 }
             }
+        },
+        remoteSyslog: {
+            type: 'object',
+            required: [
+                'protocol',
+                'address',
+                'port'
+            ],
+            properties: {
+                protocol: {
+                    type: 'string'
+                },
+                address: {
+                    type: 'string'
+                },
+                port: {
+                    $ref: '#/def/common/port'
+                }
+            }
         }
     }
 };

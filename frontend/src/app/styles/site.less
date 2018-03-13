@@ -464,3 +464,13 @@ pre {
     font-size: 11px;
     z-index: 1;
 }
+
+dirty-mark {
+    vertical-align: super;
+    font-size: @font-size1;
+    color: @color10;
+
+    &::before {
+        content: '*';
+    }
+}

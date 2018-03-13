@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
+import { pick } from 'utils/core-utils';
 import {
     COMPLETE_FETCH_SYSTEM_INFO,
     FETCH_VERSION_RELEASE_NOTES,
@@ -17,13 +18,14 @@ const initialState = undefined;
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload }) {
-    const { version, upgrade, has_ssl_cert } = payload;
+    const { version, upgrade, has_ssl_cert, remote_syslog_config } = payload;
     const { releaseNotes } = state || {};
 
     return {
         version,
         sslCert: has_ssl_cert ? {} : undefined,
         upgrade: _mapUpgrade(upgrade),
+        remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
         releaseNotes
     };
 }
@@ -88,6 +90,12 @@ function _mapUpgrade(upgradeInfo) {
         },
         preconditionFailure: can_upload_upgrade_package
     };
+}
+
+function _mapRemoteSyslog(config) {
+    if (!config) return;
+
+    return pick(config, ['protocol', 'address', 'port']);
 }
 
 // ------------------------------

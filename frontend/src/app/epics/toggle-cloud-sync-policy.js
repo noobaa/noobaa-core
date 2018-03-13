@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 NooBaa */
+/* Copyright (C) 2016 NooBaa */
 
 import { mapErrorObject } from 'utils/state-utils';
 import { TOGGLE_CLOUD_SYNC_POLICY } from 'action-types';

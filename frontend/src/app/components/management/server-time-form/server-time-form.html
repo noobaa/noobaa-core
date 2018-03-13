@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section>
-    <div class="row content-middle bucket-policy-summary cursor-pointer"
+    <div class="row content-middle cursor-pointer"
          ko.click="onToggleSection"
     >
         <div class="column greedy">
@@ -10,6 +10,9 @@
                 Master server time:
                 <span class="text-tech" ko.text="formattedMasterTime"></span>
             </p>
+            <p ko.visible="isExpanded">
+                Servers date and time has to be configured separately for each server
+            </p>
         </div>
         <svg-icon class="icon-small rotate push-next-half"
                   ko.css="{ 'deg-90': !isExpanded() }"
@@ -17,11 +20,7 @@
         ></svg-icon>
     </div>
     <div ko.expand="isExpanded" class="column greedy">
-        <p class="push-next">
-            Servers date and time has to be configured separately for each server
-        </p>
-
-        <data-table class="servers-table push-next alt-bg" params="
+        <data-table class="servers-table push-next alt-bg push-prev" params="
             columns: columns,
             data: rows
         "></data-table>

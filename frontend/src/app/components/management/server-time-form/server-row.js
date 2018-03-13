@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 NooBaa */
+/* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
 import { getServerDisplayName, getServerStateIcon } from 'utils/cluster-utils';

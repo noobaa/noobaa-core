@@ -1,53 +1,79 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<collapsible-section params="
-    title: 'Remote Syslog',
-    collapsed: isCollapsed
-">
-    <section class="row" data-name="collapsed">
-        <p>
-            Server address:
-            <output data-bind="
-                value: summaryText,
-                css: { 'text-tech': enabled() }
-            "></output>
-        </p>
-    </section>
+<section>
+    <div class="row content-middle cursor-pointer"
+         ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">
+                Remote Syslog
+                <dirty-mark ko.visible="isDirtyMarkerVisible"></dirty-mark>
+            </h2>
+            <p ko.visible="!isExpanded()">
+                Server address:
+                <span class="text-tech" ko.text="href" ko.visible="href"></span>
+                <span ko.visible="!href()">Not set</span>
+            </p>
+            <p ko.visible="isExpanded">
+                Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server
+            </p>
+        </div>
+        <svg-icon class="icon-small rotate push-next-half"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded">
+        <loading-indicator class="align-start pad" ko.visible="!isFormInitialized()"></loading-indicator>
+        <!-- ko if: isFormInitialized -->
+        <form class="column greedy" ko.submit="form.submit">
+            <editor params="label: 'Remote syslog'">
+                <toggle-switch params="value: form.enabled"></toggle-switch>
+            </editor>
 
-    <section class="column" data-name="expanded">
-        <p class="push-next">Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server</p>
+            <editor params="label: 'Protocol', disabled: !form.enabled()">
+                <radio-group params="
+                    options: protocolOptions,
+                    selected: form.protocol,
+                    disabled: !form.enabled()
+                "></radio-group>
+            </editor>
 
-        <editor params="label: 'Remote syslog'">
-            <toggle-switch params="value: enabled"></toggle-switch>
-        </editor>
+            <editor params="label: 'Server address', disabled: !form.enabled()">
+                <input class="proxy-name"
+                    type="text"
+                    placeholder="IP or DNS name"
+                    ko.value = "form.address"
+                    ko.enable = "form.enabled"
+                    ko.validationCss="form.address"
+                />
+                <validation-message params="field: form.address"></validation-message>
+            </editor>
 
-        <editor params="label: 'Protocol', disabled: !enabled()">
-            <radio-group params="
-                options: protocolOptions,
-                selected: protocol,
-                disabled: !enabled()
-            "></radio-group>
-        </editor>
+            <editor params="label: 'Server port', disabled: !form.enabled()">
+                <input type="number"
+                    disabled
+                    ko.value="tcpPort"
+                    ko.visible="form.protocol.eq('TCP')"
+                />
+                <input type="number"
+                    min="1"
+                    max="65535"
+                    ko.value="form.udpPort"
+                    ko.visible="form.protocol.eq('UDP')"
+                    ko.enable = "form.enabled"
+                    ko.validationCss="form.udpPort"
+                />
+                <validation-message params="field: form.udpPort"></validation-message>
+            </editor>
 
-        <editor params="label: 'Server address', disabled: !enabled()">
-            <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
-                value: address,
-                enable: enabled
-            "/>
-        </editor>
+            <button class="btn align-start push-prev"
+                ko.shakeOnClick="!form.isValid()"
+            >
+                Apply Changes
+            </button>
+        </form>
+        <!-- /ko -->
+    </div>
+</section>
 
-        <editor params="label: 'Server port', disabled: !isPortEnabled()">
-            <input type="number" min="1" max="65535" placeholder="Port" data-bind="
-                value: port,
-                enable: isPortEnabled
-            "/>
-       </editor>
-
-        <button class="btn align-start push-prev" data-bind="
-            click: applyChanges,
-            shakeOnClick: errors().length
-        ">
-            Apply Changes
-        </button>
-    </section>
-</collapsible-section>

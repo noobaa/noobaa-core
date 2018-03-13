@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 NooBaa */
+/* Copyright (C) 2016 NooBaa */
 
 import { CHANGE_LOCATION } from 'action-types';
 import { closeModal } from 'action-creators';

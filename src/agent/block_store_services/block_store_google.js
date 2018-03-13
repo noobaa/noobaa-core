@@ -56,14 +56,14 @@ class BlockStoreGoogle extends BlockStoreBase {
         }
     }
 
-    get_storage_info() {
+    async get_storage_info() {
         const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
-        return P.resolve(this._get_usage())
-            .then(usage => ({
-                total: PETABYTE + usage.size,
-                free: PETABYTE,
-                used: usage.size
-            }));
+        const usage = await this._get_usage();
+        return {
+            total: PETABYTE + usage.size,
+            free: PETABYTE,
+            used: usage.size
+        };
     }
 
     _get_usage() {
@@ -83,10 +83,10 @@ class BlockStoreGoogle extends BlockStoreBase {
         let block_data;
         try {
             block_data = await promise_utils.retry(MAX_RETRIES, 500, async () => this._try_read_block(block_md));
+            return block_data;
         } catch (err) {
             await this._handle_error(err, block_md.id);
         }
-        return block_data;
     }
 
     async _try_read_block(block_md) {

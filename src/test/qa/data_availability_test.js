@@ -19,7 +19,7 @@ const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-let suffix = 'erasure';
+const suffixName = 'da';
 let stopped_oses = [];
 let failures_in_test = false;
 let errors = [];
@@ -30,6 +30,7 @@ let current_size = 0;
 let {
     agents_number = 4,
 } = argv;
+
 const {
     location = 'westus2',
         resource, // = 'pipeline-agents',
@@ -42,7 +43,7 @@ const {
         min_size = 50, //MB
         iterationsNumber = 9999,
         bucket = 'first.bucket',
-        id,
+        id = 0,
         help = false,
         data_frags = 0,
         parity_frags = 0,
@@ -74,9 +75,7 @@ function usage() {
     `);
 }
 
-if (process.id !== undefined) {
-    suffix = suffix + '-' + id;
-}
+const suffix = suffixName + '-' + id;
 
 if (help) {
     usage();

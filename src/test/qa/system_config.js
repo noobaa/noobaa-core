@@ -9,34 +9,56 @@ const http = require('http');
 const promise_utils = require('../../util/promise_utils');
 const server_ops = require('../utils/server_functions');
 const argv = require('minimist')(process.argv);
-const serverName = argv.server_ip;
 const api = require('../../api');
+const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('system_config');
 
 //noobaa rpc
 let secret;
 let rpc;
 let client;
 let old_time = 0;
-let configured_ntp = argv.ntp_server || 'pool.ntp.org';
-let primary_dns = argv.primary_dns || '8.8.8.8';
-let secondery_dns = argv.secondery_dns || '8.8.4.4';
-let configured_dns = [primary_dns, secondery_dns];
-let configured_timezone = 'Asia/Tel_Aviv';
-let second_timezone = 'US/Arizona';
-let received_phonehome_proxy_connection = false;
+let failures_in_test = false;
 let received_udp_rsyslog_connection = false;
 let received_tcp_rsyslog_connection = false;
+let received_phonehome_proxy_connection = false;
 
-let failures_in_test = false;
-
-let my_external_ip = argv.my_ip;
-let external_server_ip = argv.external_server_ip;
-let udp_rsyslog_port = argv.udp_syslog_port || 5001;
-let tcp_rsyslog_port = argv.tcp_syslog_port || 514;
-let ph_proxy_port = argv.ph_proxy_port || 5003;
+const second_timezone = 'US/Arizona';
+const configured_timezone = 'Asia/Tel_Aviv';
 
 let errors = [];
 
+const {
+    server_ip,
+    ntp_server = 'pool.ntp.org',
+    primary_dns = '8.8.8.8',
+    secondery_dns = '8.8.4.4',
+    udp_rsyslog_port = 5001,
+    tcp_rsyslog_port = 514,
+    ph_proxy_port = 5003,
+    help = false
+} = argv;
+
+let configured_dns = [primary_dns, secondery_dns];
+
+function usage() {
+    console.log(`
+    --server_ip             -   noobaa server ip.
+    --ntp_server            -   ntp server (default: ${ntp_server})
+    --primary_dns           -   primary dns ip (default: ${primary_dns})
+    --secondery_dns         -   secondery dns ip (default: ${secondery_dns})
+    --udp_rsyslog_port      -   udp rsyslog port (default: ${udp_rsyslog_port})
+    --tcp_rsyslog_port      -   tcp rsyslog port (default: ${tcp_rsyslog_port})
+    --ph_proxy_port         -   Phone home proxy port (default: ${ph_proxy_port})
+    --id                    -   an id that is attached to the agents name
+     --help                  -   show this help.
+    `);
+}
+
+if (help) {
+    usage();
+    process.exit(1);
+}
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -81,35 +103,35 @@ rsyslog_udp_server.on('message', (msg, rinfo) => {
 });
 
 P.fcall(function() {
-    rpc = api.new_rpc('wss://' + serverName + ':8443');
-    client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
-    };
-    return client.create_auth_token(auth_params);
-})
+        rpc = api.new_rpc('wss://' + server_ip + ':8443');
+        client = rpc.new_client({});
+        let auth_params = {
+            email: 'demo@noobaa.com',
+            password: 'DeMo1',
+            system: 'demo'
+        };
+        return client.create_auth_token(auth_params);
+    })
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
         secret = result.cluster.shards[0].servers[0].secret;
         console.log('Secret is ' + secret);
     })
     .then(() => rpc.disconnect_all())
-    .then(() => server_ops.clean_ova(external_server_ip, secret))
-    .then(() => server_ops.wait_server_recoonect(serverName))
-    .then(() => server_ops.validate_activation_code(serverName)
+    .then(() => server_ops.clean_ova(server_ip, secret))
+    .then(() => server_ops.wait_server_recoonect(server_ip))
+    .then(() => server_ops.validate_activation_code(server_ip)
         .catch(err => {
             saveErrorAndResume(err.message);
             failures_in_test = true;
         }))
-    .then(() => server_ops.create_system_and_check(serverName)
+    .then(() => server_ops.create_system_and_check(server_ip)
         .catch(err => {
             saveErrorAndResume(err.message);
             failures_in_test = true;
         }))
     .then(() => {
-        rpc = api.new_rpc('wss://' + serverName + ':8443');
+        rpc = api.new_rpc('wss://' + server_ip + ':8443');
         client = rpc.new_client({});
         let auth_params = {
             email: 'demo@noobaa.com',
@@ -130,8 +152,8 @@ P.fcall(function() {
         let retries = 6;
         let final_result;
         return promise_utils.pwhile(function() {
-            return retries > 0;
-        },
+                return retries > 0;
+            },
             function() {
                 return P.resolve(client.cluster_server.read_server_config({}))
                     .then(res => {
@@ -159,8 +181,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-            return (time_waiting < 65 && !final_result); // HB + something
-        },
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -216,7 +238,7 @@ P.fcall(function() {
         return P.resolve(client.cluster_server.update_time_config({
             target_secret: secret,
             timezone: second_timezone,
-            ntp_server: configured_ntp
+            ntp_server
         }));
     })
     .then(() => P.resolve(client.cluster_server.read_server_config({})))
@@ -230,18 +252,18 @@ P.fcall(function() {
         }
     })
     .then(() => { // time configuration - ntp
-        console.log(`Checking connection before setup ntp ${configured_ntp}`);
+        console.log(`Checking connection before setup ntp ${ntp_server}`);
         return P.resolve(client.system.attempt_server_resolve({
-            server_name: configured_ntp
+            server_name: ntp_server
         }));
     })
     .delay(10000)
     .then(() => { // time configuration - ntp
-        console.log('Setting NTP', configured_ntp);
+        console.log('Setting NTP', ntp_server);
         return P.resolve(client.cluster_server.update_time_config({
             target_secret: secret,
             timezone: configured_timezone,
-            ntp_server: configured_ntp
+            ntp_server: ntp_server
         }));
     })
     .then(() => {
@@ -249,8 +271,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-            return (time_waiting < 65 && !final_result); // HB + something
-        },
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -276,7 +298,7 @@ P.fcall(function() {
     .then(result => {
         console.log('after setting ntp cluster config is:' + JSON.stringify(result));
         let ntp = result.ntp_server;
-        if (ntp === configured_ntp) {
+        if (ntp === ntp_server) {
             console.log(`The defined ntp is ${ntp} - as should`);
         } else {
             saveErrorAndResume(`The defined ntp is ${ntp} - failure!!!`);
@@ -297,18 +319,18 @@ P.fcall(function() {
     .then(() => { // phone home configuration -
         console.log('Setting Proxy');
         return P.resolve(client.system.update_phone_home_config({
-            proxy_address: 'http://' + my_external_ip + ':' + ph_proxy_port
+            proxy_address: 'http://' + server_ip + ':' + ph_proxy_port
         }));
     })
     .then(() => phone_home_proxy_server.listen(ph_proxy_port))
     .then(() => promise_utils.pwhile(
-        function() {
-            return !received_phonehome_proxy_connection;
-        },
-        function() {
-            console.warn('Didn\'t get phone home message yet');
-            return P.delay(5000);
-        }).timeout(1 * 90000)
+            function() {
+                return !received_phonehome_proxy_connection;
+            },
+            function() {
+                console.warn('Didn\'t get phone home message yet');
+                return P.delay(5000);
+            }).timeout(1 * 90000)
         .then(() => {
             console.log('Just received phone home message - as should');
         })
@@ -324,7 +346,7 @@ P.fcall(function() {
     })
     .then(result => {
         let proxy = result.phone_home_config.proxy_address;
-        if (proxy === 'http://' + my_external_ip + ':' + ph_proxy_port) {
+        if (proxy === 'http://' + server_ip + ':' + ph_proxy_port) {
             console.log(`The defined proxy is ${proxy} - as should`);
         } else {
             saveErrorAndResume(`The defined proxy is ${proxy} - failure`);
@@ -336,8 +358,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-            return (time_waiting < 65 && !final_result); // HB + something
-        },
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -367,13 +389,13 @@ P.fcall(function() {
     })
     .then(() => phone_home_proxy_server.listen(ph_proxy_port))
     .then(() => promise_utils.pwhile(
-        function() {
-            return !received_phonehome_proxy_connection;
-        },
-        function() {
-            console.warn('Didn\'t get phone home message yet');
-            return P.delay(5000);
-        }).timeout(1 * 60000)
+            function() {
+                return !received_phonehome_proxy_connection;
+            },
+            function() {
+                console.warn('Didn\'t get phone home message yet');
+                return P.delay(5000);
+            }).timeout(1 * 60000)
         .then(() => {
             console.log('Just received phone home message - as should');
         })
@@ -400,8 +422,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-            return (time_waiting < 65 && !final_result); // HB + something
-        },
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -430,7 +452,7 @@ P.fcall(function() {
         console.log('Setting TCP Remote Syslog');
         return P.resolve(client.system.configure_remote_syslog({
             enabled: true,
-            address: my_external_ip,
+            address: server_ip,
             protocol: 'TCP',
             port: tcp_rsyslog_port
         }));
@@ -457,7 +479,7 @@ P.fcall(function() {
         let address = result.remote_syslog_config.address;
         let protocol = result.remote_syslog_config.protocol;
         let port = result.remote_syslog_config.port;
-        if (address === my_external_ip && protocol === 'TCP' && port === tcp_rsyslog_port) {
+        if (address === server_ip && protocol === 'TCP' && port === tcp_rsyslog_port) {
             console.log(`The defined syslog is ${address}: ${port} - as should`);
         } else {
             saveErrorAndResume(`The defined syslog is ${address}: ${port} - failure!!!`);
@@ -469,8 +491,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-            return (time_waiting < 65 && !final_result); // HB + something
-        },
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {
@@ -498,7 +520,7 @@ P.fcall(function() {
         console.log('Setting UDP Remote Syslog');
         return P.resolve(client.system.configure_remote_syslog({
             enabled: true,
-            address: my_external_ip,
+            address: server_ip,
             protocol: 'UDP',
             port: udp_rsyslog_port
         }));
@@ -525,7 +547,7 @@ P.fcall(function() {
         let address = result.remote_syslog_config.address;
         let protocol = result.remote_syslog_config.protocol;
         let port = result.remote_syslog_config.port;
-        if (address === my_external_ip && protocol === 'UDP' && port === udp_rsyslog_port) {
+        if (address === server_ip && protocol === 'UDP' && port === udp_rsyslog_port) {
             console.log(`The defined syslog is ${address}: ${port} - as should`);
         } else {
             saveErrorAndResume(`The defined syslog is ${address}: ${port} - failure!!!`);
@@ -537,8 +559,8 @@ P.fcall(function() {
         let time_waiting = 0;
         let final_result;
         return promise_utils.pwhile(function() {
-            return (time_waiting < 65 && !final_result); // HB + something
-        },
+                return (time_waiting < 65 && !final_result); // HB + something
+            },
             function() {
                 return P.resolve(client.system.read_system({}))
                     .then(res => {

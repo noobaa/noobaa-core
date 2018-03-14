@@ -7,10 +7,10 @@ const RandStream = require('../../util/rand_stream');
 
 const AzureDefaultConnection = {
     name: 'AZUREConnection',
-    endpoint: "https://azureconnection.blob.core.windows.net",
+    endpoint: "https://jenkinspipeline7.blob.core.windows.net",
     endpoint_type: "AZURE",
-    identity: "azureconnection",
-    secret: "UsMgM/8uX2FMAwW765fSBATLjROZn+JbxxHLYXDUfBmV0vtpiYkGnRrB8hkSvVcV92pbSxG4J1j/q0IFy3nb6g=="
+    identity: "jenkinspipeline7",
+    secret: "Zva2tNcZzdrzvn4Nhci+g0slAso2mRi3vklPEgvKJ4cWBaNIjnjcLdYLZAzyczKlFmYqZPlzuUq8EN9XDfr+gw=="
 };
 
 const blobService = azure_storage.createBlobService(

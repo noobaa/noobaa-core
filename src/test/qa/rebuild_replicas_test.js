@@ -38,7 +38,7 @@ const {
     server_ip,
     bucket = 'first.bucket',
     help = false,
-    data_frags = 1,
+    data_frags = 0,
     parity_frags = 0,
     replicas = 3,
     iterations_number = 2
@@ -66,6 +66,17 @@ if (help) {
     usage();
     process.exit(1);
 }
+
+if ((data_frags && !parity_frags) || (!data_frags && parity_frags)) {
+    throw new Error('Set both data_frags and parity_frags to use erasure coding ');
+}
+if (data_frags && parity_frags && !replicas) {
+        console.log('Using erasure coding with data_frags = ' + data_frags + ' and parity frags = ' + parity_frags);
+    }
+if (!data_frags && !parity_frags && replicas) {
+        console.log('Using replicas number = ' + replicas);
+    }
+
 
 let auth_params = {
     email: 'demo@noobaa.com',
@@ -272,7 +283,7 @@ function stopAgentAndCheckRebuildReplicas() {
 
 return azf.authenticate()
     .then(() => bf.changeTierSetting(server_ip, bucket, data_frags, parity_frags, replicas))
-    .then(() => af.clean_agents(azf, osesSet, suffix))
+    .then(() => af.clean_agents(azf, server_ip, suffix))
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {
         oses = Array.from(res.keys());
@@ -293,7 +304,7 @@ return azf.authenticate()
             console.error(':( :( Errors during rebuild replicas parts test (replicas) ): ):' + errors);
             process.exit(1);
         } else {
-            return af.clean_agents(azf, server_ip, oses, suffix)
+            return af.clean_agents(azf, server_ip, suffix)
                 .then(clean_up_dataset)
                 .then(() => {
                     console.log(':) :) :) rebuild replicas parts test (replicas) were successful! (: (: (:');

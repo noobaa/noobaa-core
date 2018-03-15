@@ -15,6 +15,7 @@ const range_utils = require('../../util/range_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
+const system_utils = require('../utils/system_utils');
 
 // dbg.set_level(5);
 
@@ -89,6 +90,7 @@ class MapAllocator {
             .then(dup_chunks => {
                 for (let i = 0; i < dup_chunks.length; ++i) {
                     const dup_chunk = dup_chunks[i];
+                    system_utils.populate_pools_for_blocks(dup_chunk.blocks);
                     dup_chunk.chunk_coder_config = system_store.data.get_by_id(dup_chunk.chunk_config).chunk_coder_config;
                     const is_good_for_dedup = mapper.is_chunk_good_for_dedup(
                         dup_chunk, this.bucket.tiering, this.tiering_status

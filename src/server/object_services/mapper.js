@@ -216,7 +216,7 @@ class MirrorMapper {
             const block = accessible_blocks[i];
             // block on pools that do not belong to the current mirror anymore
             // can be accessible but will eventually be deallocated
-            const pool = pools_by_id[block.pool];
+            const pool = pools_by_id[block.node_pool_id];
             const is_good_node = _is_block_good_node(block);
             if (is_good_node && pool) {
                 used_blocks.push(block);
@@ -255,6 +255,9 @@ class MirrorMapper {
 
             // num_missing of required replicas, which are a must to have for the chunk
             // In case of redundant pool allocation we consider one block as a fulfilment of all policy
+            // Notice that in case of redundant pools we expect to be here only on the first allocation
+            // Since the weight calculation above which adds max_replicas for every replica on redundant pool
+            // Will block us from performing the current context and statement.
             const is_redundant = _.every(pools, _pool_has_redundancy);
             const num_missing = is_redundant ? 1 : Math.max(0, replicas - used_replicas);
 
@@ -289,7 +292,7 @@ class MirrorMapper {
             for (let i = 0; i < used_blocks.length; ++i) {
                 if (keep_replicas >= max_replicas) break;
                 const block = used_blocks[i];
-                keep_replicas += _pool_has_redundancy(pools_by_id[block.pool]) ? max_replicas : 1;
+                keep_replicas += _pool_has_redundancy(pools_by_id[block.node_pool_id]) ? max_replicas : 1;
                 blocks_in_use.push(block);
             }
         }
@@ -616,6 +619,8 @@ function assign_node_to_block(block, node, system_id) {
 
     block.node = node;
     block.pool = pool._id;
+    block.node_pool_id = pool._id;
+    block.system = system_id;
 }
 
 function get_num_blocks_per_chunk(tier) {
@@ -748,7 +753,7 @@ function get_block_md(chunk, frag, block) {
         address: block.node.rpc_address,
         node: block.node._id,
         node_type: block.node.node_type,
-        pool: block.pool,
+        pool: block.node_pool_id,
         digest_type: chunk.chunk_coder_config.frag_digest_type,
         digest_b64: frag.digest_b64 || (frag.digest && frag.digest.toString('base64')),
     };

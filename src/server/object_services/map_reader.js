@@ -10,6 +10,7 @@ const mapper = require('./mapper');
 const MDStore = require('./md_store').MDStore;
 const node_allocator = require('../node_services/node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
+const system_utils = require('../utils/system_utils');
 
 
 /**
@@ -111,6 +112,7 @@ function read_parts_mappings(parts, adminfo, set_obj) {
             })
         )
         .then(() => _.map(parts, part => {
+            system_utils.populate_pools_for_blocks(part.chunk.blocks);
             part.chunk.chunk_coder_config = system_store.data.get_by_id(part.chunk.chunk_config).chunk_coder_config;
             const part_info = mapper.get_part_info(
                 part, adminfo, tiering_status_by_bucket_id[part.chunk.bucket]

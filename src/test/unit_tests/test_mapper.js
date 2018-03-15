@@ -472,6 +472,7 @@ coretest.describe_mapper_test_case({
             _id,
             frag: frag._id,
             pool: pool._id,
+            node_pool_id: pool._id,
             node: {
                 pool: pool._id,
                 readable: readable !== false,

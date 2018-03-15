@@ -19,6 +19,7 @@ const mongo_utils = require('../../util/mongo_utils');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
+const system_utils = require('../utils/system_utils');
 
 const builder_lock = new KeysLock();
 const object_io = new ObjectIO();
@@ -102,6 +103,7 @@ class MapBuilder {
             chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
             chunk.parts = parts_by_chunk[chunk._id];
             chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj])));
+            system_utils.populate_pools_for_blocks(chunk.blocks);
             return P.resolve()
                 .then(() => {
                     if (!chunk.parts || !chunk.parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);

@@ -44,6 +44,17 @@ function mongo_wrapper_system_created() {
     }
 }
 
+function populate_pools_for_blocks(blocks) {
+    if (!blocks || !blocks.length) return;
+    blocks.forEach(block => {
+        const system = system_store.data.get_by_id(block.system);
+        const node_pool = system.pools_by_name[block.node.pool];
+        block.node_pool_id = node_pool._id;
+    });
+}
+
+
 exports.system_in_maintenance = system_in_maintenance;
 exports.get_bucket_quota_usage_percent = get_bucket_quota_usage_percent;
 exports.mongo_wrapper_system_created = mongo_wrapper_system_created;
+exports.populate_pools_for_blocks = populate_pools_for_blocks;

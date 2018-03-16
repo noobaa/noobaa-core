@@ -9,8 +9,6 @@ import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta, getCloudTargetTooltip } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
 import { inputThrottle } from 'config';
-import { realizeUri } from 'utils/browser-utils';
-import * as routes from 'routes';
 import {
     fetchCloudTargets,
     updateForm,
@@ -33,11 +31,14 @@ class CreateNamespaceResourceModalViewModel extends Observer {
     targetOptions = ko.observableArray();
     existingNames = null;
     nameRestrictionList = ko.observableArray();
-    myConnectionsHref = ko.observable();
-    loadTargetsEmptyMessage = ko.observable();
+    targetBucketsEmptyMessage = ko.observable();
+    targetBucketsErrorMessage = ko.observable();
+    isTargetBucketsInError = ko.observable();
+    targetBucketPlaceholder = ko.observable();
+    targetBucketLabel = ko.observable();
     form = null;
     connectionOptions = ko.observableArray();
-    conenctionActions = deepFreeze([
+    connectionActions = deepFreeze([
         {
             label: 'Add new connection',
             onClick: this.onAddNewConnection.bind(this)
@@ -54,7 +55,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
                 target: '',
                 resourceName: ''
             },
-            onValidate: this.onValidate.bind(this),
+            onValidate: values => this.onValidate(values, this.existingNames),
             onSubmit: this.onSubmit.bind(this)
         });
 
@@ -68,9 +69,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
                 'namespaceResources',
                 'hostPools',
                 ['forms', formName],
-                'cloudTargets',
-                ['location', 'params', 'system'],
-                ['session', 'user']
+                'cloudTargets'
             ),
             this.onState
         );
@@ -82,9 +81,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
         namespaceResources,
         hostPools,
         form,
-        cloudTargets,
-        system,
-        user
+        cloudTargets
     ]) {
         if (!accounts || !namespaceResources || !hostPools || !form) return;
 
@@ -139,27 +136,26 @@ class CreateNamespaceResourceModalViewModel extends Observer {
             action$.onNext(updateForm(formName, { resourceName: target.value }, false));
         }
 
-        const myConnectionsHref = realizeUri(
-            routes.account,
-            { system, account: user, tab: 'connections' }
-        );
-
         const selectedConnection = externalConnections.find(con => con.name === connection.value);
-        const connectionSubject = selectedConnection ? getCloudServiceMeta(selectedConnection.service).subject : '';
-        const loadTargetsEmptyMessage = cloudTargets.error ?
-            { text: 'Loading failed', isError: true } :
-            { text: `No ${connectionSubject.toLowerCase()}s found`, isError: false };
+        const subject = selectedConnection ? getCloudServiceMeta(selectedConnection.service).subject : '';
+        const targetBucketPlaceholder = `Choose ${subject}`;
+        const targetBucketLabel = `Target ${subject}`;
+        const targetBucketsEmptyMessage = `No ${subject.toLowerCase()}s found`;
+        const targetBucketsErrorMessage = `Cannot retrieve ${subject.toLowerCase()}s`;
 
-        this.loadTargetsEmptyMessage(loadTargetsEmptyMessage);
+        this.targetBucketPlaceholder(targetBucketPlaceholder);
+        this.targetBucketLabel(targetBucketLabel);
+        this.targetBucketsEmptyMessage(targetBucketsEmptyMessage);
+        this.targetBucketsErrorMessage(targetBucketsErrorMessage);
+        this.isTargetBucketsInError(cloudTargets.error);
         this.connectionOptions(connectionOptions);
         this.fetchingTargets(fetchingTargets);
         this.targetOptions(targetOptions);
         this.existingNames = existingNames;
         this.nameRestrictionList(nameRestrictionList);
-        this.myConnectionsHref(myConnectionsHref);
     }
 
-    onValidate(values) {
+    onValidate(values, existingNames) {
         const { connection, target, resourceName } = values;
         const errors = {};
 
@@ -171,7 +167,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
                 errors.target = 'Please select a target bucket';
             }
 
-            const hasNameErrors = validateName(resourceName, this.existingNames)
+            const hasNameErrors = validateName(resourceName, existingNames)
                 .some(rule => !rule.valid);
 
             if (hasNameErrors) {

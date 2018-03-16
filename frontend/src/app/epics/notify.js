@@ -379,6 +379,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_UPDATE_BUCKET_SPILLOVER]: ({ bucket }) => ({
         message: `Updating spillover policy for ${bucket} failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_CREATE_CLOUD_RESOURCE]: ({ name }) => ({
+        message: `Cloud resource ${name} created successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_CREATE_CLOUD_RESOURCE]: ({ name }) => ({
+        message: `Cloud resource ${name} creation failed`,
+        severity: 'error'
     })
 });
 

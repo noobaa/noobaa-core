@@ -66,6 +66,7 @@ import updateBucketTrigger from './update-bucket-trigger';
 import removeBucketTrigger from './remove-bucket-trigger';
 import closeModalsOnLocationChange from './close-modals-on-location-change';
 import attachServerToCluster from './attach-server-to-cluster';
+import createCloudResource from './create-cloud-resource';
 
 const generalEpics = [
     handleLocationRequests,
@@ -146,7 +147,8 @@ const objectRelatedEpics = [
 const resourceRelatedEpics = [
     createHostsPool,
     deleteResource,
-    assignHostsToPool
+    assignHostsToPool,
+    createCloudResource
 ];
 
 const hostRelatedEpics = [

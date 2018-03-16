@@ -1,58 +1,68 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<p class="push-next">Use a bucket from a public cloud to serve as a NooBaa storage resource</p>
+<form class="column greedy" ko.submit="form.submit">
+    <p class="push-next">
+        Use a bucket from a public cloud to serve as a NooBaa storage resource
+    </p>
 
-<section class=" column greedy">
-    <editor params="label: 'Target Connection'">
-        <dropdown params="
-                placeholder: 'Choose a connection',
-                actions: connectionActions,
-                options: connectionOptions,
-                selected: connection,
-                hasFocus: true
-            "
-            ko.css.invalid="connection.isModified() && !connection.isValid()"
-        ></dropdown>
-        <div class="val-msg" ko.validationMessage="connection"></div>
-    </editor>
+    <section class="coulmn greedy">
+        <editor params="label: 'Target Connection'">
+            <dropdown params="
+                    placeholder: 'Choose a connection',
+                    actions: connectionActions,
+                    options: connectionOptions,
+                    selected: form.connection,
+                    hasFocus: true
+                "
+                ko.validationCss="form.connection"
+            ></dropdown>
+            <validation-message params="field: form.connection"></validation-message>
+        </editor>
 
-    <editor params="
-        label: targeBucketLabel,
-        disabled: !targetBucketsOptions()
-    ">
-        <dropdown params="
-                filter: true,
-                placeholder: targetBucketPlaceholder,
-                disabled: !targetBucketsOptions(),
-                options: targetBucketsOptions,
-                loading: fetchingTargetBucketsOptions,
-                selected: targetBucket
-            "
-            ko.css.invalid="targetBucket.isModified() && !targetBucket.isValid()"
-        ></dropdown>
-        <div class="val-msg" ko.validationMessage="targetBucket"></div>
-    </editor>
+        <editor params="
+            label: targetBucketLabel,
+            disabled: !targetBucketsOptions()
+        ">
+            <dropdown params="
+                    filter: true,
+                    placeholder: targetBucketPlaceholder,
+                    disabled: !form.connection(),
+                    options: targetBucketsOptions,
+                    loading: fetchingTargetBuckets,
+                    selected: form.targetBucket,
+                    emptyMessage: targetBucketsEmptyMessage,
+                    errorMessage: targetBucketsErrorMessage,
+                    error: isTargetBucketsInError
+                "
+                ko.validationCss="form.targetBucket"
+            ></dropdown>
+            <validation-message params="field: form.targetBucket"></validation-message>
+        </editor>
 
-    <editor class="push-next" params="
-        label: 'Resource Name',
-        disabled: !targetBucket(),
-        insertValMessages: false
-    ">
-        <div class="push-next-half">
-            <input type="text" placeholder="Choose Name"
-                   ko.css="{ 'no-validation-highlight': !wasValidated() }"
-                   ko.enable="targetBucket"
-                   ko.textInput="resourceName"/>
-        </div>
-        <validation-rules-list params="field: resourceName, highlightErrors: wasValidated"></validation-rules-list>
-    </editor>
-</section>
+        <editor params="label: 'Resource Name', disabled: !form.connection()">
+            <input type="text"
+                   class="push-next-half"
+                   placeholder="Type Name"
+                   ko.textInput="throttledResourceName"
+                   ko.enable="form.connection"
+                   ko.validationCss="form.resourceName"
+            />
 
-<div class="row align-end push-prev">
-    <button class="link alt-colors push-next" ko.click="cancel">
-        Cancel
-    </button>
-    <button class="btn" ko.click="add" ko.shakeOnClick="errors().length">
-        Add
-    </button>
-</div>
+            <ul class="restriction-list"
+                ko.css.disabled="!form.connection()"
+                ko.foreach="nameRestrictionList"
+            >
+                <li ko.text="label" ko.css="css"></li>
+            </ul>
+        </editor>
+    </section>
+
+    <div class="row align-end">
+        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">
+            Create
+        </button>
+    </div>
+</form>

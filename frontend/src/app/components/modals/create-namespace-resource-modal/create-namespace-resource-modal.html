@@ -8,7 +8,7 @@
     <section class="coulmn greedy">
         <editor params="label: 'Target Connection'">
             <dropdown params="
-                    actions: conenctionActions,
+                    actions: connectionActions,
                     options: connectionOptions,
                     selected: form.connection,
                     placeholder: 'Choose Connection',
@@ -20,7 +20,10 @@
             <validation-message params="field: form.connection"></validation-message>
         </editor>
 
-        <editor params="label: 'Target Bucket', disabled: !form.connection()">
+        <editor params="
+            label: targetBucketLabel,
+            disabled: !form.connection()
+        ">
             <dropdown params="
                     filter: true,
                     options: targetOptions,
@@ -28,7 +31,9 @@
                     disabled: !form.connection(),
                     loading: fetchingTargets,
                     placeholder: 'Choose Bucket',
-                    emptyMessage: loadTargetsEmptyMessage,
+                    emptyMessage: targetBucketsEmptyMessage,
+                    errorMessage: targetBucketsErrorMessage,
+                    error: isTargetBucketsInError
                 "
                 ko.validationCss="form.target"
             ></dropdown>

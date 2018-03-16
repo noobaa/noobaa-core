@@ -364,22 +364,6 @@ export function createBucket(name, dataPlacement, pools) {
         .done();
 }
 
-export function createCloudResource(name, connection, cloudBucket) {
-    logAction('createCloudResource', { name, connection, cloudBucket });
-
-    api.pool.create_cloud_pool({
-        name: name,
-        connection: connection,
-        target_bucket: cloudBucket
-    })
-        .then(
-            () => notify(`Cloud resource ${name} created successfully`, 'success'),
-            () => notify(`Cloud ${name} creation failed`, 'error')
-        )
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
 export function deleteCloudResource(name) {
     logAction('deleteCloudResource', { name });
 

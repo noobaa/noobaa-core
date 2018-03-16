@@ -7,8 +7,8 @@ import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { flatMap } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
+import { getCloudServiceMeta } from 'utils/cloud-utils';
 import {
-    getCloudResourceTypeIcon,
     getInternalResourceDisplayName
 } from 'utils/resource-utils';
 import { closeModal, updateBucketSpillover } from 'action-creators';
@@ -16,7 +16,7 @@ import { closeModal, updateBucketSpillover } from 'action-creators';
 function _getResourceTypeIcon(type, resource) {
     return true &&
         type === 'HOSTS' && 'nodes-pool' ||
-        type === 'CLOUD' && getCloudResourceTypeIcon(resource).name ||
+        type === 'CLOUD' && getCloudServiceMeta(resource.type).icon ||
         type === 'INTERNAL' && 'internal-storage';
 }
 

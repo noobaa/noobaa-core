@@ -1,15 +1,23 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './add-cloud-resource-modal.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
+import FormViewModel from 'components/form-view-model';
+import { state$, action$ } from 'state';
 import ko from 'knockout';
-import { systemInfo, sessionInfo, cloudBucketList } from 'model';
-import { loadCloudBucketList, createCloudResource } from 'actions';
-import nameValidationRules from 'name-validation-rules';
 import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
-import { action$ } from 'state';
-import { openAddCloudConnectionModal } from 'action-creators';
+import { validateName } from 'utils/validation-utils';
+import { getFieldValue, isFieldTouched } from 'utils/form-utils';
+import { inputThrottle } from 'config';
+import {
+    openAddCloudConnectionModal,
+    createCloudResource,
+    fetchCloudTargets,
+    dropCloudTargets,
+    closeModal,
+    updateForm
+} from 'action-creators';
 
 const usedTargetTooltip = deepFreeze({
     CLOUD_RESOURCE: name => `Already used by ${name} cloud resource`,
@@ -24,165 +32,188 @@ const allowedServices = deepFreeze([
     'GOOGLE'
 ]);
 
-class AddCloudResourceModalViewModel extends BaseViewModel {
-    constructor({ onClose }) {
+class AddCloudResourceModalViewModel extends Observer {
+    formName = this.constructor.name;
+    existingNames = null;
+    throttledResourceName = null;
+    form = null;
+    connectionOptions = ko.observableArray();
+    nameRestrictionList = ko.observableArray();
+    targetBucketsEmptyMessage = ko.observable();
+    targetBucketsErrorMessage = ko.observable();
+    isTargetBucketsInError = ko.observable();
+    fetchingTargetBuckets = ko.observable();
+    targetBucketsOptions = ko.observableArray();
+    targetBucketPlaceholder = ko.observable();
+    targetBucketLabel = ko.observable();
+    connectionActions = deepFreeze([
+        {
+            label: 'Add new connection',
+            onClick: this.onAddNewConnection.bind(this)
+        }
+    ]);
+
+    constructor() {
         super();
-        this.onClose = onClose;
-        this.wasValidated = ko.observable(false);
-        this.fetchingTargetBucketsOptions = ko.observable(false);
 
-        const cloudConnections = ko.pureComputed(
-            () => {
-                const user = (systemInfo() ? systemInfo().accounts : []).find(
-                    account => account.email === sessionInfo().user
-                );
+        this.form = new FormViewModel({
+            name: this.formName,
+            fields: {
+                connection: '',
+                targetBucket: '',
+                resourceName: ''
+            },
+            onValidate: values => this.onValidate(values, this.existingNames),
+            onSubmit: this.onSubmit.bind(this)
+        });
 
-                return user.external_connections.connections;
-            }
+        this.throttledResourceName = this.form.resourceName
+            .throttle(inputThrottle);
+
+        this.observe(
+            state$.getMany(
+                'accounts',
+                'session',
+                'cloudResources',
+                'hostPools',
+                ['forms', this.formName],
+                'cloudTargets'
+            ),
+            this.onState
         );
-
-        this.connectionOptions = ko.pureComputed(
-            () => cloudConnections()
-                .filter(connection => allowedServices.some(
-                        service => connection.endpoint_type === service
-                ))
-                .map(connection => {
-                    const { identity, name = identity, endpoint_type } = connection;
-                    const { icon, selectedIcon } = getCloudServiceMeta(endpoint_type);
-                    return {
-                        label: name,
-                        value: connection,
-                        remark: identity,
-                        icon: icon,
-                        selectedIcon: selectedIcon
-                    };
-                })
-        );
-
-        this.connectionActions = deepFreeze([
-            {
-                label: 'Add new connection',
-                onClick: this.onAddNewConnection.bind(this)
-            }
-        ]);
-
-        this.connection = ko.observable()
-            .extend({
-                required: { message: 'Please select a connection from the list' }
-            });
-
-        this.addToDisposeList(
-            this.connection.subscribe(
-                value => {
-                    this.targetBucket(null);
-                    value && this.loadBucketsList();
-                }
-            )
-        );
-
-        const targetSubject = ko.pureComputed(
-            () => {
-                const { endpoint_type = 'AWS' } = this.connection() || {};
-                return getCloudServiceMeta(endpoint_type).subject;
-            }
-        );
-
-        this.targeBucketLabel = ko.pureComputed(
-            () => `Target ${targetSubject()}`
-        );
-
-        this.targetBucketPlaceholder = ko.pureComputed(
-            () => `Choose ${targetSubject()}...`
-        );
-
-        this.targetBucketsOptions = ko.pureComputed(
-            () => this.connection() && cloudBucketList() && cloudBucketList().map(
-                ({ name, used_by }) => {
-                    const targetName = name;
-                    if (used_by) {
-                        const { usage_type, name } = used_by;
-                        return {
-                            value: targetName,
-                            disabled: true,
-                            tooltip: usedTargetTooltip[usage_type](name)
-                        };
-                    } else {
-                        return { value: targetName };
-                    }
-                }
-            )
-        );
-
-        this.targetBucketsOptions.subscribe(
-            options => this.fetchingTargetBucketsOptions(!options.length)
-        );
-
-        this.targetBucket = ko.observable()
-            .extend({
-                required: {
-                    onlyIf: this.connection,
-                    message: () => {
-                        const { endpoint_type = 'AWS' } = this.connection() || {};
-                        return `Please select a ${
-                            getCloudServiceMeta(endpoint_type).subject.toLowerCase()
-                        } from the list`;
-                    }
-                }
-            });
-
-        const namesInUse = ko.pureComputed(
-            () => systemInfo() && systemInfo().pools.map(
-                pool => pool.name
-            )
-        );
-
-        this.resourceName = ko.observableWithDefault(
-            () => {
-                let i = 0;
-                let name = (this.targetBucket() || '').toLowerCase();
-                while (namesInUse().includes(name)) {
-                    name = `${this.targetBucket()}-${++i}`;
-                }
-
-                return name;
-            }
-        )
-            .extend({
-                validation: nameValidationRules(
-                    'resoruce',
-                    namesInUse,
-                    this.targetBucket
-                )
-            });
-
-        this.errors = ko.validation.group([
-            this.connection,
-            this.targetBucket,
-            this.resourceName
-        ]);
     }
 
-    loadBucketsList() {
-        this.fetchingTargetBucketsOptions(true);
-        loadCloudBucketList(this.connection().name);
+    onState([
+        accounts,
+        session,
+        cloudResources,
+        hostPools,
+        form,
+        cloudTargets
+    ]) {
+        if (!accounts || !cloudResources || !hostPools || !form) return;
+
+        const { externalConnections } = accounts[session.user];
+        const connectionOptions = externalConnections
+            .filter(conn => allowedServices.includes(conn.service))
+            .map(conn => {
+                const { icon, selectedIcon } = getCloudServiceMeta(conn.service);
+                return {
+                    label: conn.name,
+                    value: conn.name,
+                    remark: conn.identity,
+                    icon: icon,
+                    selectedIcon: selectedIcon
+                };
+            });
+
+        const fetchingTargetBuckets = cloudTargets.fetching && !cloudTargets.list;
+        const targetBucketsOptions = (cloudTargets.list || [])
+            .map(({ usedBy, name: value }) => {
+                if (usedBy) {
+                    const { kind, name } = usedBy;
+                    return {
+                        value,
+                        disabled: Boolean(usedBy),
+                        tooltip: usedTargetTooltip[kind](name)
+                    };
+                } else {
+                    return { value };
+                }
+            });
+
+        const connection = getFieldValue(form, 'connection');
+        const resourceName = getFieldValue(form, 'resourceName');
+        const isResourceNameTouched = isFieldTouched(form, 'resourceName');
+        const targetBucket = getFieldValue(form, 'targetBucket').toLowerCase();
+        const existingNames = [ ...Object.keys(cloudResources), ...Object.keys(hostPools) ];
+        const nameRestrictionList = validateName(resourceName, existingNames)
+            .map(result => {
+                const css =
+                    (!connection && 'nocss') ||
+                    (result.valid && 'success') ||
+                    (isResourceNameTouched && 'error') ||
+                    'nocss';
+
+                return {
+                    label: result.message,
+                    css: css === 'nocss' ? '' : css
+                };
+            });
+
+        // Load cloud targets if necessary.
+        if (connection && connection !== cloudTargets.connection) {
+            action$.onNext(fetchCloudTargets(connection));
+        }
+
+        // Suggest a name for the resource if the user didn't enter one himself.
+        if (!isResourceNameTouched && targetBucket && resourceName !== targetBucket) {
+            action$.onNext(updateForm(this.formName, { resourceName: targetBucket }, false));
+        }
+
+        const selectedConnection = externalConnections.find(con => con.name === connection);
+        const subject = selectedConnection ? getCloudServiceMeta(selectedConnection.service).subject : '';
+        const targetBucketPlaceholder = `Choose ${subject}`;
+        const targetBucketLabel = `Target ${subject}`;
+        const targetBucketsEmptyMessage = `No ${subject.toLowerCase()}s found`;
+        const targetBucketsErrorMessage = `Cannot retrieve ${subject.toLowerCase()}s`;
+
+
+        this.targetBucketLabel(targetBucketLabel);
+        this.targetBucketsEmptyMessage(targetBucketsEmptyMessage);
+        this.targetBucketsErrorMessage(targetBucketsErrorMessage);
+        this.isTargetBucketsInError(cloudTargets.error);
+        this.connectionOptions(connectionOptions);
+        this.fetchingTargetBuckets(fetchingTargetBuckets);
+        this.targetBucketsOptions(targetBucketsOptions);
+        this.targetBucketPlaceholder(targetBucketPlaceholder);
+        this.existingNames = existingNames;
+        this.nameRestrictionList(nameRestrictionList);
+    }
+
+    onValidate(values, existingNames) {
+        const { connection, targetBucket, resourceName } = values;
+        const errors = {};
+
+        if (!connection) {
+            errors.connection = 'Please select a connection from the list';
+
+        } else {
+            if (!targetBucket) {
+                errors.targetBucket = 'Please select a target bucket';
+            }
+
+            const hasNameErrors = validateName(resourceName, existingNames)
+                .some(rule => !rule.valid);
+
+            if (hasNameErrors) {
+                errors.resourceName = '';
+            }
+        }
+
+        return errors;
+    }
+
+    onSubmit(values) {
+        const { resourceName, connection, targetBucket } = values;
+        const action = createCloudResource(resourceName, connection, targetBucket);
+
+        action$.onNext(action);
+        action$.onNext(closeModal());
     }
 
     onAddNewConnection() {
         action$.onNext(openAddCloudConnectionModal(allowedServices));
     }
 
-    add() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
-            this.wasValidated(true);
-        } else {
-            createCloudResource(this.resourceName(), this.connection().name, this.targetBucket());
-            this.onClose();
-        }
+    onCancel() {
+        action$.onNext(closeModal());
     }
 
-    cancel() {
-        this.onClose();
+    dispose() {
+        action$.onNext(dropCloudTargets());
+        this.form.dispose();
+        super.dispose();
     }
 }
 

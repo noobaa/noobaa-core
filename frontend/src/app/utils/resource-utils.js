@@ -154,17 +154,18 @@ const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
         name: 'aws-s3',
         tooltip: 'AWS S3 resource'
     },
-
     AZURE: {
         name: 'azure',
         tooltip: 'Azure blob resource'
     },
-
+    GOOGLE: {
+        name: 'google-cloud',
+        tooltip: 'Google Cloud resource'
+    },
     S3_COMPATIBLE: {
         name: 'cloud',
         tooltip: 'Generic S3 compatible resource'
     },
-
     NET_STORAGE: {
         name: 'net-storage',
         tooltip: 'NetStorage resource'

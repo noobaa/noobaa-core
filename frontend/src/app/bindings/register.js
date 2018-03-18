@@ -35,4 +35,5 @@ export default function register(ko) {
     registerHandler('trapFocus',            require('./trap-focus').default);
     registerHandler('keysToClicks',         require('./keys-to-clicks').default);
     registerHandler('keyboardNavigation',   require('./keyboard-navigation').default);
+    registerHandler('hidden',               require('./hidden').default);
 }

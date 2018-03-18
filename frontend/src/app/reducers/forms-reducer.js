@@ -7,6 +7,7 @@ import {
     UPDATE_FORM,
     RESET_FORM,
     TOUCH_FORM,
+    UNTOUCH_FORM,
     SET_FORM_VALIDITY,
     SUBMIT_FORM,
     COMPLETE_SUBMIT_FORM,
@@ -102,24 +103,21 @@ function onResetForm(forms, { payload }) {
 }
 
 function onTouchForm(forms, { payload }) {
-    const form = forms[payload.form];
-    if (!form) return forms;
-
-    const touchList = payload.fields || Object.keys(form.fields);
-    const fields = mapValues(
-        form.fields,
-        (field, name) => touchList.includes(name) ?
-            ({ ...field, touched: true }) :
-            field
+    return _toggleFormTouch(
+        forms,
+        payload.form,
+        payload.fields,
+        true
     );
+}
 
-    return {
-        ...forms,
-        [payload.form]: {
-            ...form,
-            fields
-        }
-    };
+function onUntouchForm(forms, { payload }) {
+    return _toggleFormTouch(
+        forms,
+        payload.form,
+        payload.fields,
+        false
+    );
 }
 
 function onSetFormValidity(forms, { payload }) {
@@ -176,9 +174,11 @@ function onSubmitForm(forms, { payload }) {
         field => ({ ...field, touched: true })
     );
 
-    const isValid = form.validated &&
-        Object.keys(form.syncErrors).length === 0 &&
-        Object.keys(form.asyncErrors).length === 0;
+    const isValid =
+        form.validated &&
+        Object.values(form.fields).every(field =>
+            field.validity === 'VALID'
+        );
 
     return {
         ...forms,
@@ -233,6 +233,27 @@ function _initializeValue(value) {
     };
 }
 
+function _toggleFormTouch(forms, formName, fields, touch) {
+    const form = forms[formName];
+    if (!form) return forms;
+
+    const touchList = fields || Object.keys(form.fields);
+    const fieldsState = mapValues(
+        form.fields,
+        (field, name) => touchList.includes(name) ?
+            ({ ...field, touched: touch }) :
+            field
+    );
+
+    return {
+        ...forms,
+        [formName]: {
+            ...form,
+            fields: fieldsState
+        }
+    };
+}
+
 // ------------------------------
 // Exported reducer function
 // ------------------------------
@@ -241,6 +262,7 @@ export default createReducer(initialState, {
     [UPDATE_FORM]: onUpdateForm,
     [RESET_FORM]: onResetForm,
     [TOUCH_FORM]: onTouchForm,
+    [UNTOUCH_FORM]: onUntouchForm,
     [SET_FORM_VALIDITY]: onSetFormValidity,
     [SUBMIT_FORM]: onSubmitForm,
     [COMPLETE_SUBMIT_FORM]: onCompleteSubmitForm,

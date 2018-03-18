@@ -20,6 +20,11 @@ const columns = deepFreeze([
     },
     {
         name: 'externalEntity',
+        label: 'Google Buckets Under Connection',
+        visibleFor: 'GOOGLE'
+    },
+    {
+        name: 'externalEntity',
         label: 'S3 Buckets Under Connection',
         visibleFor: 'S3_COMPATIBLE'
     },

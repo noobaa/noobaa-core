@@ -6,6 +6,7 @@ drop-area {
     .drop-container {
         border: 1px dashed @color7;
         font-size: @font-size3;
+        height: 100%;
 
         &.dragover {
             border-color: @color14;
@@ -24,5 +25,9 @@ drop-area {
         &.disabled, &.disabled.dragover {
             border-color: @color15;
         }
+    }
+
+    &.invalid .drop-container {
+        border-color: @color10;
     }
 }

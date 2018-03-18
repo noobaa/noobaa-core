@@ -5,12 +5,12 @@
         <input type="text"
             class="push-next-half"
             placeholder="Enter endpoint"
-            ko.value="endpoint"
-            ko.validationCss="endpoint"
+            ko.value="form.azureEndpoint"
+            ko.validationCss="form.azureEndpoint"
         />
-        <validation-indicator params="field: endpoint"></validation-indicator>
+        <validation-indicator params="field: form.azureEndpoint"></validation-indicator>
     </div>
-    <validation-message params="field: endpoint"></validation-message>
+    <validation-message params="field: form.azureEndpoint"></validation-message>
 </editor>
 
 <editor params="label: 'Account Name'">
@@ -18,12 +18,12 @@
         <input type="text"
             class="push-next-half"
             placeholder="Enter name"
-            ko.value="accountName"
-            ko.validationCss="accountName"
+            ko.value="form.azureAccountName"
+            ko.validationCss="form.azureAccountName"
         />
-        <validation-indicator params="field: accountName"></validation-indicator>
+        <validation-indicator params="field: form.azureAccountName"></validation-indicator>
     </div>
-    <validation-message params="field: accountName"></validation-message>
+    <validation-message params="field: form.azureAccountName"></validation-message>
 </editor>
 
 <editor params="label: 'Account Key'">
@@ -32,10 +32,10 @@
             class="push-next-half"
             placeholder="Enter key"
             autocomplete="off"
-            ko.value="accountKey"
-            ko.validationCss="accountKey"
+            ko.value="form.azureAccountKey"
+            ko.validationCss="form.azureAccountKey"
         />
-        <validation-indicator params="field: accountKey"></validation-indicator>
+        <validation-indicator params="field: form.azureAccountKey"></validation-indicator>
     </div>
-    <validation-message params="field: accountKey"></validation-message>
+    <validation-message params="field: form.azureAccountKey"></validation-message>
 </editor>

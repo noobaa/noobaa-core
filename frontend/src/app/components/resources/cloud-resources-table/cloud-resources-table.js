@@ -73,6 +73,12 @@ const resourceTypeOptions = [
         selectedIcon: 'azure-colored'
     },
     {
+        value: 'GOOGLE',
+        label: 'Google Cloud',
+        icon: 'google-cloud-dark',
+        selectedIcon: 'google-cloud-colored'
+    },
+    {
         value: 'S3_COMPATIBLE',
         label: 'S3 Compatible',
         icon: 'cloud-dark',

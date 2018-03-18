@@ -148,11 +148,12 @@ export function flatMap(arr, predicate = echo) {
     return arr.reduce(
         (result, item, i) => {
             let mappedValue = predicate(item, i);
-
-            if (Array.isArray(mappedValue)) {
-                result.push(...mappedValue);
-            } else {
-                result.push(mappedValue);
+            if (isDefined(mappedValue)) {
+                if (Array.isArray(mappedValue)) {
+                    result.push(...mappedValue);
+                } else {
+                    result.push(mappedValue);
+                }
             }
 
             return result;

@@ -1,35 +1,71 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './add-cloud-connection-modal.html';
+import awsFieldsTemplate from './aws-fields.html';
+import azureFieldsTemplate from './azure-fields.html';
+import s3CompatibleFieldsTemplate from './s3-compatible-fields.html';
+import netStorageTemplate from './net-storage-fields.html';
+import googleCloudTemplate from './google-cloud-fields.html';
 import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
-import { isDefined, mapValues, filterValues } from 'utils/core-utils';
-import { getFormValues, getFieldValue, isFormValid, getFieldError } from 'utils/form-utils';
-import { addExternalConnection } from 'action-creators';
-import services from './services';
+import { deepFreeze, pick, isUndefined } from 'utils/core-utils';
+import { getFieldValue, getFieldError } from 'utils/form-utils';
+import { isUri, readFileAsText } from 'utils/browser-utils';
+import { all, sleep } from 'utils/promise-utils';
+import { addExternalConnection, updateForm, untouchForm, closeModal } from 'action-creators';
+import { api } from 'services';
 import { state$, action$ } from 'state';
 
-const formName = 'addCloudConnection';
 const nameRegExp = /^Connection (\d+)$/;
 const defaultService = 'AWS';
-const formTemplates = mapValues(services, spec => spec.template);
+const gcEndpoint = 'www.googleapis.com';
+const gcValidateFailureMessage = 'Try to regenerate and upload a new file';
 
-function _getAllowedServices(allowedServices) {
-    if (!allowedServices) return services;
-    return filterValues(
-        services,
-        (_, service) => allowedServices.includes(service)
-    );
-}
+const serviceOptions = deepFreeze([
+    {
+        value: 'AWS',
+        label: 'AWS S3',
+        icon: 'aws-s3-dark',
+        selectedIcon: 'aws-s3-colored',
+        remark: 'https://s3.amazonaws.com'
+    },
+    {
+        value: 'AZURE',
+        label: 'Microsoft Azure',
+        icon: 'azure-dark',
+        selectedIcon: 'azure-colored',
+        remark: 'https://blob.core.windows.net'
+    },
+    {
+        value: 'GOOGLE',
+        label: 'Google Cloud',
+        icon: 'google-cloud-dark',
+        selectedIcon: 'google-cloud-colored',
+        remark: gcEndpoint
+    },
+    {
+        value: 'S3_COMPATIBLE',
+        label: 'Generic S3 Compatible Service',
+        icon: 'cloud-dark',
+        selectedIcon: 'cloud-colored',
+        remark: 'No default endpoint'
+    },
+    {
+        value: 'NET_STORAGE',
+        label: 'Akamai NetStorage',
+        icon: 'net-storage',
+        remark: 'No default endpoint'
+    }
+]);
 
-function _getServiceOptions(services) {
-    return Object.entries(services)
-        .map(pair => ({
-            ...pair[1].option,
-            value: pair[0]
-        }));
-}
+const templates = deepFreeze({
+    AWS: awsFieldsTemplate,
+    AZURE: azureFieldsTemplate,
+    S3_COMPATIBLE: s3CompatibleFieldsTemplate,
+    NET_STORAGE: netStorageTemplate,
+    GOOGLE: googleCloudTemplate
+});
 
 function _suggestConnectionName(existing) {
     const suffix = existing
@@ -47,107 +83,124 @@ function _suggestConnectionName(existing) {
     return `Connection ${suffix + 1}`;
 }
 
-function _getServiceFormName(service) {
-    return `${formName}.${service}`;
+function _getEmptyObj() {
+    return {};
 }
 
-class addCloudConnectionModalViewModel extends Observer {
-    constructor({ onClose, allowedServices = Object.keys(services) }){
+class AddCloudConnectionModalViewModel extends Observer  {
+    formName = this.constructor.name;
+    allowedServices = null;
+    service = defaultService;
+    serviceOptions = null;
+    existingConnections = null;
+    form = null;
+    subTemplate = ko.observable();
+    isFormInitialized = ko.observable();
+    globalError = ko.observable();
+
+    constructor({ allowedServices = serviceOptions.map(opt => opt.value) }){
         super();
 
-        this.close = onClose;
-        this.allowedServices = _getAllowedServices(allowedServices);
-        this.serviceOptions = _getServiceOptions(this.allowedServices);
-        this.fieldsTemplate = ko.observable();
-        this.existingConnections = null;
-        this.selectedService = '';
-        this.formVM = null;
-        this.serviceForm = null;
-        this.subTemplate = ko.observable();
-        this.areFormsReady = ko.observable();
-        this.areFormsValid = ko.observable();
-        this.showGlobalError = ko.observable();
-        this.globalError = ko.observable();
+        this.serviceOptions = serviceOptions
+            .filter(opt => allowedServices.includes(opt.value));
 
         this.observe(
             state$.getMany(
                 'accounts',
                 ['session', 'user'],
-                'forms'
+                ['forms', this.constructor.name]
             ),
             this.onState
         );
     }
 
-    onState([ accounts, user, forms ]) {
+    onState([accounts, user, form]) {
         if (!accounts || !user) {
-            this.areFormsReady(false);
-            this.areFormsValid(false);
+            this.isFormInitialized(false);
             return;
         }
 
-        this.existingConnections = accounts[user].externalConnections;
+        if (form) {
+            const service = getFieldValue(form, 'service');
+            if (this.service !== service) {
+                this.service = service;
+                this.subTemplate(templates[service]);
 
-        const formState = forms[formName];
-        const service = formState ? getFieldValue(formState, 'service') : defaultService;
-        const serviceFormName = _getServiceFormName(service);
-        const serviceFormState = formState && forms[serviceFormName];
-
-        if (formState && serviceFormState) {
-            const globalError = getFieldError(serviceFormState, 'global');
-            this.areFormsValid(isFormValid(formState) && isFormValid(serviceFormState));
-            this.showGlobalError(isDefined(globalError));
-            this.globalError(globalError);
-
-            // Change the sub template only if the service actualy changed
-            // preventing unnecessary subTree DOM changes.
-            if (!this.subTemplate() || this.subTemplate().service !== service) {
-                this.subTemplate({
-                    service: service,
-                    html: formTemplates[service],
-                    data: this.serviceForms[service]
-                });
+                // Clear the touch state of the form whenever the
+                // service changes.
+                action$.onNext(untouchForm(this.formName));
             }
 
-            if (formState.submitted && serviceFormState.submitted) {
-                this.onSubmit({
-                    ...getFormValues(formState),
-                    ...getFormValues(serviceFormState)
-                });
-            }
+            this.globalError(getFieldError(form, 'global'));
 
         } else {
-            this.areFormsValid(false);
-            this.globalError('');
-
+            const existingConnections = accounts[user].externalConnections;
             this.form = new FormViewModel({
-                name: formName,
+                name: this.formName,
                 fields: {
-                    connectionName: _suggestConnectionName(this.existingConnections),
-                    service: defaultService
+                    // Common fields
+                    connectionName: _suggestConnectionName(existingConnections),
+                    service: this.service,
+
+                    // AWS fields.
+                    awsEndpoint: 'https://s3.amazonaws.com',
+                    awsAccessKey: '',
+                    awsSecretKey: '',
+
+                    // Azure fields.
+                    azureEndpoint: 'https://blob.core.windows.net',
+                    azureAccountName: '',
+                    azureAccountKey: '',
+
+                    // S3 compatible fileds.
+                    s3Endpoint: '',
+                    s3AccessKey: '',
+                    s3SecretKey: '',
+
+                    // Net Storage fileds.
+                    nsHostname: 'nsu.akamaihd.net',
+                    nsStorageGroup: '',
+                    nsKeyName: '',
+                    nsCPCode: '',
+                    nsAuthKey: '',
+
+                    // Google Cloud field.
+                    gcKeysFileName: '',
+                    gcKeysJson: ''
+
                 },
-                onValidate: this.onValidate.bind(this)
+                asyncTriggers: [
+                    'service',
+                    'awsEndpoint',
+                    'awsAccessKey',
+                    'awsSecretKey',
+                    'azureEndpoint',
+                    'azureAccountName',
+                    'azureAccountKey',
+                    's3Endpoint',
+                    's3AccessKey',
+                    's3SecretKey',
+                    'nsHostname',
+                    'nsStorageGroup',
+                    'nsKeyName',
+                    'nsCPCode',
+                    'nsAuthKey',
+                    'gcKeysFileName',
+                    'gcKeysJson'
+                ],
+                onValidate: values => this.onValidate(values, existingConnections),
+                onValidateAsync: this.onValidateAsync.bind(this),
+                onSubmit: this.onSubmit.bind(this)
             });
 
-            this.serviceForms = mapValues(
-                this.allowedServices,
-                ({ form }, service) => new FormViewModel({
-                    name: _getServiceFormName(service),
-                    ...form,
-                    onValidate: values => form.onValidate(
-                        values,
-                        this.existingConnections
-                    )
-                })
-            );
+            this.subTemplate(templates[defaultService]);
+            this.globalError('');
+            this.isFormInitialized(true);
         }
-
-        this.areFormsReady(true);
     }
 
-    onValidate(params) {
-        const { connectionName } = params;
-        const { existingConnections } = this;
+    onValidate(values, existingConnections) {
+        const { connectionName, service } = values;
         const errors = {};
 
         if (!connectionName) {
@@ -161,36 +214,423 @@ class addCloudConnectionModalViewModel extends Observer {
             errors.connectionName = 'Name already in use';
         }
 
-        return errors;
+        const serviceValidate =
+            (service === 'AWS' && this.awsOnValidate) ||
+            (service === 'AZURE' && this.azureOnValidate) ||
+            (service === 'S3_COMPATIBLE' && this.s3OnValidate) ||
+            (service === 'NET_STORAGE' && this.nsOnValidate) ||
+            (service === 'GOOGLE' && this.gcOnValidate) ||
+            _getEmptyObj;
+
+        return Object.assign(
+            errors,
+            serviceValidate(values, existingConnections)
+        );
     }
 
-    submitForms() {
-        const { form, serviceForms } = this;
-        form.submit();
-        serviceForms[form.service()].submit();
+    async onValidateAsync(values) {
+        const { service } = values;
+        const serviceValidateAsync =
+            (service === 'AWS' && this.awsOnValidateAsync) ||
+            (service === 'AZURE' && this.azureOnValidateAsync) ||
+            (service === 'S3_COMPATIBLE' && this.s3OnValidateAsync) ||
+            (service === 'NET_STORAGE' && this.nsOnValidateAsync) ||
+            (service === 'GOOGLE' && this.gcOnValidateAsync) ||
+            _getEmptyObj;
+
+
+        return await serviceValidateAsync(values);
     }
 
     onSubmit(values) {
-        const { connectionName, service, ...params } = values;
+        const { connectionName, service } = values;
+        const fields =
+            (service === 'AWS' && ['awsEndpoint', 'awsAccessKey', 'awsSecretKey']) ||
+            (service === 'AZURE' && ['azureEndpoint', 'azureAccountName', 'azureAccountKey']) ||
+            (service === 'S3_COMPATIBLE' && ['s3Endpoint', 's3AccessKey', 's3SecretKey']) ||
+            (service === 'NET_STORAGE' && ['nsHostname', 'nsStorageGroup', 'nsKeyName', 'nsCPCode', 'nsAuthKey']) ||
+            (service === 'GOOGLE' && ['gcKeysJson']);
+
+        const params = {
+            endpoint: gcEndpoint,
+            ...pick(values, fields)
+        };
+
         action$.onNext(addExternalConnection(connectionName, service, params));
-        this.close();
+        action$.onNext(closeModal());
     }
 
     onCancel() {
-        this.close();
+        action$.onNext(closeModal());
+    }
+
+    // --------------------------------------
+    // AWS related methods:
+    // --------------------------------------
+    awsOnValidate(values, existingConnections) {
+        const errors = {};
+        const { awsEndpoint, awsAccessKey, awsSecretKey } = values;
+
+        if (!isUri(awsEndpoint)) {
+            errors.awsEndpoint = 'Please enter valid AWS endpoint URI';
+        }
+
+        if (!awsAccessKey) {
+            errors.awsAccessKey = 'Please enter an AWS access key';
+
+        } else {
+            const alreadyExists = existingConnections
+                .some(connection =>
+                    connection.service === 'AWS' &&
+                    connection.awsEndpoint === awsEndpoint &&
+                    connection.identity === awsAccessKey
+                );
+
+            if (alreadyExists) {
+                errors.awsAccessKey = 'A similar connection already exists';
+            }
+        }
+
+        if (!awsSecretKey) {
+            errors.awsSecretKey = 'Please enter an AWS secret key';
+        }
+
+        return errors;
+    }
+
+    async awsOnValidateAsync(values) {
+        const errors = {};
+        const { awsEndpoint, awsAccessKey, awsSecretKey } = values;
+        const { status, error } = await api.account.check_external_connection({
+            endpoint_type: 'AWS',
+            endpoint: awsEndpoint,
+            identity: awsAccessKey,
+            secret: awsSecretKey
+        });
+
+        switch (status) {
+            case 'TIMEOUT': {
+                errors.awsEndpoint = 'AWS connection timed out';
+                break;
+            }
+            case 'INVALID_ENDPOINT': {
+                errors.awsEndpoint = 'Please enter a valid AWS endpoint';
+                break;
+            }
+            case 'INVALID_CREDENTIALS': {
+                errors.awsSecretKey = errors.awsAccessKey = 'Credentials does not match';
+                break;
+            }
+            case 'NOT_SUPPORTED': {
+                errors.awsAccessKey = 'Account type is not supported';
+                break;
+            }
+            case 'TIME_SKEW': {
+                errors.awsAccessKey = 'Time difference with the server is too large';
+                break;
+            }
+            case 'UNKNOWN_FAILURE': {
+               // Using empty message to mark the fields as invalid.
+                errors.awsEndpoint = errors.awsAccessKey = errors.awsSecretKey = '';
+                errors.global = error.message;
+                break;
+            }
+        }
+
+        return errors;
+    }
+
+    // --------------------------------------
+    // Azure related methods:
+    // --------------------------------------
+    azureOnValidate(values, existingConnections) {
+        const { azureEndpoint, azureAccountName, azureAccountKey } = values;
+        const errors = {};
+
+        if (!isUri(azureEndpoint)) {
+            errors.azureEndpoint = 'Please enter valid Azure endpoint URI';
+        }
+
+        if (!azureAccountName) {
+            errors.azureAccountName = 'Please enter an Azure acount name';
+
+        } else {
+            const alreadyExists = existingConnections
+                .some(connection =>
+                    connection.service === 'AZURE' &&
+                    connection.endpoint === azureEndpoint &&
+                    connection.identity === azureAccountName
+                );
+
+            if (alreadyExists) {
+                errors.azureAccountName = 'A similar connection already exists';
+            }
+        }
+
+        if (!azureAccountKey) {
+            errors.azureAccountKey = 'Please enter an Azure account key';
+        }
+
+        return errors;
+    }
+
+    async azureOnValidateAsync(values) {
+        const errors = {};
+        const { azureEndpoint, azureAccountName, azureAccountKey } = values;
+        const { status, error } = await api.account.check_external_connection({
+            endpoint_type: 'AZURE',
+            endpoint: azureEndpoint,
+            identity: azureAccountName,
+            secret: azureAccountKey
+        });
+
+        switch (status) {
+            case 'TIMEOUT': {
+                errors.azureEndpoint = 'Azure connection timed out';
+                break;
+            }
+            case 'INVALID_ENDPOINT': {
+                errors.azureEndpoint = 'Please enter a valid Azure endpoint';
+                break;
+            }
+            case 'INVALID_CREDENTIALS': {
+                errors.azureAccountName = errors.azureAccountKey = 'Credentials does not match';
+                break;
+            }
+            case 'NOT_SUPPORTED': {
+                errors.azureAccountName = 'Account type is not supported';
+                break;
+            }
+            case 'TIME_SKEW': {
+                errors.azureAccountName = 'Time difference with the server is too large';
+                break;
+            }
+            case 'UNKNOWN_FAILURE': {
+               // Using empty message to mark the fields as invalid.
+                errors.azureEndpoint = errors.azureAccountName = errors.azureAccountKey = '';
+                errors.global = error.message;
+                break;
+            }
+        }
+
+        return errors;
+    }
+
+    // --------------------------------------
+    // S3 Compatible related methods:
+    // --------------------------------------
+    s3OnValidate(values, existingConnections) {
+        const errors = {};
+        const { s3Endpoint, s3AccessKey, s3SecretKey } = values;
+
+        if (!isUri(s3Endpoint)) {
+            errors.s3Endpoint = 'Please enter valid S3 compatible endpoint URI';
+        }
+
+        if (!s3AccessKey) {
+            errors.s3AccessKey = 'Please enter an access key';
+
+        } else {
+            const alreadyExists = existingConnections
+                .some(connection =>
+                    connection.service === 'S3_COMPATIBLE' &&
+                    connection.endpoint === s3Endpoint &&
+                    connection.identity === s3AccessKey
+                );
+
+            if (alreadyExists) {
+                errors.s3AccessKey = 'A similar connection already exists';
+            }
+        }
+
+        if (!s3SecretKey) {
+            errors.s3SecretKey = 'Please enter a secret key';
+        }
+
+        return errors;
+    }
+
+    async s3OnValidateAsync(values) {
+        const errors = {};
+        const { s3Endpoint, s3AccessKey, s3SecretKey } = values;
+        const { status, error } = await api.account.check_external_connection({
+            endpoint_type: 'AWS',
+            endpoint: s3Endpoint,
+            identity: s3AccessKey,
+            secret: s3SecretKey
+        });
+
+        switch (status) {
+            case 'TIMEOUT': {
+                errors.s3Endpoint = 'S3 connection timed out';
+                break;
+            }
+            case 'INVALID_ENDPOINT': {
+                errors.s3Endpoint = 'Please enter a valid S3 compatible endpoint';
+                break;
+            }
+            case 'INVALID_CREDENTIALS': {
+                errors.s3AccessKey = errors.s3SecretKey = 'Credentials does not match';
+                break;
+            }
+            case 'NOT_SUPPORTED': {
+                errors.s3AccessKey = 'Account type is not supported';
+                break;
+            }
+            case 'TIME_SKEW': {
+                errors.s3AccessKey = 'Time difference with the server is too large';
+                break;
+            }
+            case 'UNKNOWN_FAILURE': {
+               // Using empty message to mark the fields as invalid.
+                errors.s3Endpoint = errors.s3AccessKey = errors.s3SecretKey = '';
+                errors.global = error.message;
+                break;
+            }
+        }
+
+        return errors;
+    }
+
+    // --------------------------------------
+    // Net Storage related methods:
+    // --------------------------------------
+    nsOnValidate(values) {
+        const errors = {};
+        const { nsStorageGroup, nsKeyName, nsCPCode, nsAuthKey } = values;
+
+        if (!nsStorageGroup) {
+            errors.nsStorageGroup = 'Please enter a valid storage group';
+        }
+
+        if (!nsKeyName) {
+            errors.nsKeyName = 'Enter a valid key name';
+        }
+
+        if (!Number(nsCPCode) || nsCPCode.length !== 6 ) {
+            errors.nsCPCode = 'Enter a 6 digit CP Code';
+        }
+
+        if (!nsAuthKey) {
+            errors.nsAuthKey = 'Please enter a valid authentication key';
+        }
+
+        return errors;
+    }
+
+    async nsOnValidateAsync(values) {
+        const errors = {};
+        const { nsHostname, nsStorageGroup, nsKeyName, nsCPCode, nsAuthKey } = values;
+        const { status } = await api.account.check_external_connection({
+            endpoint_type: 'NET_STORAGE',
+            endpoint: `${nsStorageGroup}-${nsHostname}`,
+            identity: nsKeyName,
+            secret: nsAuthKey,
+            cp_code: nsCPCode
+        });
+
+        switch (status) {
+            case 'UNKNOWN_FAILURE': {
+                // Using empty message to mark the fields as invalid.
+                errors.nsStorageGroup =
+                    errors.nsKeyName =
+                    errors.nsCPCode =
+                    errors.nsAuthKey =
+                    errors.global = '';
+                break;
+            }
+        }
+
+        return errors;
+    }
+
+    // --------------------------------------
+    // Google Cloud related methods:
+    // --------------------------------------
+    gcOnDropKeysFile(vm, evt) {
+        const [file] = evt.dataTransfer.files;
+        return this._gcOnKeysFile(file);
+    }
+
+    async gcOnSelectKeysFile(vm, evt) {
+        const [file] = evt.target.files;
+        return await this._gcOnKeysFile(file);
+    }
+
+    gcOnValidate(values, existingConnections) {
+        const errors = {};
+        const { gcKeysJson } = values;
+
+        if (!gcKeysJson) {
+            errors.gcKeysJson = 'Please upload a JSON keys file';
+        } else {
+            try {
+                const { private_key_id: id } = JSON.parse(gcKeysJson);
+                if (isUndefined(id)) {
+                    errors.gcKeysJson = gcValidateFailureMessage;
+
+                } else {
+                    const alreadyExists = existingConnections
+                        .some(connection =>
+                            connection.service === 'GOOGLE' &&
+                            connection.identity === id
+                        );
+
+                    if (alreadyExists) {
+                        errors.gcKeysJson = 'A similar connection already exists';
+                    }
+                }
+            } catch (_) {
+                errors.gcKeysJson = gcValidateFailureMessage;
+            }
+        }
+
+        return errors;
+    }
+
+    async gcOnValidateAsync(values) {
+        const errors = {};
+        const { gcKeysJson } = values;
+        const { private_key_id: id } = JSON.parse(gcKeysJson);
+        const [{ status, error }] = await all(
+            api.account.check_external_connection({
+                endpoint_type: 'GOOGLE',
+                endpoint: gcEndpoint,
+                identity: id,
+                secret: gcKeysJson
+            }),
+            sleep(1000)
+        );
+
+        switch (status) {
+            case 'INVALID_CREDENTIALS': {
+                errors.gcKeysJson = gcValidateFailureMessage;
+                break;
+            }
+            case 'UNKNOWN_FAILURE': {
+               // Using empty message to mark the fields as invalid.
+                errors.gcPrivateKeyId = errors.gcKeysJson = '';
+                errors.global = error.message;
+                break;
+            }
+        }
+
+        return errors;
+    }
+
+    async _gcOnKeysFile(file) {
+        const gcKeysFileName = file.name;
+        const gcKeysJson = await readFileAsText(file);
+        action$.onNext(updateForm(this.formName, { gcKeysFileName, gcKeysJson }));
     }
 
     dispose() {
         this.form && this.form.dispose();
-
-        Object.values(this.serviceForms || {})
-            .forEach(form => form.dispose());
-
         super.dispose();
     }
 }
 
 export default {
-    viewModel: addCloudConnectionModalViewModel,
+    viewModel: AddCloudConnectionModalViewModel,
     template: template
 };

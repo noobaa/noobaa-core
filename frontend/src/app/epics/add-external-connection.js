@@ -13,9 +13,9 @@ function _getApiRequestParams(payload) {
             return {
                 name,
                 endpoint_type: service,
-                endpoint: params.endpoint,
-                identity: params.accessKey,
-                secret: params.secretKey
+                endpoint: params.awsEndpoint,
+                identity: params.awsAccessKey,
+                secret: params.awsSecretKey
             };
         }
 
@@ -23,20 +23,30 @@ function _getApiRequestParams(payload) {
             return {
                 name,
                 endpoint_type: service,
-                endpoint: params.endpoint,
-                identity: params.accountName,
-                secret: params.accountKey
+                endpoint: params.azureEndpoint,
+                identity: params.azureAccountName,
+                secret: params.azureAccountKey
             };
         }
 
         case 'NET_STORAGE': {
             return {
                 name,
-                endpoint_type: 'NET_STORAGE',
-                endpoint: `${params.storageGroup}-${params.hostname}`,
-                identity: params.keyName,
-                secret: params.authKey,
-                cp_code: params.cpCode
+                endpoint_type: service,
+                endpoint: `${params.nsStorageGroup}-${params.nsHostname}`,
+                identity: params.nsKeyName,
+                secret: params.nsAuthKey,
+                cp_code: params.nsCPCode
+            };
+        }
+        case 'GOOGLE': {
+            const { private_key_id } = JSON.parse(params.gcKeysJson);
+            return {
+                name,
+                endpoint_type: service,
+                endpoint: params.endpoint,
+                identity: private_key_id,
+                secret: params.gcKeysJson
             };
         }
 

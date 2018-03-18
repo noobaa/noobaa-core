@@ -23,6 +23,7 @@ export const INIT_FORM = 'INIT_FORM';
 export const UPDATE_FORM = 'UPDATE_FORM';
 export const RESET_FORM = 'RESET_FORM';
 export const TOUCH_FORM = 'TOUCH_FORM';
+export const UNTOUCH_FORM = 'UNTOUCH_FORM';
 export const SET_FORM_VALIDITY = 'SET_FORM_VALIDITY';
 export const SUBMIT_FORM = 'SUBMIT_FORM';
 export const COMPLETE_SUBMIT_FORM = 'COMPLETE_SUBMIT_FORM';

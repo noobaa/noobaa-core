@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { isDefined, isFunction, mapValues, noop, pick } from 'utils/core-utils';
-import { getFormValues } from 'utils/form-utils';
+import { getFormValues, isFormValid } from 'utils/form-utils';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
@@ -51,14 +51,7 @@ export default class FormViewModel extends Observer {
         );
 
         this.isValid = ko.pureComputed(() => {
-            if (!state()) return false;
-
-            const { validated, syncErrors, asyncErrors, submitErrors } = state();
-            return true &&
-                validated &&
-                Object.keys(syncErrors).length === 0 &&
-                Object.keys(asyncErrors).length === 0 &&
-                Object.keys(submitErrors).length === 0;
+            return Boolean(state()) && isFormValid(state());
         });
 
         this.isDirty = ko.pureComputed(

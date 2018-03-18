@@ -226,7 +226,6 @@ export function openInNewTab(url, name) {
     } else {
         global.open(url);
     }
-
 }
 
 export function createBroadcastChannel(name) {
@@ -240,4 +239,13 @@ export function getDocumentMetaTag(name) {
 
 export function getWindowName() {
     return global.name || (global.name = `NooBaa:${randomString()}`);
+}
+
+export function readFileAsText(file) {
+    const reader = new FileReader();
+    return new Promise((resolve, reject) => {
+        reader.onload = evt => resolve(evt.target.result);
+        reader.onerror = err => reject(err);
+        reader.readAsText(file);
+    });
 }

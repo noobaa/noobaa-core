@@ -590,7 +590,12 @@ function get_system_roles(req) {
  *
  */
 
-function add_external_connection(req) {
+async function add_external_connection(req) {
+    const res = await check_external_connection(req);
+    if (res.status !== 'SUCCESS') {
+        throw new RpcError(res.error.code, res.error.message);
+    }
+
     var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
@@ -600,7 +605,7 @@ function add_external_connection(req) {
 
     // TODO: Maybe we should check differently regarding NET_STORAGE connections
     //Verify the exact connection does not exist
-    let conn = _.find(req.account.sync_credentials_cache, function(cred) {
+    const conn = _.find(req.account.sync_credentials_cache, function(cred) {
         return cred.endpoint === req.rpc_params.endpoint &&
             cred.endpoint_type === req.rpc_params.endpoint_type &&
             cred.access_key === req.rpc_params.identity;
@@ -615,26 +620,22 @@ function add_external_connection(req) {
     };
     updates.sync_credentials_cache.push(info);
 
-    return system_store.make_changes({
-            update: {
-                accounts: [updates]
-            }
-        }).then(
-            val => {
-                Dispatcher.instance().activity({
-                    event: 'account.connection_create',
-                    level: 'info',
-                    system: req.system && req.system._id,
-                    actor: req.account && req.account._id,
-                    account: req.account._id,
-                    desc: `Connection "${info.name}" was created by ${req.account && req.account.email}.
-                    \nEndpoint: ${req.rpc_params.endpoint}
-                    \nAccess key: ${req.rpc_params.identity}`,
-                });
-                return val;
-            }
-        )
-        .return();
+    await system_store.make_changes({
+        update: {
+            accounts: [updates]
+        }
+    });
+
+    Dispatcher.instance().activity({
+        event: 'account.connection_create',
+        level: 'info',
+        system: req.system && req.system._id,
+        actor: req.account && req.account._id,
+        account: req.account._id,
+        desc: `Connection "${info.name}" was created by ${req.account && req.account.email}.
+            \nEndpoint: ${req.rpc_params.endpoint}
+            \nAccess key: ${req.rpc_params.identity}`,
+    });
 }
 
 function check_external_connection(req) {
@@ -755,17 +756,17 @@ async function check_google_connection(params) {
     try {
         const key_file = JSON.parse(params.secret);
         const credentials = _.pick(key_file, 'client_email', 'private_key');
-        const storage = new GoogleStorage({ credentials, projectId: key_file.access_key });
+        const storage = new GoogleStorage({ credentials, projectId: key_file.project_id });
         await storage.getBuckets();
         return { status: 'SUCCESS' };
     } catch (err) {
-        let status = 'UNKNOWN_FAILURE';
-        if (err.code === 403) status = 'INVALID_CREDENTIALS';
+        // Currently we treat all errors as invalid credientials errors,
+        // because all information should exists in the keys file.
         return {
-            status,
+            status: 'INVALID_CREDENTIALS',
             error: {
                 code: String(err.code),
-                message: err.message
+                message: String(err.message)
             }
         };
     }

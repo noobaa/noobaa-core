@@ -15,6 +15,12 @@ const serviceToMeta = deepFreeze({
         icon: 'azure-dark',
         selectedIcon: 'azure-colored'
     },
+    GOOGLE: {
+        displayName: 'Google Cloud Service',
+        subject: 'Bucket',
+        icon: 'google-cloud-dark',
+        selectedIcon: 'google-cloud-colored'
+    },
     S3_COMPATIBLE: {
         displayName: 'S3 Compatible service',
         subject: 'Bucket',

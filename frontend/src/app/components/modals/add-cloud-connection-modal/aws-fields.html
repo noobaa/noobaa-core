@@ -5,12 +5,12 @@
         <input type="text"
             class="push-next-half"
             placeholder="Enter Endpoint"
-            ko.value="endpoint"
-            ko.validationCss="endpoint"
+            ko.value="form.awsEndpoint"
+            ko.validationCss="form.awsEndpoint"
         />
-        <validation-indicator params="field: endpoint"></validation-indicator>
+        <validation-indicator params="field: form.awsEndpoint"></validation-indicator>
     </div>
-    <validation-message params="field: endpoint"></validation-message>
+    <validation-message params="field: form.awsEndpoint"></validation-message>
 </editor>
 
 <editor params="label: 'Access Key'">
@@ -18,12 +18,12 @@
         <input type="text"
             class="push-next-half"
             placeholder="Enter Key"
-            ko.value="accessKey"
-            ko.validationCss="accessKey"
+            ko.value="form.awsAccessKey"
+            ko.validationCss="form.awsAccessKey"
         />
-        <validation-indicator params="field: accessKey"></validation-indicator>
+        <validation-indicator params="field: form.awsAccessKey"></validation-indicator>
     </div>
-    <validation-message params="field: accessKey"></validation-message>
+    <validation-message params="field: form.awsAccessKey"></validation-message>
 </editor>
 
 <editor params="label: 'Secret Key'">
@@ -32,10 +32,10 @@
             class="push-next-half"
             placeholder="Enter Secret"
             autocomplete="off"
-            ko.value="secretKey"
-            ko.validationCss="secretKey"
+            ko.value="form.awsSecretKey"
+            ko.validationCss="form.awsSecretKey"
         />
-        <validation-indicator params="field: secretKey"></validation-indicator>
+        <validation-indicator params="field: form.awsSecretKey"></validation-indicator>
     </div>
-    <validation-message params="field: secretKey"></validation-message>
+    <validation-message params="field: form.awsSecretKey"></validation-message>
 </editor>

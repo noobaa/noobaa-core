@@ -5,6 +5,7 @@ import {
     UPDATE_FORM,
     RESET_FORM,
     TOUCH_FORM,
+    UNTOUCH_FORM,
     SET_FORM_VALIDITY,
     SUBMIT_FORM,
     COMPLETE_SUBMIT_FORM,
@@ -35,6 +36,13 @@ export function resetForm(form) {
 export function touchForm(form, fields) {
     return {
         type: TOUCH_FORM,
+        payload: { form, fields }
+    };
+}
+
+export function untouchForm(form, fields) {
+    return {
+        type: UNTOUCH_FORM,
         payload: { form, fields }
     };
 }

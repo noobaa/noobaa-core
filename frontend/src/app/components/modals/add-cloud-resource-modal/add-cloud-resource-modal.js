@@ -20,7 +20,8 @@ const usedTargetTooltip = deepFreeze({
 const allowedServices = deepFreeze([
     'AWS',
     'S3_COMPATIBLE',
-    'AZURE'
+    'AZURE',
+    'GOOGLE'
 ]);
 
 class AddCloudResourceModalViewModel extends BaseViewModel {

@@ -22,6 +22,12 @@ import {
 
 const formName = 'createNSResourceForm';
 
+const allowedServices = deepFreeze([
+    'AWS',
+    'S3_COMPATIBLE',
+    'AZURE'
+]);
+
 class CreateNamespaceResourceModalViewModel extends Observer {
     fetchingTargets = ko.observable();
     targetOptions = ko.observableArray();
@@ -84,12 +90,13 @@ class CreateNamespaceResourceModalViewModel extends Observer {
 
         const { externalConnections } = accounts[session.user];
         const connectionOptions = externalConnections
-            .map(conn => {
-                const { icon, selectedIcon } = getCloudServiceMeta(conn.service);
+            .filter(connection => allowedServices.includes(connection.service))
+            .map(connection => {
+                const { icon, selectedIcon } = getCloudServiceMeta(connection.service);
                 return {
-                    label: conn.name,
-                    value: conn.name,
-                    remark: conn.identity,
+                    label: connection.name,
+                    value: connection.name,
+                    remark: connection.identity,
                     icon: icon,
                     selectedIcon: selectedIcon
                 };
@@ -187,7 +194,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
     }
 
     onAddNewConnection() {
-        action$.onNext(openAddCloudConnectionModal());
+        action$.onNext(openAddCloudConnectionModal(allowedServices));
     }
 
     dispose() {

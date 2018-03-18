@@ -1,0 +1,50 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<p class="push-prev push-next-half">
+    Service Account Keys:
+</p>
+
+<div class="column greedy gc-file-selector">
+    <drop-area class="greedy"
+        params="onDrop: gcOnDropKeysFile"
+        ko.validationCss="form.gcKeysJson"
+    >
+        <div class="column content-middle" ko.visible="!form.gcKeysJson()">
+            <p class="push-next">
+                Drag Json file here or
+            </p>
+            <label class="btn alt-colors">
+                Browse
+                <input type="file" class="hide"
+                    ko.attr.accept="'.json'",
+                    ko.event.change="gcOnSelectKeysFile"
+                />
+            </label>
+        </div>
+        <div class="column content-middle" ko.visible="form.gcKeysJson()">
+            <p class="row content-middle push-next-half" ko.visible="form.gcKeysJson.isValidating">
+                <svg-icon class="icon-small push-next-half spin" params="name: 'in-progress'"></svg-icon>
+                Validating "{{form.gcKeysFileName}}"
+            </p>
+
+            <p class="row content-middle push-next-half" ko.visible="form.gcKeysJson.isValid">
+                <svg-icon class="icon-small push-next-half success" params="name: 'healthy'"></svg-icon>
+                "{{form.gcKeysFileName}}" validated successfully
+            </p>
+            <p class="row content-middle push-next-half" ko.visible="form.gcKeysJson.isInvalid">
+                <svg-icon class="icon-small push-next-half error" params="name: 'problem'"></svg-icon>
+                "{{form.gcKeysFileName}}" validation failed
+            </p>
+            <label class="link alt-colors" ko.hidden="form.isValidating">
+                Choose another file
+                <input type="file" class="hide"
+                    ko.attr.accept="'.json'",
+                    ko.event.change="gcOnSelectKeysFile"
+                    ko.disable="form.isValidating"
+                />
+            </label>
+        </div>
+    </drop-area>
+
+    <validation-message params="field: form.gcKeysJson"></validation-message>
+</div>

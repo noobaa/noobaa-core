@@ -177,13 +177,6 @@ config.MIRROR_WRITER_MARKER_STORE_PERIOD = 10 * 60000; // store markers every 10
 // CHUNK CONFIG //
 //////////////////
 
-// SPECIAL
-config.SPECIAL_CHUNK_REPLICA_MULTIPLIER = 2;
-config.SPECIAL_CHUNK_CONTENT_TYPES = [
-    'video/mp4',
-    'video/webm',
-];
-
 // SPLIT
 config.CHUNK_SPLIT_AVG_CHUNK = 4 * 1024 * 1024;
 config.CHUNK_SPLIT_DELTA_CHUNK = config.CHUNK_SPLIT_AVG_CHUNK / 4;

@@ -101,13 +101,11 @@ function get_cloud_block_ids(obj_mapping) {
 }
 
 
-function verify_object_health(expected_num_blocks, bucket_name, pool_names, cloud_pool, video_optimization, test_corruption) {
+function verify_object_health(expected_num_blocks, bucket_name, pool_names, cloud_pool, test_corruption) {
     console.log(`verifying object ${TEST_CTX.object_key} health. expected num of blocks: ${expected_num_blocks}`);
     let num_blocks = 0;
     let num_parts = 0;
     let num_blocks_per_part = 0;
-    let expected_num_vid_blocks = video_optimization ? expected_num_blocks * 4 : 0;
-    let num_vid_blocks = 0;
     let obj_is_invalid = true;
     let obj_is_verified = !test_corruption;
     let obj_mapping = {};
@@ -159,8 +157,6 @@ function verify_object_health(expected_num_blocks, bucket_name, pool_names, clou
                     undefined;
                 num_blocks = 0;
                 num_parts = 0;
-                num_vid_blocks = obj_mapping.parts[0].chunk.frags[0].blocks.length +
-                    obj_mapping.parts[obj_mapping.parts.length - 1].chunk.frags[0].blocks.length;
                 _.each(obj_mapping.parts, part => {
                     var distinct_nodes_per_part = new Set();
                     num_parts += 1;
@@ -177,12 +173,11 @@ function verify_object_health(expected_num_blocks, bucket_name, pool_names, clou
                 num_blocks_per_part = num_blocks / num_parts || 1;
                 obj_is_invalid = !obj_is_verified ||
                     num_blocks_per_part.toFixed(0) < expected_num_blocks ||
-                    num_vid_blocks < expected_num_vid_blocks ||
                     (cloud_pool && !cloud_node_ids);
                 if (obj_is_invalid) {
                     let diff = Date.now() - start_ts;
                     print_verification_warning(diff, num_blocks_per_part,
-                        expected_num_blocks, num_vid_blocks, expected_num_vid_blocks, obj_is_verified);
+                        expected_num_blocks, obj_is_verified);
                     if (diff > (TEST_CTX.timeout * 1000)) {
                         throw new Error('aborted test after ' + TEST_CTX.timeout + ' seconds');
                     }
@@ -204,8 +199,7 @@ function verify_object_health(expected_num_blocks, bucket_name, pool_names, clou
         });
 }
 
-function print_verification_warning(diff, num_blocks_per_part, expected_num_blocks,
-    num_vid_blocks, expected_num_vid_blocks, obj_is_verified) {
+function print_verification_warning(diff, num_blocks_per_part, expected_num_blocks, obj_is_verified) {
     if ((diff / 1000).toFixed(0) % 5 === 0) {
         let msg = '';
         let elapsed_time = (diff / 1000).toFixed(0);
@@ -214,9 +208,6 @@ function print_verification_warning(diff, num_blocks_per_part, expected_num_bloc
         }
         if (num_blocks_per_part.toFixed(0) < expected_num_blocks) {
             msg += `object has an average ${num_blocks_per_part.toFixed(0)} blocks per part. expected ${expected_num_blocks}. `;
-        }
-        if (num_vid_blocks < expected_num_vid_blocks) {
-            msg += `object has ${num_vid_blocks} blocks for video optimization. expected ${expected_num_vid_blocks}. `;
         }
         if (elapsed_time > 0 && elapsed_time < TEST_CTX.timeout) {
             msg += `${elapsed_time} seconds passed. retrying for ${TEST_CTX.timeout - elapsed_time} seconds`;
@@ -318,7 +309,6 @@ function run_test() {
         .then(() => false && test_rebuild_two_corrupted_blocks()) // at least 3 nodes required. corrupts 2 node           // TODO: fix #2114
         .then(() => false && test_rebuild_corrupted_from_mirror()) // at least 6 nodes required. corrupts 3 nodes         // TODO: fix #2114
         .then(() => false && test_rebuild_corrupted_from_cloud_pool()) // at least 3 nodes required. corrupts 3 nodes     // TODO: fix #2114 && #2090
-        .then(() => test_double_blocks_on_movie_files()) // at least 6 nodes required
         .then(() => console.log('test test_build_chunks SUCCESS'))
         .catch(err => {
             console.error('test_build_chunks FAILED: ', err.stack || err);
@@ -414,9 +404,9 @@ function test_rebuild_one_corrupted_block() {
             'test5pool': 3
         })
         .then(() => upload_random_file(1, bucket_name))
-        .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
+        .then(() => verify_object_health(3, bucket_name, pool_names, false, true))
         .then(obj_mapping => corrupt_a_block(obj_mapping))
-        .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
+        .then(() => verify_object_health(3, bucket_name, pool_names, false, true))
         .then(() => console.log('test test_rebuild_one_corrupted_block successful'))
         .catch(err => {
             console.error(`Had error in test test_rebuild_one_corrupted_block: ${err}`);
@@ -433,9 +423,9 @@ function test_rebuild_two_corrupted_blocks() {
             'test6pool': 3
         })
         .then(() => upload_random_file(2, bucket_name))
-        .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
+        .then(() => verify_object_health(3, bucket_name, pool_names, false, true))
         .then(obj_mapping => corrupt_a_block(obj_mapping))
-        .then(() => verify_object_health(3, bucket_name, pool_names, false, false, true))
+        .then(() => verify_object_health(3, bucket_name, pool_names, false, true))
         .then(() => console.log('test test_rebuild_two_corrupted_blocks successful'))
         .catch(err => {
             console.error(`Had error in test test_rebuild_two_corrupted_blocks: ${err}`);
@@ -453,9 +443,9 @@ function test_rebuild_corrupted_from_mirror() {
             'test7pool2': 3
         })
         .then(() => upload_random_file(2, bucket_name))
-        .then(() => verify_object_health(6, bucket_name, pool_names, false, false, true))
+        .then(() => verify_object_health(6, bucket_name, pool_names, false, true))
         .then(obj_mapping => corrupt_a_block(obj_mapping), 2)
-        .then(() => verify_object_health(6, bucket_name, pool_names, false, false, true))
+        .then(() => verify_object_health(6, bucket_name, pool_names, false, true))
         .then(() => console.log('test test_rebuild_corrupted_from_mirror successful'))
         .catch(err => {
             console.error(`Had error in test test_rebuild_corrupted_from_mirror: ${err}`);
@@ -473,30 +463,13 @@ function test_rebuild_corrupted_from_cloud_pool() {
             'test8pool1': 3
         })
         .then(() => upload_random_file(1, bucket_name))
-        .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name, false, true))
+        .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name, true))
         .then(obj_mapping => [obj_mapping, comission_nodes_to_pool(pool_names[0], 3)])
         .spread(obj_mapping => corrupt_a_block(obj_mapping), 3)
-        .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name, false, true))
+        .then(() => verify_object_health(4, bucket_name, pool_names.concat(cloud_pool_name), TEST_CTX.cloud_pool_name, true))
         .then(() => console.log('test test_rebuild_corrupted_from_cloud_pool successful'))
         .catch(err => {
             console.error(`Had error in test test_rebuild_corrupted_from_cloud_pool: ${err}`);
-            throw err;
-        })
-        .finally(() => test_tear_down());
-}
-
-function test_double_blocks_on_movie_files() {
-    console.log('running test: test_double_blocks_on_movie_files');
-    let bucket_name = 'test9bucket';
-    let pool_names = ['test9pool1'];
-    return test_setup(bucket_name, pool_names, false, false, {
-            'test9pool1': 6
-        })
-        .then(() => upload_random_file(4, bucket_name, 'mp4', 'video/mp4'))
-        .then(() => verify_object_health(3, bucket_name, pool_names, false, true))
-        .then(() => console.log('test test_double_blocks_on_movie_files successful'))
-        .catch(err => {
-            console.error(`Had error in test test_double_blocks_on_movie_files: ${err}`);
             throw err;
         })
         .finally(() => test_tear_down());

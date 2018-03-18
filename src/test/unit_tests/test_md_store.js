@@ -260,16 +260,6 @@ mocha.describe('md_store', function() {
                 });
         });
 
-        mocha.it('update_chunks_by_ids()', function() {
-            return md_store.update_chunks_by_ids(_.map(chunks, '_id'), { special_replica: true })
-                .then(() => {
-                    for (const chunk of chunks) {
-                        chunk.special_replica = true;
-                    }
-                });
-
-        });
-
         mocha.it('find_chunks_by_ids()', function() {
             return md_store.find_chunks_by_ids(_.map(chunks, '_id'))
                 .then(res => {

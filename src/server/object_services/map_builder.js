@@ -203,14 +203,10 @@ class MapBuilder {
             js_utils.array_push_all(this.delete_blocks, mapping.deletions);
         }
 
-        // first allocate the basic allocations of the chunk.
-        // if there are no allocations, then try to allocate extra_allocations for special replicas
-        const current_cycle_allocations = mapping.allocations || mapping.extra_allocations;
-        if (!current_cycle_allocations) return;
-        if (mapping.allocations) {
-            dbg.log0('MapBuilder.build_chunks: allocations needed for chunk',
-                chunk, _.map(chunk.objects, 'key'));
-        }
+        if (!mapping.allocations) return;
+
+        dbg.log0('MapBuilder.build_chunks: allocations needed for chunk',
+            chunk, _.map(chunk.objects, 'key'));
 
         const avoid_blocks = chunk.blocks.filter(block => block.node.node_type === 'BLOCK_STORE_FS');
         chunk.avoid_nodes = avoid_blocks.map(block => String(block.node._id));
@@ -225,13 +221,13 @@ class MapBuilder {
 
         return P.resolve()
             .then(() => mapping.missing_frags && this.read_entire_chunk(chunk))
-            .then(chunk_info => P.map(current_cycle_allocations,
+            .then(chunk_info => P.map(mapping.allocations,
                 alloc => this.build_block(chunk, chunk_info, alloc)
             ));
     }
 
     build_block(chunk, chunk_info, alloc) {
-        const { sources, special_replica } = alloc;
+        const { sources } = alloc;
         return P.resolve()
             .then(() => {
                 if (sources) {
@@ -251,14 +247,9 @@ class MapBuilder {
             .catch(err => {
                 // don't fail here yet to allow handling the successful blocks
                 // so just keep the error, and we will fail at the end of MapBuilder.run()
-                // however for special replicas we don't fail, since it is opportunistic
-                if (special_replica) {
-                    dbg.warn('MapBuilder.build_block: special_replica FAILED', alloc, err.stack || err);
-                } else {
-                    dbg.error('MapBuilder.build_block: FAILED', alloc, err.stack || err);
-                    chunk.had_errors = true;
-                    this.had_errors = true;
-                }
+                dbg.error('MapBuilder.build_block: FAILED', alloc, err.stack || err);
+                chunk.had_errors = true;
+                this.had_errors = true;
             });
     }
 
@@ -329,13 +320,13 @@ class MapBuilder {
 
     allocate_block(chunk, alloc) {
         const { avoid_nodes, allocated_hosts } = chunk;
-        const { frag, pools, special_replica } = alloc;
+        const { frag, pools } = alloc;
         const block_id = MDStore.instance().make_md_id();
 
         // We send an additional flag in order to allocate
         // replicas of content tiering feature on the best read latency nodes
         const node = node_allocator.allocate_node(
-            pools, avoid_nodes, allocated_hosts, { special_replica }
+            pools, avoid_nodes, allocated_hosts
         );
 
         if (!node) {
@@ -384,11 +375,6 @@ class MapBuilder {
         const objs_to_be_deleted = _.uniqBy(_.flatten(this.objects_to_delete), '_id');
         const chunks_to_be_deleted = _.uniqBy(_.flatten(this.chunks_to_delete), '_id');
 
-        const unset_special_chunk_ids = mongo_utils.uniq_ids(
-            _.filter(this.chunks, chunk => chunk.special_replica && !chunk.is_special), '_id');
-        const set_special_chunk_ids = mongo_utils.uniq_ids(
-            _.filter(this.chunks, chunk => chunk.is_special && chunk.is_special !== chunk.special_replica), '_id');
-
         dbg.log1('MapBuilder.update_db:',
             'chunks', this.chunks.length,
             'success_chunk_ids', success_chunk_ids.length,
@@ -401,8 +387,6 @@ class MapBuilder {
         return P.join(
             MDStore.instance().insert_blocks(this.new_blocks),
             MDStore.instance().update_blocks_by_ids(mongo_utils.uniq_ids(this.delete_blocks, '_id'), { deleted: now }),
-            MDStore.instance().update_chunks_by_ids(set_special_chunk_ids, { special_replica: true }),
-            MDStore.instance().update_chunks_by_ids(unset_special_chunk_ids, undefined, { special_replica: true }),
             map_deleter.delete_blocks_from_nodes(this.delete_blocks),
             map_deleter.delete_multiple_objects(objs_to_be_deleted)
             .each(res => {

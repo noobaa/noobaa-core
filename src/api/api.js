@@ -30,6 +30,7 @@ api_schema.register_api(require('./tiering_policy_api'));
 api_schema.register_api(require('./pool_api'));
 api_schema.register_api(require('./cluster_server_api'));
 api_schema.register_api(require('./cluster_internal_api'));
+api_schema.register_api(require('./upgrade_api'));
 api_schema.register_api(require('./server_inter_process_api'));
 api_schema.register_api(require('./hosted_agents_api'));
 api_schema.register_api(require('./frontend_notifications_api'));

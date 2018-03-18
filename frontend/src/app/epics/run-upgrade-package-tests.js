@@ -6,6 +6,6 @@ export default function(action$, { api }) {
     return action$
         .ofType(RUN_UPGRADE_PACKAGE_TESTS)
         .flatMap(async () => {
-            await api.cluster_internal.cluster_pre_upgrade({});
+            await api.upgrade.cluster_pre_upgrade({});
         });
 }

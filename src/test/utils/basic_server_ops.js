@@ -81,7 +81,15 @@ function upload_and_upgrade(ip, upgrade_pack) {
                 }));
         })
         .then(() => console.log('Upload package successful'))
-        .then(() => client.cluster_internal.upgrade_cluster())
+        .then(() => client.upgrade.upgrade_cluster())
+        .catch(err => {
+            // TODO: remove when upgrade_api is merged to base version (version we upgrade from in vitaly)
+            if (err.rpc_code === 'NO_SUCH_RPC_SERVICE') {
+                return client.cluster_internal.upgrade_cluster();
+            } else {
+                throw err;
+            }
+        })
         .then(() => P.delay(10000))
         .then(() => wait_for_server(ip))
         .then(() => P.delay(10000))

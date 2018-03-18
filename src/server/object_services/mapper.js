@@ -139,7 +139,6 @@ class MirrorMapper {
 
         const {
             chunk: {
-                is_special,
                 chunk_coder_config: {
                     replicas: chunk_replicas = 1,
                     data_frags: chunk_data_frags = 1,
@@ -164,10 +163,6 @@ class MirrorMapper {
             desired_replicas = chunk_replicas;
         }
 
-        // max_replicas includes extra_allocations which are allocated opportunistically for special chunks
-        const special_factor = is_special ? config.SPECIAL_CHUNK_REPLICA_MULTIPLIER : 1;
-        const max_replicas = desired_replicas * special_factor;
-
         for (let data_index = 0; data_index < desired_data_frags; ++data_index) {
             const frag_index = `D${data_index}`;
             this._map_frag(
@@ -176,8 +171,7 @@ class MirrorMapper {
                 frags_by_index[frag_index],
                 blocks_by_index[frag_index],
                 desired_replicas,
-                is_write,
-                max_replicas);
+                is_write);
         }
         for (let parity_index = 0; parity_index < desired_parity_frags; ++parity_index) {
             const frag_index = `P${parity_index}`;
@@ -187,12 +181,11 @@ class MirrorMapper {
                 frags_by_index[frag_index],
                 blocks_by_index[frag_index],
                 desired_replicas,
-                is_write,
-                max_replicas);
+                is_write);
         }
     }
 
-    _map_frag(chunk_mapper, tier_mapping, frag, blocks, replicas, is_write, max_replicas) {
+    _map_frag(chunk_mapper, tier_mapping, frag, blocks, replicas, is_write) {
         const {
             pools_by_id,
             regular_pools,
@@ -225,20 +218,20 @@ class MirrorMapper {
                 // We consider one replica in cloud/mongo valid for any policy
                 if (_pool_has_redundancy(pool)) {
                     used_redundant_blocks = true;
-                    used_replicas += max_replicas;
+                    used_replicas += replicas;
                 } else {
                     used_replicas += 1;
                 }
             }
         }
 
-        if (used_replicas === max_replicas) {
+        if (used_replicas === replicas) {
 
             for (let i = 0; i < used_blocks.length; ++i) {
                 blocks_in_use.push(used_blocks[i]);
             }
 
-        } else if (used_replicas < max_replicas) {
+        } else if (used_replicas < replicas) {
 
             for (let i = 0; i < used_blocks.length; ++i) {
                 blocks_in_use.push(used_blocks[i]);
@@ -270,17 +263,6 @@ class MirrorMapper {
                 }
             }
 
-            // There is no point in special replicas when save in redundant alloc
-            // These are the total missing blocks including the special blocks which are opportunistic
-            if (!is_redundant) {
-                const extra_missing = Math.max(0, max_replicas - num_missing - used_replicas);
-                if (extra_missing > 0) {
-                    tier_mapping.extra_allocations = tier_mapping.extra_allocations || [];
-                    for (let i = 0; i < extra_missing; ++i) {
-                        tier_mapping.extra_allocations.push({ frag, pools, sources, special_replica: true });
-                    }
-                }
-            }
 
         } else {
 
@@ -290,9 +272,9 @@ class MirrorMapper {
             used_blocks.sort(_block_newer_first_sort);
             let keep_replicas = 0;
             for (let i = 0; i < used_blocks.length; ++i) {
-                if (keep_replicas >= max_replicas) break;
+                if (keep_replicas >= replicas) break;
                 const block = used_blocks[i];
-                keep_replicas += _pool_has_redundancy(pools_by_id[block.node_pool_id]) ? max_replicas : 1;
+                keep_replicas += _pool_has_redundancy(pools_by_id[block.node_pool_id]) ? replicas : 1;
                 blocks_in_use.push(block);
             }
         }
@@ -363,7 +345,6 @@ class TierMapper {
             blocks_in_use: [],
             deletions: undefined,
             allocations: undefined,
-            extra_allocations: undefined,
             missing_frags: undefined,
         });
 
@@ -634,25 +615,6 @@ function get_num_blocks_per_chunk(tier) {
     return replicas * (data_frags + parity_frags);
 }
 
-function analyze_special_chunks(chunks, parts, objects) {
-    _.forEach(chunks, chunk => {
-        chunk.is_special = false;
-        var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
-        var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
-        _.forEach(tmp_objects, obj => {
-            if (config.SPECIAL_CHUNK_CONTENT_TYPES
-                .some(type => obj.content_type.toLowerCase().startsWith(type.toLowerCase()))) {
-                let obj_parts = _.filter(tmp_parts, part => String(part.obj) === String(obj._id));
-                _.forEach(obj_parts, part => {
-                    if (part.start === 0 || part.end === obj.size) {
-                        chunk.is_special = true;
-                    }
-                });
-            }
-        });
-    });
-}
-
 function get_part_info(part, adminfo, tiering_status) {
     return {
         start: part.start,
@@ -801,7 +763,6 @@ exports.select_tier_for_write = select_tier_for_write;
 exports.is_chunk_good_for_dedup = is_chunk_good_for_dedup;
 exports.assign_node_to_block = assign_node_to_block;
 exports.get_num_blocks_per_chunk = get_num_blocks_per_chunk;
-exports.analyze_special_chunks = analyze_special_chunks;
 exports.get_part_info = get_part_info;
 exports.get_chunk_info = get_chunk_info;
 exports.get_frag_info = get_frag_info;

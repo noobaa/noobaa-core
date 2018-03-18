@@ -397,7 +397,10 @@ function _check_internal_ips() {
 function _check_disk_space() {
     dbg.log2('_check_disk_space');
     //Alert on low disk space
-    if (server_conf.health && server_conf.health.free < 10 * 1024 * 1024 * 1024) {
+    if (server_conf.heartbeat &&
+        server_conf.heartbeat.health &&
+        server_conf.heartbeat.health.storage &&
+        server_conf.heartbeat.health.storage.free < 1000 * 1024 * 1024 * 1024) {
         Dispatcher.instance().alert('MAJOR',
             system_store.data.systems[0]._id,
             `Server is running low on disk space, it is recommended to increase the disk size of the VM and then perform the 

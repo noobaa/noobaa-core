@@ -165,12 +165,9 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
  * allocate_node
  *
  * @param avoid_nodes array of node ids to avoid
- * @param content_tiering_params - in case of content tiering, the additional
- * replicas will be saved in nodes that have the best disk read latency, but only
- * from the chunk of nodes that we've received in pools.
  *
  */
-function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_params) {
+function allocate_node(pools, avoid_nodes, allocated_hosts) {
     let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
     let alloc_group = alloc_group_by_pool_set[pool_set];
 
@@ -214,7 +211,7 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
 
     if (num_nodes < 1) {
         dbg.error('allocate_node: no nodes for allocation in pool set',
-            pools, avoid_nodes, allocated_hosts, content_tiering_params);
+            pools, avoid_nodes, allocated_hosts);
         return;
     }
 

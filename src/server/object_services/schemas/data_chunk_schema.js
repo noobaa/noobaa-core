@@ -55,6 +55,7 @@ module.exports = {
         // because the calculation requires padding and is easier to share this way
         frag_size: { type: 'integer' },
 
+        // TODO: This value is depricated and not used anymore. Should remove from all systems in the future
         // Used in extra replication for video type chunks
         // Currently only the first and the last chunks of the video
         special_replica: { type: 'boolean' },

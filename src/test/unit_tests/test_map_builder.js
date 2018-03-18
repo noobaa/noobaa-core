@@ -221,7 +221,6 @@ coretest.describe_mapper_test_case({
             console.log('Chunk mapping', mapping);
             assert.strictEqual(mapping.allocations, undefined);
             assert.strictEqual(mapping.deletions, undefined);
-            assert.strictEqual(mapping.extra_allocations, undefined);
             assert.strictEqual(mapping.missing_frags, undefined);
         });
 

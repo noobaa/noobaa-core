@@ -3446,7 +3446,7 @@ class NodesMonitor extends EventEmitter {
         // Not all nodes always have the avg_disk_write.
         // KMeans needs valid vectors so we exclude the nodes and assume that they are the slowest
         // Since we assume them to be the slowest we will place them in the last KMeans group
-        const partition_avg_disk_write = _.partition(list, item => !_.isUndefined(item.avg_disk_write));
+        const partition_avg_disk_write = _.partition(list, item => _.isNumber(item.avg_disk_write));
         const nodes_with_avg_disk_write = partition_avg_disk_write[0];
         const nodes_without_avg_disk_write = partition_avg_disk_write[1];
         if (nodes_with_avg_disk_write.length >= config.NODE_ALLOCATOR_NUM_CLUSTERS) {

@@ -8,7 +8,6 @@ const mongodb = require('mongodb');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const mapper = require('./mapper');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
 const nodes_client = require('../node_services/nodes_client');
@@ -671,7 +670,6 @@ class MDStore {
             })
             .then(res_objects => {
                 objects = res_objects;
-                return mapper.analyze_special_chunks(chunks, parts, objects);
             })
             .then(() => ({
                 parts,

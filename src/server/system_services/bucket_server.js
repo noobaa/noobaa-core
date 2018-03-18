@@ -122,6 +122,7 @@ function create_bucket(req) {
                 disabled: false
             }]
         );
+        changes.insert.tieringpolicies = [tiering_policy];
         changes.insert.tiers = [tier];
     }
 
@@ -130,31 +131,6 @@ function create_bucket(req) {
         req.system._id,
         tiering_policy._id,
         req.rpc_params.tag);
-
-    const bucket_spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, mongo_pool._id);
-    if (req.rpc_params.tiering) {
-        changes.update.tieringpolicies = [{
-            _id: tiering_policy._id,
-            $push: {
-                tiers: {
-                    tier: bucket_spillover_tier._id,
-                    order: 1,
-                    spillover: true,
-                    disabled: true
-                }
-            }
-        }];
-        changes.insert.tiers = [bucket_spillover_tier];
-    } else {
-        tiering_policy.tiers.push({
-            tier: bucket_spillover_tier._id,
-            order: 1,
-            spillover: true,
-            disabled: true
-        });
-        changes.insert.tieringpolicies = [tiering_policy];
-        changes.insert.tiers.push(bucket_spillover_tier);
-    }
 
     if (req.rpc_params.namespace) {
         const read_resources = _.compact(req.rpc_params.namespace.read_resources
@@ -180,6 +156,31 @@ function create_bucket(req) {
             read_resources: ordered_read_resources,
             write_resource
         };
+    } else {
+        const bucket_spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, mongo_pool._id);
+        if (req.rpc_params.tiering) {
+            changes.update.tieringpolicies = [{
+                _id: tiering_policy._id,
+                $push: {
+                    tiers: {
+                        tier: bucket_spillover_tier._id,
+                        order: 1,
+                        spillover: true,
+                        disabled: true
+                    }
+                }
+            }];
+            changes.insert.tiers = [bucket_spillover_tier];
+        } else {
+            tiering_policy.tiers.push({
+                tier: bucket_spillover_tier._id,
+                order: 1,
+                spillover: true,
+                disabled: true
+            });
+            changes.insert.tieringpolicies = [tiering_policy];
+            changes.insert.tiers.push(bucket_spillover_tier);
+        }
     }
 
     changes.insert.buckets = [bucket];

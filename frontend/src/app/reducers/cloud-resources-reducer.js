@@ -43,8 +43,11 @@ function _mapResource(resource, bucketsByPools) {
 }
 
 function _mapTiersToBuckets(buckets) {
+    const dataBuckets = buckets
+        .filter(bucket => bucket.bucket_type === 'REGULAR');
+
     const pairs = flatMap(
-        buckets,
+        dataBuckets,
         bucket => bucket.tiering.tiers
             .map(item => {
                 const bucketName = bucket.name;
@@ -63,7 +66,7 @@ function _mapTiersToBuckets(buckets) {
 function _mapPoolsToBuckets(buckets, tiers) {
     const bucketsByTierName = _mapTiersToBuckets(buckets);
     const pairs = flatMap(
-        tiers,
+        tiers.filter(tier => Boolean(bucketsByTierName[tier.name])),
         tier => flatMap(
             tier.mirror_groups,
             mirrorGroup => mirrorGroup.pools.map(

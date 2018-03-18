@@ -25,7 +25,9 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 // ------------------------------
 
 function _mapTiersToBucket(buckets) {
-    const dataBuckets = buckets.filter(bucket => bucket.bucket_type === 'REGULAR');
+    const dataBuckets = buckets
+        .filter(bucket => bucket.bucket_type === 'REGULAR');
+
     const pairs = flatMap(
         dataBuckets,
         bucket => bucket.tiering.tiers
@@ -46,7 +48,7 @@ function _mapTiersToBucket(buckets) {
 function _mapPoolsToBuckets(buckets, tiers) {
     const bucketsByTierName = _mapTiersToBucket(buckets);
     const pairs = flatMap(
-        tiers,
+        tiers.filter(tier => Boolean(bucketsByTierName[tier.name])),
         tier => flatMap(
             tier.mirror_groups,
             mirrorGroup => mirrorGroup.pools.map(

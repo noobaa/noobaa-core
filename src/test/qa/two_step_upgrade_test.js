@@ -315,7 +315,7 @@ function test_second_step() {
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before local disk'))
         .then(() => _fill_local_disk() //Full local disk & verify failure
             .delay(10000)
-            .then(() => rpc_client.cluster_internal.upgrade_cluster())
+            .then(() => rpc_client.upgrade.upgrade_cluster())
             .then(() => _verify_upgrade_status('FAILED', 'SUCCESS', '2nd step of upgrade, verify failure on not enough local disk'))
             .then(() => agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
             .delay(10000)) //clean local disk
@@ -327,7 +327,7 @@ function test_second_step() {
                 timezone: "Asia/Jerusalem",
                 epoch: 1514798132
             })
-            .then(() => rpc_client.cluster_internal.upgrade_cluster())
+            .then(() => rpc_client.upgrade.upgrade_cluster())
             .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew'))
             //Reset time back to normal
             .then(() => rpc_client.cluster_server.update_time_config({
@@ -338,7 +338,7 @@ function test_second_step() {
             .delay(25000)) //time update restarts the services
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time'))
-        .then(() => rpc_client.cluster_internal.upgrade_cluster());
+        .then(() => rpc_client.upgrade.upgrade_cluster());
     //NBNB need to wait for server and verify upgrade was successfull
 }
 

@@ -9,7 +9,7 @@ export default function(action$, { api }) {
         .ofType(INVOKE_UPGRADE_SYSTEM)
         .flatMap(async () => {
             try {
-                await api.cluster_internal.upgrade_cluster();
+                await api.upgrade.upgrade_cluster();
                 return completeInvokeUpgradeSystem();
 
             } catch (error) {

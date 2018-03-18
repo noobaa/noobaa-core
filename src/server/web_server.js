@@ -243,7 +243,7 @@ app.post('/upload_package', function(req, res, next) {
     .single('upgrade_file'),
     function(req, res) {
         var upgrade_file = req.file;
-        server_rpc.client.cluster_internal.member_pre_upgrade({
+        server_rpc.client.upgrade.member_pre_upgrade({
             filepath: upgrade_file.path,
             mongo_upgrade: false,
             stage: 'UPLOAD_STAGE'
@@ -269,7 +269,7 @@ app.post('/upgrade', function(req, res, next) {
         next();
     },
     function(req, res, next) {
-        server_rpc.client.cluster_internal.reset_upgrade_package_status({}, {
+        server_rpc.client.upgrade.reset_upgrade_package_status({}, {
             address: 'http://127.0.0.1:' + http_port,
             auth_token: auth_server.make_auth_token({
                 system_id: req.system._id,
@@ -293,7 +293,7 @@ app.post('/upgrade', function(req, res, next) {
     .single('upgrade_file'),
     function(req, res) {
         var upgrade_file = req.file;
-        server_rpc.client.cluster_internal.cluster_pre_upgrade({
+        server_rpc.client.upgrade.cluster_pre_upgrade({
             filepath: upgrade_file.path,
         }); //Async
         res.end('<html><head></head>Upgrade file uploaded successfully');
@@ -379,7 +379,7 @@ function getVersion(route) {
                 started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
             }
 
-            return (server_rpc.client.cluster_internal.get_upgrade_status())
+            return (server_rpc.client.upgrade.get_upgrade_status())
                 .then(status => {
                     if (started && registered && !status.in_process && system_store.is_finished_initial_load) {
                         const system = system_store.data.systems[0];

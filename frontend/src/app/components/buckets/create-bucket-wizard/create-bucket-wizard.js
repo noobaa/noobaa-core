@@ -88,31 +88,6 @@ class CreateBucketWizardViewModel extends BaseViewModel {
             () => keyByProperty(this.pools(), 'name')
         );
 
-        this.isWarningVisible = false;
-        // this.isWarningVisible = ko.pureComputed(
-        //     () => {
-        //         if (this.placementType() === 'MIRROR') {
-        //             return false;
-        //         }
-
-        //         const selectedPools = this.selectedPools();
-        //         const hasNodesPool = selectedPools.some(
-        //             name => {
-        //                 const pool = poolsByName()[name];
-        //                 return Boolean(pool) && pool.resource_type === 'HOSTS';
-        //             }
-        //         );
-        //         const hasCloudResource = selectedPools.some(
-        //             name => {
-        //                 const pool = poolsByName()[name];
-        //                 return Boolean(pool) && pool.resource_type === 'CLOUD';
-        //             }
-        //         );
-
-        //         return hasNodesPool && hasCloudResource;
-        //     }
-        // );
-
         this.chooseNameErrors = ko.validation.group([
             this.bucketName
         ]);

@@ -5,7 +5,7 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
-import { deepFreeze, pick, flatMap } from 'utils/core-utils';
+import { deepFreeze, pick, flatMap, createCompareFunc } from 'utils/core-utils';
 import { getFieldValue } from 'utils/form-utils';
 import ko from 'knockout';
 import {
@@ -43,6 +43,20 @@ const columns = deepFreeze([
         type: 'capacity'
     }
 ]);
+
+const resourceCompareFunc = createCompareFunc(record => {
+    const { type, resource } = record;
+    const kind =
+        (type === 'HOSTS' && 'HOSTS') ||
+        (type === 'CLOUD' && resource.service) ||
+        '';
+
+    return [
+        resource.mode,
+        kind,
+        resource.name
+    ];
+}, 1);
 
 class EditBucketPlacementModalViewModel extends Observer {
     constructor({ bucketName, onClose }) {
@@ -99,6 +113,7 @@ class EditBucketPlacementModalViewModel extends Observer {
         };
 
         const rows = resourceList
+            .sort(resourceCompareFunc)
             .map((pair, i) => {
                 const row = this.rows.get(i) || new ResourceRow(rowParams);
                 row.onResource(pair.type,  pair.resource, selectedResources, spilloverResource);
@@ -123,7 +138,6 @@ class EditBucketPlacementModalViewModel extends Observer {
                 name: formName,
                 fields: { policyType, selectedResources },
                 onValidate: this.onValidate.bind(this),
-                onWarn: this.onWarn.bind(this),
                 onSubmit: this.onSubmit.bind(this)
             });
             this.isFormInitialized(true);
@@ -161,23 +175,15 @@ class EditBucketPlacementModalViewModel extends Observer {
         const { policyType, selectedResources } = values;
         if (policyType === 'MIRROR' && selectedResources.length === 1) {
             errors.selectedResources = 'Mirror policy requires at least 2 participating pools';
-        }
 
-        return errors;
-    }
-
-    onWarn(values) {
-        const warnings = {};
-
-        const { policyType, selectedResources } = values;
-        if (policyType === 'SPREAD') {
+        } else if (policyType === 'SPREAD') {
             const [ first, ...others ] = selectedResources;
             if (others.some(res => res.type !== first.type)) {
-                warnings.selectedResources = 'Configuring node pools combined with cloud resources as a spread policy may cause performance issues';
+                errors.selectedResources = 'Configuring node pools combined with cloud resources as a spread policy may cause performance issues';
             }
         }
 
-        return warnings;
+        return errors;
     }
 
     onSubmit(values) {

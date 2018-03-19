@@ -130,4 +130,14 @@ data-table {
         overflow-x: hidden;
         line-height: 1.5;
     }
+
+    .link-cell, .new-link-cell {
+        a {
+            margin-left: 2px;
+
+            &:focus {
+                outline-offset: 1px;
+            }
+        }
+    }
 }

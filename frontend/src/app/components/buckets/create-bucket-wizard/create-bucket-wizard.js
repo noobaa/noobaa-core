@@ -16,7 +16,7 @@ const steps = deepFreeze([
 ]);
 
 const allowedResourceTypes = deepFreeze([
-    'HOSTS', 
+    'HOSTS',
     'CLOUD'
 ]);
 
@@ -53,41 +53,65 @@ class CreateBucketWizardViewModel extends BaseViewModel {
                 required: {
                     message: 'Please select at least one pool for the policy'
                 },
-                validation: {
-                    validator: selected => {
-                        return this.placementType() !== 'MIRROR' || selected.length !== 1;
+                validation: [
+                    {
+                        validator: selected => {
+                            return this.placementType() !== 'MIRROR' || selected.length !== 1;
+                        },
+                        message: 'Mirror policy requires at least 2 participating pools'
                     },
-                    message: 'Mirror policy requires at least 2 participating pools'
-                }
+                    {
+                        validator: selected => {
+                            if (this.placementType() !== 'SPREAD') {
+                                return true;
+                            }
+
+                            const hasNodesPool = selected.some(name => {
+                                const pool = poolsByName()[name];
+                                return Boolean(pool) && pool.resource_type === 'HOSTS';
+                            });
+
+                            const hasCloudResource = selected.some(name => {
+                                const pool = poolsByName()[name];
+                                return Boolean(pool) && pool.resource_type === 'CLOUD';
+                            });
+
+                            return !hasNodesPool || !hasCloudResource;
+                        },
+                        message: 'Configuring node pools combined with cloud resources as a spread policy may cause performance issues'
+
+                    }
+                ]
             });
 
         const poolsByName = ko.pureComputed(
             () => keyByProperty(this.pools(), 'name')
         );
 
-        this.isWarningVisible = ko.pureComputed(
-            () => {
-                if (this.placementType() === 'MIRROR') {
-                    return false;
-                }
+        this.isWarningVisible = false;
+        // this.isWarningVisible = ko.pureComputed(
+        //     () => {
+        //         if (this.placementType() === 'MIRROR') {
+        //             return false;
+        //         }
 
-                const selectedPools = this.selectedPools();
-                const hasNodesPool = selectedPools.some(
-                    name => {
-                        const pool = poolsByName()[name];
-                        return Boolean(pool) && pool.resource_type === 'HOSTS';
-                    }
-                );
-                const hasCloudResource = selectedPools.some(
-                    name => {
-                        const pool = poolsByName()[name];
-                        return Boolean(pool) && pool.resource_type === 'CLOUD';
-                    }
-                );
+        //         const selectedPools = this.selectedPools();
+        //         const hasNodesPool = selectedPools.some(
+        //             name => {
+        //                 const pool = poolsByName()[name];
+        //                 return Boolean(pool) && pool.resource_type === 'HOSTS';
+        //             }
+        //         );
+        //         const hasCloudResource = selectedPools.some(
+        //             name => {
+        //                 const pool = poolsByName()[name];
+        //                 return Boolean(pool) && pool.resource_type === 'CLOUD';
+        //             }
+        //         );
 
-                return hasNodesPool && hasCloudResource;
-            }
-        );
+        //         return hasNodesPool && hasCloudResource;
+        //     }
+        // );
 
         this.chooseNameErrors = ko.validation.group([
             this.bucketName

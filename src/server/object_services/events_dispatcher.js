@@ -6,6 +6,7 @@ const P = require('../../util/promise');
 const _ = require('lodash');
 const promise_utils = require('../../util/promise_utils');
 const system_store = require('../system_services/system_store').get_instance();
+const dbg = require('../../util/debug_module')(__filename);
 
 const TRIGGER_ATTEMPTS = 2;
 const DELAY_BETWEEEN_TRIGGER_ATTEMPTS = 5000; // ?
@@ -53,12 +54,17 @@ function run_bucket_triggers(triggers_to_run, bucket, obj, actor, token) {
 
 function run_trigger(trigger, event, system, token) {
     return server_rpc.client.func.invoke_func({
-        name: trigger.func_name,
-        version: trigger.func_version,
-        event: event,
-    }, {
-        auth_token: token
-    });
+            name: trigger.func_name,
+            version: trigger.func_version,
+            event: event,
+        }, {
+            auth_token: token
+        })
+        .then(result => {
+            if (result.error) {
+                dbg.error('Got following error in run_trigger:', result.error, ';trigger:', trigger, ';event:', event);
+            }
+        });
 }
 
 function create_object_event({ bucket, object, time, actor, event_name, id }) {

@@ -80,6 +80,11 @@ const resourceTypeIconMapping = deepFreeze({
         tooltip: 'Azure blob resource'
     },
 
+    GOOGLE: {
+        name: 'google-cloud',
+        tooltip: 'Google Cloud Resource'
+    },
+
     S3_COMPATIBLE: {
         name: 'cloud',
         tooltip: 'Generic S3 compatible resource'

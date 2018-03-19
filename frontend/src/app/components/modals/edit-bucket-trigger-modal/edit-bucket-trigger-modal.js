@@ -21,7 +21,6 @@ class EditBucketTriggerModalViewModel extends Observer {
     funcsUrl = ko.observable();
     eventOptions = bucketEvents;
     funcOptions = ko.observableArray();
-    areFuncsLoaded = ko.observable();
 
     constructor({ bucketName, triggerId }) {
         super();
@@ -42,7 +41,7 @@ class EditBucketTriggerModalViewModel extends Observer {
     }
 
     onState([triggers, funcs, accounts, system]) {
-        if (!triggers) {
+        if (!triggers || !funcs || !accounts) {
             this.isFormReady(false);
             return;
         }
@@ -51,34 +50,38 @@ class EditBucketTriggerModalViewModel extends Observer {
         const existingTriggers = Object.values(triggers)
             .filter(other => other !== trigger);
 
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                func: trigger.func,
-                event: trigger.event,
-                prefix: trigger.prefix,
-                suffix: trigger.suffix,
-                active: trigger.mode !== 'DISABLED'
-            },
-            onValidate: this.onValidate.bind(this),
-            onValidateSubmit: values => this.onValidateSubmit(values, existingTriggers),
-            onSubmit: this.onSubmit.bind(this)
-        });
-        this.isFormReady(true);
-
-        if (funcs && accounts) {
-            const funcOptions = Object.values(funcs)
-                .map(func => getFunctionOption(func, accounts, this.bucketName));
-
-            this.funcOptions(funcOptions);
-            this.areFuncsLoaded(true);
-        } else {
-            this.areFuncsLoaded(false);
-        }
-
-
         const funcsUrl = realizeUri(routes.funcs, { system: system });
+        const funcOptions = Object.values(funcs)
+            .map(func => getFunctionOption(func, accounts, this.bucketName));
+
+
         this.funcsUrl(funcsUrl);
+        this.funcOptions(funcOptions);
+
+        if (!this.isFormReady()) {
+            // Dropdown compare values by idnetity so we need to find
+            // the object set in the options list that have the same name and version
+            // as the one in the trigger state.
+            const selectedOption = funcOptions.find(opt =>
+                opt.value.name === trigger.func.name &&
+                opt.value.version === trigger.func.version
+            );
+
+            this.form = new FormViewModel({
+                name: formName,
+                fields: {
+                    func: selectedOption ? selectedOption.value : null,
+                    event: trigger.event,
+                    prefix: trigger.prefix,
+                    suffix: trigger.suffix,
+                    active: trigger.mode !== 'DISABLED'
+                },
+                onValidate: this.onValidate.bind(this),
+                onValidateSubmit: values => this.onValidateSubmit(values, existingTriggers),
+                onSubmit: this.onSubmit.bind(this)
+            });
+            this.isFormReady(true);
+        }
     }
 
     onValidate(values) {

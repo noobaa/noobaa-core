@@ -37,22 +37,27 @@ class AddBucketTriggerModalViewModel extends Observer {
             ),
             this.onState
         );
-
     }
 
     onState([triggers, funcs, accounts, system]) {
-        if (!triggers) {
+        if (!triggers || !funcs || !accounts) {
             this.isFormReady(false);
             return;
         }
 
         const existingTriggers = Object.values(triggers);
+        const funcsUrl = realizeUri(routes.funcs, { system: system });
+        const funcOptions = Object.values(funcs)
+                .map(func => getFunctionOption(func, accounts, this.bucketName));
+
+        this.funcsUrl(funcsUrl);
+        this.funcOptions(funcOptions);
 
         if (!this.form) {
             this.form = new FormViewModel({
                 name: formName,
                 fields: {
-                    func: '',
+                    func: null,
                     event: '',
                     prefix: '',
                     suffix: '',
@@ -64,20 +69,6 @@ class AddBucketTriggerModalViewModel extends Observer {
             });
             this.isFormReady(true);
         }
-
-        if (funcs && accounts) {
-            const funcOptions = Object.values(funcs)
-                .map(func => getFunctionOption(func, accounts, this.bucketName));
-
-            this.funcOptions(funcOptions);
-            this.areFuncsLoaded(true);
-        } else {
-            this.areFuncsLoaded(false);
-        }
-
-
-        const funcsUrl = realizeUri(routes.funcs, { system: system });
-        this.funcsUrl(funcsUrl);
     }
 
     onValidate(values) {

@@ -3,6 +3,7 @@
 import Rx from 'rx';
 import { UPLOAD_OBJECTS } from 'action-types';
 import { deepFreeze } from 'utils/core-utils';
+import { mapErrorObject } from 'utils/state-utils';
 import { createS3Client } from 'utils/s3-utils';
 import { updateObjectUpload, completeObjectUpload, failObjectUpload } from 'action-creators';
 
@@ -31,9 +32,11 @@ export default function(action$, { S3 }) {
                     },
                     s3UploadOptions,
                     error => {
-                        uploadEvent$.onNext(
-                            error ? failObjectUpload(id, error) : completeObjectUpload(id)
-                        );
+                        const action = error ?
+                            failObjectUpload(id, mapErrorObject(error)) :
+                            completeObjectUpload(id);
+
+                        uploadEvent$.onNext(action);
 
                         if (--uploading == 0) {
                             uploadEvent$.onCompleted();

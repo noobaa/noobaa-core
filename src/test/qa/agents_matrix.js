@@ -19,7 +19,7 @@ shasum.update(Date.now().toString());
 
 const dbg = require('../../util/debug_module')(__filename);
 const testName = 'agents_matrix';
-const suffix = 'matrix';
+const suffixName = 'am';
 dbg.set_process_name(testName);
 
 // Sample Config
@@ -60,6 +60,8 @@ function usage() {
     `);
 }
 
+const suffix = suffixName + '-' + id;
+
 if (help) {
     usage();
     process.exit(1);
@@ -96,10 +98,10 @@ function saveErrorAndResume(message) {
 
 function runClean() {
     //deleting the VM machines with the same name as the OS we want to install.
-    return P.map(oses, osname => azf.deleteVirtualMachine(osname + '-' + id)
+    return P.map(oses, osname => azf.deleteVirtualMachine(osname + suffix)
             .catch(() => console.log(`VM ${osname}-${id} not found - skipping...`)))
         //running all all the VM machines and deleating all the disks.
-        .then(() => P.map(oses, osname => azf.deleteBlobDisks(osname + '-' + id)
+        .then(() => P.map(oses, osname => azf.deleteBlobDisks(osname + suffix)
             .catch(saveErrorAndResume)))
         // when clean is called, exiting after delete all agents machine.
         .then(() => clean && process.exit(0));
@@ -135,7 +137,7 @@ function createAgents(isInclude, excludeList) {
         .then(() => {
             if (isInclude) {
                 return P.map(oses, osname => azf.createAgent({
-                        vmName: osname + '-' + id,
+                        vmName: osname + suffix,
                         storage,
                         vnet,
                         os: osname,
@@ -197,7 +199,7 @@ function verifyAgent() {
 }
 
 function runExtensions(script_name, flags = '') {
-    return P.map(oses, osname => azf.deleteVirtualMachineExtension(osname + '-' + id)
+    return P.map(oses, osname => azf.deleteVirtualMachineExtension(osname + suffix)
             .catch(err => console.log(err.message)))
         .then(() => P.map(oses, osname => {
             console.log(`running extention: ${script_name}`);
@@ -226,7 +228,7 @@ function runExtensions(script_name, flags = '') {
                     commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ' + script_name + '.ps1 ' + flags
                 };
             }
-            return azf.createVirtualMachineExtension(osname + '-' + id, extension)
+            return azf.createVirtualMachineExtension(osname + suffix, extension)
                 .catch(saveErrorAndResume);
         }));
 }
@@ -277,8 +279,8 @@ function deleteAgent() {
 function addDisksToMachine(diskSize) {
     console.log(`adding disks to the agents machine`);
     return P.map(oses, osname => {
-        console.log(`adding data disk to vm ${osname}-${id} of size ${diskSize}`);
-        return azf.addDataDiskToVM(osname + '-' + id, diskSize, storage);
+        console.log(`adding data disk to vm ${osname}${suffix} of size ${diskSize}`);
+        return azf.addDataDiskToVM(osname + suffix, diskSize, storage);
     });
 }
 

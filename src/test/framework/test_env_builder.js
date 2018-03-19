@@ -32,6 +32,7 @@ const {
     clean_only,
     cleanup,
     upgrade,
+    rerun_upgrade,
     server_ip,
     server_secret,
     js_script,
@@ -76,6 +77,11 @@ function main() {
         .spread((dummy, agents_ips) => install_agents())
         .then(upgrade_test_env)
         .then(run_tests)
+        .then(() => {
+            if (rerun_upgrade) {
+                return upgrade_test_env();
+            }
+        })
         .catch(err => {
             console.error('got error:', err);
             exit_code = 1;

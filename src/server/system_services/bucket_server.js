@@ -400,9 +400,7 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         if (spillover_pool) {
             changes.updates.tiers = [{
                 _id: spillover_tier.tier._id,
-                mirrors: [{
-                    spread_pools: [spillover_pool._id]
-                }]
+                'mirrors.0.spread_pools': [spillover_pool._id]
             }];
         }
         spillover_tier.disabled = !update_request.spillover;

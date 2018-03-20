@@ -3575,7 +3575,8 @@ class NodesMonitor extends EventEmitter {
     _is_cloud_node(item) {
         const cloud_node_types = [
             'BLOCK_STORE_S3',
-            'BLOCK_STORE_AZURE'
+            'BLOCK_STORE_AZURE',
+            'BLOCK_STORE_GOOGLE'
         ];
         return cloud_node_types.includes(item.node.node_type);
     }

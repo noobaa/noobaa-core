@@ -14,7 +14,7 @@ export default class ServerRowViewModel {
     edit = {
         id: ko.observable(),
         onClick: null,
-        icon: 'edit',
+        icon: 'edit-small',
         tooltip: 'Edit DNS'
     };
 

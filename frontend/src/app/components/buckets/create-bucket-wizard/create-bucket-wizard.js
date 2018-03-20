@@ -78,7 +78,7 @@ class CreateBucketWizardViewModel extends BaseViewModel {
 
                             return !hasNodesPool || !hasCloudResource;
                         },
-                        message: 'Configuring node pools combined with cloud resources as a spread policy may cause performance issues'
+                        message: 'Configuring nodes pools combined with cloud resource as spread is not allowed'
 
                     }
                 ]

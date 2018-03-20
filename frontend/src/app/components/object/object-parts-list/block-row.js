@@ -65,7 +65,7 @@ function _getBlockResource(block, system) {
         return { text: 'Searching for resource' };
     }
 
-    const { kind, pool, host } = block.storage || {};
+    const { kind, resource, pool, host } = block.storage || {};
     switch (kind) {
         case 'HOSTS': {
             const text = getHostDisplayName(host);
@@ -75,7 +75,7 @@ function _getBlockResource(block, system) {
 
         case 'CLOUD': {
             return {
-                text: 'Cloud Resource'
+                text: resource
             };
         }
 

@@ -130,22 +130,6 @@ export function openBucketS3AccessModal(bucketName) {
     };
 }
 
-export function openBucketPlacementPolicyModal(bucketName) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'bucket-placement-policy-modal',
-                params: { bucketName }
-            },
-            options: {
-                title: 'Bucket Data Placement Policy',
-                size: 'large'
-            }
-        }
-    };
-}
-
 export function openEditBucketPlacementModal(bucketName) {
     return {
         type: OPEN_MODAL,
@@ -155,7 +139,7 @@ export function openEditBucketPlacementModal(bucketName) {
                 params: { bucketName }
             },
             options: {
-                title: 'Edit Placement Policy',
+                title: 'Edit Data Placement',
                 size: 'large'
             }
         }
@@ -422,7 +406,7 @@ export function openEditBucketQuotaModal(bucketName) {
             },
             options: {
                 size: 'small',
-                title: 'Edit Bucket Quota'
+                title: 'Edit Quota'
             }
         }
 

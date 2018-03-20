@@ -155,8 +155,14 @@ function test_ntp_timeskew(ntp_server, proxy_address) {
         dbg.log0('system is behind proxy and no local ntp. cannot reach default ntp server (pool.ntp.org) - skipping test');
         return;
     }
-
-    return net_utils.get_ntp_time({ server: ntp_server })
+    let timeout = 5000;
+    return promise_utils.retry(4, 1000, () => net_utils.get_ntp_time({ server: ntp_server, timeout })
+            .catch(err => {
+                // if failed retry with double the timeout. total time is ~75 seconds
+                timeout *= 2;
+                throw err;
+            })
+        )
         .catch(err => {
             dbg.error('test_ntp_timeskew failed', err);
             throw new Error('NTP_COMMUNICATION_ERROR');

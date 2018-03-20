@@ -179,7 +179,7 @@ class EditBucketPlacementModalViewModel extends Observer {
         } else if (policyType === 'SPREAD') {
             const [ first, ...others ] = selectedResources;
             if (others.some(res => res.type !== first.type)) {
-                errors.selectedResources = 'Configuring node pools combined with cloud resources as a spread policy may cause performance issues';
+                errors.selectedResources = 'Configuring nodes pools combined with cloud resource as spread is not allowed';
             }
         }
 

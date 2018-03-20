@@ -1,13 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { omitUndefined } from 'utils/core-utils';
+import { omitUndefined, pick } from 'utils/core-utils';
+
+const expFieldsToCopy = [
+    'message',
+    'stack',
+    'code',
+    'rpc_code'
+];
 
 export function mapErrorObject(exp) {
-    return omitUndefined({
-        message: exp.message,
-        stack: exp.stack,
-        rpc_code: exp.rpc_code
-    });
+    return omitUndefined(pick(exp, expFieldsToCopy));
 }
 
 export function mapApiStorage(storage, lastUpdate) {

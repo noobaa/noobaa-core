@@ -218,11 +218,11 @@ function _getBlockGroupID(block, placementMirroSets, spilloverMirrorSet, resilie
         // Block was not rebuild after resilency change
         (!allowedBlockType.includes(block.kind) && 'REMOVED') ||
 
-        // Here to help find bug if block to mirror set mappings.
-        (!placementMirroSets.includes(block.mirrorSet) && 'REMOVED') ||
-
         // Block is written to spillover.
         (block.mirrorSet === spilloverMirrorSet && 'SPILLOVER') ||
+
+        // Here to help find bug if block to mirror set mappings.
+        (!placementMirroSets.includes(block.mirrorSet) && 'REMOVED') ||
 
         // Block group id is the mirror set id.
         block.mirrorSet;

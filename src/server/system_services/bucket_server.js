@@ -1165,8 +1165,9 @@ function get_bucket_info({
     let is_storage_low = false;
     let is_no_storage = false;
     let is_no_storage_on_spillover = false;
-    const bucket_total = bucket_free.plus(bucket_used)
-        .plus(bucket_used_other)
+    const bucket_total_no_spillover = bucket_free.plus(bucket_used)
+        .plus(bucket_used_other);
+    const bucket_total = bucket_total_no_spillover
         .plus(spillover_storage.free)
         .plus(spillover_storage.unavailable_free);
 
@@ -1187,7 +1188,7 @@ function get_bucket_info({
     if (bucket_free.isZero()) {
         is_no_storage = true;
     } else {
-        let free_percent = bucket_free.multiply(100).divide(bucket_total);
+        let free_percent = bucket_free.multiply(100).divide(bucket_total_no_spillover);
         if (free_percent < 30) {
             is_storage_low = true;
         }

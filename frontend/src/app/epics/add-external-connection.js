@@ -8,14 +8,23 @@ function _getApiRequestParams(payload) {
     const { name, service, params } = payload;
 
     switch (service) {
-        case 'AWS':
-        case 'S3_COMPATIBLE': {
+        case 'AWS': {
             return {
                 name,
                 endpoint_type: service,
                 endpoint: params.awsEndpoint,
                 identity: params.awsAccessKey,
                 secret: params.awsSecretKey
+            };
+        }
+
+        case 'S3_COMPATIBLE': {
+            return {
+                name,
+                endpoint_type: service,
+                endpoint: params.s3Endpoint,
+                identity: params.s3AccessKey,
+                secret: params.s3SecretKey
             };
         }
 
@@ -44,7 +53,7 @@ function _getApiRequestParams(payload) {
             return {
                 name,
                 endpoint_type: service,
-                endpoint: params.endpoint,
+                endpoint: params.gcEndpoint,
                 identity: private_key_id,
                 secret: params.gcKeysJson
             };

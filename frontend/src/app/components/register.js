@@ -194,7 +194,7 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('management-panel',          require('./management/management-panel/management-panel').default);
     ko.components.register('p2p-form',                  require('./management/p2p-form/p2p-form').default);
-    ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form').default);
+    ko.components.register('system-address-form',       require('./management/system-address-form/system-address-form').default);
     ko.components.register('version-form',              require('./management/version-form/version-form').default);
     ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form').default);
     ko.components.register('maintenance-form'   ,       require('./management/maintenance-form/maintenance-form').default);

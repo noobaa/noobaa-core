@@ -1,9 +1,16 @@
 export default {
     type: 'object',
     required: [
+        'ipAddress',
         'version'
     ],
     properties: {
+        dnsName: {
+            type: 'string'
+        },
+        ipAddress: {
+            type: 'string'
+        },
         version: {
             type: 'string'
         },

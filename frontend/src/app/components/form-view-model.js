@@ -50,9 +50,9 @@ export default class FormViewModel extends Observer {
             () => Boolean(state() && state().validatingAsync)
         );
 
-        this.isValid = ko.pureComputed(() => {
-            return Boolean(state()) && isFormValid(state());
-        });
+        this.isValid = ko.pureComputed(
+            () => Boolean(state()) && isFormValid(state())
+        );
 
         this.isDirty = ko.pureComputed(
             () => Boolean(state()) && isFormDirty(state())

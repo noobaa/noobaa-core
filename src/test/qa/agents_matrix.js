@@ -150,8 +150,8 @@ function createAgents(isInclude, excludeList) {
                     .catch(saveErrorAndResume);
             }
         })
-        .tap(() => console.warn(`Will now wait for a 2 min for agents to come up...`))
-        .delay(120000)
+        .tap(() => console.warn(`Will now wait for a 3 min for agents to come up...`))
+        .delay(180000)
         .then(() => af.isIncluded({
             server_ip,
             previous_agent_number: test_nodes_names.length,
@@ -285,7 +285,7 @@ function addDisksToMachine(diskSize) {
 }
 
 function checkIncludeDisk() {
-    return af.getTestNodes(server_ip, oses)
+    return af.getTestNodes(server_ip, suffix)
         .then(number_befor_adding_disks => {
             console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`);
             return addDisksToMachine(size)
@@ -339,7 +339,7 @@ function addExcludeDisks(excludeList, number_befor_adding_disks) {
 
 function checkExcludeDisk(excludeList) {
     let number_befor_adding_disks;
-    return af.getTestNodes(server_ip, suffix)
+    return af.list_optimal_agents(server_ip, suffix)
         .then(nodes_befor_adding_disks => {
             const includesE = nodes_befor_adding_disks.filter(node => node.includes('-E-'));
             const includesF = nodes_befor_adding_disks.filter(node => node.includes('-F-'));
@@ -351,7 +351,7 @@ function checkExcludeDisk(excludeList) {
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //activate a deactivated node
-        .then(() => af.getTestNodes(server_ip, suffix)
+        .then(() => af.list_optimal_agents(server_ip, suffix)
             .then(test_nodes_names => {
                 const includesE = test_nodes_names.filter(node => node.includes('-E-'));
                 const includes_exclude1 = test_nodes_names.filter(node => node.includes('exclude1'));
@@ -375,7 +375,7 @@ function checkExcludeDisk(excludeList) {
         //verifying write, read, diag and debug level.
         .then(verifyAgent)
         //deactivate agents (mounts)
-        .then(() => af.getTestNodes(server_ip, suffix)
+        .then(() => af.list_optimal_agents(server_ip, suffix)
             .then(test_nodes_names => {
                 const excludeE = test_nodes_names.filter(node => node.includes('-E-'));
                 const excludeF = test_nodes_names.filter(node => node.includes('-F-'));
@@ -428,6 +428,7 @@ function includeExcludeCycle(isInclude) {
         // creating agents on the VM - diffrent oses.
         .then(() => runCreateAgents(isInclude, excludeList))
         // verifying write, read, diag and debug level.
+        .tap()
         .then(verifyAgent)
         // Deploy on an already deployed agent //need to find a way to run quit on win.
         // .then(() => {

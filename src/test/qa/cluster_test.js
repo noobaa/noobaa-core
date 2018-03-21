@@ -439,12 +439,17 @@ function checkAddClusterRules() {
         .then(() => setNTPConfig(0))
         .then(() => createCluster(servers, masterIndex, 1)
             .catch(err => {
-                if (err.message.includes('Could not add members when NTP is not set')) {
+                if (err.message.includes('Verify join conditions check returned NO_NTP_SET')) {
                     console.log(err.message, ' - as should');
                 } else {
                     console.warn('Error is not returned when add cluster without set ntp in in cluster server');
                 }
             }));
+}
+function cleanEnv() {
+    return P.map(servers, server => azf.deleteVirtualMachine(server.name)
+        .catch(err => console.log(`Can't delete old server ${err.message}`)))
+        .then(() => clean && process.exit(0));
 }
 
 function runFirstFlow() {
@@ -527,8 +532,7 @@ return azf.authenticate()
             });
         }
     })
-    .then(() => af.clean_agents(azf, master_ip, suffix)
-        .then(() => clean && process.exit(0)))
+    .then(() => cleanEnv())
     .then(() => prepareServers(servers))
     .then(checkAddClusterRules)
     .then(() => setNTPConfig(1))
@@ -544,8 +548,8 @@ return azf.authenticate()
     .then(runSecondFlow)
     .then(runThirdFlow)
     .then(runForthFlow)
-    .then(() => af.clean_agents(azf, master_ip, suffix)
-        .then(() => clean && process.exit(0)))
+    .then(() => af.clean_agents(azf, master_ip, suffix)) //removing agents
+    .then(() => cleanEnv())
 
     /*
       .then(() => {

@@ -1,83 +1,82 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<form class="column greedy">
-    <new-wizard class="column greedy" params="
-        steps: steps,
-        step: form.step,
-        actionLabel: 'Create',
-        onBeforeStep: onBeforeStep.bind($component),
-        onComplete: form.submit,
-        onCancel: onCancel.bind($component)
-    ">
-        <section class="greedy push-both">
-            <h3 class="heading3">
-                To attach a new server to the cluster complete the following steps:
-            </h3>
-            <ol class="bullet-list">
-                <li>
-                    Provision a new server with an OVA that matches version
-                    <svg-icon class="icon-small"
-                        params="name: 'question'"
-                        ko.tooltip="version"
-                    ></svg-icon>
-                </li>
-                <li>Login to the new server and setup networking</li>
-                <li>Copy the server IP and secret key shown on the terminal and fill the following fields:</li>
-            </ol>
+<new-wizard class="column greedy" params="
+    steps: steps,
+    step: form.step,
+    actionLabel: 'Create',
+    onBeforeStep: onBeforeStep.bind($component),
+    onComplete: form.submit,
+    onCancel: onCancel.bind($component)
+">
+    <section class="greedy push-both">
+        <h3 class="heading3">
+            To attach a new server to the cluster complete the following steps:
+        </h3>
+        <ol class="bullet-list">
+            <li>
+                Provision a new server with an OVA that matches version
+                <svg-icon class="icon-small"
+                    params="name: 'question'"
+                    ko.tooltip="version"
+                ></svg-icon>
+            </li>
+            <li>Login to the new server and setup networking</li>
+            <li>Copy the server IP and secret key shown on the terminal and fill the following fields:</li>
+        </ol>
 
-            <editor params="label: 'Server IP'">
-                <div class="row content-middle">
-                    <input type="text"
-                        class="push-next-half"
-                        ko.value="form.address"
-                        ko.hasFocus="true"
-                        ko.validationCss="form.address"
-                    />
-                    <validation-indicator params="field: form.address"></validation-indicator>
-                </div>
-                <validation-message params="field: form.address"></validation-message>
-            </editor>
-
-            <editor params="label: 'Server Secret Key'">
-                <div class="row content-middle">
-                    <input type="text"
-                        class="push-next-half"
-                        ko.value="form.secret"
-                        ko.validationCss="form.secret"
-                    />
-                    <validation-indicator params="field: form.secret"></validation-indicator>
-                </div>
-                <validation-message params="field: form.secret"></validation-message>
-            </editor>
-        </section>
-
-        <section class="column greedy push-both">
-            <h3 class="heading3" class="highlight">
-                Edit or add additional details for this server
-            </h3>
-
-            <editor params="label: 'Server Name'">
-                <div class="row content-middle">
-                    <input type="text"
-                        class="hostname"
-                        ko.value="form.hostname"
-                        ko.validationCss="form.hostname"
-                    />
-                    <span class="name-suffix">- {{form.secret}}</span>
-                </div>
-                <span class="hint" ko.visible="form.hostname">
-                    Consist of server hostname and unique id
-                </span>
-                <validation-message params="field: form.hostname"></validation-message>
-            </editor>
-
-            <editor params="label: 'Location Tag'">
+        <editor params="label: 'Server IP'">
+            <div class="row content-middle">
                 <input type="text"
-                    ko.value="form.location"
-                    ko.validationCss="form.location"
+                    class="push-next-half"
+                    ko.value="form.address"
+                    ko.hasFocus="true"
+                    ko.validationCss="form.address"
                 />
-                <validation-message params="field: form.location"></validation-message>
-            </editor>
-        </section>
-    </new-wizard>
-</form>
+                <validation-indicator params="field: form.address"></validation-indicator>
+            </div>
+            <validation-message params="field: form.address"></validation-message>
+        </editor>
+
+        <editor params="label: 'Server Secret Key'">
+            <div class="row content-middle">
+                <input type="text"
+                    class="push-next-half"
+                    ko.value="form.secret"
+                    ko.validationCss="form.secret"
+                />
+                <validation-indicator params="field: form.secret"></validation-indicator>
+            </div>
+            <validation-message params="field: form.secret"></validation-message>
+        </editor>
+    </section>
+
+    <section class="column greedy push-both">
+        <h3 class="heading3" class="highlight">
+            Edit or add additional details for this server
+        </h3>
+
+        <editor params="label: 'Server Name'">
+            <div class="row content-middle">
+                <input type="text"
+                    class="hostname"
+                    ko.hasFocus="true"
+                    ko.value="form.hostname"
+                    ko.validationCss="form.hostname"
+                />
+                <span class="name-suffix">- {{form.secret}}</span>
+            </div>
+            <span class="hint" ko.visible="form.hostname">
+                Consist of server hostname and unique id
+            </span>
+            <validation-message params="field: form.hostname"></validation-message>
+        </editor>
+
+        <editor params="label: 'Location Tag'">
+            <input type="text"
+                ko.value="form.location"
+                ko.validationCss="form.location"
+            />
+            <validation-message params="field: form.location"></validation-message>
+        </editor>
+    </section>
+</new-wizard>

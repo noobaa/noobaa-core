@@ -1,26 +1,51 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<stepper params="steps: steps, current: step">
-</stepper>
+<form class="column greedy" ko.submit="onSubmit">
+    <stepper params="steps: steps, current: step">
+    </stepper>
 
-<div class="pages column greedy" ko.forEach="stepTemplate">
-    <div class="page column greedy"
-        ko.template="{ nodes: [$data], data: $parents[1] }
-    "></div>
-</div>
+    <div class="pages column greedy" ko.forEach="stepTemplate">
+        <div class="page column greedy"
+            ko.template="{ nodes: [$data], data: $parents[1] }
+        "></div>
+    </div>
 
-<div class="row align-end content-middle hpad">
-    <button class="link alt-colors wiz-back push-next"
-        type="button"
-        ko.click="onStepBackword"
-        ko.text="prevLabel"
-        ko.disable="disabled"
-    ></button>
-    <button class="btn wiz-fwd"
-        type="button"
-        ko.click="onStepForward"
-        ko.shakeOnClick="shake"
-        ko.text="nextLabel"
-        ko.disable="disabled"
-    ></button>
-</div>
+    <div class="row align-end content-middle hpad">
+        <button class="link alt-colors wiz-back push-next"
+            type="button"
+            ko.click="onCancel"
+            ko.disable="disabled"
+            ko.visible="isFirstStep"
+        >
+            Cancel
+        </button>
+
+        <button class="link alt-colors wiz-back push-next"
+            type="button"
+            ko.click="onStepBackword"
+            ko.disable="disabled"
+            ko.hidden="isFirstStep"
+        >
+            Previous
+        </button>
+
+        <button class="btn wiz-fwd"
+            type="button"
+            ko.click="onStepForward"
+            ko.shakeOnClick="shake"
+            ko.disable="disabled"
+            ko.hidden="isLastStep"
+        >
+            Next
+        </button>
+
+        <button class="btn wiz-fwd"
+            type="submit"
+            ko.shakeOnClick="shake"
+            ko.disable="disabled"
+            ko.visible="isLastStep"
+        >
+            {{actionLabel}}
+        </button>
+    </div>
+</form>

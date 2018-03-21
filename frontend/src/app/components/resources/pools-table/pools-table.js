@@ -112,6 +112,7 @@ class PoolsTableViewModel extends Observer {
     onPools([ pools, location ]) {
         if (!pools) {
             this.poolsLoaded(false);
+            this.isCreatePoolDisabled(true);
             return;
         }
 

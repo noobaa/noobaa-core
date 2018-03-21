@@ -20,12 +20,13 @@ class NewWizardViewModel {
 
         this.steps = steps;
         this.step = step;
+        this.actionLabel = actionLabel;
         this.disabled = disabled;
-        this.onBeforeStep = onBeforeStep;
-        this.onCancel = onCancel;
-        this.onComplete = onComplete;
         this.shakeOnFailedStep = shakeOnFailedStep;
         this.shake = ko.observable(false);
+        this.beforeStepHandler = onBeforeStep;
+        this.cancelHandler = onCancel;
+        this.completeHandler = onComplete;
 
         this.stepTemplate = ko.pureComputed(() => {
             // Returning an array of one item to be used in with knockout foreach
@@ -51,24 +52,44 @@ class NewWizardViewModel {
         );
     }
 
-    onStepForward() {
+    // ----------------------------------------------------------------------------
+    // Making all of the following handlers async to gurentee that the handlers`
+    // code will be schedule to run at the end of the event queue.
+    // ----------------------------------------------------------------------------
+
+    async onCancel() {
+        this.cancelHandler();
+    }
+
+    async onStepForward() {
         this.shake(false);
 
         const step = this.step();
-        if (ko.unwrap(this.disabled)|| !this.onBeforeStep(step)) {
+        if (!this.beforeStepHandler(step)) {
             this.shake(ko.unwrap(this.shakeOnFailedStep));
             return;
         }
 
-        this.isLastStep() ? this.onComplete() : this.step(step + 1);
+        this.step(step + 1);
     }
 
-    onStepBackword() {
-        if (ko.unwrap(this.disabled)) {
+    async onStepBackword() {
+        this.step(this.step() - 1);
+    }
+
+    async onSubmit() {
+        if (!this.isLastStep()) {
             return;
         }
 
-        this.isFirstStep() ? this.onCancel() : this.step(this.step() - 1);
+        this.shake(false);
+
+        if (!this.beforeStepHandler(this.step())) {
+            this.shake(ko.unwrap(this.shakeOnFailedStep));
+            return;
+        }
+
+        this.completeHandler();
     }
 }
 

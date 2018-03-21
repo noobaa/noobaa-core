@@ -246,25 +246,28 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
     const filteredSamples = _filterSamples(allSamples, start, end);
     const emptyChartMessage = _getChartEmptyMessage(showSamples, filteredSamples, selectedDatasets);
     const options = _getChartOptions(selectedDatasets, filteredSamples, durationSettings, start, end, timezone);
-    const datasets = selectedDatasets
-        .map(({ key, color }) => ({
-            lineTension: 0,
-            borderWidth: 2,
-            borderColor: color,
-            backgroundColor: 'transparent',
-            pointRadius: points ? 2 : 0,
-            pointBorderWidth: 4,
-            pointHitRadius: 10,
-            pointBackgroundColor: style['color6'],
-            pointBorderColor: hexToRgb(style['color6'], 0.2),
-            pointHoverBorderColor: 'transparent',
-            data: filteredSamples
-                .map(sample => ({
-                    x: sample.timestamp,
-                    y: toBytes(sample[key])
-                }))
-        })
-    );
+    let datasets = [];
+    if (!emptyChartMessage) {
+        datasets = selectedDatasets
+            .map(({ key, color }) => ({
+                lineTension: 0,
+                borderWidth: 2,
+                borderColor: color,
+                backgroundColor: 'transparent',
+                pointRadius: points ? 2 : 0,
+                pointBorderWidth: 4,
+                pointHitRadius: 10,
+                pointBackgroundColor: style['color6'],
+                pointBorderColor: hexToRgb(style['color6'], 0.2),
+                pointHoverBorderColor: 'transparent',
+                data: filteredSamples
+                    .map(sample => ({
+                        x: sample.timestamp,
+                        y: toBytes(sample[key])
+                    }))
+            })
+        );
+    }
 
     return {
         options,

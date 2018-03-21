@@ -49,4 +49,3 @@ export function isFormDirty(form) {
     return Object.keys(form.fields)
         .some(field => isFieldDirty(form, field));
 }
-

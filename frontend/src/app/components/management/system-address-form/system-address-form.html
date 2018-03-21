@@ -1,0 +1,96 @@
+<!-- Copyright (C) 2018 NooBaa -->
+
+<section>
+    <div class="row content-middle cursor-pointer"
+         ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">
+                System DNS Name / Address
+                <dirty-mark ko.visible="isDirtyMarkerVisible"></dirty-mark>
+            </h2>
+            <p ko.visible="!isExpanded()">
+                Server address:
+                <span class="text-tech" ko.text="systemAddress"></span>
+            </p>
+            <p ko.visible="isExpanded">
+                Domain Name System: The Internet's system for converting alphabetic names into numeric addresses.
+            </p>
+        </div>
+        <svg-icon class="icon-small rotate push-next-half"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded">
+        <loading-indicator class="align-start pad" ko.visible="!isFormInitialized()"></loading-indicator>
+        <!-- ko if: isFormInitialized -->
+        <form class="column greedy" ko.submit="form.submit">
+            <div class="column push-next">
+                <editor params="label: 'System Address'">
+                    <radio-group params="
+                        selected: form.addressType,
+                        options: addressOptions
+                    "></radio-group>
+                </editor>
+
+                <editor params="label: 'IP Address'" ko.visible="form.addressType.eq('IP')">
+                    <input type="text" disabled ko.value="ipAddress" />
+                </editor>
+
+                <editor class="push-next" params="label: 'DNS Name'" ko.visible="form.addressType.eq('DNS')">
+                    <div class="row">
+                        <input type="text"
+                            class="push-next-half"
+                            ko.value="form.dnsName"
+                            ko.validationCss="form.dnsName"
+                        />
+                        <validation-indicator params="field: form.dnsName"></validation-indicator>
+                    </div>
+                    <validation-message params="field: form.dnsName"></validation-message>
+
+                    <p class="highlight push-both">
+                        Before clicking the update button follow the following procedure:
+                    </p>
+
+                    <ol class="bullet-list">
+                        <li>
+                            Add the new name in your DNS to have both the old and new names available
+                            <div class="alt-bg pad config">
+                            <span>
+                                <span class="highlight">IP:</span>
+                                <output class="text-tech" ko.value="ipAddress"></output>
+                            </span>
+                            <span>
+                                <span class="highlight">Name:</span>
+                                <span class="text-tech" ko.text="form.dnsName"></span>
+                            </span>
+                            </div>
+                        </li>
+                        <li>
+                            Click the update button
+                        </li>
+                        <li>
+                            After 24 hours the old name can be removed from your DNS
+                        </li>
+                    </ol>
+                </editor>
+            </div>
+
+            <p class="row remark">
+                <svg-icon class="icon-small" params="name: 'notif-info'">
+                </svg-icon>
+                <span class="greedy">
+                In any case, reinstalling a node (from the install node wizard) will update the server address used by that node. Make sure that the server IP was configured Static and no DHCP, otherwise if the IP will suddenly change the nodes will lose connectivity.
+            </span>
+            </p>
+
+            <button class="btn align-start push-prev"
+                ko.shakeOnClick="!form.isValid()"
+            >
+                Update
+            </button>
+        </form>
+        <!-- /ko -->
+    </div>
+</section>

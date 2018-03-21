@@ -5,10 +5,11 @@ import { UPLOAD_OBJECTS } from 'action-types';
 import { deepFreeze } from 'utils/core-utils';
 import { mapErrorObject } from 'utils/state-utils';
 import { createS3Client } from 'utils/s3-utils';
+import { unitsInBytes } from 'utils/size-utils';
 import { updateObjectUpload, completeObjectUpload, failObjectUpload } from 'action-creators';
 
 const s3UploadOptions = deepFreeze({
-    partSize: 64 * 1024 * 1024,
+    partSize: 10 * unitsInBytes.MB,
     queueSize: 4
 });
 

@@ -250,11 +250,9 @@ class AddCloudConnectionModalViewModel extends Observer  {
             (service === 'S3_COMPATIBLE' && ['s3Endpoint', 's3AccessKey', 's3SecretKey']) ||
             (service === 'NET_STORAGE' && ['nsHostname', 'nsStorageGroup', 'nsKeyName', 'nsCPCode', 'nsAuthKey']) ||
             (service === 'GOOGLE' && ['gcKeysJson']);
-
-        const params = {
-            endpoint: gcEndpoint,
-            ...pick(values, fields)
-        };
+        
+        const params = pick(values, fields);
+        if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
 
         action$.onNext(addExternalConnection(connectionName, service, params));
         action$.onNext(closeModal());

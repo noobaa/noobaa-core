@@ -5,14 +5,16 @@
         <div class="greedy">
             <input type="search"
                 placeholder="Filter by pool name"
-                ko.textInput="ko.pc(filter, onFilterThrottled)" />
+                ko.textInput="ko.pc(filter, onFilterThrottled)"
+            />
         </div>
         <div class="column align-start"
             ko.tooltip="createPoolTooltip"
         >
             <button class="btn"
-                    ko.click="onCreatePool"
-                    ko.disable="isCreatePoolDisabled">
+                ko.click="onCreatePool"
+                ko.disable="isCreatePoolDisabled"
+            >
                 Create Pool
             </button>
         </div>

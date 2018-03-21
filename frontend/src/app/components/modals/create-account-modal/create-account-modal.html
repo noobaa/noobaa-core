@@ -1,105 +1,104 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<form class="column greedy">
-    <new-wizard class="column greedy" params="
-        steps: steps,
-        step: form.step,
-        actionLabel: 'Create',
-        disabled: form.isSubmitted,
-        onBeforeStep: onBeforeStep.bind($component),
-        onComplete: form.submit,
-        onCancel: onCancel.bind($component)
-    ">
-        <section class="column greedy">
-            <editor params="label: 'Login Access'">
-                <toggle-switch params="
-                    value: form.hasLoginAccess,
-                    onLabel: 'Enabled',
-                    offLabel: 'Disabled',
-                    hasFocus: true
-                "></toggle-switch>
-                <p class="remark push-prev-half">
-                    Enabling login access will generate a password that allows login to <br>
-                    NooBaa management  console as a system admin
-                </p>
-            </editor>
+<new-wizard class="column greedy" params="
+    steps: steps,
+    step: form.step,
+    actionLabel: 'Create',
+    disabled: form.isSubmitted,
+    onBeforeStep: onBeforeStep.bind($component),
+    onComplete: form.submit,
+    onCancel: onCancel.bind($component)
+">
+    <section class="column greedy">
+        <editor params="label: 'Login Access'">
+            <toggle-switch params="
+                value: form.hasLoginAccess,
+                onLabel: 'Enabled',
+                offLabel: 'Disabled',
+                hasFocus: true
+            "></toggle-switch>
+            <p class="remark push-prev-half">
+                Enabling login access will generate a password that allows login to <br>
+                NooBaa management  console as a system admin
+            </p>
+        </editor>
 
-            <editor params="label: accountNameProps().label">
-                <input type="text"
-                    ko.validationCss="form.accountName"
-                    ko.value="form.accountName"
-                    ko.attr.placeholder="accountNameProps().placeholder"
-                />
-                <p class="remark" ko.visible="accountNameProps().isRemarkVisible">
-                    3 - 32 characters
-                </p>
-                <validation-message params="field: form.accountName"></validation-message>
-            </editor>
-        </section>
+        <editor params="label: accountNameProps().label">
+            <input type="text"
+                ko.validationCss="form.accountName"
+                ko.value="form.accountName"
+                ko.attr.placeholder="accountNameProps().placeholder"
+            />
+            <p class="remark" ko.visible="accountNameProps().isRemarkVisible">
+                3 - 32 characters
+            </p>
+            <validation-message params="field: form.accountName"></validation-message>
+        </editor>
+    </section>
 
-        <section class="column greedy">
-            <editor params="label: 'S3 Access', disabled: form.isSubmitted">
-                <toggle-switch params="
-                    value: form.hasS3Access,
-                    onLabel: 'Enabled',
-                    offLabel: 'Disabled',
-                    disabled: form.isSubmitted
-                "></toggle-switch>
-                <p class="remark push-prev-half" ko.css.disabled="form.isSubmitted">
-                    Granting S3 access will allow this account to connect S3 client <br>
-                    applications by generating security credentials (key set).
-                </p>
-                <validation-message params="field: form.hasS3Access"></validation-message>
-            </editor>
+    <section class="column greedy">
+        <editor params="label: 'S3 Access', disabled: form.isSubmitted">
+            <toggle-switch params="
+                value: form.hasS3Access,
+                onLabel: 'Enabled',
+                offLabel: 'Disabled',
+                disabled: form.isSubmitted,
+                hasFocus: true
+            "></toggle-switch>
+            <p class="remark push-prev-half" ko.css.disabled="form.isSubmitted">
+                Granting S3 access will allow this account to connect S3 client <br>
+                applications by generating security credentials (key set).
+            </p>
+            <validation-message params="field: form.hasS3Access"></validation-message>
+        </editor>
 
-            <editor params="label: 'S3 default placement', disabled: isS3AccessDisabled">
-                <div class="row">
-                    <dropdown params="
-                            options: resourceOptions,
-                            selected: form.defaultResource,
-                            disabled: isS3AccessDisabled,
-                            placeholder: 'Choose Resources'
-                        "
-                        ko.validationCss="form.defaultResource"
-                    >
-                    </dropdown>
-                    <svg-icon class="icon-small push-prev-half align-middle"
-                        params="name: 'question'"
-                        ko.tooltip="s3PlacementToolTip"
-                    >
-                    </svg-icon>
-                </div>
-                 <validation-message params="field: form.defaultResource"></validation-message>
-            </editor>
-
-            <radio-group class="push-prev-half" params="
-                options: bucketPermissionModes,
-                selected: form.hasAccessToAllBuckets,
-                multiline: true,
-                disabled: isS3AccessDisabled
-            "></radio-group>
-
-            <div class="align-end push-next-half" ko.css.disabled="isBucketSelectionDisabled">
-                <button class="link alt-colors"
-                    ko.click="onSelectAllBuckets"
-                    ko.disable="isBucketSelectionDisabled"
-                ">
-                    Select all
-                </button>
-                |
-                <button class="link alt-colors"
-                    ko.click="onClearSelectedBuckets"
-                    ko.disable="isBucketSelectionDisabled"
+        <editor params="label: 'S3 default placement', disabled: isS3AccessDisabled">
+            <div class="row">
+                <dropdown params="
+                        options: resourceOptions,
+                        selected: form.defaultResource,
+                        disabled: isS3AccessDisabled,
+                        placeholder: 'Choose Resources'
+                    "
+                    ko.validationCss="form.defaultResource"
                 >
-                    Clear
-                </button>
+                </dropdown>
+                <svg-icon class="icon-small push-prev-half align-middle"
+                    params="name: 'question'"
+                    ko.tooltip="s3PlacementToolTip"
+                >
+                </svg-icon>
             </div>
+             <validation-message params="field: form.defaultResource"></validation-message>
+        </editor>
 
-            <multiselect class="push-next greedy" params="
-                options: bucketOptions,
-                selected: form.allowedBuckets,
-                disabled: isBucketSelectionDisabled
-            "></multiselect>
-        </section>
-    </new-wizard>
-</form>
+        <radio-group class="push-prev-half" params="
+            options: bucketPermissionModes,
+            selected: form.hasAccessToAllBuckets,
+            multiline: true,
+            disabled: isS3AccessDisabled
+        "></radio-group>
+
+        <div class="align-end push-next-half" ko.css.disabled="isBucketSelectionDisabled">
+            <button class="link alt-colors"
+                ko.click="onSelectAllBuckets"
+                ko.disable="isBucketSelectionDisabled"
+            ">
+                Select all
+            </button>
+            |
+            <button class="link alt-colors"
+                ko.click="onClearSelectedBuckets"
+                ko.disable="isBucketSelectionDisabled"
+            >
+                Clear
+            </button>
+        </div>
+
+        <multiselect class="push-next greedy" params="
+            options: bucketOptions,
+            selected: form.allowedBuckets,
+            disabled: isBucketSelectionDisabled
+        "></multiselect>
+    </section>
+</new-wizard>

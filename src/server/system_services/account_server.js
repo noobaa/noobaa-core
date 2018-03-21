@@ -795,13 +795,13 @@ function check_aws_connection(params) {
         .then(
             ret => ({ status: 'SUCCESS' }),
             err => {
-                dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'), ` error: ${err}`, err.message);
+                dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'), ` error: ${err}, code: ${err.code}, message: ${err.message}`);
                 const status = aws_error_mapping[err.code] || 'UNKNOWN_FAILURE';
                 return {
                     status,
                     error: {
                         code: err.code,
-                        message: err.message
+                        message: err.message || 'Unkown Error'
                     }
                 };
             }

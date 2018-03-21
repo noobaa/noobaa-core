@@ -31,13 +31,13 @@ function aggregate_data_free_by_tier(req) {
 function _aggregate_data_free_for_tier(tier_id, system) {
     const mirror_available_storage = [];
     const tier = system_store.data.get_by_id(tier_id);
-    const num_blocks_per_chunk = mapper.get_num_blocks_per_chunk(tier);
 
     if (!tier) {
         const err = new Error(`Tier ${tier_id} was not found`);
         console.error(err);
         return P.reject(err);
     }
+    const num_blocks_per_chunk = mapper.get_num_blocks_per_chunk(tier);
 
     return P.each(tier.mirrors, mirror_object => server_rpc.client.node.list_nodes({
                 query: {

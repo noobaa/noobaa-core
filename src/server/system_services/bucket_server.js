@@ -592,11 +592,6 @@ function delete_bucket(req) {
                     buckets: [bucket._id],
                     tieringpolicies: [tiering_policy._id],
                     tiers: _.compact(_.map(tiering_policy.tiers, tier_and_order => {
-                        // We should not delete the spillover tiers/pools (internal currently)
-                        // They will be assigned to tiering policies of other buckets
-                        // So there they wouldn't be deleted, but I add this return just in case
-                        // Something went to as planned
-                        if (tier_and_order.spillover) return;
                         const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
                             .filter(policy_id => String(policy_id) !== String(tiering_policy._id));
                         if (_.isEmpty(associated_tiering_policies)) {

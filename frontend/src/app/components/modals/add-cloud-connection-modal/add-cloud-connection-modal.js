@@ -316,7 +316,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 break;
             }
             case 'INVALID_CREDENTIALS': {
-                errors.awsSecretKey = errors.awsAccessKey = 'Credentials does not match';
+                errors.awsSecretKey = errors.awsAccessKey = 'Credentials do not match';
                 break;
             }
             case 'NOT_SUPPORTED': {
@@ -392,7 +392,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 break;
             }
             case 'INVALID_CREDENTIALS': {
-                errors.azureAccountName = errors.azureAccountKey = 'Credentials does not match';
+                errors.azureAccountName = errors.azureAccountKey = 'Credentials do not match';
                 break;
             }
             case 'NOT_SUPPORTED': {
@@ -468,7 +468,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 break;
             }
             case 'INVALID_CREDENTIALS': {
-                errors.s3AccessKey = errors.s3SecretKey = 'Credentials does not match';
+                errors.s3AccessKey = errors.s3SecretKey = 'Credentials do not match';
                 break;
             }
             case 'NOT_SUPPORTED': {

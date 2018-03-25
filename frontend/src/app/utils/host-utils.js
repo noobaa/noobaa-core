@@ -111,6 +111,11 @@ const modeToStateIcon = deepFreeze({
         css: 'error',
         tooltip: 'Cannot Start HTTP Server'
     },
+    HTTP_PORT_ACCESS_ERROR: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Endpoint Cannot Use Ports 80/443'
+    },
     HAS_ERRORS: {
         name: 'problem',
         css: 'error',
@@ -274,6 +279,7 @@ const stateToModes = deepFreeze({
         'NO_CAPACITY',
         'LOW_CAPACITY',
         'HTTP_SRV_ERRORS',
+        'HTTP_PORT_ACCESS_ERROR',
         'HAS_ERRORS',
         'HAS_ISSUES',
         'N2N_PORTS_BLOCKED'
@@ -483,8 +489,13 @@ const endpointServiceModeToIcon = deepFreeze({
     HTTP_SRV_ERRORS: {
         name: 'problem',
         css: 'error',
-        tooltip: 'Cannot start HTTP server'
+        tooltip: 'Cannot Start HTTP server'
     },
+    HTTP_PORT_ACCESS_ERROR: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Endpoint Cannot Use Ports 80/443'
+    }, 
     INITIALIZING: {
         name: 'working',
         css: 'warning',

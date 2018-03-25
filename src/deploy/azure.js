@@ -127,9 +127,9 @@ const OSNAMES = [
     { type: 'centos7', shortname: 'c7' },
     { type: 'redhat6', shortname: 'r6' },
     { type: 'redhat7', shortname: 'r7' },
-    { type: 'win2008', shortname: 'w08' },
-    { type: 'win2012', shortname: 'w12' },
-    { type: 'win2016', shortname: 'w16' },
+    { type: 'win2008', shortname: 'w8' },
+    { type: 'win2012', shortname: 'w2' },
+    { type: 'win2016', shortname: 'w6' },
 ];
 
 let azf;

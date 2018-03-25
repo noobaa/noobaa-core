@@ -98,7 +98,7 @@ class BlockStoreClient {
                     })
                     .then(info => ({
                         [RPC_BUFFERS]: { data: buffer_utils.join(writable.buffers, writable.total_length) },
-                        block_md: JSON.parse(Buffer.from(info.metadata.noobaa_block_md, 'base64'))
+                        block_md: JSON.parse(Buffer.from(info.metadata.noobaablockmd || info.metadata.noobaa_block_md, 'base64'))
                     }));
             })
             .timeout(timeout);
@@ -165,7 +165,10 @@ class BlockStoreClient {
                         if (res.statusCode === 200) {
                             const ret = {
                                 [RPC_BUFFERS]: { data: body },
-                                block_md: JSON.parse(Buffer.from(res.headers['x-amz-meta-noobaa_block_md'], 'base64'))
+                                block_md: JSON.parse(Buffer.from(
+                                    res.headers['x-amz-meta-noobaablockmd'],
+                                    res.headers['x-amz-meta-noobaa_block_md'] ||
+                                    'base64'))
                             };
                             return ret;
 

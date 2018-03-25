@@ -2,10 +2,13 @@
 'use strict';
 
 const P = require('../../util/promise');
+const util = require('util');
 const child_process = require('child_process');
 const argv = require('minimist')(process.argv);
 const server_ops = require('../utils/server_functions');
 const promise_utils = require('../../util/promise_utils');
+const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('TUI');
 let secret;
 let expectFail = false;
 let isSystemStarted = true;
@@ -82,7 +85,7 @@ class Expect {
             str,
             resolve: null,
             reject: null,
-            timeout: setTimeout(() => this.timeout(e), timeout ? timeout : 10000)
+            timeout: setTimeout(() => this.timeout(e), timeout ? timeout : 5 * 60 * 1000)
         };
         this._expects.push(e);
         return new Promise((resolve, reject) => {
@@ -122,7 +125,7 @@ class Expect {
     }
 
     timeout(e) {
-        e.reject(new Error('TIMEOUT'));
+        e.reject(new Error(util.format('TIMEOUT:', e.str)));
         this._proc.kill();
     }
 }
@@ -172,6 +175,7 @@ function expect_an_error_and_get_back(e, errorMassage, timeout) {
 }
 
 function expect_a_resoult_and_get_back(e, text, timeout) {
+    // console.log('expect_a_resoult_and_get_back:: text: ' + text);
     return P.resolve()
         .then(() => e.expect(text, timeout))
         .delay(5 * 1000)
@@ -220,13 +224,14 @@ function ntp_Configuration(configureTZ = true, reachable = true) {
     return P.resolve()
         // the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty eventhough stdin is a pipe
         .then(() => e.spawn('ssh', ['-t', '-t', `noobaa@${server_ip}`]))
-        .then(() => expect_override_conf(e))
+        .then(() => expect_override_conf(e, 120 * 1000))
         .then(() => e.expect('This is a short first install wizard'))
         .then(() => e.send('\r'))
         .then(() => e.expect('NTP Configuration'))
         .then(() => e.send(`2\r`))
         .then(() => e.expect('Please supply an NTP server address and Time Zone'))
-        .then(() => e.send(`${ntpString}`))
+        .then(() => e.send(`${ntpString}\r`))
+        .delay(30 * 1000)
         .then(() => {
             if (expectFail) {
                 return expect_an_error_and_get_back(e, 'NTP Server must be set', 120 * 1000);
@@ -236,11 +241,12 @@ function ntp_Configuration(configureTZ = true, reachable = true) {
                     .then(() => expect_a_resoult_and_get_back(e, toExpect, 120 * 1000));
             }
         })
-        .then(() => e.expect('6*Exit', 120 * 1000))
+        .then(() => e.expect('6*Exit'))
         .delay(1 * 1000)
         .then(() => e.send('6\r'))
-        .then(() => e.expect('was configured and is ready to use'))
-        .then(() => e.send('\r'))
+        .delay(5 * 1000)
+        .then(() => e.expect('was configured and is ready to use', 120 * 1000))
+        .delay(1 * 1000)
         .then(() => e.end())
         .catch(err => {
             console.error('FAILED', err);
@@ -312,7 +318,7 @@ function dns_Configuration(configurePrimary = true, configureSecondary = true, r
     return P.resolve()
         // the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty eventhough stdin is a pipe
         .then(() => e.spawn('ssh', ['-t', '-t', `noobaa@${server_ip}`]))
-        .then(() => expect_override_conf(e, 60 * 1000))
+        .then(() => expect_override_conf(e, 120 * 1000))
         .then(() => e.expect('This is a short first install wizard'))
         .then(() => e.send('\r'))
         .then(() => e.expect('Networking Configuration'))
@@ -320,24 +326,29 @@ function dns_Configuration(configurePrimary = true, configureSecondary = true, r
         .then(() => e.expect('DNS Settings'))
         .then(() => e.send(`2\r`))
         .then(() => e.expect('Please supply a primary and secondary DNS servers'))
-        .then(() => e.send(`${dnsString}`))
+        .then(() => e.send(`${dnsString}\r`))
+        .delay(30 * 1000)
         .then(() => {
             if (expectFail) {
                 return expect_an_error_and_get_back(e, 'DNS server is not valid', 120 * 1000);
             } else {
-                return e.expect('DNS Settings')
+                return e.expect('DNS Settings', 120 * 1000)
                     .then(() => e.send(`2\r`))
                     .then(() => expect_a_resoult_and_get_back(e, toExpect, 120 * 1000));
             }
         })
-        .then(() => e.expect('4*Exit', 120 * 1000))
+        .then(() => e.expect('4*Exit'))
         .delay(1 * 1000)
         .then(() => e.send('4\r'))
+        .delay(5 * 1000)
         .then(() => e.expect('6*Exit'))
         .delay(1 * 1000)
         .then(() => e.send('6\r'))
+        .delay(5 * 1000)
         .then(() => e.expect('was configured and is ready to use'))
+        .delay(1 * 1000)
         .then(() => e.send('\r'))
+        .delay(5 * 1000)
         .then(() => e.end())
         .catch(err => {
             console.error('FAILED', err);
@@ -366,7 +377,7 @@ function hostname_Settings() {
     return P.resolve()
         // the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty eventhough stdin is a pipe
         .then(() => e.spawn('ssh', ['-t', '-t', `noobaa@${server_ip}`]))
-        .then(() => expect_override_conf(e))
+        .then(() => expect_override_conf(e, 120 * 1000))
         .then(() => e.expect('This is a short first install wizard'))
         .then(() => e.send('\r'))
         .then(() => e.expect('Networking Configuration'))
@@ -376,24 +387,30 @@ function hostname_Settings() {
         .delay(1 * 1000)
         .then(() => e.send(`3\r`))
         .then(() => e.expect('Please supply a hostname for this'))
-        .then(() => e.send(`${hostname}\r`))
+        .then(() => e.send(`${DELETE}${hostname}\r`))
+        .delay(30 * 1000)
         .then(() => {
             if (expectFail) {
                 return P.resolve();
             } else {
+                // console.log('Verifing Hostname results');
                 return e.expect('Hostname Settings')
                     .then(() => e.send(`3\r`))
                     .then(() => expect_a_resoult_and_get_back(e, hostname, 120 * 1000));
             }
         })
-        .then(() => e.expect('4*Exit', 120 * 1000))
+        .then(() => e.expect('4*Exit'))
         .delay(1 * 1000)
         .then(() => e.send('4\r'))
+        .delay(5 * 1000)
         .then(() => e.expect('6*Exit'))
         .delay(1 * 1000)
         .then(() => e.send('6\r'))
+        .delay(5 * 1000)
         .then(() => e.expect('was configured and is ready to use'))
+        .delay(1 * 1000)
         .then(() => e.send('\r'))
+        .delay(5 * 1000)
         .then(() => e.end())
         .catch(err => {
             console.error('FAILED', err);
@@ -416,6 +433,7 @@ function authenticate() {
 }
 
 return authenticate()
+    .then(() => server_ops.set_first_install_mark(server_ip, secret))
     .then(() => server_ops.enable_nooba_login(server_ip, secret))
     //will loop twice, one with system and the other without.
     .then(() => promise_utils.loop(cycles, cycle => P.resolve()

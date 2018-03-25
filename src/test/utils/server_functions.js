@@ -39,6 +39,28 @@ function enable_nooba_login(server_ip, secret) {
         .then(() => ssh.ssh_stick(client_ssh));
 }
 
+//will set first install mark via ssh
+function set_first_install_mark(server_ip, secret) {
+    let client_ssh;
+    return ssh.ssh_connect({
+            host: server_ip,
+            //  port: 22,
+            username: 'noobaaroot',
+            password: secret,
+            keepaliveInterval: 5000,
+        })
+        //enabling noobaa user login
+        .then(cssh => {
+            client_ssh = cssh;
+            return ssh.ssh_exec(client_ssh, `
+        if [ ! -f /etc/first_install.mrk ]
+        then
+            date | sudo tee -a /etc/first_install.mrk &> /dev/null
+        fi
+        `);
+        });
+}
+
 //will run clean_ova and reboot the server
 function clean_ova(server_ip, secret) {
     let client_ssh;
@@ -151,6 +173,7 @@ function upload_upgrade_package(ip, package_path) {
 }
 
 exports.enable_nooba_login = enable_nooba_login;
+exports.set_first_install_mark = set_first_install_mark;
 exports.clean_ova = clean_ova;
 exports.wait_server_recoonect = wait_server_recoonect;
 exports.validate_activation_code = validate_activation_code;

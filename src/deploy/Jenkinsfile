@@ -172,28 +172,28 @@ node('pipeline') {
                 --clean_only
             """
         },
-        //TODO: need to get the internal ip of the server and run into it.
-        // "dataset": {
-        //     echo 'Running dataset'
-        //     sh script: """
-        //     export NVM_DIR=/opt/nvm
-        //     . /opt/nvm/nvm.sh &> /dev/null
-        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)6
-        //     flags="${azureEnv} --name dataset --id \${id} "
-        //     node src/test/framework/test_env_builder.js \
-        //         \${flags} \
-        //         --upgrade /tmp/noobaa-NVA-latest.tar.gz \
-        //         --js_script $WORKSPACE/src/test/qa/dataset.js --server ${dataset_ip} --aging_timeout 1 --dataset_size 1024
-        //     """
-        //     echo 'Deleting agent_matrix env'
-        //     sh script: """
-        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)6
-        //     flags="${azureEnv} --name dataset --id \${id} "
-        //     node src/test/framework/test_env_builder.js \
-        //         \${flags} \
-        //         --clean_only
-        //     """
-        // },
+        TODO: need to get the internal ip of the server and run into it.
+        "dataset": {
+            echo 'Running dataset'
+            sh script: """
+            export NVM_DIR=/opt/nvm
+            . /opt/nvm/nvm.sh &> /dev/null
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)6
+            flags="${azureEnv} --name dataset --id \${id} "
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+                --js_script $WORKSPACE/src/test/qa/dataset.js --server ${dataset_ip} --aging_timeout 1 --dataset_size 1024
+            """
+            echo 'Deleting agent_matrix env'
+            sh script: """
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)6
+            flags="${azureEnv} --name dataset --id \${id} "
+            node src/test/framework/test_env_builder.js \
+                \${flags} \
+                --clean_only
+            """
+        },
         "agents_matrix": {
             echo 'Running agent_matrix'
             sh script: """

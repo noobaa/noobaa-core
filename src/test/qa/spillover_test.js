@@ -9,8 +9,8 @@ const promise_utils = require('../../util/promise_utils');
 const AzureFunctions = require('../../deploy/azureFunctions');
 const af = require('../utils/agent_functions');
 const bf = require('../utils/bucket_functions');
-
-require('../../util/dotenv').load();
+const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('spillover');
 
 let failures_in_test = false;
 let errors = [];
@@ -23,6 +23,7 @@ const {
     resource,
     storage,
     vnet,
+    id = 0,
     agents_number = 3,
     failed_agents_number = 1,
     help = false
@@ -37,7 +38,7 @@ const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-const suffix = 'spillover';
+const suffix = 'spillover-' + id;
 
 function usage() {
     console.log(`
@@ -48,6 +49,7 @@ function usage() {
     --vnet                  -   azure vnet on the resource group
     --agents_number         -   number of agents to add (default: ${agents_number})
     --failed_agents_number  -   number of agents to fail (default: ${failed_agents_number})
+    --id                    -   an id that is attached to the agents name
     --server_ip             -   noobaa server ip.
     --help                  -   show this help.
     `);
@@ -143,20 +145,20 @@ function uploadAndDeleteFiles(dataset_size, isOverSized, files) {
     let part = 0;
     console.log('Writing and deleting data till size amount to grow ' + dataset_size + ' MB');
     return promise_utils.pwhile(() => part < parts, () => {
-    let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
-        files.push(file_name);
-        console.log('files list is ' + files);
-        part += 1;
-        console.log('Uploading file with size ' + file_size + ' MB');
-        return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
-            .then(() => s3ops.delete_file(server_ip, bucket, file_name))
-            .then(() => s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier))
-            .catch(err => {
-                saveErrorAndResume(`${server_ip} FAILED uploading and deleting files `, err);
-                failures_in_test = true;
-                throw err;
-            });
-    })
+            let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
+            files.push(file_name);
+            console.log('files list is ' + files);
+            part += 1;
+            console.log('Uploading file with size ' + file_size + ' MB');
+            return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
+                .then(() => s3ops.delete_file(server_ip, bucket, file_name))
+                .then(() => s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier))
+                .catch(err => {
+                    saveErrorAndResume(`${server_ip} FAILED uploading and deleting files `, err);
+                    failures_in_test = true;
+                    throw err;
+                });
+        })
         .then(() => {
             if (isOverSized) {
                 console.log('Uploading for getting over size ' + dataset_size);
@@ -173,15 +175,15 @@ function uploadAndDeleteFiles(dataset_size, isOverSized, files) {
 function checkFileInPool(file_name, pool) {
     console.log('Checking file ' + file_name + ' is available and contains exactly in pool ' + pool);
     return client.object.read_object_mappings({
-        bucket,
-        key: file_name,
-        adminfo: true
-    })
+            bucket,
+            key: file_name,
+            adminfo: true
+        })
         .then(res => {
-        let chunkAvailable = res.parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
-        let partsInPool = res.parts.filter(chunk => chunk.chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
-        let chunkNum = res.parts.length;
-        let actualPool = res.parts[chunkNum - 1].chunk.frags[0].blocks[0].adminfo.pool_name;
+            let chunkAvailable = res.parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
+            let partsInPool = res.parts.filter(chunk => chunk.chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
+            let chunkNum = res.parts.length;
+            let actualPool = res.parts[chunkNum - 1].chunk.frags[0].blocks[0].adminfo.pool_name;
             if (chunkAvailable === chunkNum) {
                 console.log(`Available chunks ${chunkAvailable} all amount chunks ${chunkNum}`);
             } else {
@@ -192,7 +194,7 @@ function checkFileInPool(file_name, pool) {
             } else {
                 console.warn('Some chunk of file' + file_name + ' has pool ' + actualPool + ' instead ' + pool);
             }
-    });
+        });
 }
 
 function editBucketDataPlacement(pool, bucket_name) {
@@ -270,8 +272,8 @@ function assignNodesToPool(pool) {
 function deletePool(pool) {
     console.log('Deleting pool ' + pool);
     return client.pool.delete_pool({
-        name: pool
-    })
+            name: pool
+        })
         .catch(error => {
             saveErrorAndResume('Failed deleting pool ' + pool + error);
             failures_in_test = true;
@@ -293,14 +295,14 @@ function clean_env() {
 return azf.authenticate()
     .then(() => af.clean_agents(azf, server_ip, suffix))
     .then(() => P.fcall(function() {
-            rpc = api.new_rpc('wss://' + server_ip + ':8443');
-            client = rpc.new_client({});
-            let auth_params = {
-                email: 'demo@noobaa.com',
-                password: 'DeMo1',
-                system: 'demo'
-            };
-            return client.create_auth_token(auth_params);
+        rpc = api.new_rpc('wss://' + server_ip + ':8443');
+        client = rpc.new_client({});
+        let auth_params = {
+            email: 'demo@noobaa.com',
+            password: 'DeMo1',
+            system: 'demo'
+        };
+        return client.create_auth_token(auth_params);
     }))
     //On a system, create a bucket and before adding capacity to it (use an empty pool), enable spillover and see that the files are written into the internal storage
     .then(() => createBucketWithEnableSpillover())
@@ -325,7 +327,7 @@ return azf.authenticate()
         let uploadSizeMB = Math.floor(res / 1024 / 1024);
         console.log('Setting quota ' + overQuota + ' GB with available size ' + uploadSizeMB + 'MB');
         return bf.setQuotaBucket(server_ip, bucket, overQuota, 'GIGABYTE')
-        //Start writing and and deleting data on it (more writes than deletes since we want the size to grow)
+            //Start writing and and deleting data on it (more writes than deletes since we want the size to grow)
             .then(() => uploadAndDeleteFiles(uploadSizeMB, true, pool_files));
     })
     .then(() => P.each(pool_files, file => checkFileInPool(file, healthy_pool)))
@@ -342,35 +344,35 @@ return azf.authenticate()
         return promise_utils.pwhile(
             () => freeSpace === false,
             () => P.resolve(bf.checkAvailableSpace(server_ip, bucket))
-                .then(res => {
-                    let space = res / 1024 / 1024 / 1024;
-                    if (space >= 1) {
-                        freeSpace = true;
-                    } else {
-                        fileNumber += 1;
-                        console.log('Waiting for free space and delete random file ' + pool_files[fileNumber]);
-                        return s3ops.delete_file(server_ip, bucket, pool_files[fileNumber]);
-                    }
-                        fileNumber += 1;
-                    })
-                .delay(5000));
+            .then(res => {
+                let space = res / 1024 / 1024 / 1024;
+                if (space >= 1) {
+                    freeSpace = true;
+                } else {
+                    fileNumber += 1;
+                    console.log('Waiting for free space and delete random file ' + pool_files[fileNumber]);
+                    return s3ops.delete_file(server_ip, bucket, pool_files[fileNumber]);
+                }
+                fileNumber += 1;
+            })
+            .delay(5000));
     })
     //Monitor the over uploaded objects , see that they start to be moved into the pool from the internal storage
     .then(() => checkFileInPool(over_files[0], healthy_pool))
     //write again and see that we writing into the internal storage again
     .then(() => bf.checkAvailableSpace(server_ip, bucket))
     .then(res => {
-            let uploadSizeMB = Math.floor(res / 1024 / 1024);
-            return uploadAndDeleteFiles(uploadSizeMB, true, pool_files);
+        let uploadSizeMB = Math.floor(res / 1024 / 1024);
+        return uploadAndDeleteFiles(uploadSizeMB, true, pool_files);
     })
     .then(() => checkFileInPool(pool_files[pool_files.length - 1], 'system-internal-storage-pool'))
     //stop the writes and disable the spillover on the bucket
     .then(() => bf.setSpillover(server_ip, bucket, null))
     //try to write some more see that it fails
     .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file_without_internal_storage', 10, data_multiplier)
-            .catch(error => {
-                console.warn('Uploading without free space and disable spillover returns error ' + error + ' as should');
-            }))
+        .catch(error => {
+            console.warn('Uploading without free space and disable spillover returns error ' + error + ' as should');
+        }))
     .then(() => P.each(pool_files, file => s3ops.delete_file(server_ip, bucket, file)))
     //Monitor the over uploaded objects , see that they start to be moved into the pool from the internal storage
     .then(() => checkFileInPool(over_files[1], healthy_pool))
@@ -383,7 +385,7 @@ return azf.authenticate()
             console.error(':( :( Errors during spillover test ): ):' + errors);
             process.exit(1);
         } else {
-                return clean_env()
+            return clean_env()
                 .then(() => {
                     console.log(':) :) :) spillover test were successful! (: (: (:');
                     process.exit(0);

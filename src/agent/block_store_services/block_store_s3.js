@@ -120,7 +120,7 @@ class BlockStoreS3 extends BlockStoreBase {
         const encoded_md = this._encode_block_md(block_md);
         const block_key = this._block_key(block_md.id);
         const metadata = {
-            noobaa_block_md: encoded_md
+            noobaablockmd: encoded_md
         };
 
         const usage = data_length ? {
@@ -151,7 +151,7 @@ class BlockStoreS3 extends BlockStoreBase {
             })
             .then(data => ({
                 data: data.Body,
-                block_md: this._decode_block_md(data.Metadata.noobaa_block_md)
+                block_md: this._decode_block_md(data.Metadata.noobaablockmd || data.Metadata.noobaa_block_md)
             }))
             .catch(err => {
                 dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
@@ -174,7 +174,7 @@ class BlockStoreS3 extends BlockStoreBase {
         //  write block + md to cloud
         encoded_md = this._encode_block_md(block_md);
         params.Metadata = {
-            noobaa_block_md: encoded_md
+            noobaablockmd: encoded_md
         };
         params.Body = data;
         return this._put_object(params)
@@ -276,7 +276,9 @@ class BlockStoreS3 extends BlockStoreBase {
                 return P.ninvoke(this.s3cloud, 'headObject', params)
                     .then(head => {
                         let deleted_size = Number(head.ContentLength);
-                        let md_size = head.Metadata.noobaa_block_md ? head.Metadata.noobaa_block_md.length : 0;
+                        let md_size =
+                            (head.Metadata.noobaablockmd && head.Metadata.noobaablockmd.length) ||
+                            (head.Metadata.noobaa_block_md && head.Metadata.noobaa_block_md.length) || 0;
                         deleted_size += md_size;
                         usage.size += deleted_size;
                         usage.count += 1;
@@ -299,8 +301,8 @@ class BlockStoreS3 extends BlockStoreBase {
         return Buffer.from(JSON.stringify(block_md)).toString('base64');
     }
 
-    _decode_block_md(noobaa_block_md) {
-        return JSON.parse(Buffer.from(noobaa_block_md, 'base64'));
+    _decode_block_md(noobaablockmd) {
+        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
     }
 
 }

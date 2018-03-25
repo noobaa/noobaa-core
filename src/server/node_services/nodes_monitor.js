@@ -157,6 +157,7 @@ const MODE_COMPARE_ORDER = [
     'DECOMMISSIONED',
     'STORAGE_NOT_EXIST',
     'DETENTION',
+    'HTTP_PORT_ACCESS_ERROR',
     'HTTP_SRV_ERRORS',
     'IN_PROCESS',
     'SOME_STORAGE_MIGRATING',
@@ -197,6 +198,7 @@ const mode_priority = Object.freeze({
     UNTRUSTED: ERROR_PRI,
     STORAGE_NOT_EXIST: ERROR_PRI,
     DETENTION: ERROR_PRI,
+    HTTP_PORT_ACCESS_ERROR: ERROR_PRI,
     HTTP_SRV_ERRORS: ERROR_PRI,
     INITIALIZING: IN_PROCESS_PRI,
     DECOMMISSIONING: IN_PROCESS_PRI,
@@ -2045,6 +2047,8 @@ class NodesMonitor extends EventEmitter {
             (!item.trusted && 'UNTRUSTED') ||
             (item.node.deleted && 'DELETED') ||
             (item.storage_not_exist && 'STORAGE_NOT_EXIST') ||
+            ((item.node.node_type === 'ENDPOINT_S3' && item.node.srv_error &&
+                (item.node.srv_error.code === 'EACCES' || item.node.srv_error.code === 'EADDRINUSE')) && 'HTTP_PORT_ACCESS_ERROR') ||
             ((item.node.node_type === 'ENDPOINT_S3' && item.node.srv_error) && 'HTTP_SRV_ERRORS') ||
             (item.auth_failed && 'AUTH_FAILED') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
@@ -2613,6 +2617,7 @@ class NodesMonitor extends EventEmitter {
             'DECOMMISSIONED',
             'GATEWAY_ERRORS',
             'OPTIMAL',
+            'HTTP_PORT_ACCESS_ERROR',
             'HTTP_SRV_ERRORS',
         ];
         s3_nodes.forEach(node => {

@@ -171,6 +171,7 @@ const host = {
                 'NO_CAPACITY',
                 'LOW_CAPACITY',
                 'HTTP_SRV_ERRORS',
+                'HTTP_PORT_ACCESS_ERROR',
                 'HAS_ERRORS',
                 'HAS_ISSUES',
                 'N2N_PORTS_BLOCKED',
@@ -275,6 +276,7 @@ const host = {
                                 'OFFLINE',
                                 'DECOMMISSIONED',
                                 'HTTP_SRV_ERRORS',
+                                'HTTP_PORT_ACCESS_ERROR',
                                 'INITIALIZING',
                                 'DELETING',
                                 'OPTIMAL'
@@ -563,6 +565,9 @@ export default {
                                                 type: 'integer'
                                             },
                                             HTTP_SRV_ERRORS: {
+                                                type: 'integer'
+                                            },
+                                            HTTP_PORT_ACCESS_ERROR: {
                                                 type: 'integer'
                                             },
                                             HAS_ERRORS: {

@@ -520,6 +520,7 @@ module.exports = {
                 'DECOMMISSIONED',
                 'UNTRUSTED',
                 'HTTP_SRV_ERRORS',
+                'HTTP_PORT_ACCESS_ERROR',
                 'INITIALIZING',
                 'OPTIMAL',
             ]
@@ -551,6 +552,7 @@ module.exports = {
                 'SOME_STORAGE_INITIALIZING',
                 'SOME_STORAGE_MIGRATING',
                 'HTTP_SRV_ERRORS',
+                'HTTP_PORT_ACCESS_ERROR',
                 'HAS_ERRORS',
                 'HAS_ISSUES'
             ]
@@ -682,6 +684,9 @@ module.exports = {
                     type: 'integer'
                 },
                 HTTP_SRV_ERRORS: {
+                    type: 'integer'
+                },
+                HTTP_PORT_ACCESS_ERROR: {
                     type: 'integer'
                 },
                 HAS_ERRORS: {

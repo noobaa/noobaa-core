@@ -324,8 +324,8 @@ config.SERVER_MIN_REQUIREMENTS = {
     CPU_COUNT: 8
 };
 
-// TODO: Maybe we should change that value to something else?
-config.MIN_MEMORY_FOR_UPGRADE = 300 * 1024 * 1024;
+// we currently use ~600MB during the upgrade process. use twice as much as a limit
+config.MIN_MEMORY_FOR_UPGRADE = 1200 * 1024 * 1024;
 
 //////////////////////////////
 // ALERTING & EVENTS CONFIG //

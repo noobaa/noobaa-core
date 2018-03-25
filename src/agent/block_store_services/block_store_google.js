@@ -96,7 +96,9 @@ class BlockStoreGoogle extends BlockStoreBase {
             const [data, md_res] = await P.join(
                 buffer_utils.read_stream_join(file.createReadStream()),
                 file.getMetadata());
-            const block_md_b64 = _.get(md_res[0], 'metadata.noobaa_block_md');
+            const block_md_b64 =
+                _.get(md_res[0], 'metadata.noobaablockmd') ||
+                _.get(md_res[0], 'metadata.noobaa_block_md');
             if (!data || !block_md_b64) {
                 throw new RpcError('NOT_FOUND', 'data or block_md are missing');
             }
@@ -124,7 +126,7 @@ class BlockStoreGoogle extends BlockStoreBase {
         const write_stream = target_file.createWriteStream({
             metadata: {
                 metadata: {
-                    noobaa_block_md: encoded_md
+                    noobaablockmd: encoded_md
                 }
             },
 
@@ -197,7 +199,9 @@ class BlockStoreGoogle extends BlockStoreBase {
             try {
                 const md_res = await file.getMetadata();
                 await file.delete();
-                const size = Number(md_res[0].size) + md_res[0].metadata.noobaa_block_md.length;
+                const size = Number(md_res[0].size) +
+                    _.get(md_res[0], 'metadata.noobaablockmd.length', 0) ||
+                    _.get(md_res[0], 'metadata.noobaa_block_md.length', 0);
                 deleted_storage.size -= size;
                 deleted_storage.count -= 1;
             } catch (err) {
@@ -225,8 +229,8 @@ class BlockStoreGoogle extends BlockStoreBase {
         return Buffer.from(JSON.stringify(block_md)).toString('base64');
     }
 
-    _decode_block_md(noobaa_block_md) {
-        return JSON.parse(Buffer.from(noobaa_block_md, 'base64'));
+    _decode_block_md(noobaablockmd) {
+        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
     }
 
 }

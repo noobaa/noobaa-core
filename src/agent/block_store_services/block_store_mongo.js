@@ -225,8 +225,8 @@ class BlockStoreMongo extends BlockStoreBase {
         return Buffer.from(JSON.stringify(block_md)).toString('base64');
     }
 
-    _decode_block_md(noobaa_block_md) {
-        return JSON.parse(Buffer.from(noobaa_block_md, 'base64'));
+    _decode_block_md(noobaablockmd) {
+        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
     }
 
     head_block(block_name) {

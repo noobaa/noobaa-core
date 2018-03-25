@@ -9,8 +9,8 @@ const s3ops = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 const bf = require('../utils/bucket_functions');
 const api = require('../../api');
-
-require('../../util/dotenv').load();
+const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('rebuild_replicas');
 
 //define colors
 const YELLOW = "\x1b[33;1m";
@@ -20,7 +20,7 @@ const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-const suffix = 'replica';
+const suffixName = 'replica';
 let stopped_oses = [];
 let failures_in_test = false;
 let errors = [];
@@ -30,18 +30,19 @@ let oses = [];
 //defining the required parameters
 const {
     location = 'westus2',
-    resource, // = 'pipeline-agents',
-    storage, // = 'pipelineagentsdisks',
-    vnet, // = 'pipeline-agents-vnet',
-    agents_number = 5,
-    failed_agents_number = 1,
-    server_ip,
-    bucket = 'first.bucket',
-    help = false,
-    data_frags = 0,
-    parity_frags = 0,
-    replicas = 3,
-    iterations_number = 2
+        resource, // = 'pipeline-agents',
+        storage, // = 'pipelineagentsdisks',
+        vnet, // = 'pipeline-agents-vnet',
+        agents_number = 5,
+        failed_agents_number = 1,
+        server_ip,
+        bucket = 'first.bucket',
+        help = false,
+        id = 0,
+        data_frags = 0,
+        parity_frags = 0,
+        replicas = 3,
+        iterations_number = 2
 } = argv;
 
 function usage() {
@@ -57,6 +58,7 @@ function usage() {
     --agents_number         -   number of agents to add (default: ${agents_number})
     --failed_agents_number  -   number of agents to fail (default: ${failed_agents_number})
     --iterations_number     -   number circles with stopping and running agents (default: ${iterations_number})
+    --id                    -   an id that is attached to the agents name
     --server_ip             -   noobaa server ip.
     --help                  -   show this help.
     `);
@@ -67,15 +69,17 @@ if (help) {
     process.exit(1);
 }
 
+const suffix = suffixName + '-' + id;
+
 if ((data_frags && !parity_frags) || (!data_frags && parity_frags)) {
     throw new Error('Set both data_frags and parity_frags to use erasure coding ');
 }
 if (data_frags && parity_frags && !replicas) {
-        console.log('Using erasure coding with data_frags = ' + data_frags + ' and parity frags = ' + parity_frags);
-    }
+    console.log('Using erasure coding with data_frags = ' + data_frags + ' and parity frags = ' + parity_frags);
+}
 if (!data_frags && !parity_frags && replicas) {
-        console.log('Using replicas number = ' + replicas);
-    }
+    console.log('Using replicas number = ' + replicas);
+}
 
 
 let auth_params = {
@@ -124,14 +128,14 @@ function uploadAndVerifyFiles(dataset_size_GB) {
     let part = 0;
     console.log('Writing and deleting data till size amount to grow ' + dataset_size_GB + ' GB');
     return promise_utils.pwhile(() => part < parts, () => {
-        let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
-        files.push(file_name);
-        console.log('files list is ' + files);
-        part += 1;
-        console.log('Uploading file with size ' + file_size + ' MB');
-        return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
-            .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
-    })
+            let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
+            files.push(file_name);
+            console.log('files list is ' + files);
+            part += 1;
+            console.log('Uploading file with size ' + file_size + ' MB');
+            return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
+                .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
+        })
         .catch(err => {
             saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
             failures_in_test = true;
@@ -166,17 +170,17 @@ function getRebuildReplicasStatus(key) {
             return P.each(fileParts, part => filesReplicas.push(part.chunk.frags[0].blocks));
         })
         .then(() => {
-                for (let i = 0; i < filesReplicas.length; i++) {
-                        replicaStatusOnline = filesReplicas[i].filter(replica => replica.adminfo.online === true);
-                        if (replicaStatusOnline.length === replicas) {
-                            console.log('Part ' + i + ' contains 3 online replicas - as should');
-                            result = true;
-                        } else {
-                            console.warn('Parts contain online replicas ' + replicaStatusOnline.length);
-                            result = false;
-                        }
-                    }
-                })
+            for (let i = 0; i < filesReplicas.length; i++) {
+                replicaStatusOnline = filesReplicas[i].filter(replica => replica.adminfo.online === true);
+                if (replicaStatusOnline.length === replicas) {
+                    console.log('Part ' + i + ' contains 3 online replicas - as should');
+                    result = true;
+                } else {
+                    console.warn('Parts contain online replicas ' + replicaStatusOnline.length);
+                    result = false;
+                }
+            }
+        })
         .catch(err => console.warn('Check rebuild replicas with error ' + err))
         .then(() => result);
 }
@@ -188,16 +192,16 @@ function waitForRebuildReplicasParts(file) {
     return promise_utils.pwhile(
         () => rebuild === false && retries !== 36,
         () => P.resolve(getRebuildReplicasStatus(file))
-            .then(res => {
-                if (res) {
-                    rebuild = res;
-                } else {
-                    retries += 1;
-                    console.log('Waiting for rebuild replicas parts' + file + ' - will wait for extra 5 seconds retries ' + retries);
-                }
-            })
-            .catch(e => console.warn('Waiting for rebuild replicas parts ' + file + 'with error ' + e))
-            .delay(5000));
+        .then(res => {
+            if (res) {
+                rebuild = res;
+            } else {
+                retries += 1;
+                console.log('Waiting for rebuild replicas parts' + file + ' - will wait for extra 5 seconds retries ' + retries);
+            }
+        })
+        .catch(e => console.warn('Waiting for rebuild replicas parts ' + file + 'with error ' + e))
+        .delay(5000));
 }
 
 function getFilesChunksHealthStatus(key) {
@@ -234,16 +238,16 @@ function waitForRebuildChunks(file) {
     return promise_utils.pwhile(
         () => rebuild === false && retries !== 36,
         () => P.resolve(getFilesChunksHealthStatus(file))
-            .then(res => {
-                if (res) {
-                    rebuild = res;
-                } else {
-                    retries += 1;
-                    console.log('Waiting for rebuild object' + file + ' - will wait for extra 5 seconds retries ' + retries);
-                }
-            })
-            .catch(e => console.warn('Waiting for rebuild file ' + file + 'with error ' + e))
-            .delay(5000));
+        .then(res => {
+            if (res) {
+                rebuild = res;
+            } else {
+                retries += 1;
+                console.log('Waiting for rebuild object' + file + ' - will wait for extra 5 seconds retries ' + retries);
+            }
+        })
+        .catch(e => console.warn('Waiting for rebuild file ' + file + 'with error ' + e))
+        .delay(5000));
 }
 
 function clean_up_dataset() {
@@ -256,9 +260,9 @@ function clean_up_dataset() {
 function stopAgentAndCheckRebuildReplicas() {
     return af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses)
         .then(res => {
-        stopped_oses = res;
-        //waiting for rebuild files by chunks and parts
-        return P.each(files, file => waitForRebuildReplicasParts(file));
+            stopped_oses = res;
+            //waiting for rebuild files by chunks and parts
+            return P.each(files, file => waitForRebuildReplicasParts(file));
         })
         //Read and verify the read
         .then(() => P.each(files, file => getRebuildReplicasStatus(file)

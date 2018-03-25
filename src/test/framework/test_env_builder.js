@@ -14,7 +14,6 @@ const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
 
 // Environment Setup
-require('../../util/dotenv').load();
 var clientId = process.env.CLIENT_ID;
 var domain = process.env.DOMAIN;
 var secret = process.env.APPLICATION_SECRET;

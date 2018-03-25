@@ -82,7 +82,7 @@ class BlockStoreAzure extends BlockStoreBase {
             ))
             .then(info => ({
                 data: buffer_utils.join(writable.buffers, writable.total_length),
-                block_md: this._decode_block_md(info.metadata.noobaa_block_md)
+                block_md: this._decode_block_md(info.metadata.noobaablockmd || info.metadata.noobaa_block_md)
             }))
             .catch(err => {
                 dbg.error('BlockStoreAzure _read_block failed:',
@@ -114,7 +114,7 @@ class BlockStoreAzure extends BlockStoreBase {
             block_key,
             blob_sas: this._get_shared_access_signature(block_key, azure_storage.BlobUtilities.SharedAccessPermissions.WRITE),
             metadata: {
-                noobaa_block_md: encoded_md
+                noobaablockmd: encoded_md
             },
             usage,
             proxy: this.proxy
@@ -131,7 +131,7 @@ class BlockStoreAzure extends BlockStoreBase {
                 block_key,
                 data, {
                     metadata: {
-                        noobaa_block_md: encoded_md
+                        noobaablockmd: encoded_md
                     }
                 },
                 callback))
@@ -185,8 +185,10 @@ class BlockStoreAzure extends BlockStoreBase {
                     ))
                     .then(() => {
                         const data_size = Number(info.contentLength);
-                        const md_size = info.metadata.noobaa_block_md ?
-                            info.metadata.noobaa_block_md.length : 0;
+                        const md_size =
+                            (info.metadata.noobaablockmd && info.metadata.noobaablockmd.length) ||
+                            (info.metadata.noobaa_block_md && info.metadata.noobaa_block_md.length) ||
+                            0;
                         deleted_storage.size -= (data_size + md_size);
                         deleted_storage.count -= 1;
                     })
@@ -286,8 +288,8 @@ class BlockStoreAzure extends BlockStoreBase {
         return Buffer.from(JSON.stringify(block_md)).toString('base64');
     }
 
-    _decode_block_md(noobaa_block_md) {
-        return JSON.parse(Buffer.from(noobaa_block_md, 'base64'));
+    _decode_block_md(noobaablockmd) {
+        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
     }
 
 }

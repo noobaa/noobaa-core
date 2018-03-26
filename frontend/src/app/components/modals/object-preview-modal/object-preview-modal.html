@@ -1,16 +1,15 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<modal params="onClose: () => close()" class="modal-large">
-    <div class="column" ko.if="uri">
-        <iframe class="push-both"
-            ko.attr.src="uri"
-        ></iframe>
+<div class="column greedy" ko.if="uri">
+    <iframe class="push-both"
+        ko.attr.src="uri"
+    ></iframe>
 
-        <button class="align-end btn"
-            ko.click="close"
-            ko.hasFocus="true"
-        >
-            Close
-        </button>
-    </div>
-</modal>
+    <button class="align-end btn"
+        ko.click="onClose"
+        ko.hasFocus="true"
+    >
+        Close
+    </button>
+</div>
+

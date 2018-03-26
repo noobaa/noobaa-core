@@ -5,7 +5,7 @@ const P = require('../../util/promise');
 const _ = require('lodash');
 const net = require('net');
 const dgram = require('dgram');
-const http = require('http');
+const ip = require('ip');
 const promise_utils = require('../../util/promise_utils');
 const server_ops = require('../utils/server_functions');
 const argv = require('minimist')(process.argv);
@@ -21,7 +21,6 @@ let old_time = 0;
 let failures_in_test = false;
 let received_udp_rsyslog_connection = false;
 let received_tcp_rsyslog_connection = false;
-let received_phonehome_proxy_connection = false;
 
 const second_timezone = 'US/Arizona';
 const configured_timezone = 'Asia/Tel_Aviv';
@@ -64,17 +63,6 @@ function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
 }
-// Create an HTTP tunneling proxy
-const phone_home_proxy_server = http.createServer(function(req, res) {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('okay');
-});
-
-phone_home_proxy_server.on('connect', function(req, cltSocket, head) {
-    console.warn('phone home server got incoming tunnel connection');
-    received_phonehome_proxy_connection = true;
-});
-
 
 // create a tcp rsyslog server
 const rsyslog_tcp_server = net.createServer(c => {
@@ -102,6 +90,8 @@ rsyslog_udp_server.on('message', (msg, rinfo) => {
     received_udp_rsyslog_connection = true;
 });
 
+const lg_ip = ip.address(); // local ip - for test to run successfully to server and lg need to share same vnet
+const proxy_server = 'http://' + lg_ip + ':3128';
 P.fcall(function() {
         rpc = api.new_rpc('wss://' + server_ip + ':8443');
         client = rpc.new_client({});
@@ -209,6 +199,14 @@ P.fcall(function() {
         secret = result.cluster.master_secret;
     })
     // time configuration - manual
+    .then(() => {
+        console.log('Setting timezone to :', configured_timezone);
+        return P.resolve(client.cluster_server.update_time_config({
+            target_secret: secret,
+            timezone: configured_timezone,
+            ntp_server
+        }));
+    })
     .then(() => P.resolve(client.cluster_server.read_server_time({
         target_secret: secret
     })))
@@ -319,39 +317,8 @@ P.fcall(function() {
     .then(() => { // phone home configuration -
         console.log('Setting Proxy');
         return P.resolve(client.system.update_phone_home_config({
-            proxy_address: 'http://' + server_ip + ':' + ph_proxy_port
+            proxy_address: proxy_server
         }));
-    })
-    .then(() => phone_home_proxy_server.listen(ph_proxy_port))
-    .then(() => promise_utils.pwhile(
-            function() {
-                return !received_phonehome_proxy_connection;
-            },
-            function() {
-                console.warn('Didn\'t get phone home message yet');
-                return P.delay(5000);
-            }).timeout(1 * 90000)
-        .then(() => {
-            console.log('Just received phone home message - as should');
-        })
-        .catch(() => {
-            saveErrorAndResume('Didn\'t receive phone home message for 1 minute - failure!!!');
-            failures_in_test = true;
-        })
-    )
-    .delay(10000)
-    .then(() => {
-        console.log('Doing Read system to verify Proxy settings');
-        return P.resolve(client.system.read_system({}));
-    })
-    .then(result => {
-        let proxy = result.phone_home_config.proxy_address;
-        if (proxy === 'http://' + server_ip + ':' + ph_proxy_port) {
-            console.log(`The defined proxy is ${proxy} - as should`);
-        } else {
-            saveErrorAndResume(`The defined proxy is ${proxy} - failure`);
-            failures_in_test = true;
-        }
     })
     .then(() => {
         console.log('Waiting on Read system to verify Proxy status');
@@ -371,6 +338,15 @@ P.fcall(function() {
                         return P.delay(15000);
                     });
             }).then(() => final_result);
+    })
+    .tap(result => {
+        let proxy = result.phone_home_config.proxy_address;
+        if (proxy === proxy_server) {
+            console.log(`The defined proxy is ${proxy} - as should`);
+        } else {
+            saveErrorAndResume(`The defined proxy is ${proxy} - failure`);
+            failures_in_test = true;
+        }
     })
     .then(res => {
         let ph_status = res.cluster.shards[0].servers[0].services_status.phonehome_proxy;
@@ -387,36 +363,6 @@ P.fcall(function() {
             proxy_address: null
         }));
     })
-    .then(() => phone_home_proxy_server.listen(ph_proxy_port))
-    .then(() => promise_utils.pwhile(
-            function() {
-                return !received_phonehome_proxy_connection;
-            },
-            function() {
-                console.warn('Didn\'t get phone home message yet');
-                return P.delay(5000);
-            }).timeout(1 * 60000)
-        .then(() => {
-            console.log('Just received phone home message - as should');
-        })
-        .catch(() => {
-            saveErrorAndResume('Didn\'t receive phone home message for 1 minute - failure!!!');
-            failures_in_test = true;
-        }))
-    .then(() => {
-        console.log('Doing Read system to verify Proxy settings');
-        return P.resolve(client.system.read_system({}));
-    })
-    .then(result => {
-        let proxy = result.phone_home_config;
-        console.log('Phone home config is: ' + JSON.stringify(proxy));
-        if (JSON.stringify(proxy).includes('proxy_address') === false) {
-            console.log('The defined proxy is no use proxy - as should');
-        } else {
-            saveErrorAndResume(`The defined phone home with disable proxy is ${proxy} - failure`);
-            failures_in_test = true;
-        }
-    })
     .then(() => {
         console.log('Waiting on Read system to verify Proxy status');
         let time_waiting = 0;
@@ -436,6 +382,16 @@ P.fcall(function() {
                     });
             }).then(() => final_result);
     })
+    .tap(result => {
+        let proxy = result.phone_home_config;
+        console.log('Phone home config is: ' + JSON.stringify(proxy));
+        if (JSON.stringify(proxy).includes('proxy_address') === false) {
+            console.log('The defined proxy is no use proxy - as should');
+        } else {
+            saveErrorAndResume(`The defined phone home with disable proxy is ${proxy} - failure`);
+            failures_in_test = true;
+        }
+    })
     .then(result => {
         console.log(JSON.stringify(result.cluster.shards[0].servers[0].services_status));
         let ph_status = result.cluster.shards[0].servers[0].services_status.phonehome_server.status;
@@ -446,13 +402,12 @@ P.fcall(function() {
             failures_in_test = true;
         }
     })
-    .then(() => phone_home_proxy_server.close())
     .then(() => rsyslog_tcp_server.listen(tcp_rsyslog_port))
     .then(() => { //#2596remote syslog configuration - TCP
         console.log('Setting TCP Remote Syslog');
         return P.resolve(client.system.configure_remote_syslog({
             enabled: true,
-            address: server_ip,
+            address: lg_ip,
             protocol: 'TCP',
             port: tcp_rsyslog_port
         }));
@@ -479,7 +434,7 @@ P.fcall(function() {
         let address = result.remote_syslog_config.address;
         let protocol = result.remote_syslog_config.protocol;
         let port = result.remote_syslog_config.port;
-        if (address === server_ip && protocol === 'TCP' && port === tcp_rsyslog_port) {
+        if (address === lg_ip && protocol === 'TCP' && port === tcp_rsyslog_port) {
             console.log(`The defined syslog is ${address}: ${port} - as should`);
         } else {
             saveErrorAndResume(`The defined syslog is ${address}: ${port} - failure!!!`);
@@ -520,7 +475,7 @@ P.fcall(function() {
         console.log('Setting UDP Remote Syslog');
         return P.resolve(client.system.configure_remote_syslog({
             enabled: true,
-            address: server_ip,
+            address: lg_ip,
             protocol: 'UDP',
             port: udp_rsyslog_port
         }));
@@ -547,7 +502,7 @@ P.fcall(function() {
         let address = result.remote_syslog_config.address;
         let protocol = result.remote_syslog_config.protocol;
         let port = result.remote_syslog_config.port;
-        if (address === server_ip && protocol === 'UDP' && port === udp_rsyslog_port) {
+        if (address === lg_ip && protocol === 'UDP' && port === udp_rsyslog_port) {
             console.log(`The defined syslog is ${address}: ${port} - as should`);
         } else {
             saveErrorAndResume(`The defined syslog is ${address}: ${port} - failure!!!`);
@@ -667,7 +622,7 @@ P.fcall(function() {
     })))
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
-        let debug_level = result.debug_level;
+        let debug_level = result.debug.level;
         if (debug_level === 5) {
             console.log('The debug level is : ', 5, ' - as should');
         } else {
@@ -680,7 +635,7 @@ P.fcall(function() {
     })))
     .then(() => P.resolve(client.system.read_system({})))
     .then(result => {
-        let debug_level = result.debug_level;
+        let debug_level = result.debug.level;
         if (debug_level === 0) {
             console.log('The debug level after turn off is : ', 0, ' - as should');
         } else {

@@ -163,12 +163,12 @@ class BlockStoreClient {
                     })
                     .spread((res, body) => {
                         if (res.statusCode === 200) {
+                            const noobaablockmd =
+                                res.headers['x-amz-meta-noobaablockmd'] ||
+                                res.headers['x-amz-meta-noobaa_block_md'];
                             const ret = {
                                 [RPC_BUFFERS]: { data: body },
-                                block_md: JSON.parse(Buffer.from(
-                                    res.headers['x-amz-meta-noobaablockmd'],
-                                    res.headers['x-amz-meta-noobaa_block_md'] ||
-                                    'base64'))
+                                block_md: JSON.parse(Buffer.from(noobaablockmd, 'base64'))
                             };
                             return ret;
 

@@ -1427,6 +1427,9 @@ function upgrade_cluster(req) {
                     const system_updates = [{
                         _id: req.system._id,
                         $set: {
+                            // The timestamp is a patch so the UI won't fail on schema validation
+                            // It will be updated once again in mongo_upgrade_mark_completed by design
+                            "last_upgrade.timestamp": Date.now(),
                             "last_upgrade.initiator": (req.account && req.account.email) || ''
                         }
                     }];

@@ -1,18 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './object-preview-modal.html';
-import BaseViewModel from 'components/base-view-model';
+import { action$ } from 'state';
+import { closeModal } from 'action-creators';
 
-class ObjectPreviewModalViewModel extends BaseViewModel {
-    constructor({ objectUri, onClose }) {
-        super();
+class ObjectPreviewModalViewModel {
+    uri = '';
 
+    constructor({ objectUri }) {
         this.uri = objectUri;
-        this.onClose = onClose;
     }
 
-    close() {
-        this.onClose();
+    onClose() {
+        action$.onNext(closeModal());
     }
 }
 

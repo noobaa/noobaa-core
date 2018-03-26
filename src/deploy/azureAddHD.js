@@ -40,10 +40,10 @@ if (help) {
     process.exit(1);
 }
 
-function saveErrorAndResume(message) {
-    console.error(message);
-    process.exit(1);
-}
+// function saveErrorAndResume(message) {
+//     console.error(message);
+//     process.exit(1);
+// }
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 

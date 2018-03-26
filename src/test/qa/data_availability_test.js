@@ -192,6 +192,7 @@ return azf.authenticate()
         if ((use_existing_env) && (res)) {
             let agents = new Map();
             let createdAgents = af.getRandomOsesFromList(agents_number, osesSet);
+            //Reemoving existing agents from the map
             for (let i = 0; i < createdAgents.length; i++) {
                 agents.set(suffix + i, createdAgents[i]);
             }

@@ -276,9 +276,8 @@ class BlockStoreS3 extends BlockStoreBase {
                 return P.ninvoke(this.s3cloud, 'headObject', params)
                     .then(head => {
                         let deleted_size = Number(head.ContentLength);
-                        let md_size =
-                            (head.Metadata.noobaablockmd && head.Metadata.noobaablockmd.length) ||
-                            (head.Metadata.noobaa_block_md && head.Metadata.noobaa_block_md.length) || 0;
+                        const noobaablockmd = head.Metadata.noobaablockmd || head.Metadata.noobaa_block_md;
+                        const md_size = (noobaablockmd && noobaablockmd.length) || 0;
                         deleted_size += md_size;
                         usage.size += deleted_size;
                         usage.count += 1;

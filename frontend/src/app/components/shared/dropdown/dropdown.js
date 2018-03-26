@@ -8,6 +8,7 @@ import ActionRowViewModel from './action-row';
 import ko from 'knockout';
 import { isObject } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { isString } from 'utils/core-utils';
 import { inputThrottle } from 'config';
 
 // Cannot use ensure array util (core utils) because
@@ -71,7 +72,8 @@ function _getEmptyMessage(
 }
 
 function _matchOption(option, filter) {
-    const { value = option, text = value } = option;
+    const { value = option, label = value } = option;
+    const text = isString(value) ? value : label;
     return !filter || text.toLowerCase().includes(filter);
 }
 

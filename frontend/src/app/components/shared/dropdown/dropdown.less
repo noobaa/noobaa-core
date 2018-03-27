@@ -4,10 +4,6 @@ dropdown {
     display: inline-block;
     width: 274px;
 
-    ::-webkit-scrollbar-thumb  {
-        border-color: @color6;
-    }
-
     hr {
         border-top: 1px solid @color7;
         margin: 2px auto;
@@ -69,6 +65,10 @@ dropdown {
         min-height: 24px;
         max-height: 170px;
         overflow-y: auto;
+
+        &::-webkit-scrollbar-thumb  {
+            border-color: @color6;
+        }
     }
 
     .dd-actions {

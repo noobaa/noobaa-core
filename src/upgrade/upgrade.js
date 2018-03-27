@@ -82,6 +82,7 @@ function enable_autostart() {
 function disable_supervisord() {
     dbg.log0(`disable_supervisord`);
     let services;
+    let supervisord_pids;
     return P.join(
             promise_utils.exec(`${SUPERCTL} status | grep pid | sed 's:.*pid \\(.*\\), uptime.*:\\1:'`, {
                 ignore_rc: false,
@@ -99,9 +100,17 @@ function disable_supervisord() {
                     ignore_rc: false,
                     return_stdout: true,
                 }),
+            promise_utils.exec('ps axf | ' +
+                'grep -e supervisord | ' +
+                'grep -v grep | ' +
+                "awk '{print $1}'", {
+                    ignore_rc: false,
+                    return_stdout: true,
+                }),
         )
-        .spread((super_services, detached_services) => {
-            services = _.uniq(_.concat(super_services.split('\n'), detached_services.split('\n')));
+        .spread((super_services, detached_services, supervisord_pid) => {
+            supervisord_pids = _.compact(supervisord_pid.split('\n'));
+            services = _.compact(_.uniq(_.concat(super_services.split('\n'), detached_services.split('\n'))));
             dbg.log0('disable_supervisord services pgids:', services);
         })
         .then(() => promise_utils.exec(`${SUPERCTL} shutdown`, {
@@ -112,6 +121,17 @@ function disable_supervisord() {
         .then(() => {
             dbg.log0('disable_supervisord shutdown');
         })
+        .then(() => P.map(supervisord_pids, super_pid => {
+            if (super_pid) {
+                dbg.log0(`Killing supervisord pgid:${super_pid}`);
+
+                return promise_utils.exec(`kill -9 -${super_pid}`, {
+                    ignore_rc: true,
+                    return_stdout: true,
+                    trim_stdout: true
+                });
+            }
+        }))
         .then(() => P.map(services, service => {
             if (service) {
                 dbg.log0(`Killing pgid:${service}`);

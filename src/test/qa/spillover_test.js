@@ -105,14 +105,7 @@ function createBucketWithEnableSpillover() {
                 saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list`, res);
             }
         })
-        .then(() => client.system.read_system({}))
-        .then(system => {
-            for (let i = 0; i < system.pools.length; i++) {
-                if (system.pools[i].resource_type === 'INTERNAL') {
-                    return system.pools[i].name;
-                }
-            }
-        })
+        .then(() => bf.getInternalStoragePool(server_ip))
         .then(internalpool => bf.setSpillover(server_ip, bucket, internalpool))
         .catch(err => {
             saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
@@ -120,23 +113,6 @@ function createBucketWithEnableSpillover() {
             throw err;
         });
 }
-//checking that bucket with enable or disable spillover
-function checkIsSpilloverHasStatus(bucket_name, status) {
-    console.log('Checking for spillover status ' + status + ' for bucket ' + bucket_name);
-    return client.system.read_system({})
-        .then(res => {
-            let buckets = res.buckets;
-            let indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            let spilloverPool = res.buckets[indexBucket].spillover;
-            if (spilloverPool === null) {
-                saveErrorAndResume('Spillover is disable for bucket ' + bucket_name);
-                failures_in_test = true;
-            } else {
-                console.log('Spillover for bucket ' + bucket_name + ' has status ' + status);
-            }
-        });
-}
-
 
 function uploadAndDeleteFiles(dataset_size, isOverSized, files) {
     let parts = 20;
@@ -194,27 +170,6 @@ function checkFileInPool(file_name, pool) {
             } else {
                 console.warn('Some chunk of file' + file_name + ' has pool ' + actualPool + ' instead ' + pool);
             }
-        });
-}
-
-function editBucketDataPlacement(pool, bucket_name) {
-    console.log('Getting tier for bucket ' + bucket_name);
-    let tier;
-    return client.system.read_system({})
-        .then(res => {
-            let buckets = res.buckets;
-            let indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            tier = res.buckets[indexBucket].tiering.name;
-            console.log('Editing bucket data placement to pool ' + pool);
-            return client.tier.update_tier({
-                attached_pools: [pool],
-                data_placement: 'SPREAD',
-                name: tier
-            });
-        })
-        .catch(error => {
-            saveErrorAndResume('Failed edit bucket data placement to pool ' + pool + error);
-            failures_in_test = true;
         });
 }
 
@@ -306,13 +261,13 @@ return azf.authenticate()
     }))
     //On a system, create a bucket and before adding capacity to it (use an empty pool), enable spillover and see that the files are written into the internal storage
     .then(() => createBucketWithEnableSpillover())
-    .then(() => checkIsSpilloverHasStatus(bucket, true))
+    .then(() => bf.checkIsSpilloverHasStatus(bucket, true, server_ip))
     .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file', 10, data_multiplier))
     .then(() => checkFileInPool('spillover_file', 'system-internal-storage-pool'))
     //Add pool with resources to the bucket and see that all the files are moving from the internal storage to the pool (pullback)
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => createHealthyPool())
-    .then(() => editBucketDataPlacement(healthy_pool, bucket))
+    .then(() => bf.editBucketDataPlacement(healthy_pool, bucket, server_ip))
     .then(() => checkFileInPool('spillover_file', healthy_pool))
     //Set Quota of X on the bucket, X should be smaller then the available space on the bucket
     .then(() => bf.setQuotaBucket(server_ip, bucket, 1, 'GIGABYTE'))

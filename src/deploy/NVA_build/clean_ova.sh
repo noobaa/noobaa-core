@@ -185,7 +185,6 @@ fi
 
 #reduce VM size
 set +e
-/sbin/swapoff -a
 
 if ${isAws}
 then
@@ -200,6 +199,7 @@ else
     then
         echo "using --dev, skipping zeroFile"
     else
+        /sbin/swapoff -a
         dd if=/dev/zero of=zeroFile.tmp bs=1M
         rm -f zeroFile.tmp
     fi

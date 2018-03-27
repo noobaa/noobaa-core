@@ -224,7 +224,7 @@ P.fcall(function() {
         target_secret: secret
     })))
     .then(new_time => {
-        if (new_time > old_time + (30 * 60)) {
+        if (new_time >= old_time + (30 * 60)) {
             console.log('New time moved more then 30 minutes forward', new Date(new_time * 1000), '- as should');
         } else {
             saveErrorAndResume('New time moved less then 30 minutes forward' + new Date(new_time * 1000) + '- failure!!!');
@@ -255,7 +255,7 @@ P.fcall(function() {
             server_name: ntp_server
         }));
     })
-    .delay(10000)
+    .delay(30000)
     .then(() => { // time configuration - ntp
         console.log('Setting NTP', ntp_server);
         return P.resolve(client.cluster_server.update_time_config({

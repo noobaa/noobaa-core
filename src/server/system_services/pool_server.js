@@ -102,11 +102,9 @@ function create_hosts_pool(req) {
     const { rpc_params, auth_token } = req;
     const { name, hosts } = rpc_params;
 
-    if (name !== config.NEW_SYSTEM_POOL_NAME && hosts.length < config.NODES_MIN_COUNT) {
-        throw new RpcError(
-            'NOT ENOUGH HOSTS',
-            `cannot create a pool with less than ${config.NODES_MIN_COUNT} nodes`
-        );
+    if (name !== config.NEW_SYSTEM_POOL_NAME && hosts.length < 1) {
+        throw new RpcError('NOT ENOUGH HOSTS', 'cant create a pool with less than ' +
+            1 + ' node');
     }
 
     const pool = new_pool_defaults(name, req.system._id, 'HOSTS', 'BLOCK_STORE_FS');

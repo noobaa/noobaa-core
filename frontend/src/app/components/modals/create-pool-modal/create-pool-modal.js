@@ -294,8 +294,8 @@ class CreatePoolModalViewModel extends Observer {
                 errors.poolName = '';
             }
 
-        } else if (selectedHosts.length < 3) {
-            errors.selectedHosts = `Please select at least ${3 - selectedHosts.length} more nodes`;
+        } else if (!selectedHosts.length) {
+            errors.selectedHosts = 'Please select at least one node';
         }
 
         return errors;

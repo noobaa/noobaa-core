@@ -29,9 +29,10 @@ function _getNoobaaBuckets(buckets, route, system) {
         };
 
     } else {
+        const bucketCount = buckets.length;
         return {
-            text: stringifyAmount('Bucket', buckets.length),
-            tooltip: buckets
+            text: stringifyAmount('Bucket', bucketCount),
+            tooltip: bucketCount ? buckets : null
         };
     }
 }

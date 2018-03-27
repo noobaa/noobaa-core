@@ -33,9 +33,11 @@ export default class CloudResourceRowViewModel {
 
     onState(resource) {
         const { name, usedBy, target, undeletable } = resource;
+        const bucketCount = usedBy.length;
+
         const buckets = {
-            text: stringifyAmount('bucket', usedBy.length),
-            tooltip: usedBy
+            text: stringifyAmount('bucket', bucketCount),
+            tooltip: bucketCount ? usedBy : null
         };
         const deleteTooltip = undeletableReasons[undeletable] || '';
 

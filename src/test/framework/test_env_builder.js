@@ -255,21 +255,28 @@ function run_tests() {
     // disable all dbg.log output before running tests
     dbg.set_console_output(false);
     dbg.original_console();
-    if (js_script) {
-        console.log(`running js script ${js_script} on ${server.name}`);
-        return promise_utils.fork(js_script, ['--server_name', server.name, '--server_ip', server.ip, '--server_secret', server.secret].concat(process.argv))
-            .catch(err => {
-                console.log('Failed running script', err);
-                throw err;
-            });
-    } else if (shell_script) {
-        console.log(`running bash script ${shell_script} on ${server.name}`);
-        return promise_utils.spawn(shell_script, [server.name, server.ip, server.secret])
-            .catch(err => {
-                console.log('Failed running script', err);
-                throw err;
-            });
-    }
+    return P.resolve()
+        .then(() => {
+            if (js_script) {
+                console.log(`running js script ${js_script} on ${server.name}`);
+                return promise_utils.fork(js_script, ['--server_name', server.name, '--server_ip', server.ip, '--server_secret', server.secret].concat(process.argv))
+                    .catch(err => {
+                        console.log('Failed running script', err);
+                        throw err;
+                    });
+            } else if (shell_script) {
+                console.log(`running bash script ${shell_script} on ${server.name}`);
+                return promise_utils.spawn(shell_script, [server.name, server.ip, server.secret])
+                    .catch(err => {
+                        console.log('Failed running script', err);
+                        throw err;
+                    });
+            }
+        })
+        .finally(() => {
+            dbg.wrapper_console();
+            dbg.set_console_output(true);
+        });
 }
 
 function clean_test_env() {

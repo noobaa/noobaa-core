@@ -664,6 +664,10 @@ DebugLogger.prototype.original_console = function() {
     console_wrapper.original_console();
 };
 
+DebugLogger.prototype.wrapper_console = function() {
+    console_wrapper.wrapper_console();
+};
+
 if (console_wrapper) {
     //Register a "console" module DebugLogger for the console wrapper
     var conlogger = new DebugLogger("CONSOLE.js");

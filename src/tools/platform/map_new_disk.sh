@@ -55,7 +55,7 @@ then
             ${sudo} mount -t ${ext} /dev/${name} /${mountDir}
         fi
         unset mountpoint
-    done < <(lsblk | grep disk | tail -1) 
+    done < <(lsblk | sort -d | grep disk | tail -1) 
 fi
 
 if ! ${remount}
@@ -76,5 +76,5 @@ then
             ${sudo} mkfs -F -t ${ext} /dev/${name}
             ${sudo} mount -t ${ext} /dev/${name} /${mountDir}
         fi
-    done < <(lsblk | grep disk | awk '{print $1}')
+    done < <(lsblk | sort -d | grep disk | awk '{print $1}')
 fi

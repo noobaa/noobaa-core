@@ -10,6 +10,8 @@ const promise_utils = require('../../util/promise_utils');
 const base_diagnostics = require('../../util/base_diagnostics');
 const stats_aggregator = require('../system_services/stats_aggregator');
 const system_store = require('../system_services/system_store').get_instance();
+const server_rpc = require('../server_rpc');
+
 
 const TMP_WORK_DIR = '/tmp/diag';
 const DIAG_LOG_FILE = TMP_WORK_DIR + '/diagnostics_collection.log';
@@ -152,6 +154,15 @@ function collect_server_diagnostics(req) {
                 .then(() => promise_utils.exec(`cp -fp /etc/named.conf ${TMP_WORK_DIR}`))
                 .then(() => diag_log('finished getting named information successfully'))
                 .catch(err => diag_log('getting named (dns cache) diagnostics failed with error: ' + err)),
+
+                () => server_rpc.client.host.list_hosts({
+                    adminfo: true
+                }, {
+                    auth_token: req.auth_token
+                })
+                .then(hosts_list => fs.writeFileAsync(path.join(TMP_WORK_DIR, 'hosts_list.json'), JSON.stringify(hosts_list, null, 2)))
+                .then(() => diag_log('finished writing hosts list successfully'))
+                .catch(err => diag_log('failed getting hosts list: ' + err)),
 
             ];
 

@@ -92,17 +92,20 @@ class ResourceOverviewViewModel extends Observer {
             {
                 label: 'AWS S3',
                 color: style['color8'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'AWS S3 cloud resources that were created in this system'
             },
             {
                 label: 'Azure blob',
                 color: style['color6'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'Azure blob cloud resources that were created in this system'
             },
             {
                 label: 'S3 compatible',
                 color: style['color16'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'Any S3 compatible cloud resources that were created in this system'
             }
         ];
 
@@ -114,12 +117,14 @@ class ResourceOverviewViewModel extends Observer {
             {
                 label: 'Available',
                 color: style['color18'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The available storage from the internal resource which resides on the local VM’s disks'
             },
             {
                 label: 'Used for spillover',
                 color: style['color8'],
-                value: ko.observable()
+                value: ko.observable(),
+                tooltip: 'The total amount of data uploaded to the internal resource'
             }
         ];
 

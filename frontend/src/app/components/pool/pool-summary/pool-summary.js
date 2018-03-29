@@ -64,7 +64,7 @@ class PoolSummaryViewModel extends Observer {
                 label: 'Unavailable Capacity',
                 color: style['color17'],
                 value: this.unavailableCapacity,
-                tooltip: 'The total aggregated storage from offline nodes in this pool'
+                tooltip: 'The total aggregated storage from offline nodes or excluded drives in this pool'
             },
             {
                 label: 'NooBaa Usage',

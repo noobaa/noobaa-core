@@ -74,7 +74,7 @@ class BucketSummrayViewModel extends Observer {
             label: 'Available According to Policies',
             color: style['color15'],
             value: ko.observable(),
-            tooltip: 'The actual free space on this bucket for data writes taking into account the current configured resiliency policy'
+            tooltip: 'The actual free space on this bucket for data writes taking into account the current configured bucket policies'
         },
         {
             label: 'Available on Spillover',

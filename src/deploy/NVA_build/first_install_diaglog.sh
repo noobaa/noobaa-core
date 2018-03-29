@@ -6,6 +6,7 @@ trap "" 2 20
 FIRST_INSTALL_MARK="/etc/first_install.mrk"
 NOOBAANET="/etc/noobaa_network"
 MONGO_SHELL="/usr/bin/mongo nbcore"
+LOG_FILE="/tmp/noobaa_wizard_$(date +%s).log"
 
 function prepare_ifcfg() {
   local interface=${1}
@@ -155,7 +156,7 @@ function configure_dns_dialog {
       cancel=$?
       if [ $cancel -eq 0 ] ; then #ok press
         dns1=$(head -1 answer_dns)
-        if [ -z ${dns1}]; then
+        if [ -z ${dns1} ]; then
           error=1
           continue
         fi
@@ -166,7 +167,7 @@ function configure_dns_dialog {
           continue
         fi
         local num_lines=$(cat answer_ntp | wc -l)
-        if [ $num_lines -eq 1]; then
+        if [ $num_lines -eq 1 ]; then
           continue
         fi
         dns2=$(tail -1 answer_dns)
@@ -445,12 +446,21 @@ function verify_wizard_run {
   esac
 }
 
+function rotateLogs {
+  local logsNumber=$(ls -lr /tmp/noobaa_wizard* | wc -l) 
+  if [ ${logsNumber} -ge 10 ]
+  then 
+    sudo rm -rf $(ls -lr /tmp/noobaa_wizard* | awk '{print $9}' | tail -$((logsNumber-10))) 
+  fi
+}
+
 who=$(whoami)
 export -f generate_entropy
 if [ "$who" = "noobaa" ]; then
-  echo ======$(date)====== >> /tmp/noobaa_wizard.log
-  exec 2>> /tmp/noobaa_wizard.log
+  echo ======$(date)====== >> ${LOG_FILE}
+  exec 2>> ${LOG_FILE}
   set -x
+  rotateLogs
   if [ ! -f ${FIRST_INSTALL_MARK} ]; then
     #sudo echo "Server was booted, first install mark down not exist. Running first install wizard" >> /var/log/noobaa_deploy.log
     run_wizard

@@ -119,6 +119,12 @@ const ACTION_TYPES = [{
     action: upload_overwrite,
     randomizer: upload_overwrite_randomizer
 }, {
+    name: 'UPLOAD_AND_ABORT',
+    include_random: true,
+    weight: 1,
+    action: upload_and_abort,
+    randomizer: upload_abort_randomizer
+}, {
     name: 'RENAME',
     include_random: true,
     weight: 1,
@@ -367,6 +373,33 @@ function upload_new(params) {
         console.warn(`dataset size is ${TEST_STATE.current_size}, skipping upload new`);
     }
     return P.resolve();
+}
+
+function upload_abort_randomizer() {
+    let file_size_low = TEST_CFG.file_size_low > 5 ? TEST_CFG.file_size_low : 5;
+    let rand_size = Math.floor((Math.random() * (TEST_CFG.file_size_high - file_size_low)) + file_size_low);
+    let rand_parts = (Math.floor(Math.random() *
+            (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
+        TEST_CFG.part_num_low);
+
+    let file_name = get_filename();
+    let res = {
+        is_multi_part: true,
+        rand_size,
+        file_name,
+        rand_parts,
+    };
+    return res;
+}
+
+function upload_and_abort(params) {
+    console.log(`running upload multi-part and abort`);
+    console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
+    return P.join(s3ops.upload_file_with_md5(TEST_CFG.server, TEST_CFG.bucket, params.file_name,
+            params.rand_size, params.rand_parts, TEST_CFG.data_multiplier, true),
+        promise_utils.retry(2, 1000, () => s3ops.get_object_uploadId(TEST_CFG.server, TEST_CFG.bucket, params.file_name))
+        .then(upload_id => s3ops.abort_multipart_upload(TEST_CFG.server, TEST_CFG.bucket, params.file_name, upload_id))
+        .then(() => console.log(`file multi-part uploaded ${params.file_name} with ${params.rand_parts} parts was aborted`)));
 }
 
 function upload_overwrite_randomizer() {

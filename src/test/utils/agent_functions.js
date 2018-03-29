@@ -52,7 +52,10 @@ function getTestNodes(server_ip, suffix = '') {
     return list_nodes(server_ip)
         .then(res => _.map(res, node => {
             if (node.name.includes(suffix)) {
-                test_nodes_names.push(node.name.split('-')[0]);
+                let name = node.name.split('-noobaa_storage-')[0];
+                if (!name.startsWith('s3-agent')) {
+                    test_nodes_names.push(name);
+                }
             }
         }))
         .then(() => {
@@ -88,23 +91,23 @@ function list_optimal_agents(server_ip, suffix = '') {
 function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives = [], agentmap) {
     const agents_to_create = Array.from(agentmap.keys());
     return getAgentConf(server_ip, exclude_drives)
-    .then(res => {
-        const agentConf = res;
-        return P.map(agents_to_create, name => azf.createAgent({
-            vmName: name,
-            storage,
-            vnet,
-            os: azf.getImagesfromOSname(agentmap.get(name)),
-            vmsize: 'Standard_B2s',
-            agentConf,
-            serverIP: server_ip
-        }))
-        .tap(() => console.warn(`Waiting for a 2 min for agents to come up...`))
-        .delay(120000)
-            .catch(err => {
-                console.error(`Creating vm extension is FAILED `, err);
-            });
-    });
+        .then(res => {
+            const agentConf = res;
+            return P.map(agents_to_create, name => azf.createAgent({
+                    vmName: name,
+                    storage,
+                    vnet,
+                    os: azf.getImagesfromOSname(agentmap.get(name)),
+                    vmsize: 'Standard_B2s',
+                    agentConf,
+                    serverIP: server_ip
+                }))
+                .tap(() => console.warn(`Waiting for a 2 min for agents to come up...`))
+                .delay(120000)
+                .catch(err => {
+                    console.error(`Creating vm extension is FAILED `, err);
+                });
+        });
 
 }
 
@@ -349,8 +352,8 @@ function deleteAgents(server_ip, suffix = '') {
         .then(() => client.host.list_hosts({}))
         .then(res => P.map(res.hosts, host => {
             if (host.name.includes(suffix)) {
-            console.log('deleting', host.name);
-            return client.host.delete_host({ name: host.name });
+                console.log('deleting', host.name);
+                return client.host.delete_host({ name: host.name });
             } else {
                 console.log('skipping', host.name);
             }
@@ -360,7 +363,7 @@ function deleteAgents(server_ip, suffix = '') {
         .then(res => {
             console.warn(`${Yellow}Num nodes after the delete agent are ${
                     res.length}${NC}`);
-            });
+        });
 }
 
 //get a list of agents that names are inculude suffix, deletes corresponding VM and agents from NooBaa server

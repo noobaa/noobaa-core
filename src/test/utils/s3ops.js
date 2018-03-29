@@ -92,7 +92,7 @@ function client_side_copy_file_with_md5(ip, bucket, source, destination) {
         });
 }
 
-function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multiplier) {
+function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multiplier, overlook_error) {
     validate_multiplier(multiplier);
     data_size = data_size || 50;
     const actual_size = data_size * multiplier;
@@ -100,7 +100,7 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multi
     let size = Math.ceil(actual_size / parts_num);
 
     return P.resolve()
-        .then(() => _multipart_upload_internal(ip, bucket, file_name, data, size));
+        .then(() => _multipart_upload_internal(ip, bucket, file_name, data, size, overlook_error));
 }
 
 function get_file_check_md5(ip, bucket, file_name, return_data) {
@@ -594,21 +594,22 @@ function get_object_uploadId(ip, bucket, object_name) {
     let list = [];
     let dataObject = [];
     let uploadObjectId;
-    return P.ninvoke(s3bucket, 'listObjects', params)
+    return P.ninvoke(s3bucket, 'listMultipartUploads', params)
         .then(res => {
-            list = res.Contents;
+            list = res.Uploads;
             if (list.length === 0) {
                 console.warn('No objects in bucket ', bucket);
             } else {
                 //TODO:: What happends if find does not find anything
                 dataObject = list.find(content => content.Key === object_name);
+                if (!dataObject) throw new Error('Object key wasn\'t found');
                 console.log('Object has data: ', JSON.stringify(dataObject));
-                uploadObjectId = dataObject.Owner.ID;
+                uploadObjectId = dataObject.UploadId;
             }
             return uploadObjectId;
         })
         .catch(err => {
-            console.error('get_object_uploadId:: listObjects failed!', err);
+            //console.error('get_object_uploadId:: listMultipart failed!', err);
             throw err;
         });
 }
@@ -687,10 +688,38 @@ function get_object(ip, bucket, key) {
         });
 }
 
+function abort_multipart_upload(ip, bucket, file_name, uploadId) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    bucket = bucket || 'first.bucket';
+
+    const params = {
+        Bucket: bucket,
+        Key: file_name,
+        UploadId: uploadId
+    };
+
+
+    return P.ninvoke(s3bucket, 'abortMultipartUpload', params)
+        .then(res => {
+            console.log(`Upload ${uploadId} of filename: ${file_name} was aborted successfully`);
+        })
+        .catch(err => {
+            console.error(`Abort failed ${file_name}, UploadId: ${uploadId}!`, err);
+            throw err;
+        });
+}
+
 /*
  * Internal Utils
  */
-function _multipart_upload_internal(ip, bucket, file_name, data, size) {
+function _multipart_upload_internal(ip, bucket, file_name, data, size, overlook_error) {
     const rest_endpoint = 'http://' + ip + ':80';
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -728,6 +757,7 @@ function _multipart_upload_internal(ip, bucket, file_name, data, size) {
             return md5;
         })
         .catch(err => {
+            if (overlook_error) return;
             console.error(`Upload failed ${file_name}!`, err);
             throw err;
         });
@@ -758,3 +788,4 @@ exports.get_file_size = get_file_size;
 exports.set_file_attribute = set_file_attribute;
 exports.set_file_attribute_with_copy = set_file_attribute_with_copy;
 exports.get_object = get_object;
+exports.abort_multipart_upload = abort_multipart_upload;

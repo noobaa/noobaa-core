@@ -1,12 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './start-maintenance-modal.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
+import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
-import  { enterMaintenanceMode } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
+import { getFormValues } from 'utils/form-utils';
+import { enterMaintenanceMode, closeModal } from 'action-creators';
+import { state$, action$ } from 'state';
 
-const durationUntiOptions = deepFreeze([
+const durationUnitOptions = deepFreeze([
     {
         label: 'Minutes',
         value: 1
@@ -17,41 +20,59 @@ const durationUntiOptions = deepFreeze([
     }
 ]);
 
-class StartMaintenanceModalViewModel extends BaseViewModel {
-    constructor({ onClose }) {
+class StartMaintenanceModalViewModel extends Observer {
+    formName = this.constructor.name;
+    durationUnitOptions = durationUnitOptions;
+    durationInMin = ko.observable();
+
+    constructor() {
         super();
-        this.onClose = onClose;
 
-        this.duration = ko.observable(30)
-            .extend({
-                notEqual: {
-                    params: '0',
-                    message: 'Duration cannot be set to 00:00'
-                }
-            });
+        this.form = new FormViewModel({
+            name: this.formName,
+            fields: {
+                duration: 30,
+                durationUnit: 1
+            },
+            onValidate: this.onValidate.bind(this),
+            onSubmit: this.onSubmit.bind(this)
+        });
 
-        this.durationUnit = ko.observable(1);
-        this.durationUnitOptions = durationUntiOptions;
-
-        this.durationInMin = ko.pureComputed(
-            () => parseInt(this.duration()) * parseInt(this.durationUnit())
-        );
-
-        this.errors = ko.validation.group(this);
+        this.observe(state$.get('forms', this.formName), this.onState);
     }
 
-    cancel() {
-        this.onClose();
+    onState(form) {
+        if (!form) return;
+
+        const { duration, durationUnit } = getFormValues(form);
+        const durationInMin = duration * durationUnit;
+
+        this.durationInMin(durationInMin);
     }
 
-    start() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
+    onValidate(values) {
+        const { duration } = values;
+        const errors = {};
 
-        } else {
-            enterMaintenanceMode(this.durationInMin());
-            this.onClose();
+        if (duration === 0) {
+            errors.duration = 'Duration cannot be set to 00:00';
         }
+
+        return errors;
+    }
+
+    onCancel() {
+        action$.onNext(closeModal());
+    }
+
+    onSubmit() {
+        action$.onNext(enterMaintenanceMode(this.durationInMin()));
+        action$.onNext(closeModal());
+    }
+
+    dispose() {
+        this.form.dispose();
+        super.dispose();
     }
 }
 

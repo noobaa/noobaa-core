@@ -1,57 +1,52 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './maintenance-sticky.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
-import moment from 'moment';
-import { systemInfo } from 'model';
-import { exitMaintenanceMode } from 'actions';
-import { pad } from 'utils/string-utils';
+import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
+import { isUndefined } from 'utils/core-utils';
+import { action$, state$ } from 'state';
+import { timeTickInterval } from 'config';
+import { leaveMaintenanceMode, refreshLocation } from 'action-creators';
 
-class MaintenanceModeStickyViewModel extends BaseViewModel {
+class MaintenanceModeStickyViewModel extends Observer {
+    isActive = ko.observable();
+    timeLeft = ko.observable();
+    timeLeftText = ko.observable();
+
     constructor() {
         super();
 
-        this.isActive = ko.pureComputed(
-            () => !!systemInfo() && systemInfo().maintenance_mode.state
-        );
+        this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
 
-        let now = ko.observable(Date.now());
-        this.addToDisposeList(
-            setInterval(
-                () => now(Date.now()), 1000
-            ),
-            clearInterval
-        );
-
-        let till = ko.pureComputed(
-            () => systemInfo() && systemInfo().maintenance_mode.till
-        );
-
-        this.timeLeftText = ko.pureComputed(
-            () => {
-                if (!till()) {
-                    return;
-                }
-
-                let diff =  moment.duration(Math.max(till() - now(),0));
-
-                return `${
-                        pad(diff.days(), 2)
-                    }:${
-                        pad(diff.hours(), 2)
-                    }:${
-                        pad(diff.minutes(), 2)
-                    }:${
-                        pad(diff.seconds(), 2)
-                    }`;
-
-            }
-        );
+        this.observe(state$.get('system', 'timeLeftForMaintenanceMode'), this.onState);
     }
 
-    exitMaintenance() {
-        exitMaintenanceMode();
+    onState(timeLeft) {
+        if (isUndefined(timeLeft)) return;
+
+        this.isActive(Boolean(timeLeft));
+        this.timeLeft(timeLeft);
+    }
+
+    onTurnMaintenanceOff() {
+        action$.onNext(leaveMaintenanceMode());
+    }
+
+    onTick() {
+        if (!this.timeLeft()) return;
+
+        const timeLeft = Math.max(this.timeLeft() - timeTickInterval, 0);
+        const timeLeftText = timeLeft > 0 ? formatTimeLeftForMaintenanceMode(timeLeft) : '';
+
+        this.timeLeft(timeLeft);
+        this.timeLeftText(timeLeftText);
+        timeLeft === 0 && action$.onNext(refreshLocation());
+    }
+
+    dispose() {
+        clearInterval(this.ticker);
+        super.dispose();
     }
 }
 

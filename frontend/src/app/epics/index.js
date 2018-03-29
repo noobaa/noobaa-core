@@ -69,6 +69,8 @@ import attachServerToCluster from './attach-server-to-cluster';
 import createCloudResource from './create-cloud-resource';
 import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
+import enterMaintenanceMode from './enter-maintenance-mode';
+import leaveMaintenanceMode from './leave-maintenance-mode';
 
 const generalEpics = [
     handleLocationRequests,
@@ -96,7 +98,9 @@ const systemRelatedEpics = [
     fetchVersionReleaseNotes,
     invokeUpgradeSystem,
     upgradeSystem,
-    updateRemoteSyslog
+    updateRemoteSyslog,
+    enterMaintenanceMode,
+    leaveMaintenanceMode
 ];
 
 const topologyRelatedEpics = [

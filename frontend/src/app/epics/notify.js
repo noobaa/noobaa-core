@@ -409,6 +409,26 @@ const actionToNotification = deepFreeze({
     [types.FAIL_CREATE_LAMBDA_FUNC]: ({ name }) => ({
         message: `Creating lambda function ${name} failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_ENTER_MAINTENANCE_MODE]: () => ({
+        message: 'entered maintenance mode successfully',
+        severity: 'success'
+    }),
+
+    [types.FAIL_ENTER_MAINTENANCE_MODE]: () => ({
+        message: 'Enter maintenance mode failed',
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_LEAVE_MAINTENANCE_MODE]: () => ({
+        message: 'Leaved maintenance mode successfully',
+        severity: 'success'
+    }),
+
+    [types.FAIL_LEAVE_MAINTENANCE_MODE]: () => ({
+        message: 'Leave maintenance mode failed',
+        severity: 'error'
     })
 });
 

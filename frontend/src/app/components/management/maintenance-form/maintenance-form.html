@@ -1,27 +1,40 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<collapsible-section params="
-    title: 'Maintenance',
-    collapsed: isCollapsed
-">
-    <section class="row" data-name="collapsed">
-        <p class="push-next">
-            Maintenance Mode:
-            <span data-bind="text: stateText"></span>
+<section>
+    <div class="row content-middle cursor-pointer"
+        ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">
+                Maintenance
+            </h2>
+            <section class="row" ko.visible="!isExpanded()">
+                <p class="push-next">
+                    Maintenance Mode:
+                    <span ko.text="stateText"></span>
+                </p>
+                <p ko.visible="timeLeft">
+                    Time left for maintenance:
+                    <span class="text-tech" ko.text="timeLeftText"></span>
+                </p>
+            </section>
+            <p ko.visible="isExpanded">
+                Automatically, NooBaa is running data rebuild operations (moving data between different nodes).
+            </p>
+        </div>
+        <svg-icon class="icon-small rotate push-next-half"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded" class="column greedy">
+        <p>
+            If you wish to set the system to a temporary state of maintenance and prevent high-level data rebuilding, turn on maintenance mode for the needed period of time.
         </p>
-        <p data-bind="visible: state">
-            Time left for maintenance:
-            <span class="text-tech" data-bind="text: timeLeftText"></span>
-        </p>
-    </section>
+        <button class="btn align-start push-prev"
+            ko.text="buttonText"
+            ko.click="onToggleMaintenance"
+        ></button>
+    </div>
+</section>
 
-    <section class="column" data-name="expanded">
-        <p class="push-next">
-            Automatically, NooBaa is running data rebuild operations (moving data between different nodes). <br> If you wish to set the system to a temporary state of maintenance and prevent high-level data rebuilding, turn on maintenance mode for the needed period of time.
-        </p>
-        <button class="btn align-start" data-bind="
-            text: buttonText,
-            click: () => toggleMaintenance()
-        "></button>
-    </section>
-</collapsible-section>

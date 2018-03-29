@@ -18,8 +18,14 @@ const initialState = undefined;
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload }) {
-    const { version, upgrade, has_ssl_cert, remote_syslog_config, dns_name, ip_address } = payload;
-
+    const {
+        version,
+        upgrade,
+        has_ssl_cert,
+        remote_syslog_config,
+        dns_name, ip_address,
+        maintenance_mode
+    } = payload;
     const { releaseNotes } = state || {};
 
     return {
@@ -29,7 +35,8 @@ function onCompleteFetchSystemInfo(state, { payload }) {
         sslCert: has_ssl_cert ? {} : undefined,
         upgrade: _mapUpgrade(upgrade),
         remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
-        releaseNotes
+        releaseNotes,
+        timeLeftForMaintenanceMode: maintenance_mode.state ? maintenance_mode.time_left : 0
     };
 }
 

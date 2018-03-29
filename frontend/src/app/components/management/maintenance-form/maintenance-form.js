@@ -1,75 +1,87 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './maintenance-form.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
-import moment from 'moment';
-import { systemInfo } from 'model';
-import { exitMaintenanceMode } from 'actions';
-import { pad } from 'utils/string-utils';
-import { action$ } from 'state';
-import { openStartMaintenanceModal } from 'action-creators';
+import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
+import { realizeUri } from 'utils/browser-utils';
+import { isUndefined } from 'utils/core-utils';
+import { action$, state$ } from 'state';
+import * as routes from 'routes';
+import { timeTickInterval } from 'config';
+import {
+    requestLocation,
+    openStartMaintenanceModal,
+    leaveMaintenanceMode
+} from 'action-creators';
 
-class MaintenanceFormViewModel extends BaseViewModel {
-    constructor({ isCollapsed }) {
+const sectionName = 'maintenance';
+
+class MaintenanceFormViewModel extends Observer {
+    timeLeft = ko.observable();
+    isExpanded = ko.observable();
+    stateText = ko.observable();
+    timeLeftText = ko.observable();
+    buttonText = ko.observable();
+
+    constructor() {
         super();
 
-        this.isCollapsed = isCollapsed;
+        this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
 
-        this.state = ko.pureComputed(
-            () => !!systemInfo() && systemInfo().maintenance_mode.state
-        );
-
-        this.stateText = ko.pureComputed(
-            () => this.state() ? 'On' : 'Off'
-        );
-
-        let till = ko.pureComputed(
-            () => systemInfo() && systemInfo().maintenance_mode.till
-        );
-
-        let now = ko.observable(Date.now());
-
-        this.timeLeftText = ko.pureComputed(
-            () => {
-                if (!till()) {
-                    return;
-                }
-
-                let diff =  moment.duration(till() - now());
-                return `${
-                        pad(diff.days(), 2)
-                    }:${
-                        pad(diff.hours(), 2)
-                    }:${
-                        pad(diff.minutes(), 2)
-                    }:${
-                        pad(diff.seconds(), 2)
-                    }`;
-            }
-        );
-
-        this.buttonText = ko.pureComputed(
-            () => `Turn maintenance ${this.state() ? 'off' : 'on' }`
-        );
-
-        this.isStartMaintenanceModalVisible = ko.observable(false);
-
-        this.addToDisposeList(
-            setInterval(
-                () => now(Date.now()),
-                1000
+        this.observe(
+            state$.getMany(
+                ['system', 'timeLeftForMaintenanceMode'],
+                'location'
             ),
-            clearInterval
+            this.onState
         );
     }
 
-    toggleMaintenance() {
-        if (this.state()) {
-            exitMaintenanceMode();
+    onState([timeLeft, location]) {
+        if (isUndefined(timeLeft)) return;
+
+        const { system, tab, section } = location.params;
+        const toggleSection = section === sectionName ? undefined : sectionName;
+        const toggleUri = realizeUri(
+            routes.management,
+            { system, tab, section: toggleSection }
+        );
+        const stateText = timeLeft !== 0 ? 'On' : 'Off';
+        const buttonText = `Turn maintenance ${timeLeft ? 'off' : 'on'}`;
+
+        this.timeLeft(timeLeft);
+        this.stateText(stateText);
+        this.buttonText(buttonText);
+        this.isExpanded(section === sectionName);
+        this.toggleUri = toggleUri;
+    }
+
+    onToggleSection() {
+        action$.onNext(requestLocation(this.toggleUri));
+    }
+
+    onToggleMaintenance() {
+        if (this.timeLeft()) {
+            action$.onNext(leaveMaintenanceMode());
         } else {
             action$.onNext(openStartMaintenanceModal());
         }
+    }
+
+    onTick() {
+        if (!this.timeLeft()) return;
+
+        const timeLeft = Math.max(this.timeLeft() - timeTickInterval, 0);
+        const timeLeftText = timeLeft > 0 ? formatTimeLeftForMaintenanceMode(timeLeft) : '';
+
+        this.timeLeft(timeLeft);
+        this.timeLeftText(timeLeftText);
+    }
+
+    dispose() {
+        clearInterval(this.ticker);
+        super.dispose();
     }
 }
 

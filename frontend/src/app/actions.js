@@ -714,28 +714,6 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
         .then(() => action$.onNext(fetchSystemInfo()));
 }
 
-export function enterMaintenanceMode(duration) {
-    logAction('enterMaintenanceMode', { duration });
-
-    api.system.set_maintenance_mode({ duration })
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .then(
-            () => setTimeout(
-                () => action$.onNext(fetchSystemInfo()),
-                (duration * 60 + 1) * 1000
-            )
-        )
-        .done();
-}
-
-export function exitMaintenanceMode() {
-    logAction('exitMaintenanceMode');
-
-    api.system.set_maintenance_mode({ duration: 0 })
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
 export async function updatePhoneHomeConfig(proxyAddress) {
     logAction('updatePhoneHomeConfig', { proxyAddress });
 

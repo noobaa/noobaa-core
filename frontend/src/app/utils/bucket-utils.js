@@ -67,33 +67,6 @@ const bucketStateToIcon = deepFreeze({
     }
 });
 
-const cloudSyncStateToText = deepFreeze({
-    NOTSET: {
-        text: 'not set',
-        css: ''
-    },
-    PENDING: {
-        text: 'waiting',
-        css: ''
-    },
-    SYNCING: {
-        text: 'syncing',
-        css: ''
-    },
-    PAUSED: {
-        text: 'paused',
-        css: ''
-    },
-    SYNCED: {
-        text: 'synced',
-        css: ''
-    },
-    UNABLE: {
-        text: 'unable to sync',
-        css: 'error'
-    }
-});
-
 const placementTypeToDisplayName = deepFreeze({
     SPREAD: 'Spread',
     MIRROR: 'Mirror'
@@ -151,11 +124,6 @@ export function getBucketStateIcon(bucket, align) {
             }
         };
     }
-}
-
-export function getCloudSyncState(bucket) {
-    const state = bucket.cloudSync ? bucket.cloudSync.state.mode : 'NOTSET';
-    return cloudSyncStateToText[state];
 }
 
 export function getPlacementTypeDisplayName(type) {

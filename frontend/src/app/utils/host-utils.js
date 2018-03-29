@@ -39,7 +39,7 @@ const modeToStateIcon = deepFreeze({
     DETENTION: {
         name: 'problem',
         css: 'error',
-        tooltip: 'All Drives has No Access'
+        tooltip: 'All Drives have No Access'
     },
     INITIALIZING: {
         name: 'working',
@@ -94,7 +94,7 @@ const modeToStateIcon = deepFreeze({
     SOME_STORAGE_DETENTION: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Some Drives has No Access'
+        tooltip: 'Some Drives have No Access'
     },
     NO_CAPACITY: {
         name: 'problem',
@@ -119,12 +119,12 @@ const modeToStateIcon = deepFreeze({
     HAS_ERRORS: {
         name: 'problem',
         css: 'error',
-        tooltip: 'Services has Errors'
+        tooltip: 'Services have Errors'
     },
     HAS_ISSUES: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Services has Issues'
+        tooltip: 'Services have Issues'
     },
     N2N_PORTS_BLOCKED: {
         name: 'problem',
@@ -318,12 +318,12 @@ const storageServiceModeToIcon = deepFreeze({
     DETENTION: {
         name: 'problem',
         css: 'error',
-        tooltip: 'All drive has no access'
+        tooltip: 'All drives have no access'
     },
     INITIALIZING: {
         name: 'working',
         css: 'warning',
-        tooltip: 'All drive has no access'
+        tooltip: 'All drives have no access'
     },
     DELETING: {
         name: 'working',
@@ -373,7 +373,7 @@ const storageServiceModeToIcon = deepFreeze({
     SOME_STORAGE_DETENTION: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Some drives has no access'
+        tooltip: 'Some drives have no access'
     },
     NO_CAPACITY: {
         name: 'problem',

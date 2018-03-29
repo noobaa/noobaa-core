@@ -57,14 +57,6 @@ const columns = deepFreeze([
         }
     },
     {
-        name: 'cloudSync',
-        sortable: true,
-        compareKey: bucket => {
-            const { state } = bucket.cloudSync || { state: 'NOTSET' };
-            return state;
-        }
-    },
-    {
         name: 'capacity',
         label: 'used capacity',
         type: 'capacity',

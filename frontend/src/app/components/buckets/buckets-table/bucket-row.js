@@ -7,8 +7,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { formatSize } from 'utils/size-utils';
 import {
     getBucketStateIcon,
-    getPlacementTypeDisplayName,
-    getCloudSyncState
+    getPlacementTypeDisplayName
 } from 'utils/bucket-utils';
 
 const undeletableReasons = deepFreeze({
@@ -55,7 +54,6 @@ export default class BucketRowViewModel {
         this.placementPolicy = ko.observable();
         this.resources = ko.observable();
         this.spilloverUsage = ko.observable();
-        this.cloudSync = ko.observable();
         this.totalCapacity = ko.observable();
         this.usedCapacity = ko.observable();
 
@@ -92,7 +90,6 @@ export default class BucketRowViewModel {
         this.placementPolicy(getPlacementTypeDisplayName(bucket.placement.policyType));
         this.resources(_mapResourceGroups(bucket.placement));
         this.spilloverUsage(spillover);
-        this.cloudSync(getCloudSyncState(bucket));
         this.totalCapacity(bucket.storage.total);
         this.usedCapacity(bucket.storage.used);
         this.deleteButton.id(bucket.name);

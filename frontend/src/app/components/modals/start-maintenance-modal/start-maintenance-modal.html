@@ -1,38 +1,39 @@
 <!-- Copyright (C) 2016 NooBaa -->
+<form class="column greedy" ko.submit="form.submit">
+    <div class="warning-msg warning row pad alt-bg content-middle">
+        <svg-icon class="push-next warning" params="name: 'notif-warning'">
+        </svg-icon>
+        Performance and functionality issues may occur while the system is in maintenance mode
+    </div>
 
-<div class="warning-msg warning row pad alt-bg content-middle">
-    <svg-icon class="push-next warning" params="name: 'notif-warning'">
-    </svg-icon>
-    Performance and functionality issues may occur while the system is in maintenance mode
-</div>
+    <div class="greedy push-both">
+        <editor params="
+            label: 'Maintenance duration'
+        ">
+            <div class="row">
+                <input class="push-next"
+                    type="number"
+                    min="0"
+                    ko.value="form.duration"
+                    ko.hasFocus="true"
+                    ko.validationCss="form.duration"
+                />
 
-<div class="greedy push-both">
-    <editor params="label: 'Maintenance duration', insertValMessages: false">
-        <div class="row">
-            <input class="push-next"
-                type="number"
-                min="0"
-                ko.value="duration"
-                ko.hasFocus="true"
-            />
+                <dropdown class="duration-unit" params="
+                    options: durationUnitOptions,
+                    selected: form.durationUnit
+                "></dropdown>
+            </div>
+            <validation-message params="field: form.duration"></validation-message>
+        </editor>
+    </div>
 
-            <dropdown class="duration-unit" params="
-                options: durationUnitOptions,
-                selected: durationUnit
-            "></dropdown>
-        </div>
-        <span class="val-msg" data-bind="validationMessage: duration"></span>
-    </editor>
-</div>
-
-<div class="row content-middle align-end">
-    <button class="link alt-colors push-next" ko.click="cancel">
-        Cancel
-    </button>
-    <button class="btn"
-        ko.click="start",
-        ko.shakeOnClick="errors().length"
-    ">
-        Start maintenance
-    </button>
-</div>
+    <div class="row content-middle align-end">
+        <button class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!form.isValid()">
+            Start maintenance
+        </button>
+    </div>
+</form>

@@ -2,7 +2,8 @@ export default {
     type: 'object',
     required: [
         'ipAddress',
-        'version'
+        'version',
+        'timeLeftForMaintenanceMode'
     ],
     properties: {
         dnsName: {
@@ -83,6 +84,9 @@ export default {
                     $ref: '#/def/common/port'
                 }
             }
+        },
+        timeLeftForMaintenanceMode: {
+            type: 'integer'
         }
     }
 };

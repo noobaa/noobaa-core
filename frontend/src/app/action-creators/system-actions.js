@@ -28,7 +28,13 @@ import {
     FAIL_FETCH_VERSION_RELEASE_NOTES,
     UPDATE_REMOTE_SYSLOG,
     COMPLETE_UPDATE_REMOTE_SYSLOG,
-    FAIL_UPDATE_REMOTE_SYSLOG
+    FAIL_UPDATE_REMOTE_SYSLOG,
+    ENTER_MAINTENANCE_MODE,
+    COMPLETE_ENTER_MAINTENANCE_MODE,
+    FAIL_ENTER_MAINTENANCE_MODE,
+    LEAVE_MAINTENANCE_MODE,
+    COMPLETE_LEAVE_MAINTENANCE_MODE,
+    FAIL_LEAVE_MAINTENANCE_MODE
 } from 'action-types';
 
 export function createSystem(
@@ -240,5 +246,38 @@ export function failUpdateRemoteSyslog(enabled, error) {
     return {
         type: FAIL_UPDATE_REMOTE_SYSLOG,
         payload: { enabled, error }
+    };
+}
+
+export function enterMaintenanceMode(duration) {
+    return {
+        type: ENTER_MAINTENANCE_MODE,
+        payload: { duration }
+    };
+}
+
+export function completeEnterMaintenanceMode() {
+    return { type: COMPLETE_ENTER_MAINTENANCE_MODE };
+}
+
+export function failEnterMaintenanceMode(error) {
+    return {
+        type: FAIL_ENTER_MAINTENANCE_MODE,
+        payload: { error }
+    };
+}
+
+export function leaveMaintenanceMode() {
+    return { type: LEAVE_MAINTENANCE_MODE };
+}
+
+export function completeLeaveMaintenanceMode() {
+    return { type: COMPLETE_LEAVE_MAINTENANCE_MODE };
+}
+
+export function failLeaveMaintenanceMode(error) {
+    return {
+        type: FAIL_LEAVE_MAINTENANCE_MODE,
+        payload: { error }
     };
 }

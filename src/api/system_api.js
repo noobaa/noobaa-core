@@ -587,8 +587,8 @@ module.exports = {
                         state: {
                             type: 'boolean',
                         },
-                        till: {
-                            idate: true,
+                        time_left: {
+                            type: 'integer',
                         },
                     }
                 },

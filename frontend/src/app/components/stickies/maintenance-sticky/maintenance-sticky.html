@@ -1,15 +1,15 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="sticky" data-bind="css: { active: isActive }">
+<section class="sticky" ko.css.active="isActive">
     <div class="sticky-content row content-middle">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
         System is in maintenance mode and will not perform data rebuilds
         <vr></vr>
         <span class="greedy">
             Time left
-            <span data-bind="text: timeLeftText"></span>
+            <span ko.text="timeLeftText"></span>
         </span>
-        <button class="link alt-colors" data-bind="click: exitMaintenance">
+        <button class="link alt-colors" ko.click="onTurnMaintenanceOff">
             Turn maintenance off
         </button>
     </div>

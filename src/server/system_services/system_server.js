@@ -467,7 +467,8 @@ function read_system(req) {
             state: system_utils.system_in_maintenance(system._id)
         };
         if (maintenance_mode.state) {
-            maintenance_mode.till = system.maintenance_mode;
+            const now = Date.now();
+            maintenance_mode.time_left = Math.max(0, system.maintenance_mode - now);
         }
 
         let phone_home_config = {};

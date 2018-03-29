@@ -7,7 +7,6 @@ def storage = 'jenkinspipeline7'
 def vm_size = 'B'
 def azureEnv = " --resource ${resource} --vnet ${vnet} --storage ${storage} --vm_size ${vm_size}"
 //dataset
-def dataset_ip = '52.151.45.46'
 def dataset_size = '51200' //MB
 def aging_time = '300' //min
 
@@ -77,7 +76,7 @@ node('pipeline') {
             node src/test/framework/test_env_builder.js \
                 \${flags} \
                 --upgrade /tmp/noobaa-NVA-latest.tar.gz \
-                --js_script $WORKSPACE/src/test/qa/account_test.js
+                --js_script $WORKSPACE/src/test/qa/account_test.js --cycles 3
             """
             echo 'Deleting account env'
             sh script: """
@@ -183,7 +182,7 @@ node('pipeline') {
             node src/test/framework/test_env_builder.js \
                 \${flags} \
                 --upgrade /tmp/noobaa-NVA-latest.tar.gz \
-                --js_script $WORKSPACE/src/test/qa/dataset.js --server ${dataset_ip} --aging_timeout 1 --dataset_size 1024
+                --js_script $WORKSPACE/src/test/qa/dataset.js --aging_timeout 1 --dataset_size 1024
             """
             echo 'Deleting agent_matrix env'
             sh script: """
@@ -215,18 +214,18 @@ node('pipeline') {
                 --clean_only
             """
         },
-        "Upgrade": {
-            echo 'Running Upgrad test'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh &> /dev/null
-            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)8
-            flags="${azureEnv} --name upgrade --id \${id}" 
-            node src/test/qa/two_step_upgrade_test.js \
-                \${flags} \
-                --upgrade_package /tmp/noobaa-NVA-latest.tar.gz 
-            """
-        },
+        // "Upgrade": {
+        //     echo 'Running Upgrad test'
+        //     sh script: """
+        //     export NVM_DIR=/opt/nvm
+        //     . /opt/nvm/nvm.sh &> /dev/null
+        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)8
+        //     flags="${azureEnv} --name upgrade --id \${id}" 
+        //     node src/test/qa/two_step_upgrade_test.js \
+        //         \${flags} \
+        //         --upgrade_package /tmp/noobaa-NVA-latest.tar.gz 
+        //     """
+        // },
         "cluster test": {
             echo 'Running cluster_test'
             sh script: """
@@ -247,27 +246,28 @@ node('pipeline') {
                 --clean_only
             """
         },
-        "TUI": {
-            echo 'Running test_TUI'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh &> /dev/null
-            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)10
-            flags="${azureEnv} --name TUI --id \${id} --skip_agent_creation"
-            node src/test/framework/test_env_builder.js \
-                \${flags} \
-                --upgrade /tmp/noobaa-NVA-latest.tar.gz \
-                --js_script $WORKSPACE/src/test/qa/test-TUI.js
-            """
-            echo 'Deleting test_TUI env'
-            sh script: """
-            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)10
-            flags="${azureEnv} --name TUI --id \${id} "
-            node src/test/framework/test_env_builder.js \
-                \${flags} \
-                --clean_only
-            """
-        },
+        // "TUI": {
+        //     echo 'Running test_TUI'
+        //     sh script: """
+        //     env
+        //     export NVM_DIR=/opt/nvm
+        //     . /opt/nvm/nvm.sh &> /dev/null
+        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)10
+        //     flags="${azureEnv} --name TUI --id \${id} --skip_agent_creation"
+        //     node src/test/framework/test_env_builder.js \
+        //         \${flags} \
+        //         --upgrade /tmp/noobaa-NVA-latest.tar.gz \
+        //         --js_script $WORKSPACE/src/test/qa/test-TUI.js
+        //     """
+        //     echo 'Deleting test_TUI env'
+        //     sh script: """
+        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)10
+        //     flags="${azureEnv} --name TUI --id \${id} "
+        //     node src/test/framework/test_env_builder.js \
+        //         \${flags} \
+        //         --clean_only
+        //     """
+        // // },
         "System config": {
             echo 'Running System config'
             sh script: """

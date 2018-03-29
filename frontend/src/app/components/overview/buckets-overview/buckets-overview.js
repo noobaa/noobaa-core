@@ -308,7 +308,8 @@ class BucketsOverviewViewModel extends Observer{
                     this.hideHosts,
                     val => this.onToggleDataset('hosts', !val)
                 ),
-                color : style['color8']
+                color : style['color8'],
+                tooltip: 'The total raw data that was written on all installed nodes in the system'
             },
             {
                 label: 'Used on Cloud',
@@ -317,7 +318,8 @@ class BucketsOverviewViewModel extends Observer{
                     this.hideCloud,
                     val => this.onToggleDataset('cloud', !val)
                 ),
-                color : style['color6']
+                color : style['color6'],
+                tooltip: 'The total raw data that was written on all configured cloud resources in the system'
             },
             {
                 label: 'Used on Internal',
@@ -326,7 +328,8 @@ class BucketsOverviewViewModel extends Observer{
                     this.hideInternal,
                     val => this.onToggleDataset('internal', !val)
                 ),
-                color : style['color16']
+                color : style['color16'],
+                tooltip: 'The total raw data that was spilled-over to the system internal storage resource'
             }
         ];
 

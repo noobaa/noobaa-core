@@ -96,6 +96,8 @@ Usage:
     --allimages                 Creates 1 agent per each supported OSs. If the number of agents requested exceeds the number of OSs
                                 duplicates would be created.
     --usemarket                 Use OS Images from the market and not prepared VHDs
+    --ddisknumber <disk-number> Number of data disks to add to the agent (default: 0)
+    --ddisksize <disk-size>     Size of data disks to add to the agent (default: 100GB)
     \n
     Examples:
     \tnode src/deploy/azure.js agent --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --ip 20.190.61.158 --add 1 --os redhat6 --usemarket
@@ -355,6 +357,17 @@ function _runAgent() {
                                     server_ip: serverIP,
                                     shouldInstall: true
                                 });
+                            }
+                        })
+                        .then(() => {
+                            if (argv.ddisknumber) {
+                                return azf.addDataDiskToVM({
+                                        vm: machine.name,
+                                        size: argv.ddisksize,
+                                        storage: argv.storage,
+                                        number_of_disks: argv.ddisknumber,
+                                    })
+                                    .then(() => azf.rescanDataDisksExtension(machine.name));
                             }
                         })
                         .then(() => console.log(`Successfully created ${util.inspect(machine)}`))

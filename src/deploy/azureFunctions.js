@@ -595,25 +595,62 @@ class AzureFunctions {
             });
     }
 
-    addDataDiskToVM(vm, size, storageAccountName) {
-        console.log('Adding DataDisk to Virtual Machine: ' + vm);
+    addDataDiskToVM({ vm, size, storage, number_of_disks = 1 }) {
+        console.log(`Adding ${number_of_disks} data disks of size ${size} to Virtual Machine: ${vm}`);
         return P.fromCallback(callback => this.computeClient.virtualMachines.get(this.resourceGroupName, vm, callback))
             .then(machine_info => {
                 if (!machine_info.storageProfile.dataDisks) {
                     machine_info.storageProfile.dataDisks = [];
                 }
-                var disk_number = machine_info.storageProfile.dataDisks.length + 1;
-                machine_info.storageProfile.dataDisks.push({
-                    name: 'dataDisk' + disk_number,
-                    diskSizeGB: size,
-                    lun: disk_number - 1,
-                    vhd: {
-                        uri: 'https://' + storageAccountName + '.blob.core.windows.net/datadisks/' + vm + '-data' + disk_number + '.vhd'
-                    },
-                    createOption: 'Empty'
-                });
+                var disk_number = machine_info.storageProfile.dataDisks.length;
+                for (let i = 0; i < number_of_disks; i++) {
+                    machine_info.storageProfile.dataDisks.push({
+                        name: 'dataDisk' + (disk_number + (i + 1)),
+                        diskSizeGB: size,
+                        lun: disk_number + i,
+                        vhd: {
+                            uri: 'https://' + storage + '.blob.core.windows.net/datadisks/' + vm + '-data' + (disk_number + (i + 1)) + '.vhd'
+                        },
+                        createOption: 'Empty'
+                    });
+                }
                 return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
                     vm, machine_info, callback));
+            });
+    }
+
+    rescanDataDisksExtension(vm) {
+        console.log('removing old extension (if exist)');
+        return this.deleteVirtualMachineExtension(vm)
+            .then(() => {
+                var extension = {
+                    publisher: 'Microsoft.OSTCExtensions',
+                    virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
+                    typeHandlerVersion: '1.5',
+                    autoUpgradeMinorVersion: true,
+                    settings: {
+                        fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.sh'],
+                        commandToExecute: 'bash -x ddisk.sh '
+                    },
+                    protectedSettings: {
+                        storageAccountName: 'pluginsstorage',
+                        storageAccountKey: 'bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=='
+                    },
+                    location: this.location,
+                };
+                if (vm.includes('Linux')) {
+                    console.log('running new extension to mount disk to file system for Linux');
+                } else {
+                    extension.publisher = 'Microsoft.Compute';
+                    extension.virtualMachineExtensionType = 'CustomScriptExtension';
+                    extension.typeHandlerVersion = '1.7';
+                    extension.settings = {
+                        fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.ps1"],
+                        commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ddisk.ps1 '
+                    };
+                    console.log('running new extension to mount disk to file system for Windows');
+                }
+                return this.createVirtualMachineExtension(vm, extension);
             });
     }
 

@@ -34,41 +34,8 @@ return azf.authenticate()
         console.log('machines found are', machines);
         return P.map(machines, vm => {
             console.log('adding data disk to vm', vm, 'of size', size);
-            return azf.addDataDiskToVM(vm, size, storageAccountName)
-                .then(() => {
-                    console.log('removing old extension (if exist)');
-                    return azf.deleteVirtualMachineExtension(vm);
-                })
-                .then(() => {
-                    var extension = {
-                        publisher: 'Microsoft.OSTCExtensions',
-                        virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
-                        typeHandlerVersion: '1.5',
-                        autoUpgradeMinorVersion: true,
-                        settings: {
-                            fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.sh'],
-                            commandToExecute: 'bash -x ddisk.sh '
-                        },
-                        protectedSettings: {
-                            storageAccountName: 'pluginsstorage',
-                            storageAccountKey: 'bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=='
-                        },
-                        location: location,
-                    };
-                    if (vm.includes('Linux')) {
-                        console.log('running new extension to mount disk to file system for Linux');
-                    } else {
-                        extension.publisher = 'Microsoft.Compute';
-                        extension.virtualMachineExtensionType = 'CustomScriptExtension';
-                        extension.typeHandlerVersion = '1.7';
-                        extension.settings = {
-                            fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.ps1"],
-                            commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ddisk.ps1 '
-                        };
-                        console.log('running new extension to mount disk to file system for Windows');
-                    }
-                    return azf.createVirtualMachineExtension(vm, extension);
-                })
+            return azf.addDataDiskToVM({ vm, size, storage: storageAccountName })
+                .then(() => azf.rescanDataDisksExtension(vm))
                 .catch(err => {
                     console.log('got error', err);
                 });

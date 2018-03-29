@@ -31,6 +31,8 @@ if (dont_strip) {
 const api = require('../../api');
 let rpc = api.new_rpc(`wss://${server_ip}:8443`);
 let client = rpc.new_client({});
+// the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty eventhough stdin is a pipe
+const sshOptions = ['-t', '-t', '-o', `ServerAliveInterval=60`, '-o', `LogLevel=QUIET`, `noobaa@${server_ip}`];
 
 function usage() {
     console.log(`
@@ -182,6 +184,22 @@ function expect_a_resoult_and_get_back(e, text, timeout) {
         .then(() => e.send(`${SHIFTTAB}\r`));
 }
 
+function login_logout() {
+    const e = new Expect({
+        output: data => console.log(
+            strip_ansi_from_output ? strip_ansi_escape_codes(data.toString()) : data.toString()
+        )
+    });
+
+    return P.resolve()
+        .then(() => e.spawn('ssh', ['-t', '-t', '-o', `StrictHostKeyChecking=no`, '-o', `ServerAliveInterval=60`, `noobaa@${server_ip}`]))
+        .delay(1 * 1000)
+        .then(() => e.end())
+        .catch(err => {
+            console.error('FAILED', err);
+            process.exit(1);
+        });
+}
 
 //this function will run NTP configuration from the TUI
 function ntp_Configuration(configureTZ = true, reachable = true) {
@@ -222,8 +240,7 @@ function ntp_Configuration(configureTZ = true, reachable = true) {
     }
 
     return P.resolve()
-        // the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty eventhough stdin is a pipe
-        .then(() => e.spawn('ssh', ['-t', '-t', `noobaa@${server_ip}`]))
+        .then(() => e.spawn('ssh', sshOptions))
         .then(() => expect_override_conf(e, 120 * 1000))
         .then(() => e.expect('This is a short first install wizard'))
         .then(() => e.send('\r'))
@@ -316,8 +333,8 @@ function dns_Configuration(configurePrimary = true, configureSecondary = true, r
     }
 
     return P.resolve()
-        // the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty eventhough stdin is a pipe
-        .then(() => e.spawn('ssh', ['-t', '-t', `noobaa@${server_ip}`]))
+        .then(() => e.spawn('ssh', sshOptions))
+        .delay(10 * 1000)
         .then(() => expect_override_conf(e, 120 * 1000))
         .then(() => e.expect('This is a short first install wizard'))
         .then(() => e.send('\r'))
@@ -375,8 +392,7 @@ function hostname_Settings() {
     }
 
     return P.resolve()
-        // the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty eventhough stdin is a pipe
-        .then(() => e.spawn('ssh', ['-t', '-t', `noobaa@${server_ip}`]))
+        .then(() => e.spawn('ssh', sshOptions))
         .then(() => expect_override_conf(e, 120 * 1000))
         .then(() => e.expect('This is a short first install wizard'))
         .then(() => e.send('\r'))
@@ -462,6 +478,7 @@ return authenticate()
             }
         })
         //running the main flow
+        .then(login_logout)
         .then(() => {
             const configureTZ = Boolean(Math.floor(Math.random() * 2));
             return ntp_Configuration(configureTZ, false)

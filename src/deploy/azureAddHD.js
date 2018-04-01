@@ -91,7 +91,12 @@ function addDisksToMachine(machineName, diskSize, numberToAdd) {
     return P.resolve()
         .then(() => {
             console.log(`adding data disk to vm ${machineName} of size ${diskSize}`);
-            return azf.addDataDiskToVM(machineName, diskSize, storage);
+            return azf.addDataDiskToVM({
+                vm: machineName,
+                size: diskSize,
+                storage,
+                number_of_disks: numberToAdd,
+            });
         });
     // }
 }

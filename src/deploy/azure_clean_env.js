@@ -57,8 +57,8 @@ function main() {
     return azf.authenticate()
         .then(() => azf.listVirtualMachines('', 'VM running'))
         .then(current_vms => P.map(current_vms, vmName => {
-            if (vmName.includes(id) && !vmName.toLowerCase().includes('lg')) {
-                console.log('Cleaning machine:' + vmName);
+            if (vmName.includes(id) && !vmName.toLowerCase().includes('lg') && !vmName.toLowerCase().includes('jenkins')) {
+                console.log('Cleaning machine: ' + vmName);
                 return azf.deleteVirtualMachine(vmName)
                     .catch(err => {
                         console.error(`failed deleting ${vmName} with error: `, err.message);

@@ -76,11 +76,6 @@ function main() {
         .spread((dummy, agents_ips) => install_agents())
         .then(upgrade_test_env)
         .then(run_tests)
-        .then(() => {
-            if (rerun_upgrade) {
-                return upgrade_test_env();
-            }
-        })
         .catch(err => {
             console.error('got error:', err);
             exit_code = 1;
@@ -248,6 +243,16 @@ function upgrade_test_env() {
         .catch(err => {
             console.error('upgrade_test_env failed', err);
             throw err;
+        })
+        .then(() => {
+            if (rerun_upgrade) {
+                console.log(`Got rerun_upgrade flag. running upgrade again from the new version to the same version (${upgrade})`);
+                return sanity_build_test.upgrade_and_test(server.ip, upgrade)
+                    .catch(err => {
+                        console.error(`Failed upgrading from the new version ${upgrade}`, err);
+                        throw err;
+                    });
+            }
         });
 }
 

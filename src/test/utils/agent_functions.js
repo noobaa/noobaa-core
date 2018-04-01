@@ -456,7 +456,7 @@ function startOfflineAgents(azf, server_ip, suffix, oses) {
     return list_nodes(server_ip)
         .then(res => {
             agentsExpected = res.length + oses.length;
-            return P.each(oses, agent => start_agent(azf, agent + suffix));
+            return P.each(oses, agent => start_agent(azf, agent));
         })
         .then(() => waitForAgentsAmount(server_ip, agentsExpected))
         .then(() => list_nodes(server_ip))

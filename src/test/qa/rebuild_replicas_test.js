@@ -119,14 +119,15 @@ function saveErrorAndResume(message) {
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-function uploadAndVerifyFiles(dataset_size_GB) {
+function uploadAndVerifyFiles(num_agents) {
     let { data_multiplier } = unit_mapping.MB;
-    let dataset_size = dataset_size_GB * 1024;
+    // 1/2 GB per agent. 1 GB seems like too much memory for the lg to handle
+    let dataset_size = num_agents * 512;
     let parts = 20;
     let partSize = dataset_size / parts;
     let file_size = Math.floor(partSize);
     let part = 0;
-    console.log('Writing and deleting data till size amount to grow ' + dataset_size_GB + ' GB');
+    console.log('Writing and deleting data till size amount to grow ' + num_agents + ' GB');
     return promise_utils.pwhile(() => part < parts, () => {
             let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
             files.push(file_name);
@@ -291,7 +292,7 @@ return azf.authenticate()
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {
         oses = Array.from(res.keys());
-        //Create a dataset on it (1 GB per agent)
+        //Create a dataset on it (1/2 GB per agent)
         return uploadAndVerifyFiles(agents_number);
     })
     .then(() => promise_utils.loop(iterations_number, cycle => {

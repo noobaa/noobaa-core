@@ -74,37 +74,24 @@ function iterate(array, func) {
  *
  */
 function loop(times, func) {
-    let index = 0;
-    return pwhile(
-        () => index < times,
-        () => {
-            index += 1;
-            return func(index - 1);
-        }
-    );
+    // wrap in P.resolve to return a bluebird promise
+    return P.resolve()
+        .then(async () => {
+            for (let i = 0; i < times; ++i) {
+                await func(i);
+            }
+        });
 }
 
-// Implementation of while for promises that is optimized for memory purposes
-// Current implementation doesn't hold unnecessary memory between iterations
-// We use setImmediate in order to break the promise chain and allow v8 to free all memory that is hold by
-// the previous iteration promise chain. This includes all objects, function scopes and
-// promise handlers.
+// implementation of pwhile using async/await
 function pwhile(condition, body) {
-    // Defer is depreciated in bluebird, that's why we use the Promise constructor
-    return new P(function(resolve, reject) {
-        (function while_loop() {
-            if (condition()) {
-                // Please notice that replacing the setImmediate with a returned
-                // promise will reintroduce the hanged momory bug, DONT DO IT!!!
-                P.try(body).then(
-                    () => setImmediate(while_loop),
-                    reject
-                );
-            } else {
-                resolve();
+    // wrap in P.resolve to return a bluebird promise
+    return P.resolve()
+        .then(async () => {
+            while (condition()) {
+                await body();
             }
-        }());
-    });
+        });
 }
 
 /**

@@ -139,9 +139,15 @@ const ACTION_TYPES = [{
 }, {
     name: 'READ',
     include_random: true,
-    weight: 6,
+    weight: 3,
     action: read,
     randomizer: read_randomizer
+}, {
+    name: 'READ_RANGE',
+    include_random: true,
+    weight: 3,
+    action: read_range,
+    randomizer: read_range_randomizer
 }, {
     name: 'DELETE',
     include_random: false,
@@ -288,7 +294,7 @@ function set_fileSize() {
  *********/
 function read_randomizer() {
     return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
-        .tap(res => console.info(`Slected to download: ${res.Key}, size: ${res.Size}`))
+        .tap(res => console.info(`Selected to download: ${res.Key}, size: ${res.Size}`))
         .then(res => ({
             filename: res.Key
         }));
@@ -298,6 +304,23 @@ function read(params) {
     console.log(`running read`);
     return P.resolve()
         .then(() => s3ops.get_file_check_md5(TEST_CFG.server, TEST_CFG.bucket, params.filename));
+}
+
+function read_range_randomizer() {
+    let rand_parts = (Math.floor(Math.random() * (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
+        TEST_CFG.part_num_low);
+    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+        .tap(res => console.info(`Selected to download: ${res.Key}, size: ${res.Size}, with ${rand_parts} ranges`))
+        .then(res => ({
+            filename: res.Key,
+            rand_parts
+        }));
+}
+
+function read_range(params) {
+    console.log(`running read_range`);
+    return P.resolve()
+        .then(() => s3ops.get_file_ranges_check_md5(TEST_CFG.server, TEST_CFG.bucket, params.filename, params.rand_parts));
 }
 
 function upload_new_randomizer() {

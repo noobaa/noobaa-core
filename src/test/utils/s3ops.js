@@ -147,6 +147,57 @@ function get_file_check_md5(ip, bucket, file_name, return_data) {
         });
 }
 
+function get_file_ranges_check_md5(ip, bucket, file_name, parts) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    let params = {
+        Bucket: bucket,
+        Key: file_name,
+    };
+
+    return P.ninvoke(s3bucket, 'headObject', params)
+        .then(res => {
+            let start_byte = 0;
+            let file_md5;
+            let md5 = crypto.createHash('md5');
+            file_md5 = res.Metadata.md5;
+            const file_size = res.ContentLength;
+            const jump = Math.floor(file_size / parts);
+            let finish_byte = start_byte + jump;
+            console.log(`>>> READ_RANGE - About to read object... ${file_name}, md5: ${file_md5}, parts: ${parts}`);
+            return promise_utils.pwhile(() => start_byte < file_size, () =>
+                    get_object_range(ip, bucket, file_name, start_byte, finish_byte)
+                    .then(data => {
+                        md5.update(data);
+                        start_byte = finish_byte + 1;
+                        finish_byte = (start_byte + jump) > file_size ? file_size : (start_byte + jump);
+                    })
+                )
+                .then(() => {
+                    const md5_digest = md5.digest('hex');
+                    if (md5_digest === file_md5) {
+                        console.log(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5:
+                        ${md5_digest} - they are same, size: ${file_size}`);
+                    } else {
+                        console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5:
+                        ${md5_digest} - they are different, size: ${file_size}`);
+                        throw new Error('Bad MD5 from download');
+                    }
+                })
+                .catch(err => {
+                    console.error(`Download failed for ${file_name}!`, err);
+                    throw err;
+                });
+        });
+}
+
 function check_MD5_all_objects(ip, bucket, prefix) {
     const rest_endpoint = 'http://' + ip + ':80';
     const s3bucket = new AWS.S3({
@@ -688,6 +739,29 @@ function get_object(ip, bucket, key) {
         });
 }
 
+function get_object_range(ip, bucket, key, start_byte, finish_byte) {
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+    let params = {
+        Bucket: bucket,
+        Key: key,
+        Range: `bytes=${start_byte}-${finish_byte}`
+    };
+    console.log(`Reading object ${key} from ${start_byte} to ${finish_byte}`, params);
+    return P.ninvoke(s3bucket, 'getObject', params)
+        .then(res => res.Body)
+        .catch(err => {
+            console.error(`get_object_range:: getObject ${params} failed!`, err);
+            throw err;
+        });
+}
+
 function abort_multipart_upload(ip, bucket, file_name, uploadId) {
     const rest_endpoint = 'http://' + ip + ':80';
     const s3bucket = new AWS.S3({
@@ -775,6 +849,7 @@ exports.server_side_copy_file_with_md5 = server_side_copy_file_with_md5;
 exports.client_side_copy_file_with_md5 = client_side_copy_file_with_md5;
 exports.upload_file_with_md5 = upload_file_with_md5;
 exports.get_file_check_md5 = get_file_check_md5;
+exports.get_file_ranges_check_md5 = get_file_ranges_check_md5;
 exports.check_MD5_all_objects = check_MD5_all_objects;
 exports.get_a_random_file = get_a_random_file;
 exports.get_file_number = get_file_number;

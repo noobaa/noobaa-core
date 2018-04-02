@@ -347,6 +347,7 @@ function _runAgent() {
                                         os: machine.os,
                                         agentConf: agentConf,
                                         serverIP: serverIP,
+                                        allocate_pip: true
                                     }));
                             } else {
                                 return azf.createAgentFromImage({
@@ -355,7 +356,8 @@ function _runAgent() {
                                     vnet: argv.vnet,
                                     os: machine.os,
                                     server_ip: serverIP,
-                                    shouldInstall: true
+                                    shouldInstall: true,
+                                    allocate_pip: true
                                 });
                             }
                         })

@@ -173,13 +173,18 @@ class AzureFunctions {
             .then(res => res.ipAddress);
     }
 
-    createAgent({ vmName, storage, vnet, os, vmSize, agentConf, serverIP }) {
+    getPrivateIpAddress(networkInterfaceName, ipConfigurationName) {
+        console.log('Getting IP for: ', networkInterfaceName, ipConfigurationName);
+        return P.fromCallback(callback => this.networkClient.networkInterfaceIPConfigurations.get(
+                this.resourceGroupName, networkInterfaceName, ipConfigurationName, callback
+            ))
+            .then(res => res.privateIPAddress);
+    }
+
+    createAgent({ vmName, storage, vnet, os, vmSize, agentConf, serverIP, allocate_pip = false }) {
         const osDetails = this.getImagesfromOSname(os);
         return this.getSubnetInfo(vnet)
-            .then(subnetInfo => this.createPublicIp(vmName + '_pip')
-                .then(ipInfo => [subnetInfo, ipInfo])
-            )
-            .then(([subnetInfo, ipinfo]) => this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip'))
+            .then(subnetInfo => this.allocate_nic(subnetInfo, `${vmName}_pip`, `${vmName}_nic`, `${vmName}_ip`, allocate_pip))
             .then(nic => {
                 console.log(`Network Interface ${vmName}_nic was created`);
                 var image = {
@@ -201,7 +206,13 @@ class AzureFunctions {
                     vmSize
                 });
             })
-            .then(() => this.getIpAddress(vmName + '_pip'))
+            .then(() => {
+                if (allocate_pip) {
+                    return this.getIpAddress(`${vmName}_pip`);
+                } else {
+                    return this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
+                }
+            })
             .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
             .then(ip => {
                 if (agentConf && serverIP) {
@@ -216,7 +227,7 @@ class AzureFunctions {
                     });
                 } else {
                     console.log(`Skipping creation of extension (agent installation), both ip ${serverIP} and 
-                        agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
+                    agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
                     return ip;
                 }
             });
@@ -250,6 +261,7 @@ class AzureFunctions {
             vmSize = 'Standard_B2s',
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
+            allocate_pip = true
         } = params;
         return P.resolve()
             .then(() => this.copyVHD({
@@ -264,9 +276,16 @@ class AzureFunctions {
                 osType: 'Linux',
                 ipType,
                 diskSizeGB: 40,
-                vmSize
+                vmSize,
+                allocate_pip
             }))
-            .then(() => this.getIpAddress(vmName + '_pip'))
+            .then(() => {
+                if (allocate_pip) {
+                    return this.getIpAddress(`${vmName}_pip`);
+                } else {
+                    return this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
+                }
+            })
             .tap(ip => console.log(`${vmName} ip is: ${ip}`));
     }
 
@@ -282,7 +301,8 @@ class AzureFunctions {
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
             exclude_drives = [],
-            shouldInstall = false
+            shouldInstall = false,
+            allocate_pip = false
         } = params;
         let agentCommand;
         let agent_ip;
@@ -307,11 +327,18 @@ class AzureFunctions {
                     osType,
                     ipType,
                     diskSizeGB,
-                    vmSize
+                    vmSize,
+                    allocate_pip
                 });
             })
             .delay(20 * 1000)
-            .then(() => this.getIpAddress(vmName + '_pip'))
+            .then(() => {
+                if (allocate_pip) {
+                    return this.getIpAddress(`${vmName}_pip`);
+                } else {
+                    return this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
+                }
+            })
             .then(ip => {
                 console.log(`${vmName} agent ip is: ${ip}`);
                 agent_ip = ip;
@@ -382,21 +409,16 @@ class AzureFunctions {
         return this.createVirtualMachineExtension(vmName, extension, 'WinSecurityExtension');
     }
 
-    cloneVM(originalVM, newVmName, networkInterfaceName, ipConfigName, vnet) {
-        var subnetInfo;
+    cloneVM(originalVM, newVmName, networkInterfaceName, ipConfigName, vnet, allocate_pip = true) {
         return this.getSubnetInfo(vnet)
-            .then(result => {
-                subnetInfo = result;
-                return this.createPublicIp(newVmName + '_pip');
-            })
-            .then(ipinfo => this.createNIC(subnetInfo, ipinfo, networkInterfaceName, ipConfigName))
+            .then(subnetInfo => this.allocate_nic(subnetInfo, `${newVmName}_pip`, networkInterfaceName, ipConfigName, allocate_pip))
             .then(nicInfo => this.cloneVirtualMachine(originalVM, newVmName, nicInfo.id))
             .then(result => {
                 console.log(result);
             });
     }
 
-    createNIC(subnetInfo, publicIPInfo, networkInterfaceName, ipConfigName) {
+    createNIC(subnetInfo, networkInterfaceName, ipConfigName, publicIPInfo) {
         var nicParameters = {
             location: this.location,
             ipConfigurations: [{
@@ -414,6 +436,18 @@ class AzureFunctions {
         }
         return P.fromCallback(callback => this.networkClient.networkInterfaces.createOrUpdate(this.resourceGroupName, networkInterfaceName,
             nicParameters, callback));
+    }
+
+    allocate_nic(subnetInfo, pipName, networkInterfaceName, ipConfigName, allocate_pip, ipType) {
+        return P.resolve()
+            .then(() => {
+                if (allocate_pip) {
+                    return this.createPublicIp(pipName, ipType)
+                        .then(ipInfo => this.createNIC(subnetInfo, networkInterfaceName, ipConfigName, ipInfo));
+                } else {
+                    return this.createNIC(subnetInfo, networkInterfaceName, ipConfigName);
+                }
+            });
     }
 
     createPublicIp(publicIPName, ipType = 'Dynamic') {
@@ -494,7 +528,7 @@ class AzureFunctions {
 
     createVirtualMachineFromImage(params) {
         console.log(params);
-        const { vmName, image, vnet, storageAccountName, osType, plan, ipType = 'Dynamic', diskSizeGB, vmSize = DEFAULT_SIZE } = params;
+        const { vmName, image, vnet, storageAccountName, osType, plan, ipType = 'Dynamic', diskSizeGB, vmSize = DEFAULT_SIZE, allocate_pip = false } = params;
         var vmParameters = {
             location: this.location,
             plan: plan,
@@ -533,13 +567,8 @@ class AzureFunctions {
                 }
             }
         };
-        var subnetInfo;
         return this.getSubnetInfo(vnet)
-            .then(result => {
-                subnetInfo = result;
-                return this.createPublicIp(vmName + '_pip', ipType);
-            })
-            .then(ipinfo => this.createNIC(subnetInfo, ipinfo, vmName + '_nic', vmName + '_ip'))
+            .then(subnetInfo => this.allocate_nic(subnetInfo, `${vmName}_pip`, `${vmName}_nic`, `${vmName}_ip`, allocate_pip, ipType))
             .then(nic => {
                 vmParameters.networkProfile.networkInterfaces[0].id = nic.id;
                 return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
@@ -915,6 +944,7 @@ class AzureFunctions {
             latesetRelease = true,
             createSystem = false,
             updateNTP = false,
+            allocate_pip = true
         } = params;
         let { imagename } = params;
         let rpc;
@@ -949,10 +979,11 @@ class AzureFunctions {
                 storageAccountName: storage,
                 osType: 'Linux',
                 ipType,
-                vmSize
+                vmSize,
+                allocate_pip
             }))
             .delay(20000)
-            .then(() => this.getIpAddress(serverName + '_pip'))
+            .then(() => this.getIpAddress(`${serverName}_pip`))
             .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
             .then(ip => {
                 if (createSystem) {

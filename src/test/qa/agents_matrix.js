@@ -436,7 +436,7 @@ function includeExcludeCycle(isInclude) {
         .then(() => runCreateAgents(isInclude, excludeList))
         // verifying write, read, diag and debug level.
         .tap()
-        .then(verifyAgent)
+        // .then(verifyAgent)
         // Deploy on an already deployed agent //need to find a way to run quit on win.
         // .then(() => {
         //     console.log(`Deploy on an already deployed agent`);
@@ -484,16 +484,20 @@ function main() {
             if (errors.length === 0) {
                 if (!skipsetup) {
                     console.log('deleing the virtual machines.');
-                    return runClean();
+                    return runClean()
+                        .then(() => {
+                            console.log('All is good - exiting...');
+                            process.exit(0);
+                        });
                 }
-                console.log('All is good :) - exiting...');
+                console.log('All is good - exiting...');
                 process.exit(0);
             } else {
                 console.log('Got the following errors in test:');
                 _.each(errors, error => {
                     console.error('Error:: ', error);
                 });
-                console.log('Failures in test :( - exiting...');
+                console.log('Failures in test - exiting...');
                 process.exit(1);
             }
         });

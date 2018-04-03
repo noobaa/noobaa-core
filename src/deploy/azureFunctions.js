@@ -39,11 +39,6 @@ const NTP = 'pool.ntp.org';
 const TZ = 'Asia/Jerusalem';
 
 const blobSvc = azure_storage.createBlobService();
-
-function _makeArray(size, handler) {
-    return [...Array(30).keys()].map(handler);
-}
-
 class AzureFunctions {
     static get ADMIN_USER_NAME() {
         return ADMIN_USER_NAME;
@@ -66,14 +61,16 @@ class AzureFunctions {
         this.location = location;
     }
 
-    authenticate() {
+    async authenticate() {
         console.log('Connecting to Azure: ');
-        return P.fromCallback(callback => msRestAzure.loginWithServicePrincipalSecret(this.clientId, this.secret, this.domain, callback))
-            .then(credentials => {
-                this.computeClient = new ComputeManagementClient(credentials, this.subscriptionId);
-                this.networkClient = new NetworkManagementClient(credentials, this.subscriptionId);
-            })
-            .catch(err => console.log('Error', err));
+        try {
+            const credentials = await P.fromCallback(callback =>
+                msRestAzure.loginWithServicePrincipalSecret(this.clientId, this.secret, this.domain, callback));
+            this.computeClient = new ComputeManagementClient(credentials, this.subscriptionId);
+            this.networkClient = new NetworkManagementClient(credentials, this.subscriptionId);
+        } catch (err) {
+            console.log('Error', err);
+        }
     }
 
     getImagesfromOSname(osname) {
@@ -780,10 +777,16 @@ class AzureFunctions {
         console.log('Deleting Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.deleteMethod(
                 this.resourceGroupName, vmName, callback))
-            .then(() => P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(
-                this.resourceGroupName, vmName + '_nic', callback)))
-            .then(() => P.fromCallback(callback => this.networkClient.publicIPAddresses.deleteMethod(
-                this.resourceGroupName, vmName + '_pip', callback)))
+            .then(() => {
+                console.log('Deleting ' + vmName + '_nic');
+                return P.fromCallback(callback => this.networkClient.networkInterfaces.deleteMethod(
+                    this.resourceGroupName, vmName + '_nic', callback));
+            })
+            .then(() => {
+                console.log('Deleting ' + vmName + '_nic');
+                return P.fromCallback(callback => this.networkClient.publicIPAddresses.deleteMethod(
+                    this.resourceGroupName, vmName + '_pip', callback));
+            })
             .then(() => P.fromCallback(callback => blobSvc.deleteBlob('osdisks', vmName + '-os.vhd', callback)))
             .then(() => P.fromCallback(callback => blobSvc.doesContainerExist('datadisks', callback)))
             .then(result => {
@@ -807,13 +810,12 @@ class AzureFunctions {
 
     deleteBlobDisks(vmName, container = 'datadisks') {
         console.log('Deleting data disks of:', vmName);
-        return P.all(
-            _makeArray(30, i => {
-                const disk = `${vmName}-data${i + 1}.vhd`;
+        return P.fromCallback(callback => blobSvc.listBlobsSegmentedWithPrefix(container, vmName, null, callback))
+            .then(res => P.map(res.entries, disk => {
+                console.log(`deleting: ${disk.name}`);
                 return P.fromCallback(callback => blobSvc.deleteBlob(container, disk, callback))
                     .catch(() => true);
-            })
-        );
+            }));
     }
 
     listVirtualMachines(prefix, status) {

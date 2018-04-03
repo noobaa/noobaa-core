@@ -61,16 +61,14 @@ class AzureFunctions {
         this.location = location;
     }
 
-    async authenticate() {
+    authenticate() {
         console.log('Connecting to Azure: ');
-        try {
-            const credentials = await P.fromCallback(callback =>
-                msRestAzure.loginWithServicePrincipalSecret(this.clientId, this.secret, this.domain, callback));
-            this.computeClient = new ComputeManagementClient(credentials, this.subscriptionId);
-            this.networkClient = new NetworkManagementClient(credentials, this.subscriptionId);
-        } catch (err) {
-            console.log('Error', err);
-        }
+        return P.fromCallback(callback => msRestAzure.loginWithServicePrincipalSecret(this.clientId, this.secret, this.domain, callback))
+            .then(credentials => {
+                this.computeClient = new ComputeManagementClient(credentials, this.subscriptionId);
+                this.networkClient = new NetworkManagementClient(credentials, this.subscriptionId);
+            })
+            .catch(err => console.log('Error', err));
     }
 
     getImagesfromOSname(osname) {

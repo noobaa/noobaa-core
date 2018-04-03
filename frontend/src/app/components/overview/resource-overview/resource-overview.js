@@ -97,13 +97,19 @@ class ResourceOverviewViewModel extends Observer {
             },
             {
                 label: 'Azure blob',
-                color: style['color6'],
+                color: style['color16'],
                 value: ko.observable(),
                 tooltip: 'Azure blob cloud resources that were created in this system'
             },
             {
+                label: 'Google Cloud',
+                color: style['color7'],
+                value: ko.observable(),
+                tooltip: 'Google cloud resources that were created in this system'
+            },
+            {
                 label: 'S3 compatible',
-                color: style['color16'],
+                color: style['color6'],
                 value: ko.observable(),
                 tooltip: 'Any S3 compatible cloud resources that were created in this system'
             }
@@ -187,11 +193,11 @@ class ResourceOverviewViewModel extends Observer {
         // Cloud resources
         if (selectedResourceType === 'CLOUD_RESOURCES') {
             const resourceList = Object.values(cloudResources);
-            const { AWS = 0, AZURE = 0, S3_COMPATIBLE = 0 } = mapValues(
+            const { AWS = 0, AZURE = 0, GOOGLE = 0, S3_COMPATIBLE = 0 } = mapValues(
                 groupBy(resourceList, resource => resource.type),
                 resources => resources.length
             );
-            const serviceCount = sumBy([AWS, AZURE, S3_COMPATIBLE], Boolean);
+            const serviceCount = sumBy([AWS, AZURE, GOOGLE, S3_COMPATIBLE], Boolean);
             const cloudCapacity = sumSize(
                 ...resourceList.map(resource => resource.storage.total)
             );
@@ -200,7 +206,8 @@ class ResourceOverviewViewModel extends Observer {
             this.cloudServiceCount(numeral(serviceCount).format('0,0'));
             this.cloudCounters[0].value(AWS);
             this.cloudCounters[1].value(AZURE);
-            this.cloudCounters[2].value(S3_COMPATIBLE);
+            this.cloudCounters[2].value(GOOGLE);
+            this.cloudCounters[3].value(S3_COMPATIBLE);
             this.cloudCapacity(formatSize(cloudCapacity));
         }
 

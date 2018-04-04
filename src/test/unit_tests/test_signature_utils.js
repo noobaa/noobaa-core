@@ -179,8 +179,8 @@ mocha.describe('signature_utils', function() {
                     req.content_sha256_buf = sha256_buf;
                     if (!req.content_sha256) req.content_sha256 = req.content_sha256_buf.toString('hex');
                 }
-                const auth_token = signature_utils.authenticate_request(req);
-                const signature = signature_utils.signature(auth_token, SECRETS[auth_token.access_key]);
+                const auth_token = signature_utils.make_auth_token_from_request(req);
+                const signature = signature_utils.get_signature_from_auth_token(auth_token, SECRETS[auth_token.access_key]);
                 console.log('auth_token', auth_token, 'signature', signature);
                 if (signature !== auth_token.signature) {
                     throw new Error('Signature mismatch');

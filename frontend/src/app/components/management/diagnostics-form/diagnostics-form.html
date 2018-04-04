@@ -2,7 +2,14 @@
 
 <section class="column push-next">
     <h2 class="heading3 pad alt-bg">Contact Support</h2>
-    <property-sheet class="pad" params="properties: contactSupport"></property-sheet>
+    <property-sheet class="pad" params="properties: contactSupport">
+        <template name="emailLink">
+            <a class="link" ko.attr.href="'mailto:' + $data">{{$data}}</a>
+        </template>
+        <template name="helpDeskLink">
+            <a class="link" ko.attr.href="$data" target="_blank">{{$data}}</a>
+        </template>
+    </property-sheet>
 </section>
 
 <section class="column">
@@ -11,19 +18,29 @@
             <h2 class="heading3 greedy">Diagnostics</h2>
         </div>
 
-        <button class="btn align-start push-next" data-bind="
-            click: toogleDebugMode,
-            text: toogleDebugModeButtonText
-        "></button>
+        <button class="btn align-start push-next"
+            ko.click="toogleDebugMode"
+            ko.text="buttonText"
+            ko.visible="systemLoaded"
+        ></button>
         <working-button class="align-start push-next" params="
             working: isCollectingDiagnostics,
             workingLabel: 'Collecting Data...',
-            click: downloadDiagnosticPack
+            click: downloadDiagnosticPack,
+            disabled: !systemLoaded()
         ">
             Download Diagnostics
         </working-button>
     </div>
-    <property-sheet class="pad" params="properties: debugModeSheet"></property-sheet>
+    <property-sheet class="pad" params="
+        properties: debugModeSheet,
+        loading: !systemLoaded()
+    ">
+        <template name="debugState">
+            <span ko.if="!$data">Off</span>
+            <span ko.if="$data">On</span> <span class="warning" ko.if="$data">(May cause system slowdown)</span>
+        </template>
+    </property-sheet>
 
 </section>
 

@@ -1,90 +1,104 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './diagnostics-form.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
-import { systemInfo, collectDiagnosticsState } from 'model';
-import { downloadSystemDiagnosticPack, setSystemDebugLevel } from 'actions';
 import { formatTimeLeftForDebugMode } from 'utils/diagnostic-utils';
 import { support, timeTickInterval } from 'config';
+import { action$, state$ } from 'state';
+import {
+    setSystemDebugMode,
+    unsetSystemDebugMode,
+    collectSystemDiagnostics
+} from 'action-creators';
 
-class DiagnosticsFormViewModel extends BaseViewModel {
+
+class DiagnosticsFormViewModel extends Observer {
+    timeLeft = ko.observable();
+    systemLoaded = ko.observable();
+    buttonText = ko.observable();
+    isCollectingDiagnostics = ko.observable();
+    contactSupport = [
+        {
+            label: 'By email',
+            value: support.email,
+            template: 'emailLink'
+        },
+        {
+            label: 'Support center',
+            value: support.helpDesk,
+            template: 'helpDeskLink'
+        }
+    ];
+    debugModeSheet = [
+        {
+            label: 'Debug Mode',
+            value: ko.observable(),
+            template: 'debugState'
+        },
+        {
+            label: 'Time Left For Debugging',
+            value: ko.observable(),
+            disabled: ko.observable()
+        }
+    ];
+
     constructor() {
         super();
 
-        this.contactSupport = [
-            {
-                label: 'By email',
-                value: `<a class="link" href="mailto:${support.email}">${support.email}</a>`
-            },
-            {
-                label: 'Support center',
-                value: `<a class="link" href="${support.helpDesk}" target="_blank">${support.helpDesk}</a>`
-            }
-        ];
+        this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
 
-        this.debugMode = ko.pureComputed(
-            () => Boolean(systemInfo() && systemInfo().debug.level)
+        this.observe(state$.get('system'), this.onState);
+    }
+
+    onState(systemState) {
+        if (!systemState) {
+            this.systemLoaded(false);
+            this.isCollectingDiagnostics(false);
+            return;
+        }
+
+        const { debugMode, diagnostics } = systemState;
+        const isDebugMode = Boolean(debugMode);
+        const buttonText = `Turn ${isDebugMode ? 'Off' : 'On' } System Debug Mode`;
+
+        this.isCollectingDiagnostics(diagnostics.collecting);
+        this.timeLeft(debugMode);
+        this.buttonText(buttonText);
+        this.debugModeSheet[0].value(isDebugMode);
+        this.debugModeSheet[1].disabled(!isDebugMode);
+        this.debugModeSheet[1].value(isDebugMode ?
+            formatTimeLeftForDebugMode(isDebugMode, debugMode) :
+            'None'
         );
-
-        const isTimeLeftDisabled = ko.pureComputed(
-            () => !this.debugMode()
-        );
-
-        const systemDebugTimeLeft = ko.pureComputed(
-            () => systemInfo() && systemInfo().debug.time_left
-        );
-
-        this.debugTimeLeft = ko.observable(systemDebugTimeLeft());
-        this.addToDisposeList(
-            systemDebugTimeLeft.subscribe(time => this.debugTimeLeft(time))
-        );
-
-        this.addToDisposeList(
-            setInterval(
-                () => {
-                    if (this.debugMode()) {
-                        this.debugTimeLeft(this.debugTimeLeft() - timeTickInterval);
-                    }
-                },
-                timeTickInterval
-            ),
-            clearInterval
-        );
-
-        this.debugModeSheet = [
-            {
-                label: 'Debug Mode',
-                value: ko.pureComputed(
-                    () => this.debugMode() ?
-                        'On <span class="warning">(May cause system slowdown)</span>' :
-                        'Off'
-                )
-            },
-            {
-                label: 'Time Left For Debugging',
-                value: ko.pureComputed(
-                    () => formatTimeLeftForDebugMode(this.debugMode(), this.debugTimeLeft())
-                ),
-                disabled: isTimeLeftDisabled
-            }
-        ];
-
-        this.toogleDebugModeButtonText = ko.pureComputed(
-            () => `Turn ${this.debugMode() ? 'Off' : 'On' } System Debug Mode`
-        );
-
-        this.isCollectingDiagnostics = ko.pureComputed(
-            () => Boolean(collectDiagnosticsState()['system'])
-        );
+        this.systemLoaded(true);
     }
 
     toogleDebugMode() {
-        setSystemDebugLevel(this.debugMode() ? 0 : 5);
+        const action = this.timeLeft() ? unsetSystemDebugMode : setSystemDebugMode;
+        const level = this.timeLeft && 5;
+        action$.onNext(action(level));
     }
 
     downloadDiagnosticPack() {
-        downloadSystemDiagnosticPack();
+        action$.onNext(collectSystemDiagnostics());
+    }
+
+    onTick() {
+        if (!this.timeLeft()) return;
+
+        const diff = this.timeLeft() - timeTickInterval;
+        const timeLeft = diff > 0 ? diff : undefined;
+        const isTimeLeft = Boolean(timeLeft);
+        const timeLeftText = formatTimeLeftForDebugMode(isTimeLeft, timeLeft);
+
+        this.timeLeft(timeLeft);
+        this.debugModeSheet[1].value(timeLeftText);
+    }
+
+    dispose() {
+        clearInterval(this.ticker);
+        super.dispose();
     }
 }
 

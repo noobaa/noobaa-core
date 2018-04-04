@@ -442,6 +442,26 @@ const actionToNotification = deepFreeze({
     [types.FAIL_CREATE_BUCKET]: ({ name }) => ({
         message: `Bucket ${name} creation failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_SET_SYSTEM_DEBUG_MODE]: ({ on }) => ({
+        message: `System debug mode was turned ${on ? 'on' : 'off'}`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_SET_SYSTEM_DEBUG_MODE]: ({ on }) => ({
+        message: `Could not turn ${on ? 'on' : 'off'} system debug mode`,
+        severity: 'error'
+    }),
+
+    [types.COLLECT_SYSTEM_DIAGNOSTICS]: () => ({
+        message: 'Collecting system diagnostic, it may take a few seconds',
+        severity: 'success'
+    }),
+
+    [types.FAIL_COLLECT_SYSTEM_DIAGNOSTICS]: () => ({
+        message: 'Collecting system diagnostic file failed',
+        severity: 'error'
     })
 });
 

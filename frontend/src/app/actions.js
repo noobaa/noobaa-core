@@ -553,32 +553,6 @@ export function downloadServerDiagnosticPack(secret, hostname) {
         .done();
 }
 
-export function downloadSystemDiagnosticPack() {
-    logAction('downloadSystemDiagnosticPack');
-
-    if (model.collectDiagnosticsState['system'] === true) {
-        return;
-    }
-
-    model.collectDiagnosticsState.assign({ system: true });
-
-    api.cluster_server.diagnose_system({})
-        .catch(
-            err => {
-                notify('Packing system diagnostic file failed', 'error');
-                model.collectDiagnosticsState.assign({ system: false });
-                throw err;
-            }
-        )
-        .then(
-            url => {
-                downloadFile(url);
-                model.collectDiagnosticsState.assign({ system: false });
-            }
-        )
-        .done();
-}
-
 export function setServerDebugLevel(secret, hostname, level){
     logAction('setServerDebugLevel', { secret, hostname, level });
 
@@ -597,14 +571,6 @@ export function setServerDebugLevel(secret, hostname, level){
                 'error'
             )
         )
-        .then(() => action$.next(fetchSystemInfo()))
-        .done();
-}
-
-export function setSystemDebugLevel(level){
-    logAction('setSystemDebugLevel', { level });
-
-    api.cluster_server.set_debug_level({ level })
         .then(() => action$.next(fetchSystemInfo()))
         .done();
 }

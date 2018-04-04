@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="sticky" data-bind="css: { active: isActive }">
+<section class="sticky" ko.css.active="isActive">
     <div class="sticky-content row content-middle">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
 
@@ -8,7 +8,7 @@
             System is in debug mode and might exhibit temporary performance degradation
         </span>
 
-        <button class="link alt-colors" data-bind="click: lowerDebugLevel">
+        <button class="link alt-colors" ko.click="onUnsetDebugMode">
             Turn off debug mode
         </button>
     </div>

@@ -6,13 +6,21 @@ import {
     COMPLETE_FETCH_SYSTEM_INFO,
     FETCH_VERSION_RELEASE_NOTES,
     COMPLETE_FETCH_VERSION_RELEASE_NOTES,
-    FAIL_FETCH_VERSION_RELEASE_NOTES
+    FAIL_FETCH_VERSION_RELEASE_NOTES,
+    COLLECT_SYSTEM_DIAGNOSTICS,
+    COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
+    FAIL_COLLECT_SYSTEM_DIAGNOSTICS
 } from 'action-types';
 
 // ------------------------------
 // Initial State
 // ------------------------------
 const initialState = undefined;
+const initialSystemDiagnosticsState = {
+    collecting: false,
+    error: false,
+    packageUri: ''
+};
 
 // ------------------------------
 // Action Handlers
@@ -23,9 +31,12 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         upgrade,
         has_ssl_cert,
         remote_syslog_config,
-        dns_name, ip_address,
-        maintenance_mode
+        dns_name,
+        ip_address,
+        maintenance_mode,
+        debug
     } = payload;
+
     const { releaseNotes } = state || {};
 
     return {
@@ -38,7 +49,9 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         releaseNotes,
         maintenanceMode: {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
-        }
+        },
+        debugMode: debug.time_left,
+        diagnostics: initialSystemDiagnosticsState
     };
 }
 
@@ -89,6 +102,45 @@ function onFailFetchVersionReleaseNotes(state, { payload }) {
     };
 }
 
+function onCollectSystemDiagnostics(state) {
+    const diagnostics = {
+        collecting: true,
+        error: false,
+        packageUri: ''
+    };
+
+    return {
+        ...state,
+        diagnostics
+    };
+}
+
+function onCompleteCollectSystemDiagnostics(state, { payload }) {
+    const diagnostics = {
+        collecting: false,
+        error: false,
+        packageUri: payload.packageUri
+    };
+
+    return {
+        ...state,
+        diagnostics
+    };
+}
+
+function onFailCollectSystemDiagnostics(state) {
+    const diagnostics = {
+        collecting: false,
+        error: true,
+        packageUri: ''
+    };
+
+    return {
+        ...state,
+        diagnostics
+    };
+}
+
 // ------------------------------
 // Local util functions
 // ------------------------------
@@ -117,5 +169,8 @@ export default createReducer(initialState, {
     [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
     [FETCH_VERSION_RELEASE_NOTES]: onFetchVersionReleaseNotes,
     [COMPLETE_FETCH_VERSION_RELEASE_NOTES]: onCompleteFetchVersionReleaseNotes,
-    [FAIL_FETCH_VERSION_RELEASE_NOTES]: onFailFetchVersionReleaseNotes
+    [FAIL_FETCH_VERSION_RELEASE_NOTES]: onFailFetchVersionReleaseNotes,
+    [COLLECT_SYSTEM_DIAGNOSTICS]: onCollectSystemDiagnostics,
+    [COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS]: onCompleteCollectSystemDiagnostics,
+    [FAIL_COLLECT_SYSTEM_DIAGNOSTICS]: onFailCollectSystemDiagnostics
 });

@@ -3,7 +3,8 @@ export default {
     required: [
         'ipAddress',
         'version',
-        'maintenanceMode'
+        'maintenanceMode',
+        'diagnostics'
     ],
     properties: {
         dnsName: {
@@ -93,6 +94,28 @@ export default {
             properties: {
                 till: {
                     type: 'integer'
+                }
+            }
+        },
+        debugMode: {
+            type: 'integer'
+        },
+        diagnostics: {
+            type: 'object',
+            required: [
+                'collecting',
+                'error',
+                'packageUri'
+            ],
+            properties: {
+                collecting: {
+                    type: 'boolean'
+                },
+                error: {
+                    type: 'boolean'
+                },
+                packageUri: {
+                    type: 'string'
                 }
             }
         }

@@ -34,7 +34,13 @@ import {
     FAIL_ENTER_MAINTENANCE_MODE,
     LEAVE_MAINTENANCE_MODE,
     COMPLETE_LEAVE_MAINTENANCE_MODE,
-    FAIL_LEAVE_MAINTENANCE_MODE
+    FAIL_LEAVE_MAINTENANCE_MODE,
+    SET_SYSTEM_DEBUG_MODE,
+    COMPLETE_SET_SYSTEM_DEBUG_MODE,
+    FAIL_SET_SYSTEM_DEBUG_MODE,
+    COLLECT_SYSTEM_DIAGNOSTICS,
+    COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
+    FAIL_COLLECT_SYSTEM_DIAGNOSTICS
 } from 'action-types';
 
 export function createSystem(
@@ -278,6 +284,56 @@ export function completeLeaveMaintenanceMode() {
 export function failLeaveMaintenanceMode(error) {
     return {
         type: FAIL_LEAVE_MAINTENANCE_MODE,
+        payload: { error }
+    };
+}
+
+export function setSystemDebugMode(level) {
+    const on = true;
+    return {
+        type: SET_SYSTEM_DEBUG_MODE,
+        payload: { on, level }
+    };
+}
+
+export function unsetSystemDebugMode() {
+    const on = false;
+    return {
+        type: SET_SYSTEM_DEBUG_MODE,
+        payload: { on }
+    };
+}
+
+export function completeSetSystemDebugMode(enabled) {
+    return {
+        type: COMPLETE_SET_SYSTEM_DEBUG_MODE,
+        payload: { enabled }
+    };
+}
+
+export function failSetSystemDebugMode(enabled, error) {
+    return {
+        type: FAIL_SET_SYSTEM_DEBUG_MODE,
+        payload: { enabled, error }
+    };
+}
+
+export function collectSystemDiagnostics() {
+    return {
+        type: COLLECT_SYSTEM_DIAGNOSTICS
+    };
+}
+
+export function completeCollectSystemDiagnostics(packageUri) {
+    return {
+        type: COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
+        payload: { packageUri }
+    };
+}
+
+export function failCollectSystemDiagnostics(error) {
+    return {
+        type: FAIL_COLLECT_SYSTEM_DIAGNOSTICS,
         payload: { error }
     };
 }

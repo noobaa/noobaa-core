@@ -72,6 +72,8 @@ import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
 import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
+import steSystemDebugMode from './set-system-debug-mode';
+import collectSystemDiagnostics from './collect-system-diagnostics';
 
 const generalEpics = [
     handleLocationRequests,
@@ -101,7 +103,9 @@ const systemRelatedEpics = [
     upgradeSystem,
     updateRemoteSyslog,
     enterMaintenanceMode,
-    leaveMaintenanceMode
+    leaveMaintenanceMode,
+    steSystemDebugMode,
+    collectSystemDiagnostics
 ];
 
 const topologyRelatedEpics = [

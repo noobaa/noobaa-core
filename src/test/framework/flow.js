@@ -64,17 +64,6 @@ var steps = [
         common: 'restore_db_defaults',
     }, {
         //Test cloud sync functionality
-        name: 'Cloud Sync Test',
-        action: 'node',
-        params: [{
-            arg: './src/test/system_tests/test_cloud_sync'
-        }],
-    }, {
-        //Restore DB to defaults
-        name: 'Restore DB Defaults',
-        common: 'restore_db_defaults',
-    }, {
-        //Test cloud sync functionality
         name: 'Node Failure Test',
         action: 'node',
         params: [{

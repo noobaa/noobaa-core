@@ -88,29 +88,28 @@ function member_pre_upgrade(req) {
         .return();
 }
 
-function do_upgrade(req) {
-    system_store.load()
-        .then(() => {
-            dbg.log0('UPGRADE:', 'got do_upgrade');
-            let server = system_store.get_local_cluster_info();
-            if (server.upgrade.status !== 'UPGRADING') {
-                dbg.error('Not in upgrade state:', ' State Is: ', server.upgrade.status || 'NO_STATUS');
-                throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '',
-                    ' State Is: ', server.upgrade.status || 'NO_STATUS');
-            }
-            if (server.upgrade.path === '') {
-                dbg.error('No package path supplied');
-                throw new Error('No package path supplied');
-            }
-            let filepath = server.upgrade.path;
-            //Async as the server will soon be restarted anyway
-            const on_err = err => {
-                dbg.error('upgrade scripted failed. Aborting upgrade:', err);
-                upgrade_in_process = false;
-                _handle_cluster_upgrade_failure(err, server.owner_address);
-            };
-            upgrade_utils.do_upgrade(filepath, server.is_clusterized, on_err);
-        });
+async function do_upgrade(req) {
+    await system_store.load();
+
+    dbg.log0('UPGRADE:', 'got do_upgrade');
+    let server = system_store.get_local_cluster_info();
+    if (server.upgrade.status !== 'UPGRADING') {
+        dbg.error('Not in upgrade state:', ' State Is: ', server.upgrade.status || 'NO_STATUS');
+        throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '',
+            ' State Is: ', server.upgrade.status || 'NO_STATUS');
+    }
+    if (server.upgrade.path === '') {
+        dbg.error('No package path supplied');
+        throw new Error('No package path supplied');
+    }
+    let filepath = server.upgrade.path;
+    //Async as the server will soon be restarted anyway
+    const on_err = err => {
+        dbg.error('upgrade scripted failed. Aborting upgrade:', err);
+        upgrade_in_process = false;
+        _handle_cluster_upgrade_failure(err, server.owner_address);
+    };
+    upgrade_utils.do_upgrade(filepath, server.is_clusterized, on_err);
 }
 
 function get_upgrade_status(req) {

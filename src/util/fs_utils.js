@@ -43,6 +43,16 @@ function file_must_exist(file_path) {
     return fs.statAsync(file_path).return();
 }
 
+
+async function file_exists(file_path) {
+    try {
+        await file_must_exist(file_path);
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
 /**
  * options.on_entry - function({path, stat})
  *      returning false from on_entry will stop recursing to entry
@@ -322,3 +332,4 @@ exports.ignore_eexist = ignore_eexist;
 exports.ignore_enoent = ignore_enoent;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;
 exports.get_folder_size = get_folder_size;
+exports.file_exists = file_exists;

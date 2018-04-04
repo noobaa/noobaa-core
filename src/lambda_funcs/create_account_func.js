@@ -6,6 +6,7 @@
         "name": "lala",
         "email": "lala@noobaa.com",
         "password": "lala",
+        "has_login": "false",
         "s3_access": false
         "allowed_buckets": ["mybucket"]
     }

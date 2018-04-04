@@ -11,6 +11,7 @@ const node_df = require('node-df');
 const blockutils = require('linux-blockutils');
 var spawn = require('child_process').spawn;
 const ip_module = require('ip');
+const ps = require('ps-node');
 
 const P = require('./promise');
 const config = require('../../config.js');
@@ -882,6 +883,27 @@ function is_supervised_env() {
     return false;
 }
 
+async function get_services_ps_info(services) {
+    try {
+        // look for the service name in "arguments" and not "command". 
+        // for node services the command is node, and for mongo_wrapper it's bash
+        const ps_data = await P.map(services, async srv => {
+            const ps_info = await P.fromCallback(callback => ps.lookup({
+                arguments: srv,
+                psargs: '-elf'
+            }, callback));
+            ps_info.forEach(info => {
+                info.srv = srv;
+            });
+            return ps_info;
+        }, { concurrency: 1 });
+        return _.groupBy(_.flatten(ps_data), 'srv');
+    } catch (err) {
+        dbg.error('got error on get_services_ps_info:', err);
+        throw err;
+    }
+}
+
 function reload_syslog_configuration(conf) {
     dbg.log0('setting syslog configuration to: ', conf);
     if (os.type() !== 'Linux') {
@@ -1251,3 +1273,4 @@ exports.calc_cpu_usage = calc_cpu_usage;
 exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
 exports.get_iptables_rules = get_iptables_rules;
 exports.ensure_dns_and_search_domains = ensure_dns_and_search_domains;
+exports.get_services_ps_info = get_services_ps_info;

@@ -371,15 +371,17 @@ class SystemStoreData {
  */
 class SystemStore extends EventEmitter {
 
-    static get_instance() {
-        SystemStore._instance = SystemStore._instance || new SystemStore();
+    static get_instance(options = {}) {
+        const { standalone } = options;
+        SystemStore._instance = SystemStore._instance || new SystemStore({ standalone });
         return SystemStore._instance;
     }
 
-    constructor() {
+    constructor(options) {
         super();
         // // TODO: This is currently used as a cache, maybe will be moved in the future
         // this.valid_for_alloc_by_tier = {};
+        this.is_standalone = options.standalone;
         this.is_cluster_master = false;
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
@@ -458,6 +460,10 @@ class SystemStore extends EventEmitter {
 
 
     _register_for_changes() {
+        if (this.is_standalone) {
+            dbg.log0('system_store is running in standalone mode. skip _register_for_changes');
+            return;
+        }
         if (!this._registered_for_reconnect) {
             server_rpc.rpc.on('reconnect', conn => this._on_reconnect(conn));
             this._registered_for_reconnect = true;
@@ -642,14 +648,18 @@ class SystemStore extends EventEmitter {
                 return P.all(_.map(bulk_per_collection,
                     bulk => bulk.length && P.resolve(bulk.execute({ j: true }))));
             })
-            .then(() =>
-                // notify all the cluster (including myself) to reload
-                server_rpc.client.redirector.publish_to_cluster({
-                    method_api: 'server_inter_process_api',
-                    method_name: 'load_system_store',
-                    target: ''
-                })
-            );
+            .then(() => {
+                if (this.is_standalone) {
+                    return this.load();
+                } else {
+                    // notify all the cluster (including myself) to reload
+                    return server_rpc.client.redirector.publish_to_cluster({
+                        method_api: 'server_inter_process_api',
+                        method_name: 'load_system_store',
+                        target: ''
+                    });
+                }
+            });
     }
 
     make_changes_in_background(changes) {

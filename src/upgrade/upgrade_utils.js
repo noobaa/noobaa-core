@@ -30,6 +30,7 @@ const ERROR_MAPPING = {
     PACKAGE_JSON_NOT_EXISTS: 'Uploaded package is not a NooBaa upgrade package, try to re-download the upgrade package and upload again.',
     COULD_NOT_EXTRACT_VERSION: 'Uploaded package is not a NooBaa upgrade package, try to re-download the upgrade package and upload again.',
     MAJOR_VERSION_CHANGE: 'Upgrade from the current version to the uploaded version is not supported.',
+    MIN_REQUIRED_VERSION: 'Upgrade to this version is only supported from version 2.3.1 and up.',
     CANNOT_DOWNGRADE: 'Downgrade to an older version is not supported.',
     INTERNET_CONNECTIVITY: 'Failed to verify internet connectivity. Check network connectivity or set a proxy address.',
     COULD_NOT_GET_RAW_STORAGE: 'Failed to perform pre-upgrade tests.',
@@ -109,7 +110,7 @@ function pre_upgrade(params) {
 }
 
 
-function do_upgrade(upgrade_file, is_clusterized, err_handler) {
+async function do_upgrade(upgrade_file, is_clusterized, err_handler) {
     try {
         err_handler = err_handler || dbg.error;
         dbg.log0('UPGRADE file', upgrade_file, 'upgrade.js path:', process.cwd() + '/src/deploy/NVA_build');
@@ -203,6 +204,14 @@ function test_major_version_change() {
                 dbg.error('Unsupported upgrade, 2.X to 1.X');
                 throw new VersionMismatchError('MAJOR_VERSION_CHANGE');
             }
+
+            // only allow upgrades from 2.3.1 and up
+            if (current_minor < 3 || (current_minor === 3 && current_patch < 1)) {
+                dbg.error('Unsupported upgrade. must go through 2.3.1');
+                throw new VersionMismatchError('MIN_REQUIRED_VERSION');
+            }
+
+
             // calc value of versions to compare
             const staged_ver_val = (staged_major * 10000) + (staged_minor * 100) + staged_patch;
             const current_ver_val = (current_major * 10000) + (current_minor * 100) + current_patch;

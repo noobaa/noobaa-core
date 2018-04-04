@@ -3,25 +3,20 @@
 
 var P = require('../util/promise');
 var argv = require('minimist')(process.argv);
-var fs_utils = require('../util/fs_utils');
 var fs = require('fs');
 const path = require('path');
-const _ = require('lodash');
 
 var promise_utils = require('../util/promise_utils');
 const spawn = require('child_process').spawn;
 const dbg = require('../util/debug_module')(__filename);
+const platform_upgrade = require('./platform_upgrade');
+const supervisor = require('../server/utils/supervisor_ctrl');
 dbg.set_process_name('Upgrade');
 
 const EXTRACTION_PATH = '/tmp/test';
-const PACKAGE_FILE_NAME = 'new_version.tar.gz';
-const WRAPPER_FILE_NAME = './upgrade_wrapper.js';
 const TMP_PATH = '/tmp';
 const NEW_UPGRADE_SCRIPT = `./src/upgrade/upgrade.js`;
-const SUPERD = '/usr/bin/supervisord';
-const SUPERCTL = '/usr/bin/supervisorctl';
-const CORE_DIR = "/root/node_modules/noobaa-core";
-let MONGO_SHELL = "/usr/bin/mongo nbcore";
+const UPGRADE_MANAGER_SCRIPT = `./src/upgrade/upgrade_manager.js`;
 
 
 // read node version from nvmrc
@@ -29,286 +24,44 @@ const NODE_VER = String(fs.readFileSync(path.join(EXTRACTION_PATH, 'noobaa-core/
 const NEW_NODE_BIN = path.join(TMP_PATH, 'v' + NODE_VER, 'bin/node');
 
 
-function disable_autostart() {
-    dbg.log0(`disable_autostart`);
-    // we need to start supervisord, but we don't want to start all services.
-    // use sed to set autostart to false. replace back when finished.
-    return promise_utils.exec(`sed -i "s:autostart=true:autostart=false:" /etc/noobaa_supervisor.conf`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        })
-        .then(res => {
-            dbg.log0('Autostart Disabled');
-        })
-        .then(() => promise_utils.exec(`sed -i "s:web_server.js:WEB.JS:" /etc/noobaa_supervisor.conf`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0(`disable_autostart: Success`);
-        })
-        .catch(err => {
-            dbg.error('disable_autostart: Failure', err);
-            throw err;
-        });
-}
-
-function enable_autostart() {
-    dbg.log0(`enable_autostart`);
-    return promise_utils.exec(`sed -i "s:autostart=false:autostart=true:" /etc/noobaa_supervisor.conf`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        })
-        .then(res => {
-            dbg.log0('Autostart Enabled');
-        })
-        .then(() => promise_utils.exec(`sed -i "s:WEB.JS:web_server.js:" /etc/noobaa_supervisor.conf`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0(`enable_autostart: Success`);
-        })
-        .catch(err => {
-            dbg.error('enable_autostart: Failure', err);
-            throw err;
-        });
-}
-
-function disable_supervisord() {
-    dbg.log0(`disable_supervisord`);
-    let services;
-    return P.join(
-            promise_utils.exec(`${SUPERCTL} status | grep pid | sed 's:.*pid \\(.*\\), uptime.*:\\1:'`, {
-                ignore_rc: false,
-                return_stdout: true,
-            }),
-            promise_utils.exec('ps axf | ' +
-                'grep -e mongo_wrapper.sh ' +
-                '-e bg_workers.js ' +
-                '-e hosted_agents_starter.js ' +
-                '-e s3rver_starter.js ' +
-                '-e web_server.js ' +
-                '-e mongod | ' +
-                'grep -v grep | ' +
-                "awk '{print $1}'", {
-                    ignore_rc: false,
-                    return_stdout: true,
-                }),
-        )
-        .spread((super_services, detached_services) => {
-            services = _.uniq(_.concat(super_services.split('\n'), detached_services.split('\n')));
-            dbg.log0('disable_supervisord services pgids:', services);
-        })
-        .then(() => promise_utils.exec(`${SUPERCTL} shutdown`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('disable_supervisord shutdown');
-        })
-        .then(() => P.map(services, service => {
-            if (service) {
-                dbg.log0(`Killing pgid:${service}`);
-
-                return promise_utils.exec(`kill -9 -${service}`, {
-                    ignore_rc: true,
-                    return_stdout: true,
-                    trim_stdout: true
-                });
-            }
-        }))
-        .then(() => promise_utils.exec(`ps -ef | grep -e mongod -e supervisord`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(res => {
-            dbg.log0(`Mongo and Supervisord status after disabling supervisord ${res}`);
-        })
-        .catch(err => {
-            dbg.error('disable_supervisord: Failure', err);
-            throw err;
-        });
-}
-
-function mongo_upgrade() {
-    dbg.log0('mongo_upgrade: Called');
-    let secret;
-    return disable_autostart()
-        .then(() => promise_utils.exec(`${SUPERD} start`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('mongo_upgrade: Ran SUPERD');
-        })
-        .then(() => promise_utils.exec(`${SUPERCTL} start mongo_wrapper`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('mongo_upgrade: Ran MONGO_WRAPPER');
-        })
-        .then(() => wait_for_mongo())
-        .then(function() {
-            return promise_utils.exec(`cat /etc/noobaa_sec`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                })
-                .then(res_sec => {
-                    dbg.log0('mongo_upgrade: Secret', res_sec);
-                    secret = res_sec;
-                });
-        })
-        .then(() => P.join(
-            promise_utils.exec(`uuidgen | cut -f 1 -d'-'`, {
-                ignore_rc: false,
-                return_stdout: true,
-                trim_stdout: true
-            }),
-            promise_utils.exec(`grep '"version": "' ${CORE_DIR}/package.json | cut -d\\" -f 4`, {
-                ignore_rc: true,
-                return_stdout: true,
-                trim_stdout: true
-            })
-        ))
-        .spread((id, version) => {
-            dbg.log0(`starting mongo data upgrade ${id} ${version}`);
-            return mongo_upgrade_database_metadata({ secret, version })
-                .then(() => dbg.log0(`finished mongo data upgrade`))
-                .catch(err => {
-                    dbg.error('FAILED mongo data upgrade!', err);
-                    throw err;
-                });
-        })
-        .then(() => enable_autostart())
-        .then(() => promise_utils.exec(`${SUPERCTL} update`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('mongo_upgrade: SUPERCTL updated');
-        })
-        .then(() => promise_utils.exec(`${SUPERCTL} start all`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('mongo_upgrade: SUPERCTL started all services');
-        })
-        .delay(3000)
-        .then(() => {
-            dbg.log0('mongo_upgrade: Success');
-        })
-        .catch(err => {
-            dbg.error('mongo_upgrade: Failure', err);
-            throw err;
-        });
-}
-
-function do_upgrade() {
-    dbg.log0('do_upgrade: Called', argv);
-    let upgrade_wrapper;
+async function do_upgrade() {
+    dbg.log0('UPGRADE: starting do_upgrade in upgrade.js');
     try {
-        upgrade_wrapper = require(`${WRAPPER_FILE_NAME}`); // eslint-disable-line global-require
+        dbg.log0('UPGRADE: backup up old version before starting..');
+        await platform_upgrade.backup_old_version();
+        await platform_upgrade.prepare_new_dir();
+        await start_upgrade_manager();
     } catch (err) {
-        return P.reject(`do_upgrade: Could not require ${WRAPPER_FILE_NAME}`);
+        // TODO: better error handling here. we should store the error in DB before aborting (should use mongo shell)
+        // also make sure that exiting here will not cause the upgrade to get stuck in the UI.
+        dbg.log0('failed preparing environment for upgrade_manager', err);
+        // restart services to stop upgrade
+        // TODO: better solution than restarting services
+        supervisor.restart('webserver');
+        process.exit(1);
     }
-    // #Update packages before we stop services, minimize downtime, limit run time for yum update so it won't get stuck
-    return P.resolve()
-        .then(() => disable_supervisord())
-        .then(() => {
-            dbg.log0(`do_upgrade: Running pre upgrade`);
-            return upgrade_wrapper.run_upgrade_wrapper({
-                stage: 'PRE_UPGRADE',
-                fsuffix: argv.fsuffix
-            });
-        })
-        .then(() => promise_utils.exec(`rm -rf /backup`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0(`do_upgrade: Removed /backup`);
-        })
-        .then(() => promise_utils.exec(`mv ${CORE_DIR} /backup`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0(`do_upgrade: Moved files from ${CORE_DIR} to /backup`);
-        })
-        .then(() => fs_utils.create_path(CORE_DIR))
-        .then(() => {
-            dbg.log0(`do_upgrade: Created ${CORE_DIR}`);
-        })
-        .then(() => promise_utils.exec(`mv ${TMP_PATH}/${PACKAGE_FILE_NAME} /root/node_modules`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0(`do_upgrade: Moved files from ${TMP_PATH}/${PACKAGE_FILE_NAME} to /root/node_modules`);
-        })
-        .then(() => promise_utils.exec(`cd /root/node_modules/;tar -xzvf /root/node_modules/${PACKAGE_FILE_NAME} >& /dev/null`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(res => {
-            dbg.log0(`do_upgrade: Extracted new version ${PACKAGE_FILE_NAME}`, res);
-        })
-        .then(function() {
-            let should_work = true;
-            return fs_utils.file_must_exist('/backup/noobaa_storage/')
-                .catch(err => {
-                    dbg.log0(err);
-                    should_work = false;
-                })
-                .then(() => {
-                    if (!should_work) return P.resolve();
-                    dbg.log0(`do_upgrade: Moving old noobaa_storage to ${CORE_DIR}`);
-                    return promise_utils.exec(`mv /backup/noobaa_storage/ ${CORE_DIR}`, {
-                        ignore_rc: false,
-                        return_stdout: true,
-                        trim_stdout: true
-                    });
-                });
-        })
-        .then(() => {
-            dbg.log0(`do_upgrade: Running post upgrade`);
-            return upgrade_wrapper.run_upgrade_wrapper({
-                stage: 'POST_UPGRADE',
-                fsuffix: argv.fsuffix
-            });
-        })
-        .then(() => mongo_upgrade())
-        .then(() => wait_for_mongo())
-        .then(() => promise_utils.exec(`rm -rf ${EXTRACTION_PATH}/*`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0(`do_upgrade: Upgrade finished successfully!`);
-        })
-        .catch(err => {
-            dbg.error(`do_upgrade: Failed`, err);
-            throw err;
-        });
+}
+
+
+
+async function start_upgrade_manager() {
+    // add new version upgrade agent to the supervisor.conf
+    const upgrade_prog = {};
+    const args = [
+        '--do_upgrade', 'true',
+        '--fsuffix', argv.fsuffix,
+        '--cluster_str', argv.cluster_str
+    ];
+    upgrade_prog.name = 'upgrade_manager';
+    upgrade_prog.command = `${NEW_NODE_BIN} ${UPGRADE_MANAGER_SCRIPT} ${args.join(' ')}`;
+    upgrade_prog.directory = `${EXTRACTION_PATH}/noobaa-core/`;
+    upgrade_prog.user = 'root';
+    upgrade_prog.autostart = 'true';
+    upgrade_prog.priority = '1';
+    upgrade_prog.stopsignal = 'KILL';
+    dbg.log0('UPGRADE: adding upgrade manager to supervisor and applying. configuration is', upgrade_prog);
+    await supervisor.add_program(upgrade_prog);
+    await supervisor.apply_changes();
 }
 
 function main() {
@@ -386,18 +139,8 @@ function run_upgrade() {
                         });
                 }
             } else if (argv.do_upgrade) {
-                return P.resolve()
-                    .then(() => {
-                        if (argv.cluster_str === 'cluster') {
-                            // TODO: handle differenet shard
-                            return set_mongo_cluster_mode();
-                        }
-                    })
-                    .then(() => {
-                        dbg.log0(`upgrade.js called with ${argv}`);
-                        return P.resolve()
-                            .then(() => do_upgrade());
-                    });
+                dbg.log0(`upgrade.js called with ${argv}`);
+                return do_upgrade();
             }
         })
         .then(function() {
@@ -406,121 +149,5 @@ function run_upgrade() {
         .catch(function(err) {
             dbg.error('run_upgrade: Failure', err);
             throw err;
-        });
-}
-
-function mongo_upgrade_database_metadata(params) {
-    dbg.log0(`mongo_upgrade_database_metadata: Called`, params);
-    let UPGRADE_SCRIPTS = [];
-    return promise_utils.exec(`${MONGO_SHELL} --quiet --eval "db.clusters.find({owner_secret: '${params.secret}'}).toArray()[0].upgrade.mongo_upgrade" | tail -n 1`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        })
-        .then(should_mongo_upgrade => {
-            dbg.log0(`mongo_upgrade_database_metadata: secret is ${params.secret} - should_mongo_upgrade = ${should_mongo_upgrade}`);
-            if (should_mongo_upgrade === "true") {
-                UPGRADE_SCRIPTS = [
-                    'mongo_upgrade_2_1_3.js',
-                    'mongo_upgrade_2_3_0.js',
-                    'mongo_upgrade_2_3_1.js',
-                    'mongo_upgrade_mark_completed.js'
-                ];
-            } else {
-                UPGRADE_SCRIPTS = [
-                    'mongo_upgrade_wait_for_master.js'
-                ];
-            }
-        })
-        .then(() => {
-            if (argv.cluster_str === 'cluster') {
-                dbg.log0(`mongo_upgrade_database_metadata: Cluster upgrade`);
-                // # TODO: handle differenet shard
-                return set_mongo_cluster_mode();
-            }
-        })
-        // set mongo audit and debug
-        .then(() => promise_utils.exec(`${MONGO_SHELL} --quiet --eval 'db.setLogLevel(5)'`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(function() {
-            return P.each(UPGRADE_SCRIPTS, script => {
-                dbg.log0(`Running Mongo Upgrade Script ${script}`);
-                return promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${params.secret}', version='${params.version}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
-                        ignore_rc: false,
-                        return_stdout: true,
-                        trim_stdout: true
-                    })
-                    .catch(err => {
-                        dbg.error(`Failed Mongo Upgrade Script ${script}`, err);
-                        throw err;
-                    });
-            });
-        })
-        .finally(() => promise_utils.exec(`${MONGO_SHELL} --quiet --eval 'db.setLogLevel(0)'`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('mongo_upgrade_database_metadata: Success');
-        })
-        .catch(err => {
-            dbg.error('mongo_upgrade_database_metadata: Failure', err);
-            throw err;
-        });
-}
-
-function set_mongo_cluster_mode() {
-    dbg.log0('set_mongo_cluster_mode: Called');
-    return promise_utils.exec(`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'@' -f 2 | cut -d'/' -f 1`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        })
-        .then(rs_servers => {
-            dbg.log0(`set_mongo_cluster_mode: MONGO_SHELL`, rs_servers);
-            MONGO_SHELL = `/usr/bin/mongors --host mongodb://${rs_servers}/nbcore?replicaSet=shard1`;
-        });
-}
-
-function check_mongo_status() {
-    dbg.log0(`check_mongo_status: Called`);
-    // # even if the supervisor reports the service is running try to connect to it
-    // local mongo_status
-    // # beware not to run "local" in the same line changes the exit code
-    return promise_utils.exec(`${MONGO_SHELL} --quiet --eval 'quit(!db.serverStatus().ok)'`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        })
-        .then(res => {
-            dbg.log0(`check_mongo_status: Response`, res);
-            return res;
-        })
-        .catch(err => {
-            dbg.error(`check_mongo_status: Failure`, err);
-            throw err;
-        });
-}
-
-function wait_for_mongo() {
-    dbg.log0(`wait_for_mongo: Called`);
-    let mongo_stable = false;
-    return promise_utils.pwhile(
-        () => !mongo_stable,
-        () => {
-            dbg.log0(`wait_for_mongo: Waiting for mongo (sleep 5)`);
-            // deploy_log "wait_for_mongo: Waiting for mongo (sleep 5)"
-            return check_mongo_status()
-                .then(() => {
-                    mongo_stable = true;
-                })
-                .catch(err => {
-                    dbg.error('check_mongo_status: Failed to connect to mongod', err);
-                })
-                .delay(5000);
         });
 }

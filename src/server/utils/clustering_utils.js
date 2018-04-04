@@ -296,7 +296,7 @@ function get_member_upgrade_stage(ip) {
     dbg.log0('UPGRADE:', 'get upgrade stage for ip', ip);
     let server_entry = system_store.data.clusters.find(server => server.owner_address === ip);
     dbg.log0('UPGRADE:', 'found server:', server_entry);
-    if (!server_entry || !server_entry.upgrade) return 'NOT_READY';
+    if (!server_entry || !server_entry.upgrade) return;
     return server_entry.upgrade.stage;
 }
 

@@ -122,6 +122,10 @@ module.exports = {
         return obj;
     },
 
+    stringify: obj => Object.keys(obj)
+        .map(key => `${key}=${obj[key]}`)
+        .join('\n') + '\n',
+
     /*
      * Sets a new value for params
      * @param {Object} newVal - param name and new value of param

@@ -889,7 +889,17 @@ module.exports = {
                         },
                         stage: {
                             type: 'string',
-                            enum: ['DB_READY']
+                            enum: [
+                                'COPY_NEW_CODE',
+                                'DB_READY',
+                                'UPGRADE_ABORTED',
+                                'UPGRADE_PLATFORM',
+                                'UPGRADE_MONGODB_VER',
+                                'UPGRADE_MONGODB_SCHEMAS',
+                                'UPDATE_SERVICES',
+                                'CLEANUP',
+                                'UPGRADE_COMPLETED',
+                            ]
                         },
                         error: {
                             type: 'string'

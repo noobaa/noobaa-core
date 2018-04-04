@@ -126,10 +126,10 @@ function check_headers(req, res) {
 
 function authenticate_request(req, res) {
     try {
-        const auth_token = signature_utils.authenticate_request(req);
+        const auth_token = signature_utils.make_auth_token_from_request(req);
         auth_token.client_ip = http_utils.parse_client_ip(req);
         req.func_sdk.set_auth_token(auth_token);
-        signature_utils.check_expiry(req);
+        signature_utils.check_request_expiry(req);
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
         throw new LambdaError(LambdaError.SignatureDoesNotMatch);

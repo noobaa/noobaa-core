@@ -105,88 +105,84 @@ function make_simple_request(op, params) {
 }
 
 
-function list_objects() {
-    const params = {
-        Prefix: argv.prefix,
-        Delimiter: argv.delimiter,
-        MaxKeys: argv.maxkeys,
-        Marker: argv.marker,
-    };
-    const req = s3.listObjects(params);
-    if (argv.presign) return console.log(req.presign(argv.presign));
-    return req.promise()
-        .then(data => {
-            let contents = data.Contents;
-            let prefixes = data.CommonPrefixes;
-            delete data.Contents;
-            delete data.CommonPrefixes;
+async function list_objects() {
+    try {
+        const params = {
+            Prefix: argv.prefix,
+            Delimiter: argv.delimiter,
+            MaxKeys: argv.maxkeys,
+            Marker: argv.marker,
+        };
+        const req = s3.listObjects(params);
+        if (argv.presign) return console.log(req.presign(argv.presign));
+        const res = await req.promise();
+        if (argv.ll) {
+            console.log('List:', JSON.stringify(_.omit(res, 'Contents', 'CommonPrefixes')));
+        }
+        for (const prefix of res.CommonPrefixes) {
+            console.log('Prefix:', prefix.Prefix);
+        }
+        for (const obj of res.Contents) {
+            let key = obj.Key;
+            let size = size_utils.human_size(obj.Size);
+            size = '        '.slice(size.length) + size;
+            let mtime = moment(new Date(obj.LastModified)).format('MMM DD HH:mm');
+            let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
             if (argv.ll) {
-                console.log('List:', JSON.stringify(data));
+                console.log(owner, size, mtime, key,
+                    JSON.stringify(_.omit(obj, 'Key', 'Size', 'Owner', 'LastModified')));
+            } else {
+                console.log(owner, size, mtime, key);
             }
-            _.each(prefixes, prefix => {
-                console.log('Prefix:', prefix.Prefix);
-            });
-            _.each(contents, obj => {
-                let key = obj.Key;
-                let size = size_utils.human_size(obj.Size);
-                size = '        '.slice(size.length) + size;
-                let mtime = moment(new Date(obj.LastModified)).format('MMM D HH:mm');
-                let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
-                if (argv.ll) {
-                    delete obj.Key;
-                    delete obj.Size;
-                    delete obj.Owner;
-                    delete obj.LastModified;
-                    console.log(owner, size, mtime, key, JSON.stringify(obj));
-                } else {
-                    console.log(owner, size, mtime, key);
-                }
-            });
-        })
-        .catch(err => console.error('LIST ERROR:', _.omit(err, 'stack')));
+        }
+        if (argv.all && res.IsTruncated) {
+            argv.marker = res.NextMarker || res.Contents[res.Contents.length - 1].Key;
+            await list_objects();
+        }
+    } catch (err) {
+        console.error('LIST ERROR:', _.omit(err, 'stack'));
+    }
 }
 
-function list_objects_v2() {
-    const params = {
-        Prefix: argv.prefix,
-        Delimiter: argv.delimiter,
-        MaxKeys: argv.maxkeys,
-        ContinuationToken: argv.token,
-        StartAfter: argv.start,
-        FetchOwner: argv.owner
-    };
-    const req = s3.listObjectsV2(params);
-    if (argv.presign) return console.log(req.presign(argv.presign));
-    return req.promise()
-        .then(data => {
-            let contents = data.Contents;
-            let prefixes = data.CommonPrefixes;
-            delete data.Contents;
-            delete data.CommonPrefixes;
+async function list_objects_v2() {
+    try {
+        const params = {
+            Prefix: argv.prefix,
+            Delimiter: argv.delimiter,
+            MaxKeys: argv.maxkeys,
+            ContinuationToken: argv.token,
+            StartAfter: argv.start,
+            FetchOwner: argv.owner
+        };
+        const req = s3.listObjectsV2(params);
+        if (argv.presign) return console.log(req.presign(argv.presign));
+        const res = await req.promise();
+        if (argv.ll_v2) {
+            console.log('List:', JSON.stringify(_.omit(res, 'Contents', 'CommonPrefixes')));
+        }
+        for (const prefix of res.CommonPrefixes) {
+            console.log('Prefix:', prefix.Prefix);
+        }
+        for (const obj of res.Contents) {
+            let key = obj.Key;
+            let size = size_utils.human_size(obj.Size);
+            size = '        '.slice(size.length) + size;
+            let mtime = moment(new Date(obj.LastModified)).format('MMM DD HH:mm');
+            let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
             if (argv.ll_v2) {
-                console.log('List:', JSON.stringify(data));
+                console.log(owner, size, mtime, key,
+                    JSON.stringify(_.omit(obj, 'Key', 'Size', 'Owner', 'LastModified')));
+            } else {
+                console.log(owner, size, mtime, key);
             }
-            _.each(prefixes, prefix => {
-                console.log('Prefix:', prefix.Prefix);
-            });
-            _.each(contents, obj => {
-                let key = obj.Key;
-                let size = size_utils.human_size(obj.Size);
-                size = '        '.slice(size.length) + size;
-                let mtime = moment(new Date(obj.LastModified)).format('MMM D HH:mm');
-                let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
-                if (argv.ll_v2) {
-                    delete obj.Key;
-                    delete obj.Size;
-                    delete obj.Owner;
-                    delete obj.LastModified;
-                    console.log(owner, size, mtime, key, JSON.stringify(obj));
-                } else {
-                    console.log(owner, size, mtime, key);
-                }
-            });
-        })
-        .catch(err => console.error('LIST ERROR:', _.omit(err, 'stack')));
+        }
+        if (argv.all && res.IsTruncated) {
+            argv.token = res.NextContinuationToken;
+            return list_objects_v2();
+        }
+    } catch (err) {
+        console.error('LIST ERROR:', _.omit(err, 'stack'));
+    }
 }
 
 function list_buckets() {

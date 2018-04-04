@@ -194,7 +194,7 @@ function create_access_key_auth(req) {
     }
 
     let secret = account.access_keys[0].secret_key.toString();
-    let signature_test = signature_utils.signature({ string_to_sign: string_to_sign }, secret);
+    let signature_test = signature_utils.get_signature_from_auth_token({ string_to_sign: string_to_sign }, secret);
     if (signature_test !== signature) {
         throw new RpcError('UNAUTHORIZED', 'signature error');
     }
@@ -326,7 +326,7 @@ function _authorize_signature_token(req) {
         client_ip: auth_token_obj.client_ip,
     };
 
-    const signature = signature_utils.signature(auth_token_obj, secret_key);
+    const signature = signature_utils.get_signature_from_auth_token(auth_token_obj, secret_key);
 
     if (auth_token_obj.signature !== signature) {
         dbg.error('Signature for access key:', auth_token_obj.access_key,

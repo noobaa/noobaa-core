@@ -182,7 +182,10 @@ function _check_expiry_query_s3(expires_epoch) {
 }
 
 
-// GENERAL
+///////////////////////////////////////
+//             GENERAL               //
+///////////////////////////////////////
+
 
 const HEADERS_MAP_FOR_AWS_SDK = {
     'authorization': 'Authorization',
@@ -243,7 +246,7 @@ function _aws_request(req, region, service) {
  * Prepare HTTP request (express) authentication for sending to auth_server
  *
  */
-function authenticate_request(req) {
+function make_auth_token_from_request(req) {
     if (req.headers.authorization) {
         if (req.headers.authorization.startsWith('AWS4-HMAC-SHA256')) {
             return _authenticate_header_v4(req);
@@ -271,7 +274,7 @@ function authenticate_request(req) {
  *  the problem is that currently we don't have the needed fields in the token...
  *
  */
-function check_expiry(req) {
+function check_request_expiry(req) {
     if (req.query['X-Amz-Date'] && req.query['X-Amz-Expires']) {
         _check_expiry_query_v4(req.query['X-Amz-Date'], req.query['X-Amz-Expires']);
     } else if (req.query.Expires) {
@@ -285,7 +288,7 @@ function check_expiry(req) {
  * Calculates AWS signature based on auth_server request
  *
  */
-function signature(auth_token, secret_key) {
+function get_signature_from_auth_token(auth_token, secret_key) {
 
     // using S3 signer unless V4
     if (!auth_token.extra) {
@@ -308,7 +311,32 @@ function signature(auth_token, secret_key) {
     return v4.signature(aws_credentials, auth_token.extra.xamzdate);
 }
 
+function authorize_client_request(req) {
+    req.port = req.port || 80;
+    req.host = req.host || '127.0.0.1';
+    req.body = req.body || '';
+    req.key = req.key || 'first.key';
+    req.bucket = req.bucket || 'first.bucket';
+    req.method = req.method || 'GET';
+    req.region = req.region || 'us-east-1';
+    req.service = req.service || 's3';
+    req.access_key = req.access_key || '123';
+    req.secret_key = req.secret_key || 'abc';
+    req.credentials = { accessKeyId: req.access_key, secretAccessKey: req.secret_key };
+    req.pathname = () => `/${req.bucket}/${req.key}`;
+    req.search = () => (req.query ? '?' + AWS.util.queryParamsToString(req.query) : '');
+    req.path = `${req.pathname()}${req.search()}`;
+    req.headers = req.headers || {};
+    req.headers.Host = req.host;
+    req.headers['Content-Length'] = req.body.length;
+    req.headers['User-Agent'] = 'Smith';
+    req.headers['X-Amz-Date'] = new Date().toISOString().replace(/-|:|\.\d{3}/g, '');
+    req.headers['X-Amz-Content-Sha256'] = crypto.createHash('sha256').update(req.body).digest('hex');
+    const v4 = new AWS.Signers.V4(req, req.service, 'signatureCache');
+    req.headers.Authorization = v4.authorization(req.credentials, req.headers['X-Amz-Date']);
+}
 
-exports.authenticate_request = authenticate_request;
-exports.signature = signature;
-exports.check_expiry = check_expiry;
+exports.make_auth_token_from_request = make_auth_token_from_request;
+exports.check_request_expiry = check_request_expiry;
+exports.get_signature_from_auth_token = get_signature_from_auth_token;
+exports.authorize_client_request = authorize_client_request;

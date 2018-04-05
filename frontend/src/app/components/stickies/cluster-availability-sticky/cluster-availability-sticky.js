@@ -1,23 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './cluster-availability-sticky.html';
+import Observer from 'observer';
 import ko from 'knockout';
-import { systemInfo } from 'model';
+import { state$ } from 'state';
 
-class ClusterAvailabilityStickyViewModel {
+class ClusterAvailabilityStickyViewModel extends Observer {
+    isActive = ko.observable();
+
     constructor() {
-        this.isActive = ko.pureComputed(
-            () => {
-                if (!systemInfo()) return;
+        super();
 
-                const { servers } = systemInfo().cluster.shards[0];
-                const connected = servers
-                    .filter(server => server.status === 'CONNECTED')
-                    .length;
+        this.observe(state$.get('topology', 'servers'), this.onState);
+    }
 
-                return connected < Math.floor(servers.length / 2) + 1;
-            }
-        );
+    onState(servers) {
+        if (!servers) {
+            this.isActive(false);
+            return;
+        }
+
+        const serverList = Object.values(servers);
+        const connected = serverList
+            .filter(server => server.mode === 'CONNECTED')
+            .length;
+        const isActive = connected < Math.floor(serverList.length / 2) + 1;
+
+        this.isActive(isActive);
     }
 }
 

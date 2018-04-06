@@ -129,6 +129,7 @@ function uploadAndDeleteFiles(dataset_size, isOverSized, files) {
             return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
                 .then(() => s3ops.delete_file(server_ip, bucket, file_name))
                 .then(() => s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier))
+                .delay(1000)
                 .catch(err => {
                     saveErrorAndResume(`${server_ip} FAILED uploading and deleting files `, err);
                     failures_in_test = true;
@@ -288,6 +289,7 @@ return azf.authenticate()
     .then(() => P.each(pool_files, file => checkFileInPool(file, healthy_pool)))
     //Remove the quota
     .then(() => bf.disableQuotaBucket(server_ip, bucket))
+    .delay(10000)//delay to get pool cooled down
     //Continue to write and see that the writes pass
     .then(() => uploadAndDeleteFiles(500, false, over_files))
     .then(() => P.each(over_files, file => checkFileInPool(file, 'system-internal-storage-pool')))

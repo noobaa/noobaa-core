@@ -1,54 +1,64 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './server-table.html';
-import BaseViewModel from 'components/base-view-model';
+import Observer from 'observer';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
-import { createCompareFunc, deepFreeze, throttle, flatMap } from 'utils/core-utils';
+import { createCompareFunc, deepFreeze, throttle } from 'utils/core-utils';
+import { getServerDisplayName } from 'utils/cluster-utils';
+import { toBytes } from 'utils/size-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { inputThrottle } from 'config';
-import { navigateTo } from 'actions';
-import { systemInfo, routeContext } from 'model';
-import { action$ } from 'state';
-import { openAttachServerModal } from 'action-creators';
+import { action$, state$ } from 'state';
+import * as routes from 'routes';
+import { openAttachServerModal, requestLocation } from 'action-creators';
 
 const columns = deepFreeze([
     {
         name: 'state',
         type: 'icon',
-        sortable: true
+        sortable: true,
+        compareKey: server => server.mode
     },
     {
         name: 'name',
         label: 'server name',
-        type: 'link',
-        sortable: true
+        type: 'newLink',
+        sortable: true,
+        compareKey: server => getServerDisplayName(server)
     },
     {
         name: 'address',
         label: 'IP Address',
-        sortable: true
+        sortable: true,
+        compareKey: server => (server.addresses || [])[0]
     },
     {
         name: 'diskUsage',
-        sortable: true
+        sortable: true,
+        compareKey: server => 1 - toBytes(server.storage.free) / toBytes(server.storage.total)
     },
     {
         name: 'memoryUsage',
-        sortable: true
+        sortable: true,
+        compareKey: server => server.memory.used / server.memory.total
     },
     {
         name: 'cpuUsage',
         label: 'CPU usage',
-        sortable: true
+        sortable: true,
+        compareKey: server => server.cpus.usage
     },
     {
         name: 'location',
         label: 'Location Tag',
-        sortable: true
+        sortable: true,
+        compareKey: server => server.location
     },
     {
         name: 'version',
-        sortable: true
+        sortable: true,
+        compareKey: server => server.version
     }
 ]);
 
@@ -57,95 +67,99 @@ const noNtpTooltip = deepFreeze({
     text: 'NTP must be configured before attaching a new server'
 });
 
-const compareAccessors = deepFreeze({
-    state: server => server.status,
-    name: server => `${server.hostname}-${server.secret}`,
-    address: server => (server.addresses || [])[0],
-    diskUsage: server => 1 - server.storage.free / server.storage.total,
-    memoryUsage: server => server.memory.used / server.memory.total,
-    cpuUsage: server => server.cpus.usage,
-    location: server => server.location,
-    version: server => server.version
-});
-
-function matchFilter(server, filter = '') {
-    const { hostname, secret, address, location } = server;
-    return [`${hostname}-${secret}`, address, location].some(
+function _matchFilter(server, filter = '') {
+    const { addresses, locationTag } = server;
+    return [`${getServerDisplayName(server)}`, addresses[0], locationTag].some(
         key => key.toLowerCase().includes(filter.toLowerCase())
     );
 }
 
-class ServerTableViewModel extends BaseViewModel {
+class ServerTableViewModel extends Observer {
+    pathname = '';
+    columns = columns;
+    canAttachServer = ko.observable();
+    attachServerTooltip = ko.observable();
+    filter = ko.observable();
+    sorting = ko.observable();
+    rows = ko.observableArray();
+    isStateLoaded = ko.observable();
+    onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+
     constructor() {
         super();
 
-        this.columns = columns;
-
-        this.canAttachServer = ko.pureComputed(
-            () => {
-                if (!systemInfo()) return false;
-
-                const { shards, master_secret } = systemInfo().cluster;
-                const { ntp_server } = flatMap(shards, shard => shard.servers)
-                    .find(server => server.secret === master_secret);
-
-                return Boolean(ntp_server);
-            }
+        this.observe(
+            state$.getMany(
+                'topology',
+                'system',
+                'location'
+            ),
+            this.onState
         );
-
-        this.attachServerTooltip = ko.pureComputed(
-            () => !this.canAttachServer() ? noNtpTooltip : ''
-        );
-
-        const query = ko.pureComputed(
-            () => routeContext().query || {}
-        );
-
-        this.filter = ko.pureComputed({
-            read: () => query().filter,
-            write: throttle(phrase => this.filterServers(phrase), inputThrottle)
-        });
-
-        this.sorting = ko.pureComputed({
-            read: () => ({
-                sortBy: routeContext().query.sortBy || 'name',
-                order: Number(routeContext().query.order) || 1
-            }),
-            write: value => this.orderBy(value)
-        });
-
-        this.servers = ko.pureComputed(
-            () => {
-                const { sortBy, order } = this.sorting();
-                const compareOp = createCompareFunc(compareAccessors[sortBy], order);
-
-                return systemInfo() && systemInfo().cluster.shards[0].servers
-                    .filter(server => matchFilter(server, this.filter()))
-                    .sort(compareOp);
-            }
-        );
-
-        this.actionContext = ko.observable();
-        this.isServerDNSSettingsModalVisible = ko.observable(false);
-        this.isServerTimeSettingsModalVisible = ko.observable(false);
     }
 
-    rowFactory(server) {
-        return new ServerRowViewModel(server);
+    onState([topology, system, location]) {
+        if (!topology) {
+            this.isStateLoaded(false);
+            return;
+        }
+
+        const { params, query, pathname } = location;
+        const { filter = '', sortBy = 'name' } = query;
+        const order = Number(location.query.order) || 1;
+        const { compareKey } = columns.find(column => column.name === sortBy);
+        const serverList = Object.values(topology.servers);
+        const rowParams = {
+            baseRoute: realizeUri(routes.server, { system: params.system }, {}, true)
+        };
+        const master = serverList.find(server => server.isMaster);
+        const canAttachServer = Boolean(master.ntp);
+        const attachServerTooltip = canAttachServer ? noNtpTooltip : '';
+
+        const filteredRows = serverList
+            .filter(server => _matchFilter(server, filter));
+
+        const rows = filteredRows
+            .sort(createCompareFunc(compareKey, order))
+            .map((server, i) => {
+                const row = this.rows.get(i) || new ServerRowViewModel(rowParams);
+                row.onState(server, system.version, topology.serverMinRequirements);
+                return row;
+            });
+
+        this.pathname = pathname;
+        this.filter(filter);
+        this.sorting({ sortBy, order });
+        this.rows(rows);
+        this.canAttachServer(canAttachServer);
+        this.attachServerTooltip(attachServerTooltip);
+        this.isStateLoaded(true);
     }
 
-    filterServers(phrase) {
-        const params = Object.assign(
-            { filter: phrase || undefined },
-            this.sorting()
-        );
-
-        navigateTo(undefined, undefined, params);
+    onFilter(filter) {
+        this._query({ filter });
     }
 
-    orderBy({ sortBy, order }) {
-        const filter = this.filter() || undefined;
-        navigateTo(undefined, undefined, { filter, sortBy, order });
+    onSort(sorting) {
+        this._query({ sorting });
+    }
+
+    _query(params) {
+        const {
+            filter = this.filter(),
+            sorting = this.sorting()
+        } = params;
+
+        const { sortBy, order } = sorting;
+        const query = {
+            filter: filter || undefined,
+            sortBy: sortBy,
+            order: order
+        };
+
+        action$.onNext(requestLocation(
+            realizeUri(this.pathname, null, query)
+        ));
     }
 
     onAttachServerToCluster() {

@@ -4,7 +4,7 @@
     <div class="greedy push-next">
         <input type="search"
             placeholder="Filter by name, IP or tag"
-            ko.textInput="filter"
+            ko.textInput="ko.pc(filter, onFilterThrottled)"
         />
     </div>
     <div ko.tooltip="attachServerTooltip">
@@ -19,8 +19,8 @@
 
 <data-table class="greedy server-data-table" params="
     columns: columns,
-    rowFactory: rowFactory,
-    sorting: sorting,
-    data: servers,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !isStateLoaded(),
     emptyMessage: 'The current filter does not match any server'
 "></data-table>

@@ -3,163 +3,116 @@
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { systemInfo } from 'model';
-import { deepFreeze } from 'utils/core-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { formatSize } from 'utils/size-utils';
-import { getServerIssues } from 'utils/cluster-utils';
+import { toBytes } from 'utils/size-utils';
+import { summarizeServerIssues, getServerDisplayName, getServerStateIcon } from 'utils/cluster-utils';
 
 const diskUsageErrorBound = .95;
 const diskUsageWarningBound = .85;
-const stateIconMapping = deepFreeze({
-    CONNECTED: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Connected'
-    },
 
-    IN_PROGRESS: {
-        name: 'in-progress',
-        css: 'warning',
-        tooltip: 'in progress'
-    },
+function _getStatus(server, version, serverMinRequirements) {
+    const issues = Object.values(
+        summarizeServerIssues(server, version, serverMinRequirements)
+    );
 
-    DISCONNECTED: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Disconnected'
-    },
-
-    WARNING: {
-        name: 'problem',
-        css: 'warning'
+    if (server.mode === 'CONNECTED' && issues.length) {
+        return {
+            name: 'problem',
+            css: 'warning',
+            tooltip: {
+                text: issues,
+                align: 'start',
+                breakWords: false
+            }
+        };
     }
-});
+
+    return getServerStateIcon[status];
+}
+
+function _getDiskUsage(server) {
+    if (server.mode === 'DISCONNECTED') {
+        return '---';
+    } else {
+        const total = toBytes(server.storage.total);
+        const free = toBytes(server.storage.free);
+        const used = total - free;
+        const usedRatio = used / total;
+        const text = numeral(usedRatio).format('0%');
+        const tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
+
+        let css = '';
+        if (usedRatio >= diskUsageWarningBound) {
+            css = usedRatio >= diskUsageErrorBound ? 'error' : 'warning';
+        }
+
+        return { text, tooltip, css };
+    }
+}
+
+function _getMemoryUsage(server) {
+    if (server.mode === 'DISCONNECTED') {
+        return '---';
+    } else {
+        const { total, used } = server.memory;
+        return {
+            text: numeral(used / total).format('%'),
+            tooltip: 'Avg. over the last minute'
+        };
+    }
+}
+
+function _getCpuUsage(server) {
+    if (server.mode === 'DISCONNECTED') {
+        return '---';
+    } else {
+        return {
+            text: numeral(server.cpus.usage).format('%'),
+            tooltip: 'Avg. over the last minute'
+        };
+    }
+}
 
 export default class ServerRowViewModel extends BaseViewModel {
-    constructor(server) {
+    baseRoute = '';
+    state = ko.observable();
+    name = ko.observable();
+    address = ko.observable();
+    diskUsage = ko.observable();
+    memoryUsage = ko.observable();
+    cpuUsage = ko.observable();
+    version = ko.observable();
+    location = ko.observable();
+
+    constructor({ baseRoute }) {
         super();
 
-        this.state = ko.pureComputed(
-            () => {
-                if (!server()) {
-                    return '';
-                }
+        this.baseRoute = baseRoute;
+    }
 
-                const { status } = server();
-                if (status === 'CONNECTED') {
+    onState(server, systemVersion, serverMinRequirements) {
+        const { version, locationTag } = server;
+        const [ address = '' ] = server.addresses;
+        const state = _getStatus(server, systemVersion, serverMinRequirements);
+        const uri = realizeUri(this.baseRoute, { server: getServerDisplayName(server) });
+        const diskUsage = _getDiskUsage(server);
+        const memoryUsage = _getMemoryUsage(server);
+        const cpuUsage = _getCpuUsage(server);
+        const location = locationTag || 'not set';
+        const serverName = {
+            text: `${getServerDisplayName(server)} ${server.isMaster ? '(Master)' : ''}`,
+            href: uri
+        };
 
-                    const { version, cluster } = systemInfo();
-                    const issues = Object.values(
-                        getServerIssues(server(), version, cluster.min_requirements)
-                    );
-                    if (issues.length > 0) {
-                        return Object.assign(
-                            {
-                                tooltip: {
-                                    text: issues,
-                                    align: 'start',
-                                    breakWords: false
-                                }
-                            },
-                            stateIconMapping['WARNING']
-                        );
-                    }
-                }
+        this.state(state);
+        this.name(serverName);
+        this.address(address);
+        this.diskUsage(diskUsage);
+        this.memoryUsage(memoryUsage);
+        this.cpuUsage(cpuUsage);
+        this.version(version);
+        this.location(location);
 
-                return stateIconMapping[status];
-            }
-        );
-
-        this.name = ko.pureComputed(
-            () => {
-                if (!server()) {
-                    return '';
-                }
-
-                const { secret, hostname } = server();
-                const name = `${hostname}-${secret}`;
-                const masterSecret = systemInfo() && systemInfo().cluster.master_secret;
-
-                const text = `${name} ${ secret === masterSecret ? '(Master)' : '' }`;
-                const href = {
-                    route: 'server',
-                    params: { server: `${hostname}-${secret}`, tab: null }
-                };
-
-                return { text, href };
-            }
-        );
-
-        this.address = ko.pureComputed(
-            () => server() ? (server().addresses || [])[0] : ''
-        );
-
-        this.diskUsage = ko.pureComputed(
-            () => {
-                if (!server()) {
-                    return '';
-
-                } else if (server().status === 'DISCONNECTED') {
-                    return '---';
-
-                } else {
-                    const { free, total } = server().storage;
-                    const used = total - free;
-                    const usedRatio = used / total;
-                    const text = numeral(usedRatio).format('0%');
-                    const tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
-
-                    let css = '';
-                    if (usedRatio >= diskUsageWarningBound) {
-                        css = usedRatio >= diskUsageErrorBound ? 'error' : 'warning';
-                    }
-
-                    return { text, tooltip, css };
-                }
-            }
-        );
-
-        this.memoryUsage = ko.pureComputed(
-            () => {
-                if (!server()) {
-                    return '';
-
-                } else if (server().status === 'DISCONNECTED') {
-                    return '---';
-
-                } else {
-                    const { total, used } = server().memory;
-                    return {
-                        text: numeral(used / total).format('%'),
-                        tooltip: 'Avg. over the last minute'
-                    };
-                }
-            }
-        );
-
-        this.cpuUsage = ko.pureComputed(
-            () => {
-                if (!server()) {
-                    return '';
-
-                } else if (server().status === 'DISCONNECTED') {
-                    return '---';
-
-                } else {
-                    return {
-                        text: numeral(server().cpus.usage).format('%'),
-                        tooltip: 'Avg. over the last minute'
-                    };
-                }
-            }
-        );
-
-        this.version = ko.pureComputed(
-            () => server() ? server().version : 'N/A'
-        );
-
-        this.location = ko.pureComputed(
-            () => server() && server().location || 'not set'
-        );
     }
 }

@@ -122,7 +122,7 @@ const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resourc
 function uploadAndVerifyFiles(num_agents) {
     let { data_multiplier } = unit_mapping.MB;
     // 1/2 GB per agent. 1 GB seems like too much memory for the lg to handle
-    let dataset_size = num_agents * 512;
+    let dataset_size = num_agents * 128;
     let parts = 20;
     let partSize = dataset_size / parts;
     let file_size = Math.floor(partSize);
@@ -292,7 +292,7 @@ return azf.authenticate()
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {
         oses = Array.from(res.keys());
-        //Create a dataset on it (1/2 GB per agent)
+        //Create a dataset on it (1/4 GB per agent)
         return uploadAndVerifyFiles(agents_number);
     })
     .then(() => promise_utils.loop(iterations_number, cycle => {

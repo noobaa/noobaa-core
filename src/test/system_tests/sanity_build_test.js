@@ -37,7 +37,7 @@ function main() {
 
 function upgrade_and_test(target_ip, upgrade_pack) {
     ops.disable_rpc_validation();
-    console.log('Upgrading MD server at', target_ip);
+    console.log('Basic sanity test started, Upgrading MD server at', target_ip);
     return P.resolve(ops.upload_and_upgrade(target_ip, upgrade_pack))
         .catch(function(error) {
             console.warn('Upgrading failed with', error, error.stack);

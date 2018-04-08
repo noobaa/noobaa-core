@@ -85,6 +85,7 @@ function upload_and_upgrade(ip, upgrade_pack) {
         .catch(err => {
             // TODO: remove when upgrade_api is merged to base version (version we upgrade from in vitaly)
             if (err.rpc_code === 'NO_SUCH_RPC_SERVICE') {
+                console.log('Failed using upgrade.upgrade_cluster, using cluster_internal.upgrade_cluster', err);
                 return client.cluster_internal.upgrade_cluster();
             } else {
                 throw err;

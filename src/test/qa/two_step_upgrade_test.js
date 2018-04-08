@@ -7,7 +7,6 @@ const util = require('util');
 const api = require('../../api');
 const crypto = require('crypto');
 const P = require('../../util/promise');
-const config = require('../../../config.js');
 const ssh_functions = require('../utils/ssh_functions');
 const promise_utils = require('../../util/promise_utils');
 const agent_functions = require('../utils/agent_functions');
@@ -60,6 +59,7 @@ function init_clients() {
         .then(client =>
             //Change cluster HB interval to 5sec instead of 60
             ssh_functions.ssh_exec(client, `sudo bash -c "sed -i 's:config.CLUSTER_HB_INTERVAL.*:config.CLUSTER_HB_INTERVAL = 5000:' /root/node_modules/noobaa-core/config.js"`)
+            //TODO: change min size for upgrade instead of writing files...
             .then(() => ssh_functions.ssh_exec(client, `sudo bash -c "supervisorctl restart all"`))
             .delay(20000))
         .then(() => {
@@ -166,12 +166,13 @@ function _verify_upgrade_status(expected, failed, message) {
  * Fill local disk of the server to reach just below the min threshold for upgrade
  */
 function _fill_local_disk() {
+    const MIN_MEMORY_FOR_UPGRADE_MB = 1200 * 1024 * 1024;
     return rpc_client.system.read_system()
         .then(res => {
             const free_server_space = res.cluster.shards[0].servers[0].storage.free;
             let size_to_write;
-            if (free_server_space - config.MIN_MEMORY_FOR_UPGRADE > 0) {
-                size_to_write = (free_server_space - config.MIN_MEMORY_FOR_UPGRADE) / 1024 / 1024; //Reach threshold
+            if (free_server_space - MIN_MEMORY_FOR_UPGRADE_MB > 0) {
+                size_to_write = (free_server_space - MIN_MEMORY_FOR_UPGRADE_MB) / 1024 / 1024; //Reach threshold
                 size_to_write += 10; //Go over the threshold a little bit
                 size_to_write = Math.floor(size_to_write);
             } else {
@@ -183,6 +184,7 @@ function _fill_local_disk() {
                 secret: TEST_CFG.secret,
                 sizeMB: size_to_write
             };
+            console.log(`Filling ${(size_to_write / 1024).toFixed(2)}GB of server's local fisk`);
             return agent_functions.manipulateLocalDisk(params);
         })
         .delay(10000);
@@ -235,6 +237,21 @@ function _verify_downgrade_fails() {
         });
 }
 
+/*
+ * Wrap around the change of ,upgrade_cluster from cluster_internal_api to upgrade_api
+ * Once we have a base version with the changes, we can remove this func
+ */
+function _call_upgrade() {
+    return rpc_client.upgrade.upgrade_cluster()
+        .catch(err => {
+            if (err.rpc_code === 'NO_SUCH_RPC_SERVICE') {
+                console.log('Failed using upgrade.upgrade_cluster, using cluster_internal.upgrade_cluster', err.rpc_code);
+                return rpc_client.cluster_internal.upgrade_cluster();
+            } else {
+                throw err;
+            }
+        });
+}
 
 /*
  * Test Skeleton/Flow
@@ -315,7 +332,7 @@ function test_second_step() {
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before local disk'))
         .then(() => _fill_local_disk() //Full local disk & verify failure
             .delay(10000)
-            .then(() => rpc_client.upgrade.upgrade_cluster())
+            .then(() => _call_upgrade())
             .then(() => _verify_upgrade_status('FAILED', 'SUCCESS', '2nd step of upgrade, verify failure on not enough local disk'))
             .then(() => agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
             .delay(10000)) //clean local disk
@@ -327,7 +344,7 @@ function test_second_step() {
                 timezone: "Asia/Jerusalem",
                 epoch: 1514798132
             })
-            .then(() => rpc_client.upgrade.upgrade_cluster())
+            .then(() => _call_upgrade())
             .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew'))
             //Reset time back to normal
             .then(() => rpc_client.cluster_server.update_time_config({
@@ -338,7 +355,7 @@ function test_second_step() {
             .delay(25000)) //time update restarts the services
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time'))
-        .then(() => rpc_client.upgrade.upgrade_cluster());
+        .then(() => _call_upgrade());
     //NBNB need to wait for server and verify upgrade was successfull
 }
 

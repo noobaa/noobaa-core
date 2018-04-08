@@ -816,6 +816,19 @@ class AzureFunctions {
             }));
     }
 
+    listVirtualMachinesBySuffix(suffix) {
+        return P.fromCallback(callback => this.computeClient.virtualMachines.list(this.resourceGroupName, callback))
+            .then(machines_in_rg => {
+                var machines_with_string = [];
+                return P.map(machines_in_rg, machine => {
+                        if (machine.name.endsWith(suffix)) {
+                            machines_with_string.push(machine.name);
+                        }
+                    })
+                    .then(() => machines_with_string);
+            });
+    }
+
     listVirtualMachines(prefix, status) {
         return P.fromCallback(callback => this.computeClient.virtualMachines.list(this.resourceGroupName, callback))
             .then(machines_in_rg => {

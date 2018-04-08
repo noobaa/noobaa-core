@@ -29,6 +29,7 @@ const {
     id,
     location = 'westus2',
     clean_only,
+    clean_by_id,
     cleanup,
     upgrade,
     rerun_upgrade,
@@ -38,6 +39,7 @@ const {
     shell_script,
     skip_agent_creation = false,
     skip_server_creation = false,
+    server_external_ip = false,
     num_agents = oses.length,
     help,
     min_required_agents = 7,
@@ -113,7 +115,11 @@ function prepare_server() {
         })
         .then(new_secret => {
             server.secret = new_secret;
-            return azf.getIpAddress(server.name + '_pip');
+            if (server_external_ip) {
+                return azf.getIpAddress(server.name + '_pip');
+            } else {
+                return azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
+            }
         })
         .then(ip => {
             server.ip = ip;
@@ -285,15 +291,26 @@ function run_tests() {
 }
 
 function clean_test_env() {
-    const vms_to_delete = [
-        ...agents.map(agent => agent.name),
-        server.name.replace(/_/g, '-')
-    ];
-    console.log(`deleting virtual machines`, vms_to_delete);
-    return P.map(vms_to_delete, vm =>
-        azf.deleteVirtualMachine(vm)
-        .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
-    );
+    if (clean_by_id) {
+        return azf.listVirtualMachinesBySuffix(id)
+            .then(vms_to_delete => {
+                console.log(`deleting virtual machines`, vms_to_delete);
+                return P.map(vms_to_delete, vm =>
+                    azf.deleteVirtualMachine(vm)
+                    .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
+                );
+            });
+    } else {
+        let vms_to_delete = [
+            ...agents.map(agent => agent.name),
+            server.name.replace(/_/g, '-')
+        ];
+        console.log(`deleting virtual machines`, vms_to_delete);
+        return P.map(vms_to_delete, vm =>
+            azf.deleteVirtualMachine(vm)
+            .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
+        );
+    }
 }
 
 function create_agents_plan() {
@@ -330,24 +347,27 @@ function print_usage() {
     console.log(`
 Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storage <storage-account> --name <server-name> --id <run id>
   --help               show this usage
-
   --resource <resource-group> the azure resource group to use
   --storage <storage-account> the azure storage account to use
   --vnet <vnet>               the azure virtual network to use
   --name                      the vm name
   --id                        run id - will be added to server name and agents
-
-  --cleanup                   delete all resources from azure env after the run
   --clean_only                only delete resources from previous runs
+  --clean_by_id               delete all the machines with the specifyed id
+  --cleanup                   delete all resources from azure env after the run
   --upgrade                   path to an upgrade package
+  --rerun_upgrade             reruning the upgrade after the first upgrade
+  --server_ip                 existing server secret
+  --server_secret             existing server ip
   --js_script                 js script to run after env is ready (receives server_name, server_ip server_secret arguments)
   --shell_script              shell script to run after env is ready
-  --min_required_agents       min number of agents required to run the desired tests, will fail if could not create this number of agents
-  --num_agents                number of agents to create, default is ${oses.length}
   --skip_agent_creation       do not create new agents
   --skip_server_creation      do not create a new server, --server_ip and --server_secret must be supplied
-  --server_secret             existing server ip
-  --server_ip                 existing server secret
+  --server_external_ip        running with the server external ip (default: internal)
+  --num_agents                number of agents to create, default is (default: ${num_agents})
+  --min_required_agents       min number of agents required to run the desired tests, will fail if could not create this number of agents
+  --min_required_agents       the minimum number of required agents (default: ${min_required_agents})
+  --vm_size                   vm size can be A (A2) or B (B2) (default: ${vm_size})
 `);
 }
 

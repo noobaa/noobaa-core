@@ -211,7 +211,7 @@ function authenticate_request(req, res) {
 
 function parse_op_name(req) {
     // TODO S3_VIRTUAL_HOST_SUFFIX should get dns_name of the server and use '.'+dns_name
-    const virtual_host_suffix = process.env.S3_VIRTUAL_HOST_SUFFIX;
+    const virtual_host_suffix = req.virtual_host_suffix;
     const method = req.method.toLowerCase();
     const host = req.headers.host.split(':')[0]; // cutting off port
     const url = req.url;

@@ -102,32 +102,6 @@ function _prepare_nodes_query(req) {
     return query;
 }
 
-
-/*
- * GET_RANDOM_TEST_NODES
- * return X random nodes for self test purposes
- */
-function get_test_nodes(req) {
-    const list_res = monitor.list_nodes({
-        system: String(req.system._id),
-        online: true,
-        decommissioning: false,
-        decommissioned: false,
-        deleting: false,
-        deleted: false,
-        skip_address: req.rpc_params.source,
-        skip_cloud_nodes: true,
-        skip_mongo_nodes: true,
-        skip_internal: true
-    }, {
-        pagination: true,
-        limit: req.rpc_params.count,
-        sort: 'shuffle'
-    });
-    return _.map(list_res.nodes,
-        node => _.pick(node, 'name', 'rpc_address'));
-}
-
 function allocate_nodes(req) {
     const params = req.rpc_params;
     params.system = String(req.system._id);
@@ -152,7 +126,7 @@ exports.recommission_node = req => monitor.recommission_node(req);
 exports.delete_node = req => monitor.delete_node(req.rpc_params);
 exports.list_nodes = list_nodes;
 exports.aggregate_nodes = aggregate_nodes;
-exports.get_test_nodes = get_test_nodes;
+exports.get_test_nodes = req => monitor.get_test_nodes(req);
 exports.allocate_nodes = allocate_nodes;
 exports.get_node_ids = req => monitor.get_node_ids(req);
 exports.aggregate_data_free_by_tier = req => nodes_aggregator.aggregate_data_free_by_tier(req);

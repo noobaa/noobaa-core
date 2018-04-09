@@ -3348,6 +3348,37 @@ class NodesMonitor extends EventEmitter {
             }));
     }
 
+    /*
+     * GET_RANDOM_TEST_NODES
+     * return X random nodes for self test purposes
+     */
+    get_test_nodes(req) {
+        const list_res = this.list_nodes({
+            system: String(req.system._id),
+            online: true,
+            decommissioning: false,
+            decommissioned: false,
+            deleting: false,
+            deleted: false,
+            skip_address: req.rpc_params.source,
+            skip_cloud_nodes: true,
+            skip_mongo_nodes: true,
+            skip_internal: true
+        }, {
+            pagination: true,
+            limit: req.rpc_params.count,
+            sort: 'shuffle'
+        });
+        const { rpc_params } = req;
+        const item = this._get_node({
+            rpc_address: rpc_params.source
+        });
+        this._dispatch_node_event(item, 'test_node',
+            `Node ${this._item_hostname(item)} was tested by ${req.account && req.account.email}`, req.account && req.account._id);
+        return _.map(list_res.nodes,
+            node => _.pick(node, 'name', 'rpc_address'));
+    }
+
     test_node_network(req) {
         const { rpc_params } = req;
         dbg.log0('test_node_network:', rpc_params);
@@ -3361,8 +3392,6 @@ class NodesMonitor extends EventEmitter {
             .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(res => {
                 dbg.log2('test_node_network', rpc_params, 'returned', res);
-                this._dispatch_node_event(item, 'test_node',
-                    `Node ${this._item_hostname(item)} was tested by ${req.account && req.account.email}`, req.account && req.account._id);
                 return res;
             });
     }

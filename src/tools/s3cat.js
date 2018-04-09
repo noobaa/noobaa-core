@@ -33,7 +33,8 @@ const s3 = new AWS.S3({
     endpoint: argv.endpoint,
     accessKeyId: argv.access_key,
     secretAccessKey: argv.secret_key,
-    s3ForcePathStyle: true,
+    s3ForcePathStyle: !argv.vhost,
+    s3BucketEndpoint: argv.vhost || false,
     signatureVersion: argv.sig, // s3 or v4
     computeChecksums: argv.checksum || false, // disabled by default for performance
     s3DisableBodySigning: !argv.signing || true, // disabled by default for performance
@@ -427,7 +428,7 @@ function get_object() {
 
         const data_size = parseInt(data.ContentLength, 10);
         const start_time = Date.now();
-        const speedometer = new Speedometer('Upload Speed');
+        const speedometer = new Speedometer('Download Speed');
 
         console.log('object size', size_utils.human_size(data_size));
 

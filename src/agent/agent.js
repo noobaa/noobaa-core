@@ -556,6 +556,12 @@ class Agent {
                 .then(() => {
                     dbg.log0('update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
+                    if (this.endpoint_info && this.endpoint_info.s3rver_process) {
+                        this.endpoint_info.s3rver_process.send({
+                            message: 'update_base_address',
+                            base_address: params.base_address
+                        });
+                    }
                     // on close the agent should call do_heartbeat again when getting the close event
                     this._server_connection.close();
                 });
@@ -678,6 +684,8 @@ class Agent {
         switch (message.code) {
             case 'WAITING_FOR_CERTS':
                 this.endpoint_info.s3rver_process.send({
+                    message: 'run_server',
+                    base_address: this.base_address,
                     certs: this._ssl_certs,
                     host_id: this._host_id,
                     node_id: this._node_id

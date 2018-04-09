@@ -33,6 +33,7 @@ const ObjectSDK = require('../sdk/object_sdk');
 const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
 const http_utils = require('../util/http_utils');
+const net_utils = require('../util/net_utils');
 
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
@@ -41,6 +42,11 @@ const { FtpFileSystemNB } = require('./ftp/ftp_filesystem');
 
 const ENDPOINT_BLOB_ENABLED = process.env.ENDPOINT_BLOB_ENABLED === 'true';
 const ENDPOINT_FTP_ENABLED = process.env.ENDPOINT_FTP_ENABLED === 'true';
+
+// this variable is used to save the dns suffix for virtual hosting of buckets
+// it will be updated using update_virtual_host_suffix when getting updated on new base_address if agent
+// or when a system store load was done if server
+let virtual_host_suffix;
 
 function start_all() {
     dbg.set_process_name('Endpoint');
@@ -66,7 +72,14 @@ function start_all() {
         let waiting = true;
 
         process.on('message', params => {
-            if (waiting) {
+            if (params.message === 'update_base_address') {
+                if (params.base_address) update_virtual_host_suffix(params.base_address);
+            } else if (params.message === 'run_server') {
+                if (params.base_address) update_virtual_host_suffix(params.base_address);
+                if (!waiting) {
+                    dbg.warn(`got ssl certificates, but already running server 8-O`);
+                    return;
+                }
                 waiting = false;
                 dbg.log0(`got ssl certificates. running server`);
                 run_server({
@@ -90,6 +103,9 @@ function start_all() {
             })
             .delay(30 * 1000));
     } else {
+        const system_store = require('../server/system_services/system_store').get_instance(); // eslint-disable-line global-require
+        system_store.on('load', () => update_virtual_host_suffix(system_store.data.systems[0].base_address));
+        system_store.refresh();
         run_server({
             s3: true,
             lambda: true,
@@ -127,6 +143,7 @@ function run_server(options) {
                 return md_server.register_rpc();
             } else {
                 dbg.log0('Initialize S3 RPC to address', params.address);
+                update_virtual_host_suffix(params.address);
                 return api.new_rpc(params.address);
             }
         })
@@ -220,6 +237,7 @@ function create_endpoint_handler(rpc, options) {
             return blob_rest_handler(req, res);
         }
 
+        if (virtual_host_suffix) req.virtual_host_suffix = virtual_host_suffix;
         req.object_sdk = new ObjectSDK(rpc.new_client(), object_io);
         return s3_rest_handler(req, res);
     }
@@ -309,6 +327,15 @@ function setup_http_server(server) {
     // socket._readableState.highWaterMark = 1024 * 1024;
     // socket.setNoDelay(true);
     // });
+}
+
+function update_virtual_host_suffix(base_address) {
+    const suffix = base_address && url.parse(base_address).hostname;
+    if (net_utils.is_fqdn(suffix)) {
+        virtual_host_suffix = '.' + suffix;
+    } else {
+        virtual_host_suffix = undefined;
+    }
 }
 
 exports.start_all = start_all;

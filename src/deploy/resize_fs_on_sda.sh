@@ -19,3 +19,11 @@ else
     resize2fs /dev/sda1
 fi
 logger -s -t resize_fs_on_sda "Done."
+
+
+#For Azure 
+#fdisk on /dev/sda
+# delete partition 2 (d 2)
+# create new partition 2 (n p 2)
+# reboot
+# xfs_growfs -d /dev/sda2

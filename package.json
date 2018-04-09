@@ -53,13 +53,12 @@
   },
   "homepage": "https://github.com/noobaa/noobaa-core",
   "browser": {
-    "nb_native": false,
-    "nb_native_nan": false,
     "express": false,
     "morgan": false,
     "compression": false,
     "bindings": false,
     "ws": false,
+    "./src/util/nb_native": false,
     "./config-local": false
   },
   "dependencies": {

@@ -18,7 +18,7 @@ module.exports = {
 };
 
 const TEST_CFG_DEFAULTS = {
-    server: '127.0.0.1', // local run on noobaa server
+    server_ip: '127.0.0.1', // local run on noobaa server
     bucket: 'first.bucket', // default bucket
     part_num_low: 2, // minimum 2 part - up to 100MB
     part_num_high: 10, // maximum 10 parts - down to 5MB - s3 minimum
@@ -188,7 +188,7 @@ let TEST_STATE = {
 
 function usage() {
     console.log(`
-    --server            -   azure location (default: ${TEST_CFG_DEFAULTS.server})
+    --server_ip         -   azure location (default: ${TEST_CFG_DEFAULTS.server_ip})
     --bucket            -   bucket to run on (default: ${TEST_CFG_DEFAULTS.bucket})
     --part_num_low      -   min part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_low})
     --part_num_high     -   max part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_high}) 
@@ -293,7 +293,7 @@ function set_fileSize() {
  * ACTIONS
  *********/
 function read_randomizer() {
-    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .tap(res => console.info(`Selected to download: ${res.Key}, size: ${res.Size}`))
         .then(res => ({
             filename: res.Key
@@ -303,13 +303,13 @@ function read_randomizer() {
 function read(params) {
     console.log(`running read`);
     return P.resolve()
-        .then(() => s3ops.get_file_check_md5(TEST_CFG.server, TEST_CFG.bucket, params.filename));
+        .then(() => s3ops.get_file_check_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename));
 }
 
 function read_range_randomizer() {
     let rand_parts = (Math.floor(Math.random() * (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
         TEST_CFG.part_num_low);
-    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .tap(res => console.info(`Selected to download: ${res.Key}, size: ${res.Size}, with ${rand_parts} ranges`))
         .then(res => ({
             filename: res.Key,
@@ -320,7 +320,7 @@ function read_range_randomizer() {
 function read_range(params) {
     console.log(`running read_range`);
     return P.resolve()
-        .then(() => s3ops.get_file_ranges_check_md5(TEST_CFG.server, TEST_CFG.bucket, params.filename, params.rand_parts));
+        .then(() => s3ops.get_file_ranges_check_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename, params.rand_parts));
 }
 
 function upload_new_randomizer() {
@@ -360,7 +360,7 @@ function upload_new(params) {
                 }
                 console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
                 return s3ops.upload_file_with_md5(
-                        TEST_CFG.server, TEST_CFG.bucket, params.file_name,
+                        TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name,
                         params.rand_size, params.rand_parts, TEST_CFG.data_multiplier)
                     .then(res => {
                         console.log(`file multi-part uploaded was
@@ -383,7 +383,8 @@ function upload_new(params) {
                     ${TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
             }
             console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
-            return s3ops.put_file_with_md5(TEST_CFG.server, TEST_CFG.bucket, params.file_name, params.rand_size, TEST_CFG.data_multiplier)
+            return s3ops.put_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket,
+                    params.file_name, params.rand_size, TEST_CFG.data_multiplier)
                 .then(res => {
                     console.log(`file uploaded was ${params.file_name}`);
                     TEST_STATE.current_size += params.rand_size;
@@ -418,10 +419,10 @@ function upload_abort_randomizer() {
 function upload_and_abort(params) {
     console.log(`running upload multi-part and abort`);
     console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
-    return P.join(s3ops.upload_file_with_md5(TEST_CFG.server, TEST_CFG.bucket, params.file_name,
+    return P.join(s3ops.upload_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name,
             params.rand_size, params.rand_parts, TEST_CFG.data_multiplier, true),
-        promise_utils.retry(2, 1000, () => s3ops.get_object_uploadId(TEST_CFG.server, TEST_CFG.bucket, params.file_name))
-        .then(upload_id => s3ops.abort_multipart_upload(TEST_CFG.server, TEST_CFG.bucket, params.file_name, upload_id))
+        promise_utils.retry(2, 1000, () => s3ops.get_object_uploadId(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name))
+        .then(upload_id => s3ops.abort_multipart_upload(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name, upload_id))
         .then(() => console.log(`file multi-part uploaded ${params.file_name} with ${params.rand_parts} parts was aborted`)));
 }
 
@@ -433,7 +434,7 @@ function upload_overwrite_randomizer() {
         rand_parts = (Math.floor(Math.random() * (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
             TEST_CFG.part_num_low);
     }
-    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .then(rfile => {
             let res = {
                 is_multi_part,
@@ -453,7 +454,7 @@ function upload_overwrite(params) {
         if (params.rand_size / params.rand_parts >= 5) {
             console.log(`running upload overwrite - multi-part`);
             return s3ops.upload_file_with_md5(
-                    TEST_CFG.server, TEST_CFG.bucket, params.filename,
+                    TEST_CFG.server_ip, TEST_CFG.bucket, params.filename,
                     params.rand_size, params.rand_parts, TEST_CFG.data_multiplier)
                 .tap(() => console.log(`file upload (multipart) overwritten was ${params.filename} with ${params.rand_parts} parts`))
                 .then(() => {
@@ -468,7 +469,7 @@ function upload_overwrite(params) {
     } else {
         console.log(`running upload overwrite`);
         return s3ops.put_file_with_md5(
-                TEST_CFG.server, TEST_CFG.bucket, params.filename,
+                TEST_CFG.server_ip, TEST_CFG.bucket, params.filename,
                 params.rand_size, TEST_CFG.data_multiplier)
             .tap(name => console.log(`file upload (put) overwritten was ${params.filename}`))
             .then(() => {
@@ -481,7 +482,7 @@ function upload_overwrite(params) {
 
 function server_side_copy_randomizer() {
     let file_name = get_filename();
-    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .then(res => ({
             new_filename: file_name,
             old_filename: res.Key
@@ -490,11 +491,11 @@ function server_side_copy_randomizer() {
 
 function server_side_copy(params) {
     console.log(`running server_side copy object from ${params.old_filename} to ${params.new_filename}`);
-    return s3ops.server_side_copy_file_with_md5(TEST_CFG.server, TEST_CFG.bucket, params.old_filename, params.new_filename)
+    return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename, params.new_filename)
         .then(res => {
             TEST_STATE.count += 1;
             console.log(`file copied to: ${params.new_filename}`);
-            return s3ops.get_file_size(TEST_CFG.server, TEST_CFG.bucket, params.new_filename)
+            return s3ops.get_file_size(TEST_CFG.server_ip, TEST_CFG.bucket, params.new_filename)
                 .then(size => {
                     TEST_STATE.current_size += size;
                 });
@@ -503,7 +504,7 @@ function server_side_copy(params) {
 
 function client_side_copy_randomizer() {
     let file_name = get_filename();
-    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .then(res => ({
             new_filename: file_name,
             old_filename: res.Key
@@ -512,11 +513,11 @@ function client_side_copy_randomizer() {
 
 function client_side_copy(params) {
     console.log(`running client_side copy object from ${params.old_filename} to ${params.new_filename}`);
-    return s3ops.client_side_copy_file_with_md5(TEST_CFG.server, TEST_CFG.bucket, params.old_filename, params.new_filename)
+    return s3ops.client_side_copy_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename, params.new_filename)
         .then(res => {
             TEST_STATE.count += 1;
             console.log(`file copied to: ${params.new_filename}`);
-            return s3ops.get_file_size(TEST_CFG.server, TEST_CFG.bucket, params.new_filename)
+            return s3ops.get_file_size(TEST_CFG.server_ip, TEST_CFG.bucket, params.new_filename)
                 .then(size => {
                     TEST_STATE.current_size += size;
                 });
@@ -525,7 +526,7 @@ function client_side_copy(params) {
 
 function rename_randomizer() {
     let file_name = get_filename();
-    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .then(res => ({
             new_filename: file_name,
             old_filename: res.Key
@@ -534,8 +535,8 @@ function rename_randomizer() {
 
 function run_rename(params) {
     console.log(`running rename object from ${params.old_filename} to ${params.new_filename}`);
-    return s3ops.server_side_copy_file_with_md5(TEST_CFG.server, TEST_CFG.bucket, params.old_filename, params.new_filename)
-        .then(() => s3ops.delete_file(TEST_CFG.server, TEST_CFG.bucket, params.old_filename));
+    return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename, params.new_filename)
+        .then(() => s3ops.delete_file(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename));
 }
 
 function set_attribute_randomizer() {
@@ -545,7 +546,7 @@ function set_attribute_randomizer() {
     let useCopy = Math.floor(Math.random() * 2) === 0;
     useCopy = true; //currently doing only copy due to bug #3228
 
-    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .then(res => ({
             filename: res.Key,
             useCopy: useCopy
@@ -556,15 +557,15 @@ function set_attribute(params) {
     console.log(`running set attribute for ${params.filename}`);
     if (params.useCopy) {
         console.log(`setting attribute using copyObject`);
-        return s3ops.set_file_attribute_with_copy(TEST_CFG.server, TEST_CFG.bucket, params.filename);
+        return s3ops.set_file_attribute_with_copy(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename);
     } else {
         console.log(`setting attribute using putObjectTagging`);
-        return s3ops.set_file_attribute(TEST_CFG.server, TEST_CFG.bucket, params.filename);
+        return s3ops.set_file_attribute(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename);
     }
 }
 
 function delete_randomizer() {
-    return s3ops.get_a_random_file(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .then(res => ({
             filename: res.Key,
             size: res.Size
@@ -573,11 +574,11 @@ function delete_randomizer() {
 
 function run_delete(params) {
     console.log(`runing delete`);
-    return s3ops.get_file_number(TEST_CFG.server, TEST_CFG.bucket, DATASET_NAME)
+    return s3ops.get_file_number(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .then(object_number => {
             // won't delete the last file in the bucket
             if (object_number > 1) {
-                return s3ops.delete_file(TEST_CFG.server, TEST_CFG.bucket, params.filename)
+                return s3ops.delete_file(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename)
                     .then(() => {
                         TEST_STATE.current_size -= Math.floor(params.size / TEST_CFG.data_multiplier);
                     });

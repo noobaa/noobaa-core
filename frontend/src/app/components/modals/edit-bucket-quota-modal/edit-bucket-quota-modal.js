@@ -60,6 +60,17 @@ function _findMaxQuotaPossible(data) {
     }
 }
 
+function _getQuota(formValues, bucket) {
+    if (formValues) {
+        const size = Number.isInteger(formValues.size) ? Math.max(formValues.size, 0) : 0;
+        const unit = formValues.unit;
+        return { size, unit };
+
+    } else {
+        return bucket.quota || _findMaxQuotaPossible(bucket.data);
+    }
+}
+
 class EditBucketQuotaModalViewModel extends Observer {
     constructor({ bucketName }) {
         super();
@@ -123,10 +134,7 @@ class EditBucketQuotaModalViewModel extends Observer {
 
         const formValues = form && mapValues(form.fields, field => field.value);
         const enabled = formValues ? formValues.enabled : Boolean(bucket.quota);
-        const quota = formValues ?
-            { size: Math.max(formValues.size, 0), unit: formValues.unit } :
-            (bucket.quota || _findMaxQuotaPossible(bucket.data));
-
+        const quota = _getQuota(formValues, bucket);
         const breakdown = getDataBreakdown(bucket.data, enabled ? quota : undefined);
         const potential = sumSize(breakdown.potentialForUpload, breakdown.potentialForSpillover);
         this.barValues[0].value(toBytes(breakdown.used));
@@ -167,10 +175,10 @@ class EditBucketQuotaModalViewModel extends Observer {
 
     onValidate(values) {
         const errors = {};
+        const { size, enabled } = values;
 
-        const size = Number(values.size);
-        if (values.enabled && (!Number.isInteger(size) || size < 1)) {
-            errors.size = 'Must be a number bigger or equal to 1';
+        if (enabled && (!Number.isInteger(size) || size < 1)) {
+            errors.size = 'Must be an integer bigger or equal to 1';
         }
 
         return errors;

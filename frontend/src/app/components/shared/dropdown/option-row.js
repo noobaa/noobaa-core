@@ -55,7 +55,7 @@ export default class OptionRowViewModel {
         const isSelected = selectedValues.includes(value);
 
         this.value(value);
-        this.label(label);
+        this.label(label.toString());
         this.remark(remark);
         this.icon(isSelected ? selectedIcon : icon);
         this.tooltip(_getOptionTooltip(option.tooltip));

@@ -31,6 +31,8 @@ let {
     storage,
     vnet,
     skipsetup = false,
+    keepenv = false,
+    updateenv = false,
     clean = false,
     help = false
 } = argv;
@@ -55,6 +57,8 @@ function usage() {
     --id            -   an id that is attached to the agents name
     --upgrade_pack  -   location of the file for upgrade
     --skipsetup     -   skipping creation and deletion of agents.
+    --keepenv       -   skipping deletion of agents at the of the test
+    --updateenv     -   checking for existing agents and adding missing ones
     --clean         -   will only delete the env and exit.
     --help          -   show this help
     `);
@@ -135,8 +139,24 @@ function createAgents(isInclude, excludeList) {
             test_nodes_names = res;
         })
         .then(() => {
+            let osesToCreate = oses.slice();
+            //setting the agent list to empty in case of skipsetup
+            if (skipsetup) {
+                osesToCreate = [];
+            }
+            //getting the list of missing agents in case of updating environment
+            if (updateenv) {
+                for (let i = 0; i < test_nodes_names.length; i++) {
+                    for (let j = 0; j < oses.length; j++) {
+                        if (test_nodes_names[i].startsWith(oses[j])) {
+                            osesToCreate.splice(j, 1);
+                        }
+                    }
+                }
+            }
+
             if (isInclude) {
-                return P.map(oses, osname => azf.createAgent({
+                return P.map(osesToCreate, osname => azf.createAgent({
                         vmName: osname + suffix,
                         storage,
                         vnet,
@@ -162,10 +182,8 @@ function createAgents(isInclude, excludeList) {
 }
 
 function runCreateAgents(isInclude, excludeList) {
-    if (!skipsetup) {
-        return createAgents(isInclude, excludeList);
-    }
-    return af.list_nodes(server_ip)
+    return createAgents(isInclude, excludeList)
+     .then(() => af.list_nodes(server_ip))
         .then(res => {
             let node_number_after_create = res.length;
             console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
@@ -472,7 +490,7 @@ function main() {
             system: 'demo'
         })))
         //deleteing the previous test agents machins.
-        .then(() => skipsetup || runClean())
+        .then(() => (skipsetup || updateenv) || runClean())
         // checking the include disk cycle (happy path).
         .then(() => includeExcludeCycle(true))
         // checking the exclude disk cycle.
@@ -482,7 +500,7 @@ function main() {
         .then(() => {
             console.warn('End of Test, cleaning.');
             if (errors.length === 0) {
-                if (!skipsetup) {
+                if (!skipsetup && !keepenv) {
                     console.log('deleing the virtual machines.');
                     return runClean()
                         .then(() => {

@@ -3,6 +3,8 @@
 import { runAsync } from 'utils/core-utils';
 import ko from 'knockout';
 
+const expandMaxHeight = '999px';
+
 export default {
     init(element, valueAccessor, allBindings, viewModel, bindingContext) {
         const classList = element.classList;
@@ -13,6 +15,7 @@ export default {
         classList.add('expandable');
         if (expanded()) {
             classList.add('expanded');
+            element.style.maxHeight = expandMaxHeight;
         } else {
             element.style.maxHeight = '0px';
         }
@@ -43,7 +46,6 @@ export default {
                 transitionend: () => {
                     if (expanded()) {
                         classList.add('expanded');
-                        element.style.removeProperty('max-height');
                     }
                 }
             }),

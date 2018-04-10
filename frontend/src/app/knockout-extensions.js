@@ -233,9 +233,9 @@ const copyrightsIdentifiers = deepFreeze([
     'noobaa'
 ]);
 const preprocessByNodeType = deepFreeze({
-    1: preprocessElement,
-    3: preprocessTextNode,
-    8: preprocessComment
+    [Node.ELEMENT_NODE]: preprocessElement,
+    [Node.TEXT_NODE]: preprocessTextNode,
+    [Node.COMMENT_NODE]: preprocessComment
 });
 
 
@@ -336,7 +336,3 @@ Object.entries(ko.bindingHandlers)
         if (lcName !== name) ko.bindingHandlers[lcName] = binding;
     });
 
-// -----------------------------------------
-// Export knokcout object for dev purposes
-// -----------------------------------------
-global.ko = ko;

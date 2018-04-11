@@ -9,13 +9,16 @@ const P = require('../../util/promise');
 const accessKeyDefault = '123';
 const secretKeyDefault = 'abc';
 
+require('../../util/dotenv').load();
+const port = process.env.ENDPOINT_PORT || 80;
+
 function validate_multiplier(multiplier) {
     if (!multiplier % 1024) throw new Error(`multiplier must be in multiples of 1024`);
 }
 
 function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
     validate_multiplier(multiplier);
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -54,7 +57,7 @@ function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
 }
 
 function server_side_copy_file_with_md5(ip, bucket, source, destination) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -104,7 +107,7 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multi
 }
 
 function get_file_check_md5(ip, bucket, file_name, return_data) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -148,7 +151,7 @@ function get_file_check_md5(ip, bucket, file_name, return_data) {
 }
 
 function get_file_ranges_check_md5(ip, bucket, file_name, parts) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -199,7 +202,7 @@ function get_file_ranges_check_md5(ip, bucket, file_name, parts) {
 }
 
 function check_MD5_all_objects(ip, bucket, prefix) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -230,7 +233,7 @@ function check_MD5_all_objects(ip, bucket, prefix) {
 }
 
 function get_a_random_file(ip, bucket, prefix) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -260,7 +263,7 @@ function get_a_random_file(ip, bucket, prefix) {
 }
 
 function get_list_files(ip, bucket, prefix) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -294,7 +297,7 @@ function get_list_files(ip, bucket, prefix) {
 }
 
 function get_list_multipart_uploads(ip, bucket) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -327,7 +330,7 @@ function get_list_multipart_uploads(ip, bucket) {
 }
 
 function get_list_multipart_uploads_filters(ip, bucket, delimiter, key_marker, max_uploads, prefix, uploadIdMarker) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -366,7 +369,7 @@ function get_list_multipart_uploads_filters(ip, bucket, delimiter, key_marker, m
 }
 
 function get_list_prefixes(ip, bucket) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -400,7 +403,7 @@ function get_list_prefixes(ip, bucket) {
 }
 
 function get_file_number(ip, bucket, prefix) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -426,7 +429,7 @@ function get_file_number(ip, bucket, prefix) {
 }
 
 function delete_file(ip, bucket, file_name) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -454,7 +457,7 @@ function delete_file(ip, bucket, file_name) {
 }
 
 function delete_folder(ip, bucket, ...list) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -471,7 +474,7 @@ function delete_folder(ip, bucket, ...list) {
 }
 
 function get_file_size(ip, bucket, file_name) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -494,7 +497,7 @@ function get_file_size(ip, bucket, file_name) {
 }
 
 function set_file_attribute(ip, bucket, file_name) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -522,7 +525,7 @@ function set_file_attribute(ip, bucket, file_name) {
 }
 
 function set_file_attribute_with_copy(ip, bucket, file_name) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -558,7 +561,7 @@ function set_file_attribute_with_copy(ip, bucket, file_name) {
 }
 
 function get_list_buckets(ip, accessKeyId = accessKeyDefault, secretAccessKey = secretKeyDefault) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId,
@@ -589,7 +592,7 @@ function get_list_buckets(ip, accessKeyId = accessKeyDefault, secretAccessKey = 
 }
 
 function create_bucket(ip, bucket_name) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -611,7 +614,7 @@ function create_bucket(ip, bucket_name) {
 }
 
 function delete_bucket(ip, bucket_name) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -631,7 +634,7 @@ function delete_bucket(ip, bucket_name) {
 }
 
 function get_object_uploadId(ip, bucket, object_name) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -649,7 +652,8 @@ function get_object_uploadId(ip, bucket, object_name) {
         .then(res => {
             list = res.Uploads;
             if (list.length === 0) {
-                console.warn('No objects in bucket ', bucket);
+                console.warn('No uploads for bucket ', bucket);
+                throw new Error('No upload for buckets' + bucket);
             } else {
                 //TODO:: What happends if find does not find anything
                 dataObject = list.find(content => content.Key === object_name);
@@ -666,7 +670,7 @@ function get_object_uploadId(ip, bucket, object_name) {
 }
 
 function get_bucket_uploadId(ip, bucket) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -698,7 +702,7 @@ function get_bucket_uploadId(ip, bucket) {
 }
 
 function is_bucket_exist(ip, bucket) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -719,7 +723,7 @@ function is_bucket_exist(ip, bucket) {
 }
 
 function get_object(ip, bucket, key) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -740,7 +744,7 @@ function get_object(ip, bucket, key) {
 }
 
 function get_object_range(ip, bucket, key, start_byte, finish_byte) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -763,7 +767,7 @@ function get_object_range(ip, bucket, key, start_byte, finish_byte) {
 }
 
 function abort_multipart_upload(ip, bucket, file_name, uploadId) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -794,7 +798,7 @@ function abort_multipart_upload(ip, bucket, file_name, uploadId) {
  * Internal Utils
  */
 function _multipart_upload_internal(ip, bucket, file_name, data, size, overlook_error) {
-    const rest_endpoint = 'http://' + ip + ':80';
+    const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,

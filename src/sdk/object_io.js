@@ -654,8 +654,6 @@ class ObjectIO {
      *
      */
     read_object_stream(params) {
-        var pos = Number(params.start) || 0;
-        const end = _.isUndefined(params.end) ? Infinity : Number(params.end);
         const reader = new stream.Readable({
             // highWaterMark Number - The maximum number of bytes to store
             // in the internal buffer before ceasing to read
@@ -670,6 +668,10 @@ class ObjectIO {
             objectMode: false,
         });
 
+        reader.pos = Number(params.start) || 0;
+        reader.end = _.isUndefined(params.end) ? Infinity : Number(params.end);
+        reader.pending = [];
+
         // close() is setting a flag to enforce immediate close
         // and avoid more reads made by buffering
         // which can cause many MB of unneeded reads
@@ -680,31 +682,36 @@ class ObjectIO {
         // implement the stream's Readable._read() function
         reader._read = requested_size => {
             if (reader.closed) {
-                dbg.log1('READ reader closed', pos);
+                dbg.log1('READ reader closed', reader.pos);
                 reader.push(null);
                 return;
             }
+            if (reader.pending.length) {
+                reader.push(reader.pending.shift());
+                return;
+            }
             const io_sem_size = _get_io_semaphore_size(requested_size);
-            const requested_end = Math.min(end, pos + requested_size);
+            const requested_end = Math.min(reader.end, reader.pos + requested_size);
             this._io_buffers_sem.surround_count(io_sem_size, () => P.resolve()
                     .then(() => this.read_object_with_cache({
                         client: params.client,
                         obj_id: params.obj_id,
                         bucket: params.bucket,
                         key: params.key,
-                        start: pos,
+                        start: reader.pos,
                         end: requested_end,
                     }))
                     .then(buffers => {
                         if (buffers && buffers.length) {
                             for (let i = 0; i < buffers.length; ++i) {
-                                pos += buffers[i].length;
-                                reader.push(buffers[i]);
+                                reader.pos += buffers[i].length;
+                                reader.pending.push(buffers[i]);
                             }
-                            dbg.log1('READ reader pos', pos);
+                            dbg.log1('READ reader pos', reader.pos);
+                            reader.push(reader.pending.shift());
                         } else {
                             reader.push(null);
-                            dbg.log1('READ reader finished', pos);
+                            dbg.log1('READ reader finished', reader.pos);
                         }
                     })
                 )

@@ -118,6 +118,7 @@ function print_usage_lg() {
       --resource <resource-group> the azure resource group to use
       --storage <storage-account> the azure storage account to use
       --vnet <vnet>               the azure virtual network to use
+      --lg_suffix <suffix>        add a suffix to the LG machine name  
     `);
 }
 
@@ -381,9 +382,10 @@ function _runAgent() {
 }
 
 function _runLG() {
+    const lg_suffix = argv.lg_suffix || '';
     return azf.authenticate()
         .then(() => azf.createLGFromImage({
-            vmName: 'LG',
+            vmName: 'LG' + lg_suffix,
             vnet: argv.vnet,
             storage: argv.storage,
         }));

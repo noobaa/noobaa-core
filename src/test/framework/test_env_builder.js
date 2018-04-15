@@ -39,6 +39,8 @@ const {
     shell_script,
     skip_agent_creation = false,
     skip_server_creation = false,
+    create_lg = false,
+    lg_ip,
     server_external_ip = false,
     num_agents = oses.length,
     help,
@@ -50,6 +52,7 @@ dbg.set_process_name('test_env_builder');
 
 const agents = create_agents_plan();
 const server = { name: name + '-' + id, ip: server_ip, secret: server_secret };
+const lg = { name: 'loadGenerator-' + name + '-' + id, ip: lg_ip };
 const created_agents = [];
 let vmSize;
 
@@ -74,7 +77,7 @@ function main() {
             }
         })
         // create server and agents vms
-        .then(() => P.join(prepare_server(), prepare_agents()))
+        .then(() => P.join(prepare_server(), prepare_agents(), prepare_lg()))
         .spread((dummy, agents_ips) => install_agents())
         .then(upgrade_test_env)
         .then(run_tests)
@@ -236,7 +239,33 @@ function install_agents() {
             }));
 }
 
-
+function prepare_lg() {
+    if (create_lg) {
+        return azf.authenticate()
+            .then(() => azf.createLGFromImage({
+                vmName: lg.name,
+                vnet: argv.vnet,
+                storage: argv.storage,
+            }))
+            .then(() => {
+                if (server_external_ip) {
+                    return azf.getIpAddress(lg.name + '_pip');
+                } else {
+                    return azf.getPrivateIpAddress(`${lg.name}_nic`, `${lg.name}_ip`);
+                }
+            })
+            .then(ip => {
+                lg.ip = ip;
+                console.log(`lg_info is`, lg);
+            })
+            .catch(err => {
+                console.error(`prepare_lg failed. lg name: ${lg.name}`, err);
+                throw err;
+            });
+    } else {
+        return P.resolve();
+    }
+}
 
 // upgrade server to the required version.
 // currently using sanity_build_test.js script
@@ -357,12 +386,14 @@ Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storag
   --cleanup                   delete all resources from azure env after the run
   --upgrade                   path to an upgrade package
   --rerun_upgrade             reruning the upgrade after the first upgrade
-  --server_ip                 existing server secret
-  --server_secret             existing server ip
+  --server_ip                 existing server ip
+  --server_secret             existing server secret
   --js_script                 js script to run after env is ready (receives server_name, server_ip server_secret arguments)
   --shell_script              shell script to run after env is ready
   --skip_agent_creation       do not create new agents
   --skip_server_creation      do not create a new server, --server_ip and --server_secret must be supplied
+  --create_lg                 create lg
+  --lg_ip                     existing lg ip
   --server_external_ip        running with the server external ip (default: internal)
   --num_agents                number of agents to create, default is (default: ${num_agents})
   --min_required_agents       min number of agents required to run the desired tests, will fail if could not create this number of agents

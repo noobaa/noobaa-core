@@ -29,6 +29,10 @@ if (dont_strip) {
     strip_ansi_from_output = true;
 }
 
+if (help) {
+    usage();
+    process.exit(1);
+}
 
 const api = require('../../api');
 let rpc = api.new_rpc(`wss://${server_ip}:8443`);
@@ -43,11 +47,6 @@ function usage() {
     --cycles        -   Number of cycles (default ${cycles})
     --help          -   Show this help
     `);
-}
-
-if (help) {
-    usage();
-    process.exit(1);
 }
 
 //define colors

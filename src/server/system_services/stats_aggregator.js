@@ -32,7 +32,6 @@ const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 const ALERT_LOW_TRESHOLD = 10;
 const ALERT_HIGH_TRESHOLD = 20;
 
-var successfuly_sent_period = 0;
 var failed_sent = 0;
 
 /*
@@ -655,7 +654,6 @@ function _handle_payload(payload) {
         .catch(err => {
             failed_sent += 1;
             if (failed_sent > 5) {
-                successfuly_sent_period = 0;
                 let updates = {
                     _id: system_store.data.systems[0]._id.toString(),
                     freemium_cap: {

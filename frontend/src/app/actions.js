@@ -887,14 +887,6 @@ export function attemptResolveSystemName(name) {
         .done();
 }
 
-export function dismissUpgradedCapacityNotification() {
-    logAction('dismissUpgradedCapacityNotification');
-
-    api.system.phone_home_capacity_notified()
-        .then(() => action$.onNext(fetchSystemInfo()))
-        .done();
-}
-
 export function regenerateAccountCredentials(email, verificationPassword) {
     logAction('regenerateAccountCredentials', { email, verificationPassword: '*****' });
 

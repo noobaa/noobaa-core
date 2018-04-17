@@ -347,13 +347,6 @@ module.exports = {
             }
         },
 
-        phone_home_capacity_notified: {
-            method: 'POST',
-            auth: {
-                system: 'admin',
-            }
-        },
-
         update_hostname: {
             method: 'POST',
             params: {

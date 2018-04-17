@@ -3,37 +3,48 @@
 import template from './diagnostics-form.html';
 import Observer from 'observer';
 import ko from 'knockout';
+import { get } from 'rx-extensions';
 import { formatTimeLeftForDebugMode } from 'utils/diagnostic-utils';
 import { support, timeTickInterval } from 'config';
 import { action$, state$ } from 'state';
 import {
     setSystemDebugMode,
-    unsetSystemDebugMode,
     collectSystemDiagnostics
 } from 'action-creators';
 
-
 class DiagnosticsFormViewModel extends Observer {
+    isDebugModeOn = false;
     timeLeft = ko.observable();
-    systemLoaded = ko.observable();
-    buttonText = ko.observable();
+    isSystemLoaded = ko.observable();
+    toggleDebugModeButtonText = ko.observable();
     isCollectingDiagnostics = ko.observable();
-    contactSupport = [
+    contactInfo = [
         {
             label: 'By email',
-            value: support.email,
-            template: 'emailLink'
+            value:  {
+                text: support.email,
+                href: `mailto:${support.email}`,
+                target: '_self'
+            },
+            template: 'linkTemplate'
         },
         {
             label: 'Support center',
-            value: support.helpDesk,
-            template: 'helpDeskLink'
+            value: {
+                text: support.helpDesk,
+                href: support.helpDesk,
+                target: '_blank'
+            },
+            template: 'linkTemplate'
         }
     ];
     debugModeSheet = [
         {
             label: 'Debug Mode',
-            value: ko.observable(),
+            value: {
+                stateLabel: ko.observable(),
+                isWarningVisible: ko.observable()
+            },
             template: 'debugState'
         },
         {
@@ -48,47 +59,51 @@ class DiagnosticsFormViewModel extends Observer {
 
         this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
 
-        this.observe(state$.get('system'), this.onState);
+        this.observe(
+            state$.pipe(get('system')),
+            this.onState
+        );
+
     }
 
-    onState(systemState) {
-        if (!systemState) {
-            this.systemLoaded(false);
+    onState(system) {
+        if (!system) {
+            this.isSystemLoaded(false);
             this.isCollectingDiagnostics(false);
+            this.toggleDebugModeButtonText('Turn On System Debug Mode');
             return;
         }
 
-        const { debugMode, diagnostics } = systemState;
-        const isDebugMode = Boolean(debugMode);
-        const buttonText = `Turn ${isDebugMode ? 'Off' : 'On' } System Debug Mode`;
+        const { debugMode, diagnostics } = system;
+        const { timeLeft = 0, state: isDebugModeOn } = debugMode;
+        const toggleDebugModeButtonText = `Turn ${isDebugModeOn ? 'Off' : 'On' } System Debug Mode`;
+        const stateLabel = isDebugModeOn ? 'On' : 'Off';
+        const isTimeLeft = Boolean(timeLeft);
+        const timeLeftText = isDebugModeOn ? formatTimeLeftForDebugMode(isTimeLeft, timeLeft) : 'None';
 
+        this.isDebugModeOn = isDebugModeOn;
         this.isCollectingDiagnostics(diagnostics.collecting);
-        this.timeLeft(debugMode);
-        this.buttonText(buttonText);
-        this.debugModeSheet[0].value(isDebugMode);
-        this.debugModeSheet[1].disabled(!isDebugMode);
-        this.debugModeSheet[1].value(isDebugMode ?
-            formatTimeLeftForDebugMode(isDebugMode, debugMode) :
-            'None'
-        );
-        this.systemLoaded(true);
+        this.timeLeft(timeLeft);
+        this.toggleDebugModeButtonText(toggleDebugModeButtonText);
+        this.debugModeSheet[0].value.stateLabel(stateLabel);
+        this.debugModeSheet[0].value.isWarningVisible(isDebugModeOn);
+        this.debugModeSheet[1].disabled(!isDebugModeOn);
+        this.debugModeSheet[1].value(timeLeftText);
+        this.isSystemLoaded(true);
     }
 
-    toogleDebugMode() {
-        const action = this.timeLeft() ? unsetSystemDebugMode : setSystemDebugMode;
-        const level = this.timeLeft && 5;
-        action$.onNext(action(level));
+    toggleDebugMode() {
+        action$.next(setSystemDebugMode(!this.isDebugModeOn));
     }
 
-    downloadDiagnosticPack() {
-        action$.onNext(collectSystemDiagnostics());
+    onDownloadDiagnosticPack() {
+        action$.next(collectSystemDiagnostics());
     }
 
     onTick() {
         if (!this.timeLeft()) return;
 
-        const diff = this.timeLeft() - timeTickInterval;
-        const timeLeft = diff > 0 ? diff : undefined;
+        const timeLeft = Math.max(this.timeLeft() - timeTickInterval, 0);
         const isTimeLeft = Boolean(timeLeft);
         const timeLeftText = formatTimeLeftForDebugMode(isTimeLeft, timeLeft);
 

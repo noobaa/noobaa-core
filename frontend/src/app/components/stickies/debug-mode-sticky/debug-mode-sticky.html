@@ -3,12 +3,13 @@
 <section class="sticky" ko.css.active="isActive">
     <div class="sticky-content row content-middle">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
-
+        System is in debug mode and might exhibit temporary performance degradation
+        <vr></vr>
         <span class="greedy">
-            System is in debug mode and might exhibit temporary performance degradation
+            Time Left For Debugging
+            <span ko.text="timeLeftText"></span>
         </span>
-
-        <button class="link alt-colors" ko.click="onUnsetDebugMode">
+        <button class="link alt-colors" ko.click="onTurnOffDebugMode">
             Turn off debug mode
         </button>
     </div>

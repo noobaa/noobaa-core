@@ -2,7 +2,10 @@
 
 import { deepFreeze } from 'utils/core-utils';
 import { map } from 'rxjs/operators';
-import { COMPLETE_COLLECT_HOST_DIAGNOSTICS, COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS } from 'action-types';
+import {
+    COMPLETE_COLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS
+} from 'action-types';
 
 
 const actionToUriAccessor = deepFreeze({

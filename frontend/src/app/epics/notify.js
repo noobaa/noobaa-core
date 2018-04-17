@@ -455,12 +455,12 @@ const actionToNotification = deepFreeze({
     }),
 
     [types.COLLECT_SYSTEM_DIAGNOSTICS]: () => ({
-        message: 'Collecting system diagnostic, it may take a few seconds',
-        severity: 'success'
+        message: 'Collecting system diagnostics, it may take a few seconds',
+        severity: 'info'
     }),
 
     [types.FAIL_COLLECT_SYSTEM_DIAGNOSTICS]: () => ({
-        message: 'Collecting system diagnostic file failed',
+        message: 'Collecting system diagnostics failed',
         severity: 'error'
     })
 });

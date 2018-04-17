@@ -288,33 +288,24 @@ export function failLeaveMaintenanceMode(error) {
     };
 }
 
-export function setSystemDebugMode(level) {
-    const on = true;
-    return {
-        type: SET_SYSTEM_DEBUG_MODE,
-        payload: { on, level }
-    };
-}
-
-export function unsetSystemDebugMode() {
-    const on = false;
+export function setSystemDebugMode(on) {
     return {
         type: SET_SYSTEM_DEBUG_MODE,
         payload: { on }
     };
 }
 
-export function completeSetSystemDebugMode(enabled) {
+export function completeSetSystemDebugMode(on) {
     return {
         type: COMPLETE_SET_SYSTEM_DEBUG_MODE,
-        payload: { enabled }
+        payload: { on }
     };
 }
 
-export function failSetSystemDebugMode(enabled, error) {
+export function failSetSystemDebugMode(on, error) {
     return {
         type: FAIL_SET_SYSTEM_DEBUG_MODE,
-        payload: { enabled, error }
+        payload: { on, error }
     };
 }
 

@@ -4,7 +4,8 @@ export default {
         'ipAddress',
         'version',
         'maintenanceMode',
-        'diagnostics'
+        'diagnostics',
+        'debugMode'
     ],
     properties: {
         dnsName: {
@@ -98,7 +99,18 @@ export default {
             }
         },
         debugMode: {
-            type: 'integer'
+            type: 'object',
+            required: [
+                'state'
+            ],
+            properties: {
+                state: {
+                    type: 'boolean'
+                },
+                timeLeft: {
+                    type: 'integer'
+                }
+            }
         },
         diagnostics: {
             type: 'object',

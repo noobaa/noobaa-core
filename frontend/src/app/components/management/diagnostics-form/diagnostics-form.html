@@ -2,12 +2,9 @@
 
 <section class="column push-next">
     <h2 class="heading3 pad alt-bg">Contact Support</h2>
-    <property-sheet class="pad" params="properties: contactSupport">
-        <template name="emailLink">
-            <a class="link" ko.attr.href="'mailto:' + $data">{{$data}}</a>
-        </template>
-        <template name="helpDeskLink">
-            <a class="link" ko.attr.href="$data" target="_blank">{{$data}}</a>
+    <property-sheet class="pad" params="properties: contactInfo">
+        <template name="linkTemplate">
+            <a class="link" ko.attr.href="$data.href" ko.attr.target="$data.target">{{$data.text}}</a>
         </template>
     </property-sheet>
 </section>
@@ -19,26 +16,26 @@
         </div>
 
         <button class="btn align-start push-next"
-            ko.click="toogleDebugMode"
-            ko.text="buttonText"
-            ko.visible="systemLoaded"
+            ko.click="toggleDebugMode"
+            ko.text="toggleDebugModeButtonText"
+            ko.disabled="!isSystemLoaded()"
         ></button>
         <working-button class="align-start push-next" params="
             working: isCollectingDiagnostics,
             workingLabel: 'Collecting Data...',
-            click: downloadDiagnosticPack,
-            disabled: !systemLoaded()
+            click: onDownloadDiagnosticPack,
+            disabled: !isSystemLoaded()
         ">
             Download Diagnostics
         </working-button>
     </div>
     <property-sheet class="pad" params="
         properties: debugModeSheet,
-        loading: !systemLoaded()
+        loading: !isSystemLoaded()
     ">
         <template name="debugState">
-            <span ko.if="!$data">Off</span>
-            <span ko.if="$data">On</span> <span class="warning" ko.if="$data">(May cause system slowdown)</span>
+            {{$data.stateLabel}}
+            <span class="warning" ko.visible="$data.isWarningVisible">(May cause system slowdown)</span>
         </template>
     </property-sheet>
 

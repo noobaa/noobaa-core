@@ -16,11 +16,6 @@ import {
 // Initial State
 // ------------------------------
 const initialState = undefined;
-const initialSystemDiagnosticsState = {
-    collecting: false,
-    error: false,
-    packageUri: ''
-};
 
 // ------------------------------
 // Action Handlers
@@ -36,8 +31,12 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         maintenance_mode,
         debug
     } = payload;
-
-    const { releaseNotes } = state || {};
+    const { releaseNotes, diagnostics } = state || {};
+    const defaultDiagnostics = {
+        collecting: false,
+        error: false,
+        packageUri: ''
+    };
 
     return {
         version,
@@ -50,8 +49,12 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         maintenanceMode: {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
         },
-        debugMode: debug.time_left,
-        diagnostics: initialSystemDiagnosticsState
+        debugMode: {
+            state: Boolean(debug.level),
+            timeLeft: debug.time_left
+        },
+        diagnostics: diagnostics || defaultDiagnostics
+
     };
 }
 

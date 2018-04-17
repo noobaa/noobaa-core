@@ -219,7 +219,7 @@ function update_tier(req) {
                     if (new_cc_type === old_cc_type) {
                         desc_string = `Data resiliency configuration was updated to ${new_cc_type}. `;
                     } else {
-                        desc_string = `Data resiliency type was changed from ${new_cc_type} to ${old_cc_type}`;
+                        desc_string = `Data resiliency type was changed from ${old_cc_type} to ${new_cc_type}`;
                     }
                     if (new_cc_type === 'Replication') {
                         desc_string += `\nNumber of replicas: ${req.rpc_params.chunk_coder_config.replicas}`;

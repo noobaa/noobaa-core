@@ -302,7 +302,7 @@ function _check_network_configuration() {
                         if (!line) { // if didn't found the interface in the file
                             Dispatcher.instance().alert('MAJOR',
                                 system_store.data.systems[0]._id,
-                                `Net interface ${inter} was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
+                                `New network interface ${inter} was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
                             please configure it using the server console`);
                             dbg.log0('found new interface', inter);
                         }

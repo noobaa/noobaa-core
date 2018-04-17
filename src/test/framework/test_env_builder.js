@@ -299,7 +299,10 @@ function run_tests() {
         .then(() => {
             if (js_script) {
                 console.log(`running js script ${js_script} on ${server.name}`);
-                return promise_utils.fork(js_script, ['--server_name', server.name, '--server_ip', server.ip, '--server_secret', server.secret].concat(process.argv))
+                return promise_utils.fork(js_script, [
+                        '--server_name', server.name, '--server_ip', server.ip, '--server_secret', server.secret,
+                        '--lg_name', lg.name, '--lg_ip', lg.ip
+                    ].concat(process.argv))
                     .catch(err => {
                         console.log('Failed running script', err);
                         throw err;

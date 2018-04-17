@@ -74,7 +74,7 @@ function changeTierSetting(server_ip, bucket, data_frags, parity_frags, replicas
 
 
 function setQuotaBucket(server_ip, bucket_name, size, unit) {
-    console.log('Setting quota ' + size + unit + ' for bucket ' + bucket_name);
+    console.log(`Setting quota ${size} ${unit} for bucket ${bucket_name}`);
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     return client.create_auth_token(auth_params)
@@ -186,11 +186,12 @@ function checkIsSpilloverHasStatus(bucket_name, status, server_ip) {
             throw error;
         });
 }
+
 function getInternalStoragePool(server_ip) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     return client.create_auth_token(auth_params)
-    .then(() => client.system.read_system({}))
+        .then(() => client.system.read_system({}))
         .then(system => {
             for (let i = 0; i < system.pools.length; i++) {
                 if (system.pools[i].resource_type === 'INTERNAL') {

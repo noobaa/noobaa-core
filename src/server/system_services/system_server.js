@@ -471,8 +471,6 @@ function read_system(req) {
         }
 
         let phone_home_config = {};
-        phone_home_config.upgraded_cap_notification = system.freemium_cap.phone_home_upgraded ?
-            !system.freemium_cap.phone_home_notified : false;
         if (system.phone_home_proxy_address) {
             phone_home_config.proxy_address = system.phone_home_proxy_address;
         }
@@ -975,26 +973,6 @@ function update_phone_home_config(req) {
         .return();
 }
 
-function phone_home_capacity_notified(req) {
-    dbg.log0('phone_home_capacity_notified');
-
-    let update = {
-        _id: req.system._id,
-        freemium_cap: Object.assign({},
-            req.system.freemium_cap, {
-                phone_home_notified: true
-            }
-        )
-    };
-
-    return system_store.make_changes({
-            update: {
-                systems: [update]
-            }
-        })
-        .return();
-}
-
 
 function configure_remote_syslog(req) {
     let params = req.rpc_params;
@@ -1408,7 +1386,6 @@ exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
 exports.attempt_server_resolve = attempt_server_resolve;
 exports.update_phone_home_config = update_phone_home_config;
-exports.phone_home_capacity_notified = phone_home_capacity_notified;
 exports.update_hostname = update_hostname;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;

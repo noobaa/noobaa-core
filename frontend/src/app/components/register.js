@@ -54,7 +54,6 @@ export default function register(ko) {
     // Modals
     // -------------------------------
     ko.components.register('install-nodes-modal',                           require('./modals/install-nodes-modal/install-nodes-modal').default);
-    ko.components.register('upgraded-capacity-notification-modal',          require('./modals/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal').default);
     ko.components.register('welcome-modal',                                 require('./modals/welcome-modal/welcome-modal').default);
     ko.components.register('after-upgrade-modal',                           require('./modals/after-upgrade-modal/after-upgrade-modal').default);
     ko.components.register('add-cloud-resource-modal',                      require('./modals/add-cloud-resource-modal/add-cloud-resource-modal').default);

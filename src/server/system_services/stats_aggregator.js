@@ -674,25 +674,6 @@ function _handle_payload(payload) {
             throw err;
         })
         .then(() => {
-            successfuly_sent_period += config.central_stats.send_time_cycle;
-            failed_sent = 0;
-            if (successfuly_sent_period > config.central_stats.send_time &&
-                !system_store.data.systems[0].freemium_cap.phone_home_upgraded) {
-                let updates = {
-                    _id: system_store.data.systems[0]._id,
-                    freemium_cap: system_store.data.systems[0].freemium_cap,
-                };
-                updates.freemium_cap.phone_home_upgraded = true;
-                updates.freemium_cap.cap_terabytes =
-                    system_store.data.systems[0].freemium_cap.cap_terabytes + 10;
-                return system_store.make_changes({
-                    update: {
-                        systems: [updates]
-                    }
-                });
-            }
-        })
-        .then(() => {
             let system = system_store.data.systems[0];
             let support_account = _.find(system_store.data.accounts, account => account.is_support);
             return server_rpc.client.stats.object_usage_scrubber({}, {

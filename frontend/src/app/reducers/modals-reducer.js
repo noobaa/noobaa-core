@@ -8,7 +8,6 @@ import {
     REPLACE_MODAL,
     LOCK_MODAL,
     CLOSE_MODAL,
-    COMPLETE_FETCH_SYSTEM_INFO,
     UPGRADE_SYSTEM
 } from 'action-types';
 
@@ -78,16 +77,6 @@ function onCloseModal(modals, { payload }) {
     return modals.slice(0, -payload.count);
 }
 
-function onCompleteFetchSystemInfo(modals, { payload }) {
-    if (payload.phone_home_config.upgraded_cap_notification) {
-        return _openModal(modals, {
-            component: 'upgraded-capacity-notification-modal'
-        });
-    }
-
-    return modals;
-}
-
 function onUpgradeSystem() {
     return _openModal(initialState, {
         component: 'upgrading-system-modal',
@@ -129,6 +118,5 @@ export default createReducer(initialState, {
     [REPLACE_MODAL]: onReplaceModal,
     [LOCK_MODAL]: onLockModal,
     [CLOSE_MODAL]: onCloseModal,
-    [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
     [UPGRADE_SYSTEM]: onUpgradeSystem
 });

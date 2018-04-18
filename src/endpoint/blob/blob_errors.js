@@ -49,6 +49,10 @@ const errors_defs = [{
     code: 'InvalidBlobOrBlock',
     message: 'The specified blob or block content is invalid.',
     http_code: 400,
+}, {
+    code: 'BlobNotFound',
+    message: 'The specified blob does not exist.',
+    http_code: 404,
 }];
 
 for (const err_def of errors_defs) {

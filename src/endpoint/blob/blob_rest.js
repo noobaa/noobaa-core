@@ -12,6 +12,7 @@ const BLOB_MAX_BODY_LEN = 4 * 1024 * 1024;
 const RPC_ERRORS_TO_BLOB = Object.freeze({
     NO_SUCH_BUCKET: BlobError.ContainerNotFound,
     BUCKET_ALREADY_EXISTS: BlobError.ContainerAlreadyExists,
+    NO_SUCH_OBJECT: BlobError.BlobNotFound
 });
 
 const BLOB_OPS = load_ops();

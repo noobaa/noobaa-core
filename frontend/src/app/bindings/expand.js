@@ -1,6 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { runAsync } from 'utils/core-utils';
 import ko from 'knockout';
 
 export default {
@@ -18,23 +17,21 @@ export default {
         }
 
         let sub = expanded.subscribe(
-            expand => {
+            expand => requestAnimationFrame(() => {
                 const { style } = element;
                 if (expand) {
                     classList.add('expanding');
-
                     style.removeProperty('max-height');
                     let height = element.offsetHeight;
                     style.maxHeight = '0px';
-                    runAsync(() => { style.maxHeight = `${height}px`; });
+                    requestAnimationFrame(() => { style.maxHeight = `${height}px`; });
 
                 } else {
                     style.maxHeight = `${element.offsetHeight}px`;
-                    runAsync(() => { style.maxHeight = '0px'; });
-
                     classList.remove('expanding', 'expanded');
+                    requestAnimationFrame(() => { style.maxHeight = '0px'; });
                 }
-            }
+            })
         );
 
         ko.bindingHandlers.event.init(

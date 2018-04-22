@@ -591,6 +591,7 @@ function get_system_roles(req) {
  */
 
 async function add_external_connection(req) {
+    dbg.log0('add_external_connection:', req.rpc_params);
     const res = await check_external_connection(req);
     if (res.status !== 'SUCCESS') {
         throw new RpcError(res.error.code, res.error.message);
@@ -639,6 +640,7 @@ async function add_external_connection(req) {
 }
 
 function check_external_connection(req) {
+    dbg.log0('check_external_connection:', req.rpc_params);
     const { endpoint_type } = req.rpc_params;
     const params = req.rpc_params;
     const system = req.system;

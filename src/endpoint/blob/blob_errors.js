@@ -50,6 +50,14 @@ const errors_defs = [{
     message: 'The specified blob or block content is invalid.',
     http_code: 400,
 }, {
+    code: 'InvalidHeaderValue',
+    message: 'The value provided for one of the HTTP headers was not in the correct format.',
+    http_code: 400,
+}, {
+    code: 'OutOfRangeQueryParameterValue',
+    message: 'A query parameter specified in the request URI is outside the permissible range.',
+    http_code: 400,
+}, {
     code: 'BlobNotFound',
     message: 'The specified blob does not exist.',
     http_code: 404,

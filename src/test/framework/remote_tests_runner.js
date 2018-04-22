@@ -23,7 +23,6 @@ _.each(process.env, envKey => {
 
 
 const script = `
-pwd
 echo AZURE_SUBSCRIPTION_ID=${process.env.AZURE_SUBSCRIPTION_ID} > ${envDir}
 echo CLIENT_ID=${process.env.CLIENT_ID} >> ${envDir}
 echo APPLICATION_SECRET=${process.env.APPLICATION_SECRET} >> ${envDir}
@@ -43,11 +42,10 @@ npm install 1> /dev/null
 cp ${envDir} .env
 args=${process.argv}
 node ${script_to_run} \${args//,/ }
-pwd
 `;
 
 function main() {
-    console.log(`running runner tests on ${lg_name}, IP ${lg_ip}`);
+    console.log(`Running runner tests on ${lg_name}, ip ${lg_ip}`);
     let ssh_client;
     return ssh.ssh_connect({
             host: lg_ip,

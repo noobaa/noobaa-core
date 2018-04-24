@@ -68,6 +68,7 @@ import closeModalsOnLocationChange from './close-modals-on-location-change';
 import attachServerToCluster from './attach-server-to-cluster';
 import createCloudResource from './create-cloud-resource';
 import updateRemoteSyslog from './update-remote-syslog';
+import createLambdaFunc from './create-lambda-func';
 
 const generalEpics = [
     handleLocationRequests,
@@ -169,6 +170,10 @@ const namespaceRelatedEpics = [
     deleteNamespaceResource
 ];
 
+const lambdaRelatedEpics = [
+    createLambdaFunc
+];
+
 // A utility that combine multiple epics into one epic.
 function _combineEpics(epics) {
     return (action$, injected) => {
@@ -190,5 +195,6 @@ export default _combineEpics([
     ...objectRelatedEpics,
     ...resourceRelatedEpics,
     ...hostRelatedEpics,
-    ...namespaceRelatedEpics
+    ...namespaceRelatedEpics,
+    ...lambdaRelatedEpics
 ]);

@@ -11,8 +11,8 @@ import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
 import page from 'page';
 import configureRouter from 'routing';
-import { action$, state$, appLog$ } from 'state';
-import { api, AWS } from 'services';
+import { action$, state$, record$ } from 'state';
+import { api, AWS, bufferStore } from 'services';
 import { restoreSession, setupEnv } from 'action-creators';
 import devCLI from 'dev-cli';
 import actionsModelBridge from 'actions-model-bridge';
@@ -71,14 +71,15 @@ function registerSideEffects(action$, state$) {
         S3: AWS.S3,
         api: api,
         router: page,
-        browser: borwser
+        browser: borwser,
+        bufferStore: bufferStore
     };
 
     rootEpic(action$, injectedServices)
         .filter(Boolean)
         .subscribe(action$);
 
-    installSupportability(appLog$, injectedServices);
+    installSupportability(record$, injectedServices);
     installStateSideEffects(state$, injectedServices);
 }
 

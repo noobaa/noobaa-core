@@ -40,7 +40,6 @@ export const serverTime = ko.observable();
 
 // Hold funcs information
 export const funcInfo = ko.observable();
-export const funcList = ko.observableArray();
 
 // Hold system activation information.
 export const activationState = ko.observable();

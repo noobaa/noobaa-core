@@ -7,11 +7,13 @@ class EditorViewModel {
         label = '',
         visible = true,
         disabled = false,
+        tooltip = '',
         insertValMessages = true
     }) {
         this.label = label;
         this.visible = visible;
         this.disabled = disabled;
+        this.tooltip = tooltip;
         this.insertValMessages = insertValMessages;
     }
 }

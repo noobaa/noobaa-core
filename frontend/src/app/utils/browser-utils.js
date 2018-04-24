@@ -249,3 +249,12 @@ export function readFileAsText(file) {
         reader.readAsText(file);
     });
 }
+
+export function readFileAsArrayBuffer(file) {
+    const reader = new FileReader();
+    return new Promise((resolve, reject) => {
+        reader.onload = evt => resolve(evt.target.result);
+        reader.onerror = err => reject(err);
+        reader.readAsArrayBuffer(file);
+    });
+}

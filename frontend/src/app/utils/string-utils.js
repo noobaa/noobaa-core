@@ -51,15 +51,15 @@ export function lastSegment(str = '', delimiter) {
     return str.substr(str.lastIndexOf(delimiter) + 1);
 }
 
-export function shortString(str, maxLength = 25, suffixLengh = 5) {
+export function shortString(str, maxLength = 25, suffixLength = 5) {
     if (str.length <= maxLength){
         return str;
     }
 
     return `${
-        str.substr(0, maxLength - (suffixLengh + 3))
+        str.slice(0, maxLength - (suffixLength + 3))
     }...${
-        str.substr(-suffixLengh)
+        str.slice(-suffixLength)
     }`;
 }
 

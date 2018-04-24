@@ -43,7 +43,8 @@ export default function(action$) {
             types.COMPLETE_ATTACH_SERVER_TO_CLUSTER,
             types.COMPLETE_UPDATE_BUCKET_SPILLOVER,
             types.COMPLETE_CREATE_CLOUD_RESOURCE,
-            types.COMPLETE_UPDATE_REMOTE_SYSLOG
+            types.COMPLETE_UPDATE_REMOTE_SYSLOG,
+            types.COMPLETE_CREATE_LAMBDA_FUNC
         )
         .map(() => refreshLocation());
 }

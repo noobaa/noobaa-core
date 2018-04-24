@@ -8,7 +8,7 @@ const request = require('request');
 
 const P = require('../../util/promise');
 const api = require('../../api');
-const { RpcError } = require('../../rpc');
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const dbg = require('../../util/debug_module')(__filename);
 const FuncNode = require('../../agent/func_services/func_node');
 const url_utils = require('../../util/url_utils');
@@ -97,15 +97,7 @@ function update_func(req) {
             if (!func_code) return;
             return P.resolve()
                 .then(() => func_store.instance().delete_code_gridfs(func.code_gridfs_id))
-                .then(() => {
-                    if (!func_code.zipfile_b64) throw new Error('Unsupported code');
-                    return new stream.Readable({
-                        read(size) {
-                            this.push(Buffer.from(func_code.zipfile_b64, 'base64'));
-                            this.push(null);
-                        }
-                    });
-                })
+                .then(() => _get_func_code_stream(req, func_code))
                 .then(code_stream => func_store.instance().create_code_gridfs({
                     system: func.system,
                     name: func.name,
@@ -138,10 +130,8 @@ function read_func(req) {
         .then(reply => {
             if (!req.params.read_code) return reply;
             return func_store.instance().read_code_gridfs(req.func.code_gridfs_id)
-                .then(buffer => {
-                    reply.code = {
-                        zipfile_b64: buffer.toString('base64')
-                    };
+                .then(zipfile => {
+                    reply[RPC_BUFFERS] = { zipfile };
                     return reply;
                 });
         })
@@ -294,13 +284,21 @@ function check_event_permission(req) {
 
 function _get_func_code_stream(req, func_code) {
     if (func_code.zipfile_b64) {
-        // if zip file is given use it
+        // zipfile is given as base64 string
         return new stream.Readable({
             read(size) {
                 this.push(Buffer.from(func_code.zipfile_b64, 'base64'));
                 this.push(null);
             }
         });
+    } else if (req.rpc_params[RPC_BUFFERS] && req.rpc_params[RPC_BUFFERS].zipfile) {
+        // zipfile is given as buffer
+        return new stream.Readable({
+            read(size) {
+                this.push(req.rpc_params[RPC_BUFFERS].zipfile);
+                this.push(null);
+            }
+       });
     } else if (func_code.s3_bucket && func_code.s3_key) {
         console.log(`reading function code from bucket ${func_code.s3_bucket} and key ${func_code.s3_key}`);
         const account_keys = req.account.access_keys[0];

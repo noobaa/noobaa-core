@@ -66,12 +66,6 @@ export function reloadTo(route = model.routeContext().pathname, params = {},  qu
 // High level UI update actions.
 // -----------------------------------------------------
 
-export function showFuncs() {
-    logAction('showFuncs');
-
-    loadFuncs();
-}
-
 export function showFunc() {
     logAction('showFunc');
 
@@ -79,16 +73,6 @@ export function showFunc() {
     const { func } = ctx.params;
 
     loadFunc(func);
-}
-
-export async function loadFuncs() {
-    logAction('loadFuncs');
-
-    const { functions } = await api.func.list_funcs({});
-    model.funcList(functions.map(func => {
-        const { name, version, ...config } = func.config;
-        return { name, version, config };
-    }));
 }
 
 export async function loadFunc(name, version = '$LATEST') {
@@ -101,29 +85,22 @@ export async function loadFunc(name, version = '$LATEST') {
         read_stats: true
     });
 
-    let codeFiles = [];
-    const { zipfile_b64 } = reply.code || {};
-    if (zipfile_b64) {
-        const zip = await JSZip.loadAsync(atob(zipfile_b64));
+    const codeFiles = [];
+    const { zipfile } = reply[api.RPC_BUFFERS] || {};
+    if (zipfile) {
+        const zip = await JSZip.loadAsync(zipfile);
+        const { handler } = reply.config;
+        const handlerFile = handler.slice(0, handler.lastIndexOf('.'));
+        const file = zip.files[handlerFile];
 
-        // Convert the result of iterating the zip file into an array of Promises.
-        const promises = [];
-        zip.forEach((relativePath, file) => promises.push(
-            // Create a promise that resolves to an object with file metadata and string content.
-            (async () => {
-                const content = !relativePath.includes('/') ?
-                    await file.async('string') :
-                    '';
-
-                return {
-                    path: relativePath,
-                    size: file._data.uncompressedSize, // hacky
-                    dir: file.dir,
-                    content: content
-                };
-            })()
-        ));
-        codeFiles = await all(...promises);
+        if (file) {
+            codeFiles.push({
+                path: file.name,
+                size: file._data.uncompressedSize, // hacky
+                dir: file.dir,
+                content: await file.async('string')
+            });
+        }
     }
 
     const { name: _, version: __, ...config } = reply.config;
@@ -155,7 +132,7 @@ export async function updateFuncConfig(name, version, config) {
     logAction('updateFuncConfig', { name, version, config });
 
     try {
-        await api.func_update_func({
+        await api.func.update_func({
             config: { name, version, ...config }
         });
         notify(`Func ${config.name} updated successfully`, 'success');
@@ -170,21 +147,21 @@ export async function updateFuncCode(name, version, patches) {
     logAction('updateFuncCode', { name, version });
 
     try {
-        const { code = {} } = await api.func.read_func({
+        const reply = await api.func.read_func({
             name,
             version,
             read_code: true
         });
-
-        if (code.zipfile_b64) {
-            const zip = await JSZip.loadAsync(atob(code.zipfile_b64));
+        const { zipfile } = reply[api.RPC_BUFFERS];
+        if (zipfile) {
+            const zip = await JSZip.loadAsync(zipfile);
             await all(patches.map(({ path, content }) => zip.file(path, content)));
-            const update = Buffer.from(await zip.generateAsync({ type: 'uint8array' }))
-                .toString('base64');
+            const update = Buffer.from(await zip.generateAsync({ type: 'uint8array' }));
 
             await api.func.update_func({
                 config: { name, version },
-                code: { zipfile_b64: update }
+                code: {},
+                [api.RPC_BUFFERS]: { zipfile: update }
             });
         }
 
@@ -201,7 +178,7 @@ export async function deleteFunc(name, version) {
     try {
         await api.func.delete_func({ name, version });
         notify(`Func ${name} deleted successfully`, 'success'),
-        await loadFuncs();
+        action$.onNext(fetchSystemInfo());
 
     } catch (error) {
         notify(`Func ${name} deletion failed`, 'error');

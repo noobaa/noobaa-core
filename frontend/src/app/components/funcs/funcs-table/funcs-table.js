@@ -5,7 +5,9 @@ import FuncRowViewModel from './func-row';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
-import { funcList } from 'model';
+import { systemInfo } from 'model';
+import { action$ } from 'state';
+import { openCreateFuncModal } from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -48,13 +50,22 @@ class FuncsTableViewModel extends BaseViewModel {
         super();
 
         this.columns = columns;
-        this.funcs = funcList;
-        this.isCreateFuncWizardVisible = ko.observable(false);
+        this.funcs = ko.pureComputed(() =>
+            (systemInfo() ? systemInfo().functions : []).map(func => {
+                const { name, version, ...config } = func.config;
+                return { name, version, config };
+            })
+        );
+
         this.createFuncToolTip = createFuncTooltip;
     }
 
     newFuncRow(func) {
         return new FuncRowViewModel(func);
+    }
+
+    onCreateFunc() {
+        action$.onNext(openCreateFuncModal());
     }
 }
 

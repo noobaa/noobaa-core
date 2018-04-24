@@ -5,7 +5,6 @@ const WS = global.WebSocket || require('ws'); // eslint-disable-line global-requ
 
 // const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
-const buffer_utils = require('../util/buffer_utils');
 const RpcBaseConnection = require('./rpc_base_conn');
 
 /**
@@ -80,7 +79,8 @@ class RpcWsConnection extends RpcBaseConnection {
         ws.onclose = () => this.emit('error', stackless_error('WS CLOSED'));
         ws.onmessage = event => {
             try {
-                this.emit('message', [Buffer.from(event.data)]);
+                const buffer = Buffer.from(event.data);
+                this.emit('message', [buffer]);
             } catch (err) {
                 dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err, event.data);
                 this.emit('error', err);
@@ -89,7 +89,8 @@ class RpcWsConnection extends RpcBaseConnection {
     }
 
     _send_browser(msg) {
-        this.ws.send(buffer_utils.join(msg));
+        const blob = new global.Blob(msg);
+        this.ws.send(blob);
     }
 
     _close() {

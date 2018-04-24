@@ -1,16 +1,14 @@
 import * as model from 'model';
-import { action$, state$, appLog$ } from 'state';
+import { action$, state$ } from 'state';
 import * as actionCreators from 'action-creators';
 import schema from 'schema';
 import api from 'services/api';
 import { mapValues } from 'utils/core-utils';
-import { createDumpPkg } from 'utils/debug-utils';
 import {
     toObjectUrl,
     openInNewTab,
     downloadFile,
-    getWindowName,
-    getDocumentMetaTag
+    getWindowName
 } from 'utils/browser-utils';
 
 const logToConsole = console.log.bind(console);
@@ -47,15 +45,7 @@ function togglePreviewContent() {
 }
 
 function dumpAppLog() {
-    const nbVersion = getDocumentMetaTag('nbversion');
-
-    appLog$
-        .take(1)
-        .flatMap(log => createDumpPkg(nbVersion, log))
-        .subscribe(pkg => {
-            const { name, dump } = pkg;
-            downloadFile(`data:application/zip;base64,${dump}`, name);
-        });
+    actions.dumpAppLog();
 }
 
 const cli = Object.seal({

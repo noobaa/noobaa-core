@@ -1,12 +1,19 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <!-- ko if: visible -->
-<span class="editor-label push-next" data-bind="
-    css: { disabled: disabled },
-    text: ko.unwrap(label) + ':'
-"></span>
-<div class="editor-content column" data-bind="
-    validationOptions: { insertMessages: insertValMessages },
-    template: { nodes: $componentTemplateNodes, data: $parent }
-"></div>
+<span class="editor-label push-next row align-start content-middle"
+    ko.css.disabled="disabled"
+>
+    {{ko.unwrap(label)}}:
+    <!-- ko if: tooltip -->
+    <svg-icon class="icon-small push-prev-half"
+        params="name: 'question'"
+        ko.tooltip="tooltip"
+    ></svg-icon>
+    <!-- /ko -->
+</span>
+<div class="editor-content column"
+    ko.template="{ nodes: $componentTemplateNodes, data: $parent }"
+    data-bind="validationOptions: { insertMessages: insertValMessages }"
+></div>
 <!-- /ko -->

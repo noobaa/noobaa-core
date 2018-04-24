@@ -399,6 +399,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_UPDATE_REMOTE_SYSLOG]: ({ enabled }) => ({
         message: `${ enabled ? 'Enabling' : 'Disabling'} remote syslog failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_CREATE_LAMBDA_FUNC]: ({ name }) => ({
+        message: `Lambda function ${name} created successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_CREATE_LAMBDA_FUNC]: ({ name }) => ({
+        message: `Creating lambda function ${name} failed`,
+        severity: 'error'
     })
 });
 

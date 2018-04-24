@@ -797,3 +797,16 @@ export function openEditBucketSpilloverModal(bucketName) {
         }
     };
 }
+
+export function openCreateFuncModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'create-func-modal',
+            options: {
+                title: 'Create Function',
+                size: 'medium'
+            }
+        }
+    };
+}

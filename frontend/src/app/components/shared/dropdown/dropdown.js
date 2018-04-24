@@ -10,6 +10,8 @@ import { isObject } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { inputThrottle } from 'config';
 
+const maxOptionCount = 1000;
+
 // Cannot use ensure array util (core utils) because
 // of the special case of an empty string (which in this case)
 // should become an empty string.
@@ -35,12 +37,14 @@ function _summarizeSelected(subject, labels, placeholder) {
 
 function _getEmptyMessage(
     optionCount,
+    filteredCount,
     visibleCount,
     isLoading,
     inError,
     errorMessage,
     emptyMessage,
-    filterMessage
+    filterMessage,
+    listTooLongMessage
 ) {
     if (isLoading) {
         return null;
@@ -60,9 +64,16 @@ function _getEmptyMessage(
         };
     }
 
-    if (visibleCount === 0) {
+    if (filteredCount === 0) {
         return {
             text: filterMessage,
+            isError: false
+        };
+    }
+
+    if (visibleCount === 0) {
+        return {
+            text: listTooLongMessage,
             isError: false
         };
     }
@@ -120,9 +131,11 @@ class DropdownViewModel extends Observer {
     isListVisible = ko.observable();
     optionRows = ko.observableArray();
     actionRows = ko.observableArray();
+    hiddenOptionCount = ko.observable();
     isFilterVisible = ko.observable();
     isSelectAllVisible = ko.observable();
     filter = ko.observable().throttle(inputThrottle);
+    filterPlaceholder = ko.observable();
     selectAllValue = ko.observable();
     emptyMessage = ko.observable();
     tabIndex = ko.observable();
@@ -133,7 +146,7 @@ class DropdownViewModel extends Observer {
         onFocus: this.focus
     };
 
-    constructor({ selected, filter, hasFocus,...rest }) {
+    constructor({ selected, hasFocus, ...rest }) {
         super();
 
         // Check if the dropdown should be focused on initial render.
@@ -147,9 +160,8 @@ class DropdownViewModel extends Observer {
 
         const comp = ko.pureComputed(() => ko.deepUnwrap({
             ...rest,
-            hasFilter: filter,
             selected: this.selected,
-            filter: this.filter,
+            filterText: this.filter,
             focus: this.focus,
             active: this.active
         })).extend({
@@ -164,7 +176,9 @@ class DropdownViewModel extends Observer {
         const {
             subject = 'item',
             placeholder = 'Choose...',
-            hasFilter = false,
+            filter = false,
+            filterPlaceholder = 'Search',
+            filterText = '',
             multiselect = false,
             disabled = false,
             loading = false,
@@ -172,12 +186,12 @@ class DropdownViewModel extends Observer {
             emptyMessage = 'Empty',
             errorMessage = 'Ooops... Someting went wrong',
             filterMessage = 'No Match',
+            listTooLongMessage = 'List too long to show',
             actions = [],
             options = [],
             selected,
             focus,
-            active,
-            filter = ''
+            active
         } = args;
 
         // Fix active in case we lost the focus.
@@ -190,15 +204,19 @@ class DropdownViewModel extends Observer {
             return;
         }
 
-        const isFilterVisible = hasFilter && !loading && !error && options.length > 0;
-        const isSelectAllVisible = multiselect && !filter;
+        const isFilterVisible = filter && !loading && !error && options.length > 0;
+        const isSelectAllVisible = multiselect && !filterText;
         const selectedValues = _toArray(selected);
-        const normalizedFilter = filter.trim().toLowerCase();
+        const normalizedFilter = filterText.trim().toLowerCase();
         const usingPlacholderText = selectedValues.length === 0;
         const tabIndex = disabled ? false : '0';
 
-        const visibleOptions = options
+        const filteredOptions = options
             .filter(option => !error && _matchOption(option, normalizedFilter));
+
+        const visibleOptions = filteredOptions.length < maxOptionCount ?
+            filteredOptions
+            : [];
 
         const selectAllValue =
             (selectedValues.length === options.length && 'ALL') ||
@@ -207,12 +225,14 @@ class DropdownViewModel extends Observer {
 
         const emptyMessageInfo = _getEmptyMessage(
             options.length,
+            filteredOptions.length,
             visibleOptions.length,
             loading,
             error,
             errorMessage,
             emptyMessage,
-            filterMessage
+            filterMessage,
+            listTooLongMessage
         );
 
         const actionRows = actions
@@ -247,6 +267,7 @@ class DropdownViewModel extends Observer {
         this.isListVisible(active);
         this.selectableValues = selectableValues;
         this.isFilterVisible(isFilterVisible);
+        this.filterPlaceholder(filterPlaceholder);
         this.isSelectAllVisible(isSelectAllVisible);
         this.multiselect(multiselect);
         this.disabled(disabled);

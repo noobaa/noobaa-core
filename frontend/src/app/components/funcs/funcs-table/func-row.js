@@ -3,6 +3,7 @@
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { stringifyAmount } from 'utils/string-utils';
+import { formatSize } from 'utils/size-utils';
 import { deleteFunc } from 'actions';
 
 
@@ -23,10 +24,17 @@ export default class FuncRowViewModel extends BaseViewModel {
         );
 
         this.name = ko.pureComputed(
-            () => ({
-                text: _func().name,
-                href: { route: 'func', params: { func: _func().name } }
-            })
+            () => {
+                const { name } = _func();
+                if (!name) {
+                    return '';
+                }
+
+                return {
+                    text: name,
+                    href: { route: 'func', params: { func: name } }
+                };
+            }
         );
 
         this.version = ko.pureComputed(
@@ -38,11 +46,14 @@ export default class FuncRowViewModel extends BaseViewModel {
         );
 
         this.description = ko.pureComputed(
-            () => config().description || ''
+            () => {
+                const text = config().description || '';
+                return text ? { text, tooltip: text } : '';
+            }
         );
 
         this.codeSize = ko.pureComputed(
-            () => config().code_size || 0
+            () => formatSize(config().code_size || 0)
         );
 
         this.placementPolicy = ko.pureComputed(

@@ -104,6 +104,7 @@ export default function register(ko) {
     ko.components.register('edit-bucket-trigger-modal',                     require('./modals/edit-bucket-trigger-modal/edit-bucket-trigger-modal').default);
     ko.components.register('attach-server-modal',                           require('./modals/attach-server-modal/attach-server-modal').default);
     ko.components.register('edit-bucket-spillover-modal',                   require('./modals/edit-bucket-spillover-modal/edit-bucket-spillover-modal').default);
+    ko.components.register('create-func-modal', require('./modals/create-func-modal/create-func-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------

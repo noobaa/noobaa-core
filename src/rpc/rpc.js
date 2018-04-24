@@ -33,6 +33,7 @@ class Client {
     constructor(rpc, default_options) {
         this.rpc = rpc;
         this.options = _.create(default_options);
+        this.RPC_BUFFERS = RPC_BUFFERS;
         _.each(rpc.schema, api => {
             if (!api || !api.id || api.id[0] === '_') return;
             const name = api.id.replace(/_api$/, '');
@@ -67,6 +68,7 @@ function RPC(options) {
     this.api_routes = options.api_routes;
     this._aggregated_flight_time = 0;
     this._served_requests = 0;
+    this.RPC_BUFFERS = RPC_BUFFERS;
 }
 
 RPC.Client = Client;
@@ -918,7 +920,6 @@ RPC.prototype.set_request_logger = function(request_logger) {
 RPC.prototype.set_stats_handler = function(stats_handler) {
     this._stats_handler = stats_handler;
 };
-
 
 // EXPORTS
 module.exports = RPC;

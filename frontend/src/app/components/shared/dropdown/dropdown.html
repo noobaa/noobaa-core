@@ -21,7 +21,7 @@
         <!-- ko if: isFilterVisible -->
         <div class="column dd-filter">
             <input type="search"
-                placeholder="Search"
+                ko.attr.placeholder="filterPlaceholder"
                 ko.textInput="filter"
                 ko.event.keydown="onFilterKeyDown"
                 ko.hasFocus="ko.pc(filterHasFocus, onFilterFocus, $data)"

@@ -9,6 +9,9 @@ export default class AccountRowViewModel {
     baseRoute = '';
     name = ko.observable();
     credentialsDetails = ko.observable();
+    accessKey = '';
+    secretKey = '';
+    endpoint = '';
 
     constructor({ baseRoute }) {
         this.baseRoute = baseRoute;

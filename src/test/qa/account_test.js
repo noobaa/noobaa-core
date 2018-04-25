@@ -1,32 +1,62 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
-const api = require('../../api');
-const argv = require('minimist')(process.argv);
-const s3ops = require('../utils/s3ops');
 const _ = require('lodash');
+const api = require('../../api');
+const P = require('../../util/promise');
+const s3ops = require('../utils/s3ops');
+const Report = require('../framework/report');
+const argv = require('minimist')(process.argv);
 const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
-dbg.set_process_name('accounts');
+const test_name = 'accounts';
+dbg.set_process_name(test_name);
+
 let rpc;
 let client;
-const bucketName = 'first.bucket';
-let failures_in_test = false;
-let s3AccessKeys = {};
 let errors = [];
+let s3AccessKeys = {};
+let failures_in_test = false;
+const bucketName = 'first.bucket';
 
-const {
-    name = 'account',
-        emailSuffix = '@email.email',
-        password = 'Password',
-        server_ip = '127.0.0.1',
-        s3_access = true,
-        cycles = 30,
-        accounts_number = 1,
-        to_delete = true,
-        skip_create = false
-} = argv;
+const TEST_CFG_DEFAULTS = {
+    server_ip: '127.0.0.1',
+    name: 'account',
+    emailSuffix: '@email.email',
+    password: 'Password',
+    s3_access: true,
+    cycles: 30,
+    accounts_number: 1,
+    to_delete: true,
+    skip_create: false
+};
+
+if (argv.help) {
+    usage();
+    process.exit(3);
+}
+
+let TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
+Object.freeze(TEST_CFG);
+
+let report = new Report();
+
+function usage() {
+    console.log(`
+    --server_ip         -   azure location (default: ${TEST_CFG_DEFAULTS.server_ip})
+    --name              -   account preffix (default: ${TEST_CFG_DEFAULTS.name})
+    --emailSuffix       -   The email suffix (default: ${TEST_CFG_DEFAULTS.emailSuffix})
+    --password          -   Account's Password (default: ${TEST_CFG_DEFAULTS.password}) 
+    --s3_access         -   should we have s3 access (default: ${TEST_CFG_DEFAULTS.s3_access})
+    --cycles            -   number of cycles (default: ${TEST_CFG_DEFAULTS.cycles})
+    --accounts_number   -   number of accounts to create per cycle (default: ${TEST_CFG_DEFAULTS.accounts_number})
+    --to_delete         -   should we delete the accounts (default: ${TEST_CFG_DEFAULTS.to_delete})
+    --skip_create       -   Skip creating accounts (default: ${TEST_CFG_DEFAULTS.skip_create})
+    --help              -   show this help
+    `);
+}
+
+report.init_reporter({ suite: test_name, conf: TEST_CFG });
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -75,10 +105,10 @@ function get_s3_account_access(email) {
 
 function create_account(has_login, account_name) {
     //building an account parameters object.
-    console.log('Creating account: ' + account_name + " with access login: " + has_login + " s3 access: " + s3_access);
-    let email = account_name + emailSuffix;
+    console.log('Creating account: ' + account_name + " with access login: " + has_login + " s3 access: " + TEST_CFG.s3_access);
+    let email = account_name + TEST_CFG.emailSuffix;
     let allowed_buckets;
-    if (s3_access === true) {
+    if (TEST_CFG.s3_access === true) {
         allowed_buckets = {
             full_permission: true,
             permission_list: undefined
@@ -89,15 +119,17 @@ function create_account(has_login, account_name) {
     let accountData = {
         name: account_name,
         email,
-        password,
+        password: TEST_CFG.password,
         has_login,
-        s3_access,
+        s3_access: TEST_CFG.s3_access,
         allowed_buckets,
         default_pool: 'first.pool'
     };
     return client.account.create_account(accountData)
+        .then(() => report.success('create_account'))
         .then(() => accountData.email)
         .catch(err => {
+            report.fail('create_account');
             console.error('Deleting account with error: ', err);
             throw err;
         })
@@ -109,8 +141,10 @@ function delete_account(email) {
     return client.account.delete_account({
             email: email
         })
+        .then(() => report.success('delete_account'))
         .delay(10000)
         .catch(err => {
+            report.fail('delete_account');
             console.error('Deleting account with error: ', err);
             throw err;
         });
@@ -122,7 +156,9 @@ function regenerate_s3Access(email) {
             email,
             verification_password: 'DeMo1'
         })
+        .then(() => report.success('regenerate_s3Access'))
         .catch(err => {
+            report.fail('regenerate_s3Access');
             console.error('Regenerating account keys with error: ', err);
             throw err;
         });
@@ -134,7 +170,9 @@ function edit_s3Access(email, s3Access) {
             email,
             s3_access: s3Access
         })
+        .then(() => report.success('edit_s3Access'))
         .catch(err => {
+            report.fail('edit_s3Access');
             console.error('Editing access with error: ', err);
             throw err;
         });
@@ -146,7 +184,9 @@ function restrict_ip_access(email, ips) {
             email,
             ips
         })
+        .then(() => report.success('restrict_ip_access'))
         .catch(err => {
+            report.fail('restrict_ip_access');
             console.error('Editing restriction ip access with error: ', err);
             throw err;
         });
@@ -154,19 +194,19 @@ function restrict_ip_access(email, ips) {
 
 function verify_s3_access(email) {
     return get_s3_account_access(email)
-        .then(keys => s3ops.get_list_buckets(server_ip, keys.accessKeyId, keys.secretAccessKey))
+        .then(keys => s3ops.get_list_buckets(TEST_CFG.server_ip, keys.accessKeyId, keys.secretAccessKey))
         .then(buckets => {
             if (buckets.includes(bucketName)) {
-                console.log('Created account has access to s3 bucket' + bucketName);
+                console.log(`Created account has access to s3 bucket ${bucketName}`);
             } else {
-                saveErrorAndResume('Created account doesn\'t have access to s3 bucket ' + bucketName);
+                saveErrorAndResume(`Created account doesn't have access to s3 bucket ${bucketName}`);
                 failures_in_test = true;
             }
         });
 }
 
 function login_user(email) {
-    rpc = api.new_rpc('wss://' + server_ip + ':8443');
+    rpc = api.new_rpc('wss://' + TEST_CFG.server_ip + ':8443');
     client = rpc.new_client({});
     return P.fcall(() => {
             let auth_params = {
@@ -195,7 +235,9 @@ function reset_password(email) {
             password: "DeMo1",
             verification_password: "DeMo1"
         }))
+        .then(() => report.success('reset_password'))
         .catch(err => {
+            report.fail('reset_password');
             console.error('Resetting password with error: ', err);
             throw err;
         })
@@ -216,24 +258,24 @@ function verify_account_in_system(email, isPresent) {
 
 function checkAccountFeatures() {
     let newAccount;
-    const fullName = `${name}` + (Math.floor(Date.now() / 1000));
+    const fullName = `${TEST_CFG.name}` + (Math.floor(Date.now() / 1000));
     return create_account(true, fullName)
         .then(res => {
             newAccount = res;
-            console.log('Created account is ', newAccount, ' with access s3 ', s3_access);
+            console.log('Created account is ', newAccount, ' with access s3 ', TEST_CFG.s3_access);
             return verify_account_in_system(newAccount, true);
         })
         .then(() => {
-            if (s3_access === true) {
+            if (TEST_CFG.s3_access === true) {
                 return verify_s3_access(newAccount)
                     .then(() => regenerate_s3Access(newAccount))
                     .then(() => verify_s3_access(newAccount))
                     .then(() => restrict_ip_access(newAccount, []))
                     .then(() => get_s3_account_access(newAccount))
-                    .then(keys => s3ops.get_list_buckets(server_ip, keys.accessKeyId, keys.secretAccessKey)
+                    .then(keys => s3ops.get_list_buckets(TEST_CFG.server_ip, keys.accessKeyId, keys.secretAccessKey)
                         .catch(err => {
                             if (err.code === 'AccessDenied') {
-                                console.log('Account doesn\'t have access to buckets after switch off access with err - as should', err);
+                                console.log(`Account doesn't have access to buckets after switch off access, err ${err.code} - as should`);
                             } else {
                                 saveErrorAndResume('After switch off access to buckets account has access to s3');
                             }
@@ -252,7 +294,7 @@ function checkAccountFeatures() {
                             saveErrorAndResume('S3 access wasn\'t changed to false after edit');
                             failures_in_test = true;
                         }
-                        return s3ops.get_list_buckets(server_ip, keys.accessKeyId, keys.secretAccessKey)
+                        return s3ops.get_list_buckets(TEST_CFG.server_ip, keys.accessKeyId, keys.secretAccessKey)
                             .then(buckets => {
                                 if (buckets.length === 0) {
                                     console.log('Account doesn\'t have access to buckets after changing access - as should');
@@ -280,7 +322,7 @@ function checkAccountFeatures() {
         .then(() => login_user(newAccount))
         .delay(10000)
         .then(() => {
-            if (to_delete === true) {
+            if (TEST_CFG.to_delete === true) {
                 return login_user('demo@noobaa.com')
                     .then(() => delete_account(newAccount))
                     .then(() => verify_account_in_system(newAccount, false));
@@ -293,17 +335,17 @@ function checkAccountFeatures() {
 function doCycle(cycle_num, count) {
     return P.all(
         _.times(count, account_num => {
-            const fullName = `${name}${account_num}_cycle${cycle_num}_` + (Math.floor(Date.now() / 1000));
+            const fullName = `${TEST_CFG.name}${account_num}_cycle${cycle_num}_` + (Math.floor(Date.now() / 1000));
             let newAccount;
-            return skip_create ? fullName : create_account(true, fullName)
+            return TEST_CFG.skip_create ? fullName : create_account(true, fullName)
                 .then(res => {
                     newAccount = res;
-                    console.log('Created account is ', newAccount, ' with access s3 ', s3_access);
+                    console.log('Created account is ', newAccount, ' with access s3 ', TEST_CFG.s3_access);
                     return verify_account_in_system(newAccount, true);
                 })
                 .delay(10000)
                 .then(() => {
-                    if (to_delete === true) {
+                    if (TEST_CFG.to_delete === true) {
                         return delete_account(newAccount)
                             .then(() => verify_account_in_system(newAccount, false));
                     } else {
@@ -313,26 +355,28 @@ function doCycle(cycle_num, count) {
         }));
 }
 
-return promise_utils.loop(cycles, cycle => login_user('demo@noobaa.com')
+return promise_utils.loop(TEST_CFG.cycles, cycle => login_user('demo@noobaa.com')
         .then(() => checkAccountFeatures())
         .then(() => rpc.disconnect_all())
         .then(() => login_user('demo@noobaa.com'))
-        .then(() => doCycle(cycle, accounts_number))
+        .then(() => doCycle(cycle, TEST_CFG.accounts_number))
         .delay(10000)
         .then(() => checkAccountFeatures())
         .then(() => rpc.disconnect_all())
     )
-    .catch(err => {
-        console.error('something went wrong :(' + err + errors);
-        failures_in_test = true;
-        process.exit(1);
-    })
+    .catch(err => report.print_report()
+        .then(() => {
+            console.error('something went wrong ' + err + errors);
+            failures_in_test = true;
+            process.exit(1);
+        }))
+    .then(() => report.print_report())
     .then(() => {
         if (failures_in_test) {
-            console.error(':( :( Errors during account test ): ):' + errors);
+            console.error('Errors during account test ' + errors);
             process.exit(1);
         } else {
-            console.log(':) :) :) account test were successful! (: (: (:');
+            console.log('account test were successful');
             process.exit(0);
         }
     });

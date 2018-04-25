@@ -1,17 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
-const P = require('../../util/promise');
 const fs = require('fs');
-const dbg = require('../../util/debug_module')(__filename);
+const _ = require('lodash');
 const util = require('util');
-const s3ops = require('../utils/s3ops');
 const readline = require('readline');
-const promise_utils = require('../../util/promise_utils');
+const P = require('../../util/promise');
+const s3ops = require('../utils/s3ops');
+const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
+const promise_utils = require('../../util/promise_utils');
+const dbg = require('../../util/debug_module')(__filename);
 
-dbg.set_process_name('dataset');
+const test_name = 'dataset';
+dbg.set_process_name(test_name);
 
 module.exports = {
     run_test: run_test
@@ -80,6 +82,10 @@ if (TEST_CFG.file_size_high <= TEST_CFG.file_size_low) {
 }
 
 Object.freeze(TEST_CFG);
+
+let report = new Report();
+
+report.init_reporter({ suite: test_name, conf: TEST_CFG });
 
 /*
 ActionTypes defines the operations which will be used in the test
@@ -194,8 +200,8 @@ function usage() {
     --part_num_high     -   max part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_high}) 
     --aging_timeout     -   time to run aging in min (default: ${TEST_CFG_DEFAULTS.aging_timeout})
     --min_depth         -   min depth of directorys (default: ${TEST_CFG_DEFAULTS.min_depth})
-    --max_depth         -   mxa depth of directorys (default: ${TEST_CFG_DEFAULTS.max_depth})
-    --size_units        -   size of units (default: ${TEST_CFG_DEFAULTS.size_units})
+    --max_depth         -   max depth of directorys (default: ${TEST_CFG_DEFAULTS.max_depth})
+    --size_units        -   size of units in KB/MB/GB (default: ${TEST_CFG_DEFAULTS.size_units})
     --file_size_low     -   lowest file size (min 50 MB) (default: ${TEST_CFG_DEFAULTS.file_size_low})
     --file_size_high    -   highest file size (max 200 MB) (default: ${TEST_CFG_DEFAULTS.file_size_high})
     --dataset_size      -   dataset size (default: ${TEST_CFG_DEFAULTS.dataset_size})
@@ -235,7 +241,12 @@ function act_and_log(action_type) {
             randomized_params.action = chosen.name;
             return log_journal_file(`${ACTION_MARKER}${JSON.stringify(randomized_params)}`);
         })
-        .then(() => chosen.action(randomized_params));
+        .then(() => chosen.action(randomized_params))
+        .then(() => report.success(chosen.name))
+        .catch(err => {
+            report.fail(chosen.name);
+            throw err;
+        });
 }
 
 // returning a file name with the proper depth
@@ -371,7 +382,7 @@ function upload_new(params) {
             } else {
                 console.warn(`size parts are
                     ${params.rand_size / params.rand_parts}
-                    , parts must bet larger then 5MB, skipping upload overwrite - multi-part`);
+                    , parts must be larger then 5MB, skipping upload overwrite - multi-part`);
             }
             // running put new
         } else {
@@ -419,19 +430,25 @@ function upload_abort_randomizer() {
 function upload_and_abort(params) {
     console.log(`running upload multi-part and abort`);
     let uploadId;
+    let retries = 15;
     console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
     return P.join(s3ops.upload_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name,
-        params.rand_size, params.rand_parts, TEST_CFG.data_multiplier, true),
-        promise_utils.pwhile(() => (uploadId === undefined), () =>
-            s3ops.get_object_uploadId(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name)
+                params.rand_size, params.rand_parts, TEST_CFG.data_multiplier, true),
+            promise_utils.pwhile(() => (uploadId === undefined), () =>
+                s3ops.get_object_uploadId(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name)
                 .then(res => {
                     uploadId = res;
                 })
-                .catch(() => {
+                .catch(err => {
                     uploadId = undefined;
-                    return P.delay(10000);
+                    retries -= 1;
+                    if (retries) {
+                        return P.delay(10000);
+                    } else {
+                        throw err;
+                    }
                 }))
-        .then(() => s3ops.abort_multipart_upload(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name, uploadId)))
+            .then(() => s3ops.abort_multipart_upload(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name, uploadId)))
         .then(() => {
             TEST_STATE.count += 1;
         })
@@ -476,7 +493,7 @@ function upload_overwrite(params) {
         } else {
             console.warn(`size parts are ${
                 params.rand_size / params.rand_parts
-                }, parts must bet larger then 5MB, skipping upload overwrite - multi-part`);
+                }, parts must be larger then 5MB, skipping upload overwrite - multi-part`);
         }
     } else {
         console.log(`running upload overwrite`);
@@ -639,14 +656,17 @@ function run_test() {
                             .then(() => act_and_log(action_type));
                     });
             })
+            .then(() => report.print_report())
             .then(() => {
                 console.log(`Everything finished with success!`);
                 process.exit(0);
             })
-            .catch(err => {
-                console.error(`Errors during test`, err);
-                process.exit(4);
-            }));
+            .catch(err => report.print_report()
+                .then(() => {
+                    console.error(`Errors during test`, err);
+                    process.exit(4);
+                }))
+        );
 }
 
 function run_replay() {
@@ -692,7 +712,13 @@ function run_replay() {
                     }
 
                 })
-                .catch(err => console.error(`Failed replaying action ${current_action} with ${err}`))
+                .then(() => report.success(current_action))
+                .catch(err => report.fail(current_action)
+                    .then(() => {
+                        console.error(`Failed replaying action ${current_action} with ${err}`);
+                        throw err;
+                    })
+                )
                 .finally(() => {
                     iline += 1;
                 })
@@ -716,7 +742,7 @@ function main() {
         .then(() => {
             process.exit(0);
         })
-        .catch(function(err) {
+        .catch(err => {
             console.warn('error while running test ', err);
             process.exit(6);
         });

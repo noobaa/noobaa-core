@@ -295,7 +295,7 @@ function _runServer() {
                 })
                 .then(() => {
                     const server = servers[servers.length - 1];
-                    console.log(`Cluster/Server: ${serverName} was successfuly created, ip is:${server.ip}` + (server.secret ? ` secret is: ${server.secret}` : ''));
+                    console.log(`Cluster/Server: ${serverName} was successfuly created, ip is: ${server.ip}` + (server.secret ? ` secret is: ${server.secret}` : ''));
                 });
         })
         .then(() => console.log('Finished Server Actions Successfully'));

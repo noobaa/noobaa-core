@@ -35,6 +35,10 @@ module.exports = {
                     type: 'string',
                     enum: ['NOOBAA', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
                 },
+                auth_method: {
+                    type: 'string',
+                    enum: ['AWS_V2', 'AWS_V4']
+                },
                 endpoint: {
                     type: 'string'
                 },

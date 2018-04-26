@@ -302,6 +302,9 @@ module.exports = {
                     secret: {
                         type: 'string'
                     },
+                    auth_method: {
+                        $ref: 'common_api#/definitions/cloud_auth_method'
+                    },
                     cp_code: {
                         type: 'string'
                     },
@@ -333,7 +336,9 @@ module.exports = {
                     secret: {
                         type: 'string'
                     },
-
+                    auth_method: {
+                        $ref: 'common_api#/definitions/cloud_auth_method'
+                    },
                     cp_code: {
                         type: 'string'
                     },
@@ -472,6 +477,9 @@ module.exports = {
                                     },
                                     cp_code: {
                                         type: 'string'
+                                    },
+                                    auth_method: {
+                                        $ref: 'common_api#/definitions/cloud_auth_method'
                                     },
                                     endpoint_type: {
                                         type: 'string',

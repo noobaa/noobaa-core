@@ -127,6 +127,7 @@ function create_namespace_resource(req) {
         endpoint: connection.endpoint,
         target_bucket: req.rpc_params.target_bucket,
         access_key: connection.access_key,
+        auth_method: connection.auth_method,
         cp_code: connection.cp_code || undefined,
         secret_key: connection.secret_key,
         endpoint_type: connection.endpoint_type || 'AWS'
@@ -166,6 +167,7 @@ function create_cloud_pool(req) {
     var cloud_info = {
         endpoint: connection.endpoint,
         target_bucket: req.rpc_params.target_bucket,
+        auth_method: connection.auth_method,
         access_keys: {
             access_key: connection.access_key,
             secret_key: connection.secret_key,
@@ -557,6 +559,7 @@ function get_namespace_resource_extended_info(namespace_resource) {
         name: namespace_resource.name,
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,
+        auth_method: namespace_resource.connection.auth_method,
         cp_code: namespace_resource.connection.cp_code || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         access_key: namespace_resource.connection.access_key,

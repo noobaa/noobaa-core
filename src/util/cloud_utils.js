@@ -75,7 +75,9 @@ function disable_s3_compatible_bodysigning(endpoint) {
     return disable_sign;
 }
 
-function get_s3_endpoint_signature_ver(endpoint) {
+function get_s3_endpoint_signature_ver(endpoint, auth_method) {
+    if (auth_method === 'AWS_V4') return 'v4';
+    if (auth_method === 'AWS_V2') return 'v2';
     if (is_aws_endpoint(endpoint)) {
         return 'v4';
     } else {

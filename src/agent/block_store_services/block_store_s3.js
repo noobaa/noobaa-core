@@ -41,7 +41,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
                 s3ForcePathStyle: true,
                 httpOptions,
-                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint),
+                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                 region: DEFAULT_REGION
             });
         } else {
@@ -50,7 +50,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 s3ForcePathStyle: true,
                 accessKeyId: this.cloud_info.access_keys.access_key,
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
-                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint),
+                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                 s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 httpOptions: {
                     agent: http_utils.get_unsecured_http_agent(endpoint, this.proxy)

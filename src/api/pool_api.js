@@ -354,6 +354,9 @@ module.exports = {
                     type: 'string',
                     enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA', 'NET_STORAGE']
                 },
+                auth_method: {
+                    $ref: 'common_api#/definitions/cloud_auth_method'
+                },
                 target_bucket: {
                     type: 'string'
                 },
@@ -387,6 +390,9 @@ module.exports = {
                 endpoint_type: {
                     type: 'string',
                     enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA', 'NET_STORAGE']
+                },
+                auth_method: {
+                    $ref: 'common_api#/definitions/cloud_auth_method'
                 },
                 target_bucket: {
                     type: 'string'

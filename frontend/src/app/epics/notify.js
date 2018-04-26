@@ -3,6 +3,7 @@
 import { deepFreeze, ensureArray, isDefined } from 'utils/core-utils';
 import { getHostDisplayName, getHostServiceDisplayName } from 'utils/host-utils';
 import { getServerDisplayName } from 'utils/cluster-utils';
+import { unitsInBytes } from 'utils/size-utils';
 import { showNotification } from 'action-creators';
 import Rx from 'rx';
 import * as types from 'action-types';
@@ -401,13 +402,24 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
+    [types.CREATE_LAMBDA_FUNC]: ({ codeBufferSize }) => {
+        if (codeBufferSize < 10 * unitsInBytes.MEGABYTE) {
+            return;
+        }
+
+        return {
+            message: 'Uploading a large function package, it may take a few moments',
+            severity: 'info'
+        };
+    },
+
     [types.COMPLETE_CREATE_LAMBDA_FUNC]: ({ name }) => ({
-        message: `Lambda function ${name} created successfully`,
+        message: `Function ${name} created successfully`,
         severity: 'success'
     }),
 
     [types.FAIL_CREATE_LAMBDA_FUNC]: ({ name }) => ({
-        message: `Creating lambda function ${name} failed`,
+        message: `Creating function ${name} failed`,
         severity: 'error'
     })
 });

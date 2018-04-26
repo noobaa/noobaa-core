@@ -67,15 +67,19 @@ async function _selectCode(codeFormat, inlineCode, codePackage) {
                 compression: 'DEFLATE',
                 compressionOptions: { level: 9 }
             });
-            return bufferStore.store(uint8.buffer);
+            return {
+                bufferKey: bufferStore.store(uint8.buffer),
+                files: [inlineCodeHandlerFile],
+                size: uint8.byteLength
+            };
         }
 
         case 'PACKAGE': {
-            return codePackage.bufferKey;
+            return codePackage;
         }
 
         default: {
-            return '';
+            return null;
         }
     }
 
@@ -301,7 +305,7 @@ class CreateFuncModalViewModel extends Observer {
             codePackage
         } = values;
 
-        const codeBufferKey = await _selectCode(codeFormat, inlineCode, codePackage);
+        const { bufferKey, size } = await _selectCode(codeFormat, inlineCode, codePackage);
         const selectedHandlerFile = codeFormat === 'TEXT' ? inlineCodeHandlerFile : handlerFile;
 
         action$.onNext(createLambdaFunc(
@@ -313,7 +317,8 @@ class CreateFuncModalViewModel extends Observer {
             handlerFunc,
             memorySize,
             timeoutMinutes * 60 + timeoutSeconds,
-            codeBufferKey
+            bufferKey,
+            size
         ));
         action$.onNext(closeModal());
     }

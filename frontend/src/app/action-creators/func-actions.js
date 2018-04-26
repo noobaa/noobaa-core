@@ -16,7 +16,8 @@ export function createLambdaFunc(
     handlerFunc,
     memorySize,
     timeout,
-    codeBufferKey
+    codeBufferKey,
+    codeBufferSize
 ) {
     return {
         type: CREATE_LAMBDA_FUNC,
@@ -29,7 +30,8 @@ export function createLambdaFunc(
             handlerFunc,
             memorySize,
             timeout,
-            codeBufferKey
+            codeBufferKey,
+            codeBufferSize
         }
     };
 }

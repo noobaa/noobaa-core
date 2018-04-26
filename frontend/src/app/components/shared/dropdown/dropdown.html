@@ -12,7 +12,10 @@
     >
         {{summary}}
     </div>
-    <svg-icon class="icon-small dd-chevron" params="name: 'chevron'"></svg-icon>
+    <svg-icon class="icon-small dd-chevron"
+        ko.css.disabled="disabled"
+        params="name: 'chevron'"
+    ></svg-icon>
     <div class="fill dd-list column content-stretch"
         ko.visible="isListVisible"
         ko.event.keydown="onListKeydown"

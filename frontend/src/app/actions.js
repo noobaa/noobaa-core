@@ -91,7 +91,7 @@ export async function loadFunc(name, version = '$LATEST') {
         const zip = await JSZip.loadAsync(zipfile);
         const { handler } = reply.config;
         const handlerFile = handler.slice(0, handler.lastIndexOf('.'));
-        const file = zip.files[handlerFile];
+        const file = zip.files[handlerFile + '.js'];
 
         if (file) {
             codeFiles.push({

@@ -27,7 +27,7 @@
             <validation-message params="field: form.funcDesc"></validation-message>
         </editor>
         <editor params="label: 'Runtime', tooltip: runtimeTooltip">
-            <input type="text" disabled ko.value="runtime" />
+            <input type="text" disabled ko.value="runtime" />
         </editor>
     </section>
 
@@ -162,6 +162,10 @@
                 />
                 <span>Sec</span>
             </div>
+            <validation-message params="field: form.timeoutMinutes"></validation-message>
+            <validation-message ko.visible="form.timeoutMinutes.isValid"
+                params="field: form.timeoutSeconds"
+            ></validation-message>
         </editor>
     </section>
 </new-wizard>

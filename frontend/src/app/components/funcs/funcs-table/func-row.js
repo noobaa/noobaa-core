@@ -32,6 +32,10 @@ export default class FuncRowViewModel extends BaseViewModel {
 
                 return {
                     text: name,
+                    tooltip: {
+                        text: name,
+                        breakWords: true
+                    },
                     href: { route: 'func', params: { func: name } }
                 };
             }

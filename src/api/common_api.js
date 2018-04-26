@@ -306,6 +306,11 @@ module.exports = {
             }
         },
 
+        cloud_auth_method: {
+            type: 'string',
+            enum: ['AWS_V2', 'AWS_V4']
+        },
+
         proxy_params: {
             type: 'object',
             required: ['target', 'method_api', 'method_name'],

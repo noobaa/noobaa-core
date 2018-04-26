@@ -73,6 +73,10 @@ module.exports = {
                     name: { type: 'string' },
                     access_key: { type: 'string' },
                     secret_key: { type: 'string' },
+                    auth_method: {
+                        type: 'string',
+                        enum: ['AWS_V2', 'AWS_V4']
+                    },
                     endpoint: { type: 'string' },
                     cp_code: { type: 'string' },
                     endpoint_type: {

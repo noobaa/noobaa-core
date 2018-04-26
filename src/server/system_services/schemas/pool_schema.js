@@ -90,6 +90,10 @@ module.exports = {
                 target_bucket: {
                     type: 'string'
                 },
+                auth_method: {
+                    type: 'string',
+                    enum: ['AWS_V2', 'AWS_V4']
+                },
                 access_keys: {
                     type: 'object',
                     required: ['access_key', 'secret_key', 'account_id'],

@@ -162,6 +162,7 @@ class HostedAgents {
                     endpoint: pool.cloud_pool_info.endpoint,
                     endpoint_type: pool.cloud_pool_info.endpoint_type,
                     target_bucket: pool.cloud_pool_info.target_bucket,
+                    auth_method: pool.cloud_pool_info.auth_method,
                     access_keys: {
                         access_key: pool.cloud_pool_info.access_keys.access_key,
                         secret_key: pool.cloud_pool_info.access_keys.secret_key

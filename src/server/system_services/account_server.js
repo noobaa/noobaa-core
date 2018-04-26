@@ -602,6 +602,7 @@ async function add_external_connection(req) {
     info.access_key = req.rpc_params.identity;
     info.secret_key = req.rpc_params.secret;
     info.cp_code = req.rpc_params.cp_code || undefined;
+    info.auth_method = req.rpc_params.auth_method || undefined;
     info = _.omitBy(info, _.isUndefined);
 
     // TODO: Maybe we should check differently regarding NET_STORAGE connections
@@ -781,7 +782,7 @@ function check_aws_connection(params) {
         endpoint: params.endpoint,
         accessKeyId: params.identity,
         secretAccessKey: params.secret,
-        signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint),
+        signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint, params.auth_method),
         s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(params.endpoint),
         httpOptions: {
             agent: http_utils.get_unsecured_http_agent(params.endpoint, params.proxy)
@@ -951,6 +952,7 @@ function get_account_info(account, include_connection_cache) {
             name: credentials.name,
             endpoint: credentials.endpoint,
             identity: credentials.access_key,
+            auth_method: credentials.auth_method,
             cp_code: credentials.cp_code || undefined,
             endpoint_type: credentials.endpoint_type,
             usage: _list_connection_usage(account, credentials)

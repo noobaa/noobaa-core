@@ -38,10 +38,16 @@ class NamespaceBlob {
                 is_truncated: false,
             };
         }
-        return P.try(() => {
+
+        return P.resolve()
+            .then(() => {
                 const options = {
                     delimiter: params.delimiter,
-                    maxResults: params.limit
+                    maxResults: params.limit === 0 ? 1 : params.limit
+                };
+                const request_token = params.key_marker && {
+                    targetLocation: 0,
+                    nextMarker: params.key_marker
                 };
                 // TODO the sdk forces us to send two separate requests for blobs and dirs
                 // although the api returns both, so we might want to bypass the sdk
@@ -50,7 +56,7 @@ class NamespaceBlob {
                         this.blob.listBlobsSegmentedWithPrefix(
                             this.container,
                             params.prefix || null,
-                            params.key_marker,
+                            request_token,
                             options,
                             callback)
                     ),
@@ -58,26 +64,31 @@ class NamespaceBlob {
                         this.blob.listBlobDirectoriesSegmentedWithPrefix(
                             this.container,
                             params.prefix || null,
-                            params.key_marker,
+                            request_token,
                             options,
                             callback)
                     )
                 );
             })
             .then(([blobs, dirs]) => {
-                dbg.log0('NamespaceBlob.list_objects:',
+                dbg.log2('NamespaceBlob.list_objects:',
                     this.container,
                     inspect(params),
                     'blobs', inspect(blobs),
                     'dirs', inspect(dirs)
                 );
-                const next_marker = blobs.continuationToken || dirs.continuationToken || undefined;
-                const is_truncated = Boolean(next_marker);
+                const cont_token = blobs.continuationToken || dirs.continuationToken || undefined;
+                const is_truncated = Boolean(cont_token);
+                //Merge both lists (prefixes and keys) and slice according to deired size
+                //TODO continuationToken is not synced according to the sliced combined list, we should handle it in the future
+                const combined_reply = _.sortBy(blobs.entries.concat(dirs.entries), entry => entry.name)
+                    .slice(0, params.limit);
+                const next_marker = cont_token && cont_token.nextMarker;
                 return {
-                    objects: blobs.entries.map(obj => this._get_blob_md(obj, params.bucket)),
-                    common_prefixes: dirs.entries.map(obj => obj.name),
+                    objects: _.map(_.filter(combined_reply, ent => !_.isUndefined(ent.etag)), obj => this._get_blob_md(obj, params.bucket)),
+                    common_prefixes: _.map(_.filter(combined_reply, ent => _.isUndefined(ent.etag)), obj => obj.name),
                     is_truncated,
-                    next_marker,
+                    next_marker
                 };
             });
     }

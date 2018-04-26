@@ -123,13 +123,41 @@ function disable_supervisord() {
                 });
             }
         }))
-        .then(() => promise_utils.exec(`ps -ef | grep -e mongod -e supervisord`, {
-            ignore_rc: false,
+        .then(() => promise_utils.exec(`ps -ef | grep -e supervisord | grep -v grep`, {
+            ignore_rc: true,
             return_stdout: true,
             trim_stdout: true
         }))
         .then(res => {
-            dbg.log0(`Mongo and Supervisord status after disabling supervisord ${res}`);
+            dbg.log0(`Supervisord status after disabling supervisord ${res}`);
+            const pids_to_kill = res.split('\n').map(line => Number.parseInt(line.split(/[ \t]+/)[1], 10));
+            if (pids_to_kill.length) {
+                pids_to_kill.forEach(pid => {
+                    try {
+                        process.kill(pid, 'SIGKILL');
+                    } catch (err) {
+                        dbg.error('got error when trying to kill process', pid);
+                    }
+                });
+            }
+        })
+        .then(() => promise_utils.exec(`ps -ef | grep -e mongod | grep -v grep`, {
+            ignore_rc: true,
+            return_stdout: true,
+            trim_stdout: true
+        }))
+        .then(res => {
+            dbg.log0(`mongod status after disabling supervisord ${res}`);
+            const pids_to_kill = res.split('\n').map(line => Number.parseInt(line.split(/[ \t]+/)[1], 10));
+            if (pids_to_kill.length) {
+                pids_to_kill.forEach(pid => {
+                    try {
+                        process.kill(pid, 'SIGKILL');
+                    } catch (err) {
+                        dbg.error('got error when trying to kill process', pid);
+                    }
+                });
+            }
         })
         .catch(err => {
             dbg.error('disable_supervisord: Failure', err);

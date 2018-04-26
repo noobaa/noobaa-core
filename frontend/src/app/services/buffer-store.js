@@ -12,14 +12,14 @@ class TypedStore {
         return this._storage.get(key);
     }
 
-    store(buffer) {
+    store(value) {
         const { _type, _storage } = this;
-        if (!(buffer instanceof _type)) {
+        if (!(value instanceof _type)) {
             throw new Error('Invalid argument buffer');
         }
 
         const key = Object.freeze({ key: randomString() });
-        _storage.set(key, buffer);
+        _storage.set(key, value);
         return key;
     }
 

@@ -4,7 +4,7 @@ import template from './create-func-modal.html';
 import Observer from 'observer';
 import FromViewModel from 'components/form-view-model';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, pick } from 'utils/core-utils';
 import { readFileAsArrayBuffer, toObjectUrl, openInNewTab } from 'utils/browser-utils';
 import { shortString, stringifyAmount } from 'utils/string-utils';
 import { unitsInBytes, formatSize } from 'utils/size-utils';
@@ -49,7 +49,8 @@ const memorySizeOptions = deepFreeze([
 
 
 const pkgSizeLimit = unitsInBytes.MEGABYTE * 100;
-const inlineCodeHandlerFile = 'main.js';
+const inlineCodeHandlerFile = 'main';
+const handlerFileSuffix = '.js';
 const funcNameRegExp = /^[a-zA-Z0-9-_]+$/;
 const handlerFuncNameRegExp = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 
@@ -60,8 +61,9 @@ const handlerFuncTooltip = 'The function within your code that will initiate the
 async function _selectCode(codeFormat, inlineCode, codePackage) {
     switch (codeFormat) {
         case 'TEXT': {
+            const handlerFileName = `${inlineCodeHandlerFile}${handlerFileSuffix}`;
             const zip = new JSZip();
-            zip.file(inlineCodeHandlerFile, inlineCode);
+            zip.file(handlerFileName, inlineCode);
             const uint8 = await zip.generateAsync({
                 type: 'uint8array',
                 compression: 'DEFLATE',
@@ -69,13 +71,12 @@ async function _selectCode(codeFormat, inlineCode, codePackage) {
             });
             return {
                 bufferKey: bufferStore.store(uint8.buffer),
-                files: [inlineCodeHandlerFile],
                 size: uint8.byteLength
             };
         }
 
         case 'PACKAGE': {
-            return codePackage;
+            return pick(codePackage, ['bufferKey', 'size']);
         }
 
         default: {
@@ -161,7 +162,7 @@ class CreateFuncModalViewModel extends Observer {
                     text: filename,
                     breakWords: true
                 };
-                const disabled = !filename.endsWith('.js');
+                const disabled = !filename.endsWith(handlerFileSuffix);
                 return { label, value, disabled, tooltip };
             });
 
@@ -306,7 +307,9 @@ class CreateFuncModalViewModel extends Observer {
         } = values;
 
         const { bufferKey, size } = await _selectCode(codeFormat, inlineCode, codePackage);
-        const selectedHandlerFile = codeFormat === 'TEXT' ? inlineCodeHandlerFile : handlerFile;
+        const selectedHandlerFile = codeFormat === 'TEXT' ?
+            inlineCodeHandlerFile :
+            handlerFile.slice(0, -handlerFileSuffix.length);
 
         action$.onNext(createLambdaFunc(
             funcName,
@@ -349,7 +352,7 @@ class CreateFuncModalViewModel extends Observer {
 
             const zip = await JSZip.loadAsync(buffer);
             const files = Object.values(zip.files)
-                .filter(file => file.name.endsWith('.js'))
+                .filter(file => file.name.endsWith(handlerFileSuffix))
                 .map(file => file.name);
 
             const codePackage = { name, size, files, bufferKey };

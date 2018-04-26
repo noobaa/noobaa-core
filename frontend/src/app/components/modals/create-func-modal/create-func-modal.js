@@ -241,22 +241,23 @@ class CreateFuncModalViewModel extends Observer {
 
             case 2: {
                 const { timeoutSeconds, timeoutMinutes } = values;
-                const timeout = (timeoutMinutes * 60) + timeoutSeconds;
 
-                if (Number.isNaN(timeout)) {
-                    if (Number.isNaN(timeoutMinutes)) {
-                        errors.timeoutMinutes = '';
-                        errors.timeout = 'Please enter a valid timeout';
-                    }
+                if (!Number.isInteger(timeoutMinutes)) {
+                    errors.timeoutMinutes = 'Please enter a valid timeout';
 
-                    if (Number.isNaN(timeoutSeconds)) {
-                        errors.timeoutSeconds = '';
-                        errors.timeout = 'Please enter a valid timeout';
-                    }
+                } else if (timeoutMinutes < 0) {
+                    errors.timeoutMinutes = 'Please enter a timeout greater then 0';
+                }
 
-                } else if (timeout === 0) {
-                    errors.timeoutSeconds = errors.timeoutMinutes = '';
-                    errors.timeout = 'Please enter a timeout greater then 0';
+                if (!Number.isInteger(timeoutSeconds)) {
+                    errors.timeoutSeconds = 'Please enter a valid timeout';
+
+                } else if (timeoutSeconds < 0) {
+                    errors.timeoutSeconds = 'Please enter a timeout greater then 0';
+                }
+
+                if (timeoutMinutes === 0 && timeoutSeconds === 0) {
+                    errors.timeoutMinutes = 'Please enter a timeout greater then 0';
                 }
 
                 break;

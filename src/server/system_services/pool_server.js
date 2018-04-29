@@ -595,8 +595,6 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode) {
     const data_activities = pool_info.data_activities ? pool_info.data_activities.activities : [];
     const { count } = hosts;
     const offline = storage_by_mode.OFFLINE || 0;
-    const optimal = storage_by_mode.OPTIMAL || 0;
-    const ports_blocked = storage_by_mode.N2N_PORTS_BLOCKED || 0;
     const offline_ratio = (offline / count) * 100;
     const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
@@ -607,8 +605,6 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode) {
 
     return (count === 0 && 'HAS_NO_NODES') ||
         (offline === count && 'ALL_NODES_OFFLINE') ||
-        (count < 3 && 'NOT_ENOUGH_NODES') ||
-        (optimal + ports_blocked < 3 && 'NOT_ENOUGH_HEALTHY_NODES') ||
         (offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
         (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||

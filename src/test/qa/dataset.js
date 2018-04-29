@@ -422,10 +422,14 @@ function upload_and_abort(params) {
     console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
     return P.join(s3ops.upload_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name,
         params.rand_size, params.rand_parts, TEST_CFG.data_multiplier, true),
-        promise_utils.pwhile(() => (uploadId === 'No objects in bucket ' || uploadId === undefined), () =>
+        promise_utils.pwhile(() => (uploadId === undefined), () =>
             s3ops.get_object_uploadId(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name)
                 .then(res => {
                     uploadId = res;
+                })
+                .catch(() => {
+                    uploadId = undefined;
+                    return P.delay(10000);
                 }))
         .then(() => s3ops.abort_multipart_upload(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name, uploadId)))
         .then(() => {

@@ -178,7 +178,7 @@ export function summarizeServerIssues(server, systemVersion, minRequirements) {
     const ntpServerStatus = (server.ntp || {}).status;
     const remoteSyslogStatus = (server.remoteSyslog || {}).status;
     const clsuterConnectivityStatus = Object.values(server.clusterConnectivity)
-            .some(status => status !== 'OPERATIONAL');
+        .some(status => status !== 'OPERATIONAL');
     const minRequirementsStatus =
         (server.storage.total < minRequirements.storage) ||
         (server.memory.total < minRequirements.memory) ||

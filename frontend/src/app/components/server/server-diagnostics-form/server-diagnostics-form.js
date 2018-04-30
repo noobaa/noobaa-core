@@ -79,8 +79,8 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
 
         this.isCollectingDiagnostics = ko.pureComputed(
             () => this.server() && collectDiagnosticsState()[
-                    `server:${this.server().secret}`
-                ]
+                `server:${this.server().secret}`
+            ]
         );
     }
 

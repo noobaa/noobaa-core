@@ -6,12 +6,12 @@ import { randomString } from 'utils/string-utils';
 
 class RadioGroupViewModel {
     constructor({
-            selected = ko.observable(),
-            name = randomString(5),
-            options = [],
-            multiline = false,
-            disabled = false,
-            hasFocus = false
+        selected = ko.observable(),
+        name = randomString(5),
+        options = [],
+        multiline = false,
+        disabled = false,
+        hasFocus = false
     }) {
         this.name = name;
         this.selected = selected;

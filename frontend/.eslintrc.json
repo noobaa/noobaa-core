@@ -50,6 +50,8 @@
                 "after": true
             }
         ],
-        "no-console": 0
+        "no-console": 0,
+        "no-control-regex": 0,
+        "no-useless-escape": 0
     }
 }

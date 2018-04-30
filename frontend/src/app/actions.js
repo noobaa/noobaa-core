@@ -464,17 +464,17 @@ export function testNode(source, testSet) {
                                 );
                         }
                     )
-                    .then(
-                        res => res === true ? 'ABORTED' : 'COMPLETED',
-                        () => 'FAILED'
-                    )
-                    .then(
-                        state => {
+                        .then(
+                            res => res === true ? 'ABORTED' : 'COMPLETED',
+                            () => 'FAILED'
+                        )
+                        .then(
+                            state => {
                             // Notify subscribers on the change.
-                            result.state = state;
-                            nodeTestInfo.valueHasMutated();
-                        }
-                    );
+                                result.state = state;
+                                nodeTestInfo.valueHasMutated();
+                            }
+                        );
                 }
             )
         )

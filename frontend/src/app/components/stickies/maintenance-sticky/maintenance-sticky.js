@@ -37,14 +37,14 @@ class MaintenanceModeStickyViewModel extends BaseViewModel {
                 let diff =  moment.duration(Math.max(till() - now(),0));
 
                 return `${
-                        pad(diff.days(), 2)
-                    }:${
-                        pad(diff.hours(), 2)
-                    }:${
-                        pad(diff.minutes(), 2)
-                    }:${
-                        pad(diff.seconds(), 2)
-                    }`;
+                    pad(diff.days(), 2)
+                }:${
+                    pad(diff.hours(), 2)
+                }:${
+                    pad(diff.minutes(), 2)
+                }:${
+                    pad(diff.seconds(), 2)
+                }`;
 
             }
         );

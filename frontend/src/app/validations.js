@@ -47,7 +47,7 @@ export function isJSON(value) {
 }
 
 export function isHostname(value) {
-    const regExp = /^[a-zA-Z0-9]+(\-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(\-[a-zA-Z0-9]+)*)*$/;
+    const regExp = /^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)*$/;
     return matchPattern(value, regExp);
 }
 

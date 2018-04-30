@@ -37,8 +37,8 @@ function onCompleteFetchSystemInfo(_, { payload }) {
 
         const hasAccessToAllBuckets = has_s3_access && allowed_buckets.full_permission;
         const allowedBuckets = has_s3_access ?
-             (hasAccessToAllBuckets ? allBuckets : allowed_buckets.permission_list) :
-             [];
+            (hasAccessToAllBuckets ? allBuckets : allowed_buckets.permission_list) :
+            [];
 
         const externalConnections = _mapExternalConnections(external_connections);
 

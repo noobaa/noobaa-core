@@ -149,7 +149,7 @@ class CreateNamespaceBucketModalViewModel extends Observer {
 
         if (step === 0) {
             const hasNameErrors = validateName(bucketName, this.existingNames)
-                    .some(rule => !rule.valid);
+                .some(rule => !rule.valid);
 
             if (hasNameErrors) {
                 errors.bucketName = '';

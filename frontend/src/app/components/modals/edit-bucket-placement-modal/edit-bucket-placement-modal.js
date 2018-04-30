@@ -12,7 +12,7 @@ import {
     openEmptyBucketPlacementWarningModal,
     updateBucketPlacementPolicy,
     updateForm
- } from 'action-creators';
+} from 'action-creators';
 
 const formName = 'editBucketPlacement';
 

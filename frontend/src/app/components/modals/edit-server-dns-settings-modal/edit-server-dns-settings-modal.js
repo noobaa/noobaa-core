@@ -27,22 +27,22 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
         );
 
         this.searchDomains = ko.observableWithDefault(
-                () => (server() && server().search_domains) || []
-            ).extend({
-                validation: {
-                    validator: domains => domains.every(domain => isDNSName(domain)),
-                    message: 'All values must be a valid domain names'
-                }
-            });
+            () => (server() && server().search_domains) || []
+        ).extend({
+            validation: {
+                validator: domains => domains.every(domain => isDNSName(domain)),
+                message: 'All values must be a valid domain names'
+            }
+        });
 
         this.primaryDNS = ko.observableWithDefault(
-                () => dnsServers()[0]
-            )
+            () => dnsServers()[0]
+        )
             .extend({ isIP: true });
 
         this.secondaryDNS = ko.observableWithDefault(
-                () => dnsServers()[1]
-            )
+            () => dnsServers()[1]
+        )
             .extend({
                 isIP: {
                     onlyIf: this.primaryDNS

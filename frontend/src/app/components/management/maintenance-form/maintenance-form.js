@@ -38,14 +38,14 @@ class MaintenanceFormViewModel extends BaseViewModel {
 
                 let diff =  moment.duration(till() - now());
                 return `${
-                        pad(diff.days(), 2)
-                    }:${
-                        pad(diff.hours(), 2)
-                    }:${
-                        pad(diff.minutes(), 2)
-                    }:${
-                        pad(diff.seconds(), 2)
-                    }`;
+                    pad(diff.days(), 2)
+                }:${
+                    pad(diff.hours(), 2)
+                }:${
+                    pad(diff.minutes(), 2)
+                }:${
+                    pad(diff.seconds(), 2)
+                }`;
             }
         );
 

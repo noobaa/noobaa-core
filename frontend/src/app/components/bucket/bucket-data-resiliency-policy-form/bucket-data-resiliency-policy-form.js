@@ -12,7 +12,7 @@ import {
     summrizeResiliency,
     getResiliencyTypeDisplay,
     getResiliencyRequirementsWarning
- } from 'utils/bucket-utils';
+} from 'utils/bucket-utils';
 import {
     requestLocation,
     openEditBucketDataResiliencyModal

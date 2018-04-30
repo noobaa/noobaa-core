@@ -30,40 +30,52 @@ function _createDumpPkg(nbVersion, time, log) {
     });
 }
 
-
-export default function (record$, { api, browser, getTime }) {
+export default async function (record$, { api, browser, getTime }) {
     const nbVersion = browser.getDocumentMetaTag('nbversion');
     const [,windowId] = browser.getWindowName().split(':');
+
+    // Post each record to the debugChannel to be intercept by the
+    // debug console.
     const debugChannel = browser.createBroadcastChannel(`debugChannel:${windowId}`);
 
-    let log = [];
-    record$.subscribe(async record => {
-        const shouldDumpToFile = record.action.type === DUMP_APP_LOG;
-        const shouldSendToServer = Boolean(record.state.lastError);
+    const scanBase = {
+        log: [],
+        dumpToFile: false,
+        sendToServer: false
+    };
 
-        // Post each record to the debugChannel to be intercept by the
-        // debug console.
-        debugChannel.postMessage(record);
-
-        // Add a compressed version of the record to the log.
-        log = log
-            .concat(await _compress(JSON.stringify(record)))
-            .slice(-maxLogSize);
-
-        if (shouldDumpToFile || shouldSendToServer) {
-            const pkg = await _createDumpPkg(nbVersion, getTime(), log);
-
+    record$
+        .tap(record => debugChannel.postMessage(record))
+        .flatMap(async record => ({
+            compressed: await _compress(JSON.stringify(record)),
+            dumpToFile: record.action.type === DUMP_APP_LOG,
+            sendToServer: Boolean(record.state.lastError)
+        }))
+        .scan(({ log }, { compressed, dumpToFile, sendToServer }) => {
+            // Add a compressed version of the record to the log.
+            return {
+                log: log.concat(compressed).slice(-maxLogSize),
+                dumpToFile,
+                sendToServer
+            };
+        }, scanBase)
+        .filter(({ sendToServer, dumpToFile }) => dumpToFile || sendToServer)
+        .flatMap(async ({ log, dumpToFile, sendToServer }) => ({
+            pkg: await _createDumpPkg(nbVersion, getTime(), log),
+            dumpToFile,
+            sendToServer
+        }))
+        .subscribe(({ pkg, dumpToFile, sendToServer }) => {
             // Download the log in case on demand.
-            if (shouldDumpToFile) {
+            if (dumpToFile) {
                 browser.downloadFile(`data:application/zip;base64,${pkg.dump}`, pkg.name);
             }
 
             // Every time we get to an error state we gzip the last maxLogSize
             // records and send the gzip to the server to be archived and attached
             // to the next diagnostic pack download.
-            if (shouldSendToServer) {
+            if (sendToServer) {
                 api.debug.upload_fe_dump(pkg);
             }
-        }
-    });
+        });
 }

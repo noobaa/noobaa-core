@@ -10,7 +10,6 @@ require('app-module-path').addPath(path.join(__dirname, '../app'));
 require('babel-register')({
     plugins: [
         'transform-es2015-modules-commonjs',
-        'transform-async-to-generator',
         'transform-object-rest-spread',
         ['transform-runtime', { polyfill: false }]
     ]

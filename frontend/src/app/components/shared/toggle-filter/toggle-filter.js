@@ -6,11 +6,10 @@ import { randomString } from 'utils/string-utils';
 
 class ToggleFilterViewModel {
     constructor({
-            options = [],
-            selected = ko.observable(),
-            name = randomString(5)
-        })
-    {
+        options = [],
+        selected = ko.observable(),
+        name = randomString(5)
+    }) {
         this.options = ko.pureComputed(
             () => ko.unwrap(options).map(
                 opt => {

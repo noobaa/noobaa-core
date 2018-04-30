@@ -211,9 +211,9 @@ function _getChartOptions(selectedDatasets, samples, durationSettings, start, en
                 title: items => moment.tz(items[0].xLabel, timezone).format('D MMM HH:mm'),
                 label: item => `  ${
                     selectedDatasets[item.datasetIndex].label
-                    }  ${
+                }  ${
                     formatSize(item.yLabel)
-                    }`,
+                }`,
                 labelColor: item => ({
                     backgroundColor: selectedDatasets[item.datasetIndex].color,
                     borderColor: 'transparent'
@@ -266,7 +266,7 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
                         y: toBytes(sample[key])
                     }))
             })
-        );
+            );
     }
 
     return {
@@ -406,11 +406,11 @@ class BucketsOverviewViewModel extends Observer{
         this.emptyChartMessage(chartParams.emptyChartMessage);
 
         if (_shouldRedraw(
-                this.lastDurationFilter,
-                selectedDuration,
-                this.lastDataPoints,
-                currentDataPoints
-            )
+            this.lastDurationFilter,
+            selectedDuration,
+            this.lastDataPoints,
+            currentDataPoints
+        )
         ) {
             this.chartParams(chartParams);
         }

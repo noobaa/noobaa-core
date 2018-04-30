@@ -1,4 +1,4 @@
-    /* Copyright (C) 2016 NooBaa */
+/* Copyright (C) 2016 NooBaa */
 
 import { keyByProperty, groupBy, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';

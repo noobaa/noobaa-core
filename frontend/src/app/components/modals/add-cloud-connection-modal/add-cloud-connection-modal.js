@@ -328,7 +328,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 break;
             }
             case 'UNKNOWN_FAILURE': {
-               // Using empty message to mark the fields as invalid.
+                // Using empty message to mark the fields as invalid.
                 errors.awsEndpoint = errors.awsAccessKey = errors.awsSecretKey = '';
                 errors.global = error.message;
                 break;
@@ -404,7 +404,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 break;
             }
             case 'UNKNOWN_FAILURE': {
-               // Using empty message to mark the fields as invalid.
+                // Using empty message to mark the fields as invalid.
                 errors.azureEndpoint = errors.azureAccountName = errors.azureAccountKey = '';
                 errors.global = error.message;
                 break;
@@ -480,7 +480,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 break;
             }
             case 'UNKNOWN_FAILURE': {
-               // Using empty message to mark the fields as invalid.
+                // Using empty message to mark the fields as invalid.
                 errors.s3Endpoint = errors.s3AccessKey = errors.s3SecretKey = '';
                 errors.global = error.message;
                 break;
@@ -606,7 +606,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 break;
             }
             case 'UNKNOWN_FAILURE': {
-               // Using empty message to mark the fields as invalid.
+                // Using empty message to mark the fields as invalid.
                 errors.gcPrivateKeyId = errors.gcKeysJson = '';
                 errors.global = error.message;
                 break;

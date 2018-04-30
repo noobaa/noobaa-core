@@ -40,9 +40,7 @@ function _createDataPathAccessor(dataPath) {
         try {
             return state${dataPath};
         } catch (err) {
-            console.warn('SCHEMA DATA ACCSSESOR, Could not retrive data for path: ${
-                escapeQuotes(dataPath)
-            }');
+            console.warn('SCHEMA DATA ACCSSESOR, Could not retrive data for path: ${escapeQuotes(dataPath)}');
             return;
         }
     `;

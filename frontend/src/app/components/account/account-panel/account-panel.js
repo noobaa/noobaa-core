@@ -15,7 +15,8 @@ class AccountPanelViewModel extends Observer {
         this.account = ko.observable();
         this.isCurrentUser = ko.observable();
 
-        this.observe(state$.getMany(
+        this.observe(
+            state$.getMany(
                 'location',
                 ['session', 'user']
             ),

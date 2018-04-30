@@ -104,13 +104,13 @@ class EditBucketTriggerModalViewModel extends Observer {
         const { event, func, prefix, suffix } = values;
 
         const unique = existingTriggers
-                .every(trigger =>
-                    trigger.event !== event ||
+            .every(trigger =>
+                trigger.event !== event ||
                     trigger.func.name !== func.name ||
                     trigger.func.version !== func.version ||
                     trigger.prefix !== prefix ||
                     trigger.suffix !== suffix
-                );
+            );
 
         if (!unique) {
             errors.event = errors.func = errors.prefix = errors.suffix = ' ';

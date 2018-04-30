@@ -147,7 +147,7 @@ class ServerSummaryViewModel extends BaseViewModel {
         this.barOptions = ko.pureComputed(
             () => Object.assign(
                 { background: this.isConnected() ? true : style['color15'] },
-                 barOptions
+                barOptions
             )
         );
     }

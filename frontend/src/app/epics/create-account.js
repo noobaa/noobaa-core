@@ -45,6 +45,5 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        }
-    );
+        });
 }

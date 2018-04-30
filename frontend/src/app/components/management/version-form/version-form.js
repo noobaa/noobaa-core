@@ -79,8 +79,8 @@ function _getVersionStatus(servers, version) {
     );
 
     const prefix = upToDateCount < serverList.length ?
-            `${upToDateCount} of ${serverList.length}` :
-            'All';
+        `${upToDateCount} of ${serverList.length}` :
+        'All';
 
     return `${prefix} servers are synced with current version`;
 }

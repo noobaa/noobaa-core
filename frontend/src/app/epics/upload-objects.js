@@ -43,8 +43,7 @@ export default function(action$, { S3 }) {
                             uploadEvent$.onCompleted();
                         }
                     }
-                )
-                .on(
+                ).on(
                     'httpUploadProgress',
                     ({ loaded }) => uploadEvent$.onNext(updateObjectUpload(id, loaded))
                 );

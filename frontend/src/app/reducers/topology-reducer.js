@@ -29,8 +29,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
                 const { servers = {} } = state || {};
                 const { [server.secret]: serverState = {} } = servers;
                 return _mapServer(serverState, server, cluster.master_secret);
-            }
-        )
+            })
     );
 
     const servers = keyByProperty(serverList, 'secret');

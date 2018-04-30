@@ -415,6 +415,7 @@ function bundleCode(folder, watch) {
                 'transform-es2015-modules-commonjs',
                 'transform-object-rest-spread',
                 'transform-class-properties',
+                'syntax-async-generators',
                 ['transform-runtime', { polyfill: false }]
             ]
         })

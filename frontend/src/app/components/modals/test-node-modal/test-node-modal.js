@@ -59,7 +59,7 @@ class TestNodeModalViewModel extends BaseViewModel {
             () => nodeTestInfo() &&
                 `( Last test results from: ${
                     moment(nodeTestInfo().timestamp).format('HH:mm:ss')
-            } )`
+                } )`
         );
 
         this.testing = ko.pureComputed(

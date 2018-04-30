@@ -53,7 +53,7 @@ class RestPasswordModalViewModel extends BaseViewModel {
         );
 
         this.userMessage = ko.pureComputed(
-             () => ko.renderToString(
+            () => ko.renderToString(
                 passwordResetMessageTemplate,
                 { email: ko.unwrap(this.email), password: this.password }
             )
@@ -87,7 +87,7 @@ class RestPasswordModalViewModel extends BaseViewModel {
             this.errors.showAllMessages();
         } else {
             action$.onNext(changeAccountPassword(
-                 this.verificationPassword(),
+                this.verificationPassword(),
                 ko.unwrap(this.email),
                 this.password,
                 true

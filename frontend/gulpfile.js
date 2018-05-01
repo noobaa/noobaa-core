@@ -17,6 +17,7 @@ const runSequence = require('run-sequence');
 const through = require('through2');
 const moment = require('moment');
 const spawn = require('child_process').spawn;
+const less = require('less');
 const $ = require('gulp-load-plugins')();
 
 const cwd = process.cwd();
@@ -328,7 +329,18 @@ gulp.task('watch-debug', ['lint-debug'], () => {
 });
 
 gulp.task('watch-styles', ['compile-styles'], () => {
-    return $.watch(['src/app/**/*.less'], () => {
+    return $.watch(['src/app/**/*.less'], event => {
+        // A workaround for https://github.com/stevelacy/gulp-less/issues/283#ref-issue-306992692
+        // (with underlaying bug https://github.com/less/less.js/issues/3185)
+        const fileManagers = less.environment && less.environment.fileManagers || [];
+        fileManagers.forEach(function (fileManager) {
+            const relativePath = path.relative(process.cwd(), event.path);
+            if (fileManager.contents && fileManager.contents[relativePath]) {
+                // clear the changed file cache;
+                fileManager.contents[relativePath] = null;
+            }
+        });
+
         runSequence('compile-styles');
     });
 });

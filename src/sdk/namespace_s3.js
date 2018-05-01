@@ -12,10 +12,28 @@ const s3_utils = require('../endpoint/s3/s3_utils');
 class NamespaceS3 {
 
     constructor(options) {
+        this.access_key = options.accessKeyId;
         this.proxy = options.proxy;
+        this.endpoint = options.endpoint;
         this.s3 = new AWS.S3(options);
         this.bucket = this.s3.config.params.Bucket;
     }
+
+    // check if copy can be done server side on AWS. 
+    // for now we only send copy to AWS if both source and target are using the same access key
+    // to aboid ACCESS_DENIED errors. a more complete solution is to always perform the server side copy
+    // and fall back to read\write copy if access is denied
+    is_same_namespace(other) {
+        return other instanceof NamespaceS3 &&
+            this.endpoint === other.endpoint &&
+            this.access_key === other.access_key;
+    }
+
+    get_bucket() {
+        return this.bucket;
+    }
+
+
 
     /////////////////
     // OBJECT LIST //
@@ -103,31 +121,37 @@ class NamespaceS3 {
     // OBJECT UPLOAD //
     ///////////////////
 
-    upload_object(params, object_sdk) {
+    async upload_object(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params));
+        let res;
         if (params.copy_source) {
-            // this.s3.copyObject({
-            //     Key: params.key,
-            //     CopySource: params.copy_source, // TODO get the original source url
-            // });
-            throw new Error('NamespaceS3.upload_object: copy object not yet supported');
-        }
-        return this.s3.putObject({
+            const { copy_source: CopySource } = s3_utils.format_copy_source(params.copy_source);
+            const s3_params = {
+                Key: params.key,
+                CopySource,
+                ContentType: params.content_type,
+                Metadata: params.xattr,
+                MetadataDirective: params.xattr_copy ? 'COPY' : 'REPLACE',
+            };
+            res = await this.s3.copyObject(s3_params)
+                .promise();
+        } else {
+            const put_params = {
                 Key: params.key,
                 Body: params.source_stream,
                 ContentLength: params.size,
                 ContentType: params.content_type,
                 ContentMD5: params.md5_b64,
                 Metadata: params.xattr,
-            })
-            .promise()
-            .then(res => {
-                dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
-                const etag = s3_utils.parse_etag(res.ETag);
-                return {
-                    etag,
-                };
-            });
+            };
+            res = await this.s3.putObject(put_params)
+                .promise();
+        }
+        dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
+        const etag = s3_utils.parse_etag(res.ETag);
+        return {
+            etag,
+        };
     }
 
     /////////////////////////////
@@ -267,7 +291,7 @@ class NamespaceS3 {
             key: res.Key,
             size: res.ContentLength || res.Size || 0,
             etag,
-            create_time: res.LastModified,
+            create_time: new Date(res.LastModified),
             content_type: res.ContentType,
             xattr,
         };

@@ -98,6 +98,19 @@ function parse_copy_source(req) {
     };
 }
 
+function format_copy_source(params) {
+    if (!params) return;
+    const range_str = http_utils.format_http_range(params.range);
+    let copy_source_str = `/${params.bucket}/${params.key}`;
+    if (params.version) {
+        copy_source_str += `?versionId=${params.version}`;
+    }
+    return {
+        copy_source: copy_source_str,
+        range: range_str
+    };
+}
+
 function set_response_object_md(res, object_md) {
     res.setHeader('ETag', '"' + object_md.etag + '"');
     res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
@@ -118,4 +131,5 @@ exports.parse_etag = parse_etag;
 exports.parse_content_length = parse_content_length;
 exports.parse_part_number = parse_part_number;
 exports.parse_copy_source = parse_copy_source;
+exports.format_copy_source = format_copy_source;
 exports.set_response_object_md = set_response_object_md;

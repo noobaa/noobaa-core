@@ -18,6 +18,12 @@ class NamespaceMultipart {
         this.total_resources = [this.multipart_ns, this.write_ns];
     }
 
+    get_write_resource() {
+        return this.write_ns;
+    }
+
+
+
     /////////////////
     // OBJECT LIST //
     /////////////////

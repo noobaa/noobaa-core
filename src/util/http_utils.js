@@ -104,6 +104,11 @@ function parse_http_range(range_str) {
         });
 }
 
+function format_http_range(range) {
+    if (!range) return;
+    return `bytes=${range.start}-${range.end}`;
+}
+
 /**
  * @param {Array} ranges array of {start,end} from parse_http_range
  * @param {Number} size entity size in bytes
@@ -233,7 +238,7 @@ function send_reply(req, res, reply, options) {
         dbg.log0('HTTP REPLY XML', req.method, req.originalUrl,
             JSON.stringify(req.headers),
             xml_reply.length <= 2000 ?
-            xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply(-1000));
+            xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
         res.setHeader('Content-Type', 'application/xml');
         res.setHeader('Content-Length', Buffer.byteLength(xml_reply));
         res.end(xml_reply);
@@ -282,6 +287,7 @@ exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
 exports.match_etag = match_etag;
 exports.parse_http_range = parse_http_range;
+exports.format_http_range = format_http_range;
 exports.normalize_http_ranges = normalize_http_ranges;
 exports.read_and_parse_body = read_and_parse_body;
 exports.send_reply = send_reply;

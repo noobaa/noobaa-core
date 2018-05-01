@@ -15,6 +15,10 @@ class NamespaceMerge {
         this.namespaces = namespaces;
     }
 
+    get_write_resource() {
+        return this.namespaces.write_resource;
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////

@@ -10,6 +10,19 @@ class NamespaceNB {
         this.target_bucket = target_bucket;
     }
 
+    is_same_namespace(other) {
+        // in noobaa namespace case just check that other is also local (noobaa)
+        return other instanceof NamespaceNB;
+    }
+
+    get_write_resource() {
+        return this;
+    }
+
+    get_bucket(bucket) {
+        return bucket;
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////

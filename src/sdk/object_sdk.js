@@ -10,6 +10,7 @@ const dbg = require('../util/debug_module')(__filename);
 const LRUCache = require('../util/lru_cache');
 const cloud_utils = require('../util/cloud_utils');
 const http_utils = require('../util/http_utils');
+const size_utils = require('../util/size_utils');
 const NamespaceNB = require('./namespace_nb');
 const NamespaceS3 = require('./namespace_s3');
 const NamespaceBlob = require('./namespace_blob');
@@ -166,7 +167,6 @@ class ObjectSDK {
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(ns_info.endpoint, ns_info.auth_method),
                 s3ForcePathStyle: true,
                 // computeChecksums: false, // disabled by default for performance
-                s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(ns_info.endpoint),
                 httpOptions
             });
         }
@@ -295,15 +295,46 @@ class ObjectSDK {
     // OBJECT UPLOAD //
     ///////////////////
 
-    upload_object(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.upload_object(params, this))
-            .then(reply => {
-                // update counters in background
-                this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket });
-                return reply;
-            });
+    async upload_object(params) {
+        const target_ns = await this._get_bucket_namespace(params.bucket);
+        let reply;
+        if (params.copy_source) {
+            const source_params = _.pick(params.copy_source, 'bucket', 'key');
+            if (params.copy_source.range) {
+                source_params.start = params.copy_source.range.start;
+                source_params.end = params.copy_source.range.end;
+            }
+            // get the namespace for source bucket
+            const source_ns = await this._get_bucket_namespace(params.copy_source.bucket);
+            const source_md = await source_ns.read_object_md(source_params, this);
+            // take the actual namespace of the bucket either from md (in case of S3\Blob) or source_ns itself
+            const actual_source_ns = source_md.ns || source_ns;
+            const actual_target_ns = target_ns.get_write_resource();
+            // check if source and target are the same and can handle server side copy
+            if (actual_target_ns.is_same_namespace(actual_source_ns)) {
+                // fix copy_source in params 
+                params.copy_source.bucket = actual_source_ns.get_bucket(params.copy_source.bucket);
+            } else {
+                params.copy_source = null;
+                params.source_stream = await source_ns.read_object_stream(source_params, this);
+                params.size = source_md.size;
+                if (params.xattr_copy) {
+                    params.xattr = source_md.xattr;
+                }
+                params.xattr = _.omitBy(params.xattr, (val, key) => key.startsWith('noobaa-namespace'));
+                if (params.size > (100 * size_utils.MEGABYTE)) {
+                    dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
+                     so it can take some time and cause client timeouts`);
+                }
+            }
+        }
+
+        reply = await target_ns.upload_object(params, this);
+        // update counters in background
+        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket });
+        return reply;
     }
+
 
     /////////////////////////////
     // OBJECT MULTIPART UPLOAD //

@@ -21,6 +21,15 @@ class NamespaceBlob {
         this.blob.setProxy(this.proxy ? url.parse(this.proxy) : null);
     }
 
+
+    is_same_namespace(other) {
+        return other instanceof NamespaceBlob && this.connection_string === other.connection_string;
+    }
+
+    get_bucket() {
+        return this.container;
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////
@@ -194,15 +203,18 @@ class NamespaceBlob {
     // OBJECT UPLOAD //
     ///////////////////
 
-    upload_object(params, object_sdk) {
+    async upload_object(params, object_sdk) {
         dbg.log0('NamespaceBlob.upload_object:',
             this.container,
             inspect(_.omit(params, 'source_stream'))
         );
+        let obj;
         if (params.copy_source) {
-            throw new Error('NamespaceBlob.upload_object: copy object not yet supported');
-        }
-        return P.fromCallback(callback =>
+            obj = await P.fromCallback(callback =>
+                this.blob.startCopyBlob(this.blob.getUrl(params.copy_source.bucket, params.copy_source.key),
+                    this.container, params.key, callback));
+        } else {
+            obj = await P.fromCallback(callback =>
                 this.blob.createBlockBlobFromStream(
                     this.container,
                     params.key,
@@ -215,16 +227,15 @@ class NamespaceBlob {
                             contentType: params.content_type,
                         }
                     },
-                    callback)
-            )
-            .then(obj => {
-                dbg.log0('NamespaceBlob.upload_object:',
-                    this.container,
-                    inspect(_.omit(params, 'source_stream')),
-                    'obj', inspect(obj)
-                );
-                return this._get_blob_md(obj, params.bucket);
-            });
+                    callback));
+        }
+
+        dbg.log0('NamespaceBlob.upload_object:',
+            this.container,
+            inspect(_.omit(params, 'source_stream')),
+            'obj', inspect(obj)
+        );
+        return this._get_blob_md(obj, params.bucket);
     }
 
     /////////////////////////////
@@ -421,9 +432,9 @@ class NamespaceBlob {
             key: obj.name,
             size,
             etag,
-            create_time: obj.lastModified,
+            create_time: new Date(obj.lastModified),
             content_type: obj.contentSettings && obj.contentSettings.contentType,
-            xattr,
+            xattr
         };
     }
 

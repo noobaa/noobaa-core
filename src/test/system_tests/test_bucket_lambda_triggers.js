@@ -8,7 +8,7 @@ var ops = require('../utils/basic_server_ops');
 var config = require('../../../config.js');
 const path = require('path');
 var rpc = api.new_rpc();
-
+const promise_utils = require('../../util/promise_utils');
 var argv = require('minimist')(process.argv);
 const zip_utils = require('../../util/zip_utils');
 var assert = require('assert');
@@ -18,6 +18,7 @@ var fs = require('fs');
 
 dotenv.load();
 const TIME_FOR_FUNC_TO_RUN = 15000;
+const NUM_OF_RETRIES = 3;
 
 var client = rpc.new_client({
     address: 'ws://127.0.0.1:' + process.env.PORT
@@ -283,6 +284,8 @@ function test_add_bucket_trigger(type, func) {
 
 function test_trigger_run_when_should(user, file_param) {
     let s3 = get_new_server(user);
+    let file_not_created = true;
+    let retries = 0;
     return ops.generate_random_file(1)
         .then(fname => {
             let params1 = {
@@ -292,16 +295,29 @@ function test_trigger_run_when_should(user, file_param) {
             };
             return P.fromCallback(callback => s3.upload(params1, callback));
         })
-        .delay(TIME_FOR_FUNC_TO_RUN) // wait for the function to run...
+        .then(() => promise_utils.pwhile(() => (retries < NUM_OF_RETRIES && file_not_created),
+            () => {
+                let params2 = {
+                    Bucket: 'bucket1',
+                    Key: file_param + '.json'
+                };
+                return P.fromCallback(callback => s3.headObject(params2, callback))
+                    .then(() => {
+                        file_not_created = false;
+                    })
+                    .catch(err => {
+                        if (err.statusCode === 404) {
+                            retries += 1;
+                            console.log('file wasn\'t created yet...');
+                            return P.delay(TIME_FOR_FUNC_TO_RUN);
+                        } else {
+                            throw new Error('expecting head to fail with statusCode 404 - File not found but got different error', err);
+                        }
+                    });
+            }))
         .then(() => {
-            let params2 = {
-                Bucket: 'bucket1',
-                Key: file_param + '.json'
-            };
-            return P.fromCallback(callback => s3.headObject(params2, callback));
-        })
-        .then(data => {
-            console.log('bucket lambda trigger worked. file created:', file_param + '.json');
+            assert(file_not_created === false, 'expecting file to be created but didn\'t');
+            console.log('bucket lambda trigger worked. file created for:', file_param);
         });
 }
 
@@ -343,19 +359,30 @@ function test_delete_trigger_run(user, file_param) {
         Bucket: 'bucket1',
         Key: file_param + '.json'
     };
+    let file_not_deleted = true;
+    let retries = 0;
     return P.fromCallback(callback => s3.headObject(params2, callback))
         .catch(err => {
             console.log('json file not exist - test can\'t succeed:', file_param + '.json', err);
             throw new Error('expecting head to fail with statusCode 404 - File not found');
         })
         .then(() => P.fromCallback(callback => s3.deleteObject(params, callback)))
-        .delay(TIME_FOR_FUNC_TO_RUN) // wait for the function to run...
-        .then(() => P.fromCallback(callback => s3.headObject(params2, callback)))
-        .then(resp => {
-            throw new Error('expecting head to fail with statusCode 404 - File not found');
-        })
-        .catch(err => {
-            assert(err.statusCode === 404, 'expecting upload to fail with statusCode 404 - File not found' + err.statusCode);
+        .then(() => promise_utils.pwhile(() => (retries < NUM_OF_RETRIES && file_not_deleted),
+            () => P.fromCallback(callback => s3.headObject(params2, callback))
+            .then(() => {
+                retries += 1;
+                console.log('file wasn\'t deleted yet...');
+                return P.delay(TIME_FOR_FUNC_TO_RUN);
+            })
+            .catch(err => {
+                if (err.statusCode === 404) {
+                    file_not_deleted = false;
+                } else {
+                    throw new Error('expecting head to fail with statusCode 404 - File not found but got different error', err);
+                }
+            })))
+        .then(() => {
+            assert(file_not_deleted === false, 'expecting file to be deleted but didn\'t');
             console.log('bucket lambda trigger worked. file deleted for:', file_param);
         });
 }

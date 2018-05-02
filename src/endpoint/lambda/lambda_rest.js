@@ -17,7 +17,7 @@ const LAMBDA_MAX_BODY_LEN = 4 * 1024 * 1024;
 const RPC_ERRORS_TO_LAMBDA = Object.freeze({
     UNAUTHORIZED: LambdaError.AccessDenied,
     FORBIDDEN: LambdaError.AccessDenied,
-    NO_SUCH_LAMBDA_FUNC: LambdaError.ResourceNotFoundException,
+    NO_SUCH_FUNC: LambdaError.ResourceNotFoundException,
     CONFLICT: LambdaError.ResourceConflictException,
 });
 

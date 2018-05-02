@@ -43,14 +43,15 @@ export default function(action$, { browser }) {
         .distinctUntilChanged(_isSystemUpgrading)
         .filter(_isSystemUpgrading)
         .flatMap(action => {
-            const { name: systemName } = action.payload;
+            const { name: systemName, cluster } = action.payload;
+            const expectedVersion = cluster.shards[0].servers[0].upgrade.staged_package;
 
             const successe$ = action$
                 .ofType(FAIL_FETCH_SYSTEM_INFO)
                 .takeUntil(action$.ofType(FAIL_UPGRADE_SYSTEM))
                 .take(1)
                 .flatMap(() => browser.httpWaitForResponse('/version', 200))
-                .map(() => completeUpgradeSystem(systemName));
+                .map(() => completeUpgradeSystem(systemName, expectedVersion));
 
             const failure$ = action$
                 .ofType(COMPLETE_FETCH_SYSTEM_INFO)

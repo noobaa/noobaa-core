@@ -6,8 +6,8 @@ export default function(action$, { browser }) {
     return action$
         .ofType(COMPLETE_UPGRADE_SYSTEM)
         .map(action => {
-            const { system } = action.payload;
-            const url = realizeUri(routes.system, { system }, { afterupgrade: true });
+            const { system, version } = action.payload;
+            const url = realizeUri(routes.system, { system }, { afterupgrade: version });
             browser.reload(url);
         });
 }

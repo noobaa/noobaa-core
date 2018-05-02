@@ -159,10 +159,10 @@ export function upgradeSystem(system) {
     };
 }
 
-export function completeUpgradeSystem(system) {
+export function completeUpgradeSystem(system, version) {
     return {
         type: COMPLETE_UPGRADE_SYSTEM,
-        payload: { system }
+        payload: { system, version }
     };
 }
 

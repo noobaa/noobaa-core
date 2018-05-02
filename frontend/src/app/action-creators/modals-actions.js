@@ -718,6 +718,25 @@ export function replaceWithAfterUpgradeModal(version, user, upgradeInitiator, re
     };
 }
 
+export function replaceWithAfterUpgradeFailureModal(redirectUrl) {
+    return {
+        type: REPLACE_MODAL,
+        payload: {
+            component: {
+                name: 'after-upgrade-failure-modal',
+                params: { redirectUrl }
+            },
+            options: {
+                title: 'System Upgrade Failed',
+                size: 'xsmall',
+                severity: 'error',
+                backdropClose: false,
+                closeButton: 'hidden'
+            }
+        }
+    };
+}
+
 export function openChangeClusterConnectivityIpModal(secret) {
     return {
         type: OPEN_MODAL,

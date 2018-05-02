@@ -3,7 +3,10 @@
 import template from './finalize-upgrade-modal.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { replaceWithAfterUpgradeModal } from 'action-creators';
+import {
+    replaceWithAfterUpgradeModal,
+    replaceWithAfterUpgradeFailureModal
+} from 'action-creators';
 
 class FinalizeUpgradeModalViewModel extends Observer {
     constructor() {
@@ -11,7 +14,7 @@ class FinalizeUpgradeModalViewModel extends Observer {
 
         this.observe(
             state$.getMany(
-                ['location', 'pathname'],
+                ['location'],
                 ['session', 'user'],
                 'system'
             ),
@@ -19,19 +22,27 @@ class FinalizeUpgradeModalViewModel extends Observer {
         );
     }
 
-    onState([pathname, user, system]) {
+    onState([location, user, system]) {
         if (!user || !system) return;
 
+        const { pathname, query } = location;
         const { lastUpgrade }  = system.upgrade;
         const upgradeInitiator = lastUpgrade && lastUpgrade.initiator;
         const redirectUrl = pathname;
+        const expectedVersion = query.afterupgrade;
 
-        action$.onNext(replaceWithAfterUpgradeModal(
-            system.version,
-            user,
-            upgradeInitiator,
-            redirectUrl
-        ));
+        if (expectedVersion === true || expectedVersion === system.version) {
+            action$.onNext(replaceWithAfterUpgradeModal(
+                system.version,
+                user,
+                upgradeInitiator,
+                redirectUrl
+            ));
+        } else {
+            action$.onNext(replaceWithAfterUpgradeFailureModal(
+                redirectUrl
+            ));
+        }
     }
 }
 

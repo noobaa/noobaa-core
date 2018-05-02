@@ -38,6 +38,11 @@
             "ver": "2.3.1",
             "vhd": "2.3.1-73a7583.vhd",
             "released": true
+        },
+        {
+            "ver": "2.4.0",
+            "vhd": "2.4.0-9a4fa1a.vhd",
+            "released": true
         }
     ]
 }

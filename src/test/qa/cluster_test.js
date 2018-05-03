@@ -290,7 +290,7 @@ function startVirtualMachineWithStatus(index, time) {
                     if (status === 'VM running') {
                         done = true;
                         servers[index].status = 'CONNECTED';
-                        delayInSec(time);
+                        return delayInSec(time);
                     } else {
                         return P.delay(10 * 1000);
                     }
@@ -311,7 +311,7 @@ function stopVirtualMachineWithStatus(index, time) {
                     if (status === 'VM stopped') {
                         done = true;
                         servers[index].status = 'DISCONNECTED';
-                        delayInSec(time);
+                        return delayInSec(time);
                     } else {
                         return P.delay(10 * 1000);
                     }
@@ -446,9 +446,10 @@ function checkAddClusterRules() {
                 }
             }));
 }
+
 function cleanEnv() {
     return P.map(servers, server => azf.deleteVirtualMachine(server.name)
-        .catch(err => console.log(`Can't delete old server ${err.message}`)))
+            .catch(err => console.log(`Can't delete old server ${err.message}`)))
         .then(() => clean && process.exit(0));
 }
 
@@ -486,7 +487,7 @@ function runThirdFlow() {
         .then(() => {
             servers[1].status = 'DISCONNECTED';
             servers[2].status = 'DISCONNECTED';
-            delayInSec(180);
+            return delayInSec(180);
         })
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
@@ -502,7 +503,7 @@ function runThirdFlow() {
         .then(() => {
             servers[1].status = 'CONNECTED';
             servers[2].status = 'CONNECTED';
-            delayInSec(180);
+            return delayInSec(180);
         })
         .then(() => checkClusterStatus(servers, masterIndex))
         .then(verifyS3Server)
@@ -587,5 +588,5 @@ return azf.authenticate()
         }
         console.log(`Cluster test were successful!`);
         process.exit(0);
-       // return clean ? cleanEnv() : console.log('Clean env is ', clean);
+        // return clean ? cleanEnv() : console.log('Clean env is ', clean);
     });

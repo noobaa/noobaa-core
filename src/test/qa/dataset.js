@@ -151,7 +151,7 @@ const ACTION_TYPES = [{
 }, {
     name: 'READ_RANGE',
     include_random: true,
-    weight: 3,
+    weight: 2,
     action: read_range,
     randomizer: read_range_randomizer
 }, {
@@ -411,11 +411,14 @@ function upload_new(params) {
 }
 
 function upload_abort_randomizer() {
-    let file_size_low = TEST_CFG.file_size_low > 5 ? TEST_CFG.file_size_low : 5;
-    let rand_size = Math.floor((Math.random() * (TEST_CFG.file_size_high - file_size_low)) + file_size_low);
+    //Using the test defaults for objects size and parts size can cause us to miss aborting 
+    const OBJ_SIZE_UPPER = 700;
+    const OBJ_SIZE_LOWER = 250;
+    const PART_SIZE_LOWER = 15;
+    const PART_SIZE_UPPER = 50;
+    let rand_size = Math.floor((Math.random() * (OBJ_SIZE_UPPER - OBJ_SIZE_LOWER)) + OBJ_SIZE_LOWER);
     let rand_parts = (Math.floor(Math.random() *
-            (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
-        TEST_CFG.part_num_low);
+        (PART_SIZE_UPPER - PART_SIZE_LOWER)) + PART_SIZE_LOWER);
 
     let file_name = get_filename();
     let res = {

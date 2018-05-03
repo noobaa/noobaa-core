@@ -6,7 +6,6 @@ const api = require('../../api');
 const request = require('request');
 const ssh = require('./ssh_functions');
 const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
 
 const activation_code = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +
@@ -14,19 +13,16 @@ const activation_code = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd";
 
 //will enable noobaa user login via ssh
-function enable_nooba_login(server_ip, secret) {
-    let client_ssh;
-    return ssh.ssh_connect({
-            host: server_ip,
-            //  port: 22,
-            username: 'noobaaroot',
-            password: secret,
-            keepaliveInterval: 5000,
-        })
-        //enabling noobaa user login
-        .then(cssh => {
-            client_ssh = cssh;
-            return ssh.ssh_exec(client_ssh, `
+async function enable_nooba_login(server_ip, secret) {
+    const client_ssh = await ssh.ssh_connect({
+        host: server_ip,
+        //  port: 22,
+        username: 'noobaaroot',
+        password: secret,
+        keepaliveInterval: 5000,
+    });
+    //enabling noobaa user login
+    await ssh.ssh_exec(client_ssh, `
         if sudo grep -q 'Match User noobaa' /etc/ssh/sshd_config
         then
             sudo sed -i 's/Match User noobaa//g' /etc/ssh/sshd_config
@@ -35,123 +31,101 @@ function enable_nooba_login(server_ip, secret) {
             #sudo systemctl restart sshd.service
         fi
         `);
-        })
-        .then(() => ssh.ssh_stick(client_ssh));
+    await ssh.ssh_stick(client_ssh);
 }
 
 //will set first install mark via ssh
-function set_first_install_mark(server_ip, secret) {
-    let client_ssh;
-    return ssh.ssh_connect({
-            host: server_ip,
-            //  port: 22,
-            username: 'noobaaroot',
-            password: secret,
-            keepaliveInterval: 5000,
-        })
-        //enabling noobaa user login
-        .then(cssh => {
-            client_ssh = cssh;
-            return ssh.ssh_exec(client_ssh, `
+async function set_first_install_mark(server_ip, secret) {
+    const client_ssh = await ssh.ssh_connect({
+        host: server_ip,
+        //  port: 22,
+        username: 'noobaaroot',
+        password: secret,
+        keepaliveInterval: 5000,
+    });
+    //enabling noobaa user login
+    await ssh.ssh_exec(client_ssh, `
         if [ ! -f /etc/first_install.mrk ]
         then
             date | sudo tee -a /etc/first_install.mrk &> /dev/null
         fi
         `);
-        });
 }
 
 //will run clean_ova and reboot the server
-function clean_ova(server_ip, secret) {
-    let client_ssh;
-    return ssh.ssh_connect({
-            host: server_ip,
-            //  port: 22,
-            username: 'noobaaroot',
-            password: secret,
-            keepaliveInterval: 5000,
-        })
-        .then(cssh => {
-            client_ssh = cssh;
-            return ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a -d');
-        })
-        .then(() => ssh.ssh_exec(client_ssh, 'sudo reboot -fn', true))
-        .then(() => client_ssh.end());
+async function clean_ova(server_ip, secret) {
+    const client_ssh = await ssh.ssh_connect({
+        host: server_ip,
+        //  port: 22,
+        username: 'noobaaroot',
+        password: secret,
+        keepaliveInterval: 5000,
+    });
+    await ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a -d');
+    await ssh.ssh_exec(client_ssh, 'sudo reboot -fn', true);
+    await client_ssh.end();
 }
 
 //will wait untill the server reconnects via rpc
-function wait_server_recoonect(server_ip) {
+async function wait_server_recoonect(server_ip) {
     console.log(`Connecting to the server via rpc`);
     const rpc = api.new_rpc(`wss://${server_ip}:8443`);
     const client = rpc.new_client({});
-    let retries = 10;
-    let final_result;
-    return promise_utils.pwhile(
-        function() {
-            return retries > 0;
-        },
-        function() {
-            return P.resolve(client.account.accounts_status({}))
-                .then(res => {
-                    console.log('The server is ready:', res);
-                    retries = 0;
-                    final_result = res;
-                })
-                .catch(() => {
-                    console.warn(`Waiting for read server config, will retry extra ${retries} times`);
-                    return P.delay(30000);
-                });
-        }).then(() => final_result);
+    for (let retries = 10; retries >= 0; --retries) {
+        try {
+            const account_stat = await client.account.accounts_status({});
+            console.log('The server is ready: ', account_stat);
+            return account_stat;
+        } catch (e) {
+            console.warn(`Waiting for read server config, will retry extra ${retries} times`);
+            await P.delay(30 * 1000);
+        }
+    }
 }
 
 //will validate the activation code with the email
-function validate_activation_code(server_ip) {
+async function validate_activation_code(server_ip) {
     console.log(`Connecting to the server via rpc`);
     const rpc = api.new_rpc(`wss://${server_ip}:8443`);
     const client = rpc.new_client({});
     console.log(`Validating the activation code`);
-    return P.resolve(client.system.validate_activation({
-            code: activation_code,
-            email: 'demo@noobaa.com'
-        }))
-        .then(result => {
-            let code_is = result.valid;
-            if (code_is === true) {
-                console.log(`The activation code is valid`);
-            } else {
-                throw new Error(`The activation code is not valid!!!`);
-            }
-        });
+    const validate = await client.system.validate_activation({
+        code: activation_code,
+        email: 'demo@noobaa.com'
+    });
+    if (validate.valid === true) {
+        console.log(`The activation code is valid`);
+    } else {
+        throw new Error(`The activation code is not valid!!!`);
+    }
 }
 
 //will create a system and check that the default account status is true.
-function create_system_and_check(server_ip) {
+async function create_system_and_check(server_ip) {
     console.log(`Connecting to the server via rpc`);
     const rpc = api.new_rpc(`wss://${server_ip}:8443`);
     const client = rpc.new_client({});
-    return P.resolve(client.system.create_system({
-            email: 'demo@noobaa.com',
-            name: 'demo',
-            password: 'DeMo1',
-            activation_code: activation_code
-        }))
-        .then(() => P.resolve(client.account.accounts_status({})))
-        .then(res => P.resolve()
-            .then(() => promise_utils.pwhile(
-                function() {
-                    return !res.has_accounts === true;
-                },
-                function() {
-                    console.warn(`Waiting for the default account to be in status true`);
-                    return P.delay(5000);
-                }))
-            .timeout(1 * 60 * 1000)
-            .then(() => {
-                console.log(`Account's status is: ${res.has_accounts}`);
-            })
-            .catch(() => {
-                throw new Error(`Couldn't create system`);
-            }));
+    await client.system.create_system({
+        email: 'demo@noobaa.com',
+        name: 'demo',
+        password: 'DeMo1',
+        activation_code
+    });
+    const base_time = Date.now();
+    let has_account;
+    while (Date.now() - base_time < 60 * 1000) {
+        try {
+            const account_stat = await client.account.accounts_status({});
+            has_account = account_stat.has_accounts;
+            if (has_account) break;
+        } catch (e) {
+            console.warn(`Waiting for the default account to be in status true`);
+            await P.delay(5 * 1000);
+        }
+    }
+    if (!has_account) {
+        throw new Error(`Couldn't create system`);
+    }
 }
 
 //upload upgrade package

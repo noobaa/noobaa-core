@@ -40,7 +40,7 @@ class Reporter {
             await this.send_request(_.countBy(this._passed_cases));
         }
         if (this._failed_cases.length > 0) {
-            console.log(`failed cases: ${JSON.stringify(_.countBy(this._failed_cases), null, 4)}`);
+            console.log(`Failed cases: ${JSON.stringify(_.countBy(this._failed_cases), null, 4)}`);
             await this.send_request(_.countBy(this._failed_cases));
         }
     }

@@ -1,26 +1,24 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
-const _ = require('lodash');
-const net = require('net');
-const dgram = require('dgram');
 const ip = require('ip');
-const promise_utils = require('../../util/promise_utils');
-const server_ops = require('../utils/server_functions');
-const argv = require('minimist')(process.argv);
+const net = require('net');
+const _ = require('lodash');
+const dgram = require('dgram');
 const api = require('../../api');
+const P = require('../../util/promise');
+const Report = require('../framework/report');
+const argv = require('minimist')(process.argv);
+const server_ops = require('../utils/server_functions');
 const dbg = require('../../util/debug_module')(__filename);
-dbg.set_process_name('system_config');
+
+const test_name = 'system_config';
+dbg.set_process_name(test_name);
 
 //noobaa rpc
-let secret;
 let rpc;
 let client;
-let old_time = 0;
 let failures_in_test = false;
-let received_udp_rsyslog_connection = false;
-let received_tcp_rsyslog_connection = false;
 
 const second_timezone = 'US/Arizona';
 const configured_timezone = 'Asia/Tel_Aviv';
@@ -50,7 +48,7 @@ function usage() {
     --tcp_rsyslog_port      -   tcp rsyslog port (default: ${tcp_rsyslog_port})
     --ph_proxy_port         -   Phone home proxy port (default: ${ph_proxy_port})
     --id                    -   an id that is attached to the agents name
-     --help                  -   show this help.
+    --help                  -   show this help.
     `);
 }
 
@@ -59,611 +57,589 @@ if (help) {
     process.exit(1);
 }
 
+let report = new Report();
+
+report.init_reporter({ suite: test_name });
+
 function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
 }
 
-// create a tcp rsyslog server
-const rsyslog_tcp_server = net.createServer(c => {
-    console.log('client connected');
-    c.on('end', () => {
-        console.log('client disconnected');
-    });
-
-    c.on('data', function(data) {
-        console.log('tcp rsyslog server got: ' + data);
-        received_tcp_rsyslog_connection = true;
-    });
-});
-
-// create a udp rsyslog server
-const rsyslog_udp_server = dgram.createSocket('udp4');
-
-rsyslog_udp_server.on('error', err => {
-    console.log(`udp rsyslog server error:\n${err.stack}`);
-    rsyslog_udp_server.close();
-});
-
-rsyslog_udp_server.on('message', (msg, rinfo) => {
-    console.log(`udp rsyslog server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
-    received_udp_rsyslog_connection = true;
-});
-
 const lg_ip = ip.address(); // local ip - for test to run successfully to server and lg need to share same vnet
 const proxy_server = 'http://' + lg_ip + ':3128';
-P.fcall(function() {
-        rpc = api.new_rpc('wss://' + server_ip + ':8443');
-        client = rpc.new_client({});
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    })
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        secret = result.cluster.shards[0].servers[0].secret;
-        console.log('Secret is ' + secret);
-    })
-    .then(() => rpc.disconnect_all())
-    .then(() => server_ops.clean_ova(server_ip, secret))
-    .then(() => server_ops.wait_server_recoonect(server_ip))
-    .then(() => server_ops.validate_activation_code(server_ip)
-        .catch(err => {
-            saveErrorAndResume(err.message);
-            failures_in_test = true;
-        }))
-    .then(() => server_ops.create_system_and_check(server_ip)
-        .catch(err => {
-            saveErrorAndResume(err.message);
-            failures_in_test = true;
-        }))
-    .then(() => {
-        rpc = api.new_rpc('wss://' + server_ip + ':8443');
-        client = rpc.new_client({});
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    }) //#3216 dns configuration
-    .then(() => {
+
+async function set_DNS_And_check() {
+    try {
         console.log('Setting DNS', configured_dns);
-        return P.resolve(client.cluster_server.update_dns_servers({
+        await client.cluster_server.update_dns_servers({
             dns_servers: configured_dns
-        }));
-    })
-    .delay(30000)
-    .then(() => {
-        console.log('Waiting on Read system to verify DNS settings');
-        let retries = 6;
-        let final_result;
-        return promise_utils.pwhile(function() {
-                return retries > 0;
-            },
-            function() {
-                return P.resolve(client.cluster_server.read_server_config({}))
-                    .then(res => {
-                        console.log('Read server ready !!!!', res);
-                        retries = 0;
-                        final_result = res;
-                    })
-                    .catch(() => {
-                        console.log(`waiting for read server config, will retry extra ${retries} times`);
-                        return P.delay(15000);
-                    });
-            }).then(() => final_result);
-    })
-    .then(result => {
-        let dns = result.dns_servers;
-        if (_.isEqual(dns, configured_dns)) {
-            console.log(`The defined dns is ${dns} - as should`);
-        } else {
-            saveErrorAndResume(`The defined dns is ${dns} - failure!!!`);
-            failures_in_test = true;
+        });
+        console.log(`Sleeping for 30 sec`);
+        await P.delay(30 * 1000);
+        await verify_DNS_settings();
+        await verify_DNS_status();
+        await report.success(`set_DNS`);
+    } catch (e) {
+        failures_in_test = true;
+        await report.fail(`set_DNS`);
+    }
+}
+
+async function verify_DNS_settings() {
+    console.log('Waiting on Read system to verify DNS settings');
+    let dns;
+    for (let retries = 5; retries >= 0; --retries) {
+        try {
+            const server_config = await client.cluster_server.read_server_config({});
+            console.log('Read server ready !!!!', server_config);
+            dns = server_config.dns_servers;
+            break;
+        } catch (e) {
+            console.log(`waiting for read server config, will retry extra ${retries} times`);
+            await P.delay(15 * 1000);
         }
-    })
-    .then(() => {
-        console.log('Waiting on Read system to verify DNS status');
-        let time_waiting = 0;
-        let final_result;
-        return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
-            function() {
-                return P.resolve(client.system.read_system({}))
-                    .then(res => {
-                        if (res.cluster.shards[0].servers[0].services_status.dns_servers) final_result = res;
-                    })
-                    .catch(() => {
-                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
-                        time_waiting += 15;
-                        return P.delay(15000);
-                    });
-            }).then(() => final_result);
-    })
-    .then(result => {
-        let dns_status = result.cluster.shards[0].servers[0].services_status.dns_servers;
-        if (dns_status === 'OPERATIONAL') {
-            console.log('The service monitor see the dns status as OPERATIONAL - as should');
-        } else {
-            saveErrorAndResume(`The service monitor see the dns status as ${dns_status} - failure!!!`);
-            failures_in_test = true;
+    }
+    if (_.isEqual(dns, configured_dns)) {
+        console.log(`The defined dns is ${dns} - as should`);
+    } else {
+        saveErrorAndResume(`The defined dns is ${dns}`);
+        throw new Error('Test DNS Failed');
+    }
+}
+
+async function verify_DNS_status() {
+    console.log('Waiting on Read system to verify DNS status');
+    const base_time = Date.now();
+    let dns_status;
+    while (Date.now() - base_time < 65 * 1000) {
+        try {
+            const system_info = await client.system.read_system({});
+            dns_status = system_info.cluster.shards[0].servers[0].services_status.dns_servers;
+            if (dns_status) break;
+        } catch (e) {
+            console.log('waiting for read systme, will sleep for 15 seconds');
+            await P.delay(15 * 1000);
         }
-    })
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        secret = result.cluster.master_secret;
-    })
-    // time configuration - manual
-    .then(() => {
-        console.log('Setting timezone to :', configured_timezone);
-        return P.resolve(client.cluster_server.update_time_config({
-            target_secret: secret,
+    }
+
+    if (dns_status === 'OPERATIONAL') {
+        console.log('The service monitor see the dns status as OPERATIONAL - as should');
+    } else {
+        saveErrorAndResume(`The service monitor see the dns status as ${dns_status}`);
+        throw new Error('Test DNS Failed');
+    }
+}
+
+async function update_NTP({ target_secret, timezone, server, epoch }) {
+    try {
+        console.log(`Setting NTP. timezone ${timezone}, NTP server: ${server}`);
+        await client.cluster_server.update_time_config({
+            target_secret,
+            timezone,
+            ntp_server: server,
+            epoch
+        });
+        await report.success(`set_NTP`);
+    } catch (e) {
+        await report.fail(`set_NTP`);
+        throw new Error('Test NTP Failed');
+    }
+}
+
+async function set_NTP_And_check() {
+    let old_time = 0;
+    try {
+        let system_info = await client.system.read_system({});
+        const target_secret = system_info.cluster.master_secret;
+        await update_NTP({
+            target_secret,
             timezone: configured_timezone,
-            ntp_server
-        }));
-    })
-    .then(() => P.resolve(client.cluster_server.read_server_time({
-        target_secret: secret
-    })))
-    .then(current_time => {
+            server: ntp_server
+        });
+        const current_time = await client.cluster_server.read_server_time({
+            target_secret
+        });
         console.log('Current time is:', new Date(current_time * 1000));
         old_time = current_time;
         console.log('Moving time 30 minutes forward');
-        return P.resolve(client.cluster_server.update_time_config({
-            target_secret: secret,
+        await update_NTP({
+            target_secret,
             timezone: configured_timezone,
             epoch: current_time + (30 * 60) // moving 30 minutes forward
-        }));
-    })
-    .then(() => P.resolve(client.cluster_server.read_server_time({
-        target_secret: secret
-    })))
-    .then(new_time => {
+        });
+        let new_time = await client.cluster_server.read_server_time({
+            target_secret
+        });
         if (new_time >= old_time + (30 * 60)) {
             console.log('New time moved more then 30 minutes forward', new Date(new_time * 1000), '- as should');
         } else {
             saveErrorAndResume('New time moved less then 30 minutes forward' + new Date(new_time * 1000) + '- failure!!!');
-            failures_in_test = true;
+            throw new Error('Test NTP Failed');
         }
-    })
-    .then(() => { // timezone configuration
         console.log('Setting different timezone');
-        return P.resolve(client.cluster_server.update_time_config({
-            target_secret: secret,
+        await update_NTP({
+            target_secret,
             timezone: second_timezone,
-            ntp_server
-        }));
-    })
-    .then(() => P.resolve(client.cluster_server.read_server_config({})))
-    .then(result => {
-        let timezone = result.timezone;
+            server: ntp_server
+        });
+        let server_config = await client.cluster_server.read_server_config({});
+        let timezone = server_config.timezone;
         if (timezone === second_timezone) {
             console.log(`The defined timezone is ${timezone} - as should`);
         } else {
-            saveErrorAndResume(`The defined timezone is ${timezone} - failure!!!`);
-            failures_in_test = true;
+            saveErrorAndResume(`The defined timezone is ${timezone}`);
+            throw new Error('Test NTP Failed');
         }
-    })
-    .then(() => { // time configuration - ntp
         console.log(`Checking connection before setup ntp ${ntp_server}`);
-        return P.resolve(client.system.attempt_server_resolve({
+        await client.system.attempt_server_resolve({
             server_name: ntp_server
-        }));
-    })
-    .delay(30000)
-    .then(() => { // time configuration - ntp
+        });
+        await P.delay(30 * 1000);
         console.log('Setting NTP', ntp_server);
-        return P.resolve(client.cluster_server.update_time_config({
-            target_secret: secret,
+        await update_NTP({
+            target_secret,
             timezone: configured_timezone,
-            ntp_server: ntp_server
-        }));
-    })
-    .then(() => {
+            server: ntp_server
+        });
         console.log('Waiting on Read system to verify NTP status');
-        let time_waiting = 0;
-        let final_result;
-        return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
-            function() {
-                return P.resolve(client.system.read_system({}))
-                    .then(res => {
-                        if (res.cluster.shards[0].servers[0].services_status.ntp_server) final_result = res;
-                    })
-                    .catch(() => {
-                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
-                        time_waiting += 15;
-                        return P.delay(15000);
-                    });
-            }).then(() => final_result);
-    })
-    .then(result => {
-        let ntp_status = result.cluster.shards[0].servers[0].services_status.ntp_server;
+        const base_time = Date.now();
+        let ntp_status;
+        while (Date.now() - base_time < 65 * 1000) {
+            try {
+                system_info = await client.system.read_system({});
+                ntp_status = system_info.cluster.shards[0].servers[0].services_status.ntp_server;
+                if (ntp_status) break;
+            } catch (e) {
+                console.log('waiting for read systme, will sleep for 15 seconds');
+                await P.delay(15 * 1000);
+            }
+        }
         if (ntp_status === 'OPERATIONAL') {
             console.log('The service monitor see the ntp status as OPERATIONAL - as should');
         } else {
-            saveErrorAndResume(`The service monitor see the ntp status as ${ntp_status} - failure!!!`);
-            failures_in_test = true;
+            saveErrorAndResume(`The service monitor see the ntp status as ${ntp_status}`);
+            throw new Error('Test NTP Failed');
         }
-    }) // 3559
-    .then(() => P.resolve(client.cluster_server.read_server_config({})))
-    .then(result => {
-        console.log('after setting ntp cluster config is:' + JSON.stringify(result));
-        let ntp = result.ntp_server;
+        server_config = await client.cluster_server.read_server_config({});
+        console.log(`after setting ntp cluster config is: ${JSON.stringify(server_config)}`);
+        let ntp = server_config.ntp_server;
         if (ntp === ntp_server) {
             console.log(`The defined ntp is ${ntp} - as should`);
         } else {
-            saveErrorAndResume(`The defined ntp is ${ntp} - failure!!!`);
-            failures_in_test = true;
+            saveErrorAndResume(`The defined ntp is ${ntp}`);
+            throw new Error('Test NTP Failed');
         }
-    })
-    .then(() => P.resolve(client.cluster_server.read_server_time({
-        target_secret: secret
-    })))
-    .then(new_time => {
+        new_time = await client.cluster_server.read_server_time({
+            target_secret
+        });
         if (new_time < old_time + (2 * 60)) {
             console.log('New time has moved back to correct time', new Date(new_time * 1000), '- as should');
         } else {
             saveErrorAndResume('New time is more than 2 minutes away from the correct time', new Date(new_time * 1000), '- failure!!!');
-            failures_in_test = true;
+            throw new Error('Test NTP Failed');
         }
-    })
-    .then(() => { // phone home configuration -
+    } catch (e) {
+        failures_in_test = true;
+        await report.fail(`set_NTP`);
+    }
+}
+
+async function get_Phonehome_proxy_status() {
+    console.log('Waiting on Read system to verify Proxy status');
+    const base_time = Date.now();
+    let proxy_status;
+    while (Date.now() - base_time < 65 * 1000) {
+        try {
+            const system_info = await client.system.read_system({});
+            proxy_status = system_info.cluster.shards[0].servers[0].services_status.phonehome_proxy;
+            if (proxy_status) break;
+        } catch (e) {
+            console.log('waiting for read systme, will sleep for 15 seconds');
+            await P.delay(15 * 1000);
+        }
+    }
+    return proxy_status;
+}
+
+async function set_Proxy_and_check() {
+    try {
         console.log('Setting Proxy');
-        return P.resolve(client.system.update_phone_home_config({
+        await client.system.update_phone_home_config({
             proxy_address: proxy_server
-        }));
-    })
-    .then(() => {
-        console.log('Waiting on Read system to verify Proxy status');
-        let time_waiting = 0;
-        let final_result;
-        return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
-            function() {
-                return P.resolve(client.system.read_system({}))
-                    .then(res => {
-                        if (res.cluster.shards[0].servers[0].services_status.phonehome_proxy) final_result = res;
-                    })
-                    .catch(() => {
-                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
-                        time_waiting += 15;
-                        return P.delay(15000);
-                    });
-            }).then(() => final_result);
-    })
-    .tap(result => {
-        let proxy = result.phone_home_config.proxy_address;
-        if (proxy === proxy_server) {
-            console.log(`The defined proxy is ${proxy} - as should`);
+        });
+        const proxy_status = await get_Phonehome_proxy_status();
+        const defined_proxy = proxy_status.phone_home_config.proxy_address;
+        if (defined_proxy === proxy_server) {
+            console.log(`The defined proxy is ${defined_proxy} - as should`);
         } else {
-            saveErrorAndResume(`The defined proxy is ${proxy} - failure`);
-            failures_in_test = true;
+            saveErrorAndResume(`The defined proxy is ${defined_proxy}`);
+            throw new Error('Test Phonehome Failed');
         }
-    })
-    .then(res => {
-        let ph_status = res.cluster.shards[0].servers[0].services_status.phonehome_proxy;
+        const ph_status = proxy_status.cluster.shards[0].servers[0].services_status.phonehome_proxy;
         if (ph_status === 'OPERATIONAL') {
             console.log('The service monitor see the proxy status as OPERATIONAL - as should');
+            await report.success(`set_Proxy`);
         } else {
-            saveErrorAndResume(`The service monitor see the proxy status as ${ph_status} - failure!!!`);
-            failures_in_test = true;
+            saveErrorAndResume(`The service monitor see the proxy status as ${ph_status}`);
+            throw new Error('Test Phonehome Failed');
         }
-    })
-    .then(() => { // phone home configuration -
+    } catch (e) {
+        console.error(e);
+        failures_in_test = true;
+        await report.fail(`set_Proxy`);
+        throw new Error('Test Phonehome Failed');
+    }
+}
+
+async function disable_Proxy_and_check() {
+    try {
         console.log('Setting disable Proxy');
-        return P.resolve(client.system.update_phone_home_config({
+        await client.system.update_phone_home_config({ // phone home configuration
             proxy_address: null
-        }));
-    })
-    .then(() => {
-        console.log('Waiting on Read system to verify Proxy status');
-        let time_waiting = 0;
-        let final_result;
-        return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
-            function() {
-                return P.resolve(client.system.read_system({}))
-                    .then(res => {
-                        if (res.cluster.shards[0].servers[0].services_status.phonehome_proxy) final_result = res;
-                    })
-                    .catch(() => {
-                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
-                        time_waiting += 15;
-                        return P.delay(15000);
-                    });
-            }).then(() => final_result);
-    })
-    .tap(result => {
-        let proxy = result.phone_home_config;
-        console.log('Phone home config is: ' + JSON.stringify(proxy));
-        if (JSON.stringify(proxy).includes('proxy_address') === false) {
+        });
+        const proxy_status = await get_Phonehome_proxy_status();
+        const proxy_config = proxy_status.phone_home_config;
+        console.log('Phone home config is: ' + JSON.stringify(proxy_config));
+        if (JSON.stringify(proxy_config).includes('proxy_address') === false) {
             console.log('The defined proxy is no use proxy - as should');
         } else {
-            saveErrorAndResume(`The defined phone home with disable proxy is ${proxy} - failure`);
-            failures_in_test = true;
+            saveErrorAndResume(`The defined phone home with disable proxy is ${proxy_config}`);
+            throw new Error('Test Phonehome Failed');
         }
-    })
-    .then(result => {
-        console.log(JSON.stringify(result.cluster.shards[0].servers[0].services_status));
-        let ph_status = result.cluster.shards[0].servers[0].services_status.phonehome_server.status;
+        console.log(JSON.stringify(proxy_status.cluster.shards[0].servers[0].services_status));
+        const ph_status = proxy_status.cluster.shards[0].servers[0].services_status.phonehome_server.status;
         if (ph_status === 'OPERATIONAL') {
             console.log('The service monitor see the proxy status as OPERATIONAL - as should');
+            await report.success(`disable_Proxy`);
         } else {
-            saveErrorAndResume(`The service monitor see the proxy after disable status as ${ph_status} - failure!!!`);
-            failures_in_test = true;
+            saveErrorAndResume(`The service monitor see the proxy after disable status as ${ph_status}`);
+            throw new Error('Test Phonehome Failed');
         }
-    })
-    .then(() => rsyslog_tcp_server.listen(tcp_rsyslog_port))
-    .then(() => { //#2596remote syslog configuration - TCP
-        console.log('Setting TCP Remote Syslog');
-        return P.resolve(client.system.configure_remote_syslog({
+    } catch (e) {
+        failures_in_test = true;
+        await report.fail(`disable_Proxy`);
+    }
+}
+
+async function set_Phonehome_and_check() {
+    try {
+        try {
+            await set_Proxy_and_check();
+        } catch (e) {
+            console.error(e);
+            throw e;
+        }
+        await disable_Proxy_and_check();
+    } catch (e) {
+        console.error(e);
+        failures_in_test = true;
+    }
+}
+
+async function check_defined_syslog(expected_protocol, rsyslog_port) {
+    const system_info = await client.system.read_system({});
+    const address = system_info.remote_syslog_config.address;
+    const protocol = system_info.remote_syslog_config.protocol;
+    const port = system_info.remote_syslog_config.port;
+    if (address === lg_ip && protocol === expected_protocol && port === rsyslog_port) {
+        console.log(`The defined syslog is ${address}: ${port} - as should`);
+    } else {
+        saveErrorAndResume(`The defined syslog is ${address}: ${port}, expected ${lg_ip}: ${rsyslog_port}`);
+        throw new Error(`Test ${expected_protocol}_Remote_Syslog Failed`);
+    }
+}
+
+async function check_syslog_status(protocol) {
+    console.log('Waiting on Read system to verify Rsyslog status');
+    const base_time = Date.now();
+    let remote_status;
+    while (Date.now() - base_time < 65 * 1000) {
+        try {
+            const system_info = await client.system.read_system({});
+            remote_status = system_info.cluster.shards[0].servers[0].services_status.remote_syslog;
+            if (remote_status) break;
+        } catch (e) {
+            console.log('waiting for read systme, will sleep for 15 seconds');
+            await P.delay(15 * 1000);
+        }
+    }
+    const syslog_status = remote_status.cluster.shards[0].servers[0].services_status.remote_syslog.status;
+    if (syslog_status === 'OPERATIONAL') {
+        console.log('The service monitor see the syslog status as OPERATIONAL - as should');
+    } else {
+        saveErrorAndResume(`The service monitor see the syslog status as ${syslog_status}`);
+        throw new Error(`Test ${protocol}_Remote_Syslog Failed`);
+    }
+}
+
+async function set_remote_syslog_protocol_and_check(protocol, address, port) {
+    console.log(`Setting ${protocol} Remote Syslog`);
+    try {
+        await client.system.configure_remote_syslog({
             enabled: true,
-            address: lg_ip,
-            protocol: 'TCP',
-            port: tcp_rsyslog_port
-        }));
-    })
-    .then(() => P.resolve()
-        .then(() => promise_utils.pwhile(
-            function() {
-                return !received_tcp_rsyslog_connection;
-            },
-            function() {
-                console.warn('Didn\'t get tcp rsyslog message yet');
-                return P.delay(5000);
-            }))
-        .timeout(60000)
-        .then(() => {
-            console.log('Just received tcp rsyslog message - as should');
-        })
-        .catch(() => {
-            saveErrorAndResume('Didn\'t receive tcp rsyslog message for 1 minute - failure!!!');
-            failures_in_test = true;
-        }))
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let address = result.remote_syslog_config.address;
-        let protocol = result.remote_syslog_config.protocol;
-        let port = result.remote_syslog_config.port;
-        if (address === lg_ip && protocol === 'TCP' && port === tcp_rsyslog_port) {
-            console.log(`The defined syslog is ${address}: ${port} - as should`);
+            address,
+            protocol,
+            port
+        });
+        await createServerAndWaitForMessage(protocol, port, 60 * 1000);
+        console.log(`Just received ${protocol} rsyslog message - as should`);
+    } catch (e) {
+        console.error(e);
+        saveErrorAndResume(`Didn't receive ${protocol} rsyslog message for 1 minute`);
+        throw new Error(`Test ${protocol}_Remote_Syslog Failed`);
+    }
+}
+
+function createServerAndWaitForMessage(protocol, port, timeout = 0) {
+    return new P((resolve, reject) => {
+        let server = null;
+        if (protocol === 'TCP') {
+            server = net.createServer(c => {
+                c.on('data', resolve);
+                c.on('error', err => {
+                    server.close();
+                    reject(err);
+                });
+                c.on('end', () => reject(new Error('Server ended before message')));
+            });
+
+            server.listen(port);
+        } else if (protocol === 'UDP') {
+            server = dgram.createSocket('udp4');
+            server.on('message', resolve);
+            server.on('error', err => {
+                server.close();
+                reject(err);
+            });
+            server.on('end', () => reject(new Error('Server ended before message')));
+            server.bind(port);
+
         } else {
-            saveErrorAndResume(`The defined syslog is ${address}: ${port} - failure!!!`);
-            failures_in_test = true;
+            reject(new Error('Unknown protocol'));
         }
-    })
-    .then(() => {
-        console.log('Waiting on Read system to verify Rsyslog status');
-        let time_waiting = 0;
-        let final_result;
-        return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
-            function() {
-                return P.resolve(client.system.read_system({}))
-                    .then(res => {
-                        if (res.cluster.shards[0].servers[0].services_status.remote_syslog) final_result = res;
-                    })
-                    .catch(() => {
-                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
-                        time_waiting += 15;
-                        return P.delay(15000);
-                    });
-            }).then(() => final_result);
-    })
-    .then(result => {
-        let syslog_status = result.cluster.shards[0].servers[0].services_status.remote_syslog.status;
-        if (syslog_status === 'OPERATIONAL') {
-            console.log('The service monitor see the syslog status as OPERATIONAL - as should');
-        } else {
-            saveErrorAndResume(`The service monitor see the syslog status as ${syslog_status} - failure!!!`);
-            failures_in_test = true;
+
+        if (timeout > 0) {
+            setTimeout(() => {
+                server.close();
+                reject(new Error('Timeout'));
+            }, timeout);
         }
-    })
-    .then(() => rsyslog_tcp_server.close())
-    .then(() => rsyslog_udp_server.bind(udp_rsyslog_port))
-    .then(() => { // remote syslog configuration - UDP
-        console.log('Setting UDP Remote Syslog');
-        return P.resolve(client.system.configure_remote_syslog({
-            enabled: true,
-            address: lg_ip,
-            protocol: 'UDP',
-            port: udp_rsyslog_port
-        }));
-    })
-    .then(() => P.resolve()
-        .then(() => promise_utils.pwhile(
-            function() {
-                return !received_udp_rsyslog_connection;
-            },
-            function() {
-                console.warn('Didn\'t get udp rsyslog message yet');
-                return P.delay(5000);
-            }))
-        .timeout(60000)
-        .then(() => {
-            console.log('Just received udp rsyslog message - as should');
-        })
-        .catch(() => {
-            saveErrorAndResume('Didn\'t receive udp rsyslog message for 1 minute - failure!!!');
-            failures_in_test = true;
-        }))
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let address = result.remote_syslog_config.address;
-        let protocol = result.remote_syslog_config.protocol;
-        let port = result.remote_syslog_config.port;
-        if (address === lg_ip && protocol === 'UDP' && port === udp_rsyslog_port) {
-            console.log(`The defined syslog is ${address}: ${port} - as should`);
-        } else {
-            saveErrorAndResume(`The defined syslog is ${address}: ${port} - failure!!!`);
-            failures_in_test = true;
-        }
-    })
-    .then(() => {
-        console.log('Waiting on Read system to verify Rsyslog status');
-        let time_waiting = 0;
-        let final_result;
-        return promise_utils.pwhile(function() {
-                return (time_waiting < 65 && !final_result); // HB + something
-            },
-            function() {
-                return P.resolve(client.system.read_system({}))
-                    .then(res => {
-                        if (res.cluster.shards[0].servers[0].services_status.remote_syslog) final_result = res;
-                    })
-                    .catch(() => {
-                        console.log('waiting for read systme, will retry extra', 65 - time_waiting, 'seconds');
-                        time_waiting += 15;
-                        return P.delay(15000);
-                    });
-            }).then(() => final_result);
-    })
-    .then(result => {
-        let syslog_status = result.cluster.shards[0].servers[0].services_status.remote_syslog.status;
-        if (syslog_status === 'OPERATIONAL') {
-            console.log('The service monitor see the syslog status as OPERATIONAL - as should');
-        } else {
-            saveErrorAndResume(`The service monitor see the syslog status as ${syslog_status} - failure!!!`);
-            failures_in_test = true;
-        }
-    })
-    .then(() => rsyslog_udp_server.close())
-    .then(() => P.resolve(client.system.set_maintenance_mode({
-        duration: 1
-    })))
-    .delay(10000)
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let mode = result.maintenance_mode.state;
-        if (mode === true) {
-            console.log('The maintenance mode is true - as should');
-        } else {
-            saveErrorAndResume(`The maintenance mode is ${mode} - failure!!!`);
-            failures_in_test = true;
-        }
-    })
-    .delay(61000)
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let mode = result.maintenance_mode.state;
-        if (mode === false) {
-            console.log('The maintenance mode is false - as should');
-        } else {
-            saveErrorAndResume(`The maintenance mode after turn finished time is ${mode} - failure!!!`);
-            failures_in_test = true;
-        }
-    })
-    .then(() => P.resolve(client.system.set_maintenance_mode({
-        duration: 30
-    })))
-    .delay(10000)
-    .then(() => P.resolve(client.system.set_maintenance_mode({
-        duration: 0
-    })))
-    .delay(10000)
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let mode = result.maintenance_mode.state;
-        if (mode === false) {
-            console.log('The maintenance mode is false - as should');
-        } else {
-            saveErrorAndResume(`The maintenance mode after turn off is ${mode} - failure!!!`);
-            failures_in_test = true;
-        }
-    })
-    .then(() => P.resolve(client.system.update_n2n_config({
+    });
+}
+
+async function remote_syslog(protocol) {
+    try {
+        const port = protocol === 'TCP' ? tcp_rsyslog_port : udp_rsyslog_port;
+        console.log(`port: ${port}`);
+        await set_remote_syslog_protocol_and_check(protocol, lg_ip, port);
+        await check_defined_syslog(protocol, port);
+        await check_syslog_status(protocol);
+        await report.success(`${protocol}_Remote_Syslog`);
+    } catch (e) {
+        failures_in_test = true;
+        await report.fail(`${protocol}_Remote_Syslog`);
+    }
+}
+
+async function check_maintenance_mode(expected_mode) {
+    const system_info = await client.system.read_system({});
+    const is_mode_off = system_info.maintenance_mode.state;
+    if (is_mode_off === expected_mode) {
+        console.log(`The maintenance mode is ${is_mode_off} - as should`);
+        await report.success(`set_maintenance_mode`);
+    } else {
+        saveErrorAndResume(`The maintenance mode is ${is_mode_off}`);
+        await report.fail(`set_maintenance_mode`);
+        throw new Error('Test set_maintenance_mode_and_check Failed');
+    }
+}
+
+async function set_maintenance_mode(duration, delay_in_sec) {
+    try {
+        console.log(`Setting maintenance mode duration to ${duration}`);
+        await client.system.set_maintenance_mode({ duration });
+        console.log(`Sleeping for ${delay_in_sec} sec`);
+        await P.delay(delay_in_sec * 1000);
+    } catch (e) {
+        await report.fail(`set_maintenance_mode`);
+        throw new Error('Test set_maintenance_mode_and_check Failed');
+    }
+}
+
+async function set_maintenance_mode_and_check() {
+    try {
+        console.log('Setting maintenance mode');
+        await set_maintenance_mode(1, 10);
+        await check_maintenance_mode(true);
+        console.log(`Sleeping for 60 sec`);
+        await P.delay(60 * 1000);
+        await check_maintenance_mode(false);
+        await set_maintenance_mode(30, 10);
+        await set_maintenance_mode(0, 10);
+        await check_maintenance_mode(false);
+    } catch (e) {
+        failures_in_test = true;
+    }
+}
+
+async function update_n2n_config_and_check_single_port(port) {
+    await client.system.update_n2n_config({
         tcp_active: true,
         tcp_permanent_passive: {
-            port: 60100
+            port
         }
-    })))
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let tcp_port = result.n2n_config.tcp_permanent_passive.port;
-        let n2n_config = JSON.stringify(result.n2n_config);
-        if (tcp_port === 60100) {
-            console.log('The single tcp port is : ', 60100, ' - as should');
-        } else {
-            saveErrorAndResume(`The single tcp port is ${n2n_config} - failure!!!`);
-            failures_in_test = true;
-        }
-    })
-    .then(() => P.resolve(client.system.update_n2n_config({
+    });
+    let system_info = await client.system.read_system({});
+    const tcp_port = system_info.n2n_config.tcp_permanent_passive.port;
+    let n2n_config = JSON.stringify(system_info.n2n_config);
+    if (tcp_port === port) {
+        console.log(`The single tcp port is: ${port} - as should`);
+        await report.success(`update_n2n_config_single_port`);
+    } else {
+        saveErrorAndResume(`The single tcp port is ${n2n_config}`);
+        await report.fail(`update_n2n_config_single_port`);
+        throw new Error('Test update_n2n_config_and_check Failed');
+    }
+}
+
+async function update_n2n_config_and_check_range(max, min) {
+    await client.system.update_n2n_config({
         tcp_active: true,
         tcp_permanent_passive: {
-            max: 60500,
-            min: 60200
+            max,
+            min
         }
-    })))
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let tcp_port_min = result.n2n_config.tcp_permanent_passive.min;
-        let tcp_port_max = result.n2n_config.tcp_permanent_passive.max;
-        let n2n_config = JSON.stringify(result.n2n_config);
-        if (tcp_port_min === 60200 && tcp_port_max === 60500) {
-            console.log('The tcp port range is : ', 60100, ' to ', 60500, ' - as should');
+    });
+    const system_info = await client.system.read_system({});
+    const tcp_port_min = system_info.n2n_config.tcp_permanent_passive.min;
+    const tcp_port_max = system_info.n2n_config.tcp_permanent_passive.max;
+    const n2n_config = JSON.stringify(system_info.n2n_config);
+    if (tcp_port_min === min && tcp_port_max === max) {
+        console.log(`The tcp port range is: ${min} to ${60500} - as should`);
+        await report.success(`update_n2n_config_range`);
+    } else {
+        saveErrorAndResume(`The tcp port range is ${n2n_config}`);
+        await report.fail(`update_n2n_config_range`);
+        throw new Error('Test update_n2n_config_and_check Failed');
+    }
+}
+
+async function update_n2n_config_and_check() {
+    try {
+        console.log('Updating n2n config mode');
+        await update_n2n_config_and_check_single_port(60100);
+        await update_n2n_config_and_check_range(60500, 60200);
+    } catch (e) {
+        failures_in_test = true;
+    }
+}
+
+async function set_debug_level(level) {
+    try {
+        await client.cluster_server.set_debug_level({ level });
+        const system_info = await client.system.read_system({});
+        const debug_level = system_info.debug.level;
+        if (debug_level === level) {
+            console.log(`The debug level is: ${level} - as should`);
+            await report.success(`set_debug_level_and_check `);
         } else {
-            saveErrorAndResume(`The tcp port range is ${n2n_config} - failure!!!`);
+            saveErrorAndResume(`The debug level is ${debug_level}`);
+            throw new Error('Test set_debug_level_and_check Failed');
+        }
+    } catch (e) {
+        await report.fail(`set_debug_level_and_check `);
+        throw new Error('Test set_debug_level_and_check Failed');
+    }
+}
+
+async function set_debug_level_and_check() {
+    try {
+        console.log('Setting debug level');
+        //turn on debug level
+        await set_debug_level(5);
+        //turn off debug level
+        await set_debug_level(0);
+    } catch (e) {
+        failures_in_test = true;
+    }
+}
+
+async function set_diagnose_system_and_check() {
+    try {
+        console.log(`Setting Diagnostic`);
+        const diagnose_system = await client.cluster_server.diagnose_system({});
+        await P.delay(40 * 1000);
+        if (diagnose_system.includes('/public/demo_cluster_diagnostics.tgz')) {
+            console.log(`The diagnose system file is: ${diagnose_system} - as should `);
+            await report.success(`set_diagnose_system`);
+        } else {
+            saveErrorAndResume(`The diagnose system file is: ${diagnose_system}`);
+            throw new Error('Test set_diagnose_system_and_check Failed');
+        }
+    } catch (e) {
+        failures_in_test = true;
+        await report.fail(`set_diagnose_system`);
+    }
+}
+
+async function set_rpc_and_create_auth_token() {
+    rpc = api.new_rpc('wss://' + server_ip + ':8443');
+    client = rpc.new_client({});
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params);
+}
+
+async function main() {
+    try {
+        await set_rpc_and_create_auth_token();
+        const system_info = await client.system.read_system({});
+        const secret = system_info.cluster.shards[0].servers[0].secret;
+        console.log('Secret is ' + secret);
+        rpc.disconnect_all();
+        await server_ops.clean_ova(server_ip, secret);
+        await server_ops.wait_server_recoonect(server_ip);
+        try {
+            await server_ops.validate_activation_code(server_ip);
+        } catch (err) {
+            saveErrorAndResume(err.message);
             failures_in_test = true;
         }
-    })
-    .then(() => P.resolve(client.cluster_server.set_debug_level({
-        level: 5
-    })))
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let debug_level = result.debug.level;
-        if (debug_level === 5) {
-            console.log('The debug level is : ', 5, ' - as should');
-        } else {
-            saveErrorAndResume(`The debug level is ${debug_level} - failure!!!`);
+        try {
+            await server_ops.create_system_and_check(server_ip);
+        } catch (err) {
+            saveErrorAndResume(err.message);
             failures_in_test = true;
         }
-    })
-    .then(() => P.resolve(client.cluster_server.set_debug_level({
-        level: 0
-    })))
-    .then(() => P.resolve(client.system.read_system({})))
-    .then(result => {
-        let debug_level = result.debug.level;
-        if (debug_level === 0) {
-            console.log('The debug level after turn off is : ', 0, ' - as should');
-        } else {
-            saveErrorAndResume(`The debug level after turn off is ${debug_level} - failure!!!`);
-            failures_in_test = true;
-        }
-    })
-    .then(() => P.resolve(client.cluster_server.diagnose_system({})))
-    .delay(40000)
-    .then(result => {
-        if (result.includes('/public/demo_cluster_diagnostics.tgz')) {
-            console.log(`The diagnose system file is: ${result} - as should`);
-        } else {
-            saveErrorAndResume(`The diagnose system file is: ${result} - failure!!!`);
-            failures_in_test = true;
-        }
-    })
-    .then(() => rpc.disconnect_all())
-    .then(() => {
+        await set_rpc_and_create_auth_token();
+        await set_DNS_And_check();
+        await set_NTP_And_check();
+        await set_Phonehome_and_check();
+        await remote_syslog('TCP');
+        await remote_syslog('UDP');
+        await set_maintenance_mode_and_check();
+        await update_n2n_config_and_check();
+        await set_debug_level_and_check();
+        await set_diagnose_system_and_check();
+        rpc.disconnect_all();
+        await report.print_report();
         if (failures_in_test) {
-            console.log('Got error/s during test :( - exiting...' + errors);
-            process.exit(1);
+            throw new Error(`Got error/s during test - exiting...`);
         } else {
-            console.log('Test passed with no errors :) - exiting...');
+            console.log('Test passed with no errors - exiting...');
             process.exit(0);
         }
-    })
-    .catch(err => {
-        console.log('Major error during test :( - exiting...', err);
+    } catch (err) {
+        await report.print_report();
+        console.error(`${err}`);
+        console.error(`${JSON.stringify(_.countBy(errors), null, 4)}`);
         process.exit(1);
-    });
+    }
+}
+
+P.resolve()
+    .then(main);

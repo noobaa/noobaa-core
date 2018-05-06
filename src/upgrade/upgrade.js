@@ -28,7 +28,10 @@ async function do_upgrade() {
     dbg.log0('UPGRADE: starting do_upgrade in upgrade.js');
     try {
         dbg.log0('UPGRADE: backup up old version before starting..');
+        // TODO: move the backup stage into upgrade_manager
         await platform_upgrade.backup_old_version();
+        // prepare_new_dir must run before running upgrade manager since it fixes .env parameters that
+        // upgrade manager might need (e.g. mongo connection string, etc.)
         await platform_upgrade.prepare_new_dir();
         await start_upgrade_manager();
     } catch (err) {

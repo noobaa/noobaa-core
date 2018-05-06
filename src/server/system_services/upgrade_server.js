@@ -113,6 +113,12 @@ async function do_upgrade(req) {
 }
 
 function get_upgrade_status(req) {
+    const server = system_store.get_local_cluster_info();
+    const upgrade_stage = _.get(server, 'upgrade.stage');
+    if (upgrade_stage === 'UPGRADE_ABORTED') {
+        dbg.warn('UPGRADE: upgrade was aborted by upgrade manager. resetting upgrade_in_process to false');
+        upgrade_in_process = false;
+    }
     return { in_process: upgrade_in_process };
 }
 

@@ -126,8 +126,7 @@ class UpgradeManager {
     async run_upgrade_stages() {
         const UPGRADE_STAGES = Object.freeze([{
             name: 'START_UPGRADE',
-            func: () => this.start_upgrade_stage(),
-            rollback_on_error: true
+            func: () => this.start_upgrade_stage()
         }, {
             name: 'COPY_NEW_CODE',
             func: () => this.copy_new_code_stage(),

@@ -5,6 +5,7 @@ import Observer from 'observer';
 import ko from 'knockout';
 import moment from 'moment';
 import { stringifyAmount } from 'utils/string-utils';
+import { get } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { timeShortFormat } from 'config';
 import {
@@ -89,7 +90,10 @@ class BucketCloudSyncFormViewModel extends Observer {
 
         this.bucketName = ko.unwrap(bucketName);
 
-        this.observe(state$.get('buckets', this.bucketName), this.onState);
+        this.observe(
+            state$.pipe(get('buckets', this.bucketName)),
+            this.onState
+        );
     }
 
     onState(bucket) {
@@ -100,7 +104,7 @@ class BucketCloudSyncFormViewModel extends Observer {
 
         this.hasCloudSync(Boolean(bucket.cloudSync));
         this.isBucketLoaded(true);
-        
+
         if (!bucket.cloudSync) {
             this.isPaused(undefined);
         } else {
@@ -136,20 +140,20 @@ class BucketCloudSyncFormViewModel extends Observer {
     }
 
     onSetPolicy() {
-        action$.onNext(openSetCloudSyncModal(this.bucketName));
+        action$.next(openSetCloudSyncModal(this.bucketName));
     }
 
     onEditPolicy() {
-        action$.onNext(openEditCloudSyncModal(this.bucketName));
+        action$.next(openEditCloudSyncModal(this.bucketName));
     }
 
     onRemovePolicy() {
-        action$.onNext(deleteCloudSyncPolicy(this.bucketName));
+        action$.next(deleteCloudSyncPolicy(this.bucketName));
     }
 
     onToggleSync() {
         if (this.hasCloudSync()) {
-            action$.onNext(toggleCloudSyncPolicy(this.bucketName, !this.isPaused()));
+            action$.next(toggleCloudSyncPolicy(this.bucketName, !this.isPaused()));
         }
     }
 }

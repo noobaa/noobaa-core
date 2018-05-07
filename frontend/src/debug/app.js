@@ -84,7 +84,7 @@ export default class AppViewModel {
     }
 
     onEmptyLog() {
-        action$.onNext({ type: 'DROP_MESSAGES' });
+        action$.next({ type: 'DROP_MESSAGES' });
     }
 
     onFindConsole() {
@@ -92,7 +92,7 @@ export default class AppViewModel {
     }
 
     onFilterMessages(text) {
-        action$.onNext({
+        action$.next({
             type: 'SET_MESSAGE_FILTER',
             payload: { filter: text }
         });
@@ -100,14 +100,14 @@ export default class AppViewModel {
 
     onSelectRow(row) {
         const { timestamp } = row;
-        action$.onNext({
+        action$.next({
             type: 'SELECT_MESSAGE',
             payload: { timestamp }
         });
     }
 
     onShowAllMessages() {
-        action$.onNext({
+        action$.next({
             type: 'SET_MESSAGE_FILTER',
             payload: { filter: '' }
         });
@@ -122,7 +122,7 @@ export default class AppViewModel {
     }
 
     _selectStateView(view) {
-        action$.onNext({
+        action$.next({
             type: 'SELECTE_STATE_VIEW',
             payload: { view }
         });

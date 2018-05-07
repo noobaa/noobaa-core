@@ -1,12 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { UPDATE_BUCKET_SPILLOVER } from 'action-types';
 import { completeUpdateBucketSpillover, failUpdateBucketSpillover } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(UPDATE_BUCKET_SPILLOVER)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(UPDATE_BUCKET_SPILLOVER),
+        mergeMap(async action => {
             const { bucket, resource } = action.payload;
 
             try {
@@ -18,5 +20,6 @@ export default function(action$, { api }) {
             } catch (error) {
                 return failUpdateBucketSpillover(bucket, error);
             }
-        });
+        })
+    );
 }

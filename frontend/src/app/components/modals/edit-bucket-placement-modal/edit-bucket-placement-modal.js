@@ -7,6 +7,7 @@ import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
 import { deepFreeze, pick, flatMap, createCompareFunc } from 'utils/core-utils';
 import { getFieldValue } from 'utils/form-utils';
+import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import {
     openEmptyBucketPlacementWarningModal,
@@ -76,11 +77,13 @@ class EditBucketPlacementModalViewModel extends Observer {
         this.selectableResourceIds = [];
 
         this.observe(
-            state$.getMany(
-                ['buckets', ko.unwrap(bucketName)],
-                'hostPools',
-                'cloudResources',
-                ['forms', formName]
+            state$.pipe(
+                getMany(
+                    ['buckets', ko.unwrap(bucketName)],
+                    'hostPools',
+                    'cloudResources',
+                    ['forms', formName]
+                )
             ),
             this.onBucket
         );
@@ -158,11 +161,11 @@ class EditBucketPlacementModalViewModel extends Observer {
     }
 
     onSelectAll() {
-        action$.onNext(updateForm(formName, { selectedResources: this.selectableResourceIds }));
+        action$.next(updateForm(formName, { selectedResources: this.selectableResourceIds }));
     }
 
     onClearAll() {
-        action$.onNext(updateForm(formName, { selectedResources: [] }));
+        action$.next(updateForm(formName, { selectedResources: [] }));
     }
 
     onCancel() {
@@ -200,7 +203,7 @@ class EditBucketPlacementModalViewModel extends Observer {
             action = openEmptyBucketPlacementWarningModal(action);
         }
 
-        action$.onNext(action);
+        action$.next(action);
     }
 
     dispose(){

@@ -9,6 +9,7 @@ import style from 'style';
 import { state$, action$ } from 'state';
 import { sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { get } from 'rx-extensions';
 import { tween } from 'shifty';
 import {
     replaceWithPreUpgradeSystemFailedModal,
@@ -52,7 +53,7 @@ class SystemUpgradingModalViewModel extends Observer {
         super();
 
         this.observe(
-            state$.get('topology', 'servers'),
+            state$.pipe(get('topology', 'servers')),
             this.onState
         );
 
@@ -86,11 +87,11 @@ class SystemUpgradingModalViewModel extends Observer {
         this.serverRows(serverRows);
 
         if (serverList.some(server => server.upgrade.package.error)) {
-            action$.onNext(replaceWithPreUpgradeSystemFailedModal());
+            action$.next(replaceWithPreUpgradeSystemFailedModal());
         }
 
         if (serverList.some(server => server.upgrade.error)) {
-            action$.onNext(replaceWithUpgradeSystemFailedModal());
+            action$.next(replaceWithUpgradeSystemFailedModal());
         }
     }
 

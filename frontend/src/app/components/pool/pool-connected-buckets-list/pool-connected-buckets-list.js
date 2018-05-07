@@ -6,6 +6,7 @@ import { state$ } from 'state';
 import * as routes from 'routes';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 
 class PoolConnectedBucketsListViewModel extends Observer {
     constructor({ poolName }) {
@@ -16,9 +17,11 @@ class PoolConnectedBucketsListViewModel extends Observer {
         this.bucketCount = ko.observable();
 
         this.observe(
-            state$.getMany(
-                ['hostPools', ko.unwrap(poolName), 'connectedBuckets'],
-                ['location', 'params', 'system']
+            state$.pipe(
+                getMany(
+                    ['hostPools', ko.unwrap(poolName), 'connectedBuckets'],
+                    ['location', 'params', 'system']
+                )
             ),
             this.onBuckets
         );

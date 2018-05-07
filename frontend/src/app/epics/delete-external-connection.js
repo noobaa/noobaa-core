@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_EXTERNAL_CONNECTION } from 'action-types';
 import { completeDeleteExternalConnection, failDeleteExternalConnection } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(DELETE_EXTERNAL_CONNECTION)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(DELETE_EXTERNAL_CONNECTION),
+        mergeMap(async action => {
             const { connection } = action.payload;
 
             try {
@@ -23,5 +25,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

@@ -16,7 +16,10 @@ class FuncCodeViewModel extends Observer {
         this.files = ko.observable();
 
         if (func()) this.onFiles(func());
-        this.observe(func, this.onFiles);
+        this.observe(
+            func,
+            this.onFiles
+        );
     }
 
     onFiles({ name, version, codeFiles }) {

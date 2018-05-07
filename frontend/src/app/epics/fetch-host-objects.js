@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_HOST_OBJECTS } from 'action-types';
 import { completeFetchHostObjects, failFetchHostObjects } from 'action-creators';
 
 export default  function(action$, { api }) {
-    return action$
-        .ofType(FETCH_HOST_OBJECTS)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(FETCH_HOST_OBJECTS),
+        mergeMap(async action => {
             const { host, skip, limit } = action.payload;
 
             try {
@@ -28,5 +30,6 @@ export default  function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

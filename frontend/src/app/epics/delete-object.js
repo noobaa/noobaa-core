@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
-import Rx from 'rx';
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
+import { Subject } from 'rxjs';
 import { DELETE_OBJECT } from 'action-types';
 import { completeDeleteObject, failDeleteObject } from 'action-creators';
 
 export default function(action$, { S3 }) {
-    return action$
-        .ofType(DELETE_OBJECT)
-        .flatMap(action => {
+    return action$.pipe(
+        ofType(DELETE_OBJECT),
+        mergeMap(action => {
             const { bucket, key, uploadId, accessData } = action.payload;
             const { endpoint, accessKey, secretKey } = accessData;
             const s3 = new S3({
@@ -19,7 +21,7 @@ export default function(action$, { S3 }) {
                 s3ForcePathStyle: true,
                 sslEnabled: false
             });
-            const deleteEvent$ = new Rx.Subject();
+            const deleteEvent$ = new Subject();
 
 
             if (uploadId) {
@@ -30,7 +32,7 @@ export default function(action$, { S3 }) {
                 };
 
                 s3.abortMultipartUpload(params, error => {
-                    deleteEvent$.onNext(error ?
+                    deleteEvent$.next(error ?
                         failDeleteObject(bucket, key, uploadId, error) :
                         completeDeleteObject(bucket, key, uploadId)
                     );
@@ -42,7 +44,7 @@ export default function(action$, { S3 }) {
                 };
 
                 s3.deleteObject(params, error => {
-                    deleteEvent$.onNext(error ?
+                    deleteEvent$.next(error ?
                         failDeleteObject(bucket, key, uploadId, error) :
                         completeDeleteObject(bucket, key, uploadId)
                     );
@@ -50,5 +52,6 @@ export default function(action$, { S3 }) {
             }
 
             return deleteEvent$;
-        });
+        })
+    );
 }

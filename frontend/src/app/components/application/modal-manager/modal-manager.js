@@ -6,6 +6,7 @@ import { state$, action$ } from 'state';
 import Modal from './modal';
 import ko from 'knockout';
 import { last } from 'utils/core-utils';
+import { get } from 'rx-extensions';
 import { closeModal, updateModal } from 'action-creators';
 
 class ModalManagerViewModel extends Observer {
@@ -15,7 +16,10 @@ class ModalManagerViewModel extends Observer {
         this.modals = ko.observableArray();
         this.hasModals = ko.observable();
 
-        this.observe(state$.get('modals'), this.onModals);
+        this.observe(
+            state$.pipe(get('modals')),
+            this.onModals
+        );
     }
 
     onModals(modals) {
@@ -40,17 +44,17 @@ class ModalManagerViewModel extends Observer {
     onBackdrop() {
         const top = last(this.modals());
         if (top && top.backdropClose()) {
-            action$.onNext(closeModal());
+            action$.next(closeModal());
         }
     }
 
     onClose() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     onKeyDown(_, evt) {
         if (evt.code.toLowerCase() === 'escape') {
-            action$.onNext(closeModal());
+            action$.next(closeModal());
             return false;
         }
 
@@ -58,7 +62,7 @@ class ModalManagerViewModel extends Observer {
     }
 
     onUpdateOptions(options) {
-        action$.onNext(updateModal(options));
+        action$.next(updateModal(options));
     }
 }
 

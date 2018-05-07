@@ -6,6 +6,7 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { openTestNodeModal, collectHostDiagnostics, setHostDebugMode } from 'action-creators';
 import { formatTimeLeftForDebugMode } from 'utils/diagnostic-utils';
+import { get } from 'rx-extensions';
 import { timeTickInterval } from 'config';
 
 function _getDebugModeToggleText(debugState) {
@@ -50,7 +51,10 @@ class HostDiagnosticsFormViewModel extends Observer{
             }
         ];
 
-        this.observe(state$.get('hosts', 'items', this.hostName), this.onHost);
+        this.observe(
+            state$.pipe(get('hosts', 'items', this.hostName)),
+            this.onHost
+        );
 
         // Create a ticker to update the debug counter each second.
         this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
@@ -94,15 +98,15 @@ class HostDiagnosticsFormViewModel extends Observer{
 
     onToggleDebugMode() {
         const { hostName, debugState } = this;
-        action$.onNext(setHostDebugMode(hostName, !debugState));
+        action$.next(setHostDebugMode(hostName, !debugState));
     }
 
     onDownloadDiagnostics() {
-        action$.onNext(collectHostDiagnostics(this.hostName));
+        action$.next(collectHostDiagnostics(this.hostName));
     }
 
     onRunTest() {
-        action$.onNext(openTestNodeModal(this.rpcAddress));
+        action$.next(openTestNodeModal(this.rpcAddress));
     }
 
     dispose(){

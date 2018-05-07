@@ -7,6 +7,7 @@ import { state$, action$ } from 'state';
 import { requestLocation, openManagementConsoleErrorModal } from 'action-creators';
 import * as routes from 'routes';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 
 class AppViewModel extends Observer {
     constructor() {
@@ -16,26 +17,28 @@ class AppViewModel extends Observer {
         this.css = ko.observable();
 
         this.observe(
-            state$.getMany(
-                'session',
-                'location',
-                'env',
-                'lastError'
+            state$.pipe(
+                getMany(
+                    'session',
+                    'location',
+                    'env',
+                    'lastError'
+                )
             ),
             this.onState
         );
     }
 
-    onState([ session, location = {}, env, lastError ]) {
+    onState([session, location = {}, env, lastError]) {
         if (lastError) {
-            action$.onNext(openManagementConsoleErrorModal());
+            action$.next(openManagementConsoleErrorModal());
             return;
         }
 
         if (session && !location.route) {
             // Redirect to the system routes
             const url = realizeUri(routes.system, { system: session.system });
-            action$.onNext(requestLocation(url, true));
+            action$.next(requestLocation(url, true));
             return;
         }
 

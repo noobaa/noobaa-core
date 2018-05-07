@@ -6,6 +6,7 @@ import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { closeDrawer } from 'action-creators';
 import { runAsync } from 'utils/core-utils';
+import { get } from 'rx-extensions';
 
 class DrawerViewModel extends Observer {
     constructor() {
@@ -13,7 +14,11 @@ class DrawerViewModel extends Observer {
         this.component = ko.observable();
         this.params = { onClose: this.close.bind(this) };
         this.opened = ko.observable();
-        this.observe(state$.get('drawer'), this.onDrawer);
+
+        this.observe(
+            state$.pipe(get('drawer')),
+            this.onDrawer
+        );
     }
 
     onDrawer(drawer) {
@@ -33,7 +38,7 @@ class DrawerViewModel extends Observer {
     }
 
     close() {
-        action$.onNext(closeDrawer());
+        action$.next(closeDrawer());
     }
 }
 

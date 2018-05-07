@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { TOGGLE_HOST_NODES } from 'action-types';
 import { completeToggleHostNodes, failToggleHostNodes } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(TOGGLE_HOST_NODES)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(TOGGLE_HOST_NODES),
+        mergeMap(async action => {
             const { host, nodes } = action.payload;
 
             try {
@@ -30,5 +32,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

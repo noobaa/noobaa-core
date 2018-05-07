@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_ALERTS } from 'action-types';
 import { completeFetchAlerts, failFetchAlerts } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(FETCH_ALERTS)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(FETCH_ALERTS),
+        mergeMap(async action => {
             const { query, limit } = action.payload;
 
             try {
@@ -17,5 +19,6 @@ export default function(action$, { api }) {
             } catch (error) {
                 return failFetchAlerts(mapErrorObject(error));
             }
-        });
+        })
+    );
 }

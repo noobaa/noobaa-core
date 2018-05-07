@@ -8,6 +8,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { state$, action$ } from 'state';
 import { inputThrottle, paginationPageSize } from 'config';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
 import {
     requestLocation,
     openAddCloudConnectionModal,
@@ -73,11 +74,13 @@ class AccountConnectionsTableViewModel extends Observer {
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
-            state$.getMany(
-                ['accounts', ko.unwrap(accountName), 'externalConnections'],
-                'buckets',
-                'namespaceBuckets',
-                'location'
+            state$.pipe(
+                getMany(
+                    ['accounts', ko.unwrap(accountName), 'externalConnections'],
+                    'buckets',
+                    'namespaceBuckets',
+                    'location'
+                ),
             ),
             this.onConnections
         );
@@ -183,15 +186,15 @@ class AccountConnectionsTableViewModel extends Observer {
         };
 
         const url = realizeUri(this.pathname, {}, query);
-        action$.onNext(requestLocation(url));
+        action$.next(requestLocation(url));
     }
 
     onAddConnection() {
-        action$.onNext(openAddCloudConnectionModal());
+        action$.next(openAddCloudConnectionModal());
     }
 
     onDeleteConnection(name) {
-        action$.onNext(deleteExternalConnection(name));
+        action$.next(deleteExternalConnection(name));
     }
 }
 

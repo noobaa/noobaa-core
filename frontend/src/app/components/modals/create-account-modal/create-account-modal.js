@@ -9,6 +9,7 @@ import { deepFreeze, flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { randomString } from 'utils/string-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getMany } from 'rx-extensions';
 import { getFormValues, getFieldValue, isFieldTouched, isFieldValid } from 'utils/form-utils';
 import { isEmail } from 'validations';
 import { closeModal, lockModal, createAccount } from 'action-creators';
@@ -99,12 +100,14 @@ class CreateAccountWizardViewModel extends Observer {
         });
 
         this.observe(
-            state$.getMany(
-                'accounts',
-                'hostPools',
-                'cloudResources',
-                'buckets',
-                ['forms', formName]
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    'hostPools',
+                    'cloudResources',
+                    'buckets',
+                    ['forms', formName]
+                )
             ),
             this.onState
         );
@@ -197,7 +200,7 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     onSubmit(values) {
-        action$.onNext(createAccount(
+        action$.next(createAccount(
             values.accountName.trim(),
             values.hasLoginAccess,
             this.password,
@@ -207,11 +210,11 @@ class CreateAccountWizardViewModel extends Observer {
             values.allowedBuckets
         ));
 
-        action$.onNext(lockModal());
+        action$.next(lockModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

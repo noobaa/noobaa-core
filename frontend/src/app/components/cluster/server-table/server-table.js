@@ -11,6 +11,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { inputThrottle } from 'config';
 import { action$, state$ } from 'state';
 import * as routes from 'routes';
+import { getMany } from 'rx-extensions';
 import { openAttachServerModal, requestLocation } from 'action-creators';
 
 const columns = deepFreeze([
@@ -89,10 +90,12 @@ class ServerTableViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                'topology',
-                'system',
-                'location'
+            state$.pipe(
+                getMany(
+                    'topology',
+                    'system',
+                    'location'
+                )
             ),
             this.onState
         );
@@ -157,13 +160,13 @@ class ServerTableViewModel extends Observer {
             order: order
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, null, query)
         ));
     }
 
     onAttachServerToCluster() {
-        action$.onNext(openAttachServerModal());
+        action$.next(openAttachServerModal());
     }
 }
 

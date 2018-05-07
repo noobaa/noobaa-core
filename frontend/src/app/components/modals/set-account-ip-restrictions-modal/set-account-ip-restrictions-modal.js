@@ -8,6 +8,7 @@ import { state$, action$ } from 'state';
 import { isIPOrIPRange } from 'utils/net-utils';
 import { setAccountIpRestrictions } from 'action-creators';
 import { deepFreeze } from 'utils/core-utils';
+import { get } from 'rx-extensions';
 
 const invalidIpReasonMapping = deepFreeze({
     MALFORMED: 'All values must be of the IPv4 format',
@@ -27,7 +28,7 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
         this.isAccountReady = ko.observable(false);
 
         this.observe(
-            state$.get('accounts', ko.unwrap(accountName)),
+            state$.pipe(get('accounts', ko.unwrap(accountName))),
             this.onAccount
         );
     }
@@ -72,7 +73,7 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
     }
 
     onSubmit({ accountName, usingIpRestrictions, allowedIps }) {
-        action$.onNext(setAccountIpRestrictions(
+        action$.next(setAccountIpRestrictions(
             accountName,
             usingIpRestrictions ? allowedIps : null
         ));

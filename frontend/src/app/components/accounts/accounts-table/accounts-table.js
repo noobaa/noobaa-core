@@ -8,6 +8,7 @@ import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { inputThrottle, paginationPageSize } from 'config';
 import { action$, state$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     requestLocation,
@@ -80,7 +81,13 @@ class AccountsTableViewModel extends Observer {
         });
 
         this.observe(
-            state$.getMany('accounts', 'location', 'session'),
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    'location',
+                    'session'
+                )
+            ),
             this.onAccounts
         );
     }
@@ -136,7 +143,7 @@ class AccountsTableViewModel extends Observer {
             selectedForDelete: undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }
@@ -150,7 +157,7 @@ class AccountsTableViewModel extends Observer {
             selectedForDelete: undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }
@@ -165,7 +172,7 @@ class AccountsTableViewModel extends Observer {
             selectedForDelete: undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }
@@ -180,17 +187,17 @@ class AccountsTableViewModel extends Observer {
             selectedForDelete: account || undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }
 
     onCreateAccount() {
-        action$.onNext(openCreateAccountModal());
+        action$.next(openCreateAccountModal());
     }
 
     onDeleteAccount(email, isCurrentUser) {
-        action$.onNext(tryDeleteAccount(email, isCurrentUser));
+        action$.next(tryDeleteAccount(email, isCurrentUser));
     }
 }
 

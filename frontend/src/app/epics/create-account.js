@@ -1,14 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { sleep, all } from 'utils/promise-utils';
 import { CREATE_ACCOUNT } from 'action-types';
 import { completeCreateAccount, failCreateAccount } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(CREATE_ACCOUNT)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(CREATE_ACCOUNT),
+        mergeMap(async action => {
             const {
                 accountName,
                 hasLoginAccess,
@@ -45,5 +47,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

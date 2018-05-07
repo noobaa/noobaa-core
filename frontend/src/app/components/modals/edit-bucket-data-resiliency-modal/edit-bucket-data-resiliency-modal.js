@@ -9,6 +9,7 @@ import { state$, action$ } from 'state';
 import { deepFreeze, pick } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
 import { summrizeResiliency, getResiliencyRequirementsWarning } from 'utils/bucket-utils';
+import { getMany } from 'rx-extensions';
 import { dataCenterArticles as articles } from 'config';
 import {
     closeModal,
@@ -113,9 +114,11 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                ['forms', formName],
-                ['buckets', bucketName],
+            state$.pipe(
+                getMany(
+                    ['forms', formName],
+                    ['buckets', bucketName],
+                )
             ),
             this.onState
         );
@@ -194,11 +197,11 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             ...defaults
         };
 
-        action$.onNext(updateForm(formName, values, false));
+        action$.next(updateForm(formName, values, false));
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     onValidate(values) {
@@ -235,12 +238,12 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             this.ecIsPolicyRisky;
 
         if (isPolicyRisky) {
-            action$.onNext(
+            action$.next(
                 openRiskyBucketDataResiliencyWarningModal(this.bucketName, this.tierName, policy)
             );
         } else {
-            action$.onNext(updateBucketResiliencyPolicy(this.bucketName, this.tierName, policy));
-            action$.onNext(closeModal());
+            action$.next(updateBucketResiliencyPolicy(this.bucketName, this.tierName, policy));
+            action$.next(closeModal());
         }
     }
 

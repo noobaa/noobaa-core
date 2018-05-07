@@ -11,6 +11,7 @@ import { state$, action$ } from 'state';
 import * as routes from 'routes';
 import ko from 'knockout';
 import moment from 'moment';
+import { get, getMany } from 'rx-extensions';
 import style from 'style';
 import {
     requestLocation,
@@ -333,15 +334,21 @@ class BucketsOverviewViewModel extends Observer{
             }
         ];
 
-        this.observe(state$.get('location'), this.onLocation);
         this.observe(
-            state$.getMany(
-                'buckets',
-                'hostPools',
-                'cloudResources',
-                'internalResources',
-                ['topology', 'servers'],
-                'storageHistory'
+            state$.pipe(get('location')),
+            this.onLocation
+        );
+
+        this.observe(
+            state$.pipe(
+                getMany(
+                    'buckets',
+                    'hostPools',
+                    'cloudResources',
+                    'internalResources',
+                    ['topology', 'servers'],
+                    'storageHistory'
+                )
             ),
             this.onState
         );
@@ -351,7 +358,7 @@ class BucketsOverviewViewModel extends Observer{
         // Should move inside onState without creating an
         // multipule chart redraws
         this.location = location;
-        action$.onNext(fetchSystemStorageHistory());
+        action$.next(fetchSystemStorageHistory());
     }
 
     onState(state) {
@@ -427,11 +434,11 @@ class BucketsOverviewViewModel extends Observer{
         };
 
         const url = realizeUri(this.location.pathname, {}, query);
-        action$.onNext(requestLocation(url, true));
+        action$.next(requestLocation(url, true));
     }
 
     onConnectApplication() {
-        action$.onNext(openConnectAppModal());
+        action$.next(openConnectAppModal());
     }
 
     onToggleDataset(name, value) {
@@ -442,7 +449,7 @@ class BucketsOverviewViewModel extends Observer{
         const updatedQuery = { ...query, hiddenDatasets };
 
         const url = realizeUri(this.location.pathname, {}, updatedQuery);
-        action$.onNext(requestLocation(url, true));
+        action$.next(requestLocation(url, true));
     }
 }
 

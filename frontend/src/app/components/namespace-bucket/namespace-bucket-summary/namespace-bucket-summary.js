@@ -8,6 +8,7 @@ import moment from 'moment';
 import { timeShortFormat } from 'config';
 import { getNamespaceBucketStateIcon } from 'utils/bucket-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { get } from 'rx-extensions';
 import numeral from 'numeral';
 
 class NamespaceBucketSummaryViewModel extends Observer {
@@ -24,7 +25,7 @@ class NamespaceBucketSummaryViewModel extends Observer {
         this.lastWrite = ko.observable();
 
         this.observe(
-            state$.get('namespaceBuckets', ko.unwrap(bucket)),
+            state$.pipe(get('namespaceBuckets', ko.unwrap(bucket))),
             this.onBucket
         );
     }

@@ -5,6 +5,7 @@ import Observer  from 'observer';
 import { state$ } from 'state';
 import ko from 'knockout';
 import  { realizeUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 
 class ResourcesPanelViewModel extends Observer  {
     constructor() {
@@ -13,7 +14,10 @@ class ResourcesPanelViewModel extends Observer  {
         this.selectedTab = ko.observable();
         this.baseRoute = '';
 
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
     }
 
     onLocation({ route, params }) {

@@ -194,7 +194,7 @@ class SetCloudSyncModalViewModel extends BaseViewModel {
     }
 
     onAddNewConnection() {
-        action$.onNext(openAddCloudConnectionModal(allowedServices));
+        action$.next(openAddCloudConnectionModal(allowedServices));
     }
 
     cancel() {

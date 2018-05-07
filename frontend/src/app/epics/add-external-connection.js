@@ -1,5 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { ADD_EXTERNAL_CONNECTION } from 'action-types';
 import { completeAddExternalConnection, failAddExternalConnection } from 'action-creators';
@@ -66,9 +68,9 @@ function _getApiRequestParams(payload) {
 }
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(ADD_EXTERNAL_CONNECTION)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(ADD_EXTERNAL_CONNECTION),
+        mergeMap(async action => {
             const { name } = action.payload;
 
             try {
@@ -82,5 +84,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

@@ -1,9 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
+
+import { get } from 'rx-extensions';
 import { sessionTokenKey, previewContentKey } from 'config';
 
 export default function (state$, { localStorage, sessionStorage })  {
     // Presist session token.
-    state$.get('session')
+    state$
+        .pipe(get('session'))
         .subscribe(session => {
             if (session === null) {
                 localStorage.removeItem(sessionTokenKey);
@@ -17,7 +20,8 @@ export default function (state$, { localStorage, sessionStorage })  {
         });
 
     // Presist preview content flag.
-    state$.get('env', 'previewContent')
+    state$
+        .pipe(get('env', 'previewContent'))
         .subscribe(previewContent => {
             previewContent ?
                 localStorage.setItem(previewContentKey, true) :

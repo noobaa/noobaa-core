@@ -43,7 +43,7 @@ class AccountMenuViewModel {
     }
 
     onSignOut() {
-        action$.onNext(signOut());
+        action$.next(signOut());
     }
 }
 

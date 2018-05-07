@@ -5,6 +5,7 @@ import Observer from 'observer';
 import ko from 'knockout';
 import { state$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 
 class PoolPanelViewModel extends Observer {
     constructor() {
@@ -13,7 +14,10 @@ class PoolPanelViewModel extends Observer {
         this.selectedTab = ko.observable();
         this.pool = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
     }
 
     onLocation({ route, params }) {

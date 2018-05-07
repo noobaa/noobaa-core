@@ -1,4 +1,9 @@
-import Rx from 'rx';
+/* Copyright (C) 2016 NooBaa */
+
+import { ofType } from 'rx-extensions';
+import { of, interval, concat, merge } from 'rxjs';
+import { takeUntil, map, filter, take,
+    distinctUntilChanged, mergeMap } from 'rxjs/operators';
 import { flatMap } from 'utils/core-utils';
 import {
     upgradeSystem,
@@ -12,9 +17,6 @@ import {
     COMPLETE_UPGRADE_SYSTEM,
     FAIL_UPGRADE_SYSTEM
 } from 'action-types';
-
-
-const {  just, interval, merge } = Rx.Observable;
 
 function _checkForUpgradeStatus(sysInfo, statusList) {
     return flatMap(
@@ -38,34 +40,40 @@ function _hasUpgradeFailed(action) {
 }
 
 export default function(action$, { browser }) {
-    return action$
-        .ofType(COMPLETE_FETCH_SYSTEM_INFO)
-        .distinctUntilChanged(_isSystemUpgrading)
-        .filter(_isSystemUpgrading)
-        .flatMap(action => {
+    return action$.pipe(
+        ofType(COMPLETE_FETCH_SYSTEM_INFO),
+        distinctUntilChanged(Object.is, _isSystemUpgrading),
+        filter(_isSystemUpgrading),
+        mergeMap(action => {
             const { name: systemName, cluster } = action.payload;
             const expectedVersion = cluster.shards[0].servers[0].upgrade.staged_package;
 
-            const successe$ = action$
-                .ofType(FAIL_FETCH_SYSTEM_INFO)
-                .takeUntil(action$.ofType(FAIL_UPGRADE_SYSTEM))
-                .take(1)
-                .flatMap(() => browser.httpWaitForResponse('/version', 200))
-                .map(() => completeUpgradeSystem(systemName, expectedVersion));
+            const successe$ = action$.pipe(
+                ofType(FAIL_FETCH_SYSTEM_INFO),
+                takeUntil(action$.pipe(ofType(FAIL_UPGRADE_SYSTEM))),
+                take(1),
+                mergeMap(() => browser.httpWaitForResponse('/version', 200)),
+                map(() => completeUpgradeSystem(systemName, expectedVersion))
+            );
 
-            const failure$ = action$
-                .ofType(COMPLETE_FETCH_SYSTEM_INFO)
-                .filter(_hasUpgradeFailed)
-                .takeUntil(action$.ofType(COMPLETE_UPGRADE_SYSTEM))
-                .take(1)
-                .map(() => failUpgradeSystem(systemName));
+            const failure$ = action$.pipe(
+                ofType(COMPLETE_FETCH_SYSTEM_INFO),
+                filter(_hasUpgradeFailed),
+                takeUntil(action$.pipe(ofType(COMPLETE_UPGRADE_SYSTEM))),
+                take(1),
+                map(() => failUpgradeSystem(systemName))
+            );
 
             // Dispatch a fetch system info every 10 sec while upgrading to pull upgrade status and progress.
-            const fetches$ = interval(10 * 1000)
-                .takeUntil(action$.ofType(FAIL_FETCH_SYSTEM_INFO, FAIL_UPGRADE_SYSTEM))
-                .map(() => fetchSystemInfo());
+            const fetches$ = interval(10 * 1000).pipe(
+                takeUntil(action$.pipe(ofType(FAIL_FETCH_SYSTEM_INFO, FAIL_UPGRADE_SYSTEM))),
+                map(() => fetchSystemInfo())
+            );
 
-            return just(upgradeSystem(systemName))
-                .concat(merge([fetches$, successe$, failure$]));
-        });
+            return concat(
+                of(upgradeSystem(systemName)),
+                merge(fetches$, successe$, failure$)
+            );
+        })
+    );
 }

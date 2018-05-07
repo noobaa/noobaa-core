@@ -6,6 +6,7 @@ import ko from 'knockout';
 import FormViewModel from 'components/form-view-model';
 import { realizeUri } from 'utils/browser-utils';
 import * as routes from 'routes';
+import { getMany } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import { closeModal, updateBucketS3Access, updateForm } from 'action-creators';
 
@@ -34,10 +35,12 @@ class EditBucketS3AccessModalViewModel extends Observer {
         this.bucketName = ko.unwrap(bucketName);
 
         this.observe(
-            state$.getMany(
-                'accounts',
-                ['location', 'params', 'system'],
-                ['forms', formName]
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    ['location', 'params', 'system'],
+                    ['forms', formName]
+                )
             ),
             this.onState
         );
@@ -76,7 +79,7 @@ class EditBucketS3AccessModalViewModel extends Observer {
         const selectedAccounts = this.accountOptions()
             .map(opt => opt.value);
 
-        action$.onNext(updateForm(formName, { selectedAccounts }));
+        action$.next(updateForm(formName, { selectedAccounts }));
     }
 
     clearAllAccounts() {
@@ -84,16 +87,16 @@ class EditBucketS3AccessModalViewModel extends Observer {
             .filter(opt => opt.disabled)
             .map(opt => opt.value);
 
-        action$.onNext(updateForm(formName, { selectedAccounts }));
+        action$.next(updateForm(formName, { selectedAccounts }));
     }
 
     onSubmit(values) {
-        action$.onNext(updateBucketS3Access(this.bucketName, values.selectedAccounts));
-        action$.onNext(closeModal());
+        action$.next(updateBucketS3Access(this.bucketName, values.selectedAccounts));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose(){

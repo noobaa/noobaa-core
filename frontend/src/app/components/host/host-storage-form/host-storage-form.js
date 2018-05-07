@@ -12,6 +12,7 @@ import { getStorageServiceStateIcon } from 'utils/host-utils';
 import { toBytes } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { requestLocation } from 'action-creators';
+import { getMany } from 'rx-extensions';
 
 const operationsDisabledTooltip = deepFreeze({
     align: 'end',
@@ -76,9 +77,11 @@ class HostStorageFormViewModel extends Observer {
         this.hostName = ko.unwrap(name);
 
         this.observe(
-            state$.getMany(
-                ['hosts', 'items', this.hostName],
-                'location'
+            state$.pipe(
+                getMany(
+                    ['hosts', 'items', this.hostName],
+                    'location'
+                )
             ),
             this.onHost
         );
@@ -148,13 +151,13 @@ class HostStorageFormViewModel extends Observer {
             page: page || undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }
 
     onEditDrives() {
-        action$.onNext(openEditHostStorageDrivesModal(this.hostName));
+        action$.next(openEditHostStorageDrivesModal(this.hostName));
     }
 }
 

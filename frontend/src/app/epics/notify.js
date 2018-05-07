@@ -5,7 +5,8 @@ import { getHostDisplayName, getHostServiceDisplayName } from 'utils/host-utils'
 import { getServerDisplayName } from 'utils/cluster-utils';
 import { unitsInBytes } from 'utils/size-utils';
 import { showNotification } from 'action-creators';
-import Rx from 'rx';
+import { empty } from 'rxjs';
+import { mergeMap } from 'rxjs/operators';
 import * as types from 'action-types';
 
 const actionToNotification = deepFreeze({
@@ -445,14 +446,15 @@ const actionToNotification = deepFreeze({
 });
 
 export default function(action$) {
-    return action$
-        .flatMap(action => {
+    return action$.pipe(
+        mergeMap(action => {
             const generator = actionToNotification[action.type];
             if (generator){
                 return ensureArray(generator(action.payload))
                     .map(notif => showNotification(notif.message, notif.severity));
             } else {
-                return Rx.Observable.empty();
+                return empty();
             }
-        });
+        })
+    );
 }

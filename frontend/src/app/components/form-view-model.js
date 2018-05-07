@@ -2,6 +2,7 @@
 
 import { isDefined, isFunction, mapValues, noop, pick } from 'utils/core-utils';
 import { getFormValues, isFormValid, isFormDirty } from 'utils/form-utils';
+import { get } from 'rx-extensions';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
@@ -89,10 +90,13 @@ export default class FormViewModel extends Observer {
         }
 
         // Initialze the form.
-        action$.onNext(initializeForm(name, fields));
+        action$.next(initializeForm(name, fields));
 
         // listen for state changes.
-        this.observe(state$.get('forms', name), this._onState);
+        this.observe(
+            state$.pipe(get('forms', name)),
+            this._onState
+        );
     }
 
     get name() {
@@ -100,26 +104,26 @@ export default class FormViewModel extends Observer {
     }
 
     submit() {
-        action$.onNext(submitForm(this.name));
+        action$.next(submitForm(this.name));
     }
 
     reset() {
-        action$.onNext(resetForm(this.name));
+        action$.next(resetForm(this.name));
     }
 
     touch(group) {
         if (isDefined(group)) {
             const fields = this._groups[group];
             if (!fields) throw new Error(`Invalid group name ${group}`);
-            action$.onNext(touchForm(this.name, fields));
+            action$.next(touchForm(this.name, fields));
 
         } else {
-            action$.onNext(touchForm(this.name));
+            action$.next(touchForm(this.name));
         }
     }
 
     dispose() {
-        action$.onNext(dropForm(this.name));
+        action$.next(dropForm(this.name));
         super.dispose();
     }
 
@@ -132,7 +136,7 @@ export default class FormViewModel extends Observer {
 
         const set = function(value, touch = true) {
             if (_state() && field().value !== value) {
-                action$.onNext(updateForm(formName, { [fieldName]: value }, touch));
+                action$.next(updateForm(formName, { [fieldName]: value }, touch));
             }
         };
 
@@ -248,7 +252,7 @@ export default class FormViewModel extends Observer {
 
         // Dispatching while running inside a handler of subscribe
         // need to be asynchronous. (to prevent a recursive behavior)
-        action$.onNext(setFormValidity(
+        action$.next(setFormValidity(
             this.name,
             {
                 values,
@@ -282,7 +286,7 @@ export default class FormViewModel extends Observer {
             mapValues(values, (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'UNKNOWN') :
             mapValues(values, () => 'VALID');
 
-        action$.onNext(setFormValidity(
+        action$.next(setFormValidity(
             this.name,
             {
                 values,
@@ -297,10 +301,10 @@ export default class FormViewModel extends Observer {
     async _handleSubmitting(values) {
         if (isFunction(this._validateSubmitHandler)) {
             const errors = await this._validateSubmitHandler(values);
-            action$.onNext(completeSubmitForm(this.name, errors));
+            action$.next(completeSubmitForm(this.name, errors));
 
         } else {
-            action$.onNext(completeSubmitForm(this.name));
+            action$.next(completeSubmitForm(this.name));
         }
     }
 }

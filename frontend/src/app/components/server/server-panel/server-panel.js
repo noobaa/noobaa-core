@@ -7,6 +7,7 @@ import { lastSegment } from 'utils/string-utils';
 import { summarizeServerIssues } from 'utils/cluster-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, sumBy, mapValues } from 'utils/core-utils';
+import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 
 const tabsToIssues = deepFreeze({
@@ -39,12 +40,16 @@ class ServerPanelViewModel extends Observer {
         this.diagnosticsIssues = ko.observable();
         this.communicationIssues = ko.observable();
         this.system = ko.observable();
+
         this.observe(
-            state$.getMany(
-                'location',
-                'topology',
-                ['system', 'version']
-            ), this.onState
+            state$.pipe(
+                getMany(
+                    'location',
+                    'topology',
+                    ['system', 'version']
+                )
+            ),
+            this.onState
         );
     }
 

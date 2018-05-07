@@ -17,12 +17,12 @@ class DisableHostStorageWarningModalViewModel extends Observer {
 
     onApprove() {
         this.close();
-        action$.onNext(toggleHostServices(this.host, { storage: false }));
+        action$.next(toggleHostServices(this.host, { storage: false }));
     }
 
     onBack() {
         this.close();
-        action$.onNext(openEditHostStorageDrivesModal(this.host, this.isLastService));
+        action$.next(openEditHostStorageDrivesModal(this.host, this.isLastService));
     }
 }
 

@@ -4,6 +4,7 @@ import template from './bucket-panel.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$ } from 'state';
+import { get } from 'rx-extensions';
 import { realizeUri } from 'utils/browser-utils';
 
 class BucketPanelViewModel extends Observer {
@@ -14,7 +15,10 @@ class BucketPanelViewModel extends Observer {
         this.selectedTab = ko.observable();
         this.bucket = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
     }
 
     onLocation({ route, params }) {

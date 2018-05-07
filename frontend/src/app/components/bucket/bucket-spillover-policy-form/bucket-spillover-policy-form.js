@@ -7,6 +7,7 @@ import { state$, action$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, ensureArray } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
+import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import * as routes from 'routes';
 import { requestLocation, openEditBucketSpilloverModal } from 'action-creators';
@@ -44,12 +45,14 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                'location',
-                'buckets',
-                'hostPools',
-                'cloudResources',
-                'internalResources'
+            state$.pipe(
+                getMany(
+                    'location',
+                    'buckets',
+                    'hostPools',
+                    'cloudResources',
+                    'internalResources'
+                )
             ),
             this.onState
         );
@@ -103,11 +106,11 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 
     onEditSpillover(_, evt) {
-        action$.onNext(openEditBucketSpilloverModal(this.bucketName));
+        action$.next(openEditBucketSpilloverModal(this.bucketName));
         evt.stopPropagation();
     }
 }

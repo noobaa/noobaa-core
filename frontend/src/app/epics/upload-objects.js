@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
-import Rx from 'rx';
+import { Subject } from 'rxjs';
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { UPLOAD_OBJECTS } from 'action-types';
 import { deepFreeze } from 'utils/core-utils';
 import { mapErrorObject } from 'utils/state-utils';
@@ -14,13 +16,13 @@ const s3UploadOptions = deepFreeze({
 });
 
 export default function(action$, { S3 }) {
-    return action$
-        .ofType(UPLOAD_OBJECTS)
-        .flatMap(action => {
+    return action$.pipe(
+        ofType(UPLOAD_OBJECTS),
+        mergeMap(action => {
             const { objects, connection } = action.payload;
             const { endpoint, accessKey, secretKey } = connection;
             const s3 = createS3Client(S3, endpoint, accessKey, secretKey);
-            const uploadEvent$ = new Rx.Subject();
+            const uploadEvent$ = new Subject();
 
             let uploading = objects.length;
             for (const { id, bucket, file } of objects) {
@@ -37,18 +39,19 @@ export default function(action$, { S3 }) {
                             failObjectUpload(id, mapErrorObject(error)) :
                             completeObjectUpload(id);
 
-                        uploadEvent$.onNext(action);
+                        uploadEvent$.next(action);
 
                         if (--uploading == 0) {
-                            uploadEvent$.onCompleted();
+                            uploadEvent$.complete();
                         }
                     }
                 ).on(
                     'httpUploadProgress',
-                    ({ loaded }) => uploadEvent$.onNext(updateObjectUpload(id, loaded))
+                    ({ loaded }) => uploadEvent$.next(updateObjectUpload(id, loaded))
                 );
             }
 
             return uploadEvent$;
-        });
+        })
+    );
 }

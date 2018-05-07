@@ -5,6 +5,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { state$ } from 'state';
 import Observer from 'observer';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
 
 const actionUnavailableTooltip = deepFreeze({
     align: 'end',
@@ -34,9 +35,11 @@ class AccountDetailsFormViewModel extends Observer {
         ];
 
         this.observe(
-            state$.getMany(
-                ['accounts', ko.unwrap(accountName)],
-                ['session', 'user']
+            state$.pipe(
+                getMany(
+                    ['accounts', ko.unwrap(accountName)],
+                    ['session', 'user']
+                )
             ),
             this.onAccount
         );

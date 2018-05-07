@@ -4,7 +4,7 @@ import ko from 'knockout';
 import 'knockout-projections';
 import 'knockout-validation';
 import 'knockout-extensions';
-import 'rx-extentions';
+import { filter } from 'rxjs/operators';
 import registerExtenders from 'extenders/register';
 import registerValidationRules from 'validations';
 import registerBindings from 'bindings/register';
@@ -76,7 +76,7 @@ function registerSideEffects(action$, state$) {
     };
 
     rootEpic(action$, injectedServices)
-        .filter(Boolean)
+        .pipe(filter(Boolean))
         .subscribe(action$);
 
     installSupportability(record$, injectedServices);
@@ -99,5 +99,5 @@ global.nb = devCLI;
 // Bind the ui to the
 ko.applyBindings(null);
 
-action$.onNext(setupEnv(recognizeBrowser()));
-action$.onNext(restoreSession());
+action$.next(setupEnv(recognizeBrowser()));
+action$.next(restoreSession());

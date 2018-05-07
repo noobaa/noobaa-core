@@ -5,13 +5,17 @@ import Observer from 'observer';
 import { realizeUri } from 'utils/browser-utils';
 import { state$, action$ } from 'state';
 import { requestLocation, closeModal } from 'action-creators';
+import { get } from 'rx-extensions';
 
 class WelcomeModalViewModel extends Observer {
     constructor() {
         super();
 
         this.systemUri = '';
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
     }
 
     onLocation(location) {
@@ -20,8 +24,8 @@ class WelcomeModalViewModel extends Observer {
     }
 
     onStart() {
-        action$.onNext(closeModal());
-        action$.onNext(requestLocation(this.systemUri, true));
+        action$.next(closeModal());
+        action$.next(requestLocation(this.systemUri, true));
     }
 }
 

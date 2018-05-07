@@ -6,6 +6,7 @@ import AlertRowViewModel from './alert-row';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze, last, sumBy } from 'utils/core-utils';
+import { get } from 'rx-extensions';
 import { infinitScrollPageSize } from 'config';
 import { fetchAlerts, updateAlerts, dropAlerts, fetchUnreadAlertsCount } from 'action-creators';
 
@@ -48,9 +49,12 @@ class AlertsPaneViewModel extends Observer {
 
         this.scroll.subscribe(() => this.onScroll());
 
-        this.observe(state$.get('alerts'), this.onAlerts);
+        this.observe(
+            state$.pipe(get('alerts')),
+            this.onAlerts
+        );
 
-        action$.onNext(fetchUnreadAlertsCount());
+        action$.next(fetchUnreadAlertsCount());
     }
 
     onAlerts(alerts) {
@@ -90,7 +94,7 @@ class AlertsPaneViewModel extends Observer {
             undefined;
 
 
-        action$.onNext(fetchAlerts({ severity, read }, infinitScrollPageSize));
+        action$.next(fetchAlerts({ severity, read }, infinitScrollPageSize));
         this.scroll(0);
     }
 
@@ -106,7 +110,7 @@ class AlertsPaneViewModel extends Observer {
 
     markRowAsRead(row) {
         const ids = [row.id()];
-        action$.onNext(updateAlerts({ ids, read: false }, true));
+        action$.next(updateAlerts({ ids, read: false }, true));
     }
 
     markListAsRead() {
@@ -114,11 +118,11 @@ class AlertsPaneViewModel extends Observer {
             this.severityFilter() :
             undefined;
 
-        action$.onNext(updateAlerts({severity, read: false }, true));
+        action$.next(updateAlerts({severity, read: false }, true));
     }
 
     dispose() {
-        action$.onNext(dropAlerts());
+        action$.next(dropAlerts());
         super.dispose();
     }
 
@@ -134,7 +138,7 @@ class AlertsPaneViewModel extends Observer {
             this.severityFilter() :
             undefined;
 
-        action$.onNext(fetchAlerts({ severity, read, till }, infinitScrollPageSize));
+        action$.next(fetchAlerts({ severity, read, till }, infinitScrollPageSize));
     }
 }
 

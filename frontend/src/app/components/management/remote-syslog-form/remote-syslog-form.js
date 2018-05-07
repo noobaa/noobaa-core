@@ -10,6 +10,7 @@ import { isFormDirty, getFieldValue } from 'utils/form-utils';
 import FormViewModel from 'components/form-view-model';
 import * as routes from 'routes';
 import { action$, state$ } from 'state';
+import { getMany } from 'rx-extensions';
 import { requestLocation,  unsetRemoteSyslog, setRemoteSyslog } from 'action-creators';
 
 const sectionName = 'remote-syslog';
@@ -35,10 +36,12 @@ class RemoteSyslogFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                'system',
-                'location',
-                ['forms', this.formName]
+            state$.pipe(
+                getMany(
+                    'system',
+                    'location',
+                    ['forms', this.formName]
+                )
             ),
             this.onState
         );
@@ -121,14 +124,14 @@ class RemoteSyslogFormViewModel extends Observer {
     onSubmit({ enabled, protocol, address, udpPort }) {
         if (enabled) {
             const port = protocol === 'UDP' ? udpPort : defaultPorts.TCP;
-            action$.onNext(setRemoteSyslog(protocol, address, port));
+            action$.next(setRemoteSyslog(protocol, address, port));
         } else {
-            action$.onNext(unsetRemoteSyslog());
+            action$.next(unsetRemoteSyslog());
         }
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 
     dispose() {

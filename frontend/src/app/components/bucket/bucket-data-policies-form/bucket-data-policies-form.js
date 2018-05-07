@@ -4,6 +4,7 @@ import template from './bucket-data-policies-form.html';
 import Observer from 'observer';
 import { state$ } from 'state';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
 
 class BucketDataPoliciesFormViewModel extends Observer {
     bucketLoaded = ko.observable();
@@ -12,9 +13,11 @@ class BucketDataPoliciesFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                'buckets',
-                ['location', 'params', 'bucket']
+            state$.pipe(
+                getMany(
+                    'buckets',
+                    ['location', 'params', 'bucket']
+                )
             ),
             this.onState
         );

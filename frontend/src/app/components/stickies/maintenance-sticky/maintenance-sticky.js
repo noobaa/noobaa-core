@@ -5,6 +5,7 @@ import Observer from 'observer';
 import ko from 'knockout';
 import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
 import { isUndefined } from 'utils/core-utils';
+import { get } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import { timeTickInterval } from 'config';
 import { leaveMaintenanceMode, refreshLocation } from 'action-creators';
@@ -19,7 +20,10 @@ class MaintenanceModeStickyViewModel extends Observer {
 
         this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
 
-        this.observe(state$.get('system', 'timeLeftForMaintenanceMode'), this.onState);
+        this.observe(
+            state$.pipe(get('system', 'timeLeftForMaintenanceMode')),
+            this.onState
+        );
     }
 
     onState(timeLeft) {
@@ -30,7 +34,7 @@ class MaintenanceModeStickyViewModel extends Observer {
     }
 
     onTurnMaintenanceOff() {
-        action$.onNext(leaveMaintenanceMode());
+        action$.next(leaveMaintenanceMode());
     }
 
     onTick() {
@@ -41,7 +45,7 @@ class MaintenanceModeStickyViewModel extends Observer {
 
         this.timeLeft(timeLeft);
         this.timeLeftText(timeLeftText);
-        timeLeft === 0 && action$.onNext(refreshLocation());
+        timeLeft === 0 && action$.next(refreshLocation());
     }
 
     dispose() {

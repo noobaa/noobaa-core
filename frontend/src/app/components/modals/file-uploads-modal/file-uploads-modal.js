@@ -9,6 +9,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
 import numeral from 'numeral';
+import { getMany } from 'rx-extensions';
 import { clearCompletedObjectUploads } from 'action-creators';
 import style from 'style';
 
@@ -47,9 +48,11 @@ class FileUploadsModalViewModel extends Observer {
         ];
 
         this.observe(
-            state$.getMany(
-                'objectUploads',
-                ['location', 'params', 'system']
+            state$.pipe(
+                getMany(
+                    'objectUploads',
+                    ['location', 'params', 'system']
+                )
             ),
             this.onUploads
         );
@@ -76,7 +79,7 @@ class FileUploadsModalViewModel extends Observer {
     }
 
     onClearCompeleted() {
-        action$.onNext(clearCompletedObjectUploads());
+        action$.next(clearCompletedObjectUploads());
     }
 
     _getCurrentUploadProgressText({ uploading, batchSize, batchLoaded }) {

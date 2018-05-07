@@ -8,6 +8,7 @@ import { state$ } from 'state';
 import { toBytes } from 'utils/size-utils';
 import { pick } from 'utils/core-utils';
 import { getObjectId } from 'utils/object-utils';
+import { get } from 'rx-extensions';
 import { timeShortFormat } from 'config';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -54,7 +55,7 @@ class ObjectSummaryViewModel extends Observer {
         const objId = getObjectId(bucketName, objKey);
 
         this.observe(
-            state$.get('objects', 'items', objId),
+            state$.pipe(get('objects', 'items', objId)),
             this.onState
         );
     }

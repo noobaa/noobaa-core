@@ -11,6 +11,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { requestLocation, deleteBucket } from 'action-creators';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
+import { getMany } from 'rx-extensions';
 
 const columns = deepFreeze([
     {
@@ -91,7 +92,16 @@ class BucketsTableViewModel extends Observer {
             write: val => this.onSelectForDelete(val)
         });
 
-        this.observe(state$.getMany('buckets', 'location'), this.onBuckets);
+        this.observe(
+            state$.pipe(
+                getMany(
+                    'buckets',
+                    'location'
+                )
+            ),
+            this.onBuckets
+        );
+
         this.isCreateBucketWizardVisible = ko.observable();
     }
 
@@ -167,7 +177,7 @@ class BucketsTableViewModel extends Observer {
     }
 
     onDeleteBucket(name) {
-        action$.onNext(deleteBucket(name));
+        action$.next(deleteBucket(name));
     }
 
     showCreateBucketWizard() {
@@ -195,7 +205,7 @@ class BucketsTableViewModel extends Observer {
             selectedForDelete: selectedForDelete || undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }

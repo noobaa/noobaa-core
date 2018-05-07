@@ -1,14 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_LAMBDA_FUNC } from 'action-types';
 import { completeCreateLambdaFunc, failCreateLambdaFunc } from 'action-creators';
 import { Buffer }  from 'buffer';
 
 export default function(action$, { api, bufferStore }) {
-    return action$
-        .ofType(CREATE_LAMBDA_FUNC)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(CREATE_LAMBDA_FUNC),
+        mergeMap(async action => {
             const {
                 name,
                 version,
@@ -47,5 +49,6 @@ export default function(action$, { api, bufferStore }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

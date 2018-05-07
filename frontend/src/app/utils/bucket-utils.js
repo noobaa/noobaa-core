@@ -135,8 +135,8 @@ export function getNamespaceBucketStateIcon(bucket) {
     return namespaceBucketToStateIcon[mode];
 }
 
-export function getDataBreakdown(data, qouta) {
-    if (!qouta) {
+export function getDataBreakdown(data, quota) {
+    if (!quota) {
         return {
             used: data.size,
             overused: 0,
@@ -153,7 +153,7 @@ export function getDataBreakdown(data, qouta) {
     const uploadBigInt = toBigInteger(data.availableForUpload);
     const spilloverBigInt = toBigInteger(data.availableForSpillover);
 
-    let q = toBigInteger(qouta.size).multiply(unitsInBytes[qouta.unit]);
+    let q = toBigInteger(quota.size).multiply(unitsInBytes[quota.unit]);
     const used = min(sizeBigInt, q);
     const overused = sizeBigInt.subtract(used);
 
@@ -178,10 +178,10 @@ export function getDataBreakdown(data, qouta) {
     };
 }
 
-export function getQuotaValue(qouta) {
-    const { size, unit } = qouta;
-    const qoutaBigInt = toBigInteger(size).multiply(unitsInBytes[unit]);
-    return fromBigInteger(qoutaBigInt);
+export function getQuotaValue(quota) {
+    const { size, unit } = quota;
+    const quotaBigInt = toBigInteger(size).multiply(unitsInBytes[unit]);
+    return fromBigInteger(quotaBigInt);
 }
 
 export function isBucketWritable(bucket) {

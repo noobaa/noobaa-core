@@ -5,7 +5,8 @@ import { noop } from 'utils/core-utils';
 import restoreSessionEpic  from 'epics/restore-session';
 import { restoreSession, completeRestoreSession, failRestoreSession } from 'action-creators';
 import { FAIL_RESTORE_SESSION } from 'action-types';
-import { Observable } from 'rx';
+import { of } from 'rxjs';
+import { toPromise } from 'rx-extensions';
 import assert from 'assert';
 import { describe, it } from 'mocha';
 import { readAuthRetryCount, readAuthRetryDelay, sessionTokenKey } from 'config';
@@ -34,13 +35,8 @@ function mockServices(
 // Create a promised based test given a read_auth mock, a token, and a callback
 // to assert the result.
 function test(injectedServices) {
-
-    const action$ = Observable.of(
-        restoreSession()
-    );
-
-    return restoreSessionEpic(action$, injectedServices)
-        .toPromise();
+    const action$ = of(restoreSession());
+    return toPromise(restoreSessionEpic(action$, injectedServices));
 }
 
 describe('Restore session', () => {
@@ -93,7 +89,7 @@ describe('Restore session', () => {
         });
     });
 
-    describe('when encountering andUNAUTHORIZED rpc error', () => {
+    describe('when encountering an UNAUTHORIZED rpc error', () => {
         it('should return a FAIL_RESTORE_SESSION action with the returned error in the payload', () => {
             const token = 'token';
             const error = new Error('UNAUTHORIZED');
@@ -226,7 +222,7 @@ describe('Restore session', () => {
     });
 
     describe('when read_auth fails initial request (with RPC_CONNECT_TIMEOUT) but succeed on a retry', () => {
-        it('should return COMPLETE_RESTORE_SESSION with the information in the payload', () => {
+        it('should return COMPLETE_RESTORE_SESSION with the information in the payload', function() {
             const token = 'token';
             const sessionInfo = {
                 account: {

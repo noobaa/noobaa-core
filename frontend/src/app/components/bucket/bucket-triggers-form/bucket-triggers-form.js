@@ -6,6 +6,7 @@ import TriggerRowViewModel from './trigger-row';
 import ko from 'knockout';
 import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { paginationPageSize } from 'config';
 import {
@@ -90,9 +91,11 @@ class BucketTriggersFormViewModel extends Observer {
         this.bucketName = ko.unwrap(bucketName);
 
         this.observe(
-            state$.getMany(
-                ['buckets', this.bucketName, 'triggers'],
-                ['location']
+            state$.pipe(
+                getMany(
+                    ['buckets', this.bucketName, 'triggers'],
+                    ['location']
+                )
             ),
             this.onState
         );
@@ -132,15 +135,15 @@ class BucketTriggersFormViewModel extends Observer {
     }
 
     onAddTrigger() {
-        action$.onNext(openAddBucketTriggerModal(this.bucketName));
+        action$.next(openAddBucketTriggerModal(this.bucketName));
     }
 
     onEditTrigger(triggerId) {
-        action$.onNext(openEditBucketTriggerModal(this.bucketName, triggerId));
+        action$.next(openEditBucketTriggerModal(this.bucketName, triggerId));
     }
 
     onDeleteTrigger(triggerId) {
-        action$.onNext(removeBucketTrigger(this.bucketName, triggerId));
+        action$.next(removeBucketTrigger(this.bucketName, triggerId));
     }
 
     onSort(sorting) {
@@ -178,7 +181,7 @@ class BucketTriggersFormViewModel extends Observer {
             selectedForDelete: selectedForDelete || undefined
         };
 
-        action$.onNext(
+        action$.next(
             requestLocation(realizeUri(this.pathname, {}, query))
         );
     }

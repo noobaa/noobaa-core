@@ -20,7 +20,7 @@ class DisableHostLastServiceWarningModalViewModel extends Observer {
 
     onApprove() {
         const { hostName, service } = this;
-        action$.onNext(toggleHostServices(hostName, { [service]: false }));
+        action$.next(toggleHostServices(hostName, { [service]: false }));
         this.close();
     }
 

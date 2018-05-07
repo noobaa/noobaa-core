@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_HOSTS } from 'action-types';
 import { completeFetchHosts, failFetchHosts } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(FETCH_HOSTS)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(FETCH_HOSTS),
+        mergeMap(async action => {
             const { query, statistics } = action.payload;
             const { hosts, pools, name, modes, sortBy, order, skip,
                 limit, recommendedHint } = query;
@@ -37,5 +39,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

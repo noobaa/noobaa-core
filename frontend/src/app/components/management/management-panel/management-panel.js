@@ -5,6 +5,7 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 import { requestLocation } from 'action-creators';
 
 class ManagementPanelViewModel extends Observer {
@@ -15,7 +16,10 @@ class ManagementPanelViewModel extends Observer {
         this.selectedTab = ko.observable();
         this.selectedSection = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
     }
 
     onLocation({ route, params }) {
@@ -30,7 +34,7 @@ class ManagementPanelViewModel extends Observer {
         const tab = this.selectedTab();
         const uri = realizeUri(this.baseRoute, { tab, section });
 
-        action$.onNext(requestLocation(uri));
+        action$.next(requestLocation(uri));
     }
 
     tabHref(tab) {

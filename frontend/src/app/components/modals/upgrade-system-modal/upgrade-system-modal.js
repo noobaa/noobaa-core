@@ -6,6 +6,7 @@ import { state$, action$ } from 'state';
 import ko from 'knockout';
 import moment from 'moment';
 import { timeShortFormat } from 'config';
+import { getMany } from 'rx-extensions';
 import { aggregateUpgradePackageInfo } from 'utils/cluster-utils';
 import {
     fetchVersionReleaseNotes,
@@ -53,10 +54,12 @@ class UpgradeSystemModalViewModel extends Observer {
         ];
 
         this.observe(
-            state$.getMany(
-                ['location', 'params', 'system'],
-                'system',
-                ['topology', 'servers']
+            state$.pipe(
+                getMany(
+                    ['location', 'params', 'system'],
+                    'system',
+                    ['topology', 'servers']
+                )
             ),
             this.onState
         );
@@ -84,16 +87,16 @@ class UpgradeSystemModalViewModel extends Observer {
         this.stateLoaded(true);
 
         if (stagedVersion && !notes) {
-            action$.onNext(fetchVersionReleaseNotes(stagedVersion));
+            action$.next(fetchVersionReleaseNotes(stagedVersion));
         }
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     onStartUpgrade() {
-        action$.onNext(invokeUpgradeSystem(this.systemName));
+        action$.next(invokeUpgradeSystem(this.systemName));
     }
 }
 

@@ -91,11 +91,6 @@ const libs = [
         module: 'dist/Chart.js'
     },
     {
-        name: 'rxjs',
-        exposeAs: 'rx',
-        module: 'dist/rx.all.js'
-    },
-    {
         name: 'big-integer',
         module: 'BigInteger.min.js'
     }
@@ -161,7 +156,7 @@ gulp.task('build-lib', ['build-deps'], () => {
         .pipe(sourceStream('lib.js'))
         .pipe(buffer())
         .pipe($.sourcemaps.init({ loadMaps: true }))
-            .pipe($.if(uglify, $.uglify()))
+        .pipe($.if(uglify, $.uglify()))
         .pipe($.sourcemaps.write('./'))
         .pipe(gulp.dest(buildPath));
 });
@@ -194,7 +189,7 @@ gulp.task('build-api', () => {
         .pipe(sourceStream('api.js'))
         .pipe(buffer())
         .pipe($.sourcemaps.init({ loadMaps: true }))
-            .pipe($.if(uglify, $.uglify()))
+        .pipe($.if(uglify, $.uglify()))
         .pipe($.sourcemaps.write('./'))
         .pipe(gulp.dest(buildPath));
 });
@@ -211,9 +206,9 @@ gulp.task('compile-styles', () => {
     return gulp.src(['src/app/**/*.less'], { base: '.' })
         .pipe($.lessImport('styles.less'))
         .pipe($.sourcemaps.init())
-            .pipe($.less())
-            .on('error', errorHandler)
-            .pipe($.if(uglify, $.minifyCss()))
+        .pipe($.less())
+        .on('error', errorHandler)
+        .pipe($.if(uglify, $.minifyCss()))
         .pipe($.sourcemaps.write('./'))
         .pipe(gulp.dest(buildPath));
 });
@@ -442,7 +437,7 @@ function bundleCode(folder, watch) {
         .pipe(sourceStream(`${folder}.js`))
         .pipe(buffer())
         .pipe($.sourcemaps.init({ loadMaps: true }))
-            .pipe($.if(uglify, $.uglify()))
+        .pipe($.if(uglify, $.uglify()))
         .pipe($.sourcemaps.write('./'))
         .pipe(gulp.dest(buildPath));
 

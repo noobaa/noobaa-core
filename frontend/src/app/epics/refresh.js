@@ -1,11 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { map } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { refreshLocation } from 'action-creators';
 import * as types from 'action-types';
 
 export default function(action$) {
-    return action$
-        .ofType(
+    return action$.pipe(
+        ofType(
             types.COMPLETE_CREATE_ACCOUNT,
             types.COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
             types.COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
@@ -47,6 +49,7 @@ export default function(action$) {
             types.COMPLETE_CREATE_LAMBDA_FUNC,
             types.COMPLETE_ENTER_MAINTENANCE_MODE,
             types.COMPLETE_LEAVE_MAINTENANCE_MODE
-        )
-        .map(() => refreshLocation());
+        ),
+        map(() => refreshLocation())
+    );
 }

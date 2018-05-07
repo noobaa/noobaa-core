@@ -41,12 +41,12 @@ class ConfirmDeleteHostModalViewModel extends Observer {
     }
 
     onSubmit() {
-        action$.onNext(deleteHost(this.host));
-        action$.onNext(closeModal());
+        action$.next(deleteHost(this.host));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

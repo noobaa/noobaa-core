@@ -65,7 +65,7 @@ class FuncsTableViewModel extends BaseViewModel {
     }
 
     onCreateFunc() {
-        action$.onNext(openCreateFuncModal());
+        action$.next(openCreateFuncModal());
     }
 }
 

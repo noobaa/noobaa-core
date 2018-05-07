@@ -7,6 +7,7 @@ import { upgradePackageSuffix, timeShortFormat } from 'config';
 import { state$, action$ } from 'state';
 import { deepFreeze, sumBy } from 'utils/core-utils';
 import { aggregateUpgradePackageInfo } from 'utils/cluster-utils';
+import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -200,9 +201,11 @@ class VersionFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                'system',
-                ['topology', 'servers']
+            state$.pipe(
+                getMany(
+                    'system',
+                    ['topology', 'servers']
+                )
             ),
             this.onState
         );
@@ -298,25 +301,25 @@ class VersionFormViewModel extends Observer {
     }
 
     onUpgradeNow() {
-        action$.onNext(openUpgradeSystemModal());
+        action$.next(openUpgradeSystemModal());
     }
 
     onDropPackage(_, evt) {
         const [packageFile] = evt.dataTransfer.files;
-        action$.onNext(uploadUpgradePackage(packageFile));
+        action$.next(uploadUpgradePackage(packageFile));
     }
 
     onSelectPackage(_, evt) {
         const [packageFile] = evt.target.files;
-        action$.onNext(uploadUpgradePackage(packageFile));
+        action$.next(uploadUpgradePackage(packageFile));
     }
 
     onCancelUpload() {
-        action$.onNext(abortUpgradePackageUpload());
+        action$.next(abortUpgradePackageUpload());
     }
 
     onRerunTest() {
-        action$.onNext(runUpgradePackageTests());
+        action$.next(runUpgradePackageTests());
     }
 
     dispose() {

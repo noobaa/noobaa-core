@@ -16,7 +16,7 @@ class UpgradeSystemFailedModalViewModel extends Observer {
     }
 
     onGoBack() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 }
 

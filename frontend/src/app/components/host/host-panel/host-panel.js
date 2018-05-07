@@ -7,6 +7,7 @@ import { fetchHosts, dropHostsView, requestLocation } from 'action-creators';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 import { sleep } from 'utils/promise-utils';
+import { get } from 'rx-extensions';
 import * as routes from 'routes';
 import { redirectOverlayDuration } from 'config';
 
@@ -22,8 +23,14 @@ class HostPanelViewModel extends Observer {
         this.selectedTab = ko.observable();
         this.redirecting = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
-        this.observe(state$.get('hosts'), this.onHosts);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
+        this.observe(
+            state$.pipe(get('hosts')),
+            this.onHosts
+        );
     }
 
     onLocation({ route, params }) {
@@ -36,7 +43,7 @@ class HostPanelViewModel extends Observer {
         this.selectedTab(tab);
 
         // Load/update the host data.
-        action$.onNext(fetchHosts(viewName, { hosts: [host] }, true));
+        action$.next(fetchHosts(viewName, { hosts: [host] }, true));
     }
 
     async onHosts(hosts) {
@@ -46,7 +53,7 @@ class HostPanelViewModel extends Observer {
         if (query && !query.fetching && query.result.items.length === 0) {
             this.redirecting(true);
             await sleep(redirectOverlayDuration);
-            action$.onNext(requestLocation(this.poolRedirectPath));
+            action$.next(requestLocation(this.poolRedirectPath));
 
         } else {
             this.redirecting(false);
@@ -58,7 +65,7 @@ class HostPanelViewModel extends Observer {
     }
 
     dispose() {
-        action$.onNext(dropHostsView(viewName));
+        action$.next(dropHostsView(viewName));
         super.dispose();
     }
 }

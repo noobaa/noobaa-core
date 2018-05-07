@@ -10,6 +10,7 @@ import { getPlacementTypeDisplayName } from 'utils/bucket-utils';
 import ko from 'knockout';
 import * as routes from 'routes';
 import { requestLocation, openEditBucketPlacementModal } from 'action-creators';
+import { getMany } from 'rx-extensions';
 
 const policyName = 'data-placement';
 
@@ -50,11 +51,13 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                'location',
-                'buckets',
-                'hostPools',
-                'cloudResources'
+            state$.pipe(
+                getMany(
+                    'location',
+                    'buckets',
+                    'hostPools',
+                    'cloudResources'
+                )
             ),
             this.onState
         );
@@ -111,11 +114,11 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 
     onEditDataPlacement(_, evt) {
-        action$.onNext(openEditBucketPlacementModal(this.bucketName));
+        action$.next(openEditBucketPlacementModal(this.bucketName));
         evt.stopPropagation();
     }
 }

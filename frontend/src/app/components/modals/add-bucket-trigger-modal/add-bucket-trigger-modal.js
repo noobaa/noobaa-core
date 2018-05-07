@@ -8,6 +8,7 @@ import { closeModal, addBucketTrigger } from 'action-creators';
 import { bucketEvents } from 'utils/bucket-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getFunctionOption } from 'utils/func-utils';
+import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import * as routes from 'routes';
 
@@ -29,11 +30,13 @@ class AddBucketTriggerModalViewModel extends Observer {
         this.bucketName = ko.unwrap(bucketName);
 
         this.observe(
-            state$.getMany(
-                ['buckets', this.bucketName, 'triggers'],
-                'functions',
-                'accounts',
-                ['location', 'params', 'system'],
+            state$.pipe(
+                getMany(
+                    ['buckets', this.bucketName, 'triggers'],
+                    'functions',
+                    'accounts',
+                    ['location', 'params', 'system']
+                )
             ),
             this.onState
         );
@@ -117,12 +120,12 @@ class AddBucketTriggerModalViewModel extends Observer {
             enabled: values.active
         };
 
-        action$.onNext(addBucketTrigger(this.bucketName, config));
-        action$.onNext(closeModal());
+        action$.next(addBucketTrigger(this.bucketName, config));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

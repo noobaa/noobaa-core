@@ -4,6 +4,7 @@ import template from './change-cluster-connectivity-ip-modal.html';
 import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import { isIP } from 'utils/net-utils';
+import { get } from 'rx-extensions';
 import ko from 'knockout';
 import { updateServerAddress, closeModal } from 'action-creators';
 import { action$, state$ } from 'state';
@@ -35,7 +36,7 @@ class ChangeClusterConnectivityIpModalViewModel extends Observer {
         });
 
         this.observe(
-            state$.get('topology', 'servers', this.secret),
+            state$.pipe(get('topology', 'servers', this.secret)),
             this.onState
         );
     }
@@ -85,18 +86,18 @@ class ChangeClusterConnectivityIpModalViewModel extends Observer {
     }
 
     onSubmit(values) {
-        action$.onNext(
+        action$.next(
             updateServerAddress(
                 this.secret,
                 values.newAddress,
                 this.hostname
             )
         );
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

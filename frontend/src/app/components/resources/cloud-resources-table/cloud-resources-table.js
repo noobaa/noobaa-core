@@ -8,6 +8,7 @@ import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { inputThrottle, paginationPageSize } from 'config';
 import { action$, state$ } from 'state';
+import { getMany } from 'rx-extensions';
 import { openAddCloudResrouceModal, requestLocation, deleteResource } from 'action-creators';
 
 const columns = deepFreeze([
@@ -125,9 +126,11 @@ class CloudResourcesTableViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                'cloudResources',
-                'location'
+            state$.pipe(
+                getMany(
+                    'cloudResources',
+                    'location'
+                )
             ),
             this.onState
         );
@@ -217,11 +220,11 @@ class CloudResourcesTableViewModel extends Observer {
     }
 
     onAddCloudResource() {
-        action$.onNext(openAddCloudResrouceModal());
+        action$.next(openAddCloudResrouceModal());
     }
 
     onDeleteCloudResource(name) {
-        action$.onNext(deleteResource(name));
+        action$.next(deleteResource(name));
     }
 
     _query(params) {
@@ -243,7 +246,7 @@ class CloudResourcesTableViewModel extends Observer {
             selectedForDelete: selectedForDelete || undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }

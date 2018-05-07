@@ -17,6 +17,7 @@ import { requestLocation, openInstallNodesModal, openAddCloudResrouceModal } fro
 import ko from 'knockout';
 import style from 'style';
 import numeral from 'numeral';
+import { getMany } from 'rx-extensions';
 
 const resourceTypes = deepFreeze([
     {
@@ -135,12 +136,14 @@ class ResourceOverviewViewModel extends Observer {
         ];
 
         this.observe(
-            state$.getMany(
-                'location',
-                'hostPools',
-                'cloudResources',
-                'internalResources',
-                'buckets'
+            state$.pipe(
+                getMany(
+                    'location',
+                    'hostPools',
+                    'cloudResources',
+                    'internalResources',
+                    'buckets'
+                )
             ),
             this.onState
         );
@@ -232,15 +235,15 @@ class ResourceOverviewViewModel extends Observer {
     onSelectResourceType(type) {
         const query = { ...this.baseQuery, selectedResourceType: type };
         const uri = realizeUri(this.pathname, {}, query);
-        action$.onNext(requestLocation(uri, true));
+        action$.next(requestLocation(uri, true));
     }
 
     onInstallNodes() {
-        action$.onNext(openInstallNodesModal());
+        action$.next(openInstallNodesModal());
     }
 
     onAddCloudResource() {
-        action$.onNext(openAddCloudResrouceModal());
+        action$.next(openAddCloudResrouceModal());
     }
 }
 

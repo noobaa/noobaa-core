@@ -6,6 +6,7 @@ import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { sleep } from 'utils/promise-utils';
 import { sumBy } from 'utils/core-utils';
+import { get } from 'rx-extensions';
 import {
     openAuditDrawer,
     openAlertsDrawer,
@@ -21,9 +22,12 @@ class CommandBarViewModel extends Observer {
         this.unreadAlertsCount = ko.observable();
         this.location = '';
 
-        this.observe(state$.get('alerts', 'unreadCounts'), this.onUnreadCounts);
+        this.observe(
+            state$.pipe(get('alerts', 'unreadCounts')),
+            this.onUnreadCounts
+        );
 
-        action$.onNext(fetchUnreadAlertsCount());
+        action$.next(fetchUnreadAlertsCount());
     }
 
     onUnreadCounts(counts) {
@@ -32,7 +36,7 @@ class CommandBarViewModel extends Observer {
     }
 
     onRefresh() {
-        action$.onNext(refreshLocation());
+        action$.next(refreshLocation());
 
         this.isRefreshSpinning(true);
         sleep(1000, false).then(this.isRefreshSpinning);
@@ -41,11 +45,11 @@ class CommandBarViewModel extends Observer {
     }
 
     onAudit() {
-        action$.onNext(openAuditDrawer());
+        action$.next(openAuditDrawer());
     }
 
     onAlerts() {
-        action$.onNext(openAlertsDrawer());
+        action$.next(openAlertsDrawer());
     }
 }
 

@@ -13,6 +13,7 @@ import { deepFreeze, pick, isUndefined } from 'utils/core-utils';
 import { getFieldValue, getFieldError } from 'utils/form-utils';
 import { isUri, readFileAsText } from 'utils/browser-utils';
 import { all, sleep } from 'utils/promise-utils';
+import { getMany } from 'rx-extensions';
 import { addExternalConnection, updateForm, untouchForm, closeModal } from 'action-creators';
 import { api } from 'services';
 import { state$, action$ } from 'state';
@@ -105,10 +106,12 @@ class AddCloudConnectionModalViewModel extends Observer  {
             .filter(opt => allowedServices.includes(opt.value));
 
         this.observe(
-            state$.getMany(
-                'accounts',
-                ['session', 'user'],
-                ['forms', this.constructor.name]
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    ['session', 'user'],
+                    ['forms', this.constructor.name]
+                )
             ),
             this.onState
         );
@@ -128,7 +131,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
 
                 // Clear the touch state of the form whenever the
                 // service changes.
-                action$.onNext(untouchForm(this.formName));
+                action$.next(untouchForm(this.formName));
             }
 
             this.globalError(getFieldError(form, 'global'));
@@ -250,16 +253,16 @@ class AddCloudConnectionModalViewModel extends Observer  {
             (service === 'S3_COMPATIBLE' && ['s3Endpoint', 's3AccessKey', 's3SecretKey']) ||
             (service === 'NET_STORAGE' && ['nsHostname', 'nsStorageGroup', 'nsKeyName', 'nsCPCode', 'nsAuthKey']) ||
             (service === 'GOOGLE' && ['gcKeysJson']);
-        
+
         const params = pick(values, fields);
         if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
 
-        action$.onNext(addExternalConnection(connectionName, service, params));
-        action$.onNext(closeModal());
+        action$.next(addExternalConnection(connectionName, service, params));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     // --------------------------------------
@@ -619,7 +622,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
     async _gcOnKeysFile(file) {
         const gcKeysFileName = file.name;
         const gcKeysJson = await readFileAsText(file);
-        action$.onNext(updateForm(this.formName, { gcKeysFileName, gcKeysJson }));
+        action$.next(updateForm(this.formName, { gcKeysFileName, gcKeysJson }));
     }
 
     dispose() {

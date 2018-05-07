@@ -4,6 +4,7 @@ import template from './exit-confirmation-message.html';
 import Observer from 'observer';
 import { state$ } from 'state';
 import { get } from 'utils/core-utils';
+import { getMany } from 'rx-extensions';
 
 class ExitConfirmationMessageViewModel extends Observer {
     constructor() {
@@ -11,9 +12,11 @@ class ExitConfirmationMessageViewModel extends Observer {
         this.showMessage = false;
 
         this.observe(
-            state$.getMany(
-                ['objectUploads', 'stats', 'uploading'],
-                ['topology', 'servers']
+            state$.pipe(
+                getMany(
+                    ['objectUploads', 'stats', 'uploading'],
+                    ['topology', 'servers']
+                )
             ),
             this.onState
         );

@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_BUCKET_S3_ACCESS } from 'action-types';
 import { completeUpdateBucketS3Access, failUpdateBucketS3Access } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(UPDATE_BUCKET_S3_ACCESS)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(UPDATE_BUCKET_S3_ACCESS),
+        mergeMap(async action => {
             const { bucketName, allowedAccounts } = action.payload;
 
             try {
@@ -24,5 +26,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

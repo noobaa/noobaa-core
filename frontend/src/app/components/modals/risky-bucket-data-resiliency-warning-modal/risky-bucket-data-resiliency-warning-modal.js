@@ -66,12 +66,12 @@ class RiskyBucketDataResiliencyWarningModalViewModel extends Observer {
 
     onSubmit() {
         const { bucketName, tierName, policy } = this;
-        action$.onNext(updateBucketResiliencyPolicy(bucketName, tierName, policy));
-        action$.onNext(closeModal(2));
+        action$.next(updateBucketResiliencyPolicy(bucketName, tierName, policy));
+        action$.next(closeModal(2));
     }
 
     onBack() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

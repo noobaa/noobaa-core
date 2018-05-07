@@ -21,7 +21,7 @@ function registerRouteHandler(page, route, extra = noop) {
             const decodedParams = mapValues(params, p => p && decodeURIComponent(p));
 
             // Update state about location:
-            action$.onNext(changeLocation({
+            action$.next(changeLocation({
                 protocol,
                 hostname,
                 pathname: ctx.pathname,

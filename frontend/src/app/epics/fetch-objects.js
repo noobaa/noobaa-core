@@ -1,5 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_OBJECTS } from 'action-types';
 import { completeFetchObjects, failFetchObjects } from 'action-creators';
@@ -50,9 +52,9 @@ async function _fetchObjectList(api, query, s3Endpoint) {
 }
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(FETCH_OBJECTS)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(FETCH_OBJECTS),
+        mergeMap(async action => {
             const { query, s3Endpoint } = action.payload;
 
             try {
@@ -69,7 +71,8 @@ export default function(action$, { api }) {
                 );
             }
 
-        });
+        })
+    );
 }
 
 

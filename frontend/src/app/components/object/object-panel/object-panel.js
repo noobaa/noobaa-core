@@ -3,6 +3,7 @@
 import template from './object-panel.html';
 import Observer from 'observer';
 import { realizeUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { fetchObjects, dropObjectsView } from 'action-creators';
 import ko from 'knockout';
@@ -18,7 +19,7 @@ class ObjectPanelViewModel extends Observer {
         super();
 
         this.observe(
-            state$.get('location'),
+            state$.pipe(get('location')),
             this.onState
         );
     }
@@ -34,7 +35,7 @@ class ObjectPanelViewModel extends Observer {
         this.object(object);
 
         // Load/update the object data.
-        action$.onNext(fetchObjects(this.viewName, { bucket, object }, hostname));
+        action$.next(fetchObjects(this.viewName, { bucket, object }, hostname));
     }
 
     tabHref(tab) {
@@ -42,7 +43,7 @@ class ObjectPanelViewModel extends Observer {
     }
 
     dispose() {
-        action$.onNext(dropObjectsView(this.viewName));
+        action$.next(dropObjectsView(this.viewName));
         super.dispose();
     }
 }

@@ -5,6 +5,7 @@ import { state$ } from 'state';
 import Observer from 'observer';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 
 class AccountPanelViewModel extends Observer {
     constructor() {
@@ -16,9 +17,11 @@ class AccountPanelViewModel extends Observer {
         this.isCurrentUser = ko.observable();
 
         this.observe(
-            state$.getMany(
-                'location',
-                ['session', 'user']
+            state$.pipe(
+                getMany(
+                    'location',
+                    ['session', 'user']
+                )
             ),
             this.onLocation
         );

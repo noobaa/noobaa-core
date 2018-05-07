@@ -7,6 +7,7 @@ import { state$ } from 'state';
 import { isNumber } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { get } from 'rx-extensions';
 import style from 'style';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -105,7 +106,10 @@ class HostSummaryViewModel extends Observer {
             }
         };
 
-        this.observe(state$.get('hosts', 'items', ko.unwrap(name)), this.onHost);
+        this.observe(
+            state$.pipe(get('hosts', 'items', ko.unwrap(name))),
+            this.onHost
+        );
     }
 
     onHost(host) {

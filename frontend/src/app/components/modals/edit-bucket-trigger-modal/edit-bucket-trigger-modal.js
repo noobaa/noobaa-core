@@ -9,6 +9,7 @@ import { bucketEvents } from 'utils/bucket-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getFunctionOption } from 'utils/func-utils';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 
 const formName = 'updateBucketTrigger';
@@ -29,11 +30,13 @@ class EditBucketTriggerModalViewModel extends Observer {
         this.triggerId = ko.unwrap(triggerId);
 
         this.observe(
-            state$.getMany(
-                ['buckets', this.bucketName, 'triggers'],
-                'functions',
-                'accounts',
-                ['location', 'params', 'system'],
+            state$.pipe(
+                getMany(
+                    ['buckets', this.bucketName, 'triggers'],
+                    'functions',
+                    'accounts',
+                    ['location', 'params', 'system']
+                )
             ),
             this.onState
         );
@@ -130,12 +133,12 @@ class EditBucketTriggerModalViewModel extends Observer {
             enabled: values.active
         };
 
-        action$.onNext(updateBucketTrigger(this.bucketName, this.triggerId, config));
-        action$.onNext(closeModal());
+        action$.next(updateBucketTrigger(this.bucketName, this.triggerId, config));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

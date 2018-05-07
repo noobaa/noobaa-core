@@ -8,10 +8,9 @@ import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
 import { formatSize, toBytes, toBigInteger, unitsInBytes, isSizeZero, sumSize } from 'utils/size-utils';
 import style from 'style';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { updateBucketQuota, closeModal } from 'action-creators';
-
-
 
 const formName = 'editBucketQuota';
 const unitOptions = deepFreeze([
@@ -118,9 +117,11 @@ class EditBucketQuotaModalViewModel extends Observer {
         ];
 
         this.observe(
-            state$.getMany(
-                ['buckets', this.bucketName],
-                ['forms', formName]
+            state$.pipe(
+                getMany(
+                    ['buckets', this.bucketName],
+                    ['forms', formName]
+                )
             ),
             this.onState
         );
@@ -189,12 +190,12 @@ class EditBucketQuotaModalViewModel extends Observer {
             { unit: values.unit, size: Number(values.size) } :
             null;
 
-        action$.onNext(updateBucketQuota(this.bucketName, quota));
-        action$.onNext(closeModal());
+        action$.next(updateBucketQuota(this.bucketName, quota));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

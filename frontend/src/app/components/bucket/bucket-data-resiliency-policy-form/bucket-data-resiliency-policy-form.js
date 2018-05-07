@@ -7,6 +7,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import ko from 'knockout';
 import numeral from 'numeral';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     summrizeResiliency,
@@ -120,7 +121,12 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany('location', 'buckets'),
+            state$.pipe(
+                getMany(
+                    'location',
+                    'buckets'
+                )
+            ),
             this.onState
         );
     }
@@ -165,11 +171,11 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 
     onEditDataResiliency(_ ,evt) {
-        action$.onNext(openEditBucketDataResiliencyModal(this.bucketName));
+        action$.next(openEditBucketDataResiliencyModal(this.bucketName));
         evt.stopPropagation();
     }
 }

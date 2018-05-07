@@ -17,12 +17,12 @@ class EmptyBucketPlacementWarningModalViewModel extends Observer {
         const { bucket } = this.action.payload;
 
         this.onClose();
-        action$.onNext(openEditBucketPlacementModal(bucket));
+        action$.next(openEditBucketPlacementModal(bucket));
     }
 
     onContinue() {
         this.onClose();
-        action$.onNext(this.action);
+        action$.next(this.action);
     }
 }
 

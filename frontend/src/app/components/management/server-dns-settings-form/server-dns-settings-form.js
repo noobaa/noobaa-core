@@ -6,6 +6,7 @@ import ServerRow from './server-row';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import * as routes from 'routes';
 import { requestLocation, openEditServerDNSSettingsModal } from 'action-creators';
@@ -51,9 +52,11 @@ class ServerDnsSettingsFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                ['topology', 'servers'],
-                'location'
+            state$.pipe(
+                getMany(
+                    ['topology', 'servers'],
+                    'location'
+                )
             ),
             this.onState
         );
@@ -94,11 +97,11 @@ class ServerDnsSettingsFormViewModel extends Observer {
     }
 
     onEditServerDNS(secret) {
-        action$.onNext(openEditServerDNSSettingsModal(secret));
+        action$.next(openEditServerDNSSettingsModal(secret));
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 }
 

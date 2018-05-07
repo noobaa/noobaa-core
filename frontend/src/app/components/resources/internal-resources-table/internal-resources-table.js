@@ -9,6 +9,7 @@ import { paginationPageSize, inputThrottle } from 'config';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { requestLocation } from 'action-creators';
+import { getMany } from 'rx-extensions';
 
 const columns = deepFreeze([
     {
@@ -50,7 +51,13 @@ class InternalResourcesTableViewModel extends Observer {
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
-            state$.getMany('internalResources', 'buckets', 'location'),
+            state$.pipe(
+                getMany(
+                    'internalResources',
+                    'buckets',
+                    'location'
+                )
+            ),
             this.onResources
         );
     }
@@ -111,7 +118,7 @@ class InternalResourcesTableViewModel extends Observer {
             page: page
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }

@@ -8,6 +8,7 @@ import { state$ } from 'state';
 import { stringifyAmount } from 'utils/string-utils';
 import { isSizeZero, formatSize, toBytes } from 'utils/size-utils';
 import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
+import { get } from 'rx-extensions';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
@@ -166,7 +167,7 @@ class BucketSummrayViewModel extends Observer {
         super();
 
         this.observe(
-            state$.get('buckets', ko.unwrap(bucketName)),
+            state$.pipe(get('buckets', ko.unwrap(bucketName))),
             this.onState
         );
     }

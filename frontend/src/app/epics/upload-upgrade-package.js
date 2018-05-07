@@ -1,14 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { Subject } from 'rx';
+import { Subject } from 'rxjs';
+import { takeUntil, takeLast, mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { UPLOAD_UPGRADE_PACKAGE, ABORT_UPGRADE_PACKAGE_UPLOAD } from 'action-types';
 import { toFormData } from 'utils/browser-utils';
 import { updateUpgradePackageUpload } from 'action-creators';
 
 export default function(action$, { browser }) {
-    return action$
-        .ofType(UPLOAD_UPGRADE_PACKAGE)
-        .flatMap(action => {
+    return action$.pipe(
+        ofType(UPLOAD_UPGRADE_PACKAGE),
+        mergeMap(action => {
             const { packageFile }  = action.payload;
 
             const upload$ = new Subject();
@@ -16,7 +18,7 @@ export default function(action$, { browser }) {
             xhr.upload.onprogress = evt => {
                 const { lengthComputable, loaded, total } = evt;
                 const progress = lengthComputable ? (loaded / total) : 0;
-                upload$.onNext(updateUpgradePackageUpload(progress));
+                upload$.next(updateUpgradePackageUpload(progress));
             };
 
             browser.httpRequest('/upgrade', {
@@ -26,18 +28,19 @@ export default function(action$, { browser }) {
                     upgrade_file: packageFile
                 })
             }).then(
-                () => upload$.onCompleted(),
-                () => upload$.onCompleted()
+                () => upload$.complete(),
+                () => upload$.complete()
             );
 
             // Side effect that aborts the xhr request
             // when an ABORT_UPGRADE_PACKAGE_UPLOAD is accepted
             // while the upload event stream is still opened.
-            action$
-                .ofType(ABORT_UPGRADE_PACKAGE_UPLOAD)
-                .takeUntil(upload$.takeLast(1))
-                .subscribe(() => { xhr.abort(); });
+            action$.pipe(
+                ofType(ABORT_UPGRADE_PACKAGE_UPLOAD),
+                takeUntil(upload$.pipe(takeLast(1)))
+            ).subscribe(() => { xhr.abort(); });
 
             return upload$;
-        });
+        })
+    );
 }

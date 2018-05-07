@@ -7,6 +7,7 @@ import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { isUndefined } from 'utils/core-utils';
 import { action$, state$ } from 'state';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import { timeTickInterval } from 'config';
 import {
@@ -30,9 +31,11 @@ class MaintenanceFormViewModel extends Observer {
         this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
 
         this.observe(
-            state$.getMany(
-                ['system', 'timeLeftForMaintenanceMode'],
-                'location'
+            state$.pipe(
+                getMany(
+                    ['system', 'timeLeftForMaintenanceMode'],
+                    'location'
+                )
             ),
             this.onState
         );
@@ -58,14 +61,14 @@ class MaintenanceFormViewModel extends Observer {
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 
     onToggleMaintenance() {
         if (this.timeLeft()) {
-            action$.onNext(leaveMaintenanceMode());
+            action$.next(leaveMaintenanceMode());
         } else {
-            action$.onNext(openStartMaintenanceModal());
+            action$.next(openStartMaintenanceModal());
         }
     }
 

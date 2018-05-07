@@ -9,6 +9,7 @@ import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 import numeral from 'numeral';
 
 const columns = deepFreeze([
@@ -47,8 +48,14 @@ class HostPartsTableViewModel extends Observer {
         this.rows = ko.observableArray();
         this.page = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
-        this.observe(state$.get('hostParts'), this.onParts);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
+        this.observe(
+            state$.pipe(get('hostParts')),
+            this.onParts
+        );
     }
 
     onLocation({ route, params, query }) {
@@ -60,7 +67,7 @@ class HostPartsTableViewModel extends Observer {
         this.system = system;
         this.page(page);
 
-        action$.onNext(fetchHostObjects(
+        action$.next(fetchHostObjects(
             params.host,
             page * this.pageSize,
             this.pageSize
@@ -88,7 +95,7 @@ class HostPartsTableViewModel extends Observer {
 
     onPage(page) {
         const nextPageUri = realizeUri(this.baseRoute, {}, { page });
-        action$.onNext(requestLocation(nextPageUri));
+        action$.next(requestLocation(nextPageUri));
     }
 }
 

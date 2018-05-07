@@ -9,6 +9,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { state$, action$ } from 'state';
+import { getMany } from 'rx-extensions';
 import { closeModal, updateNamespaceBucketPlacement } from 'action-creators';
 
 const formName = 'editNamespaceBucketDataPlacement';
@@ -54,10 +55,12 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
         };
 
         this.observe(
-            state$.getMany(
-                ['namespaceBuckets', this.bucketName],
-                'namespaceResources',
-                ['forms', formName]
+            state$.pipe(
+                getMany(
+                    ['namespaceBuckets', this.bucketName],
+                    'namespaceResources',
+                    ['forms', formName]
+                )
             ),
             this.onState
         );
@@ -128,12 +131,12 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
 
     onSubmit(values) {
         const { readPolicy, writePolicy } = values;
-        action$.onNext(updateNamespaceBucketPlacement(this.bucketName, readPolicy, writePolicy));
-        action$.onNext(closeModal());
+        action$.next(updateNamespaceBucketPlacement(this.bucketName, readPolicy, writePolicy));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

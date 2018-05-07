@@ -1,14 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { ADD_BUCKET_TRIGGER } from 'action-types';
 import { completeAddBucketTrigger, failAddBucketTrigger } from 'action-creators';
 
-
 export default function(action$, { api }) {
-    return action$
-        .ofType(ADD_BUCKET_TRIGGER)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(ADD_BUCKET_TRIGGER),
+        mergeMap(async action => {
             const { bucketName, config } = action.payload;
 
             try {
@@ -30,5 +31,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

@@ -12,6 +12,8 @@ import { realizeUri } from 'utils/browser-utils';
 import { getObjectId, summerizePartDistribution } from 'utils/object-utils';
 import { getPlacementTypeDisplayName, getResiliencyTypeDisplay } from 'utils/bucket-utils';
 import { capitalize } from 'utils/string-utils';
+import { getMany } from 'rx-extensions';
+import { get } from 'rx-extensions';
 import ko from 'knockout';
 
 function _summrizeResiliency(resiliency) {
@@ -65,18 +67,20 @@ class ObjectPartsListViewModel extends Observer {
         super();
 
         this.observe(
-            state$.get('location'),
+            state$.pipe(get('location')),
             this.onLocation
         );
         this.observe(
-            state$.getMany(
-                'buckets',
-                ['objects', 'items'],
-                ['objectParts', 'items'],
-                'accounts',
-                ['session', 'user'],
-                'location',
-                ['system', 'sslCert']
+            state$.pipe(
+                getMany(
+                    'buckets',
+                    ['objects', 'items'],
+                    ['objectParts', 'items'],
+                    'accounts',
+                    ['session', 'user'],
+                    'location',
+                    ['system', 'sslCert']
+                )
             ),
             this.onState
         );
@@ -87,7 +91,7 @@ class ObjectPartsListViewModel extends Observer {
         const { page } = location.query;
         if (!bucket || !object) return;
 
-        action$.onNext(fetchObjectParts({
+        action$.next(fetchObjectParts({
             bucket: bucket,
             key: object,
             skip: (Number(page) || 0) * this.pageSize,
@@ -158,7 +162,7 @@ class ObjectPartsListViewModel extends Observer {
     }
 
     onPreviewFile() {
-        action$.onNext(openObjectPreviewModal(this.s3SignedUrl()));
+        action$.next(openObjectPreviewModal(this.s3SignedUrl()));
     }
 
     onDownloadClick() {
@@ -168,19 +172,19 @@ class ObjectPartsListViewModel extends Observer {
     onSelectRow(row) {
         const page = this.page();
         const url = realizeUri(this.pathname, {}, { page, row });
-        action$.onNext(requestLocation(url, this.isRowSelected()));
+        action$.next(requestLocation(url, this.isRowSelected()));
     }
 
     onPage(page) {
         page = page || undefined;
         const url = realizeUri(this.pathname, {}, { page });
-        action$.onNext(requestLocation(url, this.isRowSelected()));
+        action$.next(requestLocation(url, this.isRowSelected()));
     }
 
     onCloseDetails() {
         const page = this.page();
         const url = realizeUri(this.pathname, {}, { page });
-        action$.onNext(requestLocation(url, true));
+        action$.next(requestLocation(url, true));
     }
 }
 

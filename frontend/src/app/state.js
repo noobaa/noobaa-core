@@ -1,11 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { Subject }  from 'rx';
 import reducer from 'reducers';
 import stateSchema from './schema';
 import { deepFreeze, isObject, noop } from 'utils/core-utils';
 import { createSchemaValidator } from 'utils/schema-utils';
 import { mapErrorObject } from 'utils/state-utils';
+import { Subject }  from 'rxjs';
+import { filter, scan, share, pluck, distinctUntilChanged,
+    switchMap, shareReplay } from 'rxjs/operators';
 
 const schemaValidator = createSchemaValidator(stateSchema);
 
@@ -69,20 +71,20 @@ function _reduceRecords(prev, action) {
 
 // Actions stream.
 export const action$ = new Subject();
-action$.ofType = function(...types) {
-    return this.filter(action => types.includes(action.type));
-};
 
-export const record$ = action$
-    .filter(_filterMishapedActions)
-    .scan(_reduceRecords, {})
-    .share();
 
-export const state$ = record$
-    .pluck('state')
-    .distinctUntilChanged(undefined, Object.is)
-    .switchMap(value => Promise.resolve(value))
-    .shareReplay(1);
+export const record$ = action$.pipe(
+    filter(_filterMishapedActions),
+    scan(_reduceRecords, {}),
+    share()
+);
+
+export const state$ = record$.pipe(
+    pluck('state'),
+    distinctUntilChanged(Object.is),
+    switchMap(value => Promise.resolve(value)),
+    shareReplay(1)
+);
 
 // Subcribe so we will not loose action that are dispatched
 // before any other subscription.

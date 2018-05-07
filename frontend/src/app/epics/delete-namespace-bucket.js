@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_NAMESPACE_BUCKET } from 'action-types';
 import { completeDeleteNamespaceBucket, failDeleteNamespaceBucket } from 'action-creators';
 
 export default  function(action$, { api }) {
-    return action$
-        .ofType(DELETE_NAMESPACE_BUCKET)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(DELETE_NAMESPACE_BUCKET),
+        mergeMap(async action => {
             const { name } = action.payload;
 
             try {
@@ -20,5 +22,6 @@ export default  function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

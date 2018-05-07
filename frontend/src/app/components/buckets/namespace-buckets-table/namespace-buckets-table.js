@@ -8,6 +8,7 @@ import { deepFreeze, createCompareFunc, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { state$, action$ } from 'state';
 import { inputThrottle, paginationPageSize } from 'config';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     openCreateNamespaceBucketModal,
@@ -80,10 +81,12 @@ class NamespaceBucketsTableViewModel extends Observer {
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
-            state$.getMany(
-                'namespaceBuckets',
-                'location',
-                'namespaceResources'
+            state$.pipe(
+                getMany(
+                    'namespaceBuckets',
+                    'location',
+                    'namespaceResources'
+                )
             ),
             this.onBuckets
         );
@@ -157,11 +160,11 @@ class NamespaceBucketsTableViewModel extends Observer {
     }
 
     onCreate() {
-        action$.onNext(openCreateNamespaceBucketModal());
+        action$.next(openCreateNamespaceBucketModal());
     }
 
     onDeleteBucket(bucket) {
-        action$.onNext(deleteNamespaceBucket(bucket));
+        action$.next(deleteNamespaceBucket(bucket));
     }
 
     _query({
@@ -179,7 +182,7 @@ class NamespaceBucketsTableViewModel extends Observer {
         };
 
         const url = realizeUri(this.pathname, {}, query);
-        action$.onNext(requestLocation(url));
+        action$.next(requestLocation(url));
     }
 
 }

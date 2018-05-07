@@ -10,6 +10,7 @@ import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getHostsPoolStateIcon } from 'utils/resource-utils';
 import { getActivityName, getActivityListTooltip } from 'utils/host-utils';
+import { get } from 'rx-extensions';
 import style from 'style';
 import moment from 'moment';
 
@@ -114,7 +115,10 @@ class PoolSummaryViewModel extends Observer {
             }
         };
 
-        this.observe(state$.get('hostPools', ko.unwrap(poolName)), this.onPool);
+        this.observe(
+            state$.pipe(get('hostPools', ko.unwrap(poolName))),
+            this.onPool
+        );
     }
 
     onPool(pool) {

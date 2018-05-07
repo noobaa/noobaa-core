@@ -4,8 +4,9 @@ import IssueRowViewModel from './issue-row';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { closeModal } from 'action-creators';
-import { deepFreeze, get } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
 import { formatEmailUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 import { support } from 'config';
 
 const columns = deepFreeze([
@@ -33,7 +34,7 @@ class PreUpgradeSystemFailedModalViewModel extends Observer {
         this.rows = ko.observableArray();
 
         this.observe(
-            state$.get('topology', 'servers'),
+            state$.pipe(get('topology', 'servers')),
             this.onState
         );
     }
@@ -44,7 +45,8 @@ class PreUpgradeSystemFailedModalViewModel extends Observer {
         const serverList = Object.values(servers);
         const rows = serverList
             .reduce((issues, server) => {
-                const error = get(server, ['upgrade', 'package', 'error']);
+                const { error } = (((server || {}).upgrade || {}).package || {});
+
                 if (error) {
                     issues.push({
                         server: server.secret,
@@ -63,7 +65,7 @@ class PreUpgradeSystemFailedModalViewModel extends Observer {
     }
 
     onClose() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 }
 

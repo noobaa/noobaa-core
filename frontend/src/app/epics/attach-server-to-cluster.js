@@ -1,11 +1,14 @@
+/* Copyright (C) 2016 NooBaa */
+
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { ATTACH_SERVER_TO_CLUSTER } from 'action-types';
 import { completeAttachServerToCluster, failAttachServerToCluster } from 'action-creators';
 
 export default function(action$, { api }) {
-
-    return action$
-        .ofType(ATTACH_SERVER_TO_CLUSTER)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(ATTACH_SERVER_TO_CLUSTER),
+        mergeMap(async action => {
             const {
                 secret,
                 address,
@@ -26,5 +29,6 @@ export default function(action$, { api }) {
             } catch (error) {
                 return failAttachServerToCluster(secret, hostname, error);
             }
-        });
+        })
+    );
 }

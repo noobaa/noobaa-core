@@ -9,6 +9,7 @@ import { formatSize } from 'utils/size-utils';
 import { timeShortFormat } from 'config';
 import ko from 'knockout';
 import moment from 'moment';
+import { getMany } from 'rx-extensions';
 import {
     toggleHostServices,
     openDisableHostEndpointWarningModal,
@@ -61,9 +62,11 @@ class HostEndpointFormViewModel extends Observer {
         ];
 
         this.observe(
-            state$.getMany(
-                ['hosts', 'items', this.hostName],
-                ['topology', 'servers']
+            state$.pipe(
+                getMany(
+                    ['hosts', 'items', this.hostName],
+                    ['topology', 'servers']
+                )
             ),
             this.onHost
         );
@@ -116,16 +119,16 @@ class HostEndpointFormViewModel extends Observer {
         const { hostName, isDisabled, wasUsed, isLastService } = this;
 
         if (isDisabled()) {
-            action$.onNext(toggleHostServices(hostName, { endpoint: true }));
+            action$.next(toggleHostServices(hostName, { endpoint: true }));
 
         } else if (wasUsed) {
-            action$.onNext(openDisableHostEndpointWarningModal(hostName, isLastService));
+            action$.next(openDisableHostEndpointWarningModal(hostName, isLastService));
 
         } else if (isLastService) {
-            action$.onNext(openDisableHostLastServiceWarningModal(hostName, 'endpoint'));
+            action$.next(openDisableHostLastServiceWarningModal(hostName, 'endpoint'));
 
         } else {
-            action$.onNext(toggleHostServices(this.hostName, { endpoint: false }));
+            action$.next(toggleHostServices(this.hostName, { endpoint: false }));
         }
     }
 }

@@ -1,5 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_NODE_INSTALLATION_COMMANDS } from 'action-types';
 import {
@@ -8,9 +10,9 @@ import {
 } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(FETCH_NODE_INSTALLATION_COMMANDS)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(FETCH_NODE_INSTALLATION_COMMANDS),
+        mergeMap(async action => {
             const { targetPool, excludedDrives } = action.payload;
 
             try {
@@ -24,5 +26,6 @@ export default function(action$, { api }) {
             } catch (error) {
                 return failFetchNodeInstallationCommands(mapErrorObject(error));
             }
-        });
+        })
+    );
 }

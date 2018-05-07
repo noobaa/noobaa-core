@@ -6,6 +6,7 @@ import { state$, action$ } from 'state';
 import { mapValues, flatMap, decimalRound } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { getHostDisplayName } from 'utils/host-utils';
+import { get } from 'rx-extensions';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -207,7 +208,10 @@ class HostDetailsFormViewModel extends Observer {
             }
         ];
 
-        this.observe(state$.get('hosts', 'items', ko.unwrap(name)), this.onHost);
+        this.observe(
+            state$.pipe(get('hosts', 'items', ko.unwrap(name))),
+            this.onHost
+        );
     }
 
     onHost(host) {
@@ -259,11 +263,11 @@ class HostDetailsFormViewModel extends Observer {
     }
 
     onRetrust() {
-        action$.onNext(openSetNodeAsTrustedModal(this.host, this.untrustedReasons));
+        action$.next(openSetNodeAsTrustedModal(this.host, this.untrustedReasons));
     }
 
     onDeleteNode() {
-        action$.onNext(openConfirmDeleteHostModal(this.host));
+        action$.next(openConfirmDeleteHostModal(this.host));
     }
 }
 

@@ -8,6 +8,7 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta, getCloudTargetTooltip } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
+import { getMany } from 'rx-extensions';
 import { inputThrottle } from 'config';
 import {
     fetchCloudTargets,
@@ -63,13 +64,15 @@ class CreateNamespaceResourceModalViewModel extends Observer {
             .throttle(inputThrottle);
 
         this.observe(
-            state$.getMany(
-                'accounts',
-                'session',
-                'namespaceResources',
-                'hostPools',
-                ['forms', formName],
-                'cloudTargets'
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    'session',
+                    'namespaceResources',
+                    'hostPools',
+                    ['forms', formName],
+                    'cloudTargets'
+                )
             ),
             this.onState
         );
@@ -128,12 +131,12 @@ class CreateNamespaceResourceModalViewModel extends Observer {
 
         // Load cloud targets of necessary.
         if (connection.value && connection.value !== cloudTargets.connection) {
-            action$.onNext(fetchCloudTargets(connection.value));
+            action$.next(fetchCloudTargets(connection.value));
         }
 
         // Suggest a name for the resource if the user didn't enter one himself.
         if (!resourceName.touched && target.value && resourceName.value !== target.value) {
-            action$.onNext(updateForm(formName, { resourceName: target.value }, false));
+            action$.next(updateForm(formName, { resourceName: target.value }, false));
         }
 
         const selectedConnection = externalConnections.find(con => con.name === connection.value);
@@ -181,20 +184,20 @@ class CreateNamespaceResourceModalViewModel extends Observer {
     onSubmit(values) {
         const { resourceName, connection, target } = values;
         const action = createNamespaceResource(resourceName, connection, target);
-        action$.onNext(action);
-        action$.onNext(closeModal());
+        action$.next(action);
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     onAddNewConnection() {
-        action$.onNext(openAddCloudConnectionModal(allowedServices));
+        action$.next(openAddCloudConnectionModal(allowedServices));
     }
 
     dispose() {
-        action$.onNext(dropCloudTargets());
+        action$.next(dropCloudTargets());
         this.form.dispose();
         super.dispose();
     }

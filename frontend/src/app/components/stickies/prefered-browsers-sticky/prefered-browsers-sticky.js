@@ -5,6 +5,7 @@ import Observer from 'observer';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { preferdBrowsers } from 'config';
+import { get } from 'rx-extensions';
 import {
     dismissBrowserSticky
 } from 'action-creators';
@@ -15,7 +16,10 @@ class PreferedBrowsersStickyViewModel extends Observer {
 
         this.isActive = ko.observable();
 
-        this.observe(state$.get('env'), this.onEnv);
+        this.observe(
+            state$.pipe(get('env')),
+            this.onEnv
+        );
     }
 
     onEnv(env) {
@@ -28,7 +32,7 @@ class PreferedBrowsersStickyViewModel extends Observer {
     }
 
     onClose() {
-        action$.onNext(dismissBrowserSticky());
+        action$.next(dismissBrowserSticky());
     }
 }
 

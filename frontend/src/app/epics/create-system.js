@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_SYSTEM } from 'action-types';
 import { completeCreateSystem, failCreateSystem } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(CREATE_SYSTEM)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(CREATE_SYSTEM),
+        mergeMap(async action => {
             const {
                 activationCode,
                 ownerEmail,
@@ -34,5 +36,6 @@ export default function(action$, { api }) {
             } catch (error) {
                 return failCreateSystem(mapErrorObject(error));
             }
-        });
+        })
+    );
 }

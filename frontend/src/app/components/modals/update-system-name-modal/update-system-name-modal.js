@@ -14,12 +14,12 @@ class UpdatingSystemNameModalViewModel {
 
     onUpdate() {
         this.updating(true);
-        action$.onNext(lockModal());
+        action$.next(lockModal());
         updateHostname(ko.unwrap(this.name));
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 }
 

@@ -86,7 +86,7 @@ class LoadingServerInformationFormViewModel extends BaseViewModel {
     }
 
     onMoreDetails() {
-        action$.onNext(openUnableToActivateModal(this.faliureReason()));
+        action$.next(openUnableToActivateModal(this.faliureReason()));
     }
 }
 

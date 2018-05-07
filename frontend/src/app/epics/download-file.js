@@ -2,14 +2,15 @@
 
 import { deepFreeze } from 'utils/core-utils';
 import { COMPLETE_COLLECT_HOST_DIAGNOSTICS } from 'action-types';
+import { map } from 'rxjs/operators';
 
 const actionToUriAccessor = deepFreeze({
     [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: payload => payload.packageUri
 });
 
 export default function(action$, { browser }) {
-    return action$
-        .map(action => {
+    return action$.pipe(
+        map(action => {
             const uriAccessor = actionToUriAccessor[action.type];
             if (!uriAccessor) return;
 
@@ -17,5 +18,6 @@ export default function(action$, { browser }) {
             if (!uri) return;
 
             browser.downloadFile(uri);
-        });
+        })
+    );
 }

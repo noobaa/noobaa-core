@@ -4,6 +4,7 @@ import template from './cluster-availability-sticky.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$ } from 'state';
+import { get } from 'rx-extensions';
 
 class ClusterAvailabilityStickyViewModel extends Observer {
     isActive = ko.observable();
@@ -11,7 +12,10 @@ class ClusterAvailabilityStickyViewModel extends Observer {
     constructor() {
         super();
 
-        this.observe(state$.get('topology', 'servers'), this.onState);
+        this.observe(
+            state$.pipe(get('topology', 'servers')),
+            this.onState
+        );
     }
 
     onState(servers) {

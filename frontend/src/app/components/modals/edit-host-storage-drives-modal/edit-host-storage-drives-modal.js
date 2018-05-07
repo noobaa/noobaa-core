@@ -7,6 +7,7 @@ import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import { openDisableHostStorageWarningModal, toggleHostNodes } from 'action-creators';
 import { deepFreeze, keyByProperty, mapValues } from 'utils/core-utils';
+import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 
 const columns = deepFreeze([
@@ -48,15 +49,17 @@ class EditHostStorageDrivesModalViewModel extends Observer {
         this.onToggleNode = this.onToggleNode.bind(this);
 
         this.observe(
-            state$.getMany(
-                ['hosts', 'items', this.host, 'services'],
-                ['forms', formName, 'fields']
+            state$.pipe(
+                getMany(
+                    ['hosts', 'items', this.host, 'services'],
+                    ['forms', formName, 'fields']
+                )
             ),
-            this.onHostStorageService
+            this.onState
         );
     }
 
-    onHostStorageService([ services, formFields ]) {
+    onState([ services, formFields ]) {
         if (!services) return;
 
         const { endpoint, storage } = services;
@@ -111,7 +114,7 @@ class EditHostStorageDrivesModalViewModel extends Observer {
             openDisableHostStorageWarningModal(this.host, this.isLastService);
 
         this.close();
-        action$.onNext(action);
+        action$.next(action);
     }
 
     onSelectAll() {

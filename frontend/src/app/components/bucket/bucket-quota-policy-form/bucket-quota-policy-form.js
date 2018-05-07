@@ -7,6 +7,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { formatSize, fromBigInteger, toBigInteger } from 'utils/size-utils';
 import { getQuotaValue } from 'utils/bucket-utils';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import { requestLocation, openEditBucketQuotaModal } from 'action-creators';
 
@@ -27,7 +28,7 @@ class BucketQuotaPolicyFormViewModel extends Observer {
             label: 'Bucket Quota',
             value: {
                 text: this.quotaStateText,
-                css: this.qoutaStateCss
+                css: this.quotaStateCss
             },
             template: 'state'
         },
@@ -46,7 +47,12 @@ class BucketQuotaPolicyFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany('location', 'buckets'),
+            state$.pipe(
+                getMany(
+                    'location',
+                    'buckets'
+                )
+            ),
             this.onState
         );
     }
@@ -93,11 +99,11 @@ class BucketQuotaPolicyFormViewModel extends Observer {
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 
     onEditQuota(_, evt) {
-        action$.onNext(openEditBucketQuotaModal(this.bucketName));
+        action$.next(openEditBucketQuotaModal(this.bucketName));
         evt.stopPropagation();
     }
 }

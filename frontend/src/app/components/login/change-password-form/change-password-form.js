@@ -39,7 +39,7 @@ class ChangePasswordFormViewModel extends BaseViewModel {
         this.calcPasswordStrength = calcPasswordStrength;
 
         this.addToDisposeList(resetPasswordState.subscribe(
-            state => state === 'SUCCESS' && action$.onNext(refreshLocation())
+            state => state === 'SUCCESS' && action$.next(refreshLocation())
         ));
 
         this.errors = ko.validation.group(this);
@@ -52,7 +52,7 @@ class ChangePasswordFormViewModel extends BaseViewModel {
 
         } else {
             this.touched(false);
-            action$.onNext(changeAccountPassword(
+            action$.next(changeAccountPassword(
                 this.password(),
                 sessionInfo().user,
                 this.newPassword(),

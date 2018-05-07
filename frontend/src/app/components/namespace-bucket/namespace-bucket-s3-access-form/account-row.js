@@ -35,6 +35,6 @@ export default class AccountRowViewModel {
 
     onShowDetails() {
         const { endpoint, accessKey, secretKey } = this;
-        action$.onNext(openS3AccessDetailsModal(endpoint, accessKey, secretKey));
+        action$.next(openS3AccessDetailsModal(endpoint, accessKey, secretKey));
     }
 }

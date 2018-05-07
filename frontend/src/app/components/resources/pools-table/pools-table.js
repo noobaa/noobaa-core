@@ -8,6 +8,7 @@ import { requestLocation, openCreatePoolModal, deleteResource } from 'action-cre
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import { inputThrottle, paginationPageSize } from 'config';
 
@@ -104,7 +105,12 @@ class PoolsTableViewModel extends Observer {
         });
 
         this.observe(
-            state$.getMany('hostPools', 'location'),
+            state$.pipe(
+                getMany(
+                    'hostPools',
+                    'location'
+                )
+            ),
             this.onPools
         );
     }
@@ -166,7 +172,7 @@ class PoolsTableViewModel extends Observer {
             selectedForDelete: undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.baseRoute, {}, query)
         ));
     }
@@ -180,7 +186,7 @@ class PoolsTableViewModel extends Observer {
             selectedForDelete: undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.baseRoute, {}, query)
         ));
     }
@@ -195,7 +201,7 @@ class PoolsTableViewModel extends Observer {
             selectedForDelete: undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.baseRoute, {}, query)
         ));
     }
@@ -210,17 +216,17 @@ class PoolsTableViewModel extends Observer {
             selectedForDelete: pool || undefined
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.baseRoute, {}, query)
         ));
     }
 
     onCreatePool() {
-        action$.onNext(openCreatePoolModal());
+        action$.next(openCreatePoolModal());
     }
 
     onDeletePool(poolName) {
-        action$.onNext(deleteResource(poolName));
+        action$.next(deleteResource(poolName));
     }
 }
 

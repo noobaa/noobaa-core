@@ -5,6 +5,7 @@ import Observer from 'observer';
 import ResourceRowViewModel from './resource-row';
 import { deepFreeze, pick } from 'utils/core-utils';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { openEditNamespaceBucketDataPlacementModal } from 'action-creators';
 
@@ -38,9 +39,11 @@ class NamespaceBucketDataPlacementFormViewModel extends Observer {
         this.stateLoaded = ko.observable();
 
         this.observe(
-            state$.getMany(
-                ['namespaceBuckets', this.bucketName],
-                'namespaceResources'
+            state$.pipe(
+                getMany(
+                    ['namespaceBuckets', this.bucketName],
+                    'namespaceResources'
+                )
             ),
             this.onBucket
         );
@@ -66,7 +69,7 @@ class NamespaceBucketDataPlacementFormViewModel extends Observer {
 
     onEditPlacement() {
         const action = openEditNamespaceBucketDataPlacementModal(this.bucketName);
-        action$.onNext(action);
+        action$.next(action);
     }
 }
 

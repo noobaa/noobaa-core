@@ -6,6 +6,7 @@ import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
+import { get } from 'rx-extensions';
 import { fetchNodeInstallationCommands } from 'action-creators';
 
 const steps = deepFreeze([
@@ -64,7 +65,10 @@ class InstallNodeWizardViewModel extends Observer {
             onForm: this.onForm.bind(this)
         });
 
-        this.observe(state$.get('hostPools'), this.onPools);
+        this.observe(
+            state$.pipe(get('hostPools')),
+            this.onPools
+        );
     }
 
     onValidate(values) {
@@ -96,7 +100,7 @@ class InstallNodeWizardViewModel extends Observer {
 
         if (step === 1) {
             // If moving to last step, fetch the intallation commands.
-            action$.onNext(fetchNodeInstallationCommands(
+            action$.next(fetchNodeInstallationCommands(
                 form.targetPool(),
                 form.excludedDrives()
             ));

@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { SIGN_IN } from 'action-types';
 import { completeSignIn, failSignIn } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(SIGN_IN)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(SIGN_IN),
+        mergeMap(async action => {
             const { email, password, persistent } = action.payload;
 
             try {
@@ -24,5 +26,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

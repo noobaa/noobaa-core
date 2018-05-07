@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
-import Rx from 'rx';
+import { from } from 'rxjs';
+import { mergeAll } from 'rxjs/operators';
 import notify from './notify';
 import createSystem from './create-system';
 import restoreSession from './restore-session';
@@ -181,9 +182,8 @@ const lambdaRelatedEpics = [
 // A utility that combine multiple epics into one epic.
 function _combineEpics(epics) {
     return (action$, injected) => {
-        return Rx.Observable
-            .fromArray(epics.map(epic => epic(action$, injected)))
-            .mergeAll();
+        const observables = epics.map(epic => epic(action$, injected));
+        return from(observables).pipe(mergeAll());
     };
 }
 

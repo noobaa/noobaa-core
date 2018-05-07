@@ -7,6 +7,7 @@ import AccountRowViewModel from './account-row';
 import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { state$, action$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import { requestLocation, openBucketS3AccessModal } from 'action-creators';
 
@@ -37,7 +38,15 @@ class NamespaceBucketS3AccessFormViewModel extends Observer {
         super();
 
         this.bucketName = ko.unwrap(bucket);
-        this.observe(state$.getMany('accounts', 'location'), this.onState);
+        this.observe(
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    'location'
+                )
+            ),
+            this.onState
+        );
     }
 
     onState([accounts, location]) {
@@ -75,11 +84,11 @@ class NamespaceBucketS3AccessFormViewModel extends Observer {
     onSort(sorting) {
         const query = ko.deepUnwrap(sorting);
         const url = realizeUri(this.pathname, {}, query);
-        action$.onNext(requestLocation(url));
+        action$.next(requestLocation(url));
     }
 
     onEditS3Access() {
-        action$.onNext(openBucketS3AccessModal(this.bucketName));
+        action$.next(openBucketS3AccessModal(this.bucketName));
     }
 }
 

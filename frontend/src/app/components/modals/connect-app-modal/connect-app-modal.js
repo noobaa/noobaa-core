@@ -6,6 +6,7 @@ import FormViewModel from 'components/form-view-model';
 import { state$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
 import { getFieldValue } from 'utils/form-utils';
+import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import * as routes from 'routes';
 
@@ -44,11 +45,16 @@ class ConnectAppModalViewModel extends Observer {
             }
         ];
 
-        this.observe(state$.getMany(
-            'accounts',
-            'location',
-            ['forms', formName]
-        ), this.onAccount);
+        this.observe(
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    'location',
+                    ['forms', formName]
+                )
+            ),
+            this.onAccount
+        );
     }
 
     onAccount([accounts, location, form]) {

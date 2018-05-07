@@ -5,6 +5,7 @@ import accountDetailsMessageTempalte from './account-details-message.html';
 import Observer from 'observer';
 import { state$ } from 'state';
 import ko from 'knockout';
+import { get } from 'rx-extensions';
 
 // TODO: Replace with data from the state$ when available.
 import { systemInfo } from 'model';
@@ -18,7 +19,10 @@ class AccountCreatedModalViewModel extends Observer {
         this.password = password;
         this.message = ko.observable();
 
-        this.observe(state$.get('accounts', accountName), this.onAccount);
+        this.observe(
+            state$.pipe(get('accounts', accountName)),
+            this.onAccount
+        );
     }
 
     onAccount(account) {

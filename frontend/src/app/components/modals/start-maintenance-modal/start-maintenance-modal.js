@@ -6,6 +6,7 @@ import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
+import { get } from 'rx-extensions';
 import { enterMaintenanceMode, closeModal } from 'action-creators';
 import { state$, action$ } from 'state';
 
@@ -38,7 +39,10 @@ class StartMaintenanceModalViewModel extends Observer {
             onSubmit: this.onSubmit.bind(this)
         });
 
-        this.observe(state$.get('forms', this.formName), this.onState);
+        this.observe(
+            state$.pipe(get('forms', this.formName)),
+            this.onState
+        );
     }
 
     onState(form) {
@@ -62,12 +66,12 @@ class StartMaintenanceModalViewModel extends Observer {
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     onSubmit() {
-        action$.onNext(enterMaintenanceMode(this.durationInMin()));
-        action$.onNext(closeModal());
+        action$.next(enterMaintenanceMode(this.durationInMin()));
+        action$.next(closeModal());
     }
 
     dispose() {

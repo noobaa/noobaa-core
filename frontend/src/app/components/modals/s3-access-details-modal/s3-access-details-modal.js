@@ -17,7 +17,7 @@ class S3AccessDetailsModalViewModel {
     }
 
     onClose() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 }
 

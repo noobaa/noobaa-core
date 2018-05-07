@@ -3,6 +3,7 @@
 import template from './finalize-upgrade-modal.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
+import { getMany } from 'rx-extensions';
 import {
     replaceWithAfterUpgradeModal,
     replaceWithAfterUpgradeFailureModal
@@ -13,10 +14,12 @@ class FinalizeUpgradeModalViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                ['location'],
-                ['session', 'user'],
-                'system'
+            state$.pipe(
+                getMany(
+                    'location',
+                    ['session', 'user'],
+                    'system'
+                )
             ),
             this.onState
         );
@@ -32,14 +35,14 @@ class FinalizeUpgradeModalViewModel extends Observer {
         const expectedVersion = query.afterupgrade;
 
         if (expectedVersion === true || expectedVersion === system.version) {
-            action$.onNext(replaceWithAfterUpgradeModal(
+            action$.next(replaceWithAfterUpgradeModal(
                 system.version,
                 user,
                 upgradeInitiator,
                 redirectUrl
             ));
         } else {
-            action$.onNext(replaceWithAfterUpgradeFailureModal(
+            action$.next(replaceWithAfterUpgradeFailureModal(
                 redirectUrl
             ));
         }

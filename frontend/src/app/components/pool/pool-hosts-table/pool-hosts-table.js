@@ -10,6 +10,7 @@ import { fetchHosts, dropHostsView, requestLocation, openAssignHostsModal } from
 import { deepFreeze, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { summrizeHostModeCounters, getHostModeListForState } from 'utils/host-utils';
+import { get } from 'rx-extensions';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
 
@@ -89,8 +90,15 @@ class PoolHostsTableViewModel extends Observer {
         this.fetching = ko.observable();
         this.onFilterByNameThrottled = throttle(this.onFilterByName, inputThrottle, this);
 
-        this.observe(state$.get('location'), this.onLocation);
-        this.observe(state$.get('hosts'), this.onHosts);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
+
+        this.observe(
+            state$.pipe(get('hosts')),
+            this.onHosts
+        );
     }
 
     onLocation({ route, params, query }) {
@@ -106,7 +114,7 @@ class PoolHostsTableViewModel extends Observer {
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
 
-        action$.onNext(fetchHosts(
+        action$.next(fetchHosts(
             this.viewName,
             {
                 pools: [ pool ],
@@ -166,7 +174,7 @@ class PoolHostsTableViewModel extends Observer {
             page: 0
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.baseRoute, {}, query)
         ));
     }
@@ -181,7 +189,7 @@ class PoolHostsTableViewModel extends Observer {
             page: 0
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.baseRoute, {}, query)
         ));
     }
@@ -195,7 +203,7 @@ class PoolHostsTableViewModel extends Observer {
             page: 0
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.baseRoute, {}, query)
         ));
     }
@@ -210,17 +218,17 @@ class PoolHostsTableViewModel extends Observer {
             page: page
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.baseRoute, {}, query)
         ));
     }
 
     onAssignNodes() {
-        action$.onNext(openAssignHostsModal(this.poolName));
+        action$.next(openAssignHostsModal(this.poolName));
     }
 
     dispose() {
-        action$.onNext(dropHostsView(this.viewName));
+        action$.next(dropHostsView(this.viewName));
         super.dispose();
     }
 }

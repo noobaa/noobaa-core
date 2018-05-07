@@ -12,7 +12,7 @@ class DeleteAccountWarningModalViewModel {
 
     onDelete() {
         this.close();
-        action$.onNext(tryDeleteAccount(this.email, true, true));
+        action$.next(tryDeleteAccount(this.email, true, true));
     }
 
     onCancel() {

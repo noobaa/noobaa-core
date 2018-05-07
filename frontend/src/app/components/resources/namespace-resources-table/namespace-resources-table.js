@@ -7,6 +7,7 @@ import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { deepFreeze, createCompareFunc, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 import { inputThrottle, paginationPageSize } from 'config';
 import {
     openCreateNamespaceResourceModal,
@@ -82,7 +83,13 @@ class NamespaceResourceTableViewModel extends Observer {
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
-            state$.getMany('namespaceResources', 'namespaceBuckets', 'location'),
+            state$.pipe(
+                getMany(
+                    'namespaceResources',
+                    'namespaceBuckets',
+                    'location'
+                )
+            ),
             this.onResources
         );
     }
@@ -162,11 +169,11 @@ class NamespaceResourceTableViewModel extends Observer {
     }
 
     onCreate() {
-        action$.onNext(openCreateNamespaceResourceModal());
+        action$.next(openCreateNamespaceResourceModal());
     }
 
     onDeleteResource(resource) {
-        action$.onNext(deleteNamespaceResource(resource));
+        action$.next(deleteNamespaceResource(resource));
     }
 
     _query({
@@ -184,7 +191,7 @@ class NamespaceResourceTableViewModel extends Observer {
         };
 
         const url = realizeUri(this.pathname, {}, query);
-        action$.onNext(requestLocation(url));
+        action$.next(requestLocation(url));
     }
 }
 

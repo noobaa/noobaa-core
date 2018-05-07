@@ -6,6 +6,7 @@ import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { isIP } from 'utils/net-utils';
+import { get } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { attachServerToCluster, closeModal } from 'action-creators';
 import { api } from 'services';
@@ -45,7 +46,7 @@ class AttachServerModalViewModel extends Observer {
         });
 
         this.observe(
-            state$.get('system', 'version'),
+            state$.pipe(get('system', 'version')),
             this.onState
         );
     }
@@ -131,12 +132,12 @@ class AttachServerModalViewModel extends Observer {
         const location = values.location ? values.location : undefined;
         const hostname = values.hostname ? values.hostname : undefined;
 
-        action$.onNext(attachServerToCluster(secret, address, hostname, location));
-        action$.onNext(closeModal());
+        action$.next(attachServerToCluster(secret, address, hostname, location));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

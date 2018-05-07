@@ -11,6 +11,7 @@ import ObjectRowViewModel from './object-row';
 import { state$, action$ } from 'state';
 import * as routes from 'routes';
 import numeral from 'numeral';
+import { get, getMany } from 'rx-extensions';
 import {
     uploadObjects,
     requestLocation,
@@ -139,14 +140,19 @@ class BucketObjectsTableViewModel extends Observer {
             write: val => this.onSelectForDelete(val)
         });
 
-        this.observe(state$.get('location'), this.onLocation);
         this.observe(
-            state$.getMany(
-                ['buckets', ko.unwrap(bucketName)],
-                'objects',
-                ['session', 'user'],
-                ['accounts'],
-                ['system', 'sslCert']
+            state$.pipe(get('location')),
+            this.onLocation
+        );
+        this.observe(
+            state$.pipe(
+                getMany(
+                    ['buckets', ko.unwrap(bucketName)],
+                    'objects',
+                    ['session', 'user'],
+                    ['accounts'],
+                    ['system', 'sslCert']
+                )
             ),
             this.onState
         );
@@ -184,7 +190,7 @@ class BucketObjectsTableViewModel extends Observer {
         this.selectedForDelete(selectedForDelete);
         this.emptyMessage(emptyMessage);
 
-        action$.onNext(fetchObjects(
+        action$.next(fetchObjects(
             this.viewName,
             {
                 bucket: bucket,
@@ -303,7 +309,7 @@ class BucketObjectsTableViewModel extends Observer {
             stateFilter: stateFilter
         };
 
-        action$.onNext(requestLocation(
+        action$.next(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }
@@ -314,16 +320,16 @@ class BucketObjectsTableViewModel extends Observer {
     }
 
     onDeleteBucketObject(bucket, key, uploadId) {
-        action$.onNext(deleteObject(bucket, key, uploadId, this.s3Connection));
+        action$.next(deleteObject(bucket, key, uploadId, this.s3Connection));
     }
 
     uploadFiles(files) {
-        action$.onNext(uploadObjects(ko.unwrap(this.bucketName), files, this.s3Connection));
+        action$.next(uploadObjects(ko.unwrap(this.bucketName), files, this.s3Connection));
         this.fileSelectorExpanded(false);
     }
 
     dispose() {
-        action$.onNext(dropObjectsView(this.viewName));
+        action$.next(dropObjectsView(this.viewName));
         super.dispose();
     }
 }

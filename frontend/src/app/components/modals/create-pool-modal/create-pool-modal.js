@@ -10,6 +10,7 @@ import { deepFreeze, union, equalItems, mapValues, sumBy } from 'utils/core-util
 import { formatSize, sumSize } from 'utils/size-utils';
 import { getHostModeListForState } from 'utils/host-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { getMany } from 'rx-extensions';
 import { paginationPageSize, inputThrottle } from 'config';
 import ko from 'knockout';
 
@@ -138,7 +139,7 @@ function _fetchHosts(queryFields) {
     const skip = page * paginationPageSize;
     const limit = paginationPageSize;
 
-    action$.onNext(fetchHosts(
+    action$.next(fetchHosts(
         formName,
         { pools, name, modes, sortBy, order, skip, limit }
     ));
@@ -204,10 +205,12 @@ class CreatePoolModalViewModel extends Observer {
 
         // Connect to the state tree.
         this.observe(
-            state$.getMany(
-                'hostPools',
-                'hosts',
-                ['forms', formName, 'fields']
+            state$.pipe(
+                getMany(
+                    'hostPools',
+                    'hosts',
+                    ['forms', formName, 'fields']
+                )
             ),
             this.onState
         );
@@ -340,7 +343,7 @@ class CreatePoolModalViewModel extends Observer {
     }
 
     onSubmit({ poolName, selectedHosts }) {
-        action$.onNext(createHostsPool(poolName, selectedHosts));
+        action$.next(createHostsPool(poolName, selectedHosts));
         this.close();
     }
 
@@ -349,7 +352,7 @@ class CreatePoolModalViewModel extends Observer {
     }
 
     dispose() {
-        action$.onNext(dropHostsView(formName));
+        action$.next(dropHostsView(formName));
         this.form.dispose();
         super.dispose();
     }

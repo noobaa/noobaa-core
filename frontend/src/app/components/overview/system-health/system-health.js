@@ -12,6 +12,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getClusterStateIcon, getClsuterHAState } from 'utils/cluster-utils';
 import numeral from 'numeral';
+import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 
 function _getSystemStorageIcon(total = 0, free = 0) {
@@ -130,14 +131,16 @@ class SystemHealthViewModel extends Observer {
 
 
         this.observe(
-            state$.getMany(
-                'location',
-                'hostPools',
-                'cloudResources',
-                'internalResources',
-                ['topology'],
-                ['system', 'version'],
-                ['alerts', 'unreadCounts'],
+            state$.pipe(
+                getMany(
+                    'location',
+                    'hostPools',
+                    'cloudResources',
+                    'internalResources',
+                    ['topology'],
+                    ['system', 'version'],
+                    ['alerts', 'unreadCounts']
+                )
             ),
             this.onState
         );
@@ -197,7 +200,7 @@ class SystemHealthViewModel extends Observer {
     }
 
     onViewAlerts() {
-        action$.onNext(openAlertsDrawer('CRIT', true));
+        action$.next(openAlertsDrawer('CRIT', true));
     }
 }
 

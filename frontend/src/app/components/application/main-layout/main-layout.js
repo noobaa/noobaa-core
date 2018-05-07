@@ -9,6 +9,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { registerForAlerts } from 'actions';
 import * as routes from 'routes';
 import routeMapping from './route-mapping';
+import { get, getMany } from 'rx-extensions';
 import {
     fetchSystemInfo,
     openFinalizeUpgradeModal,
@@ -77,9 +78,20 @@ class MainLayoutViewModel extends Observer {
         this.panel = ko.observable();
         this.isUploadButtonVisible = ko.observable(false);
 
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
 
-        this.observe(state$.get('location'), this.onLocation);
-        this.observe(state$.getMany('accounts', ['session', 'user']), this.onAccount);
+        this.observe(
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    ['session', 'user']
+                )
+            ),
+            this.onAccount
+        );
 
         registerForAlerts();
     }
@@ -97,13 +109,13 @@ class MainLayoutViewModel extends Observer {
 
         const { afterupgrade, welcome } = query;
         if (afterupgrade) {
-            action$.onNext(openFinalizeUpgradeModal());
+            action$.next(openFinalizeUpgradeModal());
 
         } else if (welcome) {
-            action$.onNext(openWelcomeModal());
+            action$.next(openWelcomeModal());
         }
 
-        action$.onNext(fetchSystemInfo());
+        action$.next(fetchSystemInfo());
     }
 
     onAccount([ accounts, user ]) {

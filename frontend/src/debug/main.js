@@ -8,7 +8,7 @@ const [, targetId] = global.name.split(':');
 
 function setupDebugChannel() {
     const channel = new BroadcastChannel(`debugChannel:${targetId}`);
-    channel.onmessage = evt => action$.onNext({
+    channel.onmessage = evt => action$.next({
         type: 'ACCEPT_MESSAGE',
         payload: evt.data
     });
@@ -28,7 +28,7 @@ async function main() {
     await importSvgIcons();
     setupDebugChannel();
 
-    action$.onNext({
+    action$.next({
         type: 'INITIALIZE',
         payload: { targetId }
     });

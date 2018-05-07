@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { mergeMap } from 'rxjs/operators';
+import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_BUCKET_QUOTA } from 'action-types';
 import { completeUpdateBucketQuota, failUpdateBucketQuota } from 'action-creators';
 
 export default function(action$, { api }) {
-    return action$
-        .ofType(UPDATE_BUCKET_QUOTA)
-        .flatMap(async action => {
+    return action$.pipe(
+        ofType(UPDATE_BUCKET_QUOTA),
+        mergeMap(async action => {
             const { bucket, quota } = action.payload;
 
             try {
@@ -20,5 +22,6 @@ export default function(action$, { api }) {
                     mapErrorObject(error)
                 );
             }
-        });
+        })
+    );
 }

@@ -5,6 +5,7 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import style from 'style';
+import { get } from 'rx-extensions';
 import { openFileUploadsModal } from 'action-creators';
 
 class UploadsIndicatorViewModel extends Observer {
@@ -27,7 +28,10 @@ class UploadsIndicatorViewModel extends Observer {
 
         this.lastUploadTime = ko.observable();
 
-        this.observe(state$.get('objectUploads'), this.onUploads);
+        this.observe(
+            state$.pipe(get('objectUploads')),
+            this.onUploads
+        );
     }
 
     onUploads(objectUploads) {
@@ -44,7 +48,7 @@ class UploadsIndicatorViewModel extends Observer {
     }
 
     onClick() {
-        action$.onNext(openFileUploadsModal());
+        action$.next(openFileUploadsModal());
     }
 
     onUploadAnimationEnd() {

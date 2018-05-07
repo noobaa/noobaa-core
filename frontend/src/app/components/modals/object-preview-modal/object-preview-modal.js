@@ -12,7 +12,7 @@ class ObjectPreviewModalViewModel {
     }
 
     onClose() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 }
 

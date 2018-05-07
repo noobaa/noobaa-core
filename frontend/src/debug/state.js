@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { Subject } from 'rx';
+import { Subject } from 'rxjs';
+import { startWith, scan, shareReplay } from 'rxjs/operators';
 
 const maxLogSize = 200;
 
@@ -76,10 +77,11 @@ function onSelectStateView(prev, action) {
 
 export const action$ = new Subject();
 
-export const state$ = action$
-    .startWith(intialState)
-    .scan(reduceState)
-    .shareReplay(1);
+export const state$ = action$.pipe(
+    startWith(intialState),
+    scan(reduceState),
+    shareReplay(1)
+);
 
 // Subscribe to the stream to ensure availability of last state
 // even before real subscriptions.

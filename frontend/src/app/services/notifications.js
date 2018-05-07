@@ -4,7 +4,7 @@ import { action$ } from 'state';
 import { fetchUnreadAlertsCount, showNotification, removeHost, fetchSystemInfo } from 'action-creators';
 
 export function alert() {
-    action$.onNext(fetchUnreadAlertsCount());
+    action$.next(fetchUnreadAlertsCount());
 }
 
 export function add_memeber_to_cluster(req) {
@@ -15,14 +15,14 @@ export function add_memeber_to_cluster(req) {
         showNotification('Server was successfully added to the cluster', 'success') :
         showNotification('Adding server to the cluster failed', 'error');
 
-    action$.onNext(action);
+    action$.next(action);
 }
 
 export function remove_host(req) {
     const { name: host } = req.rpc_params;
-    action$.onNext(removeHost(host));
+    action$.next(removeHost(host));
 }
 
 export function change_upgrade_status() {
-    action$.onNext(fetchSystemInfo());
+    action$.next(fetchSystemInfo());
 }

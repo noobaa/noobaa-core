@@ -14,7 +14,13 @@ export default class Observer {
 
     dispose() {
         for (const sub of this[subscriptionsSym]) {
-            sub.dispose();
+            if (typeof sub.dispose === 'function') {
+                sub.dispose();
+
+            // Added to support rxjs subscription disposals.
+            } else if (typeof sub.unsubscribe === 'function') {
+                sub.unsubscribe();
+            }
         }
     }
 }

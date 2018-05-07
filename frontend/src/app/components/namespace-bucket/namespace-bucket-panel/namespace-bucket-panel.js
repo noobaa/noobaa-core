@@ -5,6 +5,7 @@ import Observer from 'observer';
 import ko from 'knockout';
 import { state$ } from 'state';
 import  { realizeUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 
 class NamespaceBucketPanelViewModel extends Observer {
     constructor() {
@@ -14,7 +15,10 @@ class NamespaceBucketPanelViewModel extends Observer {
         this.selectedTab = ko.observable();
         this.bucketName = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
     }
 
     onLocation(location) {

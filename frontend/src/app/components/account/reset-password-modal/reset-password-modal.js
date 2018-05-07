@@ -86,7 +86,7 @@ class RestPasswordModalViewModel extends BaseViewModel {
         if (this.errors().length) {
             this.errors.showAllMessages();
         } else {
-            action$.onNext(changeAccountPassword(
+            action$.next(changeAccountPassword(
                 this.verificationPassword(),
                 ko.unwrap(this.email),
                 this.password,

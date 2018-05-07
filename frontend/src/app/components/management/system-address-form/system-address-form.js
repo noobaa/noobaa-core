@@ -7,6 +7,7 @@ import { isDNSName } from 'utils/net-utils';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getFieldValue, isFormDirty } from 'utils/form-utils';
+import { getMany } from 'rx-extensions';
 import FormViewModel from 'components/form-view-model';
 import * as routes from 'routes';
 import { action$, state$ } from 'state';
@@ -36,11 +37,13 @@ class SystemAddressFormViewModel extends Observer {
         super();
 
         this.observe(
-            state$.getMany(
-                ['system', 'dnsName'],
-                ['system', 'ipAddress'],
-                'location',
-                ['forms', this.formName]
+            state$.pipe(
+                getMany(
+                    ['system', 'dnsName'],
+                    ['system', 'ipAddress'],
+                    'location',
+                    ['forms', this.formName]
+                )
             ),
             this.onState
         );
@@ -128,11 +131,11 @@ class SystemAddressFormViewModel extends Observer {
     onSubmit(values) {
         const { addressType, dnsName } = values;
         const address = addressType === 'IP' ? this.ipAddress() : dnsName;
-        action$.onNext(openUpdateSystemNameModal(address));
+        action$.next(openUpdateSystemNameModal(address));
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 
     dispose() {

@@ -8,6 +8,7 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { validateName } from 'utils/validation-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { closeModal, createNamespaceBucket } from 'action-creators';
 import { inputThrottle } from 'config';
@@ -76,11 +77,13 @@ class CreateNamespaceBucketModalViewModel extends Observer {
             .throttle(inputThrottle);
 
         this.observe(
-            state$.getMany(
-                ['forms', formName],
-                'buckets',
-                'namespaceBuckets',
-                'namespaceResources'
+            state$.pipe(
+                getMany(
+                    ['forms', formName],
+                    'buckets',
+                    'namespaceBuckets',
+                    'namespaceResources'
+                )
             ),
             this.onState
         );
@@ -178,12 +181,12 @@ class CreateNamespaceBucketModalViewModel extends Observer {
 
     onSubmit(values) {
         const { bucketName, readPolicy, writePolicy } = values;
-        action$.onNext(createNamespaceBucket(bucketName, readPolicy, writePolicy));
-        action$.onNext(closeModal());
+        action$.next(createNamespaceBucket(bucketName, readPolicy, writePolicy));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

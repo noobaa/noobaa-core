@@ -7,6 +7,7 @@ import ko from 'knockout';
 import moment from 'moment';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getMany } from 'rx-extensions';
 import { timeLongFormat } from 'config';
 import { action$, state$ } from 'state';
 import * as routes from 'routes';
@@ -68,9 +69,11 @@ class ServerTimeFormViewModel extends Observer {
         );
 
         this.observe(
-            state$.getMany(
-                ['topology', 'servers'],
-                'location'
+            state$.pipe(
+                getMany(
+                    ['topology', 'servers'],
+                    'location'
+                )
             ),
             this.onState
         );
@@ -108,11 +111,11 @@ class ServerTimeFormViewModel extends Observer {
     }
 
     onEditServerTime(secret) {
-        action$.onNext(openEditServerTimeSettingsModal(secret));
+        action$.next(openEditServerTimeSettingsModal(secret));
     }
 
     onToggleSection() {
-        action$.onNext(requestLocation(this.toggleUri));
+        action$.next(requestLocation(this.toggleUri));
     }
 
     dispose(){

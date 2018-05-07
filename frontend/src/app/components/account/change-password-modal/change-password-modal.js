@@ -58,7 +58,7 @@ class ChangePasswordModalViewModel extends BaseViewModel {
 
         } else {
             this.touched(false);
-            action$.onNext(changeAccountPassword(
+            action$.next(changeAccountPassword(
                 this.password(),
                 ko.unwrap(this.email),
                 this.newPassword(),

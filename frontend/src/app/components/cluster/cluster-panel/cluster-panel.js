@@ -4,6 +4,7 @@ import template from './cluster-panel.html';
 import Observer from 'observer';
 import { state$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 import ko from 'knockout';
 
 class ClusterPanelViewModel extends Observer {
@@ -13,7 +14,10 @@ class ClusterPanelViewModel extends Observer {
         this.baseRoute = '';
         this.selectedTab = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
     }
 
     onLocation({ route, params }) {

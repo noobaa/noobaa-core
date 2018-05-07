@@ -52,12 +52,12 @@ class SetNodeAsTrustedModalViewModel extends Observer {
     }
 
     onRetrust() {
-        action$.onNext(retrustHost(this.host));
-        action$.onNext(closeModal());
+        action$.next(retrustHost(this.host));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 }
 

@@ -8,6 +8,7 @@ import { state$, action$ } from 'state';
 import { flatMap } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getMany } from 'rx-extensions';
 import {
     getInternalResourceDisplayName
 } from 'utils/resource-utils';
@@ -58,11 +59,13 @@ class EditBucketSpilloverModalViewModel extends Observer {
         this.bucketName = ko.unwrap(bucketName);
 
         this.observe(
-            state$.getMany(
-                ['buckets', this.bucketName],
-                'hostPools',
-                'cloudResources',
-                'internalResources'
+            state$.pipe(
+                getMany(
+                    ['buckets', this.bucketName],
+                    'hostPools',
+                    'cloudResources',
+                    'internalResources'
+                )
             ),
             this.onState
         );
@@ -134,12 +137,12 @@ class EditBucketSpilloverModalViewModel extends Observer {
     onSubmit(values) {
         const { target, useSpillover } = values;
         const resource = useSpillover ? target : null;
-        action$.onNext(updateBucketSpillover(this.bucketName, resource));
-        action$.onNext(closeModal());
+        action$.next(updateBucketSpillover(this.bucketName, resource));
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {

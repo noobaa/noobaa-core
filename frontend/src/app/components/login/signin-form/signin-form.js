@@ -50,7 +50,7 @@ class SignInFormViewModel extends BaseViewModel {
 
         } else {
             this.isDirty(false);
-            action$.onNext(signIn(
+            action$.next(signIn(
                 this.email(),
                 this.password(),
                 this.keepSessionAlive(),

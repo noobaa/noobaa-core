@@ -16,7 +16,7 @@ const logToConsole = console.log.bind(console);
 const actions = mapValues(
     actionCreators,
     creator => function(...args) {
-        action$.onNext(creator(...args));
+        action$.next(creator(...args));
     }
 );
 

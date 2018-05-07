@@ -230,7 +230,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
         };
 
         if (this.validateStep(this.step())) {
-            action$.onNext(createSystem(
+            action$.next(createSystem(
                 this.activationCode(),
                 this.email(),
                 this.password(),

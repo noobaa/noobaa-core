@@ -5,6 +5,7 @@ import Observer from 'observer';
 import { state$ } from 'state';
 import ko from 'knockout';
 import  { realizeUri } from 'utils/browser-utils';
+import { get } from 'rx-extensions';
 
 class BucketsPanelViewModel extends Observer {
     constructor() {
@@ -13,7 +14,10 @@ class BucketsPanelViewModel extends Observer {
         this.baseRoute = '';
         this.selectedTab = ko.observable();
 
-        this.observe(state$.get('location'), this.onLocation);
+        this.observe(
+            state$.pipe(get('location')),
+            this.onLocation
+        );
     }
 
     onLocation({ route, params }) {

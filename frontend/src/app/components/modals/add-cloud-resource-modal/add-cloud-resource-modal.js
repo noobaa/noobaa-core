@@ -9,6 +9,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
 import { getFieldValue, isFieldTouched } from 'utils/form-utils';
+import { getMany } from 'rx-extensions';
 import { inputThrottle } from 'config';
 import {
     openAddCloudConnectionModal,
@@ -71,13 +72,15 @@ class AddCloudResourceModalViewModel extends Observer {
             .throttle(inputThrottle);
 
         this.observe(
-            state$.getMany(
-                'accounts',
-                'session',
-                'cloudResources',
-                'hostPools',
-                ['forms', this.formName],
-                'cloudTargets'
+            state$.pipe(
+                getMany(
+                    'accounts',
+                    'session',
+                    'cloudResources',
+                    'hostPools',
+                    ['forms', this.formName],
+                    'cloudTargets'
+                )
             ),
             this.onState
         );
@@ -143,12 +146,12 @@ class AddCloudResourceModalViewModel extends Observer {
 
         // Load cloud targets if necessary.
         if (connection && connection !== cloudTargets.connection) {
-            action$.onNext(fetchCloudTargets(connection));
+            action$.next(fetchCloudTargets(connection));
         }
 
         // Suggest a name for the resource if the user didn't enter one himself.
         if (!isResourceNameTouched && targetBucket && resourceName !== targetBucket) {
-            action$.onNext(updateForm(this.formName, { resourceName: targetBucket }, false));
+            action$.next(updateForm(this.formName, { resourceName: targetBucket }, false));
         }
 
         const selectedConnection = externalConnections.find(con => con.name === connection);
@@ -198,20 +201,20 @@ class AddCloudResourceModalViewModel extends Observer {
         const { resourceName, connection, targetBucket } = values;
         const action = createCloudResource(resourceName, connection, targetBucket);
 
-        action$.onNext(action);
-        action$.onNext(closeModal());
+        action$.next(action);
+        action$.next(closeModal());
     }
 
     onAddNewConnection() {
-        action$.onNext(openAddCloudConnectionModal(allowedServices));
+        action$.next(openAddCloudConnectionModal(allowedServices));
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     dispose() {
-        action$.onNext(dropCloudTargets());
+        action$.next(dropCloudTargets());
         this.form.dispose();
         super.dispose();
     }

@@ -9,6 +9,7 @@ import { readFileAsArrayBuffer, toObjectUrl, openInNewTab } from 'utils/browser-
 import { shortString, stringifyAmount } from 'utils/string-utils';
 import { unitsInBytes, formatSize } from 'utils/size-utils';
 import { getFormValues, isFieldValid } from 'utils/form-utils';
+import { getMany } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import { createLambdaFunc, closeModal, updateForm, untouchForm } from 'action-creators';
 import { bufferStore } from 'services';
@@ -133,9 +134,11 @@ class CreateFuncModalViewModel extends Observer {
         });
 
         this.observe(
-            state$.getMany(
-                'functions',
-                ['forms', this.formName]
+            state$.pipe(
+                getMany(
+                    'functions',
+                    ['forms', this.formName]
+                )
             ),
             this.onState
         );
@@ -311,7 +314,7 @@ class CreateFuncModalViewModel extends Observer {
             inlineCodeHandlerFile :
             handlerFile.slice(0, -handlerFileSuffix.length);
 
-        action$.onNext(createLambdaFunc(
+        action$.next(createLambdaFunc(
             funcName,
             '$LATEST',
             funcDesc,
@@ -323,11 +326,11 @@ class CreateFuncModalViewModel extends Observer {
             bufferKey,
             size
         ));
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.onNext(closeModal());
+        action$.next(closeModal());
     }
 
     async onShowFileContent() {
@@ -344,7 +347,7 @@ class CreateFuncModalViewModel extends Observer {
         const { name, size } = pkg;
         if (size > pkgSizeLimit) {
             const codePackage = { name, size, oversized: true };
-            action$.onNext(updateForm(this.formName, { codePackage }));
+            action$.next(updateForm(this.formName, { codePackage }));
 
         } else {
             const buffer = await readFileAsArrayBuffer(pkg);
@@ -356,8 +359,8 @@ class CreateFuncModalViewModel extends Observer {
                 .map(file => file.name);
 
             const codePackage = { name, size, files, bufferKey };
-            action$.onNext(updateForm(this.formName, { codePackage, handlerFile: '', handlerFunc: '' }));
-            action$.onNext(untouchForm(this.formName, ['handlerFile', 'handlerFunc']));
+            action$.next(updateForm(this.formName, { codePackage, handlerFile: '', handlerFunc: '' }));
+            action$.next(untouchForm(this.formName, ['handlerFile', 'handlerFunc']));
         }
     }
 

@@ -28,6 +28,7 @@ export function completeRestoreSession(token, sessionInfo, persistent = false) {
     };
 }
 
+
 export function failRestoreSession(token, error) {
     return {
         type: FAIL_RESTORE_SESSION,

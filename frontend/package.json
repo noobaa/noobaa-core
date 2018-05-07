@@ -50,11 +50,12 @@
     "moment": "2.22.1",
     "path-exists": "^3.0.0",
     "run-sequence": "^2.2.1",
+    "rxjs": "6.1.0",
     "stringify": "^5.2.0",
     "through2": "^2.0.3",
     "vinyl": "^2.1.0",
     "vinyl-buffer": "^1.0.0",
-    "vinyl-source-stream": "^2.0.0",
+    "vinyl-source-stream": "2.0.0",
     "watchify": "3.11.0",
     "yargs": "^11.0.0"
   },

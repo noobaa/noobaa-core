@@ -42,7 +42,7 @@ export function navigateTo(route = model.routeContext().pathname, params = {},  
     logAction('navigateTo', { route, params, query });
 
     const uri = realizeUri(route, Object.assign({}, model.routeContext().params, params), query);
-    action$.onNext(requestLocation(uri));
+    action$.next(requestLocation(uri));
 
 }
 
@@ -50,7 +50,7 @@ export function redirectTo(route = model.routeContext().pathname, params = {}, q
     logAction('redirectTo', { route, params, query });
 
     const uri = realizeUri(route, Object.assign({}, model.routeContext().params, params), query);
-    action$.onNext(requestLocation(uri, true));
+    action$.next(requestLocation(uri, true));
 }
 
 export function reloadTo(route = model.routeContext().pathname, params = {},  query = {}) {
@@ -178,7 +178,7 @@ export async function deleteFunc(name, version) {
     try {
         await api.func.delete_func({ name, version });
         notify(`Func ${name} deleted successfully`, 'success'),
-        action$.onNext(fetchSystemInfo());
+        action$.next(fetchSystemInfo());
 
     } catch (error) {
         notify(`Func ${name} deletion failed`, 'error');
@@ -337,7 +337,7 @@ export function createBucket(name, dataPlacement, pools) {
             () => notify(`Bucket ${name} created successfully`, 'success'),
             () => notify(`Bucket ${name} creation failed`, 'error')
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 
@@ -349,7 +349,7 @@ export function deleteCloudResource(name) {
             () => notify(`Resource ${name} deleted successfully`, 'success'),
             () => notify(`Resource ${name} deletion failed`, 'error')
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 
@@ -521,7 +521,7 @@ export function updateP2PTcpPorts(minPort, maxPort) {
             () => notify('Peer to peer settings updated successfully', 'success'),
             () => notify('Peer to peer settings update failed', 'error')
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 
@@ -661,7 +661,7 @@ export function setServerDebugLevel(secret, hostname, level){
                 'error'
             )
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 
@@ -669,7 +669,7 @@ export function setSystemDebugLevel(level){
     logAction('setSystemDebugLevel', { level });
 
     api.cluster_server.set_debug_level({ level })
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 
@@ -691,7 +691,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
             () => notify(`${bucket} cloud sync policy was set successfully`, 'success'),
             () => notify(`Setting ${bucket} cloud sync policy failed`, 'error')
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 
@@ -711,7 +711,7 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
             () => notify(`${bucket} cloud sync policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket} cloud sync policy failed`, 'error')
         )
-        .then(() => action$.onNext(fetchSystemInfo()));
+        .then(() => action$.next(fetchSystemInfo()));
 }
 
 export async function updatePhoneHomeConfig(proxyAddress) {
@@ -729,7 +729,7 @@ export async function updatePhoneHomeConfig(proxyAddress) {
         await api.system.update_phone_home_config({ proxy_address: proxyAddress });
         notify('Proxy settings updated successfully', 'success');
 
-        action$.onNext(fetchSystemInfo());
+        action$.next(fetchSystemInfo());
 
     } catch (error) {
         const message = error.rpc_code === 'CONNECTIVITY_TEST_FAILED' ?
@@ -758,7 +758,7 @@ export function updateServerDetails(serverSecret, hostname, location) {
                 throw err;
             }
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .then(
             () => {
                 const { servers } = model.systemInfo().cluster.shards[0];
@@ -784,7 +784,7 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, 
     })
         .then(() => {
             notify('DNS server settings updated successfully', 'success');
-            action$.onNext(refreshLocation());
+            action$.next(refreshLocation());
         })
         .catch(() => {
             notify('Updating server DNS setting failed, Please try again later', 'error');
@@ -818,7 +818,7 @@ export function updateServerClock(serverSecret, hostname, timezone, epoch) {
             () => notify(`${name} time settings updated successfully`, 'success'),
             () => notify(`Updating ${name} time settings failed`, 'error')
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpServerAddress) {
@@ -834,7 +834,7 @@ export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpSer
             () => notify(`${name} time settings updated successfully`, 'success'),
             () => notify(`Updating ${name} time settings failed`, 'error')
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 
@@ -854,7 +854,7 @@ export function attemptResolveNTPServer(ntpServerAddress, serverSecret) {
 }
 
 export function notify(message, severity = 'info') {
-    action$.onNext(showNotification(message, severity));
+    action$.next(showNotification(message, severity));
 }
 
 export function validateActivation(code, email) {
@@ -911,7 +911,7 @@ export function regenerateAccountCredentials(email, verificationPassword) {
                 }
             }
         )
-        .then(() => action$.onNext(fetchSystemInfo()))
+        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 

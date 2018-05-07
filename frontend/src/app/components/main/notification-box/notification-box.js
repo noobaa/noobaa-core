@@ -7,6 +7,7 @@ import { hideNotification } from 'action-creators';
 import ko from 'knockout';
 import { deepFreeze, isFalsy } from 'utils/core-utils';
 import { sleep, all } from 'utils/promise-utils';
+import { get } from 'rx-extensions';
 import { notifications as config } from 'config';
 
 const { minTimeOnScreen, charTimeContribution } = config;
@@ -37,7 +38,10 @@ class NotificationBarViewModel extends Observer {
         this.visible = ko.observable();
         this.hover = ko.observable();
 
-        this.observe(state$.get('notifications', 'list', '0'), this.onNotification);
+        this.observe(
+            state$.pipe(get('notifications', 'list', '0')),
+            this.onNotification
+        );
     }
 
     onNotification(notif) {
@@ -73,7 +77,7 @@ class NotificationBarViewModel extends Observer {
 
         await this.hover.when(isFalsy);
 
-        action$.onNext(hideNotification(id));
+        action$.next(hideNotification(id));
     }
 }
 

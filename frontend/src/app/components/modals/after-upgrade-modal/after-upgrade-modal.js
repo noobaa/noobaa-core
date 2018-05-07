@@ -16,8 +16,8 @@ class AfterUpgradeModalViewModel {
     }
 
     onDone() {
-        action$.onNext(closeModal());
-        action$.onNext(requestLocation(this.redirectUrl, true));
+        action$.next(closeModal());
+        action$.next(requestLocation(this.redirectUrl, true));
     }
 }
 

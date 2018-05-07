@@ -16,7 +16,7 @@ class DisableHostEndpointWarningModalViewModel extends Observer {
     }
 
     onApprove() {
-        action$.onNext(toggleHostServices(this.hostName, { endpoint: false }));
+        action$.next(toggleHostServices(this.hostName, { endpoint: false }));
         this.close();
     }
 

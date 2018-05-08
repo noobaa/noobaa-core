@@ -56,7 +56,7 @@ function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
         });
 }
 
-function server_side_copy_file_with_md5(ip, bucket, source, destination) {
+function server_side_copy_file_with_md5(ip, bucket, source, destination, versionid) {
     const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -69,7 +69,7 @@ function server_side_copy_file_with_md5(ip, bucket, source, destination) {
 
     let params = {
         Bucket: bucket,
-        CopySource: bucket + '/' + source,
+        CopySource: bucket + '/' + source + versionid ? `?versionId=${versionid}` : '',
         Key: destination,
         MetadataDirective: 'COPY'
     };
@@ -85,10 +85,13 @@ function server_side_copy_file_with_md5(ip, bucket, source, destination) {
         });
 }
 
-function client_side_copy_file_with_md5(ip, bucket, source, destination) {
+function client_side_copy_file_with_md5(ip, bucket, source, destination, versionid) {
     console.log('>>> CS COPY - About to copy object... from: ' + source + ' to: ' + destination);
 
-    return get_file_check_md5(ip, bucket, source, true)
+    return get_file_check_md5(ip, bucket, source, {
+            return_data: true,
+            versionid: versionid ? versionid : undefined
+        })
         .then(res => {
             const TEN_MB = 10 * 1024 * 1024;
             return _multipart_upload_internal(ip, bucket, destination, res.data, TEN_MB);
@@ -106,7 +109,9 @@ function upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multi
         .then(() => _multipart_upload_internal(ip, bucket, file_name, data, size, overlook_error));
 }
 
-function get_file_check_md5(ip, bucket, file_name, return_data) {
+function get_file_check_md5(ip, bucket, file_name, options) {
+    const return_data = options && options.return_data;
+    const versionid = options && options.versionid;
     const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -120,6 +125,10 @@ function get_file_check_md5(ip, bucket, file_name, return_data) {
         Bucket: bucket,
         Key: file_name,
     };
+
+    if (versionid) {
+        params.VersionId = versionid;
+    }
 
     console.log('>>> DOWNLOAD - About to download object...' + file_name);
     let start_ts = Date.now();
@@ -150,8 +159,9 @@ function get_file_check_md5(ip, bucket, file_name, return_data) {
         });
 }
 
-function get_file_ranges_check_md5(ip, bucket, file_name, parts) {
+function get_file_ranges_check_md5(ip, bucket, file_name, parts, options) {
     const rest_endpoint = 'http://' + ip + ':' + port;
+    const versionid = options && options.versionid;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         accessKeyId: accessKeyDefault,
@@ -165,6 +175,10 @@ function get_file_ranges_check_md5(ip, bucket, file_name, parts) {
         Key: file_name,
     };
 
+    if (versionid) {
+        params.VersionId = versionid;
+    }
+
     return P.ninvoke(s3bucket, 'headObject', params)
         .then(res => {
             let start_byte = 0;
@@ -176,7 +190,7 @@ function get_file_ranges_check_md5(ip, bucket, file_name, parts) {
             let finish_byte = start_byte + jump;
             console.log(`>>> READ_RANGE - About to read object... ${file_name}, md5: ${file_md5}, parts: ${parts}`);
             return promise_utils.pwhile(() => start_byte < file_size, () =>
-                    get_object_range(ip, bucket, file_name, start_byte, finish_byte)
+                    get_object_range(ip, bucket, file_name, start_byte, finish_byte, versionid)
                     .then(data => {
                         md5.update(data);
                         start_byte = finish_byte + 1;
@@ -254,6 +268,36 @@ function get_a_random_file(ip, bucket, prefix) {
                 throw new Error('No files with prefix in bucket');
             }
             let rand = Math.floor(Math.random() * list.length);
+            return list[rand];
+        })
+        .catch(err => {
+            console.error(`get_a_random_file:: listObjects ${params} failed!`, err);
+            throw err;
+        });
+}
+
+function get_a_random_version_file(ip, bucket, prefix) {
+    const rest_endpoint = 'http://' + ip + ':' + port;
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    let params = {
+        Bucket: bucket,
+        Prefix: prefix,
+    };
+
+    return P.ninvoke(s3bucket, 'listObjects', params) //NBNB:: change call to the correct one 
+        .then(res => {
+            let list = res.Contents;
+            if (list.length === 0) {
+                throw new Error('No files with prefix in bucket');
+            }
+            let rand = Math.floor(Math.random() * list.length); //Take a random version , not delete marker and return key and versionid
             return list[rand];
         })
         .catch(err => {
@@ -428,7 +472,7 @@ function get_file_number(ip, bucket, prefix) {
         });
 }
 
-function delete_file(ip, bucket, file_name) {
+function delete_file(ip, bucket, file_name, versionid) {
     const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -442,6 +486,10 @@ function delete_file(ip, bucket, file_name) {
         Bucket: bucket,
         Key: file_name,
     };
+
+    if (versionid) {
+        params.VersionId = versionid;
+    }
 
     let start_ts = Date.now();
     console.log('>>> DELETE - About to delete object...' + file_name);
@@ -496,7 +544,7 @@ function get_file_size(ip, bucket, file_name) {
         });
 }
 
-function set_file_attribute(ip, bucket, file_name) {
+function set_file_attribute(ip, bucket, file_name, versionid) {
     const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -516,6 +564,10 @@ function set_file_attribute(ip, bucket, file_name) {
             }]
         }
     };
+
+    if (versionid) {
+        params.VersionId = versionid;
+    }
 
     return P.ninvoke(s3bucket, 'putObjectTagging', params)
         .catch(err => {
@@ -743,7 +795,7 @@ function get_object(ip, bucket, key) {
         });
 }
 
-function get_object_range(ip, bucket, key, start_byte, finish_byte) {
+function get_object_range(ip, bucket, key, start_byte, finish_byte, versionid) {
     const rest_endpoint = 'http://' + ip + ':' + port;
     const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -757,6 +809,9 @@ function get_object_range(ip, bucket, key, start_byte, finish_byte) {
         Key: key,
         Range: `bytes=${start_byte}-${finish_byte}`
     };
+    if (versionid) {
+        params.VersionId = versionid;
+    }
     console.log(`Reading object ${key} from ${start_byte} to ${finish_byte}`, params);
     return P.ninvoke(s3bucket, 'getObject', params)
         .then(res => res.Body)
@@ -856,6 +911,7 @@ exports.get_file_check_md5 = get_file_check_md5;
 exports.get_file_ranges_check_md5 = get_file_ranges_check_md5;
 exports.check_MD5_all_objects = check_MD5_all_objects;
 exports.get_a_random_file = get_a_random_file;
+exports.get_a_random_version_file = get_a_random_version_file;
 exports.get_file_number = get_file_number;
 exports.get_list_files = get_list_files;
 exports.get_list_prefixes = get_list_prefixes;

@@ -31,6 +31,7 @@ const TEST_CFG_DEFAULTS = {
     file_size_low: 50, // minimum 50MB
     file_size_high: 200, // maximum 200Mb
     dataset_size: 10, // DS of 10GB
+    versioning: false,
 };
 
 const BASE_UNIT = 1024;
@@ -205,6 +206,7 @@ function usage() {
     --file_size_low     -   lowest file size (min 50 MB) (default: ${TEST_CFG_DEFAULTS.file_size_low})
     --file_size_high    -   highest file size (max 200 MB) (default: ${TEST_CFG_DEFAULTS.file_size_high})
     --dataset_size      -   dataset size (default: ${TEST_CFG_DEFAULTS.dataset_size})
+    --versioning        -   run dataset in versioning mode (assumption: bucket versioning is ENABLED)
     --replay            -   replays a given scenario, requires a path to the journal file. 
                             server and bucket are the only applicable parameters when running in replay mode  
     --help              -   show this help
@@ -237,7 +239,7 @@ function act_and_log(action_type) {
     return P.resolve()
         .then(() => chosen.randomizer())
         .then(res => {
-            randomized_params = res;
+            randomized_params = _.omit(res, 'extra');
             randomized_params.action = chosen.name;
             return log_journal_file(`${ACTION_MARKER}${JSON.stringify(randomized_params)}`);
         })
@@ -300,38 +302,61 @@ function set_fileSize() {
     return rand_size;
 }
 
+//Should use versioning operation randomizer
+function should_use_versioning() {
+    return TEST_CFG.versioning ? Math.round(Math.random()) : 0;
+}
+
+function get_random_file(skip_version_check) {
+    //If versioning enabled AND skip_version_check not true, randomize between working on specific version vs. working on current
+    if (should_use_versioning() && !skip_version_check) {
+        return s3ops.get_a_random_version_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
+            .then(res => ({
+                filename: res.Key,
+                versionid: res.versionid,
+                extra: {
+                    size: res.Size,
+                }
+            }));
+    } else {
+        return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
+            .then(res => ({
+                filename: res.Key
+            }));
+    }
+
+}
+
 /*********
  * ACTIONS
  *********/
 function read_randomizer() {
-    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
-        .tap(res => console.info(`Selected to download: ${res.Key}, size: ${res.Size}`))
-        .then(res => ({
-            filename: res.Key
-        }));
+    return get_random_file()
+        .tap(res => console.info(`Selected to read file: ${res.filename}, size: ${res.extra.size} ${res.versionid ? ', version: ' + res.versionid : ''}`));
 }
 
 function read(params) {
     console.log(`running read`);
     return P.resolve()
-        .then(() => s3ops.get_file_check_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename));
+        .then(() => s3ops.get_file_check_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename, { versionid: params.versionid }));
 }
 
 function read_range_randomizer() {
     let rand_parts = (Math.floor(Math.random() * (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
         TEST_CFG.part_num_low);
-    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
-        .tap(res => console.info(`Selected to download: ${res.Key}, size: ${res.Size}, with ${rand_parts} ranges`))
-        .then(res => ({
-            filename: res.Key,
-            rand_parts
-        }));
+    return get_random_file()
+        .tap(res => console.info(`Selected to read_range: ${res.filename}, size: ${res.extra.size}, with ${rand_parts} ranges ${res.versionid ? ', version: ' + res.versionid : ''}`))
+        .then(res => {
+            res.rand_parts = rand_parts;
+            return res;
+        });
 }
 
 function read_range(params) {
     console.log(`running read_range`);
     return P.resolve()
-        .then(() => s3ops.get_file_ranges_check_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename, params.rand_parts));
+        .then(() => s3ops.get_file_ranges_check_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename,
+            params.rand_parts, { versionid: params.versionid }));
 }
 
 function upload_new_randomizer() {
@@ -343,17 +368,30 @@ function upload_new_randomizer() {
                 (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
             TEST_CFG.part_num_low);
     }
-    let file_name = get_filename();
+    //If versioning is enabled, randomize between uploading a new key and a new version
+    return P.resolve()
+        .then(() => {
+            if (should_use_versioning()) {
+                console.log('Uploading a new version');
+                return get_random_file(true /*skip version check*/)
+                    .then(res => res.filename);
+            } else {
+                console.log('Uploading a new key');
+                return get_filename();
+            }
+        })
+        .then(file_name => {
 
-    let res = {
-        is_multi_part,
-        rand_size,
-        file_name
-    };
-    if (res.is_multi_part) {
-        res.rand_parts = rand_parts;
-    }
-    return res;
+            let res = {
+                is_multi_part,
+                rand_size,
+                file_name
+            };
+            if (res.is_multi_part) {
+                res.rand_parts = rand_parts;
+            }
+            return res;
+        });
 }
 
 function upload_new(params) {
@@ -420,7 +458,7 @@ function upload_abort_randomizer() {
     let rand_parts = (Math.floor(Math.random() *
         (PART_SIZE_UPPER - PART_SIZE_LOWER)) + PART_SIZE_LOWER);
 
-    let file_name = get_filename();
+    let file_name = get_filename(); //No versionid for uploads, no need to handle versioning
     let res = {
         is_multi_part: true,
         rand_size,
@@ -459,6 +497,7 @@ function upload_and_abort(params) {
 }
 
 function upload_overwrite_randomizer() {
+    //upload overwrite in a versioning case would simply create a new version, no need for special handling
     let rand_size = set_fileSize();
     let is_multi_part = Math.floor(Math.random() * 2) === 0;
     let rand_parts;
@@ -514,16 +553,23 @@ function upload_overwrite(params) {
 
 function server_side_copy_randomizer() {
     let file_name = get_filename();
-    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
+    return get_random_file()
         .then(res => ({
             new_filename: file_name,
-            old_filename: res.Key
+            old_filename: {
+                name: res.Key,
+                versionid: res.versionid
+            }
         }));
 }
 
 function server_side_copy(params) {
-    console.log(`running server_side copy object from ${params.old_filename} to ${params.new_filename}`);
-    return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename, params.new_filename)
+    console.log(`running server_side copy object from ${params.old_filename.name}:vid${params.old_filename.versionid} to ${params.new_filename}`);
+    return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip,
+            TEST_CFG.bucket,
+            params.old_filename.name,
+            params.new_filename,
+            params.old_filename.versionid)
         .then(res => {
             TEST_STATE.count += 1;
             console.log(`file copied to: ${params.new_filename}`);
@@ -536,16 +582,23 @@ function server_side_copy(params) {
 
 function client_side_copy_randomizer() {
     let file_name = get_filename();
-    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
+    return get_random_file()
         .then(res => ({
             new_filename: file_name,
-            old_filename: res.Key
+            old_filename: {
+                name: res.Key,
+                versionid: res.versionid
+            }
         }));
 }
 
 function client_side_copy(params) {
-    console.log(`running client_side copy object from ${params.old_filename} to ${params.new_filename}`);
-    return s3ops.client_side_copy_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename, params.new_filename)
+    console.log(`running client_side copy object from ${params.old_filename.name}:vid${params.old_filename.versionid} to ${params.new_filename}`);
+    return s3ops.client_side_copy_file_with_md5(TEST_CFG.server_ip,
+            TEST_CFG.bucket,
+            params.old_filename.name,
+            params.new_filename,
+            params.old_filename.versionid)
         .then(res => {
             console.log(`file copied to: ${params.new_filename}`);
             return s3ops.get_file_size(TEST_CFG.server_ip, TEST_CFG.bucket, params.new_filename)
@@ -558,18 +611,25 @@ function client_side_copy(params) {
 
 function rename_randomizer() {
     let file_name = get_filename();
-    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
+    return get_random_file()
         .then(res => ({
             new_filename: file_name,
-            old_filename: res.Key
+            old_filename: {
+                name: res.Key,
+                versionid: res.versionid
+            }
         }));
 }
 
 function run_rename(params) {
     TEST_STATE.count += 1;
-    console.log(`running rename object from ${params.old_filename} to ${params.new_filename}`);
-    return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename, params.new_filename)
-        .then(() => s3ops.delete_file(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename))
+    console.log(`running rename object from ${params.old_filename.name}:vid${params.old_filename.versionid} to ${params.new_filename}`);
+    return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip,
+            TEST_CFG.bucket,
+            params.old_filename.name,
+            params.new_filename,
+            params.old_filename.versionid)
+        .then(() => s3ops.delete_file(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename, params.old_filename.versionid))
         .then(() => {
             TEST_STATE.count += 1;
         });
@@ -582,29 +642,31 @@ function set_attribute_randomizer() {
     let useCopy = Math.floor(Math.random() * 2) === 0;
     useCopy = true; //currently doing only copy due to bug #3228
 
-    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
+    return get_random_file()
         .then(res => ({
             filename: res.Key,
+            versionid: res.versionid,
             useCopy: useCopy
         }));
 }
 
 function set_attribute(params) {
-    console.log(`running set attribute for ${params.filename}`);
+    console.log(`running set attribute for ${params.filename}:vid${params.versionid}`);
     //TEST_STATE.count += 1;
     if (params.useCopy) {
         console.log(`setting attribute using copyObject`);
         return s3ops.set_file_attribute_with_copy(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename);
     } else {
         console.log(`setting attribute using putObjectTagging`);
-        return s3ops.set_file_attribute(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename);
+        return s3ops.set_file_attribute(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename, params.versionid);
     }
 }
 
 function delete_randomizer() {
-    return s3ops.get_a_random_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
+    return get_random_file()
         .then(res => ({
             filename: res.Key,
+            versionid: res.versionid,
             size: res.Size
         }));
 }
@@ -615,7 +677,7 @@ function run_delete(params) {
         .then(object_number => {
             // won't delete the last file in the bucket
             if (object_number > 1) {
-                return s3ops.delete_file(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename)
+                return s3ops.delete_file(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename, params.versionid)
                     .then(() => {
                         TEST_STATE.current_size -= Math.floor(params.size / TEST_CFG.data_multiplier);
                     });
@@ -636,7 +698,6 @@ function run_test() {
         .then(() => promise_utils.pwhile(() => TEST_STATE.current_size < TEST_CFG.dataset_size, () => act_and_log('UPLOAD_NEW'))
             // aging
             .then(() => {
-                console.log('NBNB after pwhile');
                 TEST_STATE.aging = true;
                 const start = Date.now();
                 if (TEST_CFG.aging_timeout !== 0) {

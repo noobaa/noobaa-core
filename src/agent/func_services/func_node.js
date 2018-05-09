@@ -8,6 +8,7 @@ const child_process = require('child_process');
 // const crypto = require('crypto');
 
 const P = require('../../util/promise');
+const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const fs_utils = require('../../util/fs_utils');
@@ -110,7 +111,13 @@ class FuncNode {
                     .then(() => fs.writeFileAsync(
                         func_json_path,
                         JSON.stringify(func)))
-                    .then(() => fs.renameAsync(loading_dir, code_dir))
+                    .then(() => promise_utils.retry(3, 500, () =>
+                        fs.renameAsync(loading_dir, code_dir)
+                        .catch(e => {
+                            dbg.error('Got error when trying to place new function, will retry', e);
+                            throw e;
+                        })
+                    ))
                     .then(() => func);
             })
             .then(func => {

@@ -108,35 +108,39 @@ class BlockStoreBase {
             });
     }
 
-    verify_blocks(req) {
+    async verify_blocks(req) {
         const { verify_blocks } = req.rpc_params;
-        dbg.log0('verify_blocks', 'blocks_to_verify:', verify_blocks);
-        return P.map(verify_blocks, block_md =>
-                P.join(this._read_block(block_md), this.block_cache.peek_cache(block_md))
-                .spread((block_from_store, block_from_cache) => {
-                    if (!block_from_store) {
-                        // TODO: Should trigger further action in order to resolve the issue
-                        dbg.error('verify_blocks BLOCK NOT EXISTS',
-                            ' on block:', block_md);
-                        return;
-                    }
-                    return P.all([
-                        this._verify_block(block_md, block_from_store.data, block_from_store.block_md),
-                        P.resolve(block_from_cache && this._verify_block(block_md, block_from_cache.data, block_from_cache.block_md))
-                    ]);
-                })
-                .catch(err => {
-                    // TODO: Should trigger further action in order to resolve the issue
-                    dbg.error('verify_blocks HAD ERROR:', err,
-                        ' on block:', block_md);
-                }), {
-                    // TODO: Should measure and decide on the value
-                    concurrency: 10
-                }
-            )
-            .return();
+        await P.map(verify_blocks, block_md => this._read_and_verify_block(block_md), { concurrency: 10 });
     }
 
+    async _read_and_verify_block(block_md) {
+        try {
+            const [block_from_store, block_from_cache] = await P.all([
+                this._read_block_for_verification(block_md),
+                this.block_cache.peek_cache(block_md)
+            ]);
+            if (block_from_store) {
+                this._verify_block(block_md, block_from_store.data, block_from_store.block_md);
+            } else {
+                // TODO: Should trigger further action in order to resolve the issue
+                dbg.error('verify_blocks BLOCK NOT EXISTS',
+                    ' on block:', block_md);
+                return;
+            }
+
+            if (block_from_cache) {
+                this._verify_block(block_md, block_from_cache.data, block_from_cache.block_md);
+            }
+        } catch (err) {
+            // TODO: Should trigger further action in order to resolve the issue
+            dbg.error('verify_blocks HAD ERROR on block:', block_md, err);
+        }
+
+    }
+
+    _read_block_for_verification(block_md) {
+        return this._read_block(block_md);
+    }
 
     write_block(req) {
         const block_md = req.rpc_params.block_md;
@@ -200,11 +204,6 @@ class BlockStoreBase {
     }
 
     _verify_block(block_md, data, block_md_from_store) {
-
-        if (!Buffer.isBuffer(data)) {
-            throw new Error('Block data must be a buffer');
-        }
-
         // verify block md from store match
         if (block_md_from_store) {
             if (block_md_from_store.id !== block_md.id ||
@@ -214,11 +213,17 @@ class BlockStoreBase {
             }
         }
 
-        // verify data digest
-        if (block_md.digest_type) {
-            const digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-            if (digest_b64 !== block_md.digest_b64) {
-                throw new RpcError('TAMPERING', 'Block digest mismatch ' + block_md.id);
+        if (!_.isUndefined(data)) {
+            if (!Buffer.isBuffer(data)) {
+                throw new Error('Block data must be a buffer');
+            }
+
+            // verify data digest
+            if (block_md.digest_type) {
+                const digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+                if (digest_b64 !== block_md.digest_b64) {
+                    throw new RpcError('TAMPERING', 'Block digest mismatch ' + block_md.id);
+                }
             }
         }
     }

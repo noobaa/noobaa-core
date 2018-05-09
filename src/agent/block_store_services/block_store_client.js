@@ -58,7 +58,6 @@ class BlockStoreClient {
             })
             .then(delegation_info => {
                 const { host, container, block_key, blob_sas, metadata, usage, proxy } = delegation_info;
-
                 // create a shared blob service using the blob_sas (shared access signature)
                 const shared_blob_svc = azure_storage.createBlobServiceWithSas(host, blob_sas);
                 shared_blob_svc.setProxy(proxy ? url.parse(proxy) : null);

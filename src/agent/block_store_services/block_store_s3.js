@@ -83,6 +83,24 @@ class BlockStoreS3 extends BlockStoreBase {
             });
     }
 
+    async _read_block_for_verification(block_md) {
+        try {
+            const block_info = await this.s3cloud.headObject({
+                Bucket: this.cloud_info.target_bucket,
+                Key: this._block_key(block_md.id),
+            }).promise();
+            const store_md5 = block_info.ETag.toUpperCase();
+            const store_block_md = this._decode_block_md(block_info.Metadata.noobaablockmd || block_info.Metadata.noobaa_block_md);
+            return {
+                block_md: store_block_md,
+                store_md5
+            };
+        } catch (err) {
+            dbg.warn('failed to get object md. block_md =', block_md, err);
+            throw err;
+        }
+    }
+
     get_storage_info() {
         const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
         return P.resolve(this._get_usage())
@@ -130,11 +148,12 @@ class BlockStoreS3 extends BlockStoreBase {
         if (data_length) {
             this._update_usage(usage);
         }
-        const signed_url = this.s3cloud.getSignedUrl('putObject', {
+        const params = {
             Bucket: this.cloud_info.target_bucket,
             Key: block_key,
             Metadata: metadata
-        });
+        };
+        const signed_url = this.s3cloud.getSignedUrl('putObject', params);
 
         return {
             usage,

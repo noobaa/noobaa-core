@@ -89,6 +89,25 @@ class BlockStoreGoogle extends BlockStoreBase {
         }
     }
 
+    async _read_block_for_verification(block_md) {
+        try {
+            const block_key = this._block_key(block_md.id);
+            const file = this.bucket.file(block_key);
+            const block_info = await file.getMetadata();
+            const store_md5 = block_info[0].md5Hash;
+            const block_md_b64 =
+                _.get(block_info[0], 'metadata.noobaablockmd') ||
+                _.get(block_info[0], 'metadata.noobaa_block_md');
+            const store_block_md = this._decode_block_md(block_md_b64);
+            return {
+                block_md: store_block_md,
+                store_md5
+            };
+        } catch (err) {
+            dbg.warn('failed to get object md. block_md =', block_md, err);
+        }
+    }
+
     async _try_read_block(block_md) {
         try {
             const block_key = this._block_key(block_md.id);

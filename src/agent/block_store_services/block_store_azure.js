@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// const _ = require('lodash');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -94,6 +93,25 @@ class BlockStoreAzure extends BlockStoreBase {
                 }
                 throw err;
             });
+    }
+
+
+    async _read_block_for_verification(block_md) {
+        try {
+            const block_info = await P.fromCallback(callback => this.blob.getBlobProperties(
+                this.container_name,
+                this._block_key(block_md.id),
+                callback
+            ));
+            const store_block_md = this._decode_block_md(block_info.metadata.noobaablockmd || block_info.metadata.noobaa_block_md);
+            const store_md5 = block_info.contentSettings.contentMD5;
+            return {
+                block_md: store_block_md,
+                store_md5
+            };
+        } catch (err) {
+            dbg.warn('failed to get object md. block_md =', block_md, err);
+        }
     }
 
     _delegate_write_block(block_md, data_length) {

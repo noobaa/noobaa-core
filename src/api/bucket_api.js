@@ -725,6 +725,9 @@ module.exports = {
                         },
                     },
                 },
+                policy_modes: {
+                    $ref: '#/definitions/policy_modes'
+                },
                 mode: {
                     $ref: '#/definitions/bucket_mode'
                 },
@@ -916,21 +919,77 @@ module.exports = {
                 }
             }
         },
+        policy_modes: {
+            type: 'object',
+            required: ['placement_status', 'resiliency_status', 'quota_status', 'spillover_status'],
+            properties: {
+                placement_status: {
+                    type: 'string',
+                    enum: [
+                        'NO_RESOURCES',
+                        'NOT_ENOUGH_RESOURCES',
+                        'NOT_ENOUGH_HEALTHY_RESOURCES',
+                        'NO_CAPACITY',
+                        'SPILLING_BACK',
+                        'RISKY_TOLERANCE',
+                        'LOW_CAPACITY',
+                        'DATA_ACTIVITY',
+                        'OPTIMAL'
+                    ]
+                },
+                resiliency_status: {
+                    type: 'string',
+                    enum: [
+                        'NOT_ENOUGH_RESOURCES',
+                        'RISKY_TOLERANCE',
+                        'DATA_ACTIVITY',
+                        'OPTIMAL'
+                    ]
+                },
+                quota_status: {
+                    type: 'string',
+                    enum: [
+                        'QUOTA_NOT_SET',
+                        'APPROUCHING_QUOTA',
+                        'EXCEEDING_QUOTA',
+                        'OPTIMAL'
+                    ]
+                },
+                spillover_status: {
+                    type: 'string',
+                    enum: [
+                        'SPILLOVER_DISABLED',
+                        'SPILLOVER_ERRORS',
+                        'SPILLOVER_ISSUES',
+                        'SPILLING_BACK',
+                        'OPTIMAL'
+                    ]
+                }
+            }
+        },
         bucket_mode: {
             type: 'string',
             enum: [
-                'SPILLOVER_NO_RESOURCES',
-                'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
-                'SPILLOVER_NOT_ENOUGH_RESOURCES',
+                'OPTIMAL',
+                'SPILLOVER_ISSUES',
+                'DATA_ACTIVITY',
+                'APPROUCHING_QUOTA',
+                'LOW_CAPACITY',
+                'RISKY_TOLERANCE',
                 'SPILLOVER_NO_CAPACITY',
-                'NO_RESOURCES',
+                'SPILLOVER_NOT_ENOUGH_RESOURCES',
+                'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
+                'SPILLOVER_NO_RESOURCES',
+                'SPILLING_BACK',
+                'NO_CAPACITY_SPILLOVER_UNSERVICEABLE',
+                'NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE',
+                'NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE',
+                'NO_RESOURCES_SPILLOVER_UNSERVICEABLE',
+                'EXCEEDING_QUOTA',
+                'NO_CAPACITY',
                 'NOT_ENOUGH_HEALTHY_RESOURCES',
                 'NOT_ENOUGH_RESOURCES',
-                'NO_CAPACITY',
-                'LOW_CAPACITY',
-                'APPROUCHING_QOUTA',
-                'EXCEEDING_QOUTA',
-                'OPTIMAL'
+                'NO_RESOURCES'
             ]
         },
         undeletable_bucket_reason: {

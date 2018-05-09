@@ -3002,6 +3002,7 @@ class NodesMonitor extends EventEmitter {
         let online = 0;
         const by_mode = {};
         const storage_by_mode = {};
+        const s3_by_mode = {};
         const by_service = { STORAGE: 0, GATEWAY: 0 };
         let storage = {
             total: 0,
@@ -3017,6 +3018,7 @@ class NodesMonitor extends EventEmitter {
             count += 1;
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
             storage_by_mode[item.storage_nodes_mode] = (storage_by_mode[item.storage_nodes_mode] || 0) + 1;
+            s3_by_mode[item.s3_nodes_mode] = (s3_by_mode[item.s3_nodes_mode] || 0) + 1;
             by_service.STORAGE += item.storage_nodes && item.storage_nodes.every(i => i.node.decommissioned) ? 0 : 1;
             by_service.GATEWAY += item.s3_nodes && item.s3_nodes.every(i => i.node.decommissioned) ? 0 : 1;
             if (item.online) online += 1;
@@ -3058,6 +3060,7 @@ class NodesMonitor extends EventEmitter {
                 by_mode,
                 by_service,
                 storage_by_mode,
+                s3_by_mode,
                 data_activity_host_count
             },
             storage: storage,

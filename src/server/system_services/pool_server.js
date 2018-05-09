@@ -530,7 +530,7 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         info.storage_nodes = _.defaults({}, p_nodes.storage_nodes, POOL_NODES_INFO_DEFAULTS);
         info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
-        info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {});
+        info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {}, p_hosts.nodes.s3_by_mode || {});
     }
 
     //Get associated accounts
@@ -593,12 +593,21 @@ function calc_mongo_pool_mode(p) {
         'ALL_NODES_OFFLINE';
 }
 
-function calc_hosts_pool_mode(pool_info, storage_by_mode) {
+/*eslint complexity: ["error", 40]*/
+function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
     const { hosts, storage } = pool_info;
     const data_activities = pool_info.data_activities ? pool_info.data_activities.activities : [];
     const { count } = hosts;
-    const offline = storage_by_mode.OFFLINE || 0;
-    const offline_ratio = (offline / count) * 100;
+    const storage_count = hosts.by_service.STORAGE;
+    const storage_offline = storage_by_mode.OFFLINE || 0;
+    const storage_optimal = storage_by_mode.OPTIMAL || 0;
+    const storage_offline_ratio = (storage_offline / count) * 100;
+    const storage_issues_ratio = ((storage_count - storage_optimal) / storage_count) * 100;
+    const hosts_migrating = (hosts.by_mode.INITIALIZING || 0) + (hosts.by_mode.DECOMMISSIONING || 0) + (hosts.by_mode.MIGRATING || 0);
+    const s3_count = hosts.by_service.GATEWAY;
+    const s3_optimal = s3_by_mode.OPTIMAL || 0;
+    const s3_issues_ratio = ((s3_count - s3_optimal) / s3_count) * 100;
+
     const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
     const free_ratio = potential_for_noobaa.greater(0) ? free.multiply(100).divide(potential_for_noobaa) : size_utils.BigInteger.zero;
@@ -607,10 +616,17 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode) {
     const activity_ratio = (activity_count / count) * 100;
 
     return (count === 0 && 'HAS_NO_NODES') ||
-        (offline === count && 'ALL_NODES_OFFLINE') ||
-        (offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
-        (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
+        (storage_offline === storage_count && 'ALL_NODES_OFFLINE') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
+        (hosts_migrating === count && 'ALL_HOSTS_IN_PROCESS') ||
+        (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
+        ((storage_issues_ratio >= 90 && s3_issues_ratio >= 90) && 'MOST_NODES_ISSUES') ||
+        ((storage_issues_ratio >= 50 && s3_issues_ratio >= 50) && 'MANY_NODES_ISSUES') ||
+        (storage_issues_ratio >= 90 && 'MOST_STORAGE_ISSUES') ||
+        (storage_issues_ratio >= 50 && 'MANY_STORAGE_ISSUES') ||
+        (s3_issues_ratio >= 90 && 'MOST_S3_ISSUES') ||
+        (s3_issues_ratio >= 50 && 'MANY_S3_ISSUES') ||
+        (storage_offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
         (free < LOW_CAPACITY_HARD_LIMIT && 'LOW_CAPACITY') ||
         (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
         'OPTIMAL';

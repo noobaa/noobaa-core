@@ -12,19 +12,49 @@ const hostsPoolModeToStateIcon = deepFreeze({
         css: 'error',
         name: 'problem'
     },
-    NOT_ENOUGH_NODES: {
-        tooltip: 'Not enough nodes in pool',
-        css: 'error',
-        name: 'problem'
-    },
     ALL_NODES_OFFLINE: {
         tooltip: 'All nodes are offline',
         css: 'error',
         name: 'problem'
     },
-    NOT_ENOUGH_HEALTHY_NODES: {
-        tooltip: 'Not enough healthy nodes',
+    NO_CAPACITY: {
+        tooltip: 'No available pool capacity',
         css: 'error',
+        name: 'problem'
+    },
+    ALL_HOSTS_IN_PROCESS: {
+        tooltip: 'All Nodes are migrating/deactivating/initializing ',
+        css: 'warning',
+        name: 'working' 
+    },
+    MOST_NODES_ISSUES: {
+        tooltip: 'More than 90% of drives and endpoints have issues',
+        css: 'error',
+        name: 'problem'
+    },
+    MANY_NODES_ISSUES: {
+        tooltip: 'More than 50% of drives and endpoints have issues',
+        css: 'warning',
+        name: 'problem'
+    },
+    MOST_STORAGE_ISSUES: {
+        tooltip: 'More than 90% of storage drives have issues',
+        css: 'error',
+        name: 'problem'
+    },
+    MANY_STORAGE_ISSUES: {
+        tooltip: 'More than 50% of storage drives have issues',
+        css: 'warning',
+        name: 'problem'
+    },
+    MOST_S3_ISSUES: {
+        tooltip: 'More than 90% of s3 endpoints have issues',
+        css: 'error',
+        name: 'problem'
+    },
+    MANY_S3_ISSUES: {
+        tooltip: 'More than 50% of s3 endpoints have issues',
+        css: 'warning',
         name: 'problem'
     },
     MANY_NODES_OFFLINE: pool => {
@@ -36,11 +66,6 @@ const hostsPoolModeToStateIcon = deepFreeze({
             css: 'warning',
             name: 'problem'
         };
-    },
-    NO_CAPACITY: {
-        tooltip: 'No available pool capacity',
-        css: 'error',
-        name: 'problem'
     },
     LOW_CAPACITY: pool => {
         const free = toBytes(pool.storage.free);

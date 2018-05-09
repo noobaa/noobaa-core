@@ -20,7 +20,7 @@ const blockModeToState = deepFreeze({
     WIPING: {
         name: 'working',
         css: 'warning',
-        tooltip: 'Wipping'
+        tooltip: 'Wiping'
     },
     HEALTHY: {
         name: 'healthy',

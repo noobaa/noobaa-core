@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint max-lines: ['error', 2000] */
 'use strict';
 
 const _ = require('lodash');
@@ -39,6 +40,29 @@ const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 
 const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
+
+const MODE_COMPARE_ORDER = [
+    'OPTIMAL',
+    'SPILLOVER_ISSUES',
+    'REBUILDING',
+    'APPROUCHING_QUOTA',
+    'LOW_CAPACITY',
+    'RISKY_TOLERANCE',
+    'SPILLOVER_NO_CAPACITY',
+    'SPILLOVER_NOT_ENOUGH_RESOURCES',
+    'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
+    'SPILLOVER_NO_RESOURCES',
+    'SPILLING_BACK',
+    'NO_CAPACITY_SPILLOVER_UNSERVICEABLE',
+    'NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE',
+    'NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE',
+    'NO_RESOURCES_SPILLOVER_UNSERVICEABLE',
+    'EXCEEDING_QUOTA',
+    'NO_CAPACITY',
+    'NOT_ENOUGH_HEALTHY_RESOURCES',
+    'NOT_ENOUGH_RESOURCES',
+    'NO_RESOURCES'
+];
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
     let now = Date.now();
@@ -985,20 +1009,6 @@ function validate_trigger_update(req, bucket, validated_trigger) {
         });
 }
 
-// function is_prefix_overlapping(prefix1, prefix2) {
-//     if (prefix1 === prefix2) return true;
-//     if (!prefix1 || !prefix2) return true;
-//     if (prefix1.startsWith(prefix2) || prefix2.startsWith(prefix1)) return true;
-//     return false;
-// }
-
-// function is_suffix_overlapping(suffix1, suffix2) {
-//     if (suffix1 === suffix2) return true;
-//     if (!suffix1 || !suffix2) return true;
-//     if (suffix1.endsWith(suffix2) || suffix2.endsWith(suffix1)) return true;
-//     return false;
-// }
-
 function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
     let res = {
         name: target_name
@@ -1061,15 +1071,89 @@ function get_bucket_info({
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR'
     };
 
+    const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, info });
 
+    info.usage_by_pool = {
+        pools: {},
+        last_update: _.get(bucket, 'storage_stats.last_update')
+    };
+
+    info.usage_by_pool.pools = [];
+    _.mapKeys(_.get(bucket, 'storage_stats.pools') || {}, function(storage, pool_id) {
+        const pool = system_store.data.get_by_id(pool_id);
+        if (pool) {
+            info.usage_by_pool.pools.push({
+                pool_name: system_store.data.get_by_id(pool_id).name,
+                storage: storage
+            });
+        }
+    });
+
+    const stats = bucket.stats;
+    const last_read = (stats && stats.last_read) ?
+        new Date(bucket.stats.last_read).getTime() :
+        undefined;
+    const last_write = (stats && stats.last_write) ?
+        new Date(bucket.stats.last_write).getTime() :
+        undefined;
+    const reads = (stats && stats.reads) ? stats.reads : undefined;
+    const writes = (stats && stats.writes) ? stats.writes : undefined;
+
+    info.stats = {
+        reads: reads,
+        writes: writes,
+        last_read: last_read,
+        last_write: last_write
+    };
+
+    if (cloud_sync_policy) {
+        info.cloud_sync = cloud_sync_policy.status ? cloud_sync_policy : undefined;
+    } else {
+        info.cloud_sync = undefined;
+    }
+    if (!bucket.namespace) {
+        info.policy_modes = {
+            placement_status: calc_data_placement_status(metrics),
+            resiliency_status: calc_data_resiliency_status(metrics),
+            quota_status: calc_quota_status(metrics),
+            spillover_status: calc_spillover_status(metrics),
+        };
+    }
+    // calc_bucket_aggregated_mode(metrics);
+    info.mode = bucket.namespace ?
+        calc_namespace_mode() :
+        calc_bucket_mode(info);
+
+    info.triggers = _.map(bucket.lambda_triggers, trigger => {
+        const ret_trigger = _.omit(trigger, '_id');
+        ret_trigger.id = trigger._id.toString();
+        const func = _.find(func_configs, func_config =>
+            func_config.name === trigger.func_name &&
+            func_config.version === trigger.func_version
+        );
+        const exec_account = system_store.get_account_by_email(func.exec_account);
+        ret_trigger.permission_problem = !auth_server.has_bucket_permission(bucket, exec_account);
+        return ret_trigger;
+    });
+
+    return info;
+}
+
+function _calc_metrics({
+    bucket,
+    nodes_aggregate_pool,
+    hosts_aggregate_pool,
+    aggregate_data_free_by_tier,
+    info
+}) {
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
     const tiering_pools_used_agg = [0];
     let spillover_allowed_in_policy = false;
     let spillover_tier_in_policy;
     let has_any_pool_configured = false;
     let has_enough_healthy_nodes_for_tiering = false;
-    let has_ehough_total_nodes_for_tiering = false;
-
+    let has_enough_total_nodes_for_tiering = false;
+    let any_rebuilds = false;
     _.each(bucket.tiering.tiers, tier_and_order => {
         if (tier_and_order.spillover) {
             if (tier_and_order.disabled) {
@@ -1099,6 +1183,7 @@ function get_bucket_info({
                     return _.extend({ pool_id: pool._id }, tiering_pools_status[tier_and_order.tier._id].pools[pool._id]);
                 }))
                 .forEach(pool_status => {
+                    any_rebuilds = any_rebuilds || _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.data_activities.length`);
                     const pool_num_nodes = _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.storage_nodes.count`) || 0;
                     const pool_num_hosts = _.get(hosts_aggregate_pool, `groups.${pool_status.pool_id}.nodes.online`) || 0;
                     num_nodes_in_mirror_group += pool_num_nodes;
@@ -1129,15 +1214,16 @@ function get_bucket_info({
         info.writable = mirrors_with_valid_pool > 0;
         if (!tier_and_order.spillover && tier_and_order.tier.mirrors.length > 0) {
             if (mirrors_with_valid_pool === tier_and_order.tier.mirrors.length) has_enough_healthy_nodes_for_tiering = true;
-            if (mirrors_with_enough_nodes === tier_and_order.tier.mirrors.length) has_ehough_total_nodes_for_tiering = true;
+            if (mirrors_with_enough_nodes === tier_and_order.tier.mirrors.length) has_enough_total_nodes_for_tiering = true;
         }
     });
-
-    const objects_aggregate = {
-        size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
-        count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
-    };
-
+    const low_tolerance = (info.node_tolerance === 0 || info.host_tolerance === 0);
+    const spillover_pool = spillover_tier_in_policy &&
+        pool_server.get_pool_info(spillover_tier_in_policy.mirrors[0].spread_pools[0], nodes_aggregate_pool, hosts_aggregate_pool);
+    const spillover_has_issues = spillover_tier_in_policy && spillover_pool.mode !== 'OPTIMAL';
+    const spillover_has_errors = spillover_tier_in_policy && (spillover_pool.mode !== 'OPTIMAL') && (spillover_pool.mode !== 'INITIALIZING') &&
+        (spillover_pool.mode !== 'LOW_CAPACITY') && (spillover_pool.mode !== 'ALL_HOSTS_IN_PROCESS') &&
+        (spillover_pool.mode !== 'HIGH_DATA_ACTIVITY') && (!spillover_pool.mode.startsWith('MANY'));
     info.spillover = spillover_tier_in_policy && spillover_tier_in_policy.mirrors[0].spread_pools[0].name;
 
     const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
@@ -1191,7 +1277,16 @@ function get_bucket_info({
     if (available_for_upload.isZero()) {
         is_no_storage_on_spillover = true;
     }
+    let spillover_used_by_bucket = 0;
+    if (spillover_tier_in_policy) {
+        spillover_used_by_bucket = size_utils.json_to_bigint(_.get(nodes_aggregate_pool, `groups.${spillover_tier_in_policy.mirrors[0].spread_pools[0]._id}.used`)) || 0;
+    }
+    const is_spilling_back = spillover_tier_in_policy && !spillover_used_by_bucket.isZero() && !bucket_free.isZero();
 
+    const objects_aggregate = {
+        size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
+        count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
+    };
     let is_quota_exceeded = false;
     let is_quota_low = false;
     if (bucket.quota) {
@@ -1211,6 +1306,7 @@ function get_bucket_info({
             size_utils.bigint_to_json(available_for_upload)
         ]);
     }
+
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
         size_reduced: bucket_chunks_capacity,
@@ -1220,72 +1316,23 @@ function get_bucket_info({
         last_update: _.get(bucket, 'storage_stats.last_update')
     });
 
-    info.usage_by_pool = {
-        pools: {},
-        last_update: _.get(bucket, 'storage_stats.last_update')
+    return {
+        has_any_pool_configured,
+        spillover_allowed_in_policy,
+        spillover_has_errors,
+        spillover_has_issues,
+        is_spilling_back,
+        has_enough_healthy_nodes_for_tiering,
+        has_enough_total_nodes_for_tiering,
+        low_tolerance,
+        any_rebuilds,
+        is_storage_low,
+        is_no_storage,
+        is_no_storage_on_spillover,
+        is_quota_enabled: Boolean(bucket.quota),
+        is_quota_exceeded,
+        is_quota_low
     };
-
-    info.usage_by_pool.pools = [];
-    _.mapKeys(_.get(bucket, 'storage_stats.pools') || {}, function(storage, pool_id) {
-        const pool = system_store.data.get_by_id(pool_id);
-        if (pool) {
-            info.usage_by_pool.pools.push({
-                pool_name: system_store.data.get_by_id(pool_id).name,
-                storage: storage
-            });
-        }
-    });
-
-    const stats = bucket.stats;
-    const last_read = (stats && stats.last_read) ?
-        new Date(bucket.stats.last_read).getTime() :
-        undefined;
-    const last_write = (stats && stats.last_write) ?
-        new Date(bucket.stats.last_write).getTime() :
-        undefined;
-    const reads = (stats && stats.reads) ? stats.reads : undefined;
-    const writes = (stats && stats.writes) ? stats.writes : undefined;
-
-    info.stats = {
-        reads: reads,
-        writes: writes,
-        last_read: last_read,
-        last_write: last_write
-    };
-
-    if (cloud_sync_policy) {
-        info.cloud_sync = cloud_sync_policy.status ? cloud_sync_policy : undefined;
-    } else {
-        info.cloud_sync = undefined;
-    }
-
-    info.mode = bucket.namespace ?
-        calc_namespace_mode() :
-        calc_bucket_mode({
-            has_any_pool_configured,
-            has_ehough_total_nodes_for_tiering,
-            has_enough_healthy_nodes_for_tiering,
-            is_no_storage,
-            is_storage_low,
-            is_quota_low,
-            is_quota_exceeded,
-            spillover_allowed_in_policy,
-            is_no_storage_on_spillover
-        });
-
-    info.triggers = _.map(bucket.lambda_triggers, trigger => {
-        const ret_trigger = _.omit(trigger, '_id');
-        ret_trigger.id = trigger._id.toString();
-        const func = _.find(func_configs, func_config =>
-            func_config.name === trigger.func_name &&
-            func_config.version === trigger.func_version
-        );
-        const exec_account = system_store.get_account_by_email(func.exec_account);
-        ret_trigger.permission_problem = !auth_server.has_bucket_permission(bucket, exec_account);
-        return ret_trigger;
-    });
-
-    return info;
 }
 
 function get_bucket_func_configs(req, bucket) {
@@ -1304,31 +1351,90 @@ function calc_namespace_mode() {
     return 'OPTIMAL';
 }
 
-function calc_bucket_mode(metrics) {
+function calc_bucket_mode(bucket_info) {
+    const stats = bucket_info.policy_modes;
+    const mode = (MODE_COMPARE_ORDER.indexOf(stats.placement_status) > MODE_COMPARE_ORDER.indexOf('EXCEEDING_QUOTA') &&
+            (((stats.spillover_status === 'SPILLOVER_ERRORS') && stats.placement_status + '_SPILLOVER_UNSERVICEABLE') ||
+                ((stats.spillover_status === 'SPILLOVER_DISABLED') && stats.placement_status))) ||
+        (stats.quota_status === 'EXCEEDING_QUOTA' && 'EXCEEDING_QUOTA') ||
+        (stats.spillover_status === 'SPILLING_BACK' && 'SPILLING_BACK') ||
+        (MODE_COMPARE_ORDER.indexOf(stats.placement_status) > MODE_COMPARE_ORDER.indexOf('EXCEEDING_QUOTA') &&
+            (stats.spillover_status === 'OPTIMAL' && 'SPILLOVER_' + stats.placement_status)) ||
+        ((stats.placement_status === 'RISKY_TOLERANCE') && 'RISKY_TOLERANCE') ||
+        ((stats.placement_status === 'LOW_CAPACITY') && 'LOW_CAPACITY') ||
+        ((stats.quota_status === 'APPROUCHING_QUOTA') && 'APPROUCHING_QUOTA') ||
+        ((stats.placement_status === 'DATA_ACTIVITY') && 'DATA_ACTIVITY') ||
+        ((stats.spillover_status === 'SPILLOVER_ISSUES' || stats.spillover_status === 'SPILLOVER_ERRORS') && 'SPILLOVER_ISSUES') ||
+        'OPTIMAL';
+    return mode;
+}
+
+function calc_data_placement_status(metrics) {
     if (!metrics.has_any_pool_configured) {
-        return metrics.spillover_allowed_in_policy ? 'SPILLOVER_NO_RESOURCES' : 'NO_RESOURCES';
+        return 'NO_RESOURCES';
     }
-    if (!metrics.has_ehough_total_nodes_for_tiering) {
-        return metrics.spillover_allowed_in_policy ? 'SPILLOVER_NOT_ENOUGH_RESOURCES' : 'NOT_ENOUGH_RESOURCES';
+    if (!metrics.has_enough_total_nodes_for_tiering) {
+        return 'NOT_ENOUGH_RESOURCES';
     }
     if (!metrics.has_enough_healthy_nodes_for_tiering) {
-        return metrics.spillover_allowed_in_policy ? 'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES' : 'NOT_ENOUGH_HEALTHY_RESOURCES';
+        return 'NOT_ENOUGH_HEALTHY_RESOURCES';
     }
     if (metrics.is_no_storage) {
-        if (metrics.spillover_allowed_in_policy) {
-            return metrics.is_no_storage_on_spillover ? 'NO_CAPACITY' : 'SPILLOVER_NO_CAPACITY';
-        } else {
-            return 'NO_CAPACITY';
-        }
+        return 'NO_CAPACITY';
+    }
+    if (metrics.is_spilling_back) {
+        return 'SPILLING_BACK';
+    }
+    if (metrics.low_tolerance) {
+        return 'RISKY_TOLERANCE';
     }
     if (metrics.is_storage_low) {
         return 'LOW_CAPACITY';
     }
+    if (metrics.any_rebuilds) {
+        return 'DATA_ACTIVITY';
+    }
+    return 'OPTIMAL';
+}
+
+function calc_data_resiliency_status(metrics) {
+    if (!metrics.has_enough_total_nodes_for_tiering) {
+        return 'NOT_ENOUGH_RESOURCES';
+    }
+    if (metrics.low_tolerance) {
+        return 'RISKY_TOLERANCE';
+    }
+    if (metrics.any_rebuilds) {
+        return 'DATA_ACTIVITY';
+    }
+    return 'OPTIMAL';
+}
+
+function calc_quota_status(metrics) {
+    if (!metrics.is_quota_enabled) {
+        return 'QUOTA_NOT_SET';
+    }
     if (metrics.is_quota_low) {
-        return 'APPROUCHING_QOUTA';
+        return 'APPROUCHING_QUOTA';
     }
     if (metrics.is_quota_exceeded) {
-        return 'EXCEEDING_QOUTA';
+        return 'EXCEEDING_QUOTA';
+    }
+    return 'OPTIMAL';
+}
+
+function calc_spillover_status(metrics) {
+    if (!metrics.spillover_allowed_in_policy) {
+        return 'SPILLOVER_DISABLED';
+    }
+    if (metrics.spillover_has_errors) {
+        return 'SPILLOVER_ERRORS';
+    }
+    if (metrics.spillover_has_issues) {
+        return 'SPILLOVER_ISSUES';
+    }
+    if (metrics.is_spilling_back) {
+        return 'SPILLING_BACK';
     }
     return 'OPTIMAL';
 }

@@ -25,10 +25,35 @@ const bucketStateToIcon = deepFreeze({
         css: 'error',
         name: 'problem'
     },
-    EXCEEDING_QOUTA: {
+    NO_RESOURCES_SPILLOVER_UNSERVICEABLE: {
+        tooltip: 'No available resources - Spillover unserviceable',
+        css: 'error',
+        name: 'problem'
+    },
+    NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE: {
+        tooltip: 'Not enough healthy storage resources - Spillover unserviceable',
+        css: 'error',
+        name: 'problem'
+    },
+    NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE: {
+        tooltip: 'Not enough drives to meet resiliency policy - Spillover unserviceable',
+        css: 'error',
+        name: 'problem'
+    },
+    NO_CAPACITY_SPILLOVER_UNSERVICEABLE: {
+        tooltip: 'No potential available storage - Spillover unserviceable',
+        css: 'error',
+        name: 'problem'
+    },
+    EXCEEDING_QUOTA: {
         tooltip: 'Exceeded configured quota',
         css: 'error',
         name: 'problem'
+    },
+    SPILLING_BACK: {
+        tooltip: 'Data Spilling-back to resources',
+        css: 'warning',
+        name: 'working'
     },
     SPILLOVER_NO_RESOURCES: {
         tooltip: 'No available resources - using spillover',
@@ -55,8 +80,23 @@ const bucketStateToIcon = deepFreeze({
         css: 'warning',
         name: 'problem'
     },
-    APPROUCHING_QOUTA: {
+    RISKY_TOLERANCE: {
+        tooltip: 'Risky failure tolerance ',
+        css: 'warning',
+        name: 'problem'
+    },
+    APPROUCHING_QUOTA: {
         tooltip: 'Approaching configured quota',
+        css: 'warning',
+        name: 'problem'
+    },
+    DATA_ACTIVITY: {
+        tooltip: 'In Process',
+        css: 'warning',
+        name: 'working'
+    },
+    SPILLOVER_ISSUES: {
+        tooltip: 'Spillover resource has issues',
         css: 'warning',
         name: 'problem'
     },
@@ -87,7 +127,7 @@ const resiliencyTypeToDisplay = deepFreeze({
 
 const writableStates = deepFreeze([
     'LOW_CAPACITY',
-    'APPROUCHING_QOUTA',
+    'APPROUCHING_QUOTA',
     'SPILLOVER_NO_RESOURCES',
     'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
     'SPILLOVER_NOT_ENOUGH_RESOURCES',

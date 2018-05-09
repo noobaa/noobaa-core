@@ -24,18 +24,26 @@ export default {
             mode: {
                 type: 'string',
                 enum: [
-                    'NO_RESOURCES',
-                    'SPILLOVER_NO_RESOURCES',
-                    'NOT_ENOUGH_RESOURCES',
-                    'SPILLOVER_NOT_ENOUGH_RESOURCES',
-                    'NOT_ENOUGH_HEALTHY_RESOURCES',
-                    'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
-                    'NO_CAPACITY',
-                    'SPILLOVER_NO_CAPACITY',
+                    'OPTIMAL',
+                    'SPILLOVER_ISSUES',
+                    'DATA_ACTIVITY',
+                    'APPROUCHING_QUOTA',
                     'LOW_CAPACITY',
-                    'APPROUCHING_QOUTA',
-                    'EXCEEDING_QOUTA',
-                    'OPTIMAL'
+                    'RISKY_TOLERANCE',
+                    'SPILLOVER_NO_CAPACITY',
+                    'SPILLOVER_NO_RESOURCES',
+                    'SPILLOVER_NOT_ENOUGH_RESOURCES',
+                    'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'SPILLING_BACK',
+                    'NO_CAPACITY_SPILLOVER_UNSERVICEABLE',
+                    'NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE',
+                    'NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE',
+                    'NO_RESOURCES_SPILLOVER_UNSERVICEABLE',
+                    'EXCEEDING_QUOTA',
+                    'NO_CAPACITY',
+                    'NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'NOT_ENOUGH_RESOURCES',
+                    'NO_RESOURCES'
                 ]
             },
             storage: {

@@ -28,7 +28,7 @@ function _getStatus(server, version, serverMinRequirements) {
         };
     }
 
-    return getServerStateIcon[status];
+    return getServerStateIcon(server);
 }
 
 function _getDiskUsage(server) {

@@ -7,10 +7,12 @@ export default class MessageListViewModel {
     rows = ko.observableArray();
 
     onState(messages, selected) {
+        let lastRowTimestamp = -1;
         const rows = messages
             .map((message, i) => {
                 const row = this.rows()[i] || new MessageRowViewModel();
-                row.onState(message, selected);
+                row.onState(message, selected, lastRowTimestamp);
+                lastRowTimestamp = message.timestamp;
                 return row;
             });
 

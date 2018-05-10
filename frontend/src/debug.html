@@ -129,13 +129,28 @@
     </style>
 
 </head>
-<body class="column fill">
+<body class="column fill" style="display: none" data-bind="visible: true">
     <header class="row border-bottom content-middle hpad">
         <h1 class="heading2 greedy push-next" data-bind="text: title"></h1>
         <input type="search" class="push-next-half" placeholder="Filter Actions" data-bind="
             textInput: ko.pureComputed({ read: filter, write: onFilterMessages })
         "/>
         <vr class="push-both"></vr>
+        <!-- ko ifnot: isAttached -->
+        <label class="icon-btn" tabindex="0">
+            <svg-icon>
+                <svg>
+                    <use xlink:href href="#upload-icon"></use>
+                </svg>
+            </svg-icon>
+            <input type="file" class="hide" tabindex="-1"
+                accept=".gz"
+                data-bind="event: { change: onSelectFile }"
+            />
+        </label>
+        <!-- /ko -->
+
+        <!-- ko if: isAttached -->
         <button class="icon-btn" data-bind="click: onEmptyLog" title="Clear log">
             <svg-icon>
                 <svg>
@@ -151,6 +166,7 @@
                 </svg>
             </svg-icon>
         </button>
+        <!-- /ko  -->
     </header>
 
     <main class="row greedy">
@@ -175,7 +191,8 @@
                     css: css
                 ">
                     <div class="highlight" data-bind="text: action"></div>
-                    <div>at <span data-bind="text: time"></span></div>
+                    <div>at <span data-bind="text: time"></span>
+                    </div>
                 </li>
             </ul>
         </section>
@@ -240,8 +257,6 @@
         </section>
         <!-- /ko -->
     </main>
-
-    <frame></frame>
 
     <script src="/fe/lib.js"></script>
     <script src="/fe/debug.js"></script>

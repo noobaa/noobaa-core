@@ -73,6 +73,9 @@ function _buildHtmlTreeNode(value, prefix, indent) {
     }
 }
 
+export function noop() {
+}
+
 export function wrap(value, cls) {
     return `<span class="${cls}">${value}</span>`;
 }

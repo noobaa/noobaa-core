@@ -19,7 +19,8 @@ const reducers = Object.freeze({
     DROP_MESSAGES: onDropMessages,
     SET_MESSAGE_FILTER: onSetMessageFilter,
     SELECT_MESSAGE: onSelectMessage,
-    SELECTE_STATE_VIEW: onSelectStateView
+    SELECTE_STATE_VIEW: onSelectStateView,
+    REPLACE_MESSAGES: onReplaceMessages
 });
 
 function reduceState(prev, action) {
@@ -73,6 +74,15 @@ function onSelectMessage(prev, action) {
 function onSelectStateView(prev, action) {
     const { view: stateView } = action.payload;
     return {  ...prev, stateView };
+}
+
+function onReplaceMessages(prev, action) {
+    return {
+        ...prev,
+        messages: action.payload.slice(-maxLogSize),
+        filter: '',
+        selectedMessage: 0
+    };
 }
 
 export const action$ = new Subject();

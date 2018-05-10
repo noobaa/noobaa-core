@@ -235,10 +235,7 @@ function invoke_func(req) {
             const func = req.func;
             const node = node_allocator.allocate_node(func.pools);
             const params = {
-                name: func.name,
-                version: func.version,
-                code_size: func.code_size,
-                code_sha256: func.code_sha256,
+                config: _get_func_info(func).config,
                 event: req.params.event,
                 aws_config: _make_aws_config(req),
                 rpc_options: _make_rpc_options(req),
@@ -298,7 +295,7 @@ function _get_func_code_stream(req, func_code) {
                 this.push(req.rpc_params[RPC_BUFFERS].zipfile);
                 this.push(null);
             }
-       });
+        });
     } else if (func_code.s3_bucket && func_code.s3_key) {
         console.log(`reading function code from bucket ${func_code.s3_bucket} and key ${func_code.s3_key}`);
         const account_keys = req.account.access_keys[0];

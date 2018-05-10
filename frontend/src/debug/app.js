@@ -5,6 +5,8 @@ import ko from 'knockout';
 import { state$, action$ } from 'state';
 import numeral from 'numeral';
 import { buildHtmlTree, diff, wrap } from 'utils';
+import zlib from 'zlib';
+import { Buffer } from 'buffer';
 
 function _formatDiff(diff) {
     return diff.map(record => {
@@ -26,6 +28,27 @@ function _formatDiff(diff) {
     });
 }
 
+async function _unpackLogFile(file) {
+    const bytes = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = evt => resolve(Buffer.from(evt.target.result));
+        reader.onerror = err => reject(err);
+        reader.readAsArrayBuffer(file);
+    });
+
+    const json = await new Promise((resolve, reject) => {
+        zlib.gunzip(bytes, (err, str) => {
+            if (err) {
+                reject(str);
+            } else {
+                resolve(str.toString());
+            }
+        });
+    });
+
+    return JSON.parse(json);
+}
+
 export default class AppViewModel {
     targetId = '';
     title = ko.observable();
@@ -38,6 +61,7 @@ export default class AppViewModel {
     fullState = ko.observable();
     stateDiff = ko.observable();
     selectedStateTab = ko.observable();
+    isAttached = ko.observable();
 
     constructor() {
         this.sub = state$
@@ -56,12 +80,13 @@ export default class AppViewModel {
         const selected = filteredMessages.find(message => message.timestamp === state.selectedMessage);
 
         this.targetId = targetId;
-        this.title(`Noobaa Debug Console - ${targetId}`);
+        this.title(`Noobaa Debug Console - ${targetId || 'Not Attached'}`);
         this.filter(filter);
         this.hasHiddenMessages(hiddenCount > 0);
         this.hiddenCount(numeral(hiddenCount).format(','));
         this.messageList.onState(filteredMessages, state.selectedMessage);
         this.selectedStateTab(stateView);
+        this.isAttached(Boolean(targetId));
 
         if (selected) {
             const { payload } = selected.action;
@@ -119,6 +144,27 @@ export default class AppViewModel {
 
     onStateDiffsTab() {
         this._selectStateView('diff');
+    }
+
+    async onSelectFile(_, evt) {
+        try {
+            const [file] = evt.target.files;
+            if (!file.name.endsWith('.json.gz')) {
+                throw new Error('Invalid file suffix');
+            }
+            if (file.size > 3 * (1024 ** 2)) { // 3MB
+                throw new Error('File too big');
+            }
+
+            const { log } = await _unpackLogFile(file);
+            action$.next({
+                type: 'REPLACE_MESSAGES',
+                payload: log
+            });
+        } catch (e) {
+            alert(e.message);
+        }
+        evt.target.value = '';
     }
 
     _selectStateView(view) {

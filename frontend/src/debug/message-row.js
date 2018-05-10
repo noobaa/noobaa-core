@@ -3,7 +3,20 @@
 import ko from 'knockout';
 import moment from 'moment';
 
-const dateFormat = 'DD MMM YYYY HH:mm:ss.SSSS';
+const timeFormat = 'DD MMM YYYY HH:mm:ss.SSS';
+
+function formatDeltaTime(dt) {
+    const m = moment.duration(dt);
+    return `[ +${
+        String(m.hours()).padStart(2, '0')
+    }:${
+        String(m.minutes()).padStart(2, '0')
+    }:${
+        String(m.seconds()).padStart(2, '0')
+    }.${
+        String(m.milliseconds()).padStart(3, '0')
+    } ]`;
+}
 
 export default class MessageRowViewModel {
     timestamp = 0;
@@ -11,9 +24,14 @@ export default class MessageRowViewModel {
     action = ko.observable();
     time = ko.observable();
 
-    onState(message, selected) {
+    onState(message, selected, prevRowTime) {
         const { timestamp, action, state } = message;
-        const time = moment(timestamp).format(dateFormat);
+        const time = `${
+            moment(timestamp).format(timeFormat)
+        } ${
+            prevRowTime > -1 ? formatDeltaTime(timestamp - prevRowTime) : ''
+        }`;
+
         const css = {
             error: Boolean(state.lastError),
             ['alt-bg']: timestamp === selected

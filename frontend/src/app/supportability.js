@@ -35,10 +35,9 @@ export default async function (record$, { api, browser, getTime }) {
     const nbVersion = browser.getDocumentMetaTag('nbversion');
     const [,windowId] = browser.getWindowName().split(':');
 
-    // Post each record to the debugChannel to be intercept by the
+    // Post each record to the debugChannel to be intercepted by the
     // debug console.
     const debugChannel = browser.createBroadcastChannel(`debugChannel:${windowId}`);
-
     const scanBase = {
         log: [],
         dumpToFile: false,
@@ -46,7 +45,11 @@ export default async function (record$, { api, browser, getTime }) {
     };
 
     record$.pipe(
-        tap(record => debugChannel.postMessage(record)),
+        tap(record => debugChannel.postMessage({
+            type: 'RECORD',
+            origin: 'FE',
+            payload: record
+        })),
         mergeMap(async record => ({
             compressed: await _compress(JSON.stringify(record)),
             dumpToFile: record.action.type === DUMP_APP_LOG,
@@ -67,7 +70,7 @@ export default async function (record$, { api, browser, getTime }) {
             sendToServer
         }))
     ).subscribe(({ pkg, dumpToFile, sendToServer }) => {
-        // Download the log in case on demand.
+        // Download the log on demand.
         if (dumpToFile) {
             browser.downloadFile(`data:application/zip;base64,${pkg.dump}`, pkg.name);
         }

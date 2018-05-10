@@ -1,18 +1,31 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
+import AppViewModel from 'app';
 import { action$ } from 'state';
-import AppViewModel from './app.js';
+import { Observable } from 'rxjs';
+import { filter, map } from 'rxjs/operators';
+import { noop } from 'utils';
 
 const [, targetId] = global.name.split(':');
 
-function setupDebugChannel() {
-    const channel = new BroadcastChannel(`debugChannel:${targetId}`);
-    channel.onmessage = evt => action$.next({
+const messageToAction = {
+    RECORD: message => ({
         type: 'ACCEPT_MESSAGE',
-        payload: evt.data
+        payload: message.payload
+    }),
+
+    RECORDS: message => ({
+        type: 'REPLACE_MESSAGES',
+        payload: message.payload
+    })
+};
+
+function getDebugStream(targetId) {
+    return Observable.create(observer => {
+        const channel = new BroadcastChannel(`debugChannel:${targetId}`);
+        channel.onmessage = evt => observer.next(evt.data);
     });
-    return channel;
 }
 
 async function importSvgIcons() {
@@ -26,12 +39,22 @@ async function importSvgIcons() {
 
 async function main() {
     await importSvgIcons();
-    setupDebugChannel();
 
     action$.next({
         type: 'INITIALIZE',
         payload: { targetId }
     });
+
+    // Setup the debug channle if we are attached to a managment console.
+    if (targetId) {
+        getDebugStream(targetId)
+            .pipe(
+                filter(message => message.origin === 'FE'),
+                map(message => (messageToAction[message.type] || noop)(message)),
+                filter(Boolean)
+            )
+            .subscribe(action$);
+    }
 
     const app = new AppViewModel();
     ko.applyBindings(app);

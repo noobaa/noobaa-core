@@ -135,11 +135,11 @@ export async function updateFuncConfig(name, version, config) {
         await api.func.update_func({
             config: { name, version, ...config }
         });
-        notify(`Func ${config.name} updated successfully`, 'success');
-        loadFunc(config.name);
+        notify(`Func ${name} updated successfully`, 'success');
+        loadFunc(name);
 
     } catch (error) {
-        notify(`Func ${config.name} update failed`, 'error');
+        notify(`Func ${name} update failed`, 'error');
     }
 }
 

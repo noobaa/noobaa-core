@@ -16,24 +16,10 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: [
-                    'name',
-                    'version',
-                    'code_size',
-                    'code_sha256'
-                ],
+                required: ['config'],
                 properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    version: {
-                        type: 'string'
-                    },
-                    code_size: {
-                        type: 'integer'
-                    },
-                    code_sha256: {
-                        type: 'string'
+                    config: {
+                        $ref: 'func_api#/definitions/func_config'
                     },
                     event: {
                         $ref: 'func_api#/definitions/event_type'

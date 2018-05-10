@@ -62,7 +62,7 @@ class FuncNode {
                         });
                     });
                 const msg = {
-                    config: func.config,
+                    config: req.params.config,
                     event: req.params.event,
                     aws_config: req.params.aws_config,
                     rpc_options: req.params.rpc_options,
@@ -73,9 +73,9 @@ class FuncNode {
     }
 
     _load_func_code(req) {
-        const name = req.params.name;
-        const version = req.params.version;
-        const code_sha256 = req.params.code_sha256;
+        const name = req.params.config.name;
+        const version = req.params.config.version;
+        const code_sha256 = req.params.config.code_sha256;
         const version_dir = path.join(this.functions_path, name, version);
         const func_json_path = path.join(version_dir, 'func.json');
         // replacing the base64 encoded sha256 from using / to - in order to use as folder name
@@ -98,9 +98,10 @@ class FuncNode {
                     .then(res => {
                         func = res;
                         if (code_sha256 !== func.config.code_sha256 ||
-                            req.params.code_size !== func.config.code_size) {
+                            req.params.config.code_size !== func.config.code_size) {
                             throw new RpcError('FUNC_CODE_MISMATCH',
-                                `Function code does not match for ${func.name} version ${func.version} code_size ${func.config.code_size} code_sha256 ${func.config.code_sha256} requested code_size ${req.params.code_size} code_sha256 ${req.params.code_sha256}`);
+                                `Function code does not match for ${func.name} version ${func.version} code_size ${func.config.code_size} code_sha256 ${func.config.code_sha256} 
+                                requested code_size ${req.params.config.code_size} code_sha256 ${req.params.config.code_sha256}`);
                         }
                     })
                     .then(() => zip_utils.unzip_from_buffer(func[RPC_BUFFERS].zipfile))

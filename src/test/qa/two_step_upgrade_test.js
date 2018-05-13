@@ -352,7 +352,7 @@ function test_second_step() {
                 timezone: "Asia/Jerusalem",
                 ntp_server: "pool.ntp.org"
             }))
-            .delay(25000)) //time update restarts the services
+            .delay(65000)) //time update restarts the services
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time'))
         .then(() => _call_upgrade());

@@ -194,14 +194,23 @@ function _check_ntp() {
         }))
         .then(ntpstat_res => {
             if (ntpstat_res.startsWith('unsynchronised')) {
-                Dispatcher.instance().alert('MAJOR',
-                    system_store.data.systems[0]._id,
-                    `Local server time is not synchronized with NTP Server, check NTP server configuration`,
-                    Dispatcher.rules.once_daily);
-                throw new Error('unsynchronised');
+                //Due to an issue with ntpstat not showing the correct ntpd status after ntf.conf change and ntpd restart
+                //Double verify unsynched with ntpq                
+                return promise_utils.exec(`ntpq -np | tail -1`, {
+                        ignore_rc: true,
+                        return_stdout: true
+                    })
+                    .then(ntpq_res => {
+                        if (!ntpq_res.startsWith('*')) {
+                            monitoring_status.ntp_status = "FAULTY";
+                            Dispatcher.instance().alert('MAJOR',
+                                system_store.data.systems[0]._id,
+                                `Local server time is not synchronized with NTP Server, check NTP server configuration`,
+                                Dispatcher.rules.once_daily);
+                            throw new Error('unsynchronised');
+                        }
+                    });
             }
-            let regex_res = (/NTP server \(([\d.]+)\) /).exec(ntpstat_res);
-            if (!regex_res || !regex_res[1]) throw new Error('failed to check ntp sync');
         })
         .then(() => {
             monitoring_status.ntp_status = "OPERATIONAL";

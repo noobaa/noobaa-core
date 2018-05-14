@@ -1,11 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './server-summary.html';
-import BaseViewModel from 'components/base-view-model';
-import { systemInfo } from 'model';
+import Observer from 'observer';
 import ko from 'knockout';
+import { getMany } from 'rx-extensions';
+import { toBytes } from 'utils/size-utils';
 import { deepFreeze } from 'utils/core-utils';
-import { getServerIssues } from 'utils/cluster-utils';
+import { summarizeServerIssues, getServerStateIcon } from 'utils/cluster-utils';
+import { state$ } from 'state';
 import style from 'style';
 import numeral from 'numeral';
 
@@ -13,14 +15,6 @@ const icons = deepFreeze({
     healthy: {
         name: 'healthy',
         css: 'success'
-    },
-    problem: {
-        name: 'problem',
-        css: 'error'
-    },
-    in_progress: {
-        name: 'working',
-        css: 'warning'
     },
     warning: {
         name: 'problem',
@@ -32,24 +26,13 @@ const icons = deepFreeze({
     }
 });
 
-const statusMapping = deepFreeze({
-    CONNECTED: {
-        text: 'Connected',
-        icon: icons.healthy
-    },
-
-    DISCONNECTED: {
-        text: 'Disconnected',
-        icon: icons.problem
-    },
-
-    IN_PROGRESS: {
-        text: 'Server attaching to cluster',
-        icon: icons.in_progress
-    }
+const statusLabels = deepFreeze({
+    CONNECTED: 'Connected',
+    DISCONNECTED: 'Disconnected',
+    IN_PROGRESS: 'Server attaching to cluster'
 });
 
-const barOptions = deepFreeze({
+const barChartOptions = deepFreeze({
     values: false,
     labels: true,
     underline: true,
@@ -58,170 +41,147 @@ const barOptions = deepFreeze({
     scale: 1
 });
 
-class ServerSummaryViewModel extends BaseViewModel {
+function _getIssues(server, version, serverMinRequirements) {
+    if (server.mode !== 'CONNECTED') {
+        return {
+            icon: icons.unavailable,
+            text: 'Server services is unavailable',
+            tooltip: {
+                text: 'Disconnected',
+                align: 'start'
+            }
+        };
+    }
+
+    const issues = Object.values(
+        summarizeServerIssues(server, version, serverMinRequirements)
+    );
+
+    if (issues.length === 1) {
+        return {
+            icon: icons.warning,
+            text: issues[0],
+            tooltip: {
+                text: 'Has issues',
+                align: 'start'
+            }
+        };
+
+    } else if (issues.length > 1) {
+        return {
+            icon: icons.warning,
+            text: `Server has ${issues.length} issues`,
+            tooltip: {
+                text: issues,
+                align: 'start'
+            }
+        };
+
+    } else {
+        return {
+            icon: icons.healthy,
+            text: 'Server has no issues',
+            tooltip: {
+                text: 'No Issues',
+                align: 'start'
+            }
+        };
+    }
+}
+
+function _getBarValues(server) {
+    const { cpus, storage, memory, mode } = server;
+    const isConnected = mode === 'CONNECTED';
+    const memoryUsage = isConnected ? memory.used / memory.total : 0;
+    const free = toBytes(storage.free);
+    const total = toBytes(storage.total);
+    const diskUsage = isConnected ?
+        ((total - free) / total) :
+        0;
+
+    return [
+        {
+            label: `CPU: ${isConnected ? numeral(cpus.usage).format('%') : '-'}`,
+            parts: [
+                {
+                    value: cpus.count ? cpus.usage / cpus.count : 0,
+                    color: style['color13']
+                }
+            ]
+        },
+        {
+            label: `Disk: ${isConnected ? numeral(diskUsage).format('%') : '-'}`,
+            parts: [
+                {
+                    value: diskUsage,
+                    color: style['color13']
+                }
+            ]
+        },
+        {
+            label: `Memory: ${isConnected ? numeral(memoryUsage).format('%') : '-'}`,
+            parts: [
+                {
+                    value: memoryUsage,
+                    color: style['color13']
+                }
+            ]
+        }
+    ];
+}
+
+class ServerSummaryViewModel extends Observer {
+    statusText = ko.observable();
+    statusIcon = ko.observable();
+    issuesText = ko.observable();
+    issuesIcon = ko.observable();
+    issuesTooltip = ko.observable();
+    barValues = ko.observable();
+    barOptions = ko.observable();
+    isConnected = ko.observable();
+    isServerLoaded = ko.observable();
+
     constructor({ serverSecret }) {
         super();
 
-        this.server = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
-                ({ secret }) => secret === ko.unwrap(serverSecret)
-            )
-        );
+        this.secret = ko.unwrap(serverSecret);
 
-        this.isConnected = ko.pureComputed(
-            () => this.server() && this.server().status === 'CONNECTED'
-        );
-
-        this.statusIcon = ko.pureComputed(
-            () => this.server() ? statusMapping[this.server().status].icon : ''
-        );
-
-
-        this.statusText = ko.pureComputed(
-            () => this.server() ? statusMapping[this.server().status].text : ''
-        );
-
-        const issues = ko.pureComputed(
-            () => {
-                if (!systemInfo() || !this.isConnected()) {
-                    return {
-                        icon: icons.unavailable,
-                        text: 'Server services is unavailable',
-                        tooltip: {
-                            text: 'Disconnected',
-                            align: 'start'
-                        }
-                    };
-                }
-
-                const { version, cluster } = systemInfo();
-                const issues = Object.values(
-                    getServerIssues(this.server(), version, cluster.min_requirements)
-                );
-                if (issues.length === 1) {
-                    return {
-                        icon: icons.warning,
-                        text: issues[0],
-                        tooltip: {
-                            text: 'Has issues',
-                            align: 'start'
-                        }
-                    };
-
-                } else if (issues.length > 1) {
-                    return {
-                        icon: icons.warning,
-                        text: `Server has ${issues.length} issues`,
-                        tooltip: {
-                            align: 'start',
-                            text: issues
-                        }
-                    };
-
-                } else {
-                    return {
-                        icon: icons.healthy,
-                        text: 'Server has no issues',
-                        tooltip: {
-                            align: 'start',
-                            text: 'No Issues'
-                        }
-                    };
-                }
-            }
-        );
-
-        this.issuesText = ko.pureComputed(
-            () => issues().text
-        );
-
-        this.issuesIcon = ko.pureComputed(
-            () => issues().icon
-        );
-
-        this.issuesTooltip = ko.pureComputed(
-            () => issues().tooltip
-        );
-
-        this.barValues = this.getBarValues();
-        this.barOptions = ko.pureComputed(
-            () => Object.assign(
-                { background: this.isConnected() ? true : style['color15'] },
-                barOptions
-            )
+        this.observe(
+            state$.pipe(
+                getMany(
+                    'topology',
+                    'system'
+                )
+            ),
+            this.onState
         );
     }
 
-    getBarValues() {
-        const cpus = ko.pureComputed(
-            () => this.isConnected() ? this.server().cpus : {}
+    onState([topology, system]) {
+        if (!topology || !system) {
+            this.isServerLoaded(false);
+            return;
+        }
+
+        const { serverMinRequirements } = topology;
+        const server = topology.servers[this.secret];
+        const isConnected = server.mode === 'CONNECTED';
+
+        const issues =_getIssues(server, system.version, serverMinRequirements);
+        const barOptions = Object.assign(
+            { background: isConnected ? true : style['color15'] },
+            barChartOptions
         );
 
-        const diskUsage = ko.pureComputed(
-            () => {
-                if (!this.isConnected() ) {
-                    return 0;
-                }
-
-                const { free, total } = this.server().storage;
-                return (total - free) / total;
-            }
-        );
-
-        const memoryUsage = ko.pureComputed(
-            () => {
-                if (!this.isConnected()){
-                    return 0;
-                }
-
-                const { total, used } = this.server().memory;
-                return used / total;
-            }
-        );
-
-        return [
-            {
-                label: ko.pureComputed(
-                    () => `CPU: ${
-                        this.isConnected() ? numeral(cpus().usage).format('%') : '-'
-                    }`
-                ),
-                parts: [
-                    {
-                        value: ko.pureComputed(
-                            () => cpus().count ? cpus().usage / cpus().count : 0
-                        ),
-                        color: style['color13']
-                    }
-                ]
-            },
-            {
-                label: ko.pureComputed(
-                    () => `Disk: ${
-                        this.isConnected() ? numeral(diskUsage()).format('%') : '-'
-                    }`
-                ),
-                parts: [
-                    {
-                        value: diskUsage,
-                        color: style['color13']
-                    }
-                ]
-            },
-            {
-                label: ko.pureComputed(
-                    () => `Memory: ${
-                        this.isConnected() ? numeral(memoryUsage()).format('%') : '-'
-                    }`
-                ),
-                parts: [
-                    {
-                        value: memoryUsage,
-                        color: style['color13']
-                    }
-                ]
-            }
-        ];
+        this.statusText(statusLabels[server.mode]);
+        this.statusIcon(getServerStateIcon(server));
+        this.issuesText(issues.text);
+        this.issuesIcon(issues.icon);
+        this.issuesTooltip(issues.tooltip);
+        this.barValues(_getBarValues(server));
+        this.barOptions(barOptions);
+        this.isConnected(isConnected);
+        this.isServerLoaded(true);
     }
 }
 

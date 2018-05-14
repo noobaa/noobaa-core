@@ -2,39 +2,38 @@
 
 <section class="row">
     <section class="c4 column pad borders">
-        <div class="row greedy content-middle">
+        <div class="row greedy content-middle" ko.if="isServerLoaded">
             <svg-icon class="push-next"
                 params="name: statusIcon().name"
-                data-bind="css: statusIcon().css"
+                ko.css="statusIcon().css"
             ></svg-icon>
-            <span class="highlight" data-bind="text: statusText"></span>
+            <span class="highlight" ko.text="statusText"></span>
         </div>
 
         <hr>
 
-        <div class="row greedy content-middle">
+        <div class="row greedy content-middle" ko.if="isServerLoaded">
             <svg-icon class="push-next"
                 params="name: issuesIcon().name"
-                data-bind="
-                    css: issuesIcon().css,
-                    tooltip: issuesTooltip
-            "></svg-icon>
-            <span class="highlight" data-bind="
-                text: issuesText,
-                css: { disabled: !isConnected() }
-            "></span>
+                ko.css="issuesIcon().css"
+                ko.tooltip="issuesTooltip"
+            ></svg-icon>
+            <span class="highlight"
+                ko.text="issuesText"
+                ko.css.disabled="!isConnected()"
+            ></span>
         </div>
     </section>
 
-    <section class="c4 column push-both">
+    <section class="c4 column push-both" ko.if="isServerLoaded">
         <h3 class="heading3">
             Average utilization over last minute:
         </h3>
-        <bar-chart params="values: barValues, options: barOptions">
+        <bar-chart params="values: barValues, options: barOptions"></bar-chart>
     </section>
 
     <section class="c4 column pad borders">
-        <h3 class="heading3" data-bind="text: 'No Server Activities'"></h3>
+        <h3 class="heading3">No Server Activities</h3>
         <hr>
     </section>
 </section>

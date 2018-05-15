@@ -1,17 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const argv = require('minimist')(process.argv);
-const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
 const AWS = require('aws-sdk');
-const s3ops = require('../utils/s3ops');
-const blobops = require('../utils/blobops');
 const api = require('../../api');
 const crypto = require('crypto');
-const dbg = require('../../util/debug_module')(__filename);
-dbg.set_process_name('namespace');
+const s3ops = require('../utils/s3ops');
+const P = require('../../util/promise');
+const blobops = require('../utils/blobops');
+const Report = require('../framework/report');
+const argv = require('minimist')(process.argv);
 const bf = require('../utils/bucket_functions');
+const promise_utils = require('../../util/promise_utils');
+const dbg = require('../../util/debug_module')(__filename);
+
+const test_name = 'namespace';
+dbg.set_process_name(test_name);
 
 require('../../util/dotenv').load();
 
@@ -39,6 +42,10 @@ if (help) {
     usage();
     process.exit(1);
 }
+
+let report = new Report();
+
+report.init_reporter({ suite: test_name, conf: server_ip });
 
 const connections_mapping = {
     AWS: {
@@ -99,15 +106,19 @@ function saveErrorAndResume(message, err) {
 }
 
 function createNamespaceResource(connection, name, target_bucket) {
-    console.log('Creating namespace with connection ' + connection);
+    console.log('Creating namespace resource with connection ' + connection);
     return client.pool.create_namespace_resource({
             connection,
             name,
             target_bucket
         })
+        .then(() => report.success(`Create_Namespace_Resource_${connection}`))
         .catch(err => {
-            saveErrorAndResume('Failed to create namespace resource ', err);
-            throw err;
+            report.fail(`Create_Namespace_Resource_${connection}`)
+                .then(() => {
+                    saveErrorAndResume('Failed to create namespace resource ', err);
+                    throw err;
+                });
         });
 }
 
@@ -120,9 +131,13 @@ function createGatewayBucket(name, namespace) {
                 write_resource: namespace
             }
         })
+        .then(() => report.success(`Create_Gateway_Bucket_${name}`))
         .catch(err => {
-            saveErrorAndResume('Failed to create gateway bucket ', err);
-            throw err;
+            report.fail(`Create_Gateway_Bucket_${name}`)
+                .then(() => {
+                    saveErrorAndResume('Failed to create gateway bucket ', err);
+                    throw err;
+                });
         });
 }
 
@@ -133,9 +148,13 @@ function createCloudPool(connection, name, target_bucket) {
             name,
             target_bucket
         })
+        .then(() => report.success(`Create_Cloud_Pool_${connection}`))
         .catch(err => {
-            saveErrorAndResume('Failed to create cloud pool ', err);
-            throw err;
+            report.fail(`Create_Cloud_Pool_${connection}`)
+                .then(() => {
+                    saveErrorAndResume('Failed to create cloud pool ', err);
+                    throw err;
+                });
         });
 }
 
@@ -160,14 +179,31 @@ function waitingForHealthyPool(poolName) {
         .delay(5000));
 }
 
+function createConnection(connetction, type) {
+    console.log(`Creating ${type} connection`);
+    return P.resolve(client.account.add_external_connection(connetction))
+        .then(() => report.success(`Create_Connection_${type}`))
+        .catch(err => {
+            report.fail(`Create_Connection_${type}`)
+                .then(() => {
+                    saveErrorAndResume('Failed to cretae connection ', err);
+                    throw err;
+                });
+        });
+}
+
 function deleteConnection(connection_name) {
     console.log('Deleting connection ' + connection_name);
     return client.account.delete_external_connection({
             connection_name
         })
+        .then(() => report.success(`Delete_Connection_${connection_name}`))
         .catch(err => {
-            saveErrorAndResume('Failed to delete connection ', err);
-            throw err;
+            report.fail(`Delete_Connection_${connection_name}`)
+                .then(() => {
+                    saveErrorAndResume('Failed to delete connection ', err);
+                    throw err;
+                });
         });
 }
 
@@ -299,9 +335,13 @@ function deleteCloudPool(pool) {
     return client.pool.delete_pool({
             name: pool
         })
+        .then(() => report.success(`Delete_Cloud_Pool_${pool}`))
         .catch(err => {
-            saveErrorAndResume(`Failed to delete cloud pool error`, err);
-            throw err;
+            report.fail(`Delete_Cloud_Pool_${pool}`)
+                .then(() => {
+                    saveErrorAndResume(`Failed to delete cloud pool error`, err);
+                    throw err;
+                });
         });
 }
 
@@ -310,9 +350,13 @@ function deleteNamespace(namespace) {
     return client.pool.delete_namespace_resource({
             name: namespace
         })
+        .then(() => report.success(`Delete_Namespace_Resource_${namespace}`))
         .catch(err => {
-            saveErrorAndResume(`Failed to delete cloud pool error`, err);
-            throw err;
+            report.fail(`Delete_Namespace_Resource_${namespace}`)
+                .then(() => {
+                    saveErrorAndResume(`Failed to delete cloud pool error`, err);
+                    throw err;
+                });
         });
 }
 
@@ -327,14 +371,8 @@ P.fcall(function() {
         return client.create_auth_token(auth_params);
     })
     //creating connection
-    .then(() => {
-        console.log('Creating AZURE connection');
-        return P.resolve(client.account.add_external_connection(blobops.AzureDefaultConnection));
-    })
-    .then(() => {
-        console.log('Creating AWS connection');
-        return P.resolve(client.account.add_external_connection(connections_mapping.AWS));
-    })
+    .then(() => createConnection(blobops.AzureDefaultConnection, 'AZURE'))
+    .then(() => createConnection(connections_mapping.AWS, 'AWS'))
     //creating two cloud resources
     .then(() => createCloudPool(connections_mapping.AWS.name, namespace_mapping.AWS.pool, namespace_mapping.AWS.bucket1))
     .then(() => createCloudPool(blobops.AzureDefaultConnection.name, namespace_mapping.AZURE.pool, namespace_mapping.AZURE.bucket1))
@@ -396,13 +434,20 @@ P.fcall(function() {
     .then(() => deleteConnection(connections_mapping.AWS.name))
     .then(() => deleteConnection(blobops.AzureDefaultConnection.name))
     .catch(err => {
-        saveErrorAndResume('something went wrong :(', err);
+        saveErrorAndResume('something went wrong', err);
     })
     .then(() => {
         if (failures_in_test) {
-            console.error(':( :( Errors during namespace test ): ):' + errors);
-            process.exit(1);
+            return report.print_report()
+                .then(() => {
+                    console.error('Errors during namespace test' + errors);
+                    process.exit(1);
+                });
+        } else {
+            return report.print_report()
+                .then(() => {
+                    console.log('namespace tests were successful!');
+                    process.exit(0);
+                });
         }
-        console.log(':) :) :) namespace tests were successful! (: (: (:');
-        process.exit(0);
     });

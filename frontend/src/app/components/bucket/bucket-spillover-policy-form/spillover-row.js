@@ -2,19 +2,10 @@
 
 import ko from 'knockout';
 import {
-    getHostsPoolStateIcon,
-    getCloudResourceStateIcon,
-    getInternalResourceStateIcon,
+    getResourceStateIcon,
     getInternalResourceDisplayName,
     getCloudResourceTypeIcon
 } from 'utils/resource-utils';
-
-function _getResourceStateIcon(type, resource) {
-    return true &&
-        type === 'HOSTS' && getHostsPoolStateIcon(resource) ||
-        type === 'CLOUD' && getCloudResourceStateIcon(resource) ||
-        type === 'INTERNAL' && getInternalResourceStateIcon(resource);
-}
 
 function _getResourceTypeIcon(type, resource) {
     if (type === 'HOSTS') {
@@ -46,7 +37,7 @@ export default class SpilloverRowViewModel {
         const name = type === 'INTERNAL' ? getInternalResourceDisplayName(resource) : resource.name;
 
         this.resourceName(name);
-        this.state(_getResourceStateIcon(type, resource));
+        this.state(getResourceStateIcon(type, resource));
         this.type(_getResourceTypeIcon(type, resource));
         this.bucketUsage({
             total: resource.storage.total,

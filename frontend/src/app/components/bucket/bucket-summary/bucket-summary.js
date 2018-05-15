@@ -26,6 +26,84 @@ const dataUsageTooltip = deepFreeze({
     align: 'end'
 });
 
+function mapModeToStateTooltip(bucket, dataBreakdown) {
+    switch (bucket.mode) {
+        case 'NO_RESOURCES': {
+            return 'This bucket is not connected to any resources that can be utilized. Add resources via bucket data placement policy';
+        }
+        case 'NOT_ENOUGH_HEALTHY_RESOURCES': {
+            // TODO: x of x resources...
+            return 'Some not healthy and the bucket data allocation cannot be completed. Try fixing problematic resources or change the bucket’s placement policy.';
+        }
+        case 'NOT_ENOUGH_RESOURCES': {
+            const { kind, replicas, dataFrags, parityFrags } = bucket.resiliency;
+            const policyText =
+                (kind === 'REPLICATION' && `replication of ${replicas} copies`) ||
+                (kind === 'ERASURE_CODING' && `erasure coding of ${dataFrags}+${parityFrags}`) ||
+                'an unknown policy';
+
+            // TODO: add at least x more ...
+            return `The bucket’s configured data resiliency is set to ${policyText}. In order to meet that requirement, add more drives to the nodes pool or add a cloud resource to placement policy`;
+        }
+        case 'NO_CAPACITY': {
+            return 'This bucket has no more available storage. In order to enable data writes, add more resources to the bucket data placement policy';
+        }
+        case 'NO_RESOURCES_SPILLOVER_UNSERVICEABLE': {
+            return 'Bucket has no storage resources and the configured spillover resource is also unavailable. Try adding or changing this bucket placement policy or the configured spillover resource';
+        }
+        case 'NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE': {
+            return 'Resources and configured spillover are unavailable. Try changing this bucket placement policy or the configured spillover resource';
+        }
+        case 'NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE': {
+            return 'This bucket doesn’t have enough drives to meet resilience policy, the configured spillover resource is also unavailable. Try changing this bucket placement, resiliency or spillover policies';
+        }
+        case 'NO_CAPACITY_SPILLOVER_UNSERVICEABLE': {
+            return 'This bucket has no more available storage and the configured spillover resource is also unavailable. Try changing this bucket placement, resiliency or spillover policies';
+        }
+        case 'EXCEEDING_QUOTA': {
+            return 'This bucket data writes reached the configured limit. Change the bucket quota configurations to enable new writes';
+        }
+        case 'SPILLING_BACK': {
+            return 'Stored data is currently spilling back from the configured spillover resource to the bucket data placement resources. This might take a while';
+        }
+        case 'SPILLOVER_NO_RESOURCES': {
+            return 'Bucket has no storage resources. The configured spillover resource is currently storing the bucket data, Add more available resources to the bucket placement policy';
+        }
+        case 'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES': {
+            // TODO: x of x resources...
+            return  'Some resources are not healthy and the bucket data allocation cannot be completed. The configured spillover resource is currently storing the bucket data, add more available resources to the bucket placement policy';
+        }
+        case 'SPILLOVER_NOT_ENOUGH_RESOURCES': {
+            return 'This bucket doesn’t have enough drives to meet resilience policy. The configured spillover resource is currently storing the bucket data, add more available resources to the bucket placement policy';
+        }
+        case 'SPILLOVER_NO_CAPACITY': {
+            return 'This bucket has no more available storage. The configured spillover resource is currently storing the bucket data, add more available resources to the bucket placement policy';
+        }
+        case 'LOW_CAPACITY': {
+            const available = formatSize(dataBreakdown.availableForUpload);
+            return `The currently size available for uploads is ${available}, try adding more resources or change the bucket policies`;
+        }
+        case 'RISKY_TOLERANCE': {
+            return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the nodes pools and distribute drives over the different nodes';
+        }
+        case 'APPROUCHING_QUOTA': {
+            const quota = formatSize(getQuotaValue(bucket.quota));
+            const used = formatSize(dataBreakdown.used);
+            const available = formatSize(dataBreakdown.availableForUpload);
+            return `Bucket utilization is ${used} out of ${quota}. Please change the configured limit if you wish to write more then ${available} this bucket`;
+        }
+        case 'DATA_ACTIVITY': {
+            return 'Currently restoring/migrating/deleting data according to the latest change that was made in the bucket policy. The process might take a while';
+        }
+        case 'SPILLOVER_ISSUES': {
+            return 'The spillover resource is not healthy and in case of need, it might not be operative. Try fixing the configured spillover resource or change it';
+        }
+        case 'OPTIMAL': {
+            return 'Bucket is operating as expected according to it’s configured bucket policies';
+        }
+    }
+}
+
 function _getDataPlacementText(placement) {
     const { policyType, mirrorSets } = placement;
     const resources = flatMap(mirrorSets, ms => ms.resources);
@@ -45,8 +123,24 @@ function _getQuotaMarkers(quota) {
     return [{ placement, label }];
 }
 
-function formatAvailablityLimits(val) {
+function _formatAvailablityLimits(val) {
     return val === 0 ? '0' : formatSize(val);
+}
+
+function _getBucketStateInfo(bucket, dataBreakdown) {
+    const { name, css, tooltip: text } = getBucketStateIcon(bucket);
+    const tooltip = mapModeToStateTooltip(bucket, dataBreakdown);
+    return {
+        icon: {
+            name,
+            css,
+            tooltip: {
+                text: tooltip,
+                align: 'start'
+            }
+        },
+        text
+    };
 }
 
 class BucketSummrayViewModel extends Observer {
@@ -54,7 +148,7 @@ class BucketSummrayViewModel extends Observer {
     state = ko.observable();
     dataPlacement = ko.observable();
 
-    availablityLimitsFormatter = formatAvailablityLimits;
+    availablityLimitsFormatter = _formatAvailablityLimits;
     availablityMarkers = ko.observableArray();
     availablityTime = ko.observable();
     availablity = [
@@ -174,7 +268,6 @@ class BucketSummrayViewModel extends Observer {
 
     onState(bucket) {
         if (!bucket) {
-            this.state({});
             this.bucketLoaded(false);
             return;
         }
@@ -182,7 +275,7 @@ class BucketSummrayViewModel extends Observer {
         const { quota, placement } = bucket;
         const storage = mapValues(bucket.storage, toBytes);
         const data = mapValues(bucket.data, toBytes);
-        const availablity = mapValues(getDataBreakdown(data, quota), toBytes);
+        const dataBreakdown = mapValues(getDataBreakdown(data, quota), toBytes);
         const rawUsageLabel = storage.used ? formatSize(storage.used) : 'No Usage';
         const rawUsageTooltipCaption = `Total Raw Storage: ${formatSize(storage.total)}`;
         const dataLastUpdateTime = moment(storage.lastUpdate).fromNow();
@@ -191,17 +284,17 @@ class BucketSummrayViewModel extends Observer {
         const reducedRatio = hasSize ? data.sizeReduced / data.size : 0;
         const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
 
-        this.state(getBucketStateIcon(bucket));
+        this.state(_getBucketStateInfo(bucket, dataBreakdown));
         this.dataPlacement(_getDataPlacementText(placement));
 
-        this.availablity[0].value(availablity.used);
-        this.availablity[1].value(availablity.overused);
-        this.availablity[1].visible(!isSizeZero(availablity.overused));
-        this.availablity[2].value(availablity.availableForUpload);
-        this.availablity[3].value(availablity.availableForSpillover);
+        this.availablity[0].value(dataBreakdown.used);
+        this.availablity[1].value(dataBreakdown.overused);
+        this.availablity[1].visible(!isSizeZero(dataBreakdown.overused));
+        this.availablity[2].value(dataBreakdown.availableForUpload);
+        this.availablity[3].value(dataBreakdown.availableForSpillover);
         this.availablity[3].visible(Boolean(bucket.spillover));
-        this.availablity[4].value(availablity.overallocated);
-        this.availablity[4].visible(!isSizeZero(availablity.overallocated));
+        this.availablity[4].value(dataBreakdown.overallocated);
+        this.availablity[4].visible(!isSizeZero(dataBreakdown.overallocated));
         this.availablityMarkers(_getQuotaMarkers(quota));
         this.availablityTime(dataLastUpdateTime);
 

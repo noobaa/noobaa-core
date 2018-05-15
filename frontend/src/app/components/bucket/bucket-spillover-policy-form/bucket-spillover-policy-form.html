@@ -4,6 +4,11 @@
     <div class="row content-middle bucket-policy-summary"
         ko.click="onToggleSection"
     >
+        <svg-icon class="push-next"
+            params="name: stateIcon().name"
+            ko.css="stateIcon().css"
+            ko.tooltip="stateIcon().tooltip"
+        ></svg-icon>
         <div class="column greedy">
             <h2 class="heading3 greedy">Bucket Spillover</h2>
             <p class="row content-middle" ko.visible="!isExpanded()">
@@ -25,8 +30,8 @@
             params="name: 'chevron'"
         ></svg-icon>
     </div>
-    <div ko.expand="isExpanded">
-        <div class="column">
+    <div class="column hpad" ko.expand="isExpanded">
+        <div class="hpad push-prev">
             <data-table class="spillover-table alt-bg push-prev" params="
                 columns: columns,
                 data: rows,

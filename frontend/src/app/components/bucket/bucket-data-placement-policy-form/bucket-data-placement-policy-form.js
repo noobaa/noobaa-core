@@ -6,7 +6,7 @@ import PlacementRowViewModel from './placement-row';
 import { state$, action$ } from 'state';
 import { deepFreeze, flatMap } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { getPlacementTypeDisplayName } from 'utils/bucket-utils';
+import { getPlacementStateIcon, getPlacementTypeDisplayName } from 'utils/bucket-utils';
 import ko from 'knockout';
 import * as routes from 'routes';
 import { requestLocation, openEditBucketPlacementModal } from 'action-creators';
@@ -42,6 +42,7 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
     columns = columns;
     isExpanded = ko.observable();
     toggleUri = '';
+    stateIcon = ko.observable();
     placementType = ko.observable();
     hostPoolCount = ko.observable();
     cloudResourceCount = ko.observable();
@@ -68,6 +69,7 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
         this.isExpanded(section === policyName);
 
         if (!buckets || !buckets[bucket] || !hostPools || !cloudResources) {
+            this.stateIcon({});
             this.placementType('');
             this.hostPoolCount('');
             this.cloudResourceCount('');
@@ -107,6 +109,7 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
 
         this.bucketName = bucket;
         this.toggleUri = toggleUri;
+        this.stateIcon(getPlacementStateIcon(placement.mode));
         this.placementType(getPlacementTypeDisplayName(placement.policyType));
         this.hostPoolCount(counters.HOSTS);
         this.cloudResourceCount(counters.CLOUD);

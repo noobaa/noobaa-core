@@ -54,24 +54,22 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         record => tiersByName[record.tier]
     );
 
-    const { storage, data, quota, cloud_sync, stats, triggers } = bucket;
+    const { storage, data, quota, cloud_sync, stats, triggers, policy_modes } = bucket;
+    const { placement_status, resiliency_status, spillover_status, quota_status } = policy_modes;
     return {
         name: bucket.name,
         tierName: placementTiers[0].name,
         mode: bucket.mode,
         storage: mapApiStorage(storage.values, storage.last_update),
         data: _mapData(data),
-        quota: quota && {
-            size: quota.size,
-            unit: quota.unit
-        },
+        quota: _mapQuota(quota_status, quota),
         objectCount: bucket.num_objects,
         resiliencyDriveCountMetric: bucket.num_of_nodes,
         cloudSync: _mapCloudSync(cloud_sync),
         undeletable: bucket.undeletable,
-        placement: _mapPlacement(placementTiers[0], resTypeByName, resUsageByName),
-        resiliency: _mapResiliency(placementTiers[0]),
-        spillover: _mapSpillover(spilloverTiers[0], resTypeByName, resUsageByName),
+        placement: _mapPlacement(placement_status, placementTiers[0], resTypeByName, resUsageByName),
+        resiliency: _mapResiliency(resiliency_status, placementTiers[0]),
+        spillover: _mapSpillover(spillover_status, spilloverTiers[0], resTypeByName, resUsageByName),
         io: _mapIO(stats),
         triggers: _mapTriggers(triggers)
     };
@@ -122,7 +120,16 @@ function _mapFrequency(scheduleMin) {
     if (Number.isInteger(minutes)) return { unit: 'MINUTE', value: minutes };
 }
 
-function _mapPlacement(tier, typeByName, usageByName) {
+function _mapQuota(mode, quota) {
+    if (!quota) {
+        return;
+    }
+
+    const { size, unit } = quota;
+    return { mode, size, unit };
+}
+
+function _mapPlacement(mode, tier, typeByName, usageByName) {
     const { data_placement: policyType, mirror_groups } = tier;
     const mirrorSets = mirror_groups
         .sort((group1, group2) => compare(group1.name, group2.name))
@@ -138,33 +145,35 @@ function _mapPlacement(tier, typeByName, usageByName) {
             return { name, resources };
         });
 
-    return { policyType, mirrorSets };
+    return { mode, policyType, mirrorSets };
 }
 
-function _mapResiliency(tier) {
+function _mapResiliency(mode, tier) {
     const { data_frags, parity_frags, replicas } = tier.chunk_coder_config;
 
     if (parity_frags) {
         return {
             kind: 'ERASURE_CODING',
+            mode: mode,
             dataFrags: data_frags,
             parityFrags: parity_frags
         };
     } else {
         return {
             kind: 'REPLICATION',
+            mode: mode,
             replicas: replicas
         };
     }
 }
 
-function _mapSpillover(tier, typeByName, usageByName) {
+function _mapSpillover(mode, tier, typeByName, usageByName) {
     if (!tier) return;
     const { name: mirrorSet, pools } = tier.mirror_groups[0];
     const [name] = pools;
     const type = typeByName[name];
     const usage = usageByName[name] || 0;
-    return { type, name, mirrorSet, usage };
+    return { type, name, mode, mirrorSet, usage };
 }
 
 function _mapIO(stats = {}) {

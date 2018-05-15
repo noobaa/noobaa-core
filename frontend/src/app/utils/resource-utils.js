@@ -25,7 +25,7 @@ const hostsPoolModeToStateIcon = deepFreeze({
     ALL_HOSTS_IN_PROCESS: {
         tooltip: 'All Nodes are migrating/deactivating/initializing ',
         css: 'warning',
-        name: 'working' 
+        name: 'working'
     },
     MOST_NODES_ISSUES: {
         tooltip: 'More than 90% of drives and endpoints have issues',
@@ -233,4 +233,11 @@ export function getNamespaceResourceTypeIcon(resource) {
 export function getCloudResourceTypeIcon(resource) {
     const { type } = resource;
     return cloudAndNamespaceResourceTypeToIcon[type];
+}
+
+export function getResourceStateIcon(resourceType, resource) {
+    return true &&
+        resourceType === 'HOSTS' && getHostsPoolStateIcon(resource) ||
+        resourceType === 'CLOUD' && getCloudResourceStateIcon(resource) ||
+        resourceType === 'INTERNAL' && getInternalResourceStateIcon(resource);
 }

@@ -26,22 +26,22 @@ const bucketStateToIcon = deepFreeze({
         name: 'problem'
     },
     NO_RESOURCES_SPILLOVER_UNSERVICEABLE: {
-        tooltip: 'No available resources - Spillover unserviceable',
+        tooltip: 'No storage resources - Spillover unavailable ',
         css: 'error',
         name: 'problem'
     },
     NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE: {
-        tooltip: 'Not enough healthy storage resources - Spillover unserviceable',
+        tooltip:  'Resources and configured spillover are unavailable',
         css: 'error',
         name: 'problem'
     },
     NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE: {
-        tooltip: 'Not enough drives to meet resiliency policy - Spillover unserviceable',
+        tooltip: 'Cannot enforce resiliency policy - spillover unavailable',
         css: 'error',
         name: 'problem'
     },
     NO_CAPACITY_SPILLOVER_UNSERVICEABLE: {
-        tooltip: 'No potential available storage - Spillover unserviceable',
+        tooltip: 'No free storage - Spillover unserviceable',
         css: 'error',
         name: 'problem'
     },
@@ -51,7 +51,7 @@ const bucketStateToIcon = deepFreeze({
         name: 'problem'
     },
     SPILLING_BACK: {
-        tooltip: 'Data Spilling-back to resources',
+        tooltip: 'Data spilling back to resources',
         css: 'warning',
         name: 'working'
     },
@@ -61,12 +61,12 @@ const bucketStateToIcon = deepFreeze({
         name: 'problem'
     },
     SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES: {
-        tooltip: 'Not enough healthy storage resources - using spillover',
+        tooltip: ' Resources unavailable - using spillover',
         css: 'warning',
         name: 'problem'
     },
     SPILLOVER_NOT_ENOUGH_RESOURCES: {
-        tooltip: 'Not enough drives to meet resiliency policy - using spillover',
+        tooltip: 'Cannot enforce resiliency policy - using spillover',
         css: 'warning',
         name: 'problem'
     },
@@ -91,7 +91,7 @@ const bucketStateToIcon = deepFreeze({
         name: 'problem'
     },
     DATA_ACTIVITY: {
-        tooltip: 'In Process',
+        tooltip: 'In process',
         css: 'warning',
         name: 'working'
     },
@@ -107,6 +107,17 @@ const bucketStateToIcon = deepFreeze({
     }
 });
 
+const placementModeToIcon = deepFreeze({
+    NO_RESOURCES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES, 'start'),
+    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES, 'start'),
+    NOT_ENOUGH_HEALTHY_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_HEALTHY_RESOURCES, 'start'),
+    NO_CAPACITY: _alignIconTooltip(bucketStateToIcon.NO_CAPACITY, 'start'),
+    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
+    LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY, 'start'),
+    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
+    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
+});
+
 const placementTypeToDisplayName = deepFreeze({
     SPREAD: 'Spread',
     MIRROR: 'Mirror'
@@ -117,6 +128,48 @@ const namespaceBucketToStateIcon = deepFreeze({
         name: 'healthy',
         css: 'success',
         tooltip: 'Healthy'
+    }
+});
+
+const resiliencyModeToIcon = deepFreeze({
+    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES, 'start'),
+    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
+    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
+    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
+});
+
+const spilloverModeToIcon = deepFreeze({
+    SPILLOVER_ERRORS: {
+        tooltip: {
+            text: 'Spillover resource has errors',
+            align: 'start'
+        },
+        css: 'error',
+        name: 'problem'
+    },
+    SPILLOVER_ISSUES: {
+        tooltip: {
+            text: 'Spillover resource has issues',
+            align: 'start'
+        },
+        css: 'warning',
+        name: 'problem'
+    },
+    SPILLING_BACK: {
+        tooltip: {
+            text: 'Data spilling back to resources',
+            align: 'start'
+        },
+        css: 'warning',
+        name: 'working'
+    },
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: {
+            text: 'Enabled',
+            align: 'start'
+        }
     }
 });
 
@@ -140,6 +193,27 @@ const resiliencyTypeToBlockType = deepFreeze({
     ERASURE_CODING: 'fragment'
 });
 
+const quotaModeToIcon = deepFreeze({
+    EXCEEDING_QUOTA: _alignIconTooltip(bucketStateToIcon.EXCEEDING_QUOTA, 'start'),
+    APPROUCHING_QUOTA: _alignIconTooltip(bucketStateToIcon.APPROUCHING_QUOTA, 'start'),
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: {
+            text: 'Enabled',
+            align: 'start'
+        }
+    }
+});
+
+function _alignIconTooltip(icon, align) {
+    const { tooltip: text, ...rest } = icon;
+    return {
+        ...rest,
+        tooltip: { text, align }
+    };
+}
+
 export const bucketEvents = deepFreeze([
     {
         value: 'ObjectCreated',
@@ -152,27 +226,27 @@ export const bucketEvents = deepFreeze([
 ]);
 
 export function getBucketStateIcon(bucket, align) {
-    if (isUndefined(align)) {
-        return bucketStateToIcon[bucket.mode];
-    } else {
-        const { tooltip, ...rest } = bucketStateToIcon[bucket.mode];
-        return {
-            ...rest,
-            tooltip: {
-                text: tooltip,
-                align
-            }
-        };
-    }
+    return isUndefined(align) ?
+        bucketStateToIcon[bucket.mode] :
+        _alignIconTooltip( bucketStateToIcon[bucket.mode], align);
 }
 
 export function getPlacementTypeDisplayName(type) {
     return placementTypeToDisplayName[type];
 }
 
+export function getPlacementStateIcon(placementMode) {
+    return placementModeToIcon[placementMode];
+}
+
 export function getNamespaceBucketStateIcon(bucket) {
     const { mode } = bucket;
     return namespaceBucketToStateIcon[mode];
+}
+
+
+export function getQuotaStateIcon(quotaMode) {
+    return quotaModeToIcon[quotaMode];
 }
 
 export function getDataBreakdown(data, quota) {
@@ -235,6 +309,7 @@ export function summrizeResiliency(resiliency) {
             const copies = Math.max(replicas - 1, 0);
             return {
                 type: 'REPLICATION',
+                mode: resiliency.mode,
                 replicas: replicas,
                 storageOverhead: copies,
                 failureTolerance: copies,
@@ -247,6 +322,7 @@ export function summrizeResiliency(resiliency) {
             const parityFrags = Math.max(resiliency.parityFrags, 0);
             return {
                 type: 'ERASURE_CODING',
+                mode: resiliency.mode,
                 dataFrags: dataFrags,
                 parityFrags: parityFrags,
                 storageOverhead: dataFrags > 0 ? parityFrags / dataFrags : 0,
@@ -258,10 +334,13 @@ export function summrizeResiliency(resiliency) {
     }
 }
 
+export function getResiliencyStateIcon(resiliencyMode) {
+    return resiliencyModeToIcon[resiliencyMode];
+}
+
 export function getResiliencyTypeDisplay(resiliencyType) {
     return resiliencyTypeToDisplay[resiliencyType];
 }
-
 
 export function getResiliencyRequirementsWarning(resiliencyType, drivesCount) {
     const subject = resiliencyTypeToBlockType[resiliencyType];
@@ -271,4 +350,8 @@ export function getResiliencyRequirementsWarning(resiliencyType, drivesCount) {
     }. The number of possible ${
         pluralize(subject)
     } is derived from the minimal number of available drives across all mirror sets.`;
+}
+
+export function getSpilloverStateIcon(spilloverMode) {
+    return spilloverModeToIcon[spilloverMode];
 }

@@ -7,6 +7,7 @@ import { state$, action$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, ensureArray } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
+import { getSpilloverStateIcon } from 'utils/bucket-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import * as routes from 'routes';
@@ -37,6 +38,7 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
     columns = columns;
     isExpanded = ko.observable();
     toggleUri = '';
+    stateIcon = ko.observable();
     spilloverState = ko.observable();
     spilloverUsage = ko.observable();
     rows = ko.observableArray();
@@ -63,6 +65,7 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
         this.isExpanded(section === policyName);
 
         if (!buckets || !buckets[bucket] || !hostPools || !cloudResources || !internalResources) {
+            this.stateIcon({});
             this.spilloverState('Disabled');
             this.spilloverUsage('');
             return;
@@ -97,9 +100,14 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
             const formattedUsage = formatSize(spillover.usage);
             const formattedTotal = formatSize(spilloverResource.storage.total);
             const usage = `${formattedUsage} of ${formattedTotal} used by this bucket`;
+            const stateIcon = getSpilloverStateIcon(spillover.mode);
+
+            this.stateIcon(stateIcon);
             this.spilloverState('Enabled');
             this.spilloverUsage(usage);
+
         } else {
+            this.stateIcon({ name: 'healthy', css: 'disabled' });
             this.spilloverState('Disabled');
             this.spilloverUsage('');
         }

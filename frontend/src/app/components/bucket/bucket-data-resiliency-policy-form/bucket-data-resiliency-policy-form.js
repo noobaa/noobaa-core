@@ -11,6 +11,7 @@ import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     summrizeResiliency,
+    getResiliencyStateIcon,
     getResiliencyTypeDisplay,
     getResiliencyRequirementsWarning
 } from 'utils/bucket-utils';
@@ -65,6 +66,7 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
     isExpanded = ko.observable();
     bucketName = '';
     toggleUri = '';
+    stateIcon = ko.observable();
     resiliencyType = ko.observable();
     usingReplicationPolicy = ko.observable();
     usingErasureCodingPolicy = ko.observable();
@@ -136,6 +138,7 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
         this.isExpanded(section === policyName);
 
         if (!buckets || !buckets[bucket]) {
+            this.stateIcon({});
             this.failureTolerance({});
             this.requiredDrives({});
             this.rebuildEffort({});
@@ -157,6 +160,7 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
             routes.bucket,
             { system, bucket, tab, section: toggleSection }
         );
+        this.stateIcon(getResiliencyStateIcon(resiliency.mode));
         this.resiliencyType(getResiliencyTypeDisplay(resiliency.type));
         this.usingReplicationPolicy(resiliency.type === 'REPLICATION');
         this.usingErasureCodingPolicy(resiliency.type === 'ERASURE_CODING');

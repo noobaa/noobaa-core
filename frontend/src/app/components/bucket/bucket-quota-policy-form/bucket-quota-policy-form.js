@@ -5,7 +5,7 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
 import { formatSize, fromBigInteger, toBigInteger } from 'utils/size-utils';
-import { getQuotaValue } from 'utils/bucket-utils';
+import { getQuotaValue, getQuotaStateIcon } from 'utils/bucket-utils';
 import ko from 'knockout';
 import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
@@ -17,20 +17,16 @@ class BucketQuotaPolicyFormViewModel extends Observer {
     bucket = '';
     isExpanded = ko.observable();
     isQuotaDisabled = ko.observable();
+    stateIcon = ko.observable();
     summary = ko.observable();
     quotaStateText = ko.observable();
-    quotaStateCss = ko.observable();
     quotaSize = ko.observable();
     dataLeftUntilQuota = ko.observable();
     toggleUri = '';
     info = [
         {
             label: 'Bucket Quota',
-            value: {
-                text: this.quotaStateText,
-                css: this.quotaStateCss
-            },
-            template: 'state'
+            value: this.quotaStateText
         },
         {
             label: 'Configured Limit',
@@ -62,6 +58,7 @@ class BucketQuotaPolicyFormViewModel extends Observer {
         this.isExpanded(section === policyName);
 
         if (!buckets || !buckets[bucket]) {
+            this.stateIcon({});
             this.quotaStateText('Disabled');
             this.summary('');
             return;
@@ -82,17 +79,17 @@ class BucketQuotaPolicyFormViewModel extends Observer {
             const dataLeftUntilQuota = fromBigInteger(toBigInteger(quotaSize).subtract(data.size));
 
             this.isQuotaDisabled(false);
+            this.stateIcon(getQuotaStateIcon(quota.mode));
             this.summary(`Set to ${formatSize(quotaSize)}`);
             this.quotaStateText('Enabled');
-            this.quotaStateCss('success');
             this.quotaSize(formatSize(quotaSize));
             this.dataLeftUntilQuota(formatSize(dataLeftUntilQuota));
 
         } else {
             this.isQuotaDisabled(true);
+            this.stateIcon({ name: 'healthy', css: 'disabled' });
             this.summary('Limit not set');
             this.quotaStateText('Disabled');
-            this.quotaStateCss('');
             this.quotaSize('Not set');
             this.dataLeftUntilQuota('None');
         }

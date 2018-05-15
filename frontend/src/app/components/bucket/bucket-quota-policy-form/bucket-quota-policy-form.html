@@ -4,6 +4,11 @@
     <div class="row content-middle bucket-policy-summary"
         ko.click="onToggleSection"
     >
+        <svg-icon class="push-next"
+            params="name: stateIcon().name"
+            ko.css="stateIcon().css"
+            ko.tooltip="stateIcon().tooltip"
+        ></svg-icon>
         <div class="column greedy">
             <h2 class="heading3 greedy">Bucket Quota</h2>
             <p class="row content-middle"
@@ -27,11 +32,8 @@
             params="name: 'chevron'"
         ></svg-icon>
     </div>
-    <div class="column" ko.expand="isExpanded">
-        <property-sheet class="push-prev" params="properties: info">
-            <template name="state">
-                <span ko.css="$data.css">{{$data.text}}</span>
-            </template>
+    <div class="column hpad" ko.expand="isExpanded">
+        <property-sheet class="hpad push-prev" params="properties: info">
         </property-sheet>
     </div>
 </section>

@@ -1,3 +1,13 @@
+const resiliencyMode = {
+    type: 'string',
+    enum: [
+        'NOT_ENOUGH_RESOURCES',
+        'RISKY_TOLERANCE',
+        'DATA_ACTIVITY',
+        'OPTIMAL'
+    ]
+};
+
 export default {
     type: 'object',
     additionalProperties: {
@@ -75,10 +85,24 @@ export default {
             placement: {
                 type: 'object',
                 required: [
+                    'mode',
                     'policyType',
                     'mirrorSets'
                 ],
                 properties: {
+                    mode: {
+                        type: 'string',
+                        enum: [
+                            'NO_RESOURCES',
+                            'NOT_ENOUGH_RESOURCES',
+                            'NOT_ENOUGH_HEALTHY_RESOURCES',
+                            'NO_CAPACITY',
+                            'RISKY_TOLERANCE',
+                            'LOW_CAPACITY',
+                            'DATA_ACTIVITY',
+                            'OPTIMAL'
+                        ]
+                    },
                     policyType: {
                         type: 'string',
                         enum: [
@@ -137,10 +161,12 @@ export default {
                     {
                         type: 'object',
                         required: [
+                            'mode',
                             'kind',
                             'replicas'
                         ],
                         properties: {
+                            mode: resiliencyMode,
                             kind: {
                                 const: 'REPLICATION'
                             },
@@ -152,11 +178,13 @@ export default {
                     {
                         type: 'object',
                         required: [
+                            'mode',
                             'kind',
                             'dataFrags',
                             'parityFrags'
                         ],
                         properties: {
+                            mode: resiliencyMode,
                             kind: {
                                 const: 'ERASURE_CODING'
                             },
@@ -197,14 +225,27 @@ export default {
                 type: 'object',
                 required: [
                     'type',
+                    'mode',
                     'name',
+                    'mirrorSet',
                     'usage'
                 ],
                 properties: {
                     type: {
                         type: 'string',
                         enum: [
-                            'INTERNAL', 'CLOUD', 'HOSTS'
+                            'INTERNAL',
+                            'CLOUD',
+                            'HOSTS'
+                        ]
+                    },
+                    mode: {
+                        type: 'string',
+                        enum: [
+                            'SPILLOVER_ERRORS',
+                            'SPILLOVER_ISSUES',
+                            'SPILLING_BACK',
+                            'OPTIMAL'
                         ]
                     },
                     name: {
@@ -221,10 +262,19 @@ export default {
             quota: {
                 type: 'object',
                 required: [
+                    'mode',
                     'size',
                     'unit'
                 ],
                 properties: {
+                    mode: {
+                        type: 'string',
+                        enum: [
+                            'EXCEEDING_QUOTA',
+                            'APPROUCHING_QUOTA',
+                            'OPTIMAL'
+                        ]
+                    },
                     size: {
                         type: 'integer'
                     },

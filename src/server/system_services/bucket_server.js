@@ -582,7 +582,7 @@ function check_for_lambda_permission_issue(req, bucket, removed_accounts) {
             const account = _.find(removed_accounts, acc => acc._id.toString() === func.exec_account.toString());
             if (account) {
                 Dispatcher.instance().alert('MAJOR', req.system._id,
-                    `Account’s ${account.email} ${bucket.name} bucket access was removed. 
+                    `Account’s ${account.email} ${bucket.name} bucket access was removed.
                     The configured lambda trigger for function ${func.name} will no longer be invoked`);
             }
         })

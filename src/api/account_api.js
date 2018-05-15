@@ -45,6 +45,9 @@ module.exports = {
                     default_pool: {
                         type: 'string',
                     },
+                    allow_bucket_creation: {
+                        type: 'boolean'
+                    },
                     //Special handling for the first account created with create_system
                     new_system_parameters: {
                         type: 'object',
@@ -221,6 +224,9 @@ module.exports = {
                     },
                     default_pool: {
                         type: 'string'
+                    },
+                    allow_bucket_creation: {
+                        type: 'boolean'
                     }
                 },
             },

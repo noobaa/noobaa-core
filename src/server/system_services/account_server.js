@@ -93,6 +93,9 @@ function create_account(req) {
                     account.allowed_buckets = allowed_buckets;
                 }
 
+                account.allow_bucket_creation = _.isUndefined(req.rpc_params.allow_bucket_creation) ?
+                    true : req.rpc_params.allow_bucket_creation;
+
                 if (req.rpc_params.new_system_parameters) {
                     const full_permission = Boolean(req.rpc_params.new_system_parameters.allowed_buckets.full_permission);
                     const permission_list = req.rpc_params.new_system_parameters.allowed_buckets.permission_list;
@@ -270,10 +273,14 @@ function update_account_s3_access(req) {
         }
         update.allowed_buckets = allowed_buckets;
         update.default_pool = system.pools_by_name[req.rpc_params.default_pool]._id;
+        if (!_.isUndefined(req.rpc_params.allow_bucket_creation)) {
+            update.allow_bucket_creation = req.rpc_params.allow_bucket_creation;
+        }
     } else {
         update.$unset = {
             allowed_buckets: true,
-            default_pool: true
+            default_pool: true,
+            allow_bucket_creation: true
         };
     }
 
@@ -294,7 +301,7 @@ function update_account_s3_access(req) {
             desc_string.push(`${account.email} S3 access was updated by ${req.account && req.account.email}`);
             if (req.rpc_params.s3_access) {
                 if (original_pool !== req.rpc_params.default_pool) {
-                    desc_string.push(`Default pool changed to`, req.rpc_params.default_pool ? req.rpc_params.default_pool : `None`);
+                    desc_string.push(`default pool changed to`, req.rpc_params.default_pool ? req.rpc_params.default_pool : `None`);
                 }
                 if (req.rpc_params.allowed_buckets) {
                     if (req.rpc_params.allowed_buckets.full_permission) {
@@ -311,10 +318,17 @@ function update_account_s3_access(req) {
                     removed_buckets = _.difference(origin_allowed_buckets, []);
                 }
                 if (added_buckets.length) {
-                    desc_string.push(`Added buckets: ${added_buckets}`);
+                    desc_string.push(`added buckets: ${added_buckets}`);
                 }
                 if (removed_buckets.length) {
-                    desc_string.push(`Removed buckets: ${removed_buckets}`);
+                    desc_string.push(`removed buckets: ${removed_buckets}`);
+                }
+                if (account.allow_bucket_creation !== req.rpc_params.allow_bucket_creation) {
+                    if (req.rpc_params.allow_bucket_creation) {
+                        desc_string.push('future bucket creation was enabled');
+                    } else {
+                        desc_string.push('future bucket creation was disabled');
+                    }
                 }
             } else {
                 desc_string.push(`S3 permissions was changed to disabled`);

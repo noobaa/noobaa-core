@@ -104,7 +104,7 @@ function start_all() {
             .delay(30 * 1000));
     } else {
         const system_store = require('../server/system_services/system_store').get_instance(); // eslint-disable-line global-require
-        system_store.on('load', () => update_virtual_host_suffix(system_store.data.systems[0].base_address));
+        system_store.on('load', () => update_virtual_host_suffix(system_store.data.systems[0] && system_store.data.systems[0].base_address));
         system_store.refresh();
         run_server({
             s3: true,

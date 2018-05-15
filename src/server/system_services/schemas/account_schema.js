@@ -28,6 +28,8 @@ module.exports = {
         default_pool: { objectid: true },
         default_chunk_config: { objectid: true },
 
+        allow_bucket_creation: { type: 'boolean' },
+
         access_keys: {
             type: 'array',
             items: {

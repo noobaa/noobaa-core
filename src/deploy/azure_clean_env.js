@@ -52,22 +52,33 @@ function _validateEnvironmentVariablesAndBaseParams() {
     azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 }
 
-function main() {
-    let exit_code = 0;
-    return azf.authenticate()
-        .then(() => azf.listVirtualMachines('', 'VM running'))
-        .then(current_vms => P.map(current_vms, vmName => {
-            if (vmName.includes(id) && !vmName.toLowerCase().includes('lg') && !vmName.toLowerCase().includes('jenkins')) {
-                console.log('Cleaning machine: ' + vmName);
-                return azf.deleteVirtualMachine(vmName)
-                    .catch(err => {
-                        console.error(`failed deleting ${vmName} with error: `, err.message);
-                        exit_code = 1;
-                    });
-            }
-        }))
-        .then(() => process.exit(exit_code));
+async function delete_vm(status) {
+    const current_vms = await azf.listVirtualMachines('', status);
+    console.log(`Found ${current_vms.length} machines`);
+    await P.map(current_vms, vmName => {
+        if (vmName.includes(id) && !vmName.toLowerCase().includes('lg') && !vmName.toLowerCase().includes('jenkins')) {
+            console.log('Cleaning machine: ' + vmName);
+            return azf.deleteVirtualMachine(vmName)
+                .catch(err => {
+                    console.error(`failed deleting ${vmName} with error: `, err.message);
+                    throw new Error(`failed deleting ${vmName} with error: `, err.message);
+                });
+        }
+    });
+}
+
+async function main() {
+    try {
+        await azf.authenticate();
+        await delete_vm('VM running');
+        await delete_vm('VM stopped');
+        process.exit(0);
+    } catch (e) {
+        console.error(e);
+        process.exit(1);
+    }
 }
 
 _validateEnvironmentVariablesAndBaseParams();
-main();
+P.resolve()
+    .then(main);

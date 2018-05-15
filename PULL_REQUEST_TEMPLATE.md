@@ -10,7 +10,7 @@
 #### 3. Other Changes:
 -
 
-### Issues: Fixed / Gap #xxx
+### Issues: Fixed #xxx / Gap #xxx
 - 
 
 ### Testing Instructions:

@@ -1,7 +1,14 @@
 ![Tests](https://gdurl.com/jz2I)
 
-### Explain the changes:
+### Explain the changes
+#### New Features / Capabilities:
 - 
+
+#### Existing Behavior Changes (Sync with Liran):
+-
+
+#### Other Changes (Sync with Liran):
+-
 
 ### Issues: Fixed / Gap #xxx
 - 

@@ -104,6 +104,9 @@ function create_bucket(req) {
     if (req.system.buckets_by_name[req.rpc_params.name]) {
         throw new RpcError('BUCKET_ALREADY_EXISTS');
     }
+    if (req.account.allow_bucket_creation === false) {
+        throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+    }
     let tiering_policy;
     const changes = {
         insert: {},

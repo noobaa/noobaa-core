@@ -1,8 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
+<div class="fill row" ko.visible="!isServerLoaded()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
 
-<section class="row">
+<section class="row" ko.if="isServerLoaded">
     <section class="c4 column pad borders">
-        <div class="row greedy content-middle" ko.if="isServerLoaded">
+        <div class="row greedy content-middle">
             <svg-icon class="push-next"
                 params="name: statusIcon().name"
                 ko.css="statusIcon().css"
@@ -12,20 +15,17 @@
 
         <hr>
 
-        <div class="row greedy content-middle" ko.if="isServerLoaded">
+        <div class="row greedy content-middle">
             <svg-icon class="push-next"
                 params="name: issuesIcon().name"
                 ko.css="issuesIcon().css"
-                ko.tooltip="issuesTooltip"
+                ko.tooltip="issuesIcon().tooltip"
             ></svg-icon>
-            <span class="highlight"
-                ko.text="issuesText"
-                ko.css.disabled="!isConnected()"
-            ></span>
+            <span class="highlight" ko.text="issuesText"></span>
         </div>
     </section>
 
-    <section class="c4 column push-both" ko.if="isServerLoaded">
+    <section class="c4 column push-both">
         <h3 class="heading3">
             Average utilization over last minute:
         </h3>

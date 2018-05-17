@@ -11,25 +11,41 @@ import { state$ } from 'state';
 import style from 'style';
 import numeral from 'numeral';
 
+const statusLabels = deepFreeze({
+    CONNECTED: 'Connected',
+    DISCONNECTED: 'Disconnected',
+    IN_PROGRESS: 'Server attaching to cluster'
+});
+
 const icons = deepFreeze({
     healthy: {
         name: 'healthy',
-        css: 'success'
+        css: 'success',
+        tooltip: {
+            text: 'No Issues',
+            align: 'start'
+        }
     },
     warning: {
         name: 'problem',
         css: 'warning'
     },
     unavailable: {
-        name: 'healthy',
-        css: 'disabled'
+        name: 'problem',
+        css: 'warning',
+        tooltip: {
+            text: 'Disconnected',
+            align: 'start'
+        }
+    },
+    in_progress: {
+        name: 'working',
+        css: 'warning',
+        tooltip: {
+            text: 'Server Attaching',
+            align: 'start'
+        }
     }
-});
-
-const statusLabels = deepFreeze({
-    CONNECTED: 'Connected',
-    DISCONNECTED: 'Disconnected',
-    IN_PROGRESS: 'Server attaching to cluster'
 });
 
 const barChartOptions = deepFreeze({
@@ -42,50 +58,51 @@ const barChartOptions = deepFreeze({
 });
 
 function _getIssues(server, version, serverMinRequirements) {
-    if (server.mode !== 'CONNECTED') {
-        return {
-            icon: icons.unavailable,
-            text: 'Server services is unavailable',
-            tooltip: {
-                text: 'Disconnected',
-                align: 'start'
-            }
-        };
+    switch (server.mode) {
+        case 'DISCONNECTED':
+            return {
+                icon: icons.unavailable,
+                text: 'Server services are unavailable'
+            };
+        case 'IN_PROGRESS':
+            return {
+                icon: icons.in_progress,
+                text: 'Server status is unavailable'
+            };
     }
 
     const issues = Object.values(
         summarizeServerIssues(server, version, serverMinRequirements)
     );
 
-    if (issues.length === 1) {
-        return {
-            icon: icons.warning,
-            text: issues[0],
-            tooltip: {
-                text: 'Has issues',
-                align: 'start'
-            }
-        };
-
-    } else if (issues.length > 1) {
-        return {
-            icon: icons.warning,
-            text: `Server has ${issues.length} issues`,
-            tooltip: {
-                text: issues,
-                align: 'start'
-            }
-        };
-
-    } else {
-        return {
-            icon: icons.healthy,
-            text: 'Server has no issues',
-            tooltip: {
-                text: 'No Issues',
-                align: 'start'
-            }
-        };
+    switch (issues.length) {
+        case 0:
+            return {
+                icon: icons.healthy,
+                text: 'Server has no issues'
+            };
+        case 1:
+            return {
+                icon: {
+                    ...icons.warning,
+                    tooltip: {
+                        text: 'Has issues',
+                        align: 'start'
+                    }
+                },
+                text: issues[0]
+            };
+        default:
+            return {
+                icon: {
+                    ...icons.warning,
+                    tooltip: {
+                        text: issues,
+                        align: 'start'
+                    }
+                },
+                text: `Server has ${issues.length} issues`
+            };
     }
 }
 
@@ -135,21 +152,20 @@ class ServerSummaryViewModel extends Observer {
     statusIcon = ko.observable();
     issuesText = ko.observable();
     issuesIcon = ko.observable();
-    issuesTooltip = ko.observable();
     barValues = ko.observable();
     barOptions = ko.observable();
-    isConnected = ko.observable();
     isServerLoaded = ko.observable();
 
     constructor({ serverSecret }) {
         super();
 
-        this.secret = ko.unwrap(serverSecret);
+        const secret = ko.unwrap(serverSecret);
 
         this.observe(
             state$.pipe(
                 getMany(
-                    'topology',
+                    ['topology', 'servers', secret],
+                    ['topology', 'serverMinRequirements'],
                     'system'
                 )
             ),
@@ -157,16 +173,13 @@ class ServerSummaryViewModel extends Observer {
         );
     }
 
-    onState([topology, system]) {
-        if (!topology || !system) {
+    onState([server, serverMinRequirements, system]) {
+        if (!server || !serverMinRequirements || !system) {
             this.isServerLoaded(false);
             return;
         }
 
-        const { serverMinRequirements } = topology;
-        const server = topology.servers[this.secret];
         const isConnected = server.mode === 'CONNECTED';
-
         const issues =_getIssues(server, system.version, serverMinRequirements);
         const barOptions = Object.assign(
             { background: isConnected ? true : style['color15'] },
@@ -177,10 +190,8 @@ class ServerSummaryViewModel extends Observer {
         this.statusIcon(getServerStateIcon(server));
         this.issuesText(issues.text);
         this.issuesIcon(issues.icon);
-        this.issuesTooltip(issues.tooltip);
         this.barValues(_getBarValues(server));
         this.barOptions(barOptions);
-        this.isConnected(isConnected);
         this.isServerLoaded(true);
     }
 }

@@ -96,7 +96,7 @@ async function validate_activation_code(server_ip) {
     if (validate.valid === true) {
         console.log(`The activation code is valid`);
     } else {
-        throw new Error(`The activation code is not valid!!!`);
+        throw new Error('The activation code is not valid!!! validate is', validate);
     }
 }
 

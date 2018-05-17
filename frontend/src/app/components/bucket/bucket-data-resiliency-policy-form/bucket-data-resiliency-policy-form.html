@@ -31,13 +31,14 @@
     <div class="column hpad" ko.expand="isExpanded">
         <property-sheet class="hpad push-prev" params="properties: info">
             <template name="messageWithSeverity">
-                <p ko.css="$data.css" >
+                <p class="row content-middle" ko.css="$data.css" >
                     {{$data.text}}
-                    <svg-icon class="icon-small"
-                        ko.visible="$data.css"
-                        ko.tooltip="$data.tooltip"
-                        params="name: 'problem'"
+                    <!-- ko with: $data.icon -->
+                    <svg-icon class="icon-small push-prev-half"
+                        params="name: name"
+                        ko.tooltip="{ text: tooltip, position: 'above' }"
                     ></svg-icon>
+                    <!-- /ko -->
                 </p>
             </template>
         </property-sheet>

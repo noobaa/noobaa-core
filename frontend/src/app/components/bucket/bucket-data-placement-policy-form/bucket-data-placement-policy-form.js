@@ -28,8 +28,12 @@ const columns = deepFreeze([
         type: 'newLink'
     },
     {
-        name: 'onlineHostCount',
-        label: 'online nodes in pool'
+        name: 'healthyHosts',
+        label: 'Healthy Nodes in Pool'
+    },
+    {
+        name: 'healthyNodes',
+        label: 'Healthy Drives on Nodes'
     },
     {
         name: 'bucketUsage',

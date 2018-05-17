@@ -14,7 +14,7 @@
                 <span class="text-tech" ko.text="systemAddress"></span>
             </p>
             <p ko.visible="isExpanded">
-                Domain Name System: The Internet's system for converting alphabetic names into numeric addresses.
+                Configuring DNS in NooBaa is useful for achieving high availability on installed agents or for working with bucket virtual domains
             </p>
         </div>
         <svg-icon class="icon-small rotate push-next-half"
@@ -50,7 +50,7 @@
                     <validation-message params="field: form.dnsName"></validation-message>
 
                     <p class="highlight push-both">
-                        Before clicking the update button follow the following procedure:
+                        Before updating the changes follow the following procedure:
                     </p>
 
                     <ol class="bullet-list">
@@ -68,7 +68,7 @@
                             </div>
                         </li>
                         <li>
-                            Click the update button
+                            Update this form
                         </li>
                         <li>
                             After 24 hours the old name can be removed from your DNS
@@ -81,7 +81,7 @@
                 <svg-icon class="icon-small" params="name: 'notif-info'">
                 </svg-icon>
                 <span class="greedy">
-                In any case, reinstalling a node (from the install node wizard) will update the server address used by that node. Make sure that the server IP was configured Static and no DHCP, otherwise if the IP will suddenly change the nodes will lose connectivity.
+                In order to use virtual hosts (bucket.noobaa.com) choose and configure the DNS name option.
             </span>
             </p>
 

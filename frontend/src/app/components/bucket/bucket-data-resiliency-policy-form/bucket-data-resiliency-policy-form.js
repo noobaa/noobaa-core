@@ -12,8 +12,7 @@ import * as routes from 'routes';
 import {
     summrizeResiliency,
     getResiliencyStateIcon,
-    getResiliencyTypeDisplay,
-    getResiliencyRequirementsWarning
+    getResiliencyTypeDisplay
 } from 'utils/bucket-utils';
 import {
     requestLocation,
@@ -25,41 +24,73 @@ const policyName = 'data-resiliency';
 const rebuildEffortToDisplay = deepFreeze({
     LOW: {
         text: 'Low',
-        css: '',
-        tooltip: ''
+        icon: {
+            name: 'question',
+            tooltip: 'Rebuild time effort has 3 options: Low/High/Very High and might change according to the amount of fragments or replicas'
+        }
     },
     HIGH: {
         text: 'High',
-        css: '',
-        tootlip: ''
+        icon: {
+            name: 'question',
+            tooltip: 'Rebuild time effort has 3 options: Low/High/Very High and might change according to the amount of fragments or replicas'
+        }
     },
     VERY_HIGH: {
         text: 'Very High',
         css: 'error',
-        tooltip: 'Parity fragments rebuild time might take a while, varies according to data placement policy resources and type'
+        icon: {
+            name: 'problem',
+            tooltip: 'Parity fragments rebuild time might take a while, varies according to data placement policy resources and type'
+        }
     }
 });
 
-function _getFailureTolerance(tolerance) {
-    const warn = tolerance < 2;
-    return {
-        text: tolerance,
-        css: warn ? 'warning' : '',
-        tooltip: warn ?
-            'It is not recommended to use a resiliency policy which results in less than a fault tolerance value of 2' :
-            ''
-    };
+function _getConfiguredFailureTolerance(resiliency) {
+    const { failureTolerance } = resiliency;
+    const text = numeral(failureTolerance).format('0,0');
+
+    if (failureTolerance < 2) {
+        return {
+            text: text,
+            css: 'warning',
+            icon: {
+                name: 'problem',
+                tooltip: 'It is not recommended to use a resiliency policy which results in less than a fault tolerance value of 2'
+            }
+        };
+    } else {
+        return { text };
+    }
 }
 
-function _getRequiredDrives(resiliency, driveCountMetric) {
-    const { type, requiredDrives } = resiliency;
-    const warn = requiredDrives > driveCountMetric;
-    const tooltip = getResiliencyRequirementsWarning(type, driveCountMetric);
-    return {
-        text: `${requiredDrives} drives per mirror set`,
-        css: warn ? 'warning' : '',
-        tooltip: warn ? tooltip : ''
-    };
+function _getActualFailureTolerance(actualTolerance, configuredTolerance, requiredDrives) {
+    const { hosts, nodes } = actualTolerance;
+    const text = `${hosts} Nodes / ${nodes} Drives`;
+    if (hosts < configuredTolerance || nodes < configuredTolerance) {
+        return {
+            text: text,
+            css: 'warning',
+            icon: {
+                name: 'problem',
+                tooltip: `One or more of the configured mirror sets have less then ${requiredDrives} healthy nodes/drives which bring the bucket\'s actual tolerance below the configured one`
+            }
+        };
+    } else {
+        return {
+            text: text,
+            icon: {
+                name: 'question',
+                tooltip: 'The current number of nodes and drives that can suffer failure without causing any data loss'
+            }
+        };
+    }
+}
+
+function _getRequiredDrives(resiliency) {
+    const { requiredDrives } = resiliency;
+    const text = `${requiredDrives} drives per mirror set`;
+    return { text };
 }
 
 class BucketDataResiliencyPolicyFormViewModel extends Observer {
@@ -75,7 +106,8 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
     numOfDataFrags = ko.observable();
     numOfParityFrags = ko.observable();
     storageOverhead = ko.observable();
-    failureTolerance = ko.observable();
+    configuredFailureTolerance = ko.observable();
+    actualFailureTolerance = ko.observable();
     requiredDrives = ko.observable();
     rebuildEffort = ko.observable()
     info = [
@@ -103,14 +135,19 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
             value: this.storageOverhead
         },
         {
-            label: 'Failure Tolerance',
-            template: 'messageWithSeverity',
-            value: this.failureTolerance
-        },
-        {
             label: 'Minimum Required Drives',
             template: 'messageWithSeverity',
             value: this.requiredDrives
+        },
+        {
+            label: 'Configured Failure Tolerance',
+            template: 'messageWithSeverity',
+            value: this.configuredFailureTolerance
+        },
+        {
+            label: 'Actual Failure Tolerance',
+            template: 'messageWithSeverity',
+            value: this.actualFailureTolerance
         },
         {
             label: 'Rebuild time effort',
@@ -134,31 +171,37 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
     }
 
     onState([location, buckets]) {
-        const { system, bucket, tab = 'data-policies', section } = location.params;
+        const { system, bucket: bucketName, tab = 'data-policies', section } = location.params;
         this.isExpanded(section === policyName);
 
-        if (!buckets || !buckets[bucket]) {
+        if (!buckets || !buckets[bucketName]) {
             this.stateIcon({});
-            this.failureTolerance({});
+            this.configuredFailureTolerance({});
+            this.actualFailureTolerance({});
             this.requiredDrives({});
             this.rebuildEffort({});
             return;
         }
 
+        const bucket = buckets[bucketName];
         const toggleSection = section === policyName ? undefined : policyName;
-        const driveCountMetric = buckets[bucket].resiliencyDriveCountMetric;
-        const resiliency = summrizeResiliency(buckets[bucket].resiliency);
+        const resiliency = summrizeResiliency(bucket.resiliency);
         const dataDistribution = resiliency.type === 'REPLICATION' ?
             `${resiliency.replicas} copies` :
             `${resiliency.dataFrags} data + ${resiliency.parityFrags} parity fragments`;
-        const failureTolerance = _getFailureTolerance(resiliency.failureTolerance);
-        const requiredDrives = _getRequiredDrives(resiliency, driveCountMetric);
+        const configuredFailureTolerance = _getConfiguredFailureTolerance(resiliency);
+        const requiredDrives = _getRequiredDrives(resiliency);
+        const actualFailureTolerance = _getActualFailureTolerance(
+            bucket.failureTolerance,
+            resiliency.failureTolerance,
+            resiliency.requiredDrives
+        );
         const rebuildEffort = rebuildEffortToDisplay[resiliency.rebuildEffort];
 
-        this.bucketName = bucket;
+        this.bucketName = bucketName;
         this.toggleUri = realizeUri(
             routes.bucket,
-            { system, bucket, tab, section: toggleSection }
+            { system, bucket: bucketName, tab, section: toggleSection }
         );
         this.stateIcon(getResiliencyStateIcon(resiliency.mode));
         this.resiliencyType(getResiliencyTypeDisplay(resiliency.type));
@@ -169,7 +212,8 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
         this.numOfDataFrags(resiliency.dataFrags);
         this.numOfParityFrags(resiliency.parityFrags);
         this.storageOverhead(numeral(resiliency.storageOverhead).format('%'));
-        this.failureTolerance(failureTolerance);
+        this.configuredFailureTolerance(configuredFailureTolerance);
+        this.actualFailureTolerance(actualFailureTolerance);
         this.requiredDrives(requiredDrives);
         this.rebuildEffort(rebuildEffort);
     }

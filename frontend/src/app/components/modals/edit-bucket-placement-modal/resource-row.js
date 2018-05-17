@@ -1,10 +1,22 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import numeral from 'numeral';
+import { sumBy } from 'utils/core-utils';
+import { hostWritableModes, storageNodeWritableModes } from 'utils/host-utils';
 import {
     getHostsPoolStateIcon,
     getCloudResourceStateIcon,
     getCloudResourceTypeIcon
 } from 'utils/resource-utils';
+
+function _formatCounts(some, all) {
+    return `${
+        numeral(some).format('0,0')
+    } of ${
+        numeral(all).format('0,0')
+    }`;
+}
 
 export default class ResourceRowViewModel {
     _id = '';
@@ -12,7 +24,8 @@ export default class ResourceRowViewModel {
     state = ko.observable();
     type = ko.observable();
     name = ko.observable();
-    onlineHostCount = ko.observable();
+    healthyHosts = ko.observable();
+    healthyNodes = ko.observable();
     usage = ko.observable();
     disabledCss = ko.observable();
     tooltip = ko.observable();
@@ -50,18 +63,25 @@ export default class ResourceRowViewModel {
     }
 
     _onHostPool(pool, selected) {
-        const { name, storage, hostCount, hostsByMode } = pool;
-        const onlineHostCount = numeral(hostCount - (hostsByMode.OFFLINE || 0)).format('0,0');
+        const { name, storage, hostCount, hostsByMode, storageNodeCount, storageNodesByMode } = pool;
         const isSelected = selected.some(record => record.type === 'HOSTS' && record.name === name);
         const state = getHostsPoolStateIcon(pool);
-
+        const healthyHosts = sumBy(
+            hostWritableModes,
+            mode => hostsByMode[mode] || 0
+        );
+        const healthyNodes = sumBy(
+            storageNodeWritableModes,
+            mode => storageNodesByMode[mode] || 0
+        );
 
         this._id = { type: 'HOSTS', name };
         this._selected(isSelected);
         this.state(state);
         this.type('nodes-pool');
         this.name({ text: name, tooltip: name });
-        this.onlineHostCount(onlineHostCount);
+        this.healthyHosts(_formatCounts(healthyHosts, hostCount));
+        this.healthyNodes(_formatCounts(healthyNodes, storageNodeCount));
         this.usage({ total: storage.total, used: storage.used });
     }
 
@@ -75,7 +95,8 @@ export default class ResourceRowViewModel {
         this.state(state);
         this.type(getCloudResourceTypeIcon(resource));
         this.name({ text: name, tooltip: name });
-        this.onlineHostCount('---');
+        this.healthyHosts('---');
+        this.healthyNodes('---');
         this.usage({ total: storage.total, used: storage.used });
     }
 

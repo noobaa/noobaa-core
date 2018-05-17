@@ -15,6 +15,15 @@ import { requestLocation, openEditBucketSpilloverModal } from 'action-creators';
 
 const policyName = 'spillover';
 
+const disabledIcon = deepFreeze({
+    name: 'healthy',
+    css: 'disabled',
+    tooltip: {
+        text: 'Disabled',
+        align: 'start'
+    }
+});
+
 const columns = deepFreeze([
     {
         name: 'state',
@@ -65,7 +74,7 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
         this.isExpanded(section === policyName);
 
         if (!buckets || !buckets[bucket] || !hostPools || !cloudResources || !internalResources) {
-            this.stateIcon({});
+            this.stateIcon(disabledIcon);
             this.spilloverState('Disabled');
             this.spilloverUsage('');
             return;
@@ -107,7 +116,7 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
             this.spilloverUsage(usage);
 
         } else {
-            this.stateIcon({ name: 'healthy', css: 'disabled' });
+            this.stateIcon(disabledIcon);
             this.spilloverState('Disabled');
             this.spilloverUsage('');
         }

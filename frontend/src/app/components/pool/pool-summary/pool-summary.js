@@ -23,29 +23,7 @@ class PoolSummaryViewModel extends Observer {
         // State observables.
         this.state = ko.observable({});
         this.hostCount = ko.observable();
-        this.healthyCount = ko.observable();
-        this.issuesCount= ko.observable();
-        this.offlineCount = ko.observable();
-        this.hostCounters = [
-            {
-                label: 'Healthy',
-                color: style['color12'],
-                value: this.healthyCount,
-                tooltip: 'The number of fully operative storage nodes that can be used as a storage target for NooBaa'
-            },
-            {
-                label: 'Issues',
-                color: style['color11'],
-                value: this.issuesCount,
-                tooltip: 'The number of storage nodes that are partially operative due to a current process or low spec'
-            },
-            {
-                label: 'Offline',
-                color: style['color10'],
-                value: this.offlineCount,
-                tooltip: 'The number of storage nodes that are currently not operative and are not considered as part of NooBaa’s available storage'
-            }
-        ];
+        this.driveCount = ko.observable();
 
         // Capacity observables.
         this.availableCapacity = ko.observable();
@@ -123,15 +101,12 @@ class PoolSummaryViewModel extends Observer {
 
     onPool(pool) {
         if (!pool) return;
-        const { hostCount, hostsByMode, storage, activities } = pool;
+        const { hostCount, storageNodeCount, storage, activities } = pool;
 
         { // Update pool state and counters
-            const { OPTIMAL = 0, OFFLINE = 0 } = hostsByMode;
             this.state(getHostsPoolStateIcon(pool));
             this.hostCount(numeral(hostCount).format('0,0'));
-            this.healthyCount(numeral(OPTIMAL).format('0,0'));
-            this.offlineCount(numeral(OFFLINE).format('0,0'));
-            this.issuesCount(numeral(hostCount - OPTIMAL - OFFLINE).format('0,0'));
+            this.driveCount(numeral(storageNodeCount).format('0,0'));
         }
 
         { // Update pool storage and usage

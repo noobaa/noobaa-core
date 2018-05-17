@@ -10,6 +10,10 @@ export default {
             'connectedBuckets',
             'hostCount',
             'hostsByMode',
+            'storageNodeCount',
+            'storageNodesByMode',
+            'endpointNodeCount',
+            'endpointNodesByMode',
             'activities'
         ],
         properties: {
@@ -99,6 +103,24 @@ export default {
                 type: 'integer'
             },
             hostsByMode: {
+                type: 'object',
+                additionalProperties: {
+                    type: 'integer'
+                }
+            },
+            storageNodeCount: {
+                type: 'integer'
+            },
+            storageNodesByMode: {
+                type: 'object',
+                additionalProperties: {
+                    type: 'integer'
+                }
+            },
+            endpointNodeCount: {
+                type: 'integer'
+            },
+            endpointNodesByMode: {
                 type: 'object',
                 additionalProperties: {
                     type: 'integer'

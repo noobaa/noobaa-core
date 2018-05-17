@@ -7,7 +7,10 @@ class ValidationMessageViewModel {
     constructor({ field }) {
         const { isValid, wasTouched, error, warning } = field;
 
-        this.visible = wasTouched;
+        this.visible = ko.pureComputed(
+            () => error() ? wasTouched() : Boolean(warning())
+        );
+
 
         this.css = ko.pureComputed(
             () => !isValid() ?  'error' : (warning() ? 'warning' : '')

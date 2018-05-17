@@ -5,7 +5,7 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import ResourceRowViewModel from './resource-row';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, mapValues } from 'utils/core-utils';
 import { validateName } from 'utils/validation-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { getMany } from 'rx-extensions';
@@ -44,15 +44,22 @@ const readPolicyTableColumns = deepFreeze([
 ]);
 
 class CreateNamespaceBucketModalViewModel extends Observer {
+    steps = steps;
+    nameRestrictionList = ko.observableArray();
+    readPolicyTableColumns = readPolicyTableColumns;
+    readPolicyRows = ko.observableArray();
+    isWritePolicyDisabled = ko.observable();
+    writePolicyOptions = ko.observableArray();
+    resourceServiceMapping = {};
+    form = null;
+    throttledBucketName = null;
+    readPolicyRowParams = {
+        onToggle: this.onToggleReadPolicyResource.bind(this)
+    };
+
     constructor() {
         super();
 
-        this.steps = steps;
-        this.nameRestrictionList = ko.observableArray();
-        this.readPolicyTableColumns = readPolicyTableColumns;
-        this.readPolicyRows = ko.observableArray();
-        this.isWritePolicyDisabled = ko.observable();
-        this.writePolicyOptions = ko.observableArray();
         this.form = new FormViewModel({
             name: formName,
             fields: {
@@ -66,12 +73,9 @@ class CreateNamespaceBucketModalViewModel extends Observer {
                 1: [ 'readPolicy', 'writePolicy' ]
             },
             onValidate: this.onValidate.bind(this),
+            onWarn: values => this.onWarn(values, this.resourceServiceMapping),
             onSubmit: this.onSubmit.bind(this)
         });
-
-        this.readPolicyRowParams = {
-            onToggle: this.onToggleReadPolicyResource.bind(this)
-        };
 
         this.throttledBucketName = this.form.bucketName
             .throttle(inputThrottle);
@@ -128,11 +132,18 @@ class CreateNamespaceBucketModalViewModel extends Observer {
                 return { value, icon, selectedIcon };
             });
 
+        const resourceServiceMapping = mapValues(
+            resources,
+            resource => resource.service
+        );
+
+        this.resources = resources;
         this.existingNames = existingNames;
         this.nameRestrictionList(nameRestrictionList);
         this.readPolicyRows(readPolicyRows);
         this.isWritePolicyDisabled(readPolicy.value.length === 0);
         this.writePolicyOptions(writePolicyOptions);
+        this.resourceServiceMapping = resourceServiceMapping;
     }
 
     onToggleReadPolicyResource(resource, select) {
@@ -160,7 +171,7 @@ class CreateNamespaceBucketModalViewModel extends Observer {
 
         } else if (step === 1) {
             if (readPolicy.length === 0) {
-                errors.readPolicy = 'Please select at least on namespace resources';
+                errors.readPolicy = 'Please select at least one namespace resources';
 
             } else if (!writePolicy) {
                 errors.writePolicy = 'Please select a namespace resource';
@@ -168,6 +179,22 @@ class CreateNamespaceBucketModalViewModel extends Observer {
         }
 
         return errors;
+    }
+
+    onWarn (values, resourceServiceMapping) {
+        const { step, readPolicy } = values;
+        const warnings = {};
+
+        if (step === 1 && readPolicy.length > 1) {
+            const firstService = resourceServiceMapping[readPolicy[0]];
+            const mixedServices = readPolicy.some(res => resourceServiceMapping[res] !== firstService);
+
+            if (mixedServices) {
+                warnings.readPolicy = 'A mixture of different resource services will require to read and re-write the data without optimization';
+            }
+        }
+
+        return warnings;
     }
 
     onBeforeStep(step) {

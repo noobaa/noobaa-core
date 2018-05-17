@@ -5,16 +5,21 @@ import chartTooltipTemplate from './chart-tooltip.html';
 import Observer from 'observer';
 import BarViewModel from './bar';
 import { state$ } from 'state';
+import { deepFreeze, flatMap, mapValues, sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { isSizeZero, formatSize, toBytes } from 'utils/size-utils';
-import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
-import { get } from 'rx-extensions';
+import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
 import numeral from 'numeral';
-import { deepFreeze, flatMap, mapValues } from 'utils/core-utils';
-import { getBucketStateIcon, getPlacementTypeDisplayName } from 'utils/bucket-utils';
+import {
+    getBucketStateIcon,
+    getPlacementTypeDisplayName,
+    getDataBreakdown,
+    getQuotaValue,
+    countStorageNodesByMirrorSet
+} from 'utils/bucket-utils';
 
 const rawUsageTooltip = deepFreeze({
     text: 'Raw usage refers to the actual size this bucket is utilizing from it\'s resources including data resiliency replicas or fragments',
@@ -26,14 +31,14 @@ const dataUsageTooltip = deepFreeze({
     align: 'end'
 });
 
-function mapModeToStateTooltip(bucket, dataBreakdown) {
+function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
     switch (bucket.mode) {
         case 'NO_RESOURCES': {
             return 'This bucket is not connected to any resources that can be utilized. Add resources via bucket data placement policy';
         }
         case 'NOT_ENOUGH_HEALTHY_RESOURCES': {
             // TODO: x of x resources...
-            return 'Some not healthy and the bucket data allocation cannot be completed. Try fixing problematic resources or change the bucket’s placement policy.';
+            return 'Some resources are not healthy and the bucket data allocation cannot be completed. Try fixing problematic resources or change the bucket’s placement policy.';
         }
         case 'NOT_ENOUGH_RESOURCES': {
             const { kind, replicas, dataFrags, parityFrags } = bucket.resiliency;
@@ -42,8 +47,18 @@ function mapModeToStateTooltip(bucket, dataBreakdown) {
                 (kind === 'ERASURE_CODING' && `erasure coding of ${dataFrags}+${parityFrags}`) ||
                 'an unknown policy';
 
-            // TODO: add at least x more ...
-            return `The bucket’s configured data resiliency is set to ${policyText}. In order to meet that requirement, add more drives to the nodes pool or add a cloud resource to placement policy`;
+            const requiredDrives =
+                (kind === 'REPLICATION' && replicas) ||
+                (kind === 'ERASURE_CODING' && (dataFrags + parityFrags)) ||
+                NaN;
+
+            const storageNodesPerMirrorSet = countStorageNodesByMirrorSet(bucket.placement, hostPools);
+            const missingNodesForResiliency = sumBy(
+                Object.values(storageNodesPerMirrorSet),
+                count => Math.max(0, requiredDrives - count)
+            );
+
+            return `The bucket’s configured data resiliency is set to ${policyText}. In order to meet that requirement, add at least ${missingNodesForResiliency} more drives to the nodes pool or add a cloud resource to placement policy`;
         }
         case 'NO_CAPACITY': {
             return 'This bucket has no more available storage. In order to enable data writes, add more resources to the bucket data placement policy';
@@ -127,9 +142,9 @@ function _formatAvailablityLimits(val) {
     return val === 0 ? '0' : formatSize(val);
 }
 
-function _getBucketStateInfo(bucket, dataBreakdown) {
+function _getBucketStateInfo(bucket, dataBreakdown, hostPools) {
     const { name, css, tooltip: text } = getBucketStateIcon(bucket);
-    const tooltip = mapModeToStateTooltip(bucket, dataBreakdown);
+    const tooltip = _mapModeToStateTooltip(bucket, dataBreakdown, hostPools);
     return {
         icon: {
             name,
@@ -261,12 +276,17 @@ class BucketSummrayViewModel extends Observer {
         super();
 
         this.observe(
-            state$.pipe(get('buckets', ko.unwrap(bucketName))),
+            state$.pipe(
+                getMany(
+                    ['buckets', ko.unwrap(bucketName)],
+                    'hostPools'
+                )
+            ),
             this.onState
         );
     }
 
-    onState(bucket) {
+    onState([bucket, hostPools]) {
         if (!bucket) {
             this.bucketLoaded(false);
             return;
@@ -284,7 +304,7 @@ class BucketSummrayViewModel extends Observer {
         const reducedRatio = hasSize ? data.sizeReduced / data.size : 0;
         const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
 
-        this.state(_getBucketStateInfo(bucket, dataBreakdown));
+        this.state(_getBucketStateInfo(bucket, dataBreakdown, hostPools));
         this.dataPlacement(_getDataPlacementText(placement));
 
         this.availablity[0].value(dataBreakdown.used);

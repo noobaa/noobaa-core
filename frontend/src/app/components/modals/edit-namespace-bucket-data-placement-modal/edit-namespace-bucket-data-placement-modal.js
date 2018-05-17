@@ -5,7 +5,7 @@ import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import ResourceRowViewModel from './resource-row';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, mapValues } from 'utils/core-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { state$, action$ } from 'state';
@@ -85,6 +85,10 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
                 const { icon, selectedIcon } = getCloudServiceMeta(service);
                 return { value, icon, selectedIcon };
             });
+        const resourceServiceMapping = mapValues(
+            resources,
+            resource => resource.service
+        );
 
         if (!form) {
             this.form = new FormViewModel({
@@ -94,6 +98,7 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
                     writePolicy: writeTo
                 },
                 onValidate: this.onValidate.bind(this),
+                onWarn: values => this.onWarn(values, resourceServiceMapping),
                 onSubmit: this.onSubmit.bind(this)
             });
             this.isFormReady(true);
@@ -102,6 +107,7 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
         this.isWritePolicyDisabled(readPolicy.length === 0);
         this.readPolicyRows(readPolicyRows);
         this.writePolicyOptions(writePolicyOptions);
+        this.resourceServiceMapping = resourceServiceMapping;
     }
 
     onValidate(values) {
@@ -116,6 +122,22 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
         }
 
         return errors;
+    }
+
+    onWarn (values, resourceServiceMapping) {
+        const { readPolicy } = values;
+        const warnings = {};
+
+        if (readPolicy.length > 1) {
+            const firstService = resourceServiceMapping[readPolicy[0]];
+            const mixedServices = readPolicy.some(res => resourceServiceMapping[res] !== firstService);
+
+            if (mixedServices) {
+                warnings.readPolicy = 'A mixture of different resource services will require to read and re-write the data without optimization';
+            }
+        }
+
+        return warnings;
     }
 
     onToggleReadPolicyResource(resource, select) {

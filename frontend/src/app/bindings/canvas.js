@@ -31,9 +31,13 @@ export default {
         draw.call(viewModel, backbuffer.getContext('2d'), { width, height });
 
         requestAnimationFrame(() => {
-            canvas.width = backbuffer.width;
-            canvas.height = backbuffer.height;
-            canvas.getContext('2d').drawImage(backbuffer, 0, 0);
+            const { width, height } = backbuffer;
+            canvas.width = width;
+            canvas.height = height;
+
+            if (width > 0 && height > 0) {
+                canvas.getContext('2d').drawImage(backbuffer, 0, 0);
+            }
         });
     }
 };

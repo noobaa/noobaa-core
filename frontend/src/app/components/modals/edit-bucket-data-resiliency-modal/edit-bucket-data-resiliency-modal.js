@@ -8,7 +8,7 @@ import numeral from 'numeral';
 import { state$, action$ } from 'state';
 import { deepFreeze, pick } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
-import { summrizeResiliency, getResiliencyRequirementsWarning } from 'utils/bucket-utils';
+import { countStorageNodesByMirrorSet, summrizeResiliency, getResiliencyRequirementsWarning } from 'utils/bucket-utils';
 import { getMany } from 'rx-extensions';
 import { dataCenterArticles as articles } from 'config';
 import {
@@ -118,23 +118,25 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
                 getMany(
                     ['forms', formName],
                     ['buckets', bucketName],
+                    'hostPools'
                 )
             ),
             this.onState
         );
     }
 
-    onState([form, bucket]) {
+    onState([form, bucket, hostPools]) {
         if (!bucket) return;
 
-        const driveCountMetric = bucket.resiliencyDriveCountMetric;
         const values = form ? getFormValues(form) : _getFormInitalValues(bucket);
+        const storageNodePerMirrorSet = countStorageNodesByMirrorSet(bucket.placement, hostPools);
+        const minNodeCountInMirrorSets = Math.min(...Object.values(storageNodePerMirrorSet));
+
         this.bucketName = bucket.name;
         this.tierName = bucket.tierName;
         this.toggleModeBtnText(values.advancedMode ? 'Basic Settings' : 'Advanced Settings');
         this.isReplicationDisabled(values.resiliencyType !== 'REPLICATION');
         this.isErasureCodingDisabled(values.resiliencyType !== 'ERASURE_CODING');
-
 
         {
             const summary = summrizeResiliency({
@@ -144,7 +146,7 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             const requiredDrives = _getRequiredDrivesInfo(
                 'REPLICATION',
                 summary.requiredDrives,
-                driveCountMetric,
+                minNodeCountInMirrorSets,
             );
 
             this.repCopies(summary.replicas);
@@ -164,7 +166,7 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             const requiredDrives = _getRequiredDrivesInfo(
                 'ERASURE_CODING',
                 summary.requiredDrives,
-                driveCountMetric
+                minNodeCountInMirrorSets
             );
 
             this.ecDisribution(`${summary.dataFrags} + ${summary.parityFrags}`);

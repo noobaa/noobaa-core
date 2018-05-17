@@ -495,7 +495,7 @@ const endpointServiceModeToIcon = deepFreeze({
         name: 'problem',
         css: 'error',
         tooltip: 'Endpoint Cannot Use Ports 80/443'
-    }, 
+    },
     INITIALIZING: {
         name: 'working',
         css: 'warning',
@@ -533,6 +533,25 @@ const dataActivityTooltipTemplate =
             <p class="remark push-next-half" ko.text="eta"></p>
         </li>
     </ul>`;
+
+export const hostWritableModes = deepFreeze([
+    'IN_PROCESS',
+    'SOME_STORAGE_MIGRATING',
+    'SOME_STORAGE_INITIALIZING',
+    'SOME_STORAGE_DECOMMISSIONING',
+    'SOME_STORAGE_OFFLINE',
+    'SOME_STORAGE_NOT_EXIST',
+    'SOME_STORAGE_DETENTION',
+    'LOW_CAPACITY',
+    'N2N_PORTS_BLOCKED',
+    'OPTIMAL'
+]);
+
+export const storageNodeWritableModes = deepFreeze([
+    'OPTIMAL',
+    'LOW_CAPACITY',
+    'N2N_PORTS_BLOCKED'
+]);
 
 export function getHostDisplayName(hostName) {
     const [ namePart ] = hostName.split('#');

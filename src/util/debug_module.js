@@ -24,6 +24,8 @@ const util = require('util');
 const nb_native = require('./nb_native');
 const LRU = require('./lru');
 
+const DEV_MODE = (process.env.DEV_MODE === 'true');
+
 var config = {
     dbg_log_level: 0,
 };
@@ -220,11 +222,13 @@ class InternalDebugLogger {
 
         // if not logging to syslog add a file transport
         if (!syslog) {
+            const suffix = DEV_MODE ? `_${process.argv[1].split('/').slice(-1)[0]}` : '';
+
             transports.push(new winston.transports.File({
                 name: 'file_transp',
                 level: 'ERROR',
                 showLevel: false,
-                filename: 'noobaa.log',
+                filename: `noobaa${suffix}.log`,
                 dirname: './logs/',
                 json: false,
                 maxsize: (10 * 1024 * 1024),

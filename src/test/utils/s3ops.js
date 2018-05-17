@@ -13,7 +13,7 @@ require('../../util/dotenv').load();
 const port = process.env.ENDPOINT_PORT || 80;
 
 function validate_multiplier(multiplier) {
-    if (!multiplier % 1024) throw new Error(`multiplier must be in multiples of 1024`);
+    if (multiplier % 1024 !== 0) throw new Error(`multiplier must be in multiples of 1024`);
 }
 
 function put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {

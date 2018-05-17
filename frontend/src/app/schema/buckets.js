@@ -21,7 +21,6 @@ export default {
             'objectCount',
             'placement',
             'resiliency',
-            'resiliencyDriveCountMetric',
             'io'
         ],
         properties: {
@@ -153,9 +152,6 @@ export default {
                     }
                 }
             },
-            resiliencyDriveCountMetric: {
-                type: 'integer'
-            },
             resiliency: {
                 oneOf: [
                     {
@@ -285,6 +281,21 @@ export default {
                             'TERABYTE',
                             'PETABYTE'
                         ]
+                    }
+                }
+            },
+            failureTolerance: {
+                type: 'object',
+                required: [
+                    'hosts',
+                    'nodes'
+                ],
+                properties: {
+                    hosts: {
+                        type: 'integer'
+                    },
+                    nodes: {
+                        type: 'integer'
                     }
                 }
             },

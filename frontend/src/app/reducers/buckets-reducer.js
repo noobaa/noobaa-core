@@ -64,12 +64,12 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         data: _mapData(data),
         quota: _mapQuota(quota_status, quota),
         objectCount: bucket.num_objects,
-        resiliencyDriveCountMetric: bucket.num_of_nodes,
         cloudSync: _mapCloudSync(cloud_sync),
         undeletable: bucket.undeletable,
         placement: _mapPlacement(placement_status, placementTiers[0], resTypeByName, resUsageByName),
         resiliency: _mapResiliency(resiliency_status, placementTiers[0]),
         spillover: _mapSpillover(spillover_status, spilloverTiers[0], resTypeByName, resUsageByName),
+        failureTolerance: _mapFailureTolerance(bucket),
         io: _mapIO(stats),
         triggers: _mapTriggers(triggers)
     };
@@ -175,6 +175,12 @@ function _mapSpillover(mode, tier, typeByName, usageByName) {
     const usage = usageByName[name] || 0;
     return { type, name, mode, mirrorSet, usage };
 }
+
+function _mapFailureTolerance(bucket) {
+    const { host_tolerance: hosts, node_tolerance: nodes } = bucket;
+    return { hosts, nodes };
+}
+
 
 function _mapIO(stats = {}) {
     const { reads = 0, writes = 0, last_read = -1, last_write = -1 } = stats;

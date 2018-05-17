@@ -12,7 +12,8 @@ import ko from 'knockout';
 import {
     openEmptyBucketPlacementWarningModal,
     updateBucketPlacementPolicy,
-    updateForm
+    updateForm,
+    closeModal
 } from 'action-creators';
 
 const formName = 'editBucketPlacement';
@@ -35,8 +36,12 @@ const columns = deepFreeze([
         name: 'name'
     },
     {
-        name: 'onlineHostCount',
-        label: 'Online Nodes'
+        name: 'healthyHosts',
+        label: 'Healthy Nodes in Pool'
+    },
+    {
+        name: 'healthyNodes',
+        label: 'Healthy Drives on Nodes'
     },
     {
         name: 'usage',
@@ -60,22 +65,22 @@ const resourceCompareFunc = createCompareFunc(record => {
 }, 1);
 
 class EditBucketPlacementModalViewModel extends Observer {
-    constructor({ bucketName, onClose }) {
+    columns = columns;
+    bucketName = '';
+    tierName = '';
+    isFormInitialized = ko.observable();
+    form = null;
+    rows = ko.observableArray();
+    allResourceNames = [];
+    isMixedPolicy = false;
+    isPolicyRisky = false;
+    spilloverResource = '';
+    selectableResourceIds = [];
+
+    constructor({ bucketName }) {
         super();
 
-        this.close = onClose;
-        this.columns = columns;
         this.bucketName = ko.unwrap(bucketName);
-        this.tierName = '';
-        this.isFormInitialized = ko.observable();
-        this.form = null;
-        this.rows = ko.observableArray();
-        this.allResourceNames = [];
-        this.isMixedPolicy = false;
-        this.isPolicyRisky = false;
-        this.spilloverResource = '';
-        this.selectableResourceIds = [];
-
         this.observe(
             state$.pipe(
                 getMany(
@@ -85,11 +90,11 @@ class EditBucketPlacementModalViewModel extends Observer {
                     ['forms', formName]
                 )
             ),
-            this.onBucket
+            this.onState
         );
     }
 
-    onBucket([ bucket, hostPools, cloudResources, form ]) {
+    onState([ bucket, hostPools, cloudResources, form ]) {
         if (!bucket) {
             this.isFormInitialized(false);
             return;
@@ -115,6 +120,10 @@ class EditBucketPlacementModalViewModel extends Observer {
             onToggle: this.onToggleResource.bind(this)
         };
 
+        const selectableResourceIds = resourceList
+            .filter(pair => pair.resource.name !== spilloverResource)
+            .map(pair => ({ type: pair.type, name: pair.resource.name }));
+
         const rows = resourceList
             .sort(resourceCompareFunc)
             .map((pair, i) => {
@@ -124,10 +133,7 @@ class EditBucketPlacementModalViewModel extends Observer {
             });
 
         this.spilloverResource = spilloverResource;
-        this.selectableResourceIds = resourceList
-            .filter(pair => pair.resource.name !== spilloverResource)
-            .map(pair => ({ type: pair.type, name: pair.resource.name }));
-
+        this.selectableResourceIds = selectableResourceIds;
         this.rows(rows);
 
         if (!form) {
@@ -169,7 +175,7 @@ class EditBucketPlacementModalViewModel extends Observer {
     }
 
     onCancel() {
-        this.close();
+        action$.next(closeModal());
     }
 
     onValidate(values) {
@@ -190,8 +196,6 @@ class EditBucketPlacementModalViewModel extends Observer {
     }
 
     onSubmit(values) {
-        this.close();
-
         let action = updateBucketPlacementPolicy(
             this.bucketName,
             this.tierName,
@@ -204,6 +208,7 @@ class EditBucketPlacementModalViewModel extends Observer {
         }
 
         action$.next(action);
+        action$.next(closeModal());
     }
 
     dispose(){

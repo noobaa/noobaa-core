@@ -6,21 +6,20 @@
 
 <div class="row summary" ko.css.visible="poolLoaded">
     <section class="c3 column borders pad">
-        <p class="row heading3 content-middle">
+        <p class="greedy row heading3 content-middle">
             <svg-icon class="push-next" ko.css="state().css" params="name: state().name"></svg-icon>
             {{state().tooltip}}
         </p>
         <hr />
-        <div class="row greedy content-middle">
-            <div class="greedy ">
-                <chart-legend class="host-counters" params="items: hostCounters"></chart-legend>
-            </div>
-            <vr></vr>
-            <div class="greedy align-middle text-center">
-                <p class="host-count" ko.text="hostCount"></p>
-                <p> Nodes</p>
-            </div>
-        </div>
+        <p class="greedy row content-middle">
+            <span class="greedy push-next">Total Nodes in Pool</span>
+            <span>{{hostCount}}</span>
+        </p>
+        <hr />
+        <p class="greedy row content-middle">
+            <span class="greedy push-next">Drives on Nodes</span>
+            <span>{{driveCount}}</span>
+        </p>
     </section>
 
     <section class="c6 column push-both">

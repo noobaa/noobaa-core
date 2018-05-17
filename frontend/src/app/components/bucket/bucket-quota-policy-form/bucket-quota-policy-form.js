@@ -3,6 +3,7 @@
 import template from './bucket-quota-policy-form.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
+import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { formatSize, fromBigInteger, toBigInteger } from 'utils/size-utils';
 import { getQuotaValue, getQuotaStateIcon } from 'utils/bucket-utils';
@@ -12,6 +13,15 @@ import * as routes from 'routes';
 import { requestLocation, openEditBucketQuotaModal } from 'action-creators';
 
 const policyName = 'quota';
+
+const disabledIcon = deepFreeze({
+    name: 'healthy',
+    css: 'disabled',
+    tooltip: {
+        text: 'Disabled',
+        align: 'start'
+    }
+});
 
 class BucketQuotaPolicyFormViewModel extends Observer {
     bucket = '';
@@ -58,7 +68,7 @@ class BucketQuotaPolicyFormViewModel extends Observer {
         this.isExpanded(section === policyName);
 
         if (!buckets || !buckets[bucket]) {
-            this.stateIcon({});
+            this.stateIcon(disabledIcon);
             this.quotaStateText('Disabled');
             this.summary('');
             return;
@@ -76,7 +86,10 @@ class BucketQuotaPolicyFormViewModel extends Observer {
         const { quota, data } = buckets[bucket];
         if (quota) {
             const quotaSize = getQuotaValue(quota);
-            const dataLeftUntilQuota = fromBigInteger(toBigInteger(quotaSize).subtract(data.size));
+            const dataLeftUntilQuota = Math.max(
+                0,
+                fromBigInteger(toBigInteger(quotaSize).subtract(data.size))
+            );
 
             this.isQuotaDisabled(false);
             this.stateIcon(getQuotaStateIcon(quota.mode));
@@ -87,7 +100,7 @@ class BucketQuotaPolicyFormViewModel extends Observer {
 
         } else {
             this.isQuotaDisabled(true);
-            this.stateIcon({ name: 'healthy', css: 'disabled' });
+            this.stateIcon(disabledIcon);
             this.summary('Limit not set');
             this.quotaStateText('Disabled');
             this.quotaSize('Not set');

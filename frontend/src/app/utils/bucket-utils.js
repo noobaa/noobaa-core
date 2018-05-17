@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isUndefined } from './core-utils';
+import { deepFreeze, isUndefined, mapValues, sumBy } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
 import { stringifyAmount, pluralize } from 'utils/string-utils';
 
 const bucketStateToIcon = deepFreeze({
     NO_RESOURCES: {
-        tooltip: 'No available resources',
+        tooltip: 'No storage resources',
         css: 'error',
         name: 'problem'
     },
@@ -56,7 +56,7 @@ const bucketStateToIcon = deepFreeze({
         name: 'working'
     },
     SPILLOVER_NO_RESOURCES: {
-        tooltip: 'No available resources - using spillover',
+        tooltip: 'No storage resources - using spillover',
         css: 'warning',
         name: 'problem'
     },
@@ -300,6 +300,16 @@ export function getQuotaValue(quota) {
 
 export function isBucketWritable(bucket) {
     return writableStates.includes(bucket.mode);
+}
+
+export function countStorageNodesByMirrorSet(placement, hostPools) {
+    return mapValues(
+        placement.mirrorSets,
+        ms => sumBy(
+            ms.resources,
+            res => res.type === 'HOSTS' ? hostPools[res.name].storageNodeCount : Infinity
+        )
+    );
 }
 
 export function summrizeResiliency(resiliency) {

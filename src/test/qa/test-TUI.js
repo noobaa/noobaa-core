@@ -1,14 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
 const util = require('util');
+const P = require('../../util/promise');
+const Report = require('../framework/report');
 const child_process = require('child_process');
 const argv = require('minimist')(process.argv);
 const server_ops = require('../utils/server_functions');
-const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
-dbg.set_process_name('TUI');
+
+const test_name = 'TUI';
+dbg.set_process_name(test_name);
 let secret;
 let expectFail = false;
 let isSystemStarted = true;
@@ -49,9 +51,13 @@ if (help) {
 }
 
 //define colors
+const NC = "\x1b[0m";
 const YELLOW = "\x1b[33;1m";
 //const RED = "\x1b[31m";
-const NC = "\x1b[0m";
+
+let report = new Report();
+
+report.init_reporter({ suite: test_name });
 
 //class Expect, should move to a util.
 class Expect {
@@ -157,224 +163,233 @@ function strip_ansi_escape_codes(str) {
         .replace(/^\s*$/gm, '');
 }
 
+async function expect_and_send(e, expect, send, delay = 0, timeout = undefined) {
+    await e.expect(expect, timeout);
+    if (delay !== 0) {
+        await P.delay(delay * 1000);
+    }
+    await e.send(send);
+}
+
 //if system already started then expecting the "override the previous configuration" text
-function expect_override_conf(e, timeout) {
+async function expect_override_conf(e, timeout) {
     if (isSystemStarted) {
-        return P.resolve()
-            .then(() => e.expect('Are you sure you wish to override the previous configuration', timeout))
-            .delay(5 * 1000)
-            .then(() => e.send('y'));
-    } else {
-        return P.resolve();
+        await expect_and_send(e, 'Are you sure you wish to override the previous configuration', 'y', 5, timeout);
     }
 }
 
-function expect_an_error_and_get_back(e, errorMassage, timeout) {
-    return P.resolve()
-        .then(() => e.expect(errorMassage, timeout))
-        .delay(5 * 1000)
-        .then(() => e.send(`${SHIFTTAB}\r`));
+async function expect_an_error_and_get_back(e, errorMassage, timeout) {
+    await expect_and_send(e, errorMassage, `${SHIFTTAB}\r`, 5, timeout);
 }
 
-function expect_a_resoult_and_get_back(e, text, timeout) {
-    // console.log('expect_a_resoult_and_get_back:: text: ' + text);
-    return P.resolve()
-        .then(() => e.expect(text, timeout))
-        .delay(5 * 1000)
-        .then(() => e.send(`${SHIFTTAB}\r`));
+async function expect_a_resoult_and_get_back(e, text, timeout) {
+    await expect_and_send(e, text, `${SHIFTTAB}\r`, 5, timeout);
 }
 
-function login_logout() {
+async function login_logout() {
     const e = new Expect({
         output: data => console.log(
             strip_ansi_from_output ? strip_ansi_escape_codes(data.toString()) : data.toString()
         )
     });
 
-    return P.resolve()
-        .then(() => e.spawn('ssh', ['-t', '-t', '-o', `StrictHostKeyChecking=no`, '-o', `ServerAliveInterval=60`, `noobaa@${server_ip}`]))
-        .delay(1 * 1000)
-        .then(() => e.end())
-        .catch(err => {
-            console.error('FAILED', err);
-            process.exit(1);
-        });
+    try {
+        await e.spawn('ssh', ['-t', '-t', '-o', `StrictHostKeyChecking=no`, '-o', `ServerAliveInterval=60`, `noobaa@${server_ip}`]);
+        await P.delay(1 * 1000);
+        await e.end();
+    } catch (err) {
+        throw new Error('FAILED', err);
+    }
+}
+
+function ntp_Configuration_parameters(configureTZ, reachable) {
+    //runing with or without TZ
+    const ntp_parameters = {
+        ntpString: '',
+        toExpect: '',
+        expectFail: false,
+        to_report: ''
+    };
+    if (Math.floor(Math.random() * 5) === 0) {
+        ntp_parameters.expectFail = true;
+        ntp_parameters.ntpString = `${DELETE}${DOWN}${DELETE}Asia/Jerusalem\r`;
+        ntp_parameters.to_report = `NTP_only_TZ`;
+    } else if (configureTZ && reachable) {
+        console.log('Configuring reachable NTP with TZ');
+        ntp_parameters.ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}Asia/Jerusalem\r`;
+        ntp_parameters.toExpect = 'pool.ntp.org';
+        ntp_parameters.to_report = `NTP_reachable_with_TZ`;
+    } else if (!configureTZ && reachable) {
+        console.log('Configuring reachable NTP without TZ');
+        ntp_parameters.ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}\r`;
+        ntp_parameters.toExpect = 'pool.ntp.org';
+        ntp_parameters.to_report = `NTP_reachable_without_TZ`;
+    } else if (configureTZ && !reachable) {
+        console.log('Configuring unreachable NTP with TZ');
+        ntp_parameters.ntpString = `${DELETE}unreachable${DOWN}${DELETE}Asia/Jerusalem\r`;
+        ntp_parameters.toExpect = 'unreachable';
+        ntp_parameters.to_report = `NTP_unreachable_with_TZ`;
+    } else if (configureTZ && !reachable) {
+        console.log('Configuring unreachable NTP without TZ');
+        ntp_parameters.ntpString = `${DELETE}unreachable${DOWN}${DELETE}\r`;
+        ntp_parameters.toExpect = 'unreachable';
+        ntp_parameters.to_report = `NTP_unreachable_without_TZ`;
+    } else {
+        //making sure that we are not missing states... 
+        console.log('Configuring reachable NTP with TZ');
+        ntp_parameters.ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}Asia/Jerusalem\r`;
+        ntp_parameters.toExpect = 'pool.ntp.org';
+        ntp_parameters.to_report = `NTP_reachable_with_TZ`;
+    }
+    return ntp_parameters;
 }
 
 //this function will run NTP configuration from the TUI
-function ntp_Configuration(configureTZ = true, reachable = true) {
+async function ntp_Configuration(configureTZ = true, reachable = true) {
     const e = new Expect({
         output: data => console.log(
             strip_ansi_from_output ? strip_ansi_escape_codes(data.toString()) : data.toString()
         )
     });
 
-    //runing with or without TZ
-    let ntpString;
-    let toExpect;
-    expectFail = false;
-    if (Math.floor(Math.random() * 5) === 0) {
-        expectFail = true;
-        ntpString = `${DELETE}${DOWN}${DELETE}Asia/Jerusalem\r`;
-    } else if (configureTZ && reachable) {
-        console.log('Configuring reachable NTP with TZ');
-        ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}Asia/Jerusalem\r`;
-        toExpect = 'pool.ntp.org';
-    } else if (!configureTZ && reachable) {
-        console.log('Configuring reachable NTP without TZ');
-        ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}\r`;
-        toExpect = 'pool.ntp.org';
-    } else if (configureTZ && !reachable) {
-        console.log('Configuring unreachable NTP with TZ');
-        ntpString = `${DELETE}unreachable${DOWN}${DELETE}Asia/Jerusalem\r`;
-        toExpect = 'unreachable';
-    } else if (configureTZ && !reachable) {
-        console.log('Configuring unreachable NTP without TZ');
-        ntpString = `${DELETE}unreachable${DOWN}${DELETE}\r`;
-        toExpect = 'unreachable';
-    } else {
-        //making sure that we are not missing states... 
-        console.log('Configuring reachable NTP with TZ');
-        ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}Asia/Jerusalem\r`;
-        toExpect = 'pool.ntp.org';
+    const ntp_parameters = ntp_Configuration_parameters(configureTZ, reachable);
+    try {
+        await e.spawn('ssh', sshOptions);
+        await expect_override_conf(e, 120 * 1000);
+        await expect_and_send(e, 'This is a short first install wizard', '\r');
+        await expect_and_send(e, 'NTP Configuration', `2\r`);
+        await expect_and_send(e, 'Please supply an NTP server address and Time Zone', `${ntp_parameters.ntpString}\r`);
+        await P.delay(30 * 1000);
+        if (ntp_parameters.expectFail) {
+            await expect_an_error_and_get_back(e, 'NTP Server must be set', 120 * 1000);
+        } else {
+            await expect_and_send(e, 'NTP Configuration', `2\r`);
+            await expect_a_resoult_and_get_back(e, ntp_parameters.toExpect, 120 * 1000);
+        }
+        await expect_and_send(e, '6*Exit', '6\r', 1);
+        await P.delay(5 * 1000);
+        await e.expect('was configured and is ready to use', 120 * 1000);
+        await P.delay(1 * 1000);
+        await e.end();
+        await report.success(ntp_parameters.to_report);
+    } catch (err) {
+        await report.fail(ntp_parameters.to_report);
+        throw new Error('FAILED', err);
     }
-
-    return P.resolve()
-        .then(() => e.spawn('ssh', sshOptions))
-        .then(() => expect_override_conf(e, 120 * 1000))
-        .then(() => e.expect('This is a short first install wizard'))
-        .then(() => e.send('\r'))
-        .then(() => e.expect('NTP Configuration'))
-        .then(() => e.send(`2\r`))
-        .then(() => e.expect('Please supply an NTP server address and Time Zone'))
-        .then(() => e.send(`${ntpString}\r`))
-        .delay(30 * 1000)
-        .then(() => {
-            if (expectFail) {
-                return expect_an_error_and_get_back(e, 'NTP Server must be set', 120 * 1000);
-            } else {
-                return e.expect('NTP Configuration')
-                    .then(() => e.send(`2\r`))
-                    .then(() => expect_a_resoult_and_get_back(e, toExpect, 120 * 1000));
-            }
-        })
-        .then(() => e.expect('6*Exit'))
-        .delay(1 * 1000)
-        .then(() => e.send('6\r'))
-        .delay(5 * 1000)
-        .then(() => e.expect('was configured and is ready to use', 120 * 1000))
-        .delay(1 * 1000)
-        .then(() => e.end())
-        .catch(err => {
-            console.error('FAILED', err);
-            process.exit(1);
-        });
 }
 
-//this function will run DNS configuration from the TUI
-function dns_Configuration(configurePrimary = true, configureSecondary = true, reachablePrimaryDns = true, reachableSecondaryDns = true) {
-    const e = new Expect({
-        output: data => console.log(
-            strip_ansi_from_output ? strip_ansi_escape_codes(data.toString()) : data.toString()
-        )
-    });
-
+function dns_Configuration_parameters(configurePrimary, configureSecondary, reachablePrimaryDns, reachableSecondaryDns) {
     //runing with or without Secondary and wit or without valid ip
-    let dnsString;
-    let toExpect;
-    expectFail = false;
+    const dns_parameters = {
+        dnsString: '',
+        toExpect: '',
+        expectFail: false,
+        to_report: ''
+    };
     if (Math.floor(Math.random() * 9) === 0) {
-        expectFail = true;
+        dns_parameters.expectFail = true;
         if (Math.floor(Math.random() * 2) === 0) {
             console.log('Configuring primary DNS ip with wrong ip format');
-            dnsString = `${DELETE}8,8.8.8${DOWN}${DELETE}\r`;
+            dns_parameters.dnsString = `${DELETE}8,8.8.8${DOWN}${DELETE}\r`;
+            dns_parameters.to_report = `DNS_primary_unvalid`;
         } else {
             console.log('Configuring secondary DNS ip with wrong ip format');
-            dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8,8.4.4\r`;
-            toExpect = '8.8.8.8';
+            dns_parameters.dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8,8.4.4\r`;
+            dns_parameters.toExpect = '8.8.8.8';
+            dns_parameters.to_report = `DNS_primary_reachable`;
         }
     } else if (configurePrimary && configureSecondary && reachablePrimaryDns && reachableSecondaryDns) {
         console.log('Configuring reachable Primary DNS with reachable Secondary DNS');
-        dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8.8.4.4\r`;
-        toExpect = '8.8.8.8';
+        dns_parameters.dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8.8.4.4\r`;
+        dns_parameters.toExpect = '8.8.8.8';
+        dns_parameters.to_report = `DNS_primary_reachable`;
     } else if (configurePrimary && configureSecondary && !reachablePrimaryDns && !reachableSecondaryDns) {
         console.log('Configuring unreachable Primary DNS with unreachable Secondary DNS');
-        dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}1.1.4.4\r`;
-        toExpect = '1.1.1.1';
+        dns_parameters.dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}1.1.4.4\r`;
+        dns_parameters.toExpect = '1.1.1.1';
+        dns_parameters.to_report = `DNS_secondary_unreachable`;
     } else if (configurePrimary && configureSecondary && !reachablePrimaryDns && reachableSecondaryDns) {
         console.log('Configuring unreachable Primary DNS with reachable Secondary DNS');
-        dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}8.8.4.4\r`;
-        toExpect = '1.1.1.1';
+        dns_parameters.dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}8.8.4.4\r`;
+        dns_parameters.toExpect = '1.1.1.1';
+        dns_parameters.to_report = `DNS_primary_unreachable`;
     } else if (configurePrimary && configureSecondary && reachablePrimaryDns && !reachableSecondaryDns) {
         console.log('Configuring reachable Primary DNS with unreachable Secondary DNS');
-        dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}1.1.4.4\r`;
-        toExpect = '8.8.8.8';
+        dns_parameters.dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}1.1.4.4\r`;
+        dns_parameters.toExpect = '8.8.8.8';
+        dns_parameters.to_report = `DNS_secondary_unreachable`;
     } else if (configurePrimary && !configureSecondary && reachablePrimaryDns) {
         console.log('Configuring reachable Primary DNS without Secondary DNS');
-        dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}\r`;
-        toExpect = '8.8.8.8';
+        dns_parameters.dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}\r`;
+        dns_parameters.toExpect = '8.8.8.8';
+        dns_parameters.to_report = `DNS_primary_reachable`;
     } else if (configurePrimary && !configureSecondary && !reachablePrimaryDns) {
         console.log('Configuring unreachable Primary DNS without Secondary DNS');
-        dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}\r`;
-        toExpect = '1.1.1.1';
+        dns_parameters.dnsString = `${DELETE}1.1.1.1${DOWN}${DELETE}\r`;
+        dns_parameters.toExpect = '1.1.1.1';
+        dns_parameters.to_report = `DNS_primary_unreachable`;
     } else if (!configurePrimary && configureSecondary && reachableSecondaryDns) {
-        expectFail = true;
+        dns_parameters.expectFail = true;
         console.log('Configuring reachable Secondary DNS without Primary DNS');
-        dnsString = `${DELETE}${DOWN}8.8.8.8${DELETE}\r`;
+        dns_parameters.dnsString = `${DELETE}${DOWN}8.8.8.8${DELETE}\r`;
+        dns_parameters.to_report = `DNS_primary_empty`;
     } else if (!configurePrimary && configureSecondary && !reachableSecondaryDns) {
-        expectFail = true;
+        dns_parameters.expectFail = true;
         console.log('Configuring unreachable Secondary DNS without Primary DNS');
-        dnsString = `${DELETE}${DOWN}1.1.1.1${DELETE}\r`;
+        dns_parameters.dnsString = `${DELETE}${DOWN}1.1.1.1${DELETE}\r`;
+        dns_parameters.to_report = `DNS_primary_empty`;
     } else {
         //making sure that we are not missing states... 
         console.log('Configuring reachable Primary DNS with reachable Secondary DNS');
-        dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8.8.4.4\r`;
-        toExpect = '8.8.8.8';
+        dns_parameters.dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8.8.4.4\r`;
+        dns_parameters.toExpect = '8.8.8.8';
+        dns_parameters.to_report = `DNS_primary_reachable`;
     }
+    return dns_parameters;
+}
 
-    return P.resolve()
-        .then(() => e.spawn('ssh', sshOptions))
-        .delay(10 * 1000)
-        .then(() => expect_override_conf(e, 120 * 1000))
-        .then(() => e.expect('This is a short first install wizard'))
-        .then(() => e.send('\r'))
-        .then(() => e.expect('Networking Configuration'))
-        .then(() => e.send(`1\r`))
-        .then(() => e.expect('DNS Settings'))
-        .then(() => e.send(`2\r`))
-        .then(() => e.expect('Please supply a primary and secondary DNS servers'))
-        .then(() => e.send(`${dnsString}\r`))
-        .delay(30 * 1000)
-        .then(() => {
-            if (expectFail) {
-                return expect_an_error_and_get_back(e, 'DNS server is not valid', 120 * 1000);
-            } else {
-                return e.expect('DNS Settings', 120 * 1000)
-                    .then(() => e.send(`2\r`))
-                    .then(() => expect_a_resoult_and_get_back(e, toExpect, 120 * 1000));
-            }
-        })
-        .then(() => e.expect('4*Exit'))
-        .delay(1 * 1000)
-        .then(() => e.send('4\r'))
-        .delay(5 * 1000)
-        .then(() => e.expect('6*Exit'))
-        .delay(1 * 1000)
-        .then(() => e.send('6\r'))
-        .delay(5 * 1000)
-        .then(() => e.expect('was configured and is ready to use'))
-        .delay(1 * 1000)
-        .then(() => e.send('\r'))
-        .delay(5 * 1000)
-        .then(() => e.end())
-        .catch(err => {
-            console.error('FAILED', err);
-            process.exit(1);
-        });
+//this function will run DNS configuration from the TUI
+async function dns_Configuration(configurePrimary = true, configureSecondary = true,
+    reachablePrimaryDns = true, reachableSecondaryDns = true) {
+    const e = new Expect({
+        output: data => console.log(
+            strip_ansi_from_output ? strip_ansi_escape_codes(data.toString()) : data.toString()
+        )
+    });
+
+    const dns_parameters = dns_Configuration_parameters(configurePrimary, configureSecondary,
+        reachablePrimaryDns, reachableSecondaryDns);
+    try {
+        await e.spawn('ssh', sshOptions);
+        await P.delay(10 * 1000);
+        await expect_override_conf(e, 120 * 1000);
+        await expect_and_send(e, 'This is a short first install wizard', '\r');
+        await expect_and_send(e, 'Networking Configuration', `1\r`);
+        await expect_and_send(e, 'DNS Settings', `2\r`);
+        await expect_and_send(e, 'Please supply a primary and secondary DNS servers', `${dns_parameters.dnsString}\r`);
+        await P.delay(30 * 1000);
+        if (dns_parameters.expectFail) {
+            await expect_an_error_and_get_back(e, 'DNS server is not valid', 120 * 1000);
+        } else {
+            await expect_and_send(e, 'DNS Settings', `2\r`, 0, 120 * 1000);
+            await expect_a_resoult_and_get_back(e, dns_parameters.toExpect, 120 * 1000);
+        }
+        await expect_and_send(e, '4*Exit', '4\r', 1);
+        await P.delay(5 * 1000);
+        await expect_and_send(e, '6*Exit', '6\r', 1);
+        await P.delay(5 * 1000);
+        await expect_and_send(e, 'was configured and is ready to use', '\r', 1);
+        await P.delay(5 * 1000);
+        await e.end();
+        await report.success(dns_parameters.to_report);
+    } catch (err) {
+        await report.fail(dns_parameters.to_report);
+        throw new Error('FAILED', err);
+    }
 }
 
 //this function will set hostname
-function hostname_Settings() {
+async function hostname_Settings() {
     const e = new Expect({
         output: data => console.log(
             strip_ansi_from_output ? strip_ansi_escape_codes(data.toString()) : data.toString()
@@ -383,77 +398,61 @@ function hostname_Settings() {
 
     //setting empty or valid hostname.
     let hostname;
+    let to_report;
     expectFail = false;
     if ((Math.floor(Math.random() * 2)) === 0) {
         hostname = 'noobaa-TUI';
+        to_report = 'set_valid_hostname_dialog';
     } else {
         expectFail = true;
         hostname = '';
+        to_report = 'set_empty_hostname_dialog';
     }
-
-    return P.resolve()
-        .then(() => e.spawn('ssh', sshOptions))
-        .then(() => expect_override_conf(e, 120 * 1000))
-        .then(() => e.expect('This is a short first install wizard'))
-        .then(() => e.send('\r'))
-        .then(() => e.expect('Networking Configuration'))
-        .delay(1 * 1000)
-        .then(() => e.send(`1\r`))
-        .then(() => e.expect('Hostname Settings'))
-        .delay(1 * 1000)
-        .then(() => e.send(`3\r`))
-        .then(() => e.expect('Please supply a hostname for this'))
-        .then(() => e.send(`${DELETE}${hostname}\r`))
-        .delay(30 * 1000)
-        .then(() => {
-            if (expectFail) {
-                return P.resolve();
-            } else {
-                // console.log('Verifing Hostname results');
-                return e.expect('Hostname Settings')
-                    .then(() => e.send(`3\r`))
-                    .then(() => expect_a_resoult_and_get_back(e, hostname, 120 * 1000));
-            }
-        })
-        .then(() => e.expect('4*Exit'))
-        .delay(1 * 1000)
-        .then(() => e.send('4\r'))
-        .delay(5 * 1000)
-        .then(() => e.expect('6*Exit'))
-        .delay(1 * 1000)
-        .then(() => e.send('6\r'))
-        .delay(5 * 1000)
-        .then(() => e.expect('was configured and is ready to use'))
-        .delay(1 * 1000)
-        .then(() => e.send('\r'))
-        .delay(5 * 1000)
-        .then(() => e.end())
-        .catch(err => {
-            console.error('FAILED', err);
-            process.exit(1);
-        });
+    try {
+        await e.spawn('ssh', sshOptions);
+        await expect_override_conf(e, 120 * 1000);
+        await expect_and_send(e, 'This is a short first install wizard', '\r');
+        await expect_and_send(e, 'Networking Configuration', `1\r`, 1);
+        await expect_and_send(e, 'Hostname Settings', `3\r`, 1);
+        await expect_and_send(e, 'Please supply a hostname for this', `${DELETE}${hostname}\r`);
+        await P.delay(30 * 1000);
+        if (!expectFail) {
+            await expect_and_send(e, 'Hostname Settings', `3\r`);
+            await expect_a_resoult_and_get_back(e, hostname, 120 * 1000);
+        }
+        await expect_and_send(e, '4*Exit', '4\r', 1);
+        await P.delay(5 * 1000);
+        await expect_and_send(e, '6*Exit', '6\r', 1);
+        await P.delay(5 * 1000);
+        await expect_and_send(e, 'was configured and is ready to use', '\r', 1);
+        await P.delay(5 * 1000);
+        await e.end();
+        await report.success(to_report);
+    } catch (err) {
+        await report.fail(to_report);
+        throw new Error('FAILED', err);
+    }
 }
 
-function authenticate() {
-    return P.fcall(() => client.create_auth_token({
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        }))
-        .then(() => client.system.read_system({}))
-        .then(result => {
-            secret = result.cluster.shards[0].servers[0].secret;
-            console.log('Secret is ' + secret);
-        })
-        .then(() => rpc.disconnect_all());
+async function authenticate() {
+    await client.create_auth_token({
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    });
+    const system_info = await client.system.read_system({});
+    secret = system_info.cluster.shards[0].servers[0].secret;
+    console.log('Secret is ' + secret);
+    rpc.disconnect_all();
 }
 
-return authenticate()
-    .then(() => server_ops.set_first_install_mark(server_ip, secret))
-    .then(() => server_ops.enable_nooba_login(server_ip, secret))
-    //will loop twice, one with system and the other without.
-    .then(() => promise_utils.loop(cycles, cycle => P.resolve()
-        .then(() => {
+async function main() {
+    try {
+        await authenticate();
+        await server_ops.set_first_install_mark(server_ip, secret);
+        await server_ops.enable_nooba_login(server_ip, secret);
+        //will loop twice, one with system and the other without.
+        for (let cycle = 0; cycle < cycles; ++cycle) {
             console.log(`${YELLOW}Starting cycle numer: ${cycle}${NC}`);
             if (cycle % 2 > 0) {
                 console.log(`Running cycle without system`);
@@ -461,48 +460,43 @@ return authenticate()
                 // clea_ova does not delete /etc/first_install.mrk on platform other then esx
                 // system is always consider started. 
                 //isSystemStarted = false;
-                return server_ops.clean_ova(server_ip, secret, true)
-                    .then(() => server_ops.wait_server_recoonect(server_ip))
-                    .then(() => {
-                        rpc = api.new_rpc(`wss://${server_ip}:8443`);
-                        client = rpc.new_client({});
-                    });
+                await server_ops.clean_ova(server_ip, secret, true);
+                await server_ops.wait_server_recoonect(server_ip);
+                rpc = api.new_rpc(`wss://${server_ip}:8443`);
+                client = rpc.new_client({});
             } else {
                 console.log(`Running cycle with System pre-configured`);
-                return P.resolve()
-                    .then(() => {
-                        rpc = api.new_rpc(`wss://${server_ip}:8443`);
-                        client = rpc.new_client({});
-                    })
-                    .then(authenticate);
+                rpc = api.new_rpc(`wss://${server_ip}:8443`);
+                client = rpc.new_client({});
+                await authenticate();
             }
-        })
-        //running the main flow
-        .then(login_logout)
-        .then(() => {
+            //running the main flow
+            await login_logout();
             const configureTZ = Boolean(Math.floor(Math.random() * 2));
-            return ntp_Configuration(configureTZ, false)
-                .then(() => ntp_Configuration(configureTZ))
-                .then(ntp_Configuration)
-                .then(() => {
-                    const configurePrimary = Boolean(Math.floor(Math.random() * 2));
-                    const configureSecondary = Boolean(Math.floor(Math.random() * 2));
-                    const reachablePrimaryDns = Boolean(Math.floor(Math.random() * 2));
-                    const reachableSecondaryDns = Boolean(Math.floor(Math.random() * 2));
-                    return dns_Configuration(configurePrimary, configureSecondary, reachablePrimaryDns, reachableSecondaryDns);
-                })
-                .then(dns_Configuration)
-                .then(hostname_Settings);
-        })
-        .then(() => {
+            await ntp_Configuration(configureTZ, false);
+            await ntp_Configuration(configureTZ);
+            await ntp_Configuration();
+            const configurePrimary = Boolean(Math.floor(Math.random() * 2));
+            const configureSecondary = Boolean(Math.floor(Math.random() * 2));
+            const reachablePrimaryDns = Boolean(Math.floor(Math.random() * 2));
+            const reachableSecondaryDns = Boolean(Math.floor(Math.random() * 2));
+            await dns_Configuration(configurePrimary, configureSecondary, reachablePrimaryDns, reachableSecondaryDns);
+            await dns_Configuration();
+            await hostname_Settings();
             if (cycle % 2 > 0) {
-                return server_ops.validate_activation_code(server_ip)
-                    .then(() => server_ops.create_system_and_check(server_ip));
+                await server_ops.validate_activation_code(server_ip);
+                await server_ops.create_system_and_check(server_ip);
             }
-            return P.resolve();
-        })
-    ))
-    .then(() => {
+        }
         console.log(`Everything finished with success!`);
+        await report.print_report();
         process.exit(0);
-    });
+    } catch (err) {
+        console.error('TUI got an error:', err);
+        await report.print_report();
+        process.exit(1);
+    }
+}
+
+P.resolve()
+    .then(main);

@@ -409,7 +409,7 @@ function _check_disk_space() {
     if (server_conf.heartbeat &&
         server_conf.heartbeat.health &&
         server_conf.heartbeat.health.storage &&
-        server_conf.heartbeat.health.storage.free < 1000 * 1024 * 1024 * 1024) {
+        server_conf.heartbeat.health.storage.free < 10 * 1024 * 1024 * 1024) { // Free is lower than 10GB
         Dispatcher.instance().alert('MAJOR',
             system_store.data.systems[0]._id,
             `Server is running low on disk space, it is recommended to increase the disk size of the VM and then perform the 

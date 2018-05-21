@@ -97,6 +97,7 @@ export default {
                             'NOT_ENOUGH_HEALTHY_RESOURCES',
                             'NO_CAPACITY',
                             'RISKY_TOLERANCE',
+                            'SPILLING_BACK',
                             'LOW_CAPACITY',
                             'DATA_ACTIVITY',
                             'OPTIMAL'

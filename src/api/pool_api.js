@@ -422,6 +422,9 @@ module.exports = {
                 storage_nodes: {
                     $ref: 'node_api#/definitions/nodes_aggregate_info'
                 },
+                s3_nodes: {
+                    $ref: 'node_api#/definitions/nodes_aggregate_info'
+                },
                 hosts: {
                     type: 'object',
                     properties: {

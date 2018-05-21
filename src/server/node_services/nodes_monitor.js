@@ -2926,10 +2926,13 @@ class NodesMonitor extends EventEmitter {
     _aggregate_nodes_list(list) {
         let count = 0;
         let storage_count = 0;
+        let s3_count = 0;
         let online = 0;
         let storage_online = 0;
+        let s3_online = 0;
         const by_mode = {};
         const storage_by_mode = {};
+        const s3_by_mode = {};
         let storage = {
             total: 0,
             free: 0,
@@ -2941,7 +2944,11 @@ class NodesMonitor extends EventEmitter {
         const data_activities = {};
         _.each(list, item => {
             count += 1;
-            if (item.node.node_type !== 'ENDPOINT_S3') {
+            if (item.node.node_type === 'ENDPOINT_S3') {
+                s3_count += 1;
+                s3_by_mode[item.mode] = (s3_by_mode[item.mode] || 0) + 1;
+                if (item.online) s3_online += 1;
+            } else {
                 storage_count += 1;
                 storage_by_mode[item.mode] = (storage_by_mode[item.mode] || 0) + 1;
                 if (item.online) storage_online += 1;
@@ -2986,6 +2993,11 @@ class NodesMonitor extends EventEmitter {
                 count: storage_count,
                 online: storage_online,
                 by_mode: storage_by_mode,
+            },
+            s3_nodes: {
+                count: s3_count,
+                online: s3_online,
+                by_mode: s3_by_mode,
             },
             storage: storage,
             data_activities: _.map(data_activities, a => {

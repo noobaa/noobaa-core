@@ -241,7 +241,7 @@ config.USAGE_AGGREGATOR_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
 ///////////////////
 config.AWS_METERING_ENABLED = true;
 config.AWS_METERING_INTERVAL = 60 * 60 * 1000; // 1 hour
-config.AWS_METERING_USAGE_DIMENSION = 'NooBaaTBUsage';
+config.AWS_METERING_USAGE_DIMENSION = 'noobaa_usage';
 
 
 //////////////////

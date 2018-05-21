@@ -1154,6 +1154,8 @@ function _calc_metrics({
     let has_enough_healthy_nodes_for_tiering = false;
     let has_enough_total_nodes_for_tiering = false;
     let any_rebuilds = false;
+    let num_of_nodes;
+    let num_of_hosts;
     _.each(bucket.tiering.tiers, tier_and_order => {
         if (tier_and_order.spillover) {
             if (tier_and_order.disabled) {
@@ -1169,7 +1171,6 @@ function _calc_metrics({
 
         let mirrors_with_valid_pool = 0;
         let mirrors_with_enough_nodes = 0;
-        let num_of_hosts = Number.MAX_SAFE_INTEGER;
         tier_and_order.tier.mirrors.forEach(mirror_object => {
             let num_valid_nodes = 0;
             let num_valid_hosts = 0;
@@ -1196,18 +1197,19 @@ function _calc_metrics({
             if (has_valid_pool || ((num_valid_nodes || 0) >= required_valid_nodes)) mirrors_with_valid_pool += 1;
             if (num_nodes_in_mirror_group >= required_valid_nodes || has_internal_or_cloud_pool) mirrors_with_enough_nodes += 1;
             // return valid;
-            const exitsting_minimum = _.isUndefined(info.num_of_nodes) ? Number.MAX_SAFE_INTEGER : info.num_of_nodes;
+            const exitsting_minimum = _.isUndefined(num_of_nodes) ? Number.MAX_SAFE_INTEGER : num_of_nodes;
+            const exitsting_hosts_minimum = _.isUndefined(num_of_hosts) ? Number.MAX_SAFE_INTEGER : num_of_hosts;
             const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : num_valid_nodes;
             const potential_new_minimum = has_internal_or_cloud_pool || tier_and_order.spillover ?
                 Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
-            info.num_of_nodes = Math.min(exitsting_minimum, potential_new_minimum);
+            num_of_nodes = Math.min(exitsting_minimum, potential_new_minimum);
             const potential_new_hosts_minimum = has_internal_or_cloud_pool || tier_and_order.spillover ?
                 Number.MAX_SAFE_INTEGER : num_valid_hosts;
-            num_of_hosts = Math.min(num_of_hosts, potential_new_hosts_minimum);
+            num_of_hosts = Math.min(exitsting_hosts_minimum, potential_new_hosts_minimum);
         });
-        info.num_of_nodes = info.num_of_nodes || 0;
-        const calc_node_tolerance = ccc.parity_frags ?
-            Math.max(info.num_of_nodes - ccc.parity_frags, 0) : Math.max(info.num_of_nodes - 1, 0);
+        num_of_nodes = num_of_nodes || 0;
+        num_of_hosts = num_of_hosts || 0;
+        const calc_node_tolerance = ccc.parity_frags ? Math.max(num_of_nodes - ccc.parity_frags, 0) : Math.max(num_of_nodes - 1, 0);
         const calc_host_tolerance = ccc.parity_frags ? Math.max(num_of_hosts - ccc.parity_frags, 0) : Math.max(num_of_hosts - 1, 0);
         info.host_tolerance = tier_and_order.spillover ? info.host_tolerance : Math.min(failure_tolerance, calc_host_tolerance);
         info.node_tolerance = tier_and_order.spillover ? info.node_tolerance : Math.min(failure_tolerance, calc_node_tolerance);
@@ -1277,9 +1279,9 @@ function _calc_metrics({
     if (available_for_upload.isZero()) {
         is_no_storage_on_spillover = true;
     }
-    let spillover_used_by_bucket = 0;
+    let spillover_used_by_bucket = size_utils.json_to_bigint(0);
     if (spillover_tier_in_policy) {
-        spillover_used_by_bucket = size_utils.json_to_bigint(_.get(nodes_aggregate_pool, `groups.${spillover_tier_in_policy.mirrors[0].spread_pools[0]._id}.used`)) || 0;
+        spillover_used_by_bucket = size_utils.json_to_bigint(_.get(nodes_aggregate_pool, `groups.${spillover_tier_in_policy.mirrors[0].spread_pools[0]._id}.storage.used`) || 0);
     }
     const is_spilling_back = spillover_tier_in_policy && !spillover_used_by_bucket.isZero() && !bucket_free.isZero();
 
@@ -1363,7 +1365,6 @@ function calc_bucket_mode(bucket_info) {
         ((stats.placement_status === 'RISKY_TOLERANCE') && 'RISKY_TOLERANCE') ||
         ((stats.placement_status === 'LOW_CAPACITY') && 'LOW_CAPACITY') ||
         ((stats.quota_status === 'APPROUCHING_QUOTA') && 'APPROUCHING_QUOTA') ||
-        ((stats.placement_status === 'DATA_ACTIVITY') && 'DATA_ACTIVITY') ||
         ((stats.spillover_status === 'SPILLOVER_ISSUES' || stats.spillover_status === 'SPILLOVER_ERRORS') && 'SPILLOVER_ISSUES') ||
         'OPTIMAL';
     return mode;
@@ -1391,9 +1392,6 @@ function calc_data_placement_status(metrics) {
     if (metrics.is_storage_low) {
         return 'LOW_CAPACITY';
     }
-    if (metrics.any_rebuilds) {
-        return 'DATA_ACTIVITY';
-    }
     return 'OPTIMAL';
 }
 
@@ -1403,9 +1401,6 @@ function calc_data_resiliency_status(metrics) {
     }
     if (metrics.low_tolerance) {
         return 'RISKY_TOLERANCE';
-    }
-    if (metrics.any_rebuilds) {
-        return 'DATA_ACTIVITY';
     }
     return 'OPTIMAL';
 }

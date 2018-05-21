@@ -115,6 +115,7 @@ const placementModeToIcon = deepFreeze({
     RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
     LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY, 'start'),
     DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
+    SPILLING_BACK: _alignIconTooltip(bucketStateToIcon.SPILLING_BACK, 'start'),
     OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
 });
 
@@ -139,6 +140,7 @@ const resiliencyModeToIcon = deepFreeze({
 });
 
 const spilloverModeToIcon = deepFreeze({
+    SPILLING_BACK: _alignIconTooltip(bucketStateToIcon.SPILLING_BACK, 'start'),    
     SPILLOVER_ERRORS: {
         tooltip: {
             text: 'Spillover resource has errors',
@@ -154,14 +156,6 @@ const spilloverModeToIcon = deepFreeze({
         },
         css: 'warning',
         name: 'problem'
-    },
-    SPILLING_BACK: {
-        tooltip: {
-            text: 'Data spilling back to resources',
-            align: 'start'
-        },
-        css: 'warning',
-        name: 'working'
     },
     OPTIMAL: {
         name: 'healthy',
@@ -179,12 +173,16 @@ const resiliencyTypeToDisplay = deepFreeze({
 });
 
 const writableStates = deepFreeze([
-    'LOW_CAPACITY',
-    'APPROUCHING_QUOTA',
+    'SPILLING_BACK',
     'SPILLOVER_NO_RESOURCES',
     'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
     'SPILLOVER_NOT_ENOUGH_RESOURCES',
     'SPILLOVER_NO_CAPACITY',
+    'LOW_CAPACITY',
+    'RISKY_TOLERANCE',
+    'APPROUCHING_QUOTA',
+    'DATA_ACTIVITY',
+    'SPILLOVER_ISSUES',
     'OPTIMAL'
 ]);
 

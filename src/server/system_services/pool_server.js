@@ -528,6 +528,7 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
     } else {
         info.nodes = _.defaults({}, p_nodes.nodes, POOL_NODES_INFO_DEFAULTS);
         info.storage_nodes = _.defaults({}, p_nodes.storage_nodes, POOL_NODES_INFO_DEFAULTS);
+        info.s3_nodes = _.defaults({}, p_nodes.s3_nodes, POOL_NODES_INFO_DEFAULTS);
         info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
         info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {}, p_hosts.nodes.s3_by_mode || {});
@@ -626,7 +627,7 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
         (storage_issues_ratio >= 50 && 'MANY_STORAGE_ISSUES') ||
         (s3_issues_ratio >= 90 && 'MOST_S3_ISSUES') ||
         (s3_issues_ratio >= 50 && 'MANY_S3_ISSUES') ||
-        (storage_offline_ratio >= 30 && 'MANY_NODES_OFFLINE') ||
+        (storage_offline_ratio >= 50 && 'MANY_NODES_OFFLINE') ||
         (free < LOW_CAPACITY_HARD_LIMIT && 'LOW_CAPACITY') ||
         (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
         'OPTIMAL';

@@ -586,7 +586,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'bucket_type', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_of_nodes', 'num_objects', 'writable', 'mode'],
+            required: ['name', 'bucket_type', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'host_tolerance', 'node_tolerance', 'writable', 'mode'],
             properties: {
                 name: {
                     type: 'string',
@@ -688,9 +688,6 @@ module.exports = {
                     }
                 },
                 num_objects: {
-                    type: 'integer'
-                },
-                num_of_nodes: {
                     type: 'integer'
                 },
                 host_tolerance: {

@@ -80,6 +80,15 @@ function read_stream_join(readable) {
         .then(res => join(res.buffers, res.total_length));
 }
 
+function buffer_to_read_stream(buf) {
+    return new stream.Readable({
+        read(size) {
+            this.push(buf);
+            this.push(null);
+        }
+    });
+}
+
 function write_stream() {
     const writable = new stream.Writable({
         write(data, encoding, callback) {
@@ -110,3 +119,4 @@ exports.read_stream = read_stream;
 exports.read_stream_join = read_stream_join;
 exports.write_stream = write_stream;
 exports.count_length = count_length;
+exports.buffer_to_read_stream = buffer_to_read_stream;

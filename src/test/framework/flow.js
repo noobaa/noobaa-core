@@ -119,6 +119,17 @@ var steps = [
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
     }, {
+        //Bucket Lambda Triggers Test
+        name: 'Blob API Test',
+        action: 'node',
+        params: [{
+            arg: './src/test/system_tests/test_blob_api'
+        }],
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
         //Test MD Aggregator
         name: 'MD Aggregator Test',
         action: 'node',

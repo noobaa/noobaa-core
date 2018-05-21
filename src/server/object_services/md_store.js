@@ -294,6 +294,9 @@ class MDStore {
     has_any_completed_objects_in_bucket(bucket_id) {
         return this._objects.col().findOne({
                 bucket: bucket_id,
+                key: {
+                    $not: /^\.noobaa_blob_blocks/ // prefix for stored blob blocks information. TODO: move somwhere like config.js
+                },
                 deleted: null,
                 upload_started: null,
             })

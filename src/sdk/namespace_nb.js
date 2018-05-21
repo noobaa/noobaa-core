@@ -2,7 +2,10 @@
 'use strict';
 
 const _ = require('lodash');
+
 // const P = require('../util/promise');
+const blob_translator = require('./blob_translator');
+
 
 class NamespaceNB {
 
@@ -59,6 +62,22 @@ class NamespaceNB {
             bucket: this.target_bucket,
         }, params);
         return object_sdk.object_io.upload_object(params);
+    }
+
+    ////////////////////////
+    // BLOCK BLOB UPLOADS //
+    ////////////////////////
+
+    upload_blob_block(params, object_sdk) {
+        return blob_translator.upload_blob_block(params, object_sdk);
+    }
+
+    commit_blob_block_list(params, object_sdk) {
+        return blob_translator.commit_blob_block_list(params, object_sdk);
+    }
+
+    get_blob_block_lists(params, object_sdk) {
+        return blob_translator.get_blob_block_lists(params, object_sdk);
     }
 
     /////////////////////////////

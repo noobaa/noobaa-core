@@ -181,7 +181,7 @@ function parse_request_body(req, options) {
         throw new options.ErrorClass(options.error_missing_body);
     }
     if (options.body.type === 'xml') {
-        return P.fromCallback(callback => xml2js.parseString(req.body, callback))
+        return P.fromCallback(callback => xml2js.parseString(req.body, options.body.xml_options, callback))
             .then(data => {
                 req.body = data;
             })

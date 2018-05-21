@@ -218,12 +218,16 @@ class ObjectIO {
     }
 
     _upload_copy(params, complete_params) {
-        if (params.copy_source.bucket !== params.bucket) {
+        const start = _.get(params, 'copy_source.range.start');
+        const end = _.get(params, 'copy_source.range.end');
+        if ((params.copy_source.bucket !== params.bucket) || (!_.isUndefined(start) && !_.isUndefined(end))) {
             params.source_stream = this.read_object_stream({
                 client: params.client,
                 obj_id: params.copy_source.obj_id,
                 bucket: params.copy_source.bucket,
                 key: params.copy_source.key,
+                start,
+                end
             });
             return this._upload_stream(params, complete_params);
         }
@@ -245,7 +249,11 @@ class ObjectIO {
                     bucket: params.bucket,
                     key: params.key,
                     // sending part.chunk_id so no need for part.chunk info
-                    parts: _.map(parts, p => _.omit(p, 'chunk', 'multipart_id')),
+                    parts: _.map(parts, p => {
+                        const new_part = _.omit(p, 'chunk', 'multipart_id');
+                        new_part.multipart_id = complete_params.multipart_id;
+                        return new_part;
+                    }),
                 });
             });
     }

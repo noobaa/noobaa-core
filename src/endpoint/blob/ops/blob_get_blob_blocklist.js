@@ -1,31 +1,43 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 
-// const BlobError = require('../blob_errors').BlobError;
+function format_block_list(block_list) {
+    return block_list.map(block => ({
+        Block: {
+            Name: block.block_id,
+            Size: block.size
+        }
+    }));
+}
 
-function get_blob_blocklist(req, res) {
-    return req.object_sdk.read_object_md({
-            bucket: req.params.bucket,
-            key: req.params.key,
-        })
-        .then(object_md => {
-            const block_size = 32 * 1024 * 1024;
-            let num_blocks = Math.floor(object_md.size / block_size);
-            let last_block_size = object_md.size % block_size;
-            if (last_block_size) num_blocks += 1;
-            return {
-                BlockList: {
-                    CommittedBlocks: _.times(num_blocks, i => ({
-                        Block: {
-                            Name: 'BlockId' + i,
-                            Size: i < num_blocks - 1 ? block_size : last_block_size,
-                        }
-                    }))
-                }
-            };
-        });
+
+async function get_blob_blocklist(req, res) {
+    const list_type = req.query.blocklisttype.toLowerCase();
+    const requested_lists = {
+        committed: !req.query.blocklisttype ||
+            list_type === 'all' || list_type === 'committed',
+        uncommitted: req.query.blocklisttype &&
+            (list_type === 'all' || list_type === 'uncommitted')
+    };
+
+    const block_lists = await req.object_sdk.get_blob_block_lists({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        requested_lists
+    });
+
+    const response = {
+        BlockList: {}
+    };
+    if (block_lists.committed) {
+        response.BlockList.CommittedBlocks = format_block_list(block_lists.committed);
+    }
+    if (block_lists.uncommitted) {
+        response.BlockList.UncommittedBlocks = format_block_list(block_lists.uncommitted);
+    }
+
+    return response;
 }
 
 module.exports = {

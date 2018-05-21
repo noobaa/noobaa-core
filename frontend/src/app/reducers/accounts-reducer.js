@@ -26,6 +26,7 @@ function onCompleteFetchSystemInfo(_, { payload }) {
             has_s3_access,
             default_pool,
             allowed_buckets,
+            can_create_buckets,
             allowed_ips,
             external_connections
         } = account;
@@ -49,6 +50,7 @@ function onCompleteFetchSystemInfo(_, { payload }) {
             hasS3Access: has_s3_access,
             hasAccessToAllBuckets,
             allowedBuckets,
+            canCreateBuckets: Boolean(has_s3_access && can_create_buckets),
             defaultResource: default_pool,
             accessKeys: { accessKey, secretKey },
             allowedIps: allowed_ips,

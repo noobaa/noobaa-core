@@ -31,7 +31,8 @@ export function createAccount(
     hasS3Access,
     defaultResource,
     hasAccessToAllBucekts,
-    allowedBuckets
+    allowedBuckets,
+    allowBucketCreation
 ) {
     return {
         type: CREATE_ACCOUNT,
@@ -42,7 +43,8 @@ export function createAccount(
             hasS3Access,
             defaultResource,
             hasAccessToAllBucekts,
-            allowedBuckets
+            allowedBuckets,
+            allowBucketCreation
         }
     };
 }
@@ -66,7 +68,8 @@ export function updateAccountS3Access(
     hasS3Access,
     defaultResource,
     hasAccessToAllBuckets,
-    allowedBuckets
+    allowedBuckets,
+    allowBucketCreation
 ) {
     return {
         type: UPDATE_ACCOUNT_S3_ACCESS,
@@ -75,7 +78,8 @@ export function updateAccountS3Access(
             hasS3Access,
             defaultResource,
             hasAccessToAllBuckets,
-            allowedBuckets
+            allowedBuckets,
+            allowBucketCreation
         }
     };
 }

@@ -72,40 +72,47 @@ const columns = deepFreeze([
     }
 ]);
 
+const createButtondDisabledTooltip = deepFreeze({
+    text: 'The current account is not allowed to create new buckets in the system. To grant permissions, edit the account\'s S3 access in the account page',
+    align: 'end'
+});
+
 class BucketsTableViewModel extends Observer {
+    columns = columns;
+    pageSize = paginationPageSize;
+    filter = ko.observable();
+    sorting = ko.observable();
+    page = ko.observable();
+    selectedForDelete = ko.observable();
+    rows = ko.observableArray();
+    bucketCount = ko.observable();
+    bucketsLoaded = ko.observable();
+    onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+    deleteGroup = ko.pureComputed({
+        read: this.selectedForDelete,
+        write: val => this.onSelectForDelete(val)
+    });
+    createBucketTooltip = ko.observable();
+    isCreateBucketDisabled = ko.observable();
+    isCreateBucketWizardVisible = ko.observable();
+
     constructor() {
         super();
-
-        this.columns = columns;
-        this.pageSize = paginationPageSize;
-        this.filter = ko.observable();
-        this.sorting = ko.observable();
-        this.page = ko.observable();
-        this.selectedForDelete = ko.observable();
-        this.rows = ko.observableArray();
-        this.bucketCount = ko.observable();
-        this.bucketsLoaded = ko.observable();
-        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
-
-        this.deleteGroup = ko.pureComputed({
-            read: this.selectedForDelete,
-            write: val => this.onSelectForDelete(val)
-        });
 
         this.observe(
             state$.pipe(
                 getMany(
                     'buckets',
-                    'location'
+                    'location',
+                    'accounts',
+                    ['session', 'user']
                 )
             ),
-            this.onBuckets
+            this.onState
         );
-
-        this.isCreateBucketWizardVisible = ko.observable();
     }
 
-    onBuckets([ buckets, location ]) {
+    onState([ buckets, location, accounts, user ]) {
         const { tab = 'data-buckets' } = location.params;
         if (tab !== 'data-buckets') {
             return;
@@ -113,6 +120,7 @@ class BucketsTableViewModel extends Observer {
 
         if (!buckets) {
             this.bucketsLoaded(false);
+            this.isCreateBucketDisabled(true);
             return;
         }
 
@@ -138,6 +146,9 @@ class BucketsTableViewModel extends Observer {
                 return row;
             });
 
+        const { canCreateBuckets } = accounts[user];
+        const createBucketTooltip = canCreateBuckets ? '' : createButtondDisabledTooltip;
+
         this.pathname = location.pathname;
         this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });
@@ -146,6 +157,8 @@ class BucketsTableViewModel extends Observer {
         this.bucketCount(bucketList.length);
         this.rows(rows);
         this.bucketsLoaded(true);
+        this.createBucketTooltip(createBucketTooltip);
+        this.isCreateBucketDisabled(!canCreateBuckets);
     }
 
     onFilter(filter) {

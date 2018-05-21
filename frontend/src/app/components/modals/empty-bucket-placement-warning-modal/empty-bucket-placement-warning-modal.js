@@ -3,26 +3,22 @@
 import template from './empty-bucket-placement-warning-modal.html';
 import Observer from 'observer';
 import { action$ } from 'state';
-import { openEditBucketPlacementModal } from 'action-creators';
+import { closeModal } from 'action-creators';
 
 class EmptyBucketPlacementWarningModalViewModel extends Observer {
-    constructor({ action, onClose }) {
+    constructor({ action }) {
         super();
 
-        this.onClose = onClose;
         this.action = action;
     }
 
     onBack() {
-        const { bucket } = this.action.payload;
-
-        this.onClose();
-        action$.next(openEditBucketPlacementModal(bucket));
+        action$.next(closeModal());
     }
 
     onContinue() {
-        this.onClose();
         action$.next(this.action);
+        action$.next(closeModal(Infinity));
     }
 }
 

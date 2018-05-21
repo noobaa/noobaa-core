@@ -6,9 +6,14 @@
             ko.textInput="ko.pc(filter, onFilterThrottled)"
         />
     </div>
-    <button class="btn align-end" ko.click="showCreateBucketWizard">
-        Create Bucket
-    </button>
+    <div ko.tooltip="createBucketTooltip">
+        <button class="btn align-end"
+            ko.click="showCreateBucketWizard"
+            ko.disable="isCreateBucketDisabled"
+        >
+            Create Bucket
+        </button>
+    </div>
 </div>
 
 <data-table class="greedy" params="

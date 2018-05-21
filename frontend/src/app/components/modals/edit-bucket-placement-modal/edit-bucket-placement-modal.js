@@ -204,11 +204,12 @@ class EditBucketPlacementModalViewModel extends Observer {
         );
 
         if (values.selectedResources.length === 0) {
-            action = openEmptyBucketPlacementWarningModal(action);
-        }
+            action$.next(openEmptyBucketPlacementWarningModal(action));
 
-        action$.next(action);
-        action$.next(closeModal());
+        } else {
+            action$.next(action);
+            action$.next(closeModal());
+        }
     }
 
     dispose(){

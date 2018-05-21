@@ -38,80 +38,91 @@ function _prepareListTemplateData(items) {
 }
 
 class AccountS3AccessFormViewModel extends Observer {
+    accountName = ko.observable();
+    isAccountLoaded = ko.observable();
+    isS3AccessDisabled = ko.observable();
+    s3AccessLabel = ko.observable();
+    allowedBuckets = ko.observable();
+    allowedBucketsTemplate = ko.observable();
+    canCreateBuckets = ko.observable();
+    defaultResource = ko.observable();
+    accessKey = ko.observable();
+    secretKey = ko.observable();
+    ipRestrictions = ko.observable();
+    allowedIps = ko.observable();
+    allowedIpsTemplate = ko.observable();
+    isAllowedIpVisible = ko.observable();
+    setIPRestrictionsButtonTooltip = ko.observable();
+    regenerateCredentialsButtonTooltip = ko.observable();
+
+    // TODO: Move RegenerateAccountCredentialsModal into Modal Maneger
+    isRegenerateAccountCredentialsModalVisible = ko.observable(false);
+
+    s3AccessInfo = [
+        {
+            label: 'S3 Access',
+            value: this.s3AccessLabel
+        },
+        {
+            label: 'Permitted Buckets',
+            value: this.allowedBuckets,
+            disabled: this.isS3AccessDisabled,
+            template: this.allowedBucketsTemplate
+        },
+        {
+            label: 'New Bucket Creation',
+            value: this.canCreateBuckets,
+            disabled: this.isS3AccessDisabled
+        },
+        {
+            label: 'Default Resource for S3 Applications',
+            value: this.defaultResource,
+            disabled: this.isS3AccessDisabled
+        },
+        {
+            label: 'IP Restrictions',
+            value: this.ipRestrictions,
+            disabled: this.isS3AccessDisabled
+        },
+        {
+            label: 'Allowed IPs',
+            value: this.allowedIps,
+            visible: this.isAllowedIpVisible,
+            template: this.allowedIpsTemplate
+        }
+
+    ];
+
+    credentials = [
+        {
+            label: 'Access Key',
+            value: this.accessKey,
+            allowCopy: true,
+            disabled: this.isS3AccessDisabled
+        },
+        {
+            label: 'Secret Key',
+            value: this.secretKey,
+            allowCopy: true,
+            disabled: this.isS3AccessDisabled
+        }
+    ];
+
     constructor({ accountName }) {
         super();
-
-        this.accountName = ko.observable();
-        this.isS3AccessDisabled = ko.observable();
-        this.s3AccessLabel = ko.observable();
-        this.allowedBuckets = ko.observable();
-        this.allowedBucketsTemplate = ko.observable();
-        this.defaultResource = ko.observable();
-        this.accessKey = ko.observable();
-        this.secretKey = ko.observable();
-        this.ipRestrictions = ko.observable();
-        this.allowedIps = ko.observable();
-        this.allowedIpsTemplate = ko.observable();
-        this.isAllowedIpVisible = ko.observable();
-        this.setIPRestrictionsButtonTooltip = ko.observable();
-        this.regenerateCredentialsButtonTooltip = ko.observable();
-
-        this.s3AccessInfo = [
-            {
-                label: 'S3 Access',
-                value: this.s3AccessLabel
-            },
-            {
-                label: 'Permitted Buckets',
-                value: this.allowedBuckets,
-                disabled: this.isS3AccessDisabled,
-                template: this.allowedBucketsTemplate
-            },
-            {
-                label: 'Default Resource for S3 Applications',
-                value: this.defaultResource,
-                disabled: this.isS3AccessDisabled
-            },
-            {
-                label: 'IP Restrictions',
-                value: this.ipRestrictions,
-                disabled: this.isS3AccessDisabled
-            },
-            {
-                label: 'Allowed IPs',
-                value: this.allowedIps,
-                visible: this.isAllowedIpVisible,
-                template: this.allowedIpsTemplate
-            }
-
-        ];
-
-        this.credentials = [
-            {
-                label: 'Access Key',
-                value: this.accessKey,
-                allowCopy: true,
-                disabled: this.isS3AccessDisabled
-            },
-            {
-                label: 'Secret Key',
-                value: this.secretKey,
-                allowCopy: true,
-                disabled: this.isS3AccessDisabled
-            }
-        ];
 
         this.observe(
             state$.pipe(get('accounts', ko.unwrap(accountName))),
             this.onAccount
         );
-
-        // TODO: Move RegenerateAccountCredentialsModal into Modal Maneger
-        this.isRegenerateAccountCredentialsModalVisible = ko.observable(false);
     }
 
     onAccount(account) {
-        if (!account) return;
+        if (!account) {
+            this.isAccountLoaded(false);
+            this.isS3AccessDisabled(true);
+            return;
+        }
 
         const {
             defaultResource,
@@ -150,6 +161,7 @@ class AccountS3AccessFormViewModel extends Observer {
         this.s3AccessLabel(hasS3Access ? 'Enabled' : 'Disabled');
         this.allowedBuckets(allowedBucketsInfo);
         this.allowedBucketsTemplate(allowedBucketsTemplate);
+        this.canCreateBuckets(account.canCreateBuckets ? 'Allowed' : 'Not Allowed');
         this.accessKey(accessKeys.accessKey);
         this.secretKey(accessKeys.secretKey);
         this.ipRestrictions(allowedIps ? 'Enabled' : 'Not set');
@@ -158,6 +170,7 @@ class AccountS3AccessFormViewModel extends Observer {
         this.isAllowedIpVisible(Boolean(hasS3Access && allowedIps));
         this.setIPRestrictionsButtonTooltip(hasS3Access ? '' : disabledActionTooltip);
         this.regenerateCredentialsButtonTooltip(regenerateCredentialsTooltip);
+        this.isAccountLoaded(true);
     }
 
     onEditS3Access() {

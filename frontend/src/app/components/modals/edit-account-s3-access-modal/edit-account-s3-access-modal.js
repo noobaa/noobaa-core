@@ -4,8 +4,8 @@ import template from './edit-account-s3-access-modal.html';
 import Observer from 'observer';
 import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
-import { updateAccountS3Access } from 'action-creators';
-import { flatMap, deepFreeze } from 'utils/core-utils';
+import { updateAccountS3Access, closeModal } from 'action-creators';
+import { flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { getMany } from 'rx-extensions';
@@ -13,19 +13,7 @@ import ko from 'knockout';
 
 const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
 const systemOwnerS3AccessTooltip = 'S3 access cannot be disabled for system owner';
-
-const bucketPermissionModes = deepFreeze([
-    {
-        label: 'Allow access to all buckets (including all future buckets)',
-        value: true
-    },
-    {
-        label: 'Allow access to the following buckets only:',
-        value: false
-    }
-]);
-
-const formName = 'editAccountS3Access';
+const allowBucketCreationTooltip = 'The ability to create new buckets. By disabling this option, the user could not create any new buckets via S3 client or via the management console';
 
 function mapResourceToOption({ type, name: value, storage }) {
     const { total, free: availableFree, unavailableFree } = storage;
@@ -36,19 +24,19 @@ function mapResourceToOption({ type, name: value, storage }) {
 }
 
 class EditAccountS3AccessModalViewModel extends Observer {
-    constructor({ accountName, onClose }) {
-        super();
+    formName = this.constructor.name;
+    s3PlacementToolTip = s3PlacementToolTip;
+    allowBucketCreationTooltip = allowBucketCreationTooltip;
+    isBucketSelectionDisabled = ko.observable();
+    isS3AccessToggleDisabled = ko.observable();
+    s3AccessToggleTooltip = ko.observable();
+    resourceOptions = ko.observable();
+    bucketOptions = ko.observable();
+    isFormInitialized = ko.observable(false);
+    form = null;
 
-        this.s3PlacementToolTip = s3PlacementToolTip;
-        this.bucketPermissionModes = bucketPermissionModes;
-        this.close = onClose;
-        this.isBucketSelectionDisabled = ko.observable();
-        this.isS3AccessToggleDisabled = ko.observable();
-        this.s3AccessToggleTooltip = ko.observable();
-        this.resourceOptions = ko.observable();
-        this.bucketOptions = ko.observable();
-        this.isFormInitialized = ko.observable(false);
-        this.form = null;
+    constructor({ accountName }) {
+        super();
 
         this.observe(
             state$.pipe(
@@ -94,19 +82,21 @@ class EditAccountS3AccessModalViewModel extends Observer {
 
         if (!this.form) {
             this.form = new FormViewModel({
-                name: formName,
+                name: this.formName,
                 fields: {
                     accountName: account.name,
                     hasS3Access: account.hasS3Access,
                     hasAccessToAllBuckets: account.hasAccessToAllBuckets,
                     allowedBuckets: account.allowedBuckets || [],
-                    defaultResource: account.defaultResource
+                    defaultResource: account.defaultResource,
+                    allowBucketCreation: account.canCreateBuckets
                 },
                 onForm: this.onForm.bind(this),
                 onValidate: this.onValidate,
                 onSubmit: this.onSubmit.bind(this)
             });
             this.isFormInitialized(true);
+
         }
     }
 
@@ -143,7 +133,8 @@ class EditAccountS3AccessModalViewModel extends Observer {
         hasS3Access,
         defaultResource,
         hasAccessToAllBuckets,
-        allowedBuckets
+        allowedBuckets,
+        allowBucketCreation
     }) {
 
         action$.next(updateAccountS3Access(
@@ -151,14 +142,15 @@ class EditAccountS3AccessModalViewModel extends Observer {
             hasS3Access,
             defaultResource,
             hasAccessToAllBuckets,
-            allowedBuckets
+            allowedBuckets,
+            allowBucketCreation
         ));
 
-        this.close();
+        action$.next(closeModal());
     }
 
     onCancel() {
-        this.close();
+        action$.next(closeModal());
     }
 
     dispose() {

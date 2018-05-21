@@ -1204,7 +1204,8 @@ function read_server_config(req) {
                     search_domains,
                     timezone,
                     ntp_server: server,
-                    used_proxy
+                    used_proxy,
+                    owner
                 }));
         });
 }
@@ -1616,9 +1617,21 @@ function _update_rs_if_needed(IPs, name, is_config) {
 function _get_aws_owner() {
     return P.resolve()
         .then(() => {
-            if (process.env.PLATFORM !== 'aws') return;
+            //paid version only - 8q32hahci09vwgsx568lhrzwl
+            dbg.log0('aws: process.end.PLATFORM === aws :' + (process.env.PLATFORM === 'aws') + 'Paid? ' + (process.env.AWS_PRODUCT_CODE === '8q32hahci09vwgsx568lhrzwl'));
+            if ((process.env.PLATFORM !== 'aws' && process.env.PLATFORM !== 'azure' && process.env.PLATFORM !== 'google') ||
+                (process.env.PLATFORM === 'aws' && process.env.AWS_PRODUCT_CODE !== '8q32hahci09vwgsx568lhrzwl') ||
+                (process.env.PLATFORM === 'azure' && process.env.PAID !== 'true') ||
+                (process.env.PLATFORM === 'google' && process.env.PAID !== 'true')) {
+                return;
+            }
+
             const email = `${process.env.AWS_INSTANCE_ID}@noobaa.com`;
-            return promise_utils.retry(10, 30000, () => P.fromCallback(callback => request({ method: 'GET', url: `https://store.zapier.com/api/records?secret=${email}` }, callback))
+            return promise_utils.retry(10, 30000, () =>
+                    P.fromCallback(callback => request({
+                        method: 'GET',
+                        url: `https://store.zapier.com/api/records?secret=${email}`
+                    }, callback))
                     .then(res => {
                         dbg.log0(`got activation code for ${email} from zappier. body=`, res.body);
                         const { code } = JSON.parse(res.body);
@@ -1627,7 +1640,7 @@ function _get_aws_owner() {
                         }
                         return {
                             activation_code: code,
-                            email
+                            email: email
                         };
                     })
                     .catch(err => {

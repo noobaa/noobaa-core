@@ -9,7 +9,9 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
 
+
 const P = require('../../util/promise');
+const config = require('../../../config');
 const promise_utils = require('../../util/promise_utils');
 const size_utils = require('../../util/size_utils');
 const dbg = require('../../util/debug_module')(__filename);
@@ -44,7 +46,7 @@ function background_worker() {
         DryRun: false,
         ProductCode: process.env.AWS_PRODUCT_CODE,
         Timestamp: new Date(),
-        UsageDimension: 'NooBaaTBUsage',
+        UsageDimension: config.AWS_METERING_USAGE_DIMENSION,
         UsageQuantity: total_data_usage
     };
 

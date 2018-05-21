@@ -2,7 +2,7 @@
 
 <form class="column greedy" ko.submit="form.submit" ko.if="isFormInitialized">
     <editor params="label: 'S3 Access'">
-        <div class="row content-middle">
+        <div class="column">
             <toggle-switch ko.tooltip="s3AccessToggleTooltip" params="
                 value: form.hasS3Access,
                 onLabel: 'Enabled',
@@ -11,63 +11,70 @@
                 hasFocus: true
             ">
             </toggle-switch>
+            <p class="remark push-prev-half">
+                Granting S3 access will allow this account to connect S3 client <br>
+                applications by generating security credentials (key set).
+            </p>
         </div>
     </editor>
 
-    <editor params="label: 'S3 default placement', disabled: !form.hasS3Access()">
-        <div class="row">
-            <dropdown params="
-                    filter: true,
-                    options: resourceOptions,
-                    selected: form.defaultResource,
-                    disabled: !form.hasS3Access(),
-                    placeholder: 'Choose Resource'
-                "
-                ko.validationCss="form.defaultResource"
-            ></dropdown>
-            <svg-icon class="icon-small push-prev-half align-middle"
-                params="name: 'question'"
-                ko.tooltip="s3PlacementToolTip"
-            >
-            </svg-icon>
-        </div>
+    <editor params="
+        label: 'S3 default placement',
+        tooltip: s3PlacementToolTip,
+        disabled: !form.hasS3Access()
+    ">
+        <dropdown params="
+                filter: true,
+                options: resourceOptions,
+                selected: form.defaultResource,
+                disabled: !form.hasS3Access(),
+                placeholder: 'Choose Resource'
+            "
+            ko.validationCss="form.defaultResource"
+        ></dropdown>
          <validation-message params="field: form.defaultResource"></validation-message>
     </editor>
 
-    <section class="column greedy">
-        <h2 class="heading3" ko.css.disabled="!form.hasS3Access()">
-            Buckets Permissions:
-        </h2>
-
-        <radio-group params="
-            options: bucketPermissionModes,
-            selected: form.hasAccessToAllBuckets,
-            multiline: true,
+    <editor params="
+        label: 'Full access to current and future buckets',
+        disabled: !form.hasS3Access()
+    ">
+        <toggle-switch params="
+            value: form.hasAccessToAllBuckets,
+            onLabel: 'Enabled',
+            offLabel: 'Disabled',
             disabled: !form.hasS3Access()
-        "></radio-group>
+        "></toggle-switch>
+    </editor>
 
-        <div class="align-end push-next-half" ko.css.disabled="isBucketSelectionDisabled">
-            <button class="link alt-colors"
-                ko.click="onSelectAllBuckets"
-                ko.disable="isBucketSelectionDisabled"
-            >
-                Select all
-            </button>
-            |
-            <button class="link alt-colors"
-                ko.click="onClearSelectedBuckets"
-                ko.disable="isBucketSelectionDisabled"
-            >
-                Clear
-            </button>
-        </div>
-
-        <multiselect class="push-next greedy" params="
-            options: bucketOptions,
+    <editor params="
+        label: 'Buckets Permissions',
+        disabled: isBucketSelectionDisabled
+    ">
+        <dropdown params="
+            options: bucketOptions(),
             selected: form.allowedBuckets,
-            disabled: isBucketSelectionDisabled
-        "></multiselect>
-    </section>
+            disabled: isBucketSelectionDisabled,
+            filter: true,
+            subject: 'bucket',
+            placeholder: 'Choose Buckets',
+            multiselect: true,
+            selectAllLabel: 'All Current Buckets'
+        "></dropdown>
+    </editor>
+
+    <editor params="
+        label: 'Allow new bucket creation',
+        tooltip:     allowBucketCreationTooltip = allowBucketCreationTooltip;,
+        disabled: !form.hasS3Access()
+    ">
+        <toggle-switch params="
+            value: form.allowBucketCreation,
+            onLabel: 'Enabled',
+            offLabel: 'Disabled',
+            disabled: !form.hasS3Access()
+        "></toggle-switch>
+    </editor>
 
     <div class="row align-end content-middle">
         <button type="button" class="link alt-colors push-next" ko.click="onCancel">

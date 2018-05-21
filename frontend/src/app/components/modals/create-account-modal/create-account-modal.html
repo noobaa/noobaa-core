@@ -1,5 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
+<!-- ko if: isFormInitialized -->
 <new-wizard class="column greedy" params="
     steps: steps,
     step: form.step,
@@ -17,11 +18,11 @@
                 offLabel: 'Disabled',
                 hasFocus: true
             "></toggle-switch>
+        </editor>
             <p class="remark push-prev-half">
-                Enabling login access will generate a password that allows login to <br>
+                Enabling login access will generate a password that allows login to
                 NooBaa management  console as a system admin
             </p>
-        </editor>
 
         <editor params="label: accountNameProps().label">
             <input type="text"
@@ -52,54 +53,63 @@
             <validation-message params="field: form.hasS3Access"></validation-message>
         </editor>
 
-        <editor params="label: 'S3 default placement', disabled: isS3AccessDisabled">
-            <div class="row">
-                <dropdown params="
-                        filter: true,
-                        options: resourceOptions,
-                        selected: form.defaultResource,
-                        disabled: isS3AccessDisabled,
-                        placeholder: 'Choose Resources'
-                    "
-                    ko.validationCss="form.defaultResource"
-                >
-                </dropdown>
-                <svg-icon class="icon-small push-prev-half align-middle"
-                    params="name: 'question'"
-                    ko.tooltip="s3PlacementToolTip"
-                >
-                </svg-icon>
-            </div>
+        <editor params="
+            label: 'S3 default placement',
+            tooltip: s3PlacementToolTip,
+            disabled: isS3AccessDisabled
+        ">
+            <dropdown params="
+                    filter: true,
+                    options: resourceOptions,
+                    selected: form.defaultResource,
+                    disabled: isS3AccessDisabled,
+                    placeholder: 'Choose Resources'
+                "
+                ko.validationCss="form.defaultResource"
+            ></dropdown>
              <validation-message params="field: form.defaultResource"></validation-message>
         </editor>
 
-        <radio-group class="push-prev-half" params="
-            options: bucketPermissionModes,
-            selected: form.hasAccessToAllBuckets,
-            multiline: true,
+        <editor params="
+            label: 'Full access to current and future buckets',
             disabled: isS3AccessDisabled
-        "></radio-group>
+        ">
+            <toggle-switch params="
+                value: form.hasAccessToAllBuckets,
+                onLabel: 'Enabled',
+                offLabel: 'Disabled',
+                disabled: isS3AccessDisabled
+            "></toggle-switch>
+        </editor>
 
-        <div class="align-end push-next-half" ko.css.disabled="isBucketSelectionDisabled">
-            <button class="link alt-colors"
-                ko.click="onSelectAllBuckets"
-                ko.disable="isBucketSelectionDisabled"
-            ">
-                Select all
-            </button>
-            |
-            <button class="link alt-colors"
-                ko.click="onClearSelectedBuckets"
-                ko.disable="isBucketSelectionDisabled"
-            >
-                Clear
-            </button>
-        </div>
-
-        <multiselect class="push-next greedy" params="
-            options: bucketOptions,
-            selected: form.allowedBuckets,
+        <editor params="
+            label: 'Buckets Permissions',
             disabled: isBucketSelectionDisabled
-        "></multiselect>
+        ">
+            <dropdown params="
+                options: bucketOptions(),
+                selected: form.allowedBuckets,
+                disabled: isBucketSelectionDisabled,
+                filter: true,
+                subject: 'bucket',
+                placeholder: 'Choose Buckets',
+                multiselect: true,
+                selectAllLabel: 'All Current Buckets'
+            "></dropdown>
+        </editor>
+
+        <editor params="
+            label: 'Allow new bucket creation',
+            tooltip: allowBucketCreationTooltip,
+            disabled: isS3AccessDisabled
+        ">
+            <toggle-switch params="
+                value: form.allowBucketCreation,
+                onLabel: 'Enabled',
+                offLabel: 'Disabled',
+                disabled: isS3AccessDisabled
+            "></toggle-switch>
+        </editor>
     </section>
 </new-wizard>
+<!-- /ko -->

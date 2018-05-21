@@ -48,64 +48,73 @@ const columns = deepFreeze([
     }
 ]);
 
-const noNamespaceResourceTooltip = {
-    align: 'end',
-    text: 'At least one namespace resoruce is needed. Please create a namespace resource in the resources section.'
-};
+const createButtonTooltips = deepFreeze({
+    MISSING_PERMISSIONS: 'The current account is not allowed to create new buckets in the system. To grant permissions, edit the account\'s S3 access in the account page',
+    NO_RESOURCES: 'At least one namespace resoruce is needed. Please create a namespace resource in the resources section.'
+});
 
 class NamespaceBucketsTableViewModel extends Observer {
+    pageSize = paginationPageSize;
+    columns = columns;
+    pathname = '';
+    allowCreateBucket = ko.observable();
+    createButtonTooltip = ko.observable();
+    sorting = ko.observable();
+    filter = ko.observable();
+    page = ko.observable();
+    selectedForDelete = ko.observable();
+    bucketCount = ko.observable();
+    rows = ko.observableArray();
+    bucketsLoaded = ko.observable();
+    rowParams = {
+        deleteGroup: ko.pureComputed({
+            read: this.selectedForDelete,
+            write: this.onSelectForDelete,
+            owner: this
+        }),
+        onDelete: this.onDeleteBucket.bind(this)
+    };
+
+    onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+
     constructor() {
         super();
-
-        this.pageSize = paginationPageSize;
-        this.columns = columns;
-        this.pathname = '';
-        this.allowCreateBucket = ko.observable();
-        this.createButtonTooltip = ko.observable();
-        this.sorting = ko.observable();
-        this.filter = ko.observable();
-        this.page = ko.observable();
-        this.selectedForDelete = ko.observable();
-        this.bucketCount = ko.observable();
-        this.rows = ko.observableArray();
-        this.bucketsLoaded = ko.observable();
-        this.rowParams = {
-            deleteGroup: ko.pureComputed({
-                read: this.selectedForDelete,
-                write: this.onSelectForDelete,
-                owner: this
-            }),
-            onDelete: this.onDeleteBucket.bind(this)
-        };
-
-        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
             state$.pipe(
                 getMany(
                     'namespaceBuckets',
                     'location',
-                    'namespaceResources'
+                    'namespaceResources',
+                    'accounts',
+                    ['session', 'user']
                 )
             ),
             this.onBuckets
         );
     }
 
-    onBuckets([ buckets, location, resources ]) {
+    onBuckets([ buckets, location, resources, accounts, user ]) {
         const { pathname, params, query } = location;
-        if (!buckets || params.tab !== 'namespace-buckets') {
+        if (!buckets || !accounts || params.tab !== 'namespace-buckets') {
             this.allowCreateBucket(false);
             this.bucketsLoaded(Boolean(buckets));
             return;
         }
 
         const systemHasResources = Object.keys(resources).length > 0;
-        const createButtonTooltip = systemHasResources ? '' : noNamespaceResourceTooltip;
         const { filter, sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
         const pageStart = Number(page) * this.pageSize;
         const { compareKey } = columns.find(column => column.name == sortBy);
         const bucketRoute = realizeUri(routes.namespaceBucket, { system: params.system }, {}, true);
+        const { canCreateBuckets } = accounts[user];
+        const createButtonTooltip = {
+            align: 'end',
+            text: true &&
+                (!canCreateBuckets && createButtonTooltips.MISSING_PERMISSIONS) ||
+                (!systemHasResources && createButtonTooltips.NO_RESOURCES) ||
+                ''
+        };
 
         const filteredRows = Object.values(buckets)
             .filter(bucket => !filter || bucket.name.includes(filter.toLowerCase()));
@@ -120,7 +129,7 @@ class NamespaceBucketsTableViewModel extends Observer {
             });
 
         this.pathname = pathname;
-        this.allowCreateBucket(systemHasResources);
+        this.allowCreateBucket(canCreateBuckets && systemHasResources);
         this.createButtonTooltip(createButtonTooltip);
         this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });

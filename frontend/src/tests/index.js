@@ -15,15 +15,5 @@ require('babel-register')({
     ]
 });
 
-// Add bower dependnecies as aliases to node modules
-require('module-alias')
-    .addAlias('rx', path.join(__dirname, '../lib/rxjs/dist/rx.lite.js'));
-
-// Extend Observable.
-const { Observable } = require('rx');
-Observable.prototype.ofType = function(...types) {
-    return this.filter(action => types.includes(action.type));
-};
-
 // Require the tests.
 require('./test-restore-session');

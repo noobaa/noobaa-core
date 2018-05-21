@@ -943,6 +943,7 @@ function get_account_info(account, include_connection_cache) {
         }
         info.allowed_buckets = allowed_buckets;
         info.default_pool = account.default_pool.name;
+        info.can_create_buckets = account.allow_bucket_creation;
     }
 
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {

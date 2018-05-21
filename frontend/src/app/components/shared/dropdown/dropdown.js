@@ -27,11 +27,12 @@ function _toArray(value) {
     return [];
 }
 
-function _summarizeSelected(subject, labels, placeholder) {
+function _summarizeSelected(subject, labels, placeholder, optionCount) {
     const count = labels.length;
     return false ||
         (count === 0 && placeholder) ||
         (count === 1 && labels[0]) ||
+        (count === optionCount && `All ${subject}s selected`) ||
         `${stringifyAmount(subject, count)} selected`;
 }
 
@@ -134,6 +135,7 @@ class DropdownViewModel extends Observer {
     hiddenOptionCount = ko.observable();
     isFilterVisible = ko.observable();
     isSelectAllVisible = ko.observable();
+    selectAllLabel = ko.observable();
     filter = ko.observable().throttle(inputThrottle);
     filterPlaceholder = ko.observable();
     selectAllValue = ko.observable();
@@ -187,6 +189,7 @@ class DropdownViewModel extends Observer {
             errorMessage = 'Ooops... Someting went wrong',
             filterMessage = 'No Match',
             listTooLongMessage = 'List too long to show',
+            selectAllLabel = 'Select All',
             actions = [],
             options = [],
             selected,
@@ -269,12 +272,13 @@ class DropdownViewModel extends Observer {
         this.isFilterVisible(isFilterVisible);
         this.filterPlaceholder(filterPlaceholder);
         this.isSelectAllVisible(isSelectAllVisible);
+        this.selectAllLabel(selectAllLabel);
         this.multiselect(multiselect);
         this.disabled(disabled);
         this.selectAllValue(selectAllValue);
         this.loading(loading);
         this.tabIndex(tabIndex);
-        this.summary(_summarizeSelected(subject, selectedLabels, placeholder));
+        this.summary(_summarizeSelected(subject, selectedLabels, placeholder, options.length));
         this.usingPlacholderText(usingPlacholderText);
         this.emptyMessage(emptyMessageInfo);
         this.actionRows(actionRows);

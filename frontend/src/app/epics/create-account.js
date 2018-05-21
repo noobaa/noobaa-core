@@ -18,7 +18,8 @@ export default function(action$, { api }) {
                 hasS3Access,
                 defaultResource,
                 hasAccessToAllBucekts,
-                allowedBuckets
+                allowedBuckets,
+                allowBucketCreation
             } = action.payload;
 
             try {
@@ -34,7 +35,8 @@ export default function(action$, { api }) {
                         allowed_buckets: hasS3Access ? {
                             full_permission: hasAccessToAllBucekts,
                             permission_list: !hasAccessToAllBucekts ? allowedBuckets : undefined
-                        } : undefined
+                        } : undefined,
+                        allow_bucket_creation: hasS3Access && allowBucketCreation
                     }),
                     sleep(750)
                 );

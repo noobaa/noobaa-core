@@ -73,7 +73,7 @@ function _getActualFailureTolerance(actualTolerance, configuredTolerance, requir
             css: 'warning',
             icon: {
                 name: 'problem',
-                tooltip: `One or more of the configured mirror sets have less then ${requiredDrives} healthy nodes/drives which bring the bucket\'s actual tolerance below the configured one`
+                tooltip: `One or more of the configured mirror sets have less than ${requiredDrives} healthy nodes/drives. This brings the bucket\'s actual tolerance below the configured tolerance`
             }
         };
     } else {

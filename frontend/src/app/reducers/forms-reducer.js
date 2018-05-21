@@ -166,7 +166,6 @@ function onSetFormValidity(forms, { payload }) {
 
 function onSubmitForm(forms, { payload }) {
     const form = forms[payload.form];
-    if (!form || form.submitted) return forms;
 
     // Touch all the fields.
     const fields = mapValues(
@@ -185,6 +184,7 @@ function onSubmitForm(forms, { payload }) {
         [payload.form]: {
             ...form,
             fields,
+            submitted: false,
             submitting: isValid
         }
     };

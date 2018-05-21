@@ -13,7 +13,7 @@ import numeral from 'numeral';
 import { openSetNodeAsTrustedModal, openConfirmDeleteHostModal } from 'action-creators';
 
 const portsBlockedTooltip = `Some ports might be blocked. Check the firewall settings
-    and make sure that the ports range of 60100-60600 is open for inbound traffix.
+    and make sure that the ports range of 60100-60600 is open for inbound traffic.
     These ports are used to communicate between the storage nodes.`;
 const errorLevel = 0.95;
 const warningLevel = 0.8;

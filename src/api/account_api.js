@@ -452,6 +452,9 @@ module.exports = {
                         }
                     }
                 },
+                can_create_buckets: {
+                    type: 'boolean'
+                },
                 allowed_ips: {
                     type: 'array',
                     items: {

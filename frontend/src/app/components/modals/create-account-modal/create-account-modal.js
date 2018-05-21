@@ -14,8 +14,8 @@ import { getFormValues, getFieldValue, isFieldTouched, isFieldValid } from 'util
 import { isEmail } from 'validations';
 import { closeModal, lockModal, createAccount } from 'action-creators';
 
-const s3PlacementToolTip = `The selected resource will be associated to this account as it’s default
-    data placement for each new bucket that will be created via an S3 application.`;
+const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
+const allowBucketCreationTooltip = 'The ability to create new buckets. By disabling this option, the user could not create any new buckets via S3 client or via the management console';
 
 function mapResourceToOptions({ type, name: value, storage }) {
     const { total, free: availableFree, unavailableFree } = storage;
@@ -30,22 +30,10 @@ const steps = deepFreeze([
     'S3 Access'
 ]);
 
-const bucketPermissionModes = deepFreeze([
-    {
-        label: 'Allow access to all buckets (including all future buckets)',
-        value: true
-    },
-    {
-        label: 'Allow access to the following buckets only:',
-        value: false
-    }
-]);
-
-const formName = 'createAccount';
-
 function _getAccountNameFieldProps(form) {
-    const hasLoginAccess = getFieldValue(form, 'hasLoginAccess');
+    if (!form) return {};
 
+    const hasLoginAccess = getFieldValue(form, 'hasLoginAccess');
     if (hasLoginAccess) {
         return {
             label: 'Email Address',
@@ -66,38 +54,22 @@ function _getAccountNameFieldProps(form) {
 }
 
 class CreateAccountWizardViewModel extends Observer {
+    formName = this.constructor.name;
+    steps = steps;
+    s3PlacementToolTip = s3PlacementToolTip;
+    allowBucketCreationTooltip = allowBucketCreationTooltip;
+    accountNames = null;
+    resourceOptions = ko.observable();
+    bucketOptions = ko.observable();
+    password = randomString();
+    accountNameProps = ko.observable();
+    isS3AccessDisabled = ko.observable();
+    isBucketSelectionDisabled = ko.observable();
+    form = null;
+    isFormInitialized = ko.observable();
+
     constructor() {
         super();
-
-        this.steps = steps;
-        this.bucketPermissionModes = bucketPermissionModes;
-        this.accountNames = null;
-        this.resourceOptions = ko.observable();
-        this.bucketOptions = ko.observable();
-        this.password = randomString();
-        this.accountNameProps = ko.observable();
-        this.isS3AccessDisabled = ko.observable();
-        this.isBucketSelectionDisabled = ko.observable();
-        this.s3PlacementToolTip = s3PlacementToolTip;
-
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                step: 0,
-                accountName: '',
-                hasLoginAccess: true,
-                hasS3Access: true,
-                defaultResource: undefined,
-                hasAccessToAllBuckets: false,
-                allowedBuckets: []
-            },
-            groups: {
-                0: [ 'accountName' ],
-                1: [ 'defaultResource' ]
-            },
-            onValidate: this.onValidate.bind(this),
-            onSubmit: this.onSubmit.bind(this)
-        });
 
         this.observe(
             state$.pipe(
@@ -106,7 +78,7 @@ class CreateAccountWizardViewModel extends Observer {
                     'hostPools',
                     'cloudResources',
                     'buckets',
-                    ['forms', formName]
+                    ['forms', this.formName]
                 )
             ),
             this.onState
@@ -114,19 +86,24 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     onState([accounts, hostPools, cloudResources, buckets, form]) {
-        if (!accounts || !form) {
+        if (!accounts || !hostPools || !cloudResources || !buckets) {
             this.accountNameProps({});
+            this.isFormInitialized(false);
             return;
         }
 
-        const { hasS3Access, hasAccessToAllBuckets } = getFormValues(form);
+        const {
+            hasS3Access = true,
+            hasAccessToAllBuckets = false
+        } = form ? getFormValues(form) : {};
+
         const accountNames = Object.keys(accounts);
         const resourceOptions = flatMap(
             [ hostPools, cloudResources ],
             resources => Object.values(resources).map(mapResourceToOptions)
         );
         const bucketOptions = Object.keys(buckets);
-        const isS3AccessDisabled = form.submitted || !hasS3Access;
+        const isS3AccessDisabled = (form && form.submitted) || !hasS3Access;
         const isBucketSelectionDisabled = isS3AccessDisabled || hasAccessToAllBuckets;
 
         this.accountNames = accountNames;
@@ -135,6 +112,31 @@ class CreateAccountWizardViewModel extends Observer {
         this.accountNameProps(_getAccountNameFieldProps(form));
         this.isS3AccessDisabled(isS3AccessDisabled);
         this.isBucketSelectionDisabled(isBucketSelectionDisabled);
+
+        if (!form) {
+            this.accountNameProps({});
+            this.form = new FormViewModel({
+                name: this.formName,
+                fields: {
+                    step: 0,
+                    accountName: '',
+                    hasLoginAccess: true,
+                    hasS3Access: hasS3Access,
+                    defaultResource: undefined,
+                    hasAccessToAllBuckets: hasAccessToAllBuckets,
+                    allowedBuckets: Object.keys(buckets),
+                    allowBucketCreation: true
+                },
+                groups: {
+                    0: [ 'accountName' ],
+                    1: [ 'defaultResource' ]
+                },
+                onValidate: this.onValidate.bind(this),
+                onSubmit: this.onSubmit.bind(this)
+            });
+            this.isFormInitialized(true);
+        }
+
     }
 
     onValidate(values) {
@@ -207,7 +209,8 @@ class CreateAccountWizardViewModel extends Observer {
             values.hasS3Access,
             values.defaultResource,
             values.hasAccessToAllBuckets,
-            values.allowedBuckets
+            values.allowedBuckets,
+            values.allowBucketCreation
         ));
 
         action$.next(lockModal());

@@ -5,9 +5,10 @@ import { toCammelCase, toDashedCase, randomString } from './string-utils';
 import { sleep } from './promise-utils';
 
 export function parseQueryString(str) {
-    return decodeURIComponent(str)
+    return str
         .replace(/(^\?)/,'')
         .split('&')
+        .map(part => decodeURIComponent(part))
         .filter(part => part)
         .reduce( (result, part) => {
             const [name, value] = part.split('=');

@@ -5,6 +5,7 @@ export default {
         required: [
             'accessKeys',
             'allowedBuckets',
+            'canCreateBuckets',
             'externalConnections',
             'hasLoginAccess',
             'hasS3Access',
@@ -32,6 +33,9 @@ export default {
                 items: {
                     type: 'string'
                 }
+            },
+            canCreateBuckets: {
+                type: 'boolean'
             },
             allowedIps: {
                 type: 'array',

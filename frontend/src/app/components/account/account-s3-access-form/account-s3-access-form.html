@@ -14,12 +14,18 @@
         </button>
     </div>
 
-    <button class="btn" ko.click="onEditS3Access">
+    <button class="btn"
+        ko.click="onEditS3Access"
+        ko.disable="!isAccountLoaded()"
+    >
         Edit S3 Access
     </button>
 </div>
 
-<property-sheet class="s3-access-details pad push-next " params="properties: s3AccessInfo">
+<property-sheet class="s3-access-details pad push-next " params="
+    properties: s3AccessInfo,
+    loading: !isAccountLoaded()
+">
     <template name="list">
         <div class="row content-middle" ko.if="$data">
             <ul class="no-wrap box-list list-no-style row" ko.foreach="visibleItems">
@@ -52,7 +58,10 @@
     </div>
 </div>
 
-<div class="pad column">
+<loading-indicator class="align-start pad"
+    ko.visible="!isAccountLoaded()"
+></loading-indicator>
+<div class="pad column" ko.if="isAccountLoaded">
     <span class="highlight push-next" ko.css.disabled="isS3AccessDisabled">
         Use the following S3 access keys to connect a S3 compatible application to NooBaa:
     </span>

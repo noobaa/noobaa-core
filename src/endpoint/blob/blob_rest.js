@@ -12,7 +12,8 @@ const BLOB_MAX_BODY_LEN = 4 * 1024 * 1024;
 const RPC_ERRORS_TO_BLOB = Object.freeze({
     NO_SUCH_BUCKET: BlobError.ContainerNotFound,
     BUCKET_ALREADY_EXISTS: BlobError.ContainerAlreadyExists,
-    NO_SUCH_OBJECT: BlobError.BlobNotFound
+    NO_SUCH_OBJECT: BlobError.BlobNotFound,
+    INVALID_REQUEST: BlobError.InvalidBlobOrBlock,
 });
 
 const BLOB_OPS = load_ops();
@@ -168,6 +169,8 @@ function load_ops() {
         get_blob_metadata: r('./ops/blob_get_blob_metadata'),
         get_blob_blocklist: r('./ops/blob_get_blob_blocklist'),
         put_blob: r('./ops/blob_put_blob'),
+        put_blob_block: r('./ops/blob_put_blob_block'),
+        put_blob_blocklist: r('./ops/blob_put_blob_blocklist'),
         put_blob_lease: r('./ops/blob_put_blob_lease'),
         delete_blob: r('./ops/blob_delete_blob'),
     });

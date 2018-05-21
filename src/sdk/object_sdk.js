@@ -295,38 +295,48 @@ class ObjectSDK {
     // OBJECT UPLOAD //
     ///////////////////
 
-    async upload_object(params) {
-        const target_ns = await this._get_bucket_namespace(params.bucket);
-        let reply;
-        if (params.copy_source) {
-            const source_params = _.pick(params.copy_source, 'bucket', 'key');
+
+    // if upload is using a copy source fix the params according to source and target real location
+    async fix_copy_source_params(params, target_ns) {
+        const source_params = _.pick(params.copy_source, 'bucket', 'key');
+        // get the namespace for source bucket
+        const source_ns = await this._get_bucket_namespace(params.copy_source.bucket);
+        const source_md = await source_ns.read_object_md(source_params, this);
+        // take the actual namespace of the bucket either from md (in case of S3\Blob) or source_ns itself
+        const actual_source_ns = source_md.ns || source_ns;
+        const actual_target_ns = target_ns.get_write_resource();
+        // check if source and target are the same and can handle server side copy
+        if (actual_target_ns.is_same_namespace(actual_source_ns)) {
+            // fix copy_source in params to point to the correct cloud bucket
+            params.copy_source.bucket = actual_source_ns.get_bucket(params.copy_source.bucket);
+        } else {
+            // source cannot be copied directly (different plaforms, accounts, etc.)
+            // set the source_stream to read from the copy source
             if (params.copy_source.range) {
                 source_params.start = params.copy_source.range.start;
                 source_params.end = params.copy_source.range.end;
             }
-            // get the namespace for source bucket
-            const source_ns = await this._get_bucket_namespace(params.copy_source.bucket);
-            const source_md = await source_ns.read_object_md(source_params, this);
-            // take the actual namespace of the bucket either from md (in case of S3\Blob) or source_ns itself
-            const actual_source_ns = source_md.ns || source_ns;
-            const actual_target_ns = target_ns.get_write_resource();
-            // check if source and target are the same and can handle server side copy
-            if (actual_target_ns.is_same_namespace(actual_source_ns)) {
-                // fix copy_source in params 
-                params.copy_source.bucket = actual_source_ns.get_bucket(params.copy_source.bucket);
-            } else {
-                params.copy_source = null;
-                params.source_stream = await source_ns.read_object_stream(source_params, this);
-                params.size = source_md.size;
-                if (params.xattr_copy) {
-                    params.xattr = source_md.xattr;
-                }
-                params.xattr = _.omitBy(params.xattr, (val, key) => key.startsWith('noobaa-namespace'));
-                if (params.size > (100 * size_utils.MEGABYTE)) {
-                    dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
-                     so it can take some time and cause client timeouts`);
-                }
+            params.source_stream = await source_ns.read_object_stream(source_params, this);
+            params.size = source_md.size;
+            if (params.xattr_copy) {
+                params.xattr = source_md.xattr;
             }
+            params.xattr = _.omitBy(params.xattr, (val, key) => key.startsWith('noobaa-namespace'));
+            if (params.size > (100 * size_utils.MEGABYTE)) {
+                dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
+                so it can take some time and cause client timeouts`);
+            }
+            // reset the copy_source param
+            params.copy_source = null;
+        }
+    }
+
+
+    async upload_object(params) {
+        const target_ns = await this._get_bucket_namespace(params.bucket);
+        let reply;
+        if (params.copy_source) {
+            await this.fix_copy_source_params(params, target_ns);
         }
 
         reply = await target_ns.upload_object(params, this);
@@ -334,7 +344,6 @@ class ObjectSDK {
         this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket });
         return reply;
     }
-
 
     /////////////////////////////
     // OBJECT MULTIPART UPLOAD //
@@ -345,9 +354,12 @@ class ObjectSDK {
             .then(ns => ns.create_object_upload(params, this));
     }
 
-    upload_multipart(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.upload_multipart(params, this));
+    async upload_multipart(params) {
+        const target_ns = await this._get_bucket_namespace(params.bucket);
+        if (params.copy_source) {
+            await this.fix_copy_source_params(params, target_ns);
+        }
+        return target_ns.upload_multipart(params, this);
     }
 
     list_multiparts(params) {
@@ -368,6 +380,26 @@ class ObjectSDK {
     abort_object_upload(params) {
         return this._get_bucket_namespace(params.bucket)
             .then(ns => ns.abort_object_upload(params, this));
+    }
+
+
+    ////////////////////////
+    // BLOCK BLOB UPLOADS //
+    ////////////////////////
+
+    async upload_blob_block(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.upload_blob_block(params, this);
+    }
+
+    async commit_blob_block_list(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.commit_blob_block_list(params, this);
+    }
+
+    async get_blob_block_lists(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.get_blob_block_lists(params, this);
     }
 
     ///////////////////

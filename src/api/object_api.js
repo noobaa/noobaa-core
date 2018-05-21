@@ -244,6 +244,9 @@ module.exports = {
                     num_parts: {
                         type: 'integer'
                     },
+                    etag: {
+                        type: 'string',
+                    },
                 }
             },
             reply: {

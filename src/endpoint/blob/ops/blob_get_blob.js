@@ -37,7 +37,7 @@ function get_blob(req, res) {
             //      416 (unsatisfiable)
             //      array (ranges)
             const ranges = http_utils.normalize_http_ranges(
-                http_utils.parse_http_range(req.headers.range),
+                http_utils.parse_http_range(req.headers['x-ms-range'] || req.headers.range),
                 obj_size);
 
             if (!ranges) {

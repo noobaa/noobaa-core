@@ -109,6 +109,20 @@ class NamespaceMerge {
         return this._ns_put(ns => ns.upload_object(params, object_sdk));
     }
 
+    upload_blob_block(params, object_sdk) {
+        return this._ns_put(ns => ns.upload_blob_block(params, object_sdk));
+    }
+
+    commit_blob_block_list(params, object_sdk) {
+        return this._ns_put(ns => ns.commit_blob_block_list(params, object_sdk));
+    }
+
+    get_blob_block_lists(params, object_sdk) {
+        // TODO: should we get blob block lists from read resources as well?
+        return this._ns_put(ns => ns.get_blob_block_lists(params, object_sdk));
+    }
+
+
     /////////////////////////////
     // OBJECT MULTIPART UPLOAD //
     /////////////////////////////

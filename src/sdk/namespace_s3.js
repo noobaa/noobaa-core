@@ -8,6 +8,7 @@ const util = require('util');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const s3_utils = require('../endpoint/s3/s3_utils');
+const blob_translator = require('./blob_translator');
 
 class NamespaceS3 {
 
@@ -154,6 +155,22 @@ class NamespaceS3 {
         };
     }
 
+    ////////////////////////
+    // BLOCK BLOB UPLOADS //
+    ////////////////////////
+
+    upload_blob_block(params, object_sdk) {
+        return blob_translator.upload_blob_block(params, object_sdk);
+    }
+
+    commit_blob_block_list(params, object_sdk) {
+        return blob_translator.commit_blob_block_list(params, object_sdk);
+    }
+
+    get_blob_block_lists(params, object_sdk) {
+        return blob_translator.get_blob_block_lists(params, object_sdk);
+    }
+
     /////////////////////////////
     // OBJECT MULTIPART UPLOAD //
     /////////////////////////////
@@ -174,26 +191,32 @@ class NamespaceS3 {
             });
     }
 
-    upload_multipart(params, object_sdk) {
+    async upload_multipart(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params));
+        let res;
         if (params.copy_source) {
-            throw new Error('NamespaceS3.upload_multipart: copy part not yet supported');
+            res = await this.s3.uploadPartCopy({
+                    Key: params.key,
+                    UploadId: params.obj_id,
+                    PartNumber: params.num,
+                    CopySource: `/${params.copy_source.bucket}/${params.copy_source.key}`
+                })
+                .promise();
+        } else {
+            res = await this.s3.uploadPart({
+                    Key: params.key,
+                    UploadId: params.obj_id,
+                    PartNumber: params.num,
+                    Body: params.source_stream,
+                    ContentLength: params.size
+                })
+                .promise();
         }
-        return this.s3.uploadPart({
-                Key: params.key,
-                UploadId: params.obj_id,
-                PartNumber: params.num,
-                Body: params.source_stream,
-                ContentLength: params.size,
-            })
-            .promise()
-            .then(res => {
-                dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
-                const etag = s3_utils.parse_etag(res.ETag);
-                return {
-                    etag,
-                };
-            });
+        dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
+        const etag = s3_utils.parse_etag(res.ETag);
+        return {
+            etag,
+        };
     }
 
     list_multiparts(params, object_sdk) {
@@ -258,7 +281,7 @@ class NamespaceS3 {
     // OBJECT DELETE //
     ///////////////////
 
-    delete_object(params, object_sdk) {
+    delete_object(params) {
         dbg.log0('NamespaceS3.delete_object:', this.bucket, inspect(params));
         return this.s3.deleteObject({
                 Key: params.key
@@ -269,7 +292,7 @@ class NamespaceS3 {
             });
     }
 
-    delete_multiple_objects(params, object_sdk) {
+    delete_multiple_objects(params) {
         dbg.log0('NamespaceS3.delete_multiple_objects:', this.bucket, inspect(params));
         return this.s3.deleteObjects({
                 Delete: { Objects: _.map(params.keys, Key => ({ Key })) }

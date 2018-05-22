@@ -9,7 +9,7 @@ function clean_ifcfg() {
     sudo rm /etc/sysconfig/network-scripts/ifcfg-e*
 }
 
-function aws_specific(){
+function aws_specific() {
     sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
     sed -i 's/ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/g' /etc/ssh/sshd_config
     sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
@@ -35,6 +35,20 @@ function aws_specific(){
         fi
     done
 
+    shred -u ~/.*history
+}
+
+function alyun_specific() {
+    chmod 700 /etc/rc.d/init.d/supervisord
+    chmod 700  /root/.nvm/nvm.sh
+    chmod 700 -R /root/node_modules
+    for user in $(cat /etc/shadow | awk -F ":" '{print $1}')
+    do
+        if [ -f /${user}/.ssh/authorized_keys ]; then
+            echo > /${user}/.ssh/authorized_keys
+        fi
+        sudo passwd -d ${user}
+    done
     shred -u ~/.*history
 }
 
@@ -66,6 +80,9 @@ do
                         shift 1;;
         -w|--aws)       isAws=true
                         platform=aws
+                        shift 1;;
+        -g|--google)    isGoogle=true
+                        platform=google
                         shift 1;;
         -d|--dev)       dev=true
                         shift 1;;
@@ -126,8 +143,13 @@ echo "forward only;" >> /etc/noobaa_configured_dns.conf
 
 cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/named.conf /etc/named.conf
 
-#make sure NetworkManager is disabled and named start on boot
-sudo systemctl disable NetworkManager
+#make sure NetworkManager is disabled and named start on boot, on google start it
+if ${isGoogle}
+then
+    sudo systemctl enable NetworkManager
+else
+    sudo systemctl disable NetworkManager
+fi
 sudo systemctl enable named
 
 sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc/ntp.conf
@@ -169,6 +191,11 @@ set +e
 if ${isAws}
 then
     aws_specific
+fi
+
+if ${isAlyun}
+then
+    alyun_specific
 fi
 
 if ! ${isEsx}

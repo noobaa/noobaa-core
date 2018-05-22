@@ -4,7 +4,6 @@ import template from './maintenance-sticky.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
-import { isUndefined } from 'utils/core-utils';
 import { get } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import { timeTickInterval } from 'config';
@@ -21,13 +20,15 @@ class MaintenanceModeStickyViewModel extends Observer {
         this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
 
         this.observe(
-            state$.pipe(get('system', 'timeLeftForMaintenanceMode')),
+            state$.pipe(get('system', 'maintenanceMode')),
             this.onState
         );
     }
 
-    onState(timeLeft) {
-        if (isUndefined(timeLeft)) return;
+    onState(maintenanceMode) {
+        if (!maintenanceMode) return;
+
+        const timeLeft = Math.max(maintenanceMode.till - Date.now(), 0);
 
         this.isActive(Boolean(timeLeft));
         this.timeLeft(timeLeft);

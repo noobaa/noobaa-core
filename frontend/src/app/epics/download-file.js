@@ -1,11 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { deepFreeze } from 'utils/core-utils';
-import { COMPLETE_COLLECT_HOST_DIAGNOSTICS } from 'action-types';
+import {
+    COMPLETE_COLLECT_HOST_DIAGNOSTICS,
+    COMPLETE_COLLECT_SERVER_DIAGNOSTICS
+} from 'action-types';
 import { map } from 'rxjs/operators';
 
 const actionToUriAccessor = deepFreeze({
-    [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: payload => payload.packageUri
+    [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: payload => payload.packageUri,
+    [COMPLETE_COLLECT_SERVER_DIAGNOSTICS]: payload => payload.packageUri
 });
 
 export default function(action$, { browser }) {

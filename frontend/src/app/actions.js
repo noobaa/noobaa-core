@@ -524,35 +524,6 @@ export function uploadSSLCertificate(SSLCertificate) {
         );
 }
 
-export function downloadServerDiagnosticPack(secret, hostname) {
-    logAction('downloadServerDiagnosticPack', { secret, hostname });
-
-    const name = `${hostname}-${secret}`;
-    const key = `server:${secret}`;
-    if (model.collectDiagnosticsState[key]) {
-        return;
-    }
-
-    model.collectDiagnosticsState.assign({ [key]: true });
-    api.cluster_server.diagnose_system({
-        target_secret: secret
-    })
-        .catch(
-            err => {
-                notify(`Packing server diagnostic file for ${name} failed`, 'error');
-                model.collectDiagnosticsState.assign({ [key]: false });
-                throw err;
-            }
-        )
-        .then(
-            url => {
-                downloadFile(url);
-                model.collectDiagnosticsState.assign({ [key]: false });
-            }
-        )
-        .done();
-}
-
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
@@ -576,28 +547,6 @@ export function downloadSystemDiagnosticPack() {
                 model.collectDiagnosticsState.assign({ system: false });
             }
         )
-        .done();
-}
-
-export function setServerDebugLevel(secret, hostname, level){
-    logAction('setServerDebugLevel', { secret, hostname, level });
-
-    const name = `${hostname}-${secret}`;
-    api.cluster_server.set_debug_level({
-        target_secret: secret,
-        level: level
-    })
-        .then(
-            () => notify(
-                `Debug mode was turned ${level === 0 ? 'off' : 'on'} for server ${name}`,
-                'success'
-            ),
-            () => notify(
-                `Could not turn ${level === 0 ? 'off' : 'on'} debug mode for server ${name}`,
-                'error'
-            )
-        )
-        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 

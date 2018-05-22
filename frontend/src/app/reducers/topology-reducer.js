@@ -8,7 +8,10 @@ import {
     COMPLETE_FETCH_SYSTEM_INFO,
     UPLOAD_UPGRADE_PACKAGE,
     UPDATE_UPGRADE_PACKAGE_UPLOAD,
-    ABORT_UPGRADE_PACKAGE_UPLOAD
+    ABORT_UPGRADE_PACKAGE_UPLOAD,
+    COLLECT_SERVER_DIAGNOSTICS,
+    COMPLETE_COLLECT_SERVER_DIAGNOSTICS,
+    FAIL_COLLECT_SERVER_DIAGNOSTICS
 } from 'action-types';
 
 // ------------------------------
@@ -123,10 +126,76 @@ function onAbortUpgradePackageUpload(state) {
     };
 }
 
+function onCollectServerDiagnostics(state, { payload }) {
+    const { secret } = payload;
+    const diagnostics = {
+        collecting: true,
+        error: false,
+        packageUri: ''
+    };
+
+    return {
+        ...state,
+        servers: {
+            ...state.servers,
+            [secret]: {
+                ...state.servers[secret],
+                diagnostics
+            }
+        }
+    };
+}
+
+function onCompleteCollectServerDiagnostics(state, { payload }) {
+    const { secret, packageUri } = payload;
+    const diagnostics = {
+        collecting: false,
+        error: false,
+        packageUri: packageUri
+    };
+
+    return {
+        ...state,
+        servers: {
+            ...state.servers,
+            [secret]: {
+                ...state.servers[secret],
+                diagnostics
+            }
+        }
+    };
+}
+
+function onFailCollectServerDiagnostics(state, { payload }) {
+    const { secret } = payload;
+    const diagnostics = {
+        collecting: false,
+        error: true,
+        packageUri: ''
+    };
+
+    return {
+        ...state,
+        servers: {
+            ...state.servers,
+            [secret]: {
+                ...state.servers[secret],
+                diagnostics
+            }
+        }
+    };
+}
+
 // ------------------------------
 // Local util functions
 // ------------------------------
 function _mapServer(serverState, update, masterSecret) {
+    const defaultDiagnostics = {
+        collecting: false,
+        error: false,
+        packageUri: ''
+    };
+
     return {
         hostname: update.hostname,
         secret: update.secret,
@@ -145,9 +214,12 @@ function _mapServer(serverState, update, masterSecret) {
         phonehome: _mapPhonehome(update),
         remoteSyslog: _mapRemoteSyslog(update),
         clusterConnectivity: _mapClusterConnectivity(update),
-        debugMode: Boolean(update.debug_level),
+        debugMode: {
+            till: update.debug.level ? Date.now() + update.debug.time_left : 0
+        },
         isMaster: update.secret === masterSecret,
-        upgrade: _mapUpgradeState(serverState.upgrade, update.upgrade)
+        upgrade: _mapUpgradeState(serverState.upgrade, update.upgrade),
+        diagnostics: defaultDiagnostics
     };
 }
 
@@ -289,5 +361,8 @@ export default createReducer(initialState, {
     [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
     [UPLOAD_UPGRADE_PACKAGE]: onUploadUpgradePackage,
     [UPDATE_UPGRADE_PACKAGE_UPLOAD]: onUpdateUpgradePackageUpload,
-    [ABORT_UPGRADE_PACKAGE_UPLOAD]: onAbortUpgradePackageUpload
+    [ABORT_UPGRADE_PACKAGE_UPLOAD]: onAbortUpgradePackageUpload,
+    [COLLECT_SERVER_DIAGNOSTICS]: onCollectServerDiagnostics,
+    [COMPLETE_COLLECT_SERVER_DIAGNOSTICS]: onCompleteCollectServerDiagnostics,
+    [FAIL_COLLECT_SERVER_DIAGNOSTICS]: onFailCollectServerDiagnostics
 });

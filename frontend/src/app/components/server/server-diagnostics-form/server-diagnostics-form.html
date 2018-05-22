@@ -7,16 +7,25 @@
         </h2>
         <button class="btn push-next"
                 ko.disable="!isConnected()"
-                ko.click="toggleDebugLevel"
-                ko.text="toggleDebugModeButtonLabel">
+                ko.click="onToggleDebugMode"
+                ko.text="toggleDebugModeButtonText">
         </button>
         <working-button params="
             working: isCollectingDiagnostics,
             workingLabel: 'Collecting Data...',
-            click: downloadDiagnosticPack
+            click: onDownloadDiagnosticPack,
+            disabled: !isServerLoaded()
         ">
             Download Diagnostics
         </working-button>
     </div>
-    <property-sheet class="pad push-next" params="properties: debugModeSheet"></property-sheet>
+    <property-sheet class="pad push-next" params="
+        properties: debugModeSheet,
+        loading: !isServerLoaded()
+    ">
+        <template name="debugState">
+            {{$data.stateLabel}}
+            <span class="warning" ko.visible="$data.isWarningVisible">(May cause system slowdown)</span>
+        </template>
+    </property-sheet>
 </section>

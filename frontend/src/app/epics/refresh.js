@@ -48,7 +48,8 @@ export default function(action$) {
             types.COMPLETE_ENTER_MAINTENANCE_MODE,
             types.COMPLETE_LEAVE_MAINTENANCE_MODE,
             types.COMPLETE_CREATE_BUCKET,
-            types.COMPLETE_REGENERATE_ACCOUNT_CREDENTIALS
+            types.COMPLETE_REGENERATE_ACCOUNT_CREDENTIALS,
+            types.COMPLETE_SET_SERVER_DEBUG_MODE
         ),
         map(() => refreshLocation())
     );

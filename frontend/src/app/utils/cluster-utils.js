@@ -185,7 +185,7 @@ export function summarizeServerIssues(server, systemVersion, minRequirements) {
         (server.cpus.count < minRequirements.cpus);
 
     return omitUndefined({
-        debugMode: server.debugMode ?
+        debugMode: server.debugMode.state ?
             'Server is in debug mode' :
             undefined,
         version: (server.version !== systemVersion) ?

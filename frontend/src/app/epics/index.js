@@ -72,7 +72,7 @@ import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
 import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
-import steSystemDebugMode from './set-system-debug-mode';
+import setSystemDebugMode from './set-system-debug-mode';
 import collectSystemDiagnostics from './collect-system-diagnostics';
 
 const generalEpics = [
@@ -104,7 +104,7 @@ const systemRelatedEpics = [
     updateRemoteSyslog,
     enterMaintenanceMode,
     leaveMaintenanceMode,
-    steSystemDebugMode,
+    setSystemDebugMode,
     collectSystemDiagnostics
 ];
 

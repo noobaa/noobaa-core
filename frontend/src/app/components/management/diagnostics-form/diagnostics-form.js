@@ -12,8 +12,16 @@ import {
     collectSystemDiagnostics
 } from 'action-creators';
 
+function _getToggleDebugModeButtonText(isTimeLeft) {
+    return `Turn ${isTimeLeft ? 'Off' : 'On' } System Debug Mode`;
+}
+
+function _getStateLabel(isTimeLeft) {
+    return isTimeLeft ? 'On' : 'Off';
+}
+
 class DiagnosticsFormViewModel extends Observer {
-    isDebugModeOn = false;
+    isTimeLeft = false;
     timeLeft = ko.observable();
     isSystemLoaded = ko.observable();
     toggleDebugModeButtonText = ko.observable();
@@ -24,7 +32,7 @@ class DiagnosticsFormViewModel extends Observer {
             value:  {
                 text: support.email,
                 href: `mailto:${support.email}`,
-                target: '_self'
+                openInNewTab: false
             },
             template: 'linkTemplate'
         },
@@ -33,7 +41,7 @@ class DiagnosticsFormViewModel extends Observer {
             value: {
                 text: support.helpDesk,
                 href: support.helpDesk,
-                target: '_blank'
+                openInNewTab: true
             },
             template: 'linkTemplate'
         }
@@ -75,25 +83,23 @@ class DiagnosticsFormViewModel extends Observer {
         }
 
         const { debugMode, diagnostics } = system;
-        const { timeLeft = 0, state: isDebugModeOn } = debugMode;
-        const toggleDebugModeButtonText = `Turn ${isDebugModeOn ? 'Off' : 'On' } System Debug Mode`;
-        const stateLabel = isDebugModeOn ? 'On' : 'Off';
-        const isTimeLeft = Boolean(timeLeft);
-        const timeLeftText = isDebugModeOn ? formatTimeLeftForDebugMode(isTimeLeft, timeLeft) : 'None';
+        const timeLeft = Math.max(debugMode.till - Date.now(), 0);
+        const isTimeLeft = timeLeft !== 0;
+        const timeLeftText = formatTimeLeftForDebugMode(isTimeLeft, timeLeft);
 
-        this.isDebugModeOn = isDebugModeOn;
+        this.isTimeLeft = isTimeLeft;
         this.isCollectingDiagnostics(diagnostics.collecting);
         this.timeLeft(timeLeft);
-        this.toggleDebugModeButtonText(toggleDebugModeButtonText);
-        this.debugModeSheet[0].value.stateLabel(stateLabel);
-        this.debugModeSheet[0].value.isWarningVisible(isDebugModeOn);
-        this.debugModeSheet[1].disabled(!isDebugModeOn);
+        this.toggleDebugModeButtonText(_getToggleDebugModeButtonText(isTimeLeft));
+        this.debugModeSheet[0].value.stateLabel(_getStateLabel(isTimeLeft));
+        this.debugModeSheet[0].value.isWarningVisible(isTimeLeft);
+        this.debugModeSheet[1].disabled(!isTimeLeft);
         this.debugModeSheet[1].value(timeLeftText);
         this.isSystemLoaded(true);
     }
 
     toggleDebugMode() {
-        action$.next(setSystemDebugMode(!this.isDebugModeOn));
+        action$.next(setSystemDebugMode(!this.isTimeLeft));
     }
 
     onDownloadDiagnosticPack() {
@@ -104,10 +110,15 @@ class DiagnosticsFormViewModel extends Observer {
         if (!this.timeLeft()) return;
 
         const timeLeft = Math.max(this.timeLeft() - timeTickInterval, 0);
-        const isTimeLeft = Boolean(timeLeft);
+        const isTimeLeft = timeLeft !== 0;
         const timeLeftText = formatTimeLeftForDebugMode(isTimeLeft, timeLeft);
 
+        this.isTimeLeft = isTimeLeft;
         this.timeLeft(timeLeft);
+        this.toggleDebugModeButtonText(_getToggleDebugModeButtonText(isTimeLeft));
+        this.debugModeSheet[0].value.stateLabel(_getStateLabel(isTimeLeft));
+        this.debugModeSheet[0].value.isWarningVisible(isTimeLeft);
+        this.debugModeSheet[1].disabled(!isTimeLeft);
         this.debugModeSheet[1].value(timeLeftText);
     }
 

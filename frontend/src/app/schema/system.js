@@ -101,13 +101,10 @@ export default {
         debugMode: {
             type: 'object',
             required: [
-                'state'
+                'till'
             ],
             properties: {
-                state: {
-                    type: 'boolean'
-                },
-                timeLeft: {
+                till: {
                     type: 'integer'
                 }
             }

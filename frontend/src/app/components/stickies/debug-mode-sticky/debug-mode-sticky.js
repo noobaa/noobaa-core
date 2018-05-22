@@ -7,7 +7,7 @@ import { get } from 'rx-extensions';
 import { formatTimeLeftForDebugMode } from 'utils/diagnostic-utils';
 import { timeTickInterval } from 'config';
 import { action$, state$ } from 'state';
-import { setSystemDebugMode, refreshLocation } from 'action-creators';
+import { setSystemDebugMode } from 'action-creators';
 
 class DebugModeStickyViewModel extends Observer {
     isActive = ko.observable();
@@ -28,11 +28,11 @@ class DebugModeStickyViewModel extends Observer {
     onState(debugMode) {
         if (!debugMode) return;
 
-        const { timeLeft = 0, state } = debugMode;
-        const isTimeLeft = Boolean(timeLeft);
+        const timeLeft = Math.max(debugMode.till - Date.now(), 0);
+        const isTimeLeft = timeLeft !== 0;
         const timeLeftText = formatTimeLeftForDebugMode(isTimeLeft, timeLeft);
 
-        this.isActive(Boolean(state));
+        this.isActive(isTimeLeft);
         this.timeLeft(timeLeft);
         this.timeLeftText(timeLeftText);
     }
@@ -45,12 +45,12 @@ class DebugModeStickyViewModel extends Observer {
         if (!this.timeLeft()) return;
 
         const timeLeft = Math.max(this.timeLeft() - timeTickInterval, 0);
-        const isTimeLeft = Boolean(timeLeft);
+        const isTimeLeft = timeLeft !== 0;
         const timeLeftText = formatTimeLeftForDebugMode(isTimeLeft, timeLeft);
 
         this.timeLeft(timeLeft);
         this.timeLeftText(timeLeftText);
-        timeLeft === 0 && action$.next(refreshLocation());
+        this.isActive(isTimeLeft);
     }
 
     dispose() {

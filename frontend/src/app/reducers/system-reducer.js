@@ -31,12 +31,16 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         maintenance_mode,
         debug
     } = payload;
-    const { releaseNotes, diagnostics } = state || {};
     const defaultDiagnostics = {
         collecting: false,
         error: false,
         packageUri: ''
     };
+    const {
+        releaseNotes,
+        diagnostics = defaultDiagnostics
+    } = state || {};
+
 
     return {
         version,
@@ -50,11 +54,9 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
         },
         debugMode: {
-            state: Boolean(debug.level),
-            timeLeft: debug.time_left
+            till: debug.level ? Date.now() + debug.time_left : 0
         },
-        diagnostics: diagnostics || defaultDiagnostics
-
+        diagnostics
     };
 }
 

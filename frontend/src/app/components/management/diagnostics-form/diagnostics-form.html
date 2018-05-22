@@ -4,7 +4,12 @@
     <h2 class="heading3 pad alt-bg">Contact Support</h2>
     <property-sheet class="pad" params="properties: contactInfo">
         <template name="linkTemplate">
-            <a class="link" ko.attr.href="$data.href" ko.attr.target="$data.target">{{$data.text}}</a>
+            <a class="link"
+                ko.attr.href="$data.href"
+                ko.attr.target="$data.openInNewTab ? '_blank' : '_self'"
+            >
+                {{$data.text}}
+            </a>
         </template>
     </property-sheet>
 </section>
@@ -18,7 +23,7 @@
         <button class="btn align-start push-next"
             ko.click="toggleDebugMode"
             ko.text="toggleDebugModeButtonText"
-            ko.disabled="!isSystemLoaded()"
+            ko.disable="!isSystemLoaded()"
         ></button>
         <working-button class="align-start push-next" params="
             working: isCollectingDiagnostics,

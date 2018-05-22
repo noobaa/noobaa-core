@@ -444,16 +444,6 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_SET_SYSTEM_DEBUG_MODE]: ({ on }) => ({
-        message: `System debug mode was turned ${on ? 'on' : 'off'}`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_SET_SYSTEM_DEBUG_MODE]: ({ on }) => ({
-        message: `Could not turn ${on ? 'on' : 'off'} system debug mode`,
-        severity: 'error'
-    }),
-
     [types.COLLECT_SYSTEM_DIAGNOSTICS]: () => ({
         message: 'Collecting system diagnostics, it may take a few seconds',
         severity: 'info'

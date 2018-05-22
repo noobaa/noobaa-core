@@ -5,7 +5,6 @@ import Observer from 'observer';
 import ko from 'knockout';
 import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { isUndefined } from 'utils/core-utils';
 import { action$, state$ } from 'state';
 import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
@@ -33,7 +32,7 @@ class MaintenanceFormViewModel extends Observer {
         this.observe(
             state$.pipe(
                 getMany(
-                    ['system', 'timeLeftForMaintenanceMode'],
+                    ['system', 'maintenanceMode'],
                     'location'
                 )
             ),
@@ -41,9 +40,10 @@ class MaintenanceFormViewModel extends Observer {
         );
     }
 
-    onState([timeLeft, location]) {
-        if (isUndefined(timeLeft)) return;
+    onState([maintenanceMode, location]) {
+        if (!maintenanceMode) return;
 
+        const timeLeft = Math.max(maintenanceMode.till - Date.now(), 0);
         const { system, tab, section } = location.params;
         const toggleSection = section === sectionName ? undefined : sectionName;
         const toggleUri = realizeUri(

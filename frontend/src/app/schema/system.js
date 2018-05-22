@@ -3,7 +3,7 @@ export default {
     required: [
         'ipAddress',
         'version',
-        'timeLeftForMaintenanceMode'
+        'maintenanceMode'
     ],
     properties: {
         dnsName: {
@@ -85,8 +85,16 @@ export default {
                 }
             }
         },
-        timeLeftForMaintenanceMode: {
-            type: 'integer'
+        maintenanceMode: {
+            type: 'object',
+            required: [
+                'till'
+            ],
+            properties: {
+                till: {
+                    type: 'integer'
+                }
+            }
         }
     }
 };

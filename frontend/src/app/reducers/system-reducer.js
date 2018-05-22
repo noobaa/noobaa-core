@@ -36,7 +36,9 @@ function onCompleteFetchSystemInfo(state, { payload }) {
         upgrade: _mapUpgrade(upgrade),
         remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
         releaseNotes,
-        timeLeftForMaintenanceMode: maintenance_mode.state ? maintenance_mode.time_left : 0
+        maintenanceMode: {
+            till:  maintenance_mode.state ? Date.now() + maintenance_mode.time_left : 0
+        }
     };
 }
 

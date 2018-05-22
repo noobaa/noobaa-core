@@ -135,8 +135,8 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
         this.bucketName = bucket.name;
         this.tierName = bucket.tierName;
         this.toggleModeBtnText(values.advancedMode ? 'Basic Settings' : 'Advanced Settings');
-        this.isReplicationDisabled(values.resiliencyType !== 'REPLICATION');
-        this.isErasureCodingDisabled(values.resiliencyType !== 'ERASURE_CODING');
+        this.isReplicationDisabled(!values.advancedMode || values.resiliencyType !== 'REPLICATION');
+        this.isErasureCodingDisabled(!values.advancedMode || values.resiliencyType !== 'ERASURE_CODING');
 
         {
             const summary = summrizeResiliency({

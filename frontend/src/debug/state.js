@@ -34,14 +34,13 @@ function onInitialize(prev, action) {
 }
 
 function onAcceptMessage(prev, action) {
+    const id = messages[messages.length - 1] + 1;
     const messages = prev.messages
-        .concat(action.payload)
+        .concat({ id, ...action.payload })
         .slice(-maxLogSize);
 
-    const oldestTimestamp = messages[0].timestamp;
-    const selectedMessage =  oldestTimestamp >= prev.selectedMessage ?
-        prev.selectedMessagese :
-        undefined;
+    const selected = messages.find(message => message.id === prev.selectedMessage);
+    const selectedMessage = selected && selected.id;
 
     return {
         ...prev,
@@ -61,13 +60,12 @@ function onDropMessages(prev) {
 function onSetMessageFilter(prev, action) {
     return {
         ...prev,
-        filter: action.payload.filter,
-        selectedMessage: 0
+        filter: action.payload.filter
     };
 }
 
 function onSelectMessage(prev, action) {
-    const { timestamp: selectedMessage } = action.payload;
+    const { id: selectedMessage } = action.payload;
     return { ...prev, selectedMessage };
 }
 
@@ -77,9 +75,14 @@ function onSelectStateView(prev, action) {
 }
 
 function onReplaceMessages(prev, action) {
+    let seq = 0;
+    const messages = action.payload
+        .slice(-maxLogSize)
+        .map(message => ({ id: ++seq, ...message }));
+
     return {
         ...prev,
-        messages: action.payload.slice(-maxLogSize),
+        messages: messages,
         filter: '',
         selectedMessage: 0
     };

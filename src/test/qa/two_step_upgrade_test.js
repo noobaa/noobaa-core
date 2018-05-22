@@ -326,6 +326,7 @@ function test_first_step() {
 }
 
 function test_second_step() {
+    rpc.disable_validation();
     //TODO:: missing phone home connectivity test
     return P.resolve()
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
@@ -340,10 +341,10 @@ function test_second_step() {
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before time skew'))
         //verify fail on time skew
         .then(() => rpc_client.cluster_server.update_time_config({
-                target_secret: TEST_CFG.secret,
-                timezone: "Asia/Jerusalem",
-                epoch: 1514798132
-            })
+            target_secret: TEST_CFG.secret,
+            timezone: "Asia/Jerusalem",
+            epoch: 1514798132
+        })
             .then(() => _call_upgrade())
             .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew'))
             //Reset time back to normal
@@ -355,7 +356,8 @@ function test_second_step() {
             .delay(65000)) //time update restarts the services
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time'))
-        .then(() => _call_upgrade());
+        .then(() => _call_upgrade())
+        .then(() => rpc.enable_validation());
     //NBNB need to wait for server and verify upgrade was successfull
 }
 

@@ -28,13 +28,15 @@ module.exports = {
     disable_rpc_validation: disable_rpc_validation
 };
 
-function disable_rpc_validation(ip, upgrade_pack) {
+function disable_rpc_validation() {
     rpc_validation_disabled = true;
 }
 
 function upload_and_upgrade(ip, upgrade_pack) {
     console.log('Upgrading the machine');
-    const client = get_rpc_client(ip);
+    rpc_validation_disabled = true; //Running from a new code onto an older code server
+    let client = get_rpc_client(ip);
+    let previous_srv_version;
 
     var filename;
     if (upgrade_pack.indexOf('/') === -1) {
@@ -71,6 +73,7 @@ function upload_and_upgrade(ip, upgrade_pack) {
                     const upgrade_status = _.get(res, 'cluster.shards.0.servers.0.upgrade.status');
                     console.log(`waiting for upgrade status to be CAN_UPGRADE. current upgrade_status = ${upgrade_status}`);
                     if (upgrade_status === 'CAN_UPGRADE') {
+                        previous_srv_version = res.version;
                         ready = true;
                     } else if (upgrade_status === 'FAILED') {
                         console.log('Failed on pre upgrade tests', util.inspect(res.cluster.shards[0].servers));
@@ -112,6 +115,15 @@ function upload_and_upgrade(ip, upgrade_pack) {
                         return P.delay(10000);
                     });
                 });
+        })
+        .then(() => client.system.read_system())
+        .then(res => {
+            //Server is up, check returned version to verify the server was upgraded
+            if (res.version === previous_srv_version) {
+                //Upgrade actually failed
+                console.error('Upgrade failed, version did not change');
+                throw new Error('Upgrade failed, version did not change');
+            }
         })
         .catch(err => {
             console.error('Upload package failed', err, err.stack);

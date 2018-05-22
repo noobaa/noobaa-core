@@ -20,7 +20,6 @@ const TMP_PATH = '/tmp';
 const EXTRACTION_PATH = `${TMP_PATH}/test`;
 const NEW_TMP_ROOT = `${EXTRACTION_PATH}/noobaa-core`;
 const PACKAGE_FILE_NAME = 'new_version.tar.gz';
-const CORE_DIR = "/root/node_modules/noobaa-core";
 const SPAWN_SCRIPT = `${NEW_TMP_ROOT}/src/deploy/NVA_build/two_step_upgrade_checkups_spawn.sh`;
 const ERRORS_PATH = `${TMP_PATH}/new_tests_errors.json`;
 
@@ -377,81 +376,56 @@ function do_yum_update() {
 }
 
 
-function packages_upgrade() {
-    dbg.log0(`fix SCL issue (centos-release-SCL)`);
-    return promise_utils.exec(`yum -y remove centos-release-SCL`, {
+async function packages_upgrade() {
+    try {
+        const packages_to_install = [
+            'sudo',
+            'lsof',
+            'wget',
+            'curl',
+            'ntp',
+            'rsyslog',
+            'cronie',
+            'openssh-server',
+            'dialog',
+            'expect',
+            'nc',
+            'tcpdump',
+            'iperf',
+            'iperf3',
+            'python-setuptools',
+            'bind-utils',
+            'bind',
+            'screen',
+            'strace',
+            'vim',
+            'net-tools',
+            'iptables-services',
+            'rng-tools', // random number generator tools
+            'pv', // pipe viewer
+        ];
+        dbg.log0(`install additional packages`);
+        const res = await promise_utils.exec(`yum install -y ${packages_to_install.join(' ')}`, {
             ignore_rc: false,
             return_stdout: true,
             trim_stdout: true
-        })
-        .then(() => {
-            dbg.log0('packages_upgrade: Removed centos-release-SCL');
-        })
-        .then(() => promise_utils.exec(`cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => promise_utils.exec(`cp -f ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/RPM-GPG-KEY-Adiscon ${CORE_DIR}/src/deploy/NVA_build/RPM-GPG-KEY-Adiscon`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => promise_utils.exec(`yum -y install centos-release-scl`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('packages_upgrade: Installed centos-release-scl');
-        })
-        .then(() => {
-            const packages_to_install = [
-                'sudo',
-                'lsof',
-                'wget',
-                'curl',
-                'ntp',
-                'rsyslog',
-                'cronie',
-                'openssh-server',
-                'dialog',
-                'expect',
-                'nc',
-                'tcpdump',
-                'iperf',
-                'iperf3',
-                'python-setuptools',
-                'bind-utils',
-                'bind',
-                'screen',
-                'strace',
-                'vim',
-                'net-tools',
-                'iptables-services',
-                'rng-tools', // random number generator tools
-                'pv', // pipe viewer
-            ];
-            dbg.log0(`install additional packages`);
-            return promise_utils.exec(`yum install -y ${packages_to_install.join(' ')}`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                    trim_stdout: true
-                })
-                .then(res => {
-                    dbg.log0(res);
-                });
-        })
-        .then(() => promise_utils.exec(`systemctl enable rngd && systemctl start rngd`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(do_yum_update)
-        .catch(err => {
-            dbg.error('packages_upgrade: Failure', err);
-            throw new Error('COULD_NOT_INSTALL_PACKAGES');
         });
+        dbg.log0(res);
+
+        await promise_utils.exec(`systemctl enable rngd && systemctl start rngd`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        });
+
+        await do_yum_update();
+
+    } catch (err) {
+        dbg.error('packages_upgrade: Failure', err);
+        throw new Error('COULD_NOT_INSTALL_PACKAGES');
+    }
+
+
 }
 
 function extract_package() {

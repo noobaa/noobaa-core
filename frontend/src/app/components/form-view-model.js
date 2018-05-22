@@ -274,28 +274,38 @@ export default class FormViewModel extends Observer {
         }
     }
 
-    async _validateAsync(values) {
+    async _validateAsync(values, retries = 2) {
         const { _validateAsyncHandler } = this;
-
-        // Gard the store update against stale validation state.
         const handle = this._asyncValidationHandle = {};
-        const asyncErrors = await _validateAsyncHandler(values);
-        if (this._asyncValidationHandle !== handle) return;
 
-        const fieldsValidity = Object.keys(asyncErrors).length > 0 ?
-            mapValues(values, (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'UNKNOWN') :
-            mapValues(values, () => 'VALID');
+        // Try running the async validation 3 time before forfit.
+        for (let i = 1 + retries ; i > 0; --i) {
+            try {
+                // Gard the store update against stale validation state.
+                const asyncErrors = await _validateAsyncHandler(values);
+                if (this._asyncValidationHandle !== handle) return;
 
-        action$.next(setFormValidity(
-            this.name,
-            {
-                values,
-                fieldsValidity,
-                asyncErrors,
-                validatingAsync: null,
-                touch: true
+                const fieldsValidity = Object.keys(asyncErrors).length > 0 ?
+                    mapValues(values, (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'UNKNOWN') :
+                    mapValues(values, () => 'VALID');
+
+                action$.next(setFormValidity(
+                    this.name,
+                    {
+                        values,
+                        fieldsValidity,
+                        asyncErrors,
+                        validatingAsync: null,
+                        touch: true
+                    }
+                ));
+                break;
+
+            } catch (error) {
+                if (this._asyncValidationHandle !== handle) break;
+                if (i === 0) throw error;
             }
-        ));
+        }
     }
 
     async _handleSubmitting(values) {

@@ -19,13 +19,14 @@ function formatDeltaTime(dt) {
 }
 
 export default class MessageRowViewModel {
+    id = 0;
     timestamp = 0;
     css = ko.observable();
     action = ko.observable();
     time = ko.observable();
 
     onState(message, selected, prevRowTime) {
-        const { timestamp, action, state } = message;
+        const { id, timestamp, action, state } = message;
         const time = `${
             moment(timestamp).format(timeFormat)
         } ${
@@ -34,10 +35,10 @@ export default class MessageRowViewModel {
 
         const css = {
             error: Boolean(state.lastError),
-            ['alt-bg']: timestamp === selected
+            ['alt-bg']: id === selected
         };
 
-        this.timestamp = timestamp;
+        this.id = id;
         this.css(css);
         this.action(action.type);
         this.time(time);

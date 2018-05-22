@@ -8,6 +8,40 @@ import { buildHtmlTree, diff, wrap } from 'utils';
 import zlib from 'zlib';
 import { Buffer } from 'buffer';
 
+const fileReaders = {
+    'application/x-gzip': async file => {
+        const bytes = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = evt => resolve(Buffer.from(evt.target.result));
+            reader.onerror = err => reject(err);
+            reader.readAsArrayBuffer(file);
+        });
+
+        const text = await new Promise((resolve, reject) => {
+            zlib.gunzip(bytes, (err, str) => {
+                if (err) {
+                    reject(str);
+                } else {
+                    resolve(str.toString());
+                }
+            });
+        });
+
+        return JSON.parse(text);
+    },
+
+    'application/json': async file => {
+        const text = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = evt => resolve(Buffer.from(evt.target.result));
+            reader.onerror = err => reject(err);
+            reader.readAsText(file);
+        });
+
+        return JSON.parse(text);
+    }
+};
+
 function _formatDiff(diff) {
     return diff.map(record => {
         const { path, fromValue, toValue } = record;
@@ -26,27 +60,6 @@ function _formatDiff(diff) {
             html: parts.join('\n')
         };
     });
-}
-
-async function _unpackLogFile(file) {
-    const bytes = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = evt => resolve(Buffer.from(evt.target.result));
-        reader.onerror = err => reject(err);
-        reader.readAsArrayBuffer(file);
-    });
-
-    const json = await new Promise((resolve, reject) => {
-        zlib.gunzip(bytes, (err, str) => {
-            if (err) {
-                reject(str);
-            } else {
-                resolve(str.toString());
-            }
-        });
-    });
-
-    return JSON.parse(json);
 }
 
 export default class AppViewModel {
@@ -77,7 +90,7 @@ export default class AppViewModel {
                 return actionType.includes(upperCasedFilter);
             });
         const hiddenCount = messages.length - filteredMessages.length;
-        const selected = filteredMessages.find(message => message.timestamp === state.selectedMessage);
+        const selected = filteredMessages.find(message => message.id === state.selectedMessage);
 
         this.targetId = targetId;
         this.title(`Noobaa Debug Console - ${targetId || 'Not Attached'}`);
@@ -124,10 +137,10 @@ export default class AppViewModel {
     }
 
     onSelectRow(row) {
-        const { timestamp } = row;
+        const { id } = row;
         action$.next({
             type: 'SELECT_MESSAGE',
-            payload: { timestamp }
+            payload: { id }
         });
     }
 
@@ -149,14 +162,15 @@ export default class AppViewModel {
     async onSelectFile(_, evt) {
         try {
             const [file] = evt.target.files;
-            if (!file.name.endsWith('.json.gz')) {
-                throw new Error('Invalid file suffix');
+            const reader = fileReaders[file.type];
+            if (!reader) {
+                throw new Error('Invalid file type');
             }
             if (file.size > 3 * (1024 ** 2)) { // 3MB
                 throw new Error('File too big');
             }
 
-            const { log } = await _unpackLogFile(file);
+            const { log } = await reader(file);
             action$.next({
                 type: 'REPLACE_MESSAGES',
                 payload: log

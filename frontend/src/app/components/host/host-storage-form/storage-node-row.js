@@ -18,7 +18,12 @@ function _getActivityString(activity) {
 }
 
 function _formatLatencyValue(latency) {
-    return numeral(latency.toFixed(2)).format('0,0');
+    const format = true &&
+        (latency > 99 && '0,0') ||
+        (latency > 9 && '0.0') ||
+        '0.00';
+
+    return numeral(latency).format(format);
 }
 
 export default class StorageNodeRowViewModel {

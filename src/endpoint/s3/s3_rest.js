@@ -12,6 +12,7 @@ const S3Error = require('./s3_errors').S3Error;
 const js_utils = require('../../util/js_utils');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
+const net = require('net');
 const signature_utils = require('../../util/signature_utils');
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
@@ -210,7 +211,6 @@ function authenticate_request(req, res) {
 }
 
 function parse_op_name(req) {
-    // TODO S3_VIRTUAL_HOST_SUFFIX should get dns_name of the server and use '.'+dns_name
     const virtual_host_suffix = req.virtual_host_suffix;
     const method = req.method.toLowerCase();
     const host = req.headers.host.split(':')[0]; // cutting off port
@@ -221,17 +221,29 @@ function parse_op_name(req) {
     var i;
 
     // see http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html
-    if (host && virtual_host_suffix && host.endsWith(virtual_host_suffix)) {
-        bucket = host.slice(0, -virtual_host_suffix.length);
-        key = url.slice(1);
-        req.virtual_hosted_bucket = bucket;
-    }
+    const is_path_style = !host ||
+        virtual_host_suffix === '.' + host ||
+        net.isIP(host) ||
+        host === 'localhost'; // we added this case on top of the S3 doc cases to handle requests with IP host
 
-    if (!bucket) {
+    const is_bucket_subdomain =
+        virtual_host_suffix &&
+        host.endsWith(virtual_host_suffix) &&
+        host !== virtual_host_suffix; // non empty bucket name
+
+    if (is_path_style) {
         const index = url.indexOf('/', 1);
         const pos = index < 0 ? url.length : index;
         bucket = url.slice(1, pos);
         key = url.slice(pos + 1);
+    } else if (is_bucket_subdomain) {
+        bucket = host.slice(0, -virtual_host_suffix.length);
+        key = url.slice(1);
+        req.virtual_hosted_bucket = bucket;
+    } else { // bucket is host - assume DNS points that name to us
+        bucket = host;
+        key = url.slice(1);
+        req.virtual_hosted_bucket = bucket;
     }
 
     // decode and replace hadoop _$folder$ in key

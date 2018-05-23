@@ -1284,9 +1284,10 @@ function _calc_metrics({
     }
     let spillover_used_by_bucket = size_utils.json_to_bigint(0);
     if (spillover_tier_in_policy) {
-        spillover_used_by_bucket = size_utils.json_to_bigint(_.get(nodes_aggregate_pool, `groups.${spillover_tier_in_policy.mirrors[0].spread_pools[0]._id}.storage.used`) || 0);
+        const spillover_used_storage = bucket.storage_stats.pools[spillover_tier_in_policy.mirrors[0].spread_pools[0]._id];
+        spillover_used_by_bucket = size_utils.json_to_bigint((spillover_used_storage && spillover_used_storage.blocks_size) || 0);
     }
-    const is_spilling_back = spillover_tier_in_policy && !spillover_used_by_bucket.isZero() && !bucket_free.isZero();
+    const is_spilling_back = spillover_tier_in_policy && !spillover_used_by_bucket.isZero() && !actual_free.isZero();
 
     const objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,

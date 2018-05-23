@@ -14,6 +14,7 @@ const api = require('../api');
 const promise_utils = require('../util/promise_utils');
 const azure_storage = require('../util/azure_storage_wrap');
 const af = require('../test/utils/agent_functions');
+const ops = require('../test/utils/basic_server_ops');
 
 const ADMIN_USER_NAME = 'notadmin';
 const QA_USER_NAME = 'qaadmin';
@@ -998,6 +999,7 @@ class AzureFunctions {
             .delay(20000)
             .then(() => this.getIpAddress(`${serverName}_pip`))
             .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
+            .tap(ip => ops.wait_for_server(ip).timeout(10 * 60 * 1000 * 1000))
             .then(ip => {
                 if (createSystem) {
                     rpc = api.new_rpc('wss://' + ip + ':8443');

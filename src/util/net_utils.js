@@ -93,7 +93,7 @@ function is_hostname(target) {
 
 function is_fqdn(target) {
     const regExp = /^(?=^.{1,253}$)(^(((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9])|((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63})$)/;
-    if (regExp.test(target)) {
+    if (target && regExp.test(target)) {
         return true;
     }
 

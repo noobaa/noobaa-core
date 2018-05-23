@@ -69,7 +69,7 @@ function server_side_copy_file_with_md5(ip, bucket, source, destination, version
 
     let params = {
         Bucket: bucket,
-        CopySource: bucket + '/' + source + versionid ? `?versionId=${versionid}` : '',
+        CopySource: bucket + '/' + source + (versionid ? `?versionId=${versionid}` : ''),
         Key: destination,
         MetadataDirective: 'COPY'
     };
@@ -849,6 +849,32 @@ function abort_multipart_upload(ip, bucket, file_name, uploadId) {
         });
 }
 
+function create_multipart_upload(ip, bucket, file_name) {
+    const rest_endpoint = 'http://' + ip + ':' + port;
+    const s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        accessKeyId: accessKeyDefault,
+        secretAccessKey: secretKeyDefault,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    const params = {
+        Bucket: bucket,
+        Key: file_name,
+    };
+
+    return P.ninvoke(s3bucket, 'createMultipartUpload', params)
+        .then(res => {
+            console.log(`Initiated multipart upload filename: ${file_name} uploadId ${res.UploadId}`);
+            return res.UploadId;
+        })
+        .catch(err => {
+            console.error(`Initiating multipart upload failed ${file_name}`, err);
+            throw err;
+        });
+}
+
 /*
  * Internal Utils
  */
@@ -924,3 +950,4 @@ exports.set_file_attribute = set_file_attribute;
 exports.set_file_attribute_with_copy = set_file_attribute_with_copy;
 exports.get_object = get_object;
 exports.abort_multipart_upload = abort_multipart_upload;
+exports.create_multipart_upload = create_multipart_upload;

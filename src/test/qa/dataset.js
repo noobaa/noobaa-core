@@ -332,7 +332,7 @@ function get_random_file(skip_version_check) {
  *********/
 function read_randomizer() {
     return get_random_file()
-        .tap(res => console.info(`Selected to read file: ${res.filename}, size: ${res.extra.size} ${res.versionid ? ', version: ' + res.versionid : ''}`));
+        .tap(res => console.info(`Selected to read file: ${res.filename}, size: ${res.extra && res.extra.size} ${res.versionid ? ', version: ' + res.versionid : ''}`));
 }
 
 function read(params) {
@@ -345,7 +345,7 @@ function read_range_randomizer() {
     let rand_parts = (Math.floor(Math.random() * (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
         TEST_CFG.part_num_low);
     return get_random_file()
-        .tap(res => console.info(`Selected to read_range: ${res.filename}, size: ${res.extra.size}, with ${rand_parts} ranges ${res.versionid ? ', version: ' + res.versionid : ''}`))
+        .tap(res => console.info(`Selected to read_range: ${res.filename}, size: ${res.extra && res.extra.size}, with ${rand_parts} ranges ${res.versionid ? ', version: ' + res.versionid : ''}`))
         .then(res => {
             res.rand_parts = rand_parts;
             return res;
@@ -449,51 +449,24 @@ function upload_new(params) {
 }
 
 function upload_abort_randomizer() {
-    //Using the test defaults for objects size and parts size can cause us to miss aborting 
-    const OBJ_SIZE_UPPER = 700;
-    const OBJ_SIZE_LOWER = 250;
-    const PART_SIZE_LOWER = 15;
-    const PART_SIZE_UPPER = 50;
-    let rand_size = Math.floor((Math.random() * (OBJ_SIZE_UPPER - OBJ_SIZE_LOWER)) + OBJ_SIZE_LOWER);
-    let rand_parts = (Math.floor(Math.random() *
-        (PART_SIZE_UPPER - PART_SIZE_LOWER)) + PART_SIZE_LOWER);
-
     let file_name = get_filename(); //No versionid for uploads, no need to handle versioning
     let res = {
         is_multi_part: true,
-        rand_size,
         file_name,
-        rand_parts,
     };
     return res;
 }
 
 function upload_and_abort(params) {
     console.log(`running upload multi-part and abort`);
-    let uploadId;
-    let retries = 15;
-    console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
-    return P.join(s3ops.upload_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name,
-                params.rand_size, params.rand_parts, TEST_CFG.data_multiplier, true),
-            promise_utils.pwhile(() => (uploadId === undefined), () =>
-                s3ops.get_object_uploadId(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name)
-                .then(res => {
-                    uploadId = res;
-                })
-                .catch(err => {
-                    uploadId = undefined;
-                    retries -= 1;
-                    if (retries) {
-                        return P.delay(10000);
-                    } else {
-                        throw err;
-                    }
-                }))
-            .then(() => s3ops.abort_multipart_upload(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name, uploadId)))
+    console.log(`initiating ${params.file_name}`);
+    return s3ops.create_multipart_upload(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name)
+        .then(() => s3ops.get_object_uploadId(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name))
+        .then(uploadId => s3ops.abort_multipart_upload(TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name, uploadId))
         .then(() => {
             TEST_STATE.count += 1;
         })
-        .then(() => console.log(`file multi-part uploaded ${params.file_name} with ${params.rand_parts} parts was aborted`));
+        .then(() => console.log(`file multi-part uploaded ${params.file_name} was aborted`));
 }
 
 function upload_overwrite_randomizer() {
@@ -557,14 +530,14 @@ function server_side_copy_randomizer() {
         .then(res => ({
             new_filename: file_name,
             old_filename: {
-                name: res.Key,
+                name: res.filename,
                 versionid: res.versionid
             }
         }));
 }
 
 function server_side_copy(params) {
-    console.log(`running server_side copy object from ${params.old_filename.name}:vid${params.old_filename.versionid} to ${params.new_filename}`);
+    console.log(`running server_side copy object from ${params.old_filename.name} to ${params.new_filename}`);
     return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip,
             TEST_CFG.bucket,
             params.old_filename.name,
@@ -586,14 +559,14 @@ function client_side_copy_randomizer() {
         .then(res => ({
             new_filename: file_name,
             old_filename: {
-                name: res.Key,
+                name: res.filename,
                 versionid: res.versionid
             }
         }));
 }
 
 function client_side_copy(params) {
-    console.log(`running client_side copy object from ${params.old_filename.name}:vid${params.old_filename.versionid} to ${params.new_filename}`);
+    console.log(`running client_side copy object from ${params.old_filename.name} to ${params.new_filename}`);
     return s3ops.client_side_copy_file_with_md5(TEST_CFG.server_ip,
             TEST_CFG.bucket,
             params.old_filename.name,
@@ -615,7 +588,7 @@ function rename_randomizer() {
         .then(res => ({
             new_filename: file_name,
             old_filename: {
-                name: res.Key,
+                name: res.filename,
                 versionid: res.versionid
             }
         }));
@@ -623,13 +596,13 @@ function rename_randomizer() {
 
 function run_rename(params) {
     TEST_STATE.count += 1;
-    console.log(`running rename object from ${params.old_filename.name}:vid${params.old_filename.versionid} to ${params.new_filename}`);
+    console.log(`running rename object from ${params.old_filename.name} to ${params.new_filename}`);
     return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip,
             TEST_CFG.bucket,
             params.old_filename.name,
             params.new_filename,
             params.old_filename.versionid)
-        .then(() => s3ops.delete_file(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename, params.old_filename.versionid))
+        .then(() => s3ops.delete_file(TEST_CFG.server_ip, TEST_CFG.bucket, params.old_filename.name, params.old_filename.versionid))
         .then(() => {
             TEST_STATE.count += 1;
         });
@@ -644,14 +617,14 @@ function set_attribute_randomizer() {
 
     return get_random_file()
         .then(res => ({
-            filename: res.Key,
+            filename: res.filename,
             versionid: res.versionid,
             useCopy: useCopy
         }));
 }
 
 function set_attribute(params) {
-    console.log(`running set attribute for ${params.filename}:vid${params.versionid}`);
+    console.log(`running set attribute for ${params.filename}`);
     //TEST_STATE.count += 1;
     if (params.useCopy) {
         console.log(`setting attribute using copyObject`);
@@ -665,7 +638,7 @@ function set_attribute(params) {
 function delete_randomizer() {
     return get_random_file()
         .then(res => ({
-            filename: res.Key,
+            filename: res.filename,
             versionid: res.versionid,
             size: res.Size
         }));

@@ -7,7 +7,8 @@ const S3Error = require('../s3_errors').S3Error;
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTVersioningStatus.html
  */
 async function put_bucket_versioning(req) {
-    const versioning = req.body.VersioningConfiguration.Status[0];
+    const versioning = req.body.VersioningConfiguration.Status &&
+        req.body.VersioningConfiguration.Status[0];
     if (!versioning) return;
     if (versioning !== 'Suspended' && versioning !== 'Enabled') {
         throw new S3Error(S3Error.InvalidArgument);

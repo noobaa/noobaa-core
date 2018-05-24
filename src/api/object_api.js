@@ -121,9 +121,7 @@ module.exports = {
                     etag: {
                         type: 'string',
                     },
-                    version_id: {
-                        $ref: '#/definitions/version_id',
-                    },
+                    version_id: { type: 'string' },
                 }
             },
             auth: {
@@ -612,9 +610,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
-                    version_id: {
-                        $ref: '#/definitions/version_id',
-                    },
+                    version_id: { type: 'string' },
                     bucket: {
                         type: 'string',
                     },
@@ -685,9 +681,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
-                    version_id: {
-                        $ref: '#/definitions/version_id',
-                    },
+                    version_id: { type: 'string' },
                     bucket: {
                         type: 'string',
                     },
@@ -702,9 +696,7 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    version_id: {
-                        $ref: '#/definitions/version_id',
-                    },
+                    version_id: { type: 'string' },
                     delete_marker: {
                         type: 'boolean',
                     },
@@ -736,9 +728,7 @@ module.exports = {
                                 key: {
                                     type: 'string'
                                 },
-                                version_id: {
-                                    $ref: '#/definitions/version_id',
-                                },
+                                version_id: { type: 'string' },
                             }
                         }
                     }
@@ -753,12 +743,8 @@ module.exports = {
                         key: {
                             type: 'string'
                         },
-                        version_id: {
-                            $ref: '#/definitions/version_id',
-                        },
-                        delete_marker_version_id: {
-                            $ref: '#/definitions/version_id',
-                        },
+                        version_id: { type: 'string' },
+                        delete_marker_version_id: { type: 'string' },
                         delete_marker: {
                             type: 'boolean'
                         },
@@ -777,7 +763,59 @@ module.exports = {
             }
         },
 
-        list_objects_s3: {
+        list_objects: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    delimiter: {
+                        type: 'string',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    key_marker: {
+                        type: 'string',
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['objects', 'is_truncated'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        }
+                    },
+                    common_prefixes: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    next_marker: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        list_object_versions: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -800,12 +838,6 @@ module.exports = {
                     },
                     limit: {
                         type: 'integer'
-                    },
-                    upload_mode: {
-                        type: 'boolean'
-                    },
-                    list_versions: {
-                        type: 'boolean'
                     },
                 }
             },
@@ -841,7 +873,65 @@ module.exports = {
             }
         },
 
-        list_objects: {
+        list_uploads: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    delimiter: {
+                        type: 'string',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    key_marker: {
+                        type: 'string',
+                    },
+                    upload_id_marker: {
+                        type: 'string',
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['objects', 'is_truncated'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        }
+                    },
+                    common_prefixes: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    next_marker: {
+                        type: 'string'
+                    },
+                    next_upload_id_marker: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        list_objects_fe: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -1108,6 +1198,7 @@ module.exports = {
             type: 'object',
             required: [
                 'obj_id',
+                'version_id',
                 'bucket',
                 'key',
                 'size',
@@ -1117,6 +1208,7 @@ module.exports = {
                 obj_id: {
                     objectid: true
                 },
+                version_id: { type: 'string' },
                 bucket: {
                     type: 'string'
                 },
@@ -1337,14 +1429,6 @@ module.exports = {
             type: 'object',
             additionalProperties: true,
             properties: {}
-        },
-
-        version_id: {
-            oneOf: [{
-                objectid: true
-            }, {
-                type: 'null'
-            }]
         },
 
         s3_usage_info: {

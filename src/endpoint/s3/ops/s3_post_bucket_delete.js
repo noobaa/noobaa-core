@@ -10,7 +10,7 @@ const dbg = require('../../../util/debug_module')(__filename);
  */
 function post_bucket_delete(req) {
     const objects = _.map(req.body.Delete.Object, obj =>
-        ({ key: obj.Key && obj.Key[0], version_id: obj.VersionId && (obj.VersionId[0] === 'null' ? null : obj.VersionId[0]) }));
+        ({ key: obj.Key && obj.Key[0], version_id: obj.VersionId && obj.VersionId[0] }));
     dbg.log3('post_bucket_delete: objects', objects);
     return req.object_sdk.delete_multiple_objects({
             bucket: req.params.bucket,

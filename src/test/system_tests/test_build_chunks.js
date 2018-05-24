@@ -567,7 +567,7 @@ function has_expected_num_nodes(pool_name, num_of_nodes) {
 }
 
 function delete_bucket_content(bucket_name) {
-    return client.object.list_objects({
+    return client.object.list_objects_fe({
             bucket: bucket_name
         })
         .then(object_list => P.map(object_list.objects, obj => client.object.delete_object({

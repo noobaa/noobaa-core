@@ -32,7 +32,7 @@ function put_object(req, res) {
             xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY'),
         })
         .then(reply => {
-            if (reply.version_id !== undefined) {
+            if (reply.version_id) {
                 res.setHeader('x-amz-version-id', reply.version_id);
             }
             if (copy_source) {

@@ -115,12 +115,15 @@ function delete_object(obj) {
 // TODO: Should also throw if did not succeed deleting from the node
 function delete_multiple_objects(objects) {
     if (!objects) return P.resolve();
-    return P.map(objects, obj => P.resolve(obj && delete_object(obj))
-        .reflect()
-        .then(reflect => ({
-            obj: obj,
-            reflect
-        })), { concurrency: 10 });
+    return P.map(objects, async obj => {
+        try {
+            await delete_object(obj);
+            return { obj };
+        } catch (err) {
+            dbg.error('delete_multiple_objects failed for obj:', obj, 'with error: ', err);
+            return { obj, err };
+        }
+    }, { concurrency: 10 });
 }
 
 

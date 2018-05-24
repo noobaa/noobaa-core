@@ -7,11 +7,10 @@ const s3_utils = require('../s3_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGETacl.html
  */
 function get_object_acl(req) {
-    const version_id = req.query.versionId === 'null' ? null : req.query.versionId;
     return req.object_sdk.read_object_md({
             bucket: req.params.bucket,
             key: req.params.key,
-            version_id
+            version_id: req.query.versionId
         })
         .then(object_md => ({
             AccessControlPolicy: {

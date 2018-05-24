@@ -13,7 +13,6 @@ function get_bucket_uploads(req) {
     // TODO S3 MUST implement KeyMarker & UploadIdMarker & MaxKeys & IsTruncated
     let params = {
         bucket: req.params.bucket,
-        upload_mode: true,
     };
     if ('prefix' in req.query) {
         params.prefix = req.query.prefix;
@@ -24,7 +23,7 @@ function get_bucket_uploads(req) {
     if ('key-marker' in req.query) {
         params.key_marker = req.query['key-marker'];
         if ('upload-id-marker' in req.query) {
-            params.version_id_marker = req.query['upload-id-marker'];
+            params.upload_id_marker = req.query['upload-id-marker'];
         }
     }
 
@@ -35,7 +34,7 @@ function get_bucket_uploads(req) {
     }
     params.limit = Math.min(max_keys_received, 1000);
 
-    return req.object_sdk.list_objects(params)
+    return req.object_sdk.list_uploads(params)
         .then(reply => ({
             ListMultipartUploadsResult: [{
                     'Bucket': req.params.bucket,
@@ -46,7 +45,7 @@ function get_bucket_uploads(req) {
                     'UploadIdMarker': req.query['upload-id-marker'],
                     'IsTruncated': reply.is_truncated,
                     'NextKeyMarker': reply.next_marker,
-                    'NextUploadIdMarker': reply.next_version_id_marker,
+                    'NextUploadIdMarker': reply.next_upload_id_marker,
                     'Encoding-Type': req.query['encoding-type'],
                 },
                 _.map(reply.objects, obj => ({

@@ -281,6 +281,16 @@ class ObjectSDK {
             .then(ns => ns.list_objects(params, this));
     }
 
+    list_uploads(params) {
+        return this._get_bucket_namespace(params.bucket)
+            .then(ns => ns.list_uploads(params, this));
+    }
+
+    list_object_versions(params) {
+        return this._get_bucket_namespace(params.bucket)
+            .then(ns => ns.list_object_versions(params, this));
+    }
+
     /////////////////
     // OBJECT READ //
     /////////////////

@@ -116,14 +116,14 @@ function compare_object_lists(params) {
                 if (_.last(status_list) !== cloud_sync_info.status) {
                     status_list.push(cloud_sync_info.status);
                 }
-                return client.object.list_objects({
+                return client.object.list_objects_fe({
                     bucket: params.source_bucket
                 });
             })
             // get objects list on the source
             .then(function(source_objects) {
                 source_list = _.map(source_objects.objects, 'key');
-                return target_client.object.list_objects({
+                return target_client.object.list_objects_fe({
                     bucket: params.target_bucket
                 });
             })
@@ -181,14 +181,14 @@ function verify_object_lists_after_delete(params) {
                 if (_.last(status_list) !== cloud_sync_info.status) {
                     status_list.push(cloud_sync_info.status);
                 }
-                return client.object.list_objects({
+                return client.object.list_objects_fe({
                     bucket: params.source_bucket
                 });
             })
             // get objects list on the source
             .then(function(source_objects) {
                 source_list = _.map(source_objects.objects, 'key');
-                return target_client.object.list_objects({
+                return target_client.object.list_objects_fe({
                     bucket: params.target_bucket
                 });
             })
@@ -333,7 +333,7 @@ function run_basic_test() {
         })
         // list objects on target to verify the number of objects later
         .then(function() {
-            return client.object.list_objects({
+            return client.object.list_objects_fe({
                 bucket: source_params.bucket
             });
 
@@ -598,14 +598,14 @@ function _create_bucket(params) {
             data_placement: params.data_placement
         })
         .then(() => client.tiering_policy.create_policy({
-                name: params.tiering_policy,
-                tiers: [{
-                    order: 0,
-                    tier: params.tier,
-                    spillover: false,
-                    disabled: false
-                }]
-            }))
+            name: params.tiering_policy,
+            tiers: [{
+                order: 0,
+                tier: params.tier,
+                spillover: false,
+                disabled: false
+            }]
+        }))
         .then(() => client.bucket.create_bucket({
             name: params.bucket,
             tiering: params.tiering_policy,

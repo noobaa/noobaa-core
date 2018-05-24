@@ -88,7 +88,7 @@ function parse_copy_source(req) {
 
     const bucket = decodeURIComponent(source_url.slice(start_index, slash_index));
     const key = decodeURIComponent(source_url.slice(slash_index + 1, query_index));
-    const version = query && (query.versionId === 'null' ? null : query.versionId);
+    const version = query && query.versionId;
     const range = http_utils.parse_http_range(req.headers['x-amz-copy-source-range']);
     return {
         bucket,

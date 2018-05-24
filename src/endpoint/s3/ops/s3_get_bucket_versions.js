@@ -13,8 +13,6 @@ function get_bucket_versions(req) {
     // TODO Implement support for encoding-type
     let params = {
         bucket: req.params.bucket,
-        upload_mode: false,
-        list_versions: true
     };
     if ('prefix' in req.query) {
         params.prefix = req.query.prefix;
@@ -36,7 +34,7 @@ function get_bucket_versions(req) {
     }
     params.limit = Math.min(max_keys_received, 1000);
 
-    return req.object_sdk.list_objects(params)
+    return req.object_sdk.list_object_versions(params)
         .then(reply => ({
             ListVersionsResult: [{
                     'Name': req.params.bucket,

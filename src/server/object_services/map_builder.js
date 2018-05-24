@@ -390,7 +390,7 @@ class MapBuilder {
             map_deleter.delete_blocks_from_nodes(this.delete_blocks),
             map_deleter.delete_multiple_objects(objs_to_be_deleted)
             .each(res => {
-                if (!res.reflect.isFulfilled()) {
+                if (res.err) {
                     dbg.log0('Failed delete_multiple_objects', res);
                 }
             }),

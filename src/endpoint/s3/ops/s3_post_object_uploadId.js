@@ -32,7 +32,7 @@ function post_object_uploadId(req, res) {
             multiparts
         })
         .tap(reply => {
-            if (reply.version_id !== undefined) {
+            if (reply.version_id) {
                 res.setHeader('x-amz-version-id', reply.version_id);
             }
         })

@@ -80,25 +80,17 @@ mocha.describe('md_store', function() {
         });
 
         mocha.it('find_objects_by_prefix()', function() {
-            return md_store.find_objects_by_prefix_and_delimiter({
+            return md_store.list_objects({
                 bucket_id,
                 prefix: '',
-                versioning: {
-                    bucket_activated: false,
-                    list_versions: false
-                }
             });
         });
 
-        mocha.it('find_objects_by_prefix_and_delimiter()', function() {
-            return md_store.find_objects_by_prefix_and_delimiter({
+        mocha.it('list_objects()', function() {
+            return md_store.list_objects({
                 bucket_id,
                 prefix: '',
-                delimiter: '/',
-                versioning: {
-                    bucket_activated: false,
-                    list_versions: false
-                }
+                delimiter: '/'
             });
         });
 

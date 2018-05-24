@@ -64,7 +64,10 @@ class AccountSpaceNB {
     ///////////////////////
 
     set_bucket_versioning(params) {
-        return this.rpc_client.bucket.update_bucket(params);
+        return this.rpc_client.bucket.update_bucket({
+            name: params.name,
+            versioning: params.versioning
+        });
     }
 
 }

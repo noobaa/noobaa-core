@@ -3,7 +3,7 @@
 
 const argv = require('minimist')(process.argv);
 const P = require('../../util/promise');
-const s3ops = require('../utils/s3ops');
+const { S3OPS } = require('../utils/s3ops');
 const api = require('../../api');
 const promise_utils = require('../../util/promise_utils');
 const AzureFunctions = require('../../deploy/azureFunctions');
@@ -12,6 +12,7 @@ const bf = require('../utils/bucket_functions');
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('spillover');
 
+const s3ops = new S3OPS();
 let failures_in_test = false;
 let errors = [];
 let bucket;
@@ -289,7 +290,7 @@ return azf.authenticate()
     .then(() => P.each(pool_files, file => checkFileInPool(file, healthy_pool)))
     //Remove the quota
     .then(() => bf.disableQuotaBucket(server_ip, bucket))
-    .delay(10000)//delay to get pool cooled down
+    .delay(10000) //delay to get pool cooled down
     //Continue to write and see that the writes pass
     .then(() => uploadAndDeleteFiles(500, false, over_files))
     .then(() => P.each(over_files, file => checkFileInPool(file, 'system-internal-storage-pool')))

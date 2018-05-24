@@ -7,7 +7,7 @@ const P = require('../../util/promise');
 const api = require('../../api');
 const promise_utils = require('../../util/promise_utils');
 const ops = require('../utils/basic_server_ops');
-const s3ops = require('../utils/s3ops');
+const { S3OPS } = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 const _ = require('lodash');
 
@@ -15,6 +15,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const testName = 'cluster_test';
 let suffix = testName.replace(/_test/g, '');
 dbg.set_process_name(testName);
+const s3ops = new S3OPS();
 
 //define colors
 const YELLOW = "\x1b[33;1m";

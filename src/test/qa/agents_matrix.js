@@ -5,7 +5,7 @@ var P = require('../../util/promise');
 const _ = require('lodash');
 var AzureFunctions = require('../../deploy/azureFunctions');
 var crypto = require('crypto');
-const s3ops = require('../utils/s3ops');
+const { S3OPS } = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 const ops = require('../utils/basic_server_ops');
 
@@ -17,6 +17,7 @@ var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 var shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 
+const s3ops = new S3OPS();
 const dbg = require('../../util/debug_module')(__filename);
 const testName = 'agents_matrix';
 const suffixName = 'am';
@@ -183,7 +184,7 @@ function createAgents(isInclude, excludeList) {
 
 function runCreateAgents(isInclude, excludeList) {
     return createAgents(isInclude, excludeList)
-     .then(() => af.list_nodes(server_ip))
+        .then(() => af.list_nodes(server_ip))
         .then(res => {
             let node_number_after_create = res.length;
             console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);

@@ -5,12 +5,14 @@ const argv = require('minimist')(process.argv);
 const AzureFunctions = require('../../deploy/azureFunctions');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
-const s3ops = require('../utils/s3ops');
+const { S3OPS } = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 const bf = require('../utils/bucket_functions');
 const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('rebuild_replicas');
+
+const s3ops = new S3OPS();
 
 //define colors
 const YELLOW = "\x1b[33;1m";

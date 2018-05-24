@@ -3,7 +3,7 @@
 
 const argv = require('minimist')(process.argv);
 const AzureFunctions = require('../../deploy/azureFunctions');
-const s3ops = require('../utils/s3ops');
+const { S3OPS } = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 const bf = require('../utils/bucket_functions');
 const dbg = require('../../util/debug_module')(__filename);
@@ -13,6 +13,7 @@ dbg.set_process_name('data_avilability');
 const YELLOW = "\x1b[33;1m";
 const NC = "\x1b[0m";
 
+const s3ops = new S3OPS();
 const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;

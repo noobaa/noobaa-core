@@ -4,11 +4,13 @@
 const _ = require('lodash');
 const api = require('../../api');
 const P = require('../../util/promise');
-const s3ops = require('../utils/s3ops');
+const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
+
+const s3ops = new S3OPS();
 const test_name = 'accounts';
 dbg.set_process_name(test_name);
 

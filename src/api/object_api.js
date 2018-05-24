@@ -122,11 +122,7 @@ module.exports = {
                         type: 'string',
                     },
                     version_id: {
-                        oneOf: [{
-                            objectid: true
-                        }, {
-                            type: 'null'
-                        }]
+                        $ref: '#/definitions/version_id',
                     },
                 }
             },
@@ -617,11 +613,7 @@ module.exports = {
                         objectid: true
                     },
                     version_id: {
-                        oneOf: [{
-                            objectid: true
-                        }, {
-                            type: 'null'
-                        }]
+                        $ref: '#/definitions/version_id',
                     },
                     bucket: {
                         type: 'string',
@@ -694,11 +686,7 @@ module.exports = {
                         objectid: true
                     },
                     version_id: {
-                        oneOf: [{
-                            objectid: true
-                        }, {
-                            type: 'null'
-                        }]
+                        $ref: '#/definitions/version_id',
                     },
                     bucket: {
                         type: 'string',
@@ -715,11 +703,7 @@ module.exports = {
                 type: 'object',
                 properties: {
                     version_id: {
-                        oneOf: [{
-                            objectid: true
-                        }, {
-                            type: 'null'
-                        }]
+                        $ref: '#/definitions/version_id',
                     },
                     delete_marker: {
                         type: 'boolean',
@@ -753,11 +737,7 @@ module.exports = {
                                     type: 'string'
                                 },
                                 version_id: {
-                                    oneOf: [{
-                                        objectid: true
-                                    }, {
-                                        type: 'null'
-                                    }]
+                                    $ref: '#/definitions/version_id',
                                 },
                             }
                         }
@@ -774,24 +754,17 @@ module.exports = {
                             type: 'string'
                         },
                         version_id: {
-                            oneOf: [{
-                                objectid: true
-                            }, {
-                                type: 'null'
-                            }]
+                            $ref: '#/definitions/version_id',
                         },
                         delete_marker_version_id: {
-                            oneOf: [{
-                                objectid: true
-                            }, {
-                                type: 'null'
-                            }]
+                            $ref: '#/definitions/version_id',
                         },
                         delete_marker: {
                             type: 'boolean'
                         },
                         code: {
-                            type: 'string'
+                            type: 'string',
+                            enum: ['AccessDenied', 'InternalError']
                         },
                         message: {
                             type: 'string'
@@ -1183,7 +1156,10 @@ module.exports = {
                 is_latest: {
                     type: 'boolean'
                 },
-                is_null_version: {
+                // This was done on purpose to not create an upgrade script for ObjectMDs
+                // The real meaning was to know if the object is of a null version or not
+                // For objects that existed prior to this code it will not be defined so false
+                has_version: {
                     type: 'boolean'
                 },
                 xattr: {
@@ -1361,6 +1337,14 @@ module.exports = {
             type: 'object',
             additionalProperties: true,
             properties: {}
+        },
+
+        version_id: {
+            oneOf: [{
+                objectid: true
+            }, {
+                type: 'null'
+            }]
         },
 
         s3_usage_info: {

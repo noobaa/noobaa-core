@@ -59,6 +59,17 @@ class MDStore {
         return MDStore._instance;
     }
 
+    async is_objectmds_indexes_ready() {
+        const object_mds_indexes = await mongo_client.instance().db.objectmds.getIndexes();
+        const object_mds_indexes_ready =
+            object_mds_indexes.find(index =>
+                index.name === 'bucket_1_key_1_deleted_1_upload_started_1' && index.unique) &&
+            object_mds_indexes.find(index =>
+                index.name === 'bucket_1_key_1_deleted_1_create_time_-1_upload_started_1' && !index.unique);
+        return Boolean(object_mds_indexes_ready);
+    }
+
+
     make_md_id(id_str) {
         return new mongodb.ObjectId(id_str);
     }
@@ -130,18 +141,21 @@ class MDStore {
         });
     }
 
-    async find_object_by_key(bucket_id, key, is_null_version) {
-        const null_version_requested = typeof is_null_version === 'boolean';
+    async find_object_by_key(bucket_id, key, has_version_null) {
         const response = await this._objects.col().findOne(compact({
             bucket: bucket_id,
             key: key,
             deleted: null,
             create_time: { $exists: true },
             upload_started: null,
-            is_null_version: null_version_requested ? is_null_version : undefined
+            has_version: has_version_null ? null : undefined,
         }), {
             sort: {
-                create_time: -1
+                bucket: 1,
+                key: 1,
+                deleted: 1,
+                create_time: -1,
+                upload_started: 1
             }
         });
         return response;
@@ -156,16 +170,17 @@ class MDStore {
     }
 
     find_objects({ bucket_id, key, upload_mode, max_create_time, skip, limit, sort, order, pagination, versioning }) {
+        // const versioning_flow = versioning.bucket_activated || versioning.list_versions;
         const query = compact({
             bucket: bucket_id,
             key: key,
             deleted: null,
             // allow filtering of uploading/non-uploading objects
-            upload_started: typeof upload_mode === 'boolean' ? {
-                $exists: upload_mode
-            } : undefined,
             create_time: max_create_time ? {
                 $lt: new Date(moment.unix(max_create_time).toISOString())
+            } : undefined,
+            upload_started: typeof upload_mode === 'boolean' ? {
+                $exists: upload_mode
             } : undefined,
         });
 

@@ -303,7 +303,7 @@ function update_bucket(req) {
 }
 
 
-function get_bucket_changes(req, update_request, bucket, tiering_policy) {
+function get_bucket_changes(req, update_request, bucket, tiering_policy, object_mds_indexes_ready) {
     const changes = {
         updates: {},
         inserts: {},
@@ -359,6 +359,15 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     }
     if (tiering_policy) {
         single_bucket_update.tiering = tiering_policy._id;
+    }
+    if (update_request.versioning) {
+        if (!object_mds_indexes_ready) {
+            throw new RpcError('BAD_REQUEST', 'Cannot set versioning when building indexes');
+        }
+        if (update_request.versioning === 'DISABLED') {
+            throw new RpcError('BAD_REQUEST', 'Cannot set versioning to DISABLED');
+        }
+        single_bucket_update.versioning = update_request.versioning;
     }
     if (!_.isUndefined(quota)) {
 
@@ -477,7 +486,7 @@ function create_bucket_spillover_tier(system, bucket_id, pool_id) {
  * GET_BUCKET_UPDATE
  *
  */
-function update_buckets(req) {
+async function update_buckets(req) {
     const insert_changes = {};
     const update_changes = {
         buckets: []
@@ -489,21 +498,22 @@ function update_buckets(req) {
         const bucket = find_bucket(req, update_request.name);
         const tiering_policy = update_request.tiering &&
             resolve_tiering_policy(req, update_request.tiering);
-        const { updates, inserts, events, alerts } = get_bucket_changes(req, update_request, bucket, tiering_policy);
+        const objectmds_indexes_ready = await MDStore.instance().is_objectmds_indexes_ready();
+        const { updates, inserts, events, alerts } = get_bucket_changes(
+            req, update_request, bucket, tiering_policy, objectmds_indexes_ready);
         _.mergeWith(insert_changes, inserts, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
         _.mergeWith(update_changes, updates, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
         update_events = update_events.concat(events);
         update_alerts = update_alerts.concat(alerts);
     }
 
-    return system_store.make_changes({
-            insert: insert_changes,
-            update: update_changes
-        })
-        .then(() => {
-            P.map(update_events, event => Dispatcher.instance().activity(event));
-            P.map(update_alerts, alert => Dispatcher.instance().alert(alert.sev, alert.sysid, alert.alert, alert.rule));
-        });
+    await system_store.make_changes({
+        insert: insert_changes,
+        update: update_changes
+    });
+
+    P.map(update_events, event => Dispatcher.instance().activity(event));
+    P.map(update_alerts, alert => Dispatcher.instance().alert(alert.sev, alert.sysid, alert.alert, alert.rule));
 }
 
 

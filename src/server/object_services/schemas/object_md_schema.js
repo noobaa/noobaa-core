@@ -28,7 +28,7 @@ module.exports = {
             type: 'boolean'
         },
 
-        is_null_version: {
+        has_version: {
             type: 'boolean'
         },
 

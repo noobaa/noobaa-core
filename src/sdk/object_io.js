@@ -205,12 +205,12 @@ class ObjectIO {
 
     _load_copy_source_md(params, create_params) {
         if (!params.copy_source) return;
-        return params.client.object.read_object_md(compact({
+        return params.client.object.read_object_md({
                 bucket: params.copy_source.bucket,
                 key: params.copy_source.key,
                 version_id: params.copy_source.version,
                 md_conditions: params.source_md_conditions,
-            }))
+            })
             .then(object_md => {
                 params.copy_source.obj_id = object_md.obj_id;
                 create_params.md5_b64 = object_md.md5_b64;
@@ -1165,10 +1165,6 @@ function _get_io_semaphore_size(size) {
     // This is done as a temporary quick fix and is not a good one
     return _.isNumber(size) ? Math.min(config.IO_STREAM_SEMAPHORE_SIZE_CAP, size) :
         config.IO_STREAM_MINIMAL_SIZE_LOCK;
-}
-
-function compact(obj) {
-    return _.omitBy(obj, _.isUndefined);
 }
 
 module.exports = ObjectIO;

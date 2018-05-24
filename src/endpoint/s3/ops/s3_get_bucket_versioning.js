@@ -11,15 +11,13 @@ function get_bucket_versioning(req) {
             const reply = {
                 VersioningConfiguration: {}
             };
-            if (bucket_info.versioning !== 'DISABLED') {
-                reply.VersioningConfiguration.Status = _capitalize(bucket_info.versioning);
+            if (bucket_info.versioning === 'ENABLED') {
+                reply.VersioningConfiguration.Status = 'Enabled';
+            } else if (bucket_info.versioning === 'SUSPENDED') {
+                reply.VersioningConfiguration.Status = 'Suspended';
             }
             return reply;
         });
-}
-
-function _capitalize(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 }
 
 module.exports = {

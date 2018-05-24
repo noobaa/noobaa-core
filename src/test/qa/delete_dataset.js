@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const s3ops = require('../utils/s3ops');
 const P = require('../../util/promise');
+const { S3OPS } = require('../utils/s3ops');
 const argv = require('minimist')(process.argv);
+
+const s3ops = new S3OPS();
 
 const {
     server = '127.0.0.1', // local run on noobaa server
-    bucket = 'first.bucket', // default bucket
+        bucket = 'first.bucket', // default bucket
 } = argv;
 
 function clean_up_dataset(server_ip, bucket_name, dataset) {
@@ -18,8 +20,8 @@ function clean_up_dataset(server_ip, bucket_name, dataset) {
 }
 
 P.fcall(function() {
-    return s3ops.get_list_prefixes(server, bucket);
-})
+        return s3ops.get_list_prefixes(server, bucket);
+    })
     .then(res => {
         console.log('list of prefixes ' + res);
         if (res.length > 1) {

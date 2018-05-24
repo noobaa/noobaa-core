@@ -3,7 +3,7 @@
 
 const api = require('../../api');
 const P = require('../../util/promise');
-const s3ops = require('../utils/s3ops');
+const { S3OPS } = require('../utils/s3ops');
 const argv = require('minimist')(process.argv);
 const af = require('../utils/agent_functions');
 const bf = require('../utils/bucket_functions');
@@ -11,6 +11,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const AzureFunctions = require('../../deploy/azureFunctions');
 //const vm = require('../utils/vmware');
 
+const s3ops = new S3OPS();
 
 const test_name = 'reclaim';
 dbg.set_process_name(test_name);

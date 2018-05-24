@@ -156,7 +156,9 @@ const host = {
                 'STORAGE_OFFLINE',
                 'UNTRUSTED',
                 'STORAGE_NOT_EXIST',
-                'DETENTION',
+                'IO_ERRORS',
+                'N2N_ERRORS',
+                'GATEWAY_ERRORS',
                 'INITIALIZING',
                 'DECOMMISSIONING',
                 'MIGRATING',
@@ -167,7 +169,7 @@ const host = {
                 'DELETING',
                 'SOME_STORAGE_OFFLINE',
                 'SOME_STORAGE_NOT_EXIST',
-                'SOME_STORAGE_DETENTION',
+                'SOME_STORAGE_IO_ERRORS',
                 'NO_CAPACITY',
                 'LOW_CAPACITY',
                 'HTTP_SRV_ERRORS',
@@ -333,7 +335,9 @@ const host = {
                                 'OFFLINE',
                                 'UNTRUSTED',
                                 'STORAGE_NOT_EXIST',
-                                'DETENTION',
+                                'IO_ERRORS',
+                                'N2N_ERRORS',
+                                'GATEWAY_ERRORS',
                                 'INITIALIZING',
                                 'DELETING',
                                 'DECOMMISSIONING',
@@ -344,7 +348,7 @@ const host = {
                                 'SOME_STORAGE_DECOMMISSIONING',
                                 'SOME_STORAGE_OFFLINE',
                                 'SOME_STORAGE_NOT_EXIST',
-                                'SOME_STORAGE_DETENTION',
+                                'SOME_STORAGE_IO_ERRORS',
                                 'NO_CAPACITY',
                                 'LOW_CAPACITY',
                                 'N2N_PORTS_BLOCKED',
@@ -522,7 +526,13 @@ export default {
                                             STORAGE_NOT_EXIST: {
                                                 type: 'integer'
                                             },
-                                            DETENTION: {
+                                            IO_ERRORS: {
+                                                type: 'integer'
+                                            },
+                                            N2N_ERRORS: {
+                                                type: 'integer'
+                                            },
+                                            GATEWAY_ERRORS: {
                                                 type: 'integer'
                                             },
                                             INITIALIZING: {
@@ -555,7 +565,7 @@ export default {
                                             SOME_STORAGE_NOT_EXIST: {
                                                 type: 'integer'
                                             },
-                                            SOME_STORAGE_DETENTION: {
+                                            SOME_STORAGE_IO_ERRORS: {
                                                 type: 'integer'
                                             },
                                             NO_CAPACITY: {

@@ -36,10 +36,20 @@ const modeToStateIcon = deepFreeze({
         css: 'error',
         tooltip: 'All Drives are Unmounted'
     },
-    DETENTION: {
+    IO_ERRORS: {
         name: 'problem',
         css: 'error',
-        tooltip: 'All Drives have No Access'
+        tooltip: 'All drives have I/O errors'
+    },
+    N2N_ERRORS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Node to node communication problems'
+    },
+    GATEWAY_ERRORS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Server communication problems'
     },
     INITIALIZING: {
         name: 'working',
@@ -91,10 +101,10 @@ const modeToStateIcon = deepFreeze({
         css: 'warning',
         tooltip: 'Some Drives are Unmounted'
     },
-    SOME_STORAGE_DETENTION: {
+    SOME_STORAGE_IO_ERRORS: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Some Drives have No Access'
+        tooltip: 'Some Drives have I/O errors'
     },
     NO_CAPACITY: {
         name: 'problem',
@@ -172,10 +182,20 @@ const modeToAccessibilityIcon = deepFreeze({
         css: 'error',
         tooltip: 'No access'
     },
-    DETENTION: {
+    IO_ERRORS: {
         name: 'problem',
         css: 'error',
-        tooltip: 'No access - Read/Write errors'
+        tooltip: 'No access'
+    },
+    GATEWAY_ERRORS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'No access'
+    },
+    N2N_ERRORS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'No access'
     },
     DELETING: {
         name: 'problem',
@@ -227,7 +247,7 @@ const modeToAccessibilityIcon = deepFreeze({
         css: 'success',
         tooltip: 'Readable & Writable'
     },
-    SOME_STORAGE_DETENTION: {
+    SOME_STORAGE_IO_ERRORS: {
         name: 'healthy',
         css: 'success',
         tooltip: 'Readable & Writable'
@@ -264,7 +284,9 @@ const stateToModes = deepFreeze({
         'DECOMMISSIONED',
         'UNTRUSTED',
         'STORAGE_NOT_EXIST',
-        'DETENTION',
+        'IO_ERRORS',
+        'N2N_ERRORS',
+        'GATEWAY_ERRORS',
         'INITIALIZING',
         'DELETING',
         'DECOMMISSIONING',
@@ -275,7 +297,7 @@ const stateToModes = deepFreeze({
         'SOME_STORAGE_DECOMMISSIONING',
         'SOME_STORAGE_OFFLINE',
         'SOME_STORAGE_NOT_EXIST',
-        'SOME_STORAGE_DETENTION',
+        'SOME_STORAGE_IO_ERRORS',
         'NO_CAPACITY',
         'LOW_CAPACITY',
         'HTTP_SRV_ERRORS',
@@ -315,10 +337,20 @@ const storageServiceModeToIcon = deepFreeze({
         css: 'error',
         tooltip: 'All drives are unmounted'
     },
-    DETENTION: {
+    IO_ERRORS: {
         name: 'problem',
         css: 'error',
-        tooltip: 'All drives have no access'
+        tooltip: 'All drives have I/O errors'
+    },
+    N2N_ERRORS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Node to node communication problems'
+    },
+    GATEWAY_ERRORS: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Server communication problems'
     },
     INITIALIZING: {
         name: 'working',
@@ -370,10 +402,10 @@ const storageServiceModeToIcon = deepFreeze({
         css: 'warning',
         tooltip: 'Some drives are unmounted'
     },
-    SOME_STORAGE_DETENTION: {
+    SOME_STORAGE_IO_ERRORS: {
         name: 'problem',
         css: 'warning',
-        tooltip: 'Some drives have no access'
+        tooltip: 'Some drives have I/O errors'
     },
     NO_CAPACITY: {
         name: 'problem',
@@ -435,17 +467,17 @@ const storageNodeModeToStateIcon = deepFreeze({
     },
     N2N_ERRORS: {
         name: 'problem',
-        css: 'warning',
-        tooltip: 'Inter-Node connectivity problems'
+        css: 'error',
+        tooltip: 'Node to node communication problems'
     },
     GATEWAY_ERRORS: {
         name: 'problem',
-        css: 'warning',
-        tooltip: 'Server connectivity problems'
+        css: 'error',
+        tooltip: 'Server communication problems'
     },
     IO_ERRORS: {
         name: 'problem',
-        css: 'warning',
+        css: 'error',
         tooltip: 'Read/Write problems'
     },
     LOW_CAPACITY: {
@@ -541,7 +573,7 @@ export const hostWritableModes = deepFreeze([
     'SOME_STORAGE_DECOMMISSIONING',
     'SOME_STORAGE_OFFLINE',
     'SOME_STORAGE_NOT_EXIST',
-    'SOME_STORAGE_DETENTION',
+    'SOME_STORAGE_IO_ERRORS',
     'LOW_CAPACITY',
     'N2N_PORTS_BLOCKED',
     'OPTIMAL'

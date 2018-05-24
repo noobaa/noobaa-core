@@ -495,7 +495,9 @@ module.exports = {
                 'DECOMMISSIONING',
                 'UNTRUSTED',
                 'STORAGE_NOT_EXIST',
-                'DETENTION',
+                'IO_ERRORS',
+                'N2N_ERRORS',
+                'GATEWAY_ERRORS',
                 'MIGRATING',
                 'IN_PROCESS',
                 'NO_CAPACITY',
@@ -504,7 +506,7 @@ module.exports = {
                 'INITIALIZING',
                 'OPTIMAL',
                 'SOME_STORAGE_OFFLINE',
-                'SOME_STORAGE_DETENTION',
+                'SOME_STORAGE_IO_ERRORS',
                 'SOME_STORAGE_NOT_EXIST',
                 'SOME_STORAGE_DECOMMISSIONING',
                 'SOME_STORAGE_INITIALIZING',
@@ -535,18 +537,20 @@ module.exports = {
                 'S3_OFFLINE',
                 'DECOMMISSIONED',
                 'DECOMMISSIONING',
+                'IO_ERRORS',
                 'UNTRUSTED',
                 'STORAGE_NOT_EXIST',
-                'DETENTION',
                 'MIGRATING',
                 'IN_PROCESS',
                 'NO_CAPACITY',
                 'LOW_CAPACITY',
+                'GATEWAY_ERRORS',
+                'N2N_ERRORS',
                 'N2N_PORTS_BLOCKED',
                 'INITIALIZING',
                 'OPTIMAL',
                 'SOME_STORAGE_OFFLINE',
-                'SOME_STORAGE_DETENTION',
+                'SOME_STORAGE_IO_ERRORS',
                 'SOME_STORAGE_NOT_EXIST',
                 'SOME_STORAGE_DECOMMISSIONING',
                 'SOME_STORAGE_INITIALIZING',
@@ -641,7 +645,13 @@ module.exports = {
                 STORAGE_NOT_EXIST: {
                     type: 'integer'
                 },
-                DETENTION: {
+                IO_ERRORS: {
+                    type: 'integer'
+                },
+                N2N_ERRORS: {
+                    type: 'integer'
+                },
+                GATEWAY_ERRORS: {
                     type: 'integer'
                 },
                 MIGRATING: {
@@ -668,7 +678,7 @@ module.exports = {
                 SOME_STORAGE_OFFLINE: {
                     type: 'integer'
                 },
-                SOME_STORAGE_DETENTION: {
+                SOME_STORAGE_IO_ERRORS: {
                     type: 'integer'
                 },
                 SOME_STORAGE_NOT_EXIST: {

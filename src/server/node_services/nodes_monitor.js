@@ -156,7 +156,9 @@ const MODE_COMPARE_ORDER = [
     'DELETING',
     'DECOMMISSIONED',
     'STORAGE_NOT_EXIST',
-    'DETENTION',
+    'IO_ERRORS',
+    'N2N_ERRORS',
+    'GATEWAY_ERRORS',
     'HTTP_PORT_ACCESS_ERROR',
     'HTTP_SRV_ERRORS',
     'IN_PROCESS',
@@ -165,7 +167,7 @@ const MODE_COMPARE_ORDER = [
     'SOME_STORAGE_DECOMMISSIONING',
     'SOME_STORAGE_OFFLINE',
     'SOME_STORAGE_NOT_EXISTS',
-    'SOME_STORAGE_DETENTION',
+    'SOME_STORAGE_IO_ERRORS',
     'AUTH_FAILED', // authentication to cloud storage failed
     'DELETED',
     'N2N_ERRORS',
@@ -197,7 +199,9 @@ const mode_priority = Object.freeze({
     OFFLINE: ERROR_PRI,
     UNTRUSTED: ERROR_PRI,
     STORAGE_NOT_EXIST: ERROR_PRI,
-    DETENTION: ERROR_PRI,
+    IO_ERRORS: ERROR_PRI,
+    N2N_ERRORS: ERROR_PRI,
+    GATEWAY_ERRORS: ERROR_PRI,
     HTTP_PORT_ACCESS_ERROR: ERROR_PRI,
     HTTP_SRV_ERRORS: ERROR_PRI,
     INITIALIZING: IN_PROCESS_PRI,
@@ -209,7 +213,7 @@ const mode_priority = Object.freeze({
     SOME_STORAGE_DECOMMISSIONING: IN_PROCESS_PRI,
     SOME_STORAGE_OFFLINE: HAS_ISSUES_PRI,
     SOME_STORAGE_NOT_EXIST: HAS_ISSUES_PRI,
-    SOME_STORAGE_DETENTION: HAS_ISSUES_PRI,
+    SOME_STORAGE_IO_ERRORS: HAS_ISSUES_PRI,
     NO_CAPACITY: HAS_ISSUES_PRI,
     LOW_CAPACITY: HAS_ISSUES_PRI,
     OPTIMAL: OPTIMAL_PRI,
@@ -2579,7 +2583,6 @@ class NodesMonitor extends EventEmitter {
                     MIGRATING = 0,
                     N2N_PORTS_BLOCKED = 0
             } = _.mapValues(_.groupBy(storage_nodes, i => i.mode), arr => arr.length);
-            const DETENTION = IO_ERRORS + N2N_ERRORS + GATEWAY_ERRORS;
             const enabled_nodes_count = storage_nodes.length - DECOMMISSIONED;
 
             host_item.storage_nodes_mode =
@@ -2588,7 +2591,9 @@ class NodesMonitor extends EventEmitter {
                 (OFFLINE === enabled_nodes_count && 'OFFLINE') || // all offline
                 (UNTRUSTED && 'UNTRUSTED') ||
                 (STORAGE_NOT_EXIST === enabled_nodes_count && 'STORAGE_NOT_EXIST') || // all unmounted
-                (DETENTION === enabled_nodes_count && 'DETENTION') || // all detention
+                (IO_ERRORS === enabled_nodes_count && 'IO_ERRORS') || // all have io-errors
+                (N2N_ERRORS && 'N2N_ERRORS') || // some N2N errors - reflects all host has N2N errors
+                (GATEWAY_ERRORS && 'GATEWAY_ERRORS') || // some gateway errors - reflects all host has gateway errors
                 (INITIALIZING === enabled_nodes_count && 'INITIALIZING') || // all initializing
                 (DECOMMISSIONING === enabled_nodes_count && 'DECOMMISSIONING') || // all decommissioning
                 (MIGRATING === enabled_nodes_count && 'MIGRATING') || // all migrating
@@ -2598,7 +2603,7 @@ class NodesMonitor extends EventEmitter {
                 ((DECOMMISSIONING || INITIALIZING || MIGRATING) && 'IN_PROCESS') || // mixed in process
                 (OFFLINE && 'SOME_STORAGE_OFFLINE') || //some offline
                 (STORAGE_NOT_EXIST && 'SOME_STORAGE_NOT_EXIST') || // some unmounted
-                (DETENTION && 'SOME_STORAGE_DETENTION') || // some in detention
+                (IO_ERRORS && 'SOME_STORAGE_IO_ERRORS') || // some have io-errors
                 (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
                 (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
                 (N2N_PORTS_BLOCKED && 'N2N_PORTS_BLOCKED') ||

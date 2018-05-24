@@ -263,6 +263,15 @@ class ObjectSDK {
             .then(ns => ns.delete_cloud_sync(params));
     }
 
+    ///////////////////////
+    // BUCKET VERSIONING //
+    ///////////////////////
+
+    set_bucket_versioning(params) {
+        return this._get_account_namespace()
+            .then(ns => ns.set_bucket_versioning(params));
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////

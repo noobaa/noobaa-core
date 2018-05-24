@@ -6,9 +6,20 @@
  */
 function get_bucket_versioning(req) {
     return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            VersioningConfiguration: {}
-        }));
+        .then(bucket_info => {
+            // TODO: There is also MFA Delete configuration that we do not support
+            const reply = {
+                VersioningConfiguration: {}
+            };
+            if (bucket_info.versioning !== 'DISABLED') {
+                reply.VersioningConfiguration.Status = _capitalize(bucket_info.versioning);
+            }
+            return reply;
+        });
+}
+
+function _capitalize(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 }
 
 module.exports = {

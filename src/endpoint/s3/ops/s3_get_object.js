@@ -10,11 +10,15 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
  */
 function get_object(req, res) {
-    return req.object_sdk.read_object_md({
-            bucket: req.params.bucket,
-            key: req.params.key,
-            md_conditions: http_utils.get_md_conditions(req),
-        })
+    const read_md_params = {
+        bucket: req.params.bucket,
+        key: req.params.key,
+        md_conditions: http_utils.get_md_conditions(req),
+    };
+    if ('versionId' in req.query) {
+        read_md_params.version_id = req.query.versionId === 'null' ? null : req.query.versionId;
+    }
+    return req.object_sdk.read_object_md(read_md_params)
         .then(object_md => {
             s3_utils.set_response_object_md(res, object_md);
             const obj_size = object_md.size;

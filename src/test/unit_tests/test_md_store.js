@@ -26,6 +26,7 @@ mocha.describe('md_store', function() {
                 system: system_id,
                 bucket: bucket_id,
                 key: 'lala_' + Date.now().toString(36),
+                create_time: new Date(),
                 content_type: 'lulu_' + Date.now().toString(36),
             };
             return P.resolve()
@@ -82,6 +83,10 @@ mocha.describe('md_store', function() {
             return md_store.find_objects_by_prefix_and_delimiter({
                 bucket_id,
                 prefix: '',
+                versioning: {
+                    bucket_activated: false,
+                    list_versions: false
+                }
             });
         });
 
@@ -90,6 +95,10 @@ mocha.describe('md_store', function() {
                 bucket_id,
                 prefix: '',
                 delimiter: '/',
+                versioning: {
+                    bucket_activated: false,
+                    list_versions: false
+                }
             });
         });
 

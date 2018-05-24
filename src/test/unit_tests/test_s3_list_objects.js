@@ -376,9 +376,9 @@ mocha.describe('s3_list_objects', function() {
                                         _.map(list_reply.objects, obj => obj.key)).length === 0 &&
                                     is_sorted_array(list_reply.objects) &&
                                     is_sorted_array(list_reply.common_prefixes) &&
-                                    String(server_upload_response[0].obj_id) === String(list_reply.next_upload_id_marker) &&
+                                    String(server_upload_response[0].obj_id) === String(list_reply.next_version_id_marker) &&
                                     list_reply.is_truncated)) {
-                                throw new Error(`Multipart uploads failed on next_upload_id_marker`);
+                                throw new Error(`Multipart uploads failed on next_version_id_marker`);
                             }
                         });
                 })
@@ -386,7 +386,7 @@ mocha.describe('s3_list_objects', function() {
                     bucket: BKT,
                     upload_mode: true,
                     limit: 1,
-                }, /* use_upload_id_marker = */ true))
+                }, /* use_version_id_marker = */ true))
                 .then(listObjectsResponse => {
                     if (!(listObjectsResponse &&
                             listObjectsResponse.common_prefixes.length === 0 &&
@@ -487,7 +487,7 @@ mocha.describe('s3_list_objects', function() {
                 }))) :
             rpc_client.object.delete_multiple_objects({
                 bucket: BKT,
-                keys: array_of_names
+                objects: array_of_names.map(key => ({ key })),
             });
     }
 
@@ -506,7 +506,7 @@ mocha.describe('s3_list_objects', function() {
             .then(() => clean_up_after_case(only_initiate ? response_array : array_of_names, only_initiate));
     }
 
-    function truncated_listing(params, use_upload_id_marker) {
+    function truncated_listing(params, use_version_id_marker) {
         return P.resolve()
             .then(function() {
                 // Initialization of IsTruncated in order to perform the first while cycle
@@ -521,9 +521,9 @@ mocha.describe('s3_list_objects', function() {
                     key_marker: listObjectsResponse.key_marker
                 };
 
-                if (use_upload_id_marker) {
-                    listObjectsResponse.upload_id_marker = '';
-                    query_obj.upload_id_marker = listObjectsResponse.upload_id_marker;
+                if (use_version_id_marker) {
+                    listObjectsResponse.version_id_marker = '';
+                    query_obj.version_id_marker = listObjectsResponse.version_id_marker;
                 }
 
                 return promise_utils.pwhile(
@@ -548,9 +548,9 @@ mocha.describe('s3_list_objects', function() {
                                     }
                                     listObjectsResponse.key_marker = res.next_marker;
                                     query_obj.key_marker = res.next_marker;
-                                    if (use_upload_id_marker) {
-                                        listObjectsResponse.upload_id_marker = res.next_upload_id_marker;
-                                        query_obj.upload_id_marker = res.next_upload_id_marker;
+                                    if (use_version_id_marker) {
+                                        listObjectsResponse.version_id_marker = res.next_version_id_marker;
+                                        query_obj.version_id_marker = res.next_version_id_marker;
                                     }
 
                                 });

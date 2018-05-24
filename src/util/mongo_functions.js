@@ -23,7 +23,7 @@ module.exports = {
     reduce_sum: reduce_sum,
     reduce_noop: reduce_noop,
     map_common_prefixes_and_objects: map_common_prefixes_and_objects,
-    reduce_common_prefixes_occurrence_and_objects: reduce_common_prefixes_occurrence_and_objects
+    reduce_common_prefixes_occurrence_and_objects: reduce_common_prefixes_occurrence_and_objects,
 };
 
 // declare names that these functions expect to have in scope
@@ -31,6 +31,8 @@ module.exports = {
 let emit;
 let prefix;
 let delimiter;
+let list_versions;
+let upload_mode;
 
 /**
  * @this mongodb doc being mapped
@@ -42,9 +44,9 @@ function map_common_prefixes_and_objects() {
     var suffix = this.key.slice(prefix.length);
     var pos = suffix.indexOf(delimiter);
     if (pos >= 0) {
-        emit([suffix.slice(0, pos + 1)], 1);
+        emit([suffix.slice(0, pos + 1), 'common_prefix'], 1);
     } else {
-        emit([suffix, this._id], this);
+        emit([suffix], this);
     }
 }
 
@@ -52,12 +54,14 @@ function map_common_prefixes_and_objects() {
 // In case of common prefix it will return the key and the number of occurrences.
 // In case of an object it will return the object's details.
 function reduce_common_prefixes_occurrence_and_objects(key, values) {
-    if (values.length > 1) {
+    if (key[1] === 'common_prefix') {
         return values.reduce(function(total, curr) {
             return total + curr;
         }, 0);
     }
-    return values[0];
+    if (list_versions || upload_mode) return { objects: values };
+    values.sort((a, b) => (b.create_time - a.create_time));
+    return { objects: [values[0]] };
 }
 
 /**

@@ -24,6 +24,14 @@ module.exports = {
             date: true
         },
 
+        delete_marker: {
+            type: 'boolean'
+        },
+
+        is_null_version: {
+            type: 'boolean'
+        },
+
         system: {
             objectid: true
         },

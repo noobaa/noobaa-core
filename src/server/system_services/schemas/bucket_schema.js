@@ -28,6 +28,7 @@ module.exports = {
         'system',
         'name',
         'tiering',
+        'versioning'
     ],
     properties: {
         _id: {
@@ -76,6 +77,10 @@ module.exports = {
                 },
                 value: bigint
             }
+        },
+        versioning: {
+            type: 'string',
+            enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
         // cloud sync target, if exists
         cloud_sync: {

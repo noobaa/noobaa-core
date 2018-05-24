@@ -120,7 +120,14 @@ module.exports = {
                 properties: {
                     etag: {
                         type: 'string',
-                    }
+                    },
+                    version_id: {
+                        oneOf: [{
+                            objectid: true
+                        }, {
+                            type: 'null'
+                        }]
+                    },
                 }
             },
             auth: {
@@ -609,6 +616,13 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
+                    version_id: {
+                        oneOf: [{
+                            objectid: true
+                        }, {
+                            type: 'null'
+                        }]
+                    },
                     bucket: {
                         type: 'string',
                     },
@@ -679,6 +693,13 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
+                    version_id: {
+                        oneOf: [{
+                            objectid: true
+                        }, {
+                            type: 'null'
+                        }]
+                    },
                     bucket: {
                         type: 'string',
                     },
@@ -687,6 +708,21 @@ module.exports = {
                     },
                     md_conditions: {
                         $ref: '#/definitions/md_conditions',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    version_id: {
+                        oneOf: [{
+                            objectid: true
+                        }, {
+                            type: 'null'
+                        }]
+                    },
+                    delete_marker: {
+                        type: 'boolean',
                     },
                 }
             },
@@ -701,15 +737,63 @@ module.exports = {
                 type: 'object',
                 required: [
                     'bucket',
-                    'keys',
+                    'objects',
                 ],
                 properties: {
                     bucket: {
                         type: 'string',
                     },
-                    keys: {
+                    objects: {
                         type: 'array',
                         items: {
+                            type: 'object',
+                            required: ['key'],
+                            properties: {
+                                key: {
+                                    type: 'string'
+                                },
+                                version_id: {
+                                    oneOf: [{
+                                        objectid: true
+                                    }, {
+                                        type: 'null'
+                                    }]
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['key'],
+                    properties: {
+                        key: {
+                            type: 'string'
+                        },
+                        version_id: {
+                            oneOf: [{
+                                objectid: true
+                            }, {
+                                type: 'null'
+                            }]
+                        },
+                        delete_marker_version_id: {
+                            oneOf: [{
+                                objectid: true
+                            }, {
+                                type: 'null'
+                            }]
+                        },
+                        delete_marker: {
+                            type: 'boolean'
+                        },
+                        code: {
+                            type: 'string'
+                        },
+                        message: {
                             type: 'string'
                         }
                     }
@@ -738,13 +822,16 @@ module.exports = {
                     key_marker: {
                         type: 'string',
                     },
-                    upload_id_marker: {
+                    version_id_marker: {
                         type: 'string',
                     },
                     limit: {
                         type: 'integer'
                     },
                     upload_mode: {
+                        type: 'boolean'
+                    },
+                    list_versions: {
                         type: 'boolean'
                     },
                 }
@@ -771,7 +858,7 @@ module.exports = {
                     next_marker: {
                         type: 'string'
                     },
-                    next_upload_id_marker: {
+                    next_version_id_marker: {
                         type: 'string'
                     }
                 }
@@ -819,6 +906,9 @@ module.exports = {
                         type: 'integer',
                     },
                     upload_mode: {
+                        type: 'boolean'
+                    },
+                    list_versions: {
                         type: 'boolean'
                     },
                     adminfo: {
@@ -1085,6 +1175,15 @@ module.exports = {
                     type: 'string',
                 },
                 cloud_synced: {
+                    type: 'boolean'
+                },
+                delete_marker: {
+                    type: 'boolean'
+                },
+                is_latest: {
+                    type: 'boolean'
+                },
+                is_null_version: {
                     type: 'boolean'
                 },
                 xattr: {

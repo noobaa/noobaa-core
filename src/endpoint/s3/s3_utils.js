@@ -88,7 +88,7 @@ function parse_copy_source(req) {
 
     const bucket = decodeURIComponent(source_url.slice(start_index, slash_index));
     const key = decodeURIComponent(source_url.slice(slash_index + 1, query_index));
-    const version = query && query.versionId;
+    const version = query && (query.versionId === 'null' ? null : query.versionId);
     const range = http_utils.parse_http_range(req.headers['x-amz-copy-source-range']);
     return {
         bucket,
@@ -117,6 +117,7 @@ function set_response_object_md(res, object_md) {
     res.setHeader('Content-Type', object_md.content_type);
     res.setHeader('Content-Length', object_md.size);
     res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('x-amz-version-id', object_md.obj_id);
     set_response_xattr(res, object_md.xattr);
     return object_md;
 }

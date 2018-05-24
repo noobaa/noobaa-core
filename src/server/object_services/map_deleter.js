@@ -100,6 +100,7 @@ function delete_blocks_from_node(blocks) {
  * delete_object
  * delete objects mappings and MD
  */
+// TODO: Should also throw if did not succeed deleting from the node
 function delete_object(obj) {
     if (!obj) return P.resolve();
     return MDStore.instance().delete_object_by_id(obj._id)
@@ -111,9 +112,15 @@ function delete_object(obj) {
  * delete_multiple_objects
  * delete multiple bjects mappings and MD
  */
+// TODO: Should also throw if did not succeed deleting from the node
 function delete_multiple_objects(objects) {
     if (!objects) return P.resolve();
-    return P.map(objects, obj => P.resolve(obj && delete_object(obj)).reflect(), { concurrency: 10 });
+    return P.map(objects, obj => P.resolve(obj && delete_object(obj))
+        .reflect()
+        .then(reflect => ({
+            obj: obj,
+            reflect
+        })), { concurrency: 10 });
 }
 
 

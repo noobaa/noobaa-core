@@ -330,7 +330,7 @@ function resize_hd {
   logger -p local0.info -s -t resize_fs_on_sda "$(sudo df)"
 
   logger -p local0.info -s -t resize_fs_on_sda "Running fdisk to resize sda2 partition and reboot ..."
-  echo -e "d\n2\nn\np\n2\n\n\nw\n" | sudo fdisk -cu /dev/sda
+  echo -e "d\n2\nn\np\n2\n\n\nw\n" | sudo fdisk -c -u /dev/sda
   logger -p local0.info -s -t resize_fs_on_sda "Running fdisk -l after repartitioning:"
   logger -p local0.info -s -t resize_fs_on_sda "$(sudo fdisk -l)"
   dialog --colors --backtitle "NooBaa First Install" --infobox "Rebooting Machine" 4 22; sleep 2
@@ -346,7 +346,7 @@ function apply_resize  {
   logger -p local0.info -s -t fix_server_plat "Running pvs (PRE):"
   logger -p local0.info -s -t fix_server_plat "$(sudo pvs)"
   sudo pvresize /dev/sda2
-  sudo lvextend --resizefs -l +100%FREE /dev/VolGroup/lv_root
+  sudo lvextend --resizefs -l +100%FREE /dev/mapper/cl-root
   logger -p local0.info -s -t fix_server_plat "Running lvs (POST):"
   logger -p local0.info -s -t fix_server_plat "$(sudo lvs)"
   logger -p local0.info -s -t fix_server_plat "Running pvs (POST):"

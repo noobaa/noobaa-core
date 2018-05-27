@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const argv = require('minimist')(process.argv);
-const ssh = require('../utils/ssh_functions');
 const _ = require('lodash');
 require('../../util/dotenv').load();
+const ssh = require('../utils/ssh_functions');
+const argv = require('minimist')(process.argv);
 
 const envDir = '/tmp/.env';
 
@@ -19,8 +19,6 @@ _.each(process.env, envKey => {
         process.env.AZURE_STORAGE_CONNECTION_STRING = envKey;
     }
 });
-
-
 
 const script = `
 echo AZURE_SUBSCRIPTION_ID=${process.env.AZURE_SUBSCRIPTION_ID} > ${envDir}
@@ -44,28 +42,22 @@ args=${process.argv}
 node ${script_to_run} \${args//,/ }
 `;
 
-function main() {
+async function main() {
     console.log(`Running runner tests on ${lg_name}, ip ${lg_ip}`);
-    let ssh_client;
-    return ssh.ssh_connect({
+    try {
+        const ssh_client = await ssh.ssh_connect({
             host: lg_ip,
             username: 'root',
             password: process.env.LG_PASSWORD,
             keepaliveInterval: 5000,
-        })
-        .then(client => {
-            ssh_client = client;
-            return ssh.ssh_exec(ssh_client, script);
-        })
-        .then(() => {
-                console.log('SUCCESSFUL TESTS');
-                process.exit(0);
-            },
-            err => {
-                console.error('Remote Runner FAILED:', err.message);
-                process.exit(1);
-            }
-        );
+        });
+        await ssh.ssh_exec(ssh_client, script);
+        console.log('SUCCESSFUL TESTS');
+        process.exit(0);
+    } catch (err) {
+        console.error('Remote Runner FAILED:', err.message);
+        process.exit(1);
+    }
 }
 
 if (require.main === module) {

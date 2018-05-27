@@ -412,8 +412,8 @@ function _check_disk_space() {
         server_conf.heartbeat.health.storage.free < 10 * 1024 * 1024 * 1024) { // Free is lower than 10GB
         Dispatcher.instance().alert('MAJOR',
             system_store.data.systems[0]._id,
-            `Server is running low on disk space, it is recommended to increase the disk size of the VM and then perform the 
-                    increase option from the linux installer by logging into the machine with the noobaa user`,
+            `Server ${server_conf.heartbeat.health.os_info.hostname} is running low on disk space, it is recommended 
+            to increase the disk size of the VM and then perform the increase option from the linux installer by logging into the machine with the noobaa user`,
             Dispatcher.rules.once_weekly);
     }
     return os_utils.handle_unreleased_fds();

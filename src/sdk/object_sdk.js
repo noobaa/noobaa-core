@@ -263,6 +263,15 @@ class ObjectSDK {
             .then(ns => ns.delete_cloud_sync(params));
     }
 
+    ///////////////////////
+    // BUCKET VERSIONING //
+    ///////////////////////
+
+    set_bucket_versioning(params) {
+        return this._get_account_namespace()
+            .then(ns => ns.set_bucket_versioning(params));
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////
@@ -270,6 +279,16 @@ class ObjectSDK {
     list_objects(params) {
         return this._get_bucket_namespace(params.bucket)
             .then(ns => ns.list_objects(params, this));
+    }
+
+    list_uploads(params) {
+        return this._get_bucket_namespace(params.bucket)
+            .then(ns => ns.list_uploads(params, this));
+    }
+
+    list_object_versions(params) {
+        return this._get_bucket_namespace(params.bucket)
+            .then(ns => ns.list_object_versions(params, this));
     }
 
     /////////////////

@@ -11,7 +11,7 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
  * AKA Complete Multipart Upload
  */
-function post_object_uploadId(req) {
+function post_object_uploadId(req, res) {
 
     const multiparts = _.map(
         _.get(req.body, 'CompleteMultipartUpload.Part'),
@@ -30,6 +30,11 @@ function post_object_uploadId(req) {
             key: req.params.key,
             md_conditions: http_utils.get_md_conditions(req),
             multiparts
+        })
+        .tap(reply => {
+            if (reply.version_id) {
+                res.setHeader('x-amz-version-id', reply.version_id);
+            }
         })
         .then(reply => ({
             CompleteMultipartUploadResult: {

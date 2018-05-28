@@ -26,6 +26,7 @@ mocha.describe('md_store', function() {
                 system: system_id,
                 bucket: bucket_id,
                 key: 'lala_' + Date.now().toString(36),
+                create_time: new Date(),
                 content_type: 'lulu_' + Date.now().toString(36),
             };
             return P.resolve()
@@ -79,17 +80,17 @@ mocha.describe('md_store', function() {
         });
 
         mocha.it('find_objects_by_prefix()', function() {
-            return md_store.find_objects_by_prefix_and_delimiter({
+            return md_store.list_objects({
                 bucket_id,
                 prefix: '',
             });
         });
 
-        mocha.it('find_objects_by_prefix_and_delimiter()', function() {
-            return md_store.find_objects_by_prefix_and_delimiter({
+        mocha.it('list_objects()', function() {
+            return md_store.list_objects({
                 bucket_id,
                 prefix: '',
-                delimiter: '/',
+                delimiter: '/'
             });
         });
 

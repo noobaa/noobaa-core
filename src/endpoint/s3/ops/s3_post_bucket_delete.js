@@ -9,21 +9,41 @@ const dbg = require('../../../util/debug_module')(__filename);
  * AKA "Multi Object Delete"
  */
 function post_bucket_delete(req) {
-    let keys = _.map(req.body.Delete.Object, obj => obj.Key[0]);
-    dbg.log3('post_bucket_delete: keys', keys);
+    const objects = _.map(req.body.Delete.Object, obj =>
+        ({ key: obj.Key && obj.Key[0], version_id: obj.VersionId && obj.VersionId[0] }));
+    dbg.log3('post_bucket_delete: objects', objects);
     return req.object_sdk.delete_multiple_objects({
             bucket: req.params.bucket,
-            keys: keys
+            objects
         })
-        .then(reply => ({
-            DeleteResult: [
-                _.map(keys, key => ({
-                    Deleted: {
-                        Key: key,
-                    }
-                }))
-            ]
-        }));
+        .then(reply => {
+            const succeeded_delete = _.filter(reply, obj => !obj.code);
+            const failed_delete = _.filter(reply, obj => obj.code);
+            return {
+                DeleteResult: [
+                    _.map(succeeded_delete, obj => (compact({
+                        Deleted: {
+                            Key: obj.key,
+                            VersionId: obj.has_version ? obj.version_id : 'null',
+                            DeleteMarker: obj.delete_marker,
+                            DeleteMarkerVersionId: obj.delete_marker_version_id,
+                        }
+                    }))),
+                    _.map(failed_delete, obj => (compact({
+                        Error: {
+                            Key: obj.key,
+                            VersionId: obj.has_version ? obj.version_id : 'null',
+                            Code: obj.code,
+                            Message: obj.message,
+                        }
+                    }))),
+                ]
+            };
+        });
+}
+
+function compact(obj) {
+    return _.omitBy(obj, _.isUndefined);
 }
 
 module.exports = {

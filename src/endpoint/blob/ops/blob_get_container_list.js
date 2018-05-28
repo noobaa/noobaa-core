@@ -11,7 +11,6 @@ const BlobError = require('../blob_errors').BlobError;
 function get_container_list(req, res) {
     let params = {
         bucket: req.params.bucket,
-        upload_mode: false,
     };
     if ('prefix' in req.query) {
         params.prefix = req.query.prefix;

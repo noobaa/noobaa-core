@@ -39,16 +39,19 @@ class NamespaceS3 {
     // OBJECT LIST //
     /////////////////
 
+    list_uploads(params, object_sdk) {
+        dbg.log0('NamespaceS3.list_uploads:', this.bucket, inspect(params));
+        // TODO list uploads
+        return P.resolve({
+            objects: [],
+            common_prefixes: [],
+            is_truncated: false,
+        });
+    }
+
     list_objects(params, object_sdk) {
         dbg.log0('NamespaceS3.list_objects:', this.bucket, inspect(params));
-        // TODO list uploads
-        if (params.upload_mode) {
-            return {
-                objects: [],
-                common_prefixes: [],
-                is_truncated: false,
-            };
-        }
+
         return this.s3.listObjects({
                 Prefix: params.prefix,
                 Delimiter: params.delimiter,

@@ -6,9 +6,18 @@
  */
 function get_bucket_versioning(req) {
     return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            VersioningConfiguration: {}
-        }));
+        .then(bucket_info => {
+            // TODO: There is also MFA Delete configuration that we do not support
+            const reply = {
+                VersioningConfiguration: {}
+            };
+            if (bucket_info.versioning === 'ENABLED') {
+                reply.VersioningConfiguration.Status = 'Enabled';
+            } else if (bucket_info.versioning === 'SUSPENDED') {
+                reply.VersioningConfiguration.Status = 'Suspended';
+            }
+            return reply;
+        });
 }
 
 module.exports = {

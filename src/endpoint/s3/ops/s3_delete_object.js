@@ -7,12 +7,19 @@ const http_utils = require('../../../util/http_utils');
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
  */
-function delete_object(req) {
-    return req.object_sdk.delete_object({
+async function delete_object(req, res) {
+    const { version_id, delete_marker } = await req.object_sdk.delete_object({
         bucket: req.params.bucket,
         key: req.params.key,
         md_conditions: http_utils.get_md_conditions(req),
+        version_id: req.query.versionId
     });
+    if (version_id) {
+        res.setHeader('x-amz-version-id', version_id);
+    }
+    if (delete_marker) {
+        res.setHeader('x-amz-delete-marker', delete_marker);
+    }
 }
 
 module.exports = {

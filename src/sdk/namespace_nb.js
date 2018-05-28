@@ -29,7 +29,17 @@ class NamespaceNB {
 
     list_objects(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return object_sdk.rpc_client.object.list_objects_s3(params);
+        return object_sdk.rpc_client.object.list_objects(params);
+    }
+
+    list_uploads(params, object_sdk) {
+        if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
+        return object_sdk.rpc_client.object.list_uploads(params);
+    }
+
+    list_object_versions(params, object_sdk) {
+        if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
+        return object_sdk.rpc_client.object.list_object_versions(params);
     }
 
     /////////////////

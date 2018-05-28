@@ -32,7 +32,11 @@ function put_object(req, res) {
             xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY'),
         })
         .then(reply => {
+            if (reply.version_id) {
+                res.setHeader('x-amz-version-id', reply.version_id);
+            }
             if (copy_source) {
+                res.setHeader('x-amz-copy-source-version-id', reply.copy_source.obj_id);
                 return {
                     CopyObjectResult: {
                         // TODO S3 last modified and etag should be for the new part

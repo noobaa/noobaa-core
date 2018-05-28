@@ -10,6 +10,7 @@ function get_object_acl(req) {
     return req.object_sdk.read_object_md({
             bucket: req.params.bucket,
             key: req.params.key,
+            version_id: req.query.versionId
         })
         .then(object_md => ({
             AccessControlPolicy: {

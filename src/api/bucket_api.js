@@ -586,7 +586,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'bucket_type', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'host_tolerance', 'node_tolerance', 'writable', 'mode'],
+            required: ['name', 'bucket_type', 'tiering', 'versioning', 'usage_by_pool', 'storage', 'data', 'num_objects', 'host_tolerance', 'node_tolerance', 'writable', 'mode'],
             properties: {
                 name: {
                     type: 'string',
@@ -594,6 +594,9 @@ module.exports = {
                 bucket_type: {
                     enum: ['REGULAR', 'NAMESPACE'],
                     type: 'string',
+                },
+                versioning: {
+                    $ref: '#/definitions/versioning'
                 },
                 namespace: {
                     $ref: '#/definitions/bucket_namespace'
@@ -913,6 +916,9 @@ module.exports = {
                             },
                         }
                     }
+                },
+                versioning: {
+                    $ref: '#/definitions/versioning'
                 }
             }
         },
@@ -1056,6 +1062,11 @@ module.exports = {
                     type: 'string'
                 },
             }
+        },
+
+        versioning: {
+            type: 'string',
+            enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
 
         lambda_trigger_info: {

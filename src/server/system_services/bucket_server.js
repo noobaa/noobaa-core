@@ -85,7 +85,8 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
             reads: 0,
             writes: 0,
         },
-        lambda_triggers: []
+        lambda_triggers: [],
+        versioning: 'DISABLED'
     };
 }
 
@@ -303,7 +304,7 @@ function update_bucket(req) {
 }
 
 
-function get_bucket_changes(req, update_request, bucket, tiering_policy) {
+function get_bucket_changes(req, update_request, bucket, tiering_policy, object_mds_indexes_ready) {
     const changes = {
         updates: {},
         inserts: {},
@@ -359,6 +360,15 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     }
     if (tiering_policy) {
         single_bucket_update.tiering = tiering_policy._id;
+    }
+    if (update_request.versioning) {
+        if (!object_mds_indexes_ready) {
+            throw new RpcError('BAD_REQUEST', 'Cannot set versioning when building indexes');
+        }
+        if (update_request.versioning === 'DISABLED') {
+            throw new RpcError('BAD_REQUEST', 'Cannot set versioning to DISABLED');
+        }
+        single_bucket_update.versioning = update_request.versioning;
     }
     if (!_.isUndefined(quota)) {
 
@@ -477,7 +487,7 @@ function create_bucket_spillover_tier(system, bucket_id, pool_id) {
  * GET_BUCKET_UPDATE
  *
  */
-function update_buckets(req) {
+async function update_buckets(req) {
     const insert_changes = {};
     const update_changes = {
         buckets: []
@@ -489,21 +499,22 @@ function update_buckets(req) {
         const bucket = find_bucket(req, update_request.name);
         const tiering_policy = update_request.tiering &&
             resolve_tiering_policy(req, update_request.tiering);
-        const { updates, inserts, events, alerts } = get_bucket_changes(req, update_request, bucket, tiering_policy);
+        const objectmds_indexes_ready = await MDStore.instance().is_objectmds_indexes_ready();
+        const { updates, inserts, events, alerts } = get_bucket_changes(
+            req, update_request, bucket, tiering_policy, objectmds_indexes_ready);
         _.mergeWith(insert_changes, inserts, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
         _.mergeWith(update_changes, updates, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
         update_events = update_events.concat(events);
         update_alerts = update_alerts.concat(alerts);
     }
 
-    return system_store.make_changes({
-            insert: insert_changes,
-            update: update_changes
-        })
-        .then(() => {
-            P.map(update_events, event => Dispatcher.instance().activity(event));
-            P.map(update_alerts, alert => Dispatcher.instance().alert(alert.sev, alert.sysid, alert.alert, alert.rule));
-        });
+    await system_store.make_changes({
+        insert: insert_changes,
+        update: update_changes
+    });
+
+    P.map(update_events, event => Dispatcher.instance().activity(event));
+    P.map(update_alerts, alert => Dispatcher.instance().alert(alert.sev, alert.sysid, alert.alert, alert.rule));
 }
 
 
@@ -1071,7 +1082,8 @@ function get_bucket_info({
         mode: undefined,
         host_tolerance: undefined,
         node_tolerance: undefined,
-        bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR'
+        bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
+        versioning: bucket.versioning
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, info });
@@ -1456,6 +1468,7 @@ function can_delete_bucket(system, bucket) {
             }
             return MDStore.instance().has_any_completed_objects_in_bucket(bucket._id)
                 .then(has_objects => {
+                    // TODO: JENIA NEED TO CODE THIS FOR VERSIONING
                     if (has_objects) {
                         return 'NOT_EMPTY';
                     }

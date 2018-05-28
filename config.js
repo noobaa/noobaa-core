@@ -155,7 +155,7 @@ config.REBUILD_NODE_OFFLINE_GRACE = 5 * 60000;
 config.REBUILD_NODE_BATCH_SIZE = 10;
 config.REBUILD_NODE_BATCH_DELAY = 50;
 
-// TODO: JEN Temporary using the same number but later on they will be different cellings
+// TODO: Temporary using the same number but later on they will be different cellings
 config.MIN_TIER_FREE_THRESHOLD = 100 * 1024 * 1024;
 config.MAX_TIER_FREE_THRESHOLD = 100 * 1024 * 1024;
 

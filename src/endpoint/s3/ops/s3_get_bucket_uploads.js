@@ -13,7 +13,6 @@ function get_bucket_uploads(req) {
     // TODO S3 MUST implement KeyMarker & UploadIdMarker & MaxKeys & IsTruncated
     let params = {
         bucket: req.params.bucket,
-        upload_mode: true,
     };
     if ('prefix' in req.query) {
         params.prefix = req.query.prefix;
@@ -35,7 +34,7 @@ function get_bucket_uploads(req) {
     }
     params.limit = Math.min(max_keys_received, 1000);
 
-    return req.object_sdk.list_objects(params)
+    return req.object_sdk.list_uploads(params)
         .then(reply => ({
             ListMultipartUploadsResult: [{
                     'Bucket': req.params.bucket,

@@ -59,6 +59,26 @@ class MDStore {
         return MDStore._instance;
     }
 
+    async is_objectmds_indexes_ready() {
+        // This checks if there is a current background operation that creates the indexes
+        const current_ops_on_db = await await mongo_client.instance().db.admin().command({ currentOp: 1 });
+        const indexing_ops_on_collection = _.flatten(_.filter(current_ops_on_db.inprog, job =>
+                job.command && job.command.createIndexes === 'objectmds')
+            .map(index_job => index_job.command.indexes));
+        const building_indexes_names = indexing_ops_on_collection.map(obj => obj.name);
+        const object_mds_indexes_building = building_indexes_names.includes(['bucket_1_key_1_deleted_1_upload_started_1', 'bucket_1_key_1_deleted_1_create_time_']);
+
+        // This checks if the indexes are configured on a the collection
+        const object_mds_indexes = await this._objects.col().indexes();
+        const object_mds_indexes_configured =
+            object_mds_indexes.find(index =>
+                index.name === 'bucket_1_key_1_deleted_1_upload_started_1' && index.unique) &&
+            object_mds_indexes.find(index =>
+                index.name === 'bucket_1_key_1_deleted_1_create_time_-1_upload_started_1' && !index.unique);
+        return Boolean(object_mds_indexes_configured && !object_mds_indexes_building);
+    }
+
+
     make_md_id(id_str) {
         return new mongodb.ObjectId(id_str);
     }
@@ -130,13 +150,24 @@ class MDStore {
         });
     }
 
-    find_object_by_key(bucket_id, key) {
-        return this._objects.col().findOne(compact({
+    async find_object_by_key(bucket_id, key, has_version_null) {
+        const response = await this._objects.col().findOne(compact({
             bucket: bucket_id,
             key: key,
             deleted: null,
+            create_time: { $exists: true },
             upload_started: null,
-        }));
+            has_version: has_version_null ? null : undefined,
+        }), {
+            sort: {
+                bucket: 1,
+                key: 1,
+                deleted: 1,
+                create_time: -1,
+                upload_started: 1
+            }
+        });
+        return response;
     }
 
     populate_objects(docs, doc_path, fields) {
@@ -147,17 +178,18 @@ class MDStore {
         return mongo_utils.populate(docs, doc_path, this._chunks.col(), fields);
     }
 
-    find_objects({ bucket_id, key, upload_mode, max_create_time, skip, limit, sort, order, pagination }) {
+    find_objects({ bucket_id, key, upload_mode, max_create_time, skip, limit, sort, order, pagination, versioning }) {
+        // const versioning_flow = versioning.bucket_activated || versioning.list_versions;
         const query = compact({
             bucket: bucket_id,
             key: key,
             deleted: null,
             // allow filtering of uploading/non-uploading objects
-            upload_started: typeof upload_mode === 'boolean' ? {
-                $exists: upload_mode
-            } : undefined,
             create_time: max_create_time ? {
                 $lt: new Date(moment.unix(max_create_time).toISOString())
+            } : undefined,
+            upload_started: typeof upload_mode === 'boolean' ? {
+                $exists: upload_mode
             } : undefined,
         });
 
@@ -196,7 +228,143 @@ class MDStore {
             }));
     }
 
-    find_objects_by_prefix_and_delimiter({ bucket_id, upload_mode, delimiter, prefix, marker, limit, upload_id_marker }) {
+
+    async list_object_versions({
+        bucket_id,
+        delimiter,
+        prefix,
+        marker,
+        limit,
+        version_id_marker
+    }) {
+        // This sort order is crucial for the query to work optimized
+        // Pay attention prior to any changes and analyze query results
+        // Basically we are interested in primary sort by key and secondary by _id
+        // Both the bucket and deleted will be the same, this is needed for index optimization
+        const sort = {
+            bucket: 1,
+            key: 1,
+            deleted: 1,
+            // This is used instead of _id since they are the same values
+            create_time: -1,
+            upload_started: 1,
+        };
+        const { key_cond, regexp } = this._build_key_cond_for_list({ marker, prefix, delimiter });
+        const query = compact({
+            bucket: bucket_id,
+            key: _.isEmpty(key_cond) ? undefined : key_cond,
+            deleted: null,
+            // Notice that we use undefined so it will be removed from the query
+            // Since we have two different indexes we are interested in the most
+            // Optimal index that we can possibly get in case of null it will use
+            // A different index which was designed for the versioning
+            create_time: { $exists: true },
+            // $exists is less optimized than comparing to null
+            upload_started: null
+        });
+
+        if (marker && version_id_marker) {
+            this._build_key_id_marker_for_list(query, { regexp, marker, id_marker: version_id_marker });
+        }
+
+        const res = delimiter ? await this._objects.col().mapReduce(
+            mongo_functions.map_common_prefixes_and_objects,
+            mongo_functions.versions_reduce_common_prefixes_occurrence_and_objects, {
+                query,
+                limit,
+                sort,
+                scope: { prefix, delimiter },
+                out: { inline: 1 }
+            }
+        ) : await this._objects.col().find(query, { limit, sort }).toArray();
+
+        const sort_in_order = response => _.sortBy(response, ['key', 'obj._id']);
+        let resolved_response = this._resolve_response(({ query: res, prefix, delimiter }));
+        this._mark_latest_keys(resolved_response);
+        return sort_in_order(resolved_response);
+    }
+
+
+    async list_objects({
+        bucket_id,
+        delimiter,
+        prefix,
+        marker,
+        limit,
+        versioning
+    }) {
+        // This sort order is crucial for the query to work optimized
+        // Pay attention prior to any changes and analyze query results
+        // Basically we are interested in primary sort by key and secondary by _id
+        // Both the bucket and deleted will be the same, this is needed for index optimization
+        const sort = versioning ? {
+            bucket: 1,
+            key: 1,
+            deleted: 1,
+            // This is used instead of _id since they are the same values
+            create_time: -1,
+            upload_started: 1,
+        } : {
+            bucket: 1,
+            key: 1,
+            deleted: 1,
+            // This is used instead of _id since they are the same values
+            upload_started: 1
+        };
+        const { key_cond } = this._build_key_cond_for_list({ marker, prefix, delimiter });
+        const query = compact({
+            bucket: bucket_id,
+            key: _.isEmpty(key_cond) ? undefined : key_cond,
+            deleted: null,
+            // Notice that we use undefined so it will be removed from the query
+            // Since we have two different indexes we are interested in the most
+            // Optimal index that we can possibly get in case of null it will use
+            // A different index which was designed for the versioning
+            create_time: versioning ? { $exists: true } : undefined,
+            upload_started: null
+        });
+
+        const res = delimiter ? await this._objects.col().mapReduce(
+            mongo_functions.map_common_prefixes_and_objects,
+            mongo_functions.regular_reduce_common_prefixes_occurrence_and_objects, {
+                query,
+                limit,
+                sort,
+                scope: { prefix, delimiter },
+                out: { inline: 1 }
+            }
+        ) : await this._objects.col().find(query, { limit, sort }).toArray();
+
+        const sort_in_order = response => _.sortBy(response, ['key', 'obj._id']);
+        let resolved_response = this._resolve_response(({ query: res, prefix, delimiter }));
+        this._mark_latest_keys(resolved_response);
+        if (versioning) {
+            const unique_response = this._get_unique_latest_keys(resolved_response);
+            const response_length = unique_response.length;
+            if (response_length) {
+                // We are only interested in getting the latest for objects
+                // There is no point in getting latest for common_prefix
+                const last_obj = unique_response[response_length - 1].obj;
+                if (last_obj) {
+                    const last_key_latest = await this.find_object_by_key(bucket_id, last_obj.key);
+                    if (String(last_key_latest._id) !== String(last_obj._id)) {
+                        unique_response[response_length - 1].obj = last_key_latest;
+                    }
+                }
+            }
+            resolved_response = unique_response;
+        }
+        return sort_in_order(resolved_response);
+    }
+
+    async list_uploads({
+        bucket_id,
+        delimiter,
+        prefix,
+        marker,
+        limit,
+        upload_id_marker,
+    }) {
         // This sort order is crucial for the query to work optimized
         // Pay attention prior to any changes and analyze query results
         // Basically we are interested in primary sort by key and secondary by _id
@@ -208,6 +376,62 @@ class MDStore {
             // This is used instead of _id since they are the same values
             upload_started: 1
         };
+        const { key_cond, regexp } = this._build_key_cond_for_list({ marker, prefix, delimiter });
+        const query = compact({
+            bucket: bucket_id,
+            key: _.isEmpty(key_cond) ? undefined : key_cond,
+            deleted: null,
+            // $exists is less optimized than comparing to null
+            upload_started: { $exists: true }
+        });
+
+        if (marker && upload_id_marker) {
+            this._build_key_id_marker_for_list(query, { regexp, marker, id_marker: upload_id_marker });
+        }
+
+        const res = delimiter ? await this._objects.col().mapReduce(
+            mongo_functions.map_common_prefixes_and_objects,
+            mongo_functions.uploads_reduce_common_prefixes_occurrence_and_objects, {
+                query,
+                limit,
+                sort,
+                scope: { prefix, delimiter },
+                out: { inline: 1 }
+            }
+        ) : await this._objects.col().find(query, { limit, sort }).toArray();
+
+        const sort_in_order = response => _.sortBy(response, ['key', 'obj._id']);
+        let resolved_response = this._resolve_response({ query: res, prefix, delimiter });
+        return sort_in_order(resolved_response);
+    }
+
+    _resolve_response({ query, prefix, delimiter }) {
+        const wrap_single_key = obj_rec => ({
+            key: obj_rec.key,
+            obj: obj_rec
+        });
+        const wrap_single_prefix = prefix_rec => ({
+            key: prefix + prefix_rec._id[0],
+        });
+        if (delimiter) {
+            return _.flatten(
+                _.map(query, obj => {
+                    if (_.isObject(obj.value)) {
+                        if (obj.value.objects) {
+                            return _.map(obj.value.objects, wrap_single_key);
+                        }
+                        // MapReduce doesn't call reduce when we have only one map for key
+                        // This means that we will not have the objects property in the response object
+                        return wrap_single_key(obj.value);
+                    }
+                    return wrap_single_prefix(obj);
+                })
+            );
+        }
+        return _.map(query, obj => wrap_single_key(obj));
+    }
+
+    _build_key_cond_for_list({ marker, prefix, delimiter }) {
         // filter keys starting with prefix, *not* followed by marker
         let regexp_text = '^' + _.escapeRegExp(prefix);
         if (marker) {
@@ -229,58 +453,37 @@ class MDStore {
             $regex: regexp,
             $gt: marker || undefined
         });
-        const query = compact({
-            bucket: bucket_id,
-            key: _.isEmpty(key_cond) ? undefined : key_cond,
-            deleted: null,
-            // $exists is less optimized than comparing to null
-            upload_started: upload_mode ? { $exists: true } : null
+        return { key_cond, regexp };
+    }
+
+    _build_key_id_marker_for_list(query, { regexp, marker, id_marker }) {
+        const key_cond2 = compact({
+            $regex: regexp,
+            $gte: marker || undefined
         });
+        // This case is not optimized, guess is because of the $or statement
+        // We should investigate it further and optimize it
+        query.$or = [
+            { key: query.key },
+            compact({
+                key: _.isEmpty(key_cond2) ? undefined : key_cond2,
+                _id: { $gt: this.make_md_id(id_marker) }
+            })
+        ];
+        delete query.key;
+    }
 
-        if (marker && upload_id_marker) {
-            const key_cond2 = compact({
-                $regex: regexp,
-                $gte: marker || undefined
-            });
-            // This case is not optimized, guess is because of the $or statement
-            // We should investigate it further and optimize it
-            query.$or = [
-                { key: query.key },
-                compact({
-                    key: _.isEmpty(key_cond2) ? undefined : key_cond2,
-                    _id: { $gt: this.make_md_id(upload_id_marker) }
-                })
-            ];
-            delete query.key;
-        }
+    _mark_latest_keys(keys) {
+        const only_objects = _.filter(keys, key => key.obj);
+        only_objects.sort((a, b) => (b.create_time - a.create_time));
+        const latest_versions = _.uniqBy(only_objects, 'key');
+        _.each(keys, element => {
+            if (element.obj && _.includes(latest_versions, element)) element.obj.is_latest = true;
+        });
+    }
 
-        if (!delimiter) {
-            return this._objects.col().find(query, { limit, sort })
-                .toArray()
-                .then(res => _.map(res, obj => ({
-                    key: obj.key,
-                    obj: obj
-                })));
-        }
-
-        return this._objects.col().mapReduce(
-                mongo_functions.map_common_prefixes_and_objects,
-                mongo_functions.reduce_common_prefixes_occurrence_and_objects, {
-                    query,
-                    limit,
-                    sort,
-                    scope: { prefix, delimiter },
-                    out: { inline: 1 }
-                }
-            )
-            .then(res => _.map(res, obj => (
-                _.isObject(obj.value) ? {
-                    key: obj.value.key,
-                    obj: obj.value
-                } : {
-                    key: prefix + obj._id,
-                }
-            )));
+    _get_unique_latest_keys(keys) {
+        return _.compact(_.map(keys, key => (key.obj ? (key.obj.is_latest && key) : key)));
     }
 
     has_any_objects_in_system(system_id) {
@@ -1248,7 +1451,6 @@ function unordered_insert_options() {
         ordered: false
     };
 }
-
 
 // EXPORTS
 exports.MDStore = MDStore;

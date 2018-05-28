@@ -58,6 +58,18 @@ class AccountSpaceNB {
     delete_bucket_replication(params) {
         return this.rpc_client.bucket.delete_cloud_sync(params);
     }
+
+    ///////////////////////
+    // BUCKET VERSIONING //
+    ///////////////////////
+
+    set_bucket_versioning(params) {
+        return this.rpc_client.bucket.update_bucket({
+            name: params.name,
+            versioning: params.versioning
+        });
+    }
+
 }
 
 module.exports = AccountSpaceNB;

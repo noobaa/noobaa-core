@@ -13,6 +13,7 @@ function head_object(req, res) {
             bucket: req.params.bucket,
             key: req.params.key,
             md_conditions: http_utils.get_md_conditions(req),
+            version_id: req.query.versionId,
         })
         .then(object_md => s3_utils.set_response_object_md(res, object_md));
 }

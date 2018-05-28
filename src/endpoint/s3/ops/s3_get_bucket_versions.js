@@ -10,10 +10,9 @@ const s3_utils = require('../s3_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETVersion.html
  */
 function get_bucket_versions(req) {
-    // TODO S3 MUST implement KeyMarker & VersionIdMarker & MaxKeys & IsTruncated
+    // TODO Implement support for encoding-type
     let params = {
         bucket: req.params.bucket,
-        upload_mode: false,
     };
     if ('prefix' in req.query) {
         params.prefix = req.query.prefix;
@@ -24,6 +23,9 @@ function get_bucket_versions(req) {
     if ('key-marker' in req.query) {
         params.key_marker = req.query['key-marker'];
     }
+    if ('version-id-marker' in req.query) {
+        params.version_id_marker = req.query['version-id-marker'];
+    }
 
     let max_keys_received = Number(req.query['max-keys'] || 1000);
     if (!Number.isInteger(max_keys_received) || max_keys_received < 0) {
@@ -32,7 +34,7 @@ function get_bucket_versions(req) {
     }
     params.limit = Math.min(max_keys_received, 1000);
 
-    return req.object_sdk.list_objects(params)
+    return req.object_sdk.list_object_versions(params)
         .then(reply => ({
             ListVersionsResult: [{
                     'Name': req.params.bucket,
@@ -43,21 +45,29 @@ function get_bucket_versions(req) {
                     'VersionIdMarker': req.query['version-id-marker'],
                     'IsTruncated': reply.is_truncated,
                     'NextKeyMarker': reply.next_marker,
-                    // 'NextVersionIdMarker': ...
+                    'NextVersionIdMarker': reply.next_version_id_marker,
                     'Encoding-Type': req.query['encoding-type'],
                 },
-                _.map(reply.objects, obj => ({
+                _.map(reply.objects, obj => (obj.delete_marker ? ({
+                    DeleteMarker: {
+                        Key: obj.key,
+                        VersionId: obj.has_version ? obj.obj_id : 'null',
+                        IsLatest: obj.is_latest || false,
+                        LastModified: s3_utils.format_s3_xml_date(obj.create_time),
+                        Owner: s3_utils.DEFAULT_S3_USER,
+                    }
+                }) : ({
                     Version: {
                         Key: obj.key,
-                        VersionId: '',
-                        IsLatest: true,
+                        VersionId: obj.has_version ? obj.obj_id : 'null',
+                        IsLatest: obj.is_latest || false,
                         LastModified: s3_utils.format_s3_xml_date(obj.create_time),
                         ETag: `"${obj.etag}"`,
                         Size: obj.size,
                         Owner: s3_utils.DEFAULT_S3_USER,
                         StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
                     }
-                })),
+                }))),
                 _.map(reply.common_prefixes, prefix => ({
                     CommonPrefixes: {
                         Prefix: prefix || ''

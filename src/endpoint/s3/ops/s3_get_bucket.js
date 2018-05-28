@@ -12,7 +12,6 @@ const s3_utils = require('../s3_utils');
 function get_bucket(req) {
     let params = {
         bucket: req.params.bucket,
-        upload_mode: false,
     };
 
     if (req.query['list-type'] === '2') {

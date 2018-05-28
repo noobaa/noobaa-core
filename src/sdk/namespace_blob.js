@@ -39,14 +39,6 @@ class NamespaceBlob {
             this.container,
             inspect(params)
         );
-        // TODO list uploads
-        if (params.upload_mode) {
-            return {
-                objects: [],
-                common_prefixes: [],
-                is_truncated: false,
-            };
-        }
 
         return P.resolve()
             .then(() => {
@@ -100,6 +92,19 @@ class NamespaceBlob {
                     next_marker
                 };
             });
+    }
+
+    list_uploads(params, object_sdk) {
+        dbg.log0('NamespaceBlob.list_uploads:',
+            this.container,
+            inspect(params)
+        );
+        // TODO list uploads
+        return P.resolve({
+            objects: [],
+            common_prefixes: [],
+            is_truncated: false,
+        });
     }
 
     /////////////////

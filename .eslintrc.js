@@ -76,7 +76,7 @@ module.exports = {
 
         // max statements in function
         // TODO eslint max-statements per function should be reduced to ~20 instead of 60
-        'max-statements': ['error', 70],
+        'max-statements': ['error', 75],
 
         'newline-per-chained-call': ['error', { ignoreChainWithDepth: 4 }],
 

@@ -144,6 +144,12 @@ class ObjectIO {
             })
             .then(() => dbg.log0('upload_object: complete upload', complete_params))
             .then(() => params.client.object.complete_object_upload(complete_params))
+            .then(complete_result => {
+                if (params.copy_source) {
+                    complete_result.copy_source = params.copy_source;
+                }
+                return complete_result;
+            })
             .catch(err => {
                 dbg.warn('upload_object: failed upload', complete_params, err);
                 if (!params.obj_id) throw err;
@@ -202,6 +208,7 @@ class ObjectIO {
         return params.client.object.read_object_md({
                 bucket: params.copy_source.bucket,
                 key: params.copy_source.key,
+                version_id: params.copy_source.version,
                 md_conditions: params.source_md_conditions,
             })
             .then(object_md => {

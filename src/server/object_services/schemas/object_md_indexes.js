@@ -17,6 +17,21 @@ module.exports = [{
             upload_started: 1,
         },
         options: {
+            unique: false,
+        }
+    },
+    // find_object_by_key()
+    // find_objects()
+    // find_objects_by_prefix_and_delimiter()
+    {
+        fields: {
+            bucket: 1,
+            key: 1,
+            deleted: 1,
+            create_time: -1,
+            upload_started: 1,
+        },
+        options: {
             unique: true,
         }
     },

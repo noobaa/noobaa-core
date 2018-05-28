@@ -115,6 +115,7 @@ const S3_CEPH_TEST_WHITELIST = [
     's3tests.functional.test_s3:test_get_object_ifnonematch_failed',
     's3tests.functional.test_s3:test_get_object_ifmodifiedsince_good',
     's3tests.functional.test_s3:test_get_object_ifunmodifiedsince_good',
+    's3tests.functional.test_s3:test_get_object_ifmodifiedsince_failed',
     's3tests.functional.test_s3:test_get_object_ifunmodifiedsince_failed',
     's3tests.functional.test_s3:test_put_object_ifmatch_good',
     's3tests.functional.test_s3:test_put_object_ifmatch_overwrite_existed_good',

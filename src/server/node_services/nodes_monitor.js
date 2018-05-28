@@ -730,7 +730,7 @@ class NodesMonitor extends EventEmitter {
         const item = {
             connection: null,
             node_from_store: null,
-            node: {
+            node: _.omitBy({
                 _id: NodesStore.instance().make_node_id(),
                 peer_id: NodesStore.instance().make_node_id(),
                 system: system._id,
@@ -738,7 +738,7 @@ class NodesMonitor extends EventEmitter {
                 agent_config: agent_config._id,
                 heartbeat: now,
                 name,
-            },
+            }, _.isUndefined),
         };
 
         if (pool.cloud_pool_info) {

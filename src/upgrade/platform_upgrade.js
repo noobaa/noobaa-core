@@ -132,6 +132,12 @@ async function run_platform_upgrade_steps() {
     // TODO: run platform upgrades more intelligently (according to previous version)
     await platform_upgrade_common();
     await platform_upgrade_2_4_0();
+    await platform_upgrade_2_7_0();
+}
+
+async function platform_upgrade_2_7_0() {
+    //verify abrt package is removed
+    await exec('yum remove abrt -y');
 }
 
 // platform upgrade for version 2.4.0

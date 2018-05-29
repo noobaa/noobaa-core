@@ -82,6 +82,10 @@ module.exports = {
             // listening rpc address (url) of the agent
             type: 'string',
         },
+        public_ip: {
+            // Public IP if exists in the agent
+            type: 'string',
+        },
         heartbeat: {
             // the last time the agent sent heartbeat
             idate: true,

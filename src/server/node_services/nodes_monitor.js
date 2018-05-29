@@ -51,6 +51,7 @@ const AGENT_INFO_FIELDS = [
     'ip',
     'base_address',
     'rpc_address',
+    'public_ip',
     'enabled',
     'geolocation',
     'storage',
@@ -3155,6 +3156,9 @@ class NodesMonitor extends EventEmitter {
         info.pool = pool ? pool.name : '';
         info.geolocation = host_item.node.geolocation;
         info.ip = host_item.node.ip;
+        if (host_item.node.public_ip) {
+            info.public_ip = host_item.node.public_ip;
+        }
         info.version = host_item.node.version;
         info.version_install_time = host_item.node.version_install_time;
         info.last_communication = host_item.node.heartbeat;

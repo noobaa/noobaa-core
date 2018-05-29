@@ -57,6 +57,9 @@ module.exports = {
                     rpc_address: {
                         type: 'string'
                     },
+                    public_ip: {
+                        type: 'string'
+                    },
                     permission_tempering: {
                         idate: true
                     },

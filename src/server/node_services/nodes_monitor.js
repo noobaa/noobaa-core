@@ -3174,7 +3174,7 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
-        info.os_info.cpu_usage = host_item.cpu_usage;
+        info.os_info.cpu_usage = Math.max(host_item.cpu_usage, host_item.node.cpu_usage); //Total can't be lower then a single process, we also subtract one from another in the FE
         info.process_cpu_usage = host_item.node.cpu_usage;
         info.process_mem_usage = host_item.node.mem_usage;
         info.rpc_address = host_item.node.rpc_address;

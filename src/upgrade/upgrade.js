@@ -40,7 +40,7 @@ async function do_upgrade() {
         dbg.log0('failed preparing environment for upgrade_manager', err);
         // restart services to stop upgrade
         // TODO: better solution than restarting services
-        supervisor.restart('webserver');
+        supervisor.restart(['webserver']);
         process.exit(1);
     }
 }

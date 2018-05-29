@@ -37,7 +37,7 @@ const icons = deepFreeze({
 const tab = 'settings';
 
 const sections = deepFreeze({
-    serverDns: 'server-dns',
+    serverDns: 'system-address',
     remoteSyslog: 'remote-syslog',
     phoneHome: 'phone-home'
 });

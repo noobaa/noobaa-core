@@ -29,11 +29,11 @@ const columns = deepFreeze([
     },
     {
         name: 'healthyHosts',
-        label: 'Healthy Nodes in Pool'
+        label: 'Healthy Nodes'
     },
     {
         name: 'healthyNodes',
-        label: 'Healthy Drives on Nodes'
+        label: 'Healthy Drives'
     },
     {
         name: 'bucketUsage',

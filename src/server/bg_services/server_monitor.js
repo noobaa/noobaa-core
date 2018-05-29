@@ -367,7 +367,8 @@ function _check_remote_syslog() {
 
 function _check_is_self_in_dns_table() {
     dbg.log2('_check_is_self_in_dns_table');
-    const system_dns = !_.isEmpty(system_store.data.systems[0].base_address) && url.parse(system_store.data.systems[0].base_address).hostname;
+    const system_dns = !_.isEmpty(system_store.data.systems[0].base_address) &&
+        url.parse(system_store.data.systems[0].base_address).hostname;
     if (_.isEmpty(system_dns) || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
 
     let addresses = [server_conf.owner_address];

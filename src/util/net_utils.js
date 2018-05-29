@@ -5,9 +5,10 @@ const _ = require('lodash');
 const url = require('url');
 const net = require('net');
 const dns = require('dns');
+const dgram = require('dgram');
+const request = require('request');
 const net_ping = require('net-ping');
 const ip_module = require('ip');
-const dgram = require('dgram');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -169,6 +170,13 @@ function get_ntp_time({ server = 'pool.ntp.org', port = 123, timeout = 60000 } =
         .timeout(timeout);
 }
 
+function retrieve_public_ip() {
+    return P.ninvoke(request, 'get', {
+            url: 'http://api.ipify.org/',
+        })
+        .then(res => res.body);
+}
+
 exports.ping = ping;
 exports.dns_resolve = dns_resolve;
 exports.is_hostname = is_hostname;
@@ -176,3 +184,4 @@ exports.is_fqdn = is_fqdn;
 exports.unwrap_ipv6 = unwrap_ipv6;
 exports.ip_to_long = ip_to_long;
 exports.get_ntp_time = get_ntp_time;
+exports.retrieve_public_ip = retrieve_public_ip;

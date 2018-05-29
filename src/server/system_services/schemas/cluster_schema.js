@@ -24,6 +24,9 @@ module.exports = {
         owner_address: {
             type: 'string',
         },
+        owner_public_address: {
+            type: 'string',
+        },
         owner_shardname: {
             type: 'string',
         },

@@ -14,12 +14,14 @@ const os_utils = require('../../util/os_utils');
 const fs_utils = require('../../util/fs_utils');
 const net_utils = require('../../util/net_utils');
 const ssl_utils = require('../../util/ssl_utils');
+const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const phone_home_utils = require('../../util/phone_home');
 const config_file_store = require('../system_services/config_file_store').instance();
-const Dispatcher = require('../notifications/dispatcher');
+
+
 const dotenv = require('../../util/dotenv');
 
 let server_conf = {};
@@ -55,6 +57,7 @@ function run() {
         .then(() => _check_dns_and_phonehome())
         .then(() => _check_proxy_configuration())
         .then(() => _check_remote_syslog())
+        .then(() => _verify_and_update_public_ip())
         .then(() => _check_is_self_in_dns_table())
         .then(() => _check_internal_ips())
         .then(() => _check_network_configuration())
@@ -364,12 +367,16 @@ function _check_remote_syslog() {
 
 function _check_is_self_in_dns_table() {
     dbg.log2('_check_is_self_in_dns_table');
-    let system_dns = !_.isEmpty(system_store.data.systems[0].base_address) && url.parse(system_store.data.systems[0].base_address).hostname;
-    let address = server_conf.owner_address;
+    const system_dns = !_.isEmpty(system_store.data.systems[0].base_address) && url.parse(system_store.data.systems[0].base_address).hostname;
     if (_.isEmpty(system_dns) || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
+
+    let addresses = [server_conf.owner_address];
+    if (server_conf.owner_public_address) {
+        addresses.push(server_conf.owner_public_address);
+    }
     return net_utils.dns_resolve(system_dns)
         .then(ip_address_table => {
-            if (_.includes(ip_address_table, address)) {
+            if (ip_address_table.some(r => addresses.indexOf(r) >= 0)) {
                 monitoring_status.dns_name = "OPERATIONAL";
             } else {
                 monitoring_status.dns_name = "FAULTY";
@@ -417,6 +424,29 @@ function _check_disk_space() {
             Dispatcher.rules.once_weekly);
     }
     return os_utils.handle_unreleased_fds();
+}
+
+async function _verify_and_update_public_ip() {
+    dbg.log2('_verify_ip_vs_stun');
+    //Verify what is the public IP of this server
+    return net_utils.retrieve_public_ip()
+        .catch(() => dbg.error('Failed retrieving public IP address'))
+        .then(public_ip => {
+            //If public IP can be deduced => if different then internal update owner_public_address
+            if (public_ip &&
+                server_conf.owner_address !== public_ip &&
+                server_conf.owner_public_address !== public_ip) {
+                return system_store.make_changes({
+                        update: {
+                            clusters: [{
+                                _id: server_conf._id,
+                                owner_public_address: public_ip
+                            }]
+                        }
+                    })
+                    .catch(() => dbg.error('Failed updating public IP address'));
+            }
+        });
 }
 
 // EXPORTS

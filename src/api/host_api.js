@@ -318,6 +318,9 @@ module.exports = {
                 base_address: {
                     type: 'string'
                 },
+                public_ip: {
+                    type: 'string'
+                },
                 version: {
                     type: 'string'
                 },

@@ -18,21 +18,25 @@ const pkg = require('../../package.json');
 const DebugLogger = require('../util/debug_module');
 const diag = require('./agent_diagnostics');
 const config = require('../../config');
+const FuncNode = require('./func_services/func_node');
 const os_utils = require('../util/os_utils');
 const js_utils = require('../util/js_utils');
+const net_utils = require('../util/net_utils');
 const url_utils = require('../util/url_utils');
-const time_utils = require('../util/time_utils');
 const ssl_utils = require('../util/ssl_utils');
-const FuncNode = require('./func_services/func_node');
+const time_utils = require('../util/time_utils');
+const json_utils = require('../util/json_utils');
+const cloud_utils = require('../util/cloud_utils');
+const promise_utils = require('../util/promise_utils');
 const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
 const BlockStoreGoogle = require('./block_store_services/block_store_google').BlockStoreGoogle;
 const BlockStoreMongo = require('./block_store_services/block_store_mongo').BlockStoreMongo;
 const BlockStoreMem = require('./block_store_services/block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_services/block_store_azure').BlockStoreAzure;
-const promise_utils = require('../util/promise_utils');
-const cloud_utils = require('../util/cloud_utils');
-const json_utils = require('../util/json_utils');
+
+
+
 const { RpcError, RPC_BUFFERS } = require('../rpc');
 
 const TEST_CONNECTION_TIMEOUT_DELAY = 2 * 60 * 1000; // test connection 2 ninutes after nodes_monitor stopped communicating
@@ -859,6 +863,12 @@ class Agent {
                         .then(ports_allowed => {
                             reply.ports_allowed = ports_allowed;
                         });
+                }
+            })
+            .then(() => net_utils.retrieve_public_ip())
+            .then(public_ip => {
+                if (public_ip) {
+                    reply.public_ip = public_ip;
                 }
             })
             .return(reply);

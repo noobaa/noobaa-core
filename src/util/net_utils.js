@@ -174,6 +174,7 @@ function retrieve_public_ip() {
     return P.ninvoke(request, 'get', {
             url: 'http://api.ipify.org/',
         })
+        .catch(() => undefined)
         .then(res => res.body);
 }
 

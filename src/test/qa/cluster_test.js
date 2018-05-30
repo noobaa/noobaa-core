@@ -83,12 +83,7 @@ if (argv.help) {
     process.exit(1);
 }
 
-let osesSet = [
-    'ubuntu12', 'ubuntu14', 'ubuntu16',
-    'centos6', 'centos7',
-    'redhat6', 'redhat7',
-    'win2008', 'win2012', 'win2016'
-];
+const osesSet = af.supported_oses();
 
 
 function saveErrorAndResume(message) {

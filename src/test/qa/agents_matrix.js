@@ -81,12 +81,7 @@ const NC = "\x1b[0m";
 var api = require('../../api');
 var rpc = api.new_rpc('wss://' + server_ip + ':8443');
 var client = rpc.new_client({});
-const oses = [
-    'ubuntu12', 'ubuntu14', 'ubuntu16',
-    'centos6', 'centos7',
-    'redhat6', 'redhat7',
-    'win2008', 'win2012', 'win2016'
-];
+const oses = af.supported_oses();
 
 const size = 16; //size in GB
 let nodes = [];

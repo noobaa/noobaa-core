@@ -41,7 +41,8 @@ const VERIFY_RESPONSE = [
     'HAS_OBJECTS',
     'UNREACHABLE',
     'ADDING_SELF',
-    'NO_NTP_SET'
+    'NO_NTP_SET',
+    'CONNECTION_TIMEOUT'
 ];
 
 function _init() {
@@ -119,11 +120,16 @@ function pre_add_member_to_cluster(req) {
     dbg.log0('validating member request');
     return _validate_member_request(req)
         .catch(err => {
+            Dispatcher.instance().alert('MAJOR', system_store.data.systems[0]._id,
+                `Failed adding server ${req.rpc_params.new_hostname} to cluster. ${err.message}`,
+                null); // always
             throw err;
         })
         .then(() => _check_candidate_version(req))
         .then(version_check_res => {
-            if (version_check_res.result !== 'OKAY') throw new Error('Verify join version check returned', version_check_res);
+            if (version_check_res.result !== 'OKAY') {
+                throw new Error('Verify join version check returned', version_check_res);
+            }
         })
         .then(() => server_rpc.client.cluster_internal.verify_join_conditions({
             secret: req.rpc_params.secret,
@@ -340,17 +346,28 @@ function verify_candidate_join_conditions(req) {
     return _check_candidate_version(req)
         .then(version_check_res => {
             if (version_check_res.result !== 'OKAY') return version_check_res;
-            return server_rpc.client.cluster_internal.verify_join_conditions({
-                    secret: req.rpc_params.secret
-                }, {
-                    address: server_rpc.get_base_address(req.rpc_params.address),
-                    timeout: 60000 //60s
-                })
-                .then(res => ({
-                    hostname: res.hostname,
-                    result: res.result,
-                    version: version_check_res.version
-                }));
+            return promise_utils.exec(`echo -n | nc -w5 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true })
+                .then(response => {
+                    if (response.includes('Connection timed out')) {
+                        dbg.warn(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT}, might be due to a FW blocking`);
+                        return {
+                            result: 'CONNECTION_TIMEOUT'
+                        };
+                    } else {
+                        return P.resolve()
+                            .then(() => server_rpc.client.cluster_internal.verify_join_conditions({
+                                secret: req.rpc_params.secret
+                            }, {
+                                address: server_rpc.get_base_address(req.rpc_params.address),
+                                timeout: 60000 //60s
+                            }))
+                            .then(res => ({
+                                hostname: res.hostname,
+                                result: res.result,
+                                version: version_check_res.version
+                            }));
+                    }
+                });
         })
         .catch(RpcError, err => {
             if (err.rpc_code === 'RPC_CONNECT_TIMEOUT' ||
@@ -1290,13 +1307,12 @@ function _validate_member_request(req) {
 
     //Check mongo port 27000
     //TODO on sharding will also need to add verification to the cfg port
-    return promise_utils.exec(`echo -n | nc -w1 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} >/dev/null 2>&1`)
-        .then(() => P.resolve())
-        .catch(() => P.resolve()) //Error in this case still means no FW dropped us on the way
-        .timeout(30 * 1000)
-        .catch(() => {
-            throw new Error(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT},
-            might be due to a FW blocking`);
+    return promise_utils.exec(`echo -n | nc -w5 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true })
+        .then(response => {
+            if (response.includes('Connection timed out')) {
+                throw new Error(`Could not reach ${req.rpc_params.address} at port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT},
+                might be due to a firewall blocking`);
+            }
         })
         .then(() => os_utils.get_ntp())
         .then(platform_ntp => {
@@ -1317,6 +1333,9 @@ function get_secret(req) {
 }
 
 function _verify_join_preconditons(req) {
+    const caller_address = req.connection.url.hostname.includes('ffff') ?
+        req.connection.url.hostname.replace(/^.*:/, '') :
+        req.connection.url.hostname;
     return P.resolve()
         .then(() => {
             dbg.log0('_verify_join_preconditons');
@@ -1325,8 +1344,13 @@ function _verify_join_preconditons(req) {
                 dbg.error('Secrets do not match!');
                 return 'SECRET_MISMATCH';
             }
-
-            return os_utils.get_ntp()
+            return promise_utils.exec(`echo -n | nc -w5 ${caller_address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true })
+                .then(response => {
+                    if (response.includes('Connection timed out')) {
+                        throw new Error('CONNECTION_TIMEOUT');
+                    }
+                })
+                .then(() => os_utils.get_ntp())
                 .then(platform_ntp => {
                     if (!platform_ntp) {
                         throw new Error('NO_NTP_SET');

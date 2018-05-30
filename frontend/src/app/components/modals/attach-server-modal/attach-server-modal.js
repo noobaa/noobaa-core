@@ -113,6 +113,11 @@ class AttachServerModalViewModel extends Observer {
                 errors.address = 'Please configure NTP on the target server before attaching';
                 break;
             }
+
+            case 'CONNECTION_TIMEOUT': {
+                errors.address = 'Could not reach server, might be due to firewall blocking';
+                break;
+            }
         }
 
         return errors;

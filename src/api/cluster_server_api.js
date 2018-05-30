@@ -357,7 +357,7 @@ module.exports = {
         },
 
         verify_new_member_result: {
-            enum: ['OKAY', 'SECRET_MISMATCH', 'VERSION_MISMATCH', 'ALREADY_A_MEMBER', 'HAS_OBJECTS', 'UNREACHABLE', 'ADDING_SELF', 'NO_NTP_SET'],
+            enum: ['OKAY', 'SECRET_MISMATCH', 'VERSION_MISMATCH', 'ALREADY_A_MEMBER', 'HAS_OBJECTS', 'UNREACHABLE', 'ADDING_SELF', 'NO_NTP_SET', 'CONNECTION_TIMEOUT'],
             type: 'string'
         },
 

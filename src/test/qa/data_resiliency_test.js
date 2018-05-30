@@ -1,13 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const { S3OPS } = require('../utils/s3ops');
-const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
-const af = require('../utils/agent_functions');
-const dbg = require('../../util/debug_module')(__filename);
 const AzureFunctions = require('../../deploy/azureFunctions');
-const { BucketFunctions } = require('../utils/bucket_functions');
+const { S3OPS } = require('../utils/s3ops');
+const af = require('../utils/agent_functions');
+const bf = require('../utils/bucket_functions');
+const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('data_avilability');
 
 //define colors
@@ -82,11 +81,7 @@ if (help) {
     process.exit(1);
 }
 
-let report = new Report();
-let bf = new BucketFunctions(server_ip, report);
-
 const osesSet = af.supported_oses();
-
 
 const baseUnit = 1024;
 const unit_mapping = {

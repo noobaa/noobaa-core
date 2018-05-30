@@ -67,12 +67,7 @@ let report = new Report();
 let bf = new BucketFunctions(server_ip, report);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-let osesSet = [
-    'ubuntu12', 'ubuntu14', 'ubuntu16',
-    'centos6', 'centos7',
-    'redhat6', 'redhat7',
-    'win2008', 'win2012', 'win2016'
-];
+let osesSet = af.supported_oses();
 
 const baseUnit = 1024;
 const unit_mapping = {

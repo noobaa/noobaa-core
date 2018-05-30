@@ -74,15 +74,9 @@ if (argv.help) {
 let report = new Report();
 let bf = new BucketFunctions(server_ip, report);
 
-const osesLinuxSet = [
-    'ubuntu12', 'ubuntu14', 'ubuntu16',
-    'centos6', 'centos7',
-    'redhat6', 'redhat7'
-];
+const osesLinuxSet = af.supported_oses('LINUX');
+const osesWinSet = af.supported_oses('WIN';)
 
-const osesWinSet = [
-    'win2008', 'win2012', 'win2016'
-];
 
 const baseUnit = 1024;
 const unit_mapping = {

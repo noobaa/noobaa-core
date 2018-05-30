@@ -177,7 +177,7 @@ async function exec(command, options = {}) {
 
 async function ensure_swap() {
 
-    const swap_conf = fs_utils.find_line_in_file('/etc/fstab', 'swapfile');
+    const swap_conf = await fs_utils.find_line_in_file('/etc/fstab', 'swapfile');
     if (swap_conf) {
         dbg.log0('UPGRADE: swap is already configured in /etc/fstab');
         return;

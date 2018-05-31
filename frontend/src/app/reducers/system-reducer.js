@@ -54,7 +54,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
         },
         debugMode: {
-            till: debug.level ? Date.now() + debug.time_left : 0
+            till: debug.level ? timestamp + debug.time_left : 0
         },
         diagnostics
     };

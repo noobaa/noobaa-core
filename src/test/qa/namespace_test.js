@@ -10,20 +10,18 @@ const { S3OPS } = require('../utils/s3ops');
 const blobops = require('../utils/blobops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
-const bf = require('../utils/bucket_functions');
 const dbg = require('../../util/debug_module')(__filename);
+const { CloudFunction } = require('../utils/cloud_functions');
+const { BucketFunctions } = require('../utils/bucket_functions');
 
 const test_name = 'namespace';
 dbg.set_process_name(test_name);
 
 require('../../util/dotenv').load();
 
-let rpc;
-let client;
 let errors = [];
 let failures_in_test = false;
 const cloud_list = ['AWS', 'AZURE'];
-
 
 //define colors
 // const YELLOW = "\x1b[33;1m";
@@ -55,7 +53,12 @@ if (help) {
     process.exit(1);
 }
 
+const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const client = rpc.new_client({});
+
 let report = new Report();
+let cf = new CloudFunction(client, report);
+let bf = new BucketFunctions(server_ip, report);
 
 report.init_reporter({ suite: test_name, conf: server_ip });
 
@@ -120,124 +123,6 @@ function saveErrorAndResume(message, err) {
     console.error(message, err);
     errors.push(`${message} ${err}`);
     failures_in_test = true;
-}
-
-async function createNamespaceResource(connection, name, target_bucket) {
-    console.log('Creating namespace resource with connection ' + connection);
-    try {
-        await client.pool.create_namespace_resource({
-            connection,
-            name,
-            target_bucket
-        });
-        await report.success(`Create_Namespace_Resource_${connection}`);
-    } catch (err) {
-        await report.fail(`Create_Namespace_Resource_${connection}`);
-        saveErrorAndResume('Failed to create namespace resource ', err);
-        throw err;
-    }
-}
-
-async function createNamespaceBucket(name, namespace) {
-    console.log('Creating namespace bucket with namespace ' + namespace);
-    try {
-        await client.bucket.create_bucket({
-            name,
-            namespace: {
-                read_resources: [namespace],
-                write_resource: namespace
-            }
-        });
-        await report.success(`Create_Namespace_Bucket`);
-    } catch (err) {
-        await report.fail(`Create_Namespace_Bucket`);
-        saveErrorAndResume('Failed to create Namespace bucket ', err);
-        throw err;
-    }
-}
-
-async function updateNamesapceBucket(name, read_resources = [], write_resource) {
-    console.log(`updating bucket: ${name}, read_resources: ${read_resources}, write_resource: ${write_resource}`);
-    try {
-        await client.bucket.update_bucket({
-            name,
-            namespace: {
-                read_resources,
-                write_resource
-            }
-        });
-        await report.success(`Update_Namespace_Bucket`);
-    } catch (err) {
-        await report.fail(`Update_Namespace_Bucket`);
-        saveErrorAndResume('Failed to update Namespace bucket ', err);
-        throw err;
-    }
-}
-
-// async function createCloudPool(connection, name, target_bucket) {
-//     console.log('Creating cloud pool ' + connection);
-//     try {
-//         await client.pool.create_cloud_pool({
-//             connection,
-//             name,
-//             target_bucket
-//         });
-//         await report.success(`Create_Cloud_Pool_${connection}`);
-//     } catch (err) {
-//         await report.fail(`Create_Cloud_Pool_${connection}`);
-//         saveErrorAndResume('Failed to create cloud pool ', err);
-//         throw err;
-//     }
-// }
-
-// async function waitingForHealthyPool(poolName) {
-//     console.log('Waiting for pool getting healthy');
-//     for (let retries = 36; retries >= 0; --retries) {
-//         try {
-//             if (retries === 0) {
-//                 throw new Error('Failed to get healthy status');
-//             } else {
-//                 const system_info = await client.system.read_system({});
-//                 let poolIndex = system_info.pools.findIndex(pool => pool.name === 'cloud-resource-aws');
-//                 let status = system_info.pools[poolIndex].mode;
-//                 if (system_info.pools[poolIndex].mode === 'OPTIMAL') {
-//                     console.log('Pool ' + poolName + ' is healthy');
-//                     break;
-//                 } else {
-//                     console.log('Pool ' + poolName + ' has status ' + status + ' waiting for OPTIMAL extra 5 seconds');
-//                     await P.delay(5 * 1000);
-//                 }
-//             }
-//         } catch (e) {
-//             console.log('something went wrong:', e);
-//         }
-//     }
-// }
-
-async function createConnection(connetction, type) {
-    console.log(`Creating ${type} connection`);
-    try {
-        await client.account.add_external_connection(connetction);
-        await report.success(`Create_Connection_${type}`);
-    } catch (err) {
-        await report.fail(`Create_Connection_${type}`);
-        saveErrorAndResume('Failed to cretae connection ', err);
-        throw err;
-    }
-}
-
-async function deleteConnection(connection_name) {
-    console.log('Deleting connection ' + connection_name);
-    try {
-        await client.account.delete_external_connection({
-            connection_name
-        });
-        await report.success(`Delete_Connection_${connection_name}`);
-    } catch (err) {
-        await report.fail(`Delete_Connection_${connection_name}`);
-        saveErrorAndResume('Failed to delete connection ', err);
-        throw err;
-    }
 }
 
 async function getMD5fromS3Bucket(ops, ip, bucket, file_name) {
@@ -366,37 +251,7 @@ async function deleteNamesapaceBucket(bucket) {
     }
 }
 
-// async function deleteCloudPool(pool) {
-//     console.log('Deleting cloud pool ' + pool);
-//     try {
-//         await client.pool.delete_pool({
-//             name: pool
-//         });
-//         await report.success(`Delete_Cloud_Pool_${pool}`);
-//     } catch (err) {
-//         await report.fail(`Delete_Cloud_Pool_${pool}`);
-//         saveErrorAndResume(`Failed to delete cloud pool error`, err);
-//         throw err;
-//     }
-// }
-
-async function deleteNamespaceResource(namespace) {
-    console.log('Deleting cloud pool ' + namespace);
-    try {
-        await client.pool.delete_namespace_resource({
-            name: namespace
-        });
-        await report.success(`Delete_Namespace_Resource_${namespace}`);
-    } catch (err) {
-        await report.fail(`Delete_Namespace_Resource_${namespace}`);
-        saveErrorAndResume(`Failed to delete cloud pool error`, err);
-        throw err;
-    }
-}
-
 async function set_rpc_and_create_auth_token() {
-    rpc = api.new_rpc('wss://' + server_ip + ':8443');
-    client = rpc.new_client({});
     let auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
@@ -406,19 +261,28 @@ async function set_rpc_and_create_auth_token() {
 }
 
 async function create_resource(type) {
-    //create connection
-    await createConnection(connections_mapping[type], type);
-    //creating cloud resource
-    // await createCloudPool(connections_mapping[type].name, namespace_mapping[type].pool, namespace_mapping[type].bucket1);
-    // //waiting until the resource is "healthy"
-    // await waitingForHealthyPool(namespace_mapping[type].pool);
-    // create namespace resource 
-    await createNamespaceResource(connections_mapping[type].name, namespace_mapping[type].namespace, namespace_mapping[type].bucket2);
+    try {
+        //create connection
+        await cf.createConnection(connections_mapping[type], type);
+    } catch (e) {
+        saveErrorAndResume('', e);
+    }
+    try {
+        // create namespace resource 
+        await cf.createNamespaceResource(connections_mapping[type].name,
+            namespace_mapping[type].namespace, namespace_mapping[type].bucket2);
+    } catch (e) {
+        saveErrorAndResume('', e);
+    }
 }
 
 async function upload_via_cloud_check_via_noobaa(type) {
-    //create a namespace bucket
-    await createNamespaceBucket(namespace_mapping[type].gateway, namespace_mapping[type].namespace);
+    try {
+        //create a namespace bucket
+        await bf.createNamespaceBucket(namespace_mapping[type].gateway, namespace_mapping[type].namespace);
+    } catch (e) {
+        saveErrorAndResume('', e);
+    }
     //upload dataset
     await uploadDataSetTocloud(type, namespace_mapping[type].bucket2);
     await upload_directly_to_cloud(type);
@@ -458,15 +322,8 @@ async function list_files_in_cloud(type) {
 }
 
 async function check_via_cloud(type, file_name) {
-    // let list_files = [];
     console.log(`checking via ${type}: ${namespace_mapping[type].bucket2}`);
     const list_files = await list_files_in_cloud(type);
-    // if (type === 'AWS') {
-    //     const list_files_obj = await s3opsAWS.get_list_files('s3.amazonaws.com', namespace_mapping[type].bucket2, file_name);
-    //     list_files = list_files_obj[0].Key;
-    // } else if (type === 'AZURE') {
-    //     list_files = await blobops.getListFilesAzure(namespace_mapping[type].bucket2, saveErrorAndResume);
-    // }
     console.log(`${type} files list ${list_files}`);
     if (list_files.includes(file_name)) {
         console.log(`${file_name} was uploaded via noobaa and found via ${type}`);
@@ -476,7 +333,7 @@ async function check_via_cloud(type, file_name) {
     return true;
 }
 
-async function upload_via_noobaa_check_via_cloud({ type, file_name, bucket }) { //TODO fix to include all clouds.
+async function upload_via_noobaa_check_via_cloud({ type, file_name, bucket }) {
     //Try to upload a file to noobaa s3 server, verify it was uploaded to the Azure container
     const uploaded_file_name = await upload_via_noobaa({ type, file_name, bucket });
     await check_via_cloud(type, uploaded_file_name);
@@ -485,7 +342,11 @@ async function upload_via_noobaa_check_via_cloud({ type, file_name, bucket }) { 
 async function update_read_write_and_check(clouds, name, read_resources, write_resource) {
     let should_fail;
     const run_on_clouds = _.clone(clouds);
-    await updateNamesapceBucket(name, read_resources, write_resource);
+    try {
+        await bf.updateNamesapceBucket(name, read_resources, write_resource);
+    } catch (e) {
+        saveErrorAndResume('', e);
+    }
     await P.delay(30 * 1000);
     console.error(`${RED}TODO: REMOVE THIS DELAY, IT IS TEMP OVERRIDE FOR BUG #4831${NC}`);
     const uploaded_file_name = await upload_via_noobaa({ type: run_on_clouds[0], bucket: name });
@@ -509,7 +370,6 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
 async function list_cloud_files_read_via_noobaa(type, noobaa_bucket) {
     const files_in_cloud_bucket = await list_files_in_cloud(type);
     for (const file of files_in_cloud_bucket) {
-        console.log(`bubu:`, type, noobaa_bucket, namespace_mapping[type].gateway, file);
         await comperMD5betweencloudAndNooBaa(type, namespace_mapping[type].bucket2, noobaa_bucket, file);
     }
 }
@@ -518,7 +378,11 @@ async function add_and_remove_resources(clouds) {
     const noobaa_bucket_name = 'add-and-remove-bucket';
     const run_on_clouds = _.clone(clouds);
     const read_resources = [namespace_mapping.AWS.namespace];
-    await createNamespaceBucket(noobaa_bucket_name, read_resources[0]);
+    try {
+        await bf.createNamespaceBucket(noobaa_bucket_name, read_resources[0]);
+    } catch (e) {
+        saveErrorAndResume('', e);
+    }
     await upload_via_noobaa_check_via_cloud({ type: 'AWS', bucket: noobaa_bucket_name });
     read_resources.push(namespace_mapping.AZURE.namespace);
     for (let cycle = 0; cycle < run_on_clouds.length; cycle++) {
@@ -532,7 +396,7 @@ async function add_and_remove_resources(clouds) {
     return noobaa_bucket_name;
 }
 
-async function clean_bucket(bucket) {
+async function clean_namespace_bucket(bucket) {
     const list_files = await s3ops.get_list_files(server_ip, bucket);
     const keys = list_files.map(key => key.Key);
     if (keys) {
@@ -549,9 +413,8 @@ async function clean_bucket(bucket) {
 
 async function clean_env(clouds) {
     for (const type of clouds) {
-        await deleteNamespaceResource(namespace_mapping[type].namespace);
-        // await deleteCloudPool(namespace_mapping[type].pool);
-        await deleteConnection(connections_mapping[type].name);
+        await cf.deleteNamespaceResource(namespace_mapping[type].namespace);
+        await cf.deleteConnection(connections_mapping[type].name);
     }
 }
 
@@ -562,11 +425,11 @@ async function main(clouds) {
             await create_resource(type);
             await upload_via_cloud_check_via_noobaa(type);
             await upload_via_noobaa_check_via_cloud({ type, file: 'file_azure_15KB' });
-            await clean_bucket(namespace_mapping[type].gateway);
+            await clean_namespace_bucket(namespace_mapping[type].gateway);
         }
         const bucket = await add_and_remove_resources(clouds);
         if (!skip_clean) {
-            await clean_bucket(bucket);
+            await clean_namespace_bucket(bucket);
             await clean_env(clouds);
         }
         await report.print_report();

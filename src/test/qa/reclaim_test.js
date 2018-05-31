@@ -4,11 +4,12 @@
 const api = require('../../api');
 const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
+const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const af = require('../utils/agent_functions');
-const bf = require('../utils/bucket_functions');
 const dbg = require('../../util/debug_module')(__filename);
 const AzureFunctions = require('../../deploy/azureFunctions');
+const { BucketFunctions } = require('../utils/bucket_functions');
 //const vm = require('../utils/vmware');
 
 const s3ops = new S3OPS();
@@ -69,6 +70,9 @@ if (argv.help) {
     usage();
     process.exit(1);
 }
+
+let report = new Report();
+let bf = new BucketFunctions(server_ip, report);
 
 const osesLinuxSet = [
     'ubuntu12', 'ubuntu14', 'ubuntu16',

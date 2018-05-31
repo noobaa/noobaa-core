@@ -17,7 +17,7 @@ const initialState = undefined;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onCompleteFetchSystemInfo(state, { payload }) {
+function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
     const {
         version,
         upgrade,
@@ -37,7 +37,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
         remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
         releaseNotes,
         maintenanceMode: {
-            till:  maintenance_mode.state ? Date.now() + maintenance_mode.time_left : 0
+            till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
         }
     };
 }

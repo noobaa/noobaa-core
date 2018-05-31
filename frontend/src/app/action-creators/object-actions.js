@@ -12,11 +12,9 @@ import {
 } from 'action-types';
 
 export function fetchObjects(view, query, s3Endpoint) {
-    const timestamp = Date.now();
-
     return {
         type: FETCH_OBJECTS,
-        payload: { view, query, timestamp, s3Endpoint }
+        payload: { view, query, s3Endpoint }
     };
 }
 

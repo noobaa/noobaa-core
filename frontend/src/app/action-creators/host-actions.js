@@ -31,11 +31,9 @@ import {
 
 
 export function fetchHosts(view, query, statistics = false) {
-    const timestamp = Date.now();
-
     return {
         type: FETCH_HOSTS,
-        payload: { view, query, statistics, timestamp }
+        payload: { view, query, statistics }
     };
 }
 

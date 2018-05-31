@@ -45,8 +45,8 @@ const initialHostDiagnosticsState = {
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onFetchHosts(state, { payload }) {
-    const { view, query, timestamp } = payload;
+function onFetchHosts(state, { payload, timestamp }) {
+    const { view, query } = payload;
     return handleFetch(
         state,
         query,

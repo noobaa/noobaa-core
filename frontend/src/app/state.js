@@ -64,9 +64,12 @@ function _reduceState(prevState, action) {
 }
 
 function _reduceRecords(prev, action) {
+    action = Object.freeze({
+        ...action,
+        timestamp: Date.now()
+    });
     const state = _reduceState(prev.state || {}, action);
-    const timestamp = Date.now();
-    return { timestamp, action, state };
+    return { action, state };
 }
 
 // Actions stream.

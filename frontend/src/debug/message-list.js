@@ -12,7 +12,7 @@ export default class MessageListViewModel {
             .map((message, i) => {
                 const row = this.rows()[i] || new MessageRowViewModel();
                 row.onState(message, selected, lastRowTimestamp);
-                lastRowTimestamp = message.timestamp;
+                lastRowTimestamp = message.action.timestamp;
                 return row;
             });
 

@@ -26,11 +26,11 @@ export default class MessageRowViewModel {
     time = ko.observable();
 
     onState(message, selected, prevRowTime) {
-        const { id, timestamp, action, state } = message;
+        const { id, action, state } = message;
         const time = `${
-            moment(timestamp).format(timeFormat)
+            moment(action.timestamp).format(timeFormat)
         } ${
-            prevRowTime > -1 ? formatDeltaTime(timestamp - prevRowTime) : ''
+            prevRowTime > -1 ? formatDeltaTime(action.timestamp - prevRowTime) : ''
         }`;
 
         const css = {

@@ -27,8 +27,8 @@ const inMemoryHostLimit = paginationPageSize * inMemoryQueryLimit;
 // Action Handlers
 // ------------------------------
 
-function onFetchObjects(state, { payload }) {
-    const { view, query, timestamp } = payload;
+function onFetchObjects(state, { payload, timestamp }) {
+    const { view, query } = payload;
     return handleFetch(
         state,
         query,

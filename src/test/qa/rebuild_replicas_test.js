@@ -1,15 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const argv = require('minimist')(process.argv);
-const AzureFunctions = require('../../deploy/azureFunctions');
-const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
-const { S3OPS } = require('../utils/s3ops');
-const af = require('../utils/agent_functions');
-const bf = require('../utils/bucket_functions');
 const api = require('../../api');
+const P = require('../../util/promise');
+const { S3OPS } = require('../utils/s3ops');
+const Report = require('../framework/report');
+const af = require('../utils/agent_functions');
+const argv = require('minimist')(process.argv);
+const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
+const AzureFunctions = require('../../deploy/azureFunctions');
+const { BucketFunctions } = require('../utils/bucket_functions');
 dbg.set_process_name('rebuild_replicas');
 
 const s3ops = new S3OPS();
@@ -70,6 +71,9 @@ if (help) {
     usage();
     process.exit(1);
 }
+
+let report = new Report();
+let bf = new BucketFunctions(server_ip, report);
 
 const suffix = suffixName + '-' + id;
 

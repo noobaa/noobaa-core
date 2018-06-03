@@ -31,8 +31,6 @@ const {
     help = false
 } = argv;
 
-let rpc;
-let client;
 let pool_files = [];
 let over_files = [];
 let healthy_pool;
@@ -62,9 +60,12 @@ if (help) {
     process.exit(1);
 }
 
+const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const client = rpc.new_client({});
+
 console.log(`resource: ${resource}, storage: ${storage}, vnet: ${vnet}`);
 let report = new Report();
-let bf = new BucketFunctions(server_ip, report);
+let bf = new BucketFunctions(client, report);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
 let osesSet = af.supported_oses();
@@ -104,8 +105,8 @@ function createBucketWithEnableSpillover() {
                 saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list`, res);
             }
         })
-        .then(() => bf.getInternalStoragePool(server_ip))
-        .then(internalpool => bf.setSpillover(server_ip, bucket, internalpool))
+        .then(() => bf.getInternalStoragePool())
+        .then(internalpool => bf.setSpillover(bucket, internalpool))
         .catch(err => {
             saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
             failures_in_test = true;
@@ -250,8 +251,6 @@ function clean_env() {
 return azf.authenticate()
     .then(() => af.clean_agents(azf, server_ip, suffix))
     .then(() => P.fcall(function() {
-        rpc = api.new_rpc('wss://' + server_ip + ':8443');
-        client = rpc.new_client({});
         let auth_params = {
             email: 'demo@noobaa.com',
             password: 'DeMo1',
@@ -261,13 +260,13 @@ return azf.authenticate()
     }))
     //On a system, create a bucket and before adding capacity to it (use an empty pool), enable spillover and see that the files are written into the internal storage
     .then(() => createBucketWithEnableSpillover())
-    .then(() => bf.checkIsSpilloverHasStatus(bucket, true, server_ip))
+    .then(() => bf.checkIsSpilloverHasStatus(bucket, true))
     .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file', 10, data_multiplier))
     .then(() => checkFileInPool('spillover_file', 'system-internal-storage-pool'))
     //Add pool with resources to the bucket and see that all the files are moving from the internal storage to the pool (pullback)
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => createHealthyPool())
-    .then(() => bf.editBucketDataPlacement(healthy_pool, bucket, server_ip))
+    .then(() => bf.editBucketDataPlacement(healthy_pool, bucket))
     .then(() => checkFileInPool('spillover_file', healthy_pool))
     //Set Quota of X on the bucket, X should be smaller then the available space on the bucket
     .then(() => bf.setQuotaBucket(server_ip, bucket, 1, 'GIGABYTE'))
@@ -323,7 +322,7 @@ return azf.authenticate()
     })
     .then(() => checkFileInPool(pool_files[pool_files.length - 1], 'system-internal-storage-pool'))
     //stop the writes and disable the spillover on the bucket
-    .then(() => bf.setSpillover(server_ip, bucket, null))
+    .then(() => bf.setSpillover(bucket, null))
     //try to write some more see that it fails
     .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file_without_internal_storage', 10, data_multiplier)
         .catch(error => {

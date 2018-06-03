@@ -58,7 +58,7 @@ const client = rpc.new_client({});
 
 let report = new Report();
 let cf = new CloudFunction(client, report);
-let bf = new BucketFunctions(server_ip, report);
+let bf = new BucketFunctions(client, report);
 
 report.init_reporter({ suite: test_name, conf: server_ip });
 
@@ -244,7 +244,7 @@ async function uploadFileToNoobaaS3(bucket, file_name) {
 async function deleteNamesapaceBucket(bucket) {
     console.log('Deleting namespace bucket ' + bucket);
     try {
-        await bf.deleteBucket(server_ip, bucket);
+        await bf.deleteBucket(bucket);
     } catch (err) {
         saveErrorAndResume(`Failed to delete namespace bucket with error`, err);
         throw err;

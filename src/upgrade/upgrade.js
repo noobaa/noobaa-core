@@ -37,7 +37,7 @@ async function do_upgrade() {
     } catch (err) {
         // TODO: better error handling here. we should store the error in DB before aborting (should use mongo shell)
         // also make sure that exiting here will not cause the upgrade to get stuck in the UI.
-        dbg.log0('failed preparing environment for upgrade_manager', err);
+        dbg.error('failed preparing environment for upgrade_manager', err);
         // restart services to stop upgrade
         // TODO: better solution than restarting services
         supervisor.restart(['webserver']);

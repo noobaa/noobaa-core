@@ -379,7 +379,7 @@ async function do_yum_update() {
             trim_stdout: true
         });
     } catch (err) {
-        dbg.error('fix_security_issues: Failure', err);
+        dbg.error('do_yum_update: Failure', err);
         throw err;
 
     }

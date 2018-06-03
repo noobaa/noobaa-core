@@ -1,13 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
-.create-pool-modal {
+.create-bucket-modal {
     wizard {
         margin: -@gutter;
         margin-bottom: initial;
-    }
-
-    editor > .editor-label {
-        width: auto;
     }
 
     .name-validation-list {
@@ -35,47 +31,54 @@
         }
     }
 
-    .host-table {
-        min-width: 864px;
+    .placement-selector radio-btn {
+        display: inline-block;
+        line-height: inherit;
+    }
 
+    .resource-table {
         .selected-col {
-            min-width: 25px;
+            min-width: 24px;
         }
 
         .state-col {
-            min-width: 44px;
+            min-width: 40px;
         }
 
-        .display-name-col {
+        .type-col {
+            min-width: 40px;
+        }
+
+        .name-col {
+            .no-wrap();
+
             text-align: left;
             width: 100%;
-            max-width: 270px;
+            max-width: 92px;
         }
 
-        .ip-col {
-            min-width: 105px;
+        .healthy-hosts-col {
+            min-width: 118px;
         }
 
-        .capacity-col {
+        .healthy-nodes-col {
+            min-width: 132px;
+        }
+
+        .usage-col {
             min-width: 120px;
         }
 
-        .pool-col {
-            min-width: 100px;
-            max-width: 100px;
-        }
-
-        .recommended-col {
-            min-width: 100px;
-            max-width: 100px;
+        .disabled-row {
+            opacity: .3;
+            pointer-events: none;
         }
     }
 
-    .selection-text {
-        font-size: @font-size4;
-    }
-
-    .selected-hosts-val-msg {
-        height: @gutter;
+    .page-footer {
+        span, a {
+            line-height: 16px;
+            vertical-align: middle;
+        }
     }
 }

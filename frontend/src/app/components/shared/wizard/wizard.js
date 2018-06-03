@@ -1,111 +1,113 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './wizard.html';
+import { ensureArray, noop } from 'utils/core-utils';
 import ko from 'knockout';
-import { isObject, noop } from 'utils/core-utils';
 
-class WizardViewModel {
-    constructor({
-        heading = '[wizard-heading]',
-        size = 'small',
-        steps = [],
-        skip = 0,
-        actionLabel = 'Done',
-        validateStep = () => true,
-        onCancel = noop,
-        onComplete = noop,
-        onClose = noop
-    }) {
-        this.heading = heading;
-        this.step = ko.observable(skip);
-        this.isStepValid = ko.observable(false);
-        this.validateStep = validateStep;
-        this.onCancel = onCancel;
-        this.onComplete = onComplete;
-        this.onClose = onClose;
+class NewWizardViewModel {
+    constructor(params, templates) {
+        const {
+            steps = [],
+            step = ko.observable(0),
+            actionLabel = 'Done',
+            disabled = false,
+            shakeOnFailedStep = true,
+            onBeforeStep = () => true,
+            onCancel = noop,
+            onComplete = noop,
+            renderControls = true
+        } = params;
 
-        this.stepsLabels = steps.map(
-            step => isObject(step) ? step.label : step
+        this.steps = steps;
+        this.step = step;
+        this.actionLabel = actionLabel;
+        this.disabled = disabled;
+        this.shakeOnFailedStep = shakeOnFailedStep;
+        this.shake = ko.observable(false);
+        this.beforeStepHandler = onBeforeStep;
+        this.cancelHandler = onCancel;
+        this.completeHandler = onComplete;
+        this.renderControls = renderControls;
+
+        this.stepTemplate = ko.pureComputed(() => {
+            // Returning an array of one item to be used in with knockout foreach
+            // binding and solve the problem of concurent rerandering that occur
+            // when using knockout with binding.
+            return ensureArray(templates[ko.unwrap(step)]);
+        });
+
+        this.isFirstStep = ko.pureComputed(() =>
+            this.step() === 0
         );
 
-        this.stepClass = ko.pureComputed(
-            () => {
-                let step = steps[this.step()];
-                return `modal-${(isObject(step) && step.size) || size}` ;
-            }
+        this.isLastStep = ko.pureComputed(() =>
+            this.step() === ko.unwrap(steps).length - 1
         );
 
-        this.isFirstStep = ko.pureComputed(
-            () => this.step() === 0
+        this.prevLabel = ko.pureComputed(() =>
+            this.isFirstStep() ? 'Cancel' : 'Previous'
         );
 
-        this.isLastStep = ko.pureComputed(
-            () => this.step() === steps.length - 1
+        this.nextLabel = ko.pureComputed(() =>
+            this.isLastStep() ? ko.unwrap(actionLabel) : 'Next'
         );
 
-        this.prevText = ko.pureComputed(
-            () => this.isFirstStep() ? 'Cancel' : 'Previous'
-        );
-
-        this.nextLabel = ko.pureComputed(
-            () => this.isLastStep() ? ko.unwrap(actionLabel) : 'Next'
-        );
-    }
-
-    isInStep(stepNum) {
-        return this.step() === stepNum;
-    }
-
-    prev() {
-        if (this.isFirstStep()) {
-            this.cancel();
-
-        } else {
-            this.step(this.step() - 1);
+        const methodsTobind = ['onCancel', 'onStepForward', 'onStepBackword', 'onSubmit'];
+        for (const method of methodsTobind) {
+            this[method] = this[method].bind(this);
         }
     }
 
-    next() {
-        this.isStepValid(this.validateStep(this.step() + 1));
-        if (!this.isStepValid()) {
+    // ----------------------------------------------------------------------------
+    // Making all of the following handlers async to gurentee that the handlers`
+    // code will be schedule to run at the end of the event queue.
+    // ----------------------------------------------------------------------------
+
+    async onCancel() {
+        this.cancelHandler();
+    }
+
+    async onStepForward() {
+        this.shake(false);
+
+        const step = this.step();
+        if (!this.beforeStepHandler(step)) {
+            this.shake(ko.unwrap(this.shakeOnFailedStep));
             return;
         }
 
-        if (this.isLastStep()) {
-            this.complete();
+        this.step(step + 1);
+    }
 
-        } else {
-            this.step(this.step() + 1);
+    async onStepBackword() {
+        this.step(this.step() - 1);
+    }
+
+    async onSubmit() {
+        if (!this.isLastStep()) {
+            return;
         }
-    }
 
-    cancel() {
-        this.onCancel();
-        this.onClose();
-    }
+        this.shake(false);
 
-    complete() {
-        this.onComplete();
-        this.onClose();
+        if (!this.beforeStepHandler(this.step())) {
+            this.shake(ko.unwrap(this.shakeOnFailedStep));
+            return;
+        }
+
+        this.completeHandler();
     }
 }
 
-function modelFactory(params, ci) {
-    let elms = ci.templateNodes.filter(
-        node => node.nodeType === 1
-    );
+function _createViewModel(params, info) {
+    const templates = info.templateNodes
+        .filter(({ nodeType }) => nodeType === Node.ELEMENT_NODE);
 
-    // In order for the filtering to take effect we need to change the
-    // original array and not just replace it.
-    ci.templateNodes.length = 0;
-    ci.templateNodes.push(...elms);
-
-    params.steps = params.steps.slice(0, elms.length);
-
-    return new WizardViewModel(params);
+    return new NewWizardViewModel(params, templates);
 }
+
 
 export default {
-    viewModel: { createViewModel: modelFactory },
+    viewModel: { createViewModel: _createViewModel },
     template: template
 };

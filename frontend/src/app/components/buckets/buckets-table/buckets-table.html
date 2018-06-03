@@ -8,7 +8,7 @@
     </div>
     <div ko.tooltip="createBucketTooltip">
         <button class="btn align-end"
-            ko.click="showCreateBucketWizard"
+            ko.click="onCreateBucket"
             ko.disable="isCreateBucketDisabled"
         >
             Create Bucket
@@ -38,8 +38,3 @@
     pageSize: pageSize,
     page: ko.pc(page, onPage, $component)
 "></paginator>
-
-<!-- ko if: isCreateBucketWizardVisible -->
-<create-bucket-wizard params="onClose: () => hideCreateBucketWizard()">
-</create-bucket-wizard>
-<!-- /ko -->

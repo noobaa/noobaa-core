@@ -1,4 +1,7 @@
 import {
+    CREATE_BUCKET,
+    COMPLETE_CREATE_BUCKET,
+    FAIL_CREATE_BUCKET,
     UPDATE_BUCKET_QUOTA,
     COMPLETE_UPDATE_BUCKET_QUOTA,
     FAIL_UPDATE_BUCKET_QUOTA,
@@ -42,6 +45,27 @@ import {
     COMPLETE_REMOVE_BUCKET_TRIGGER,
     FAIL_REMOVE_BUCKET_TRIGGER
 } from 'action-types';
+
+export function createBucket(name, placementType, resources) {
+    return {
+        type: CREATE_BUCKET,
+        payload: { name, placementType, resources }
+    };
+}
+
+export function completeCreateBucket(name) {
+    return {
+        type: COMPLETE_CREATE_BUCKET,
+        payload: { name }
+    };
+}
+
+export function failCreateBucket(name, error) {
+    return {
+        type: FAIL_CREATE_BUCKET,
+        payload: { name, error }
+    };
+}
 
 export function updateBucketQuota(bucket, quota) {
     return {

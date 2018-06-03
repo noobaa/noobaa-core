@@ -103,8 +103,9 @@ export default function register(ko) {
     ko.components.register('edit-bucket-trigger-modal',                     require('./modals/edit-bucket-trigger-modal/edit-bucket-trigger-modal').default);
     ko.components.register('attach-server-modal',                           require('./modals/attach-server-modal/attach-server-modal').default);
     ko.components.register('edit-bucket-spillover-modal',                   require('./modals/edit-bucket-spillover-modal/edit-bucket-spillover-modal').default);
-    ko.components.register('create-func-modal', require('./modals/create-func-modal/create-func-modal').default);
-    ko.components.register('after-upgrade-failure-modal', require('./modals/after-upgrade-failure-modal/after-upgrade-failure-modal').default);
+    ko.components.register('create-func-modal',                             require('./modals/create-func-modal/create-func-modal').default);
+    ko.components.register('after-upgrade-failure-modal',                   require('./modals/after-upgrade-failure-modal/after-upgrade-failure-modal').default);
+    ko.components.register('create-bucket-modal',                           require('./modals/create-bucket-modal/create-bucket-modal').default);
     /** INJECT:modals **/
 
     // -------------------------------
@@ -121,7 +122,6 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('buckets-panel',             require('./buckets/buckets-panel/buckets-panel').default);
     ko.components.register('buckets-table',             require('./buckets/buckets-table/buckets-table').default);
-    ko.components.register('create-bucket-wizard',      require('./buckets/create-bucket-wizard/create-bucket-wizard').default);
     ko.components.register('namespace-buckets-table',   require('./buckets/namespace-buckets-table/namespace-buckets-table').default);
     /** INJECT:buckets **/
 
@@ -138,7 +138,7 @@ export default function register(ko) {
     ko.components.register('bucket-quota-policy-form',              require('./bucket/bucket-quota-policy-form/bucket-quota-policy-form').default);
     ko.components.register('bucket-data-resiliency-policy-form',    require('./bucket/bucket-data-resiliency-policy-form/bucket-data-resiliency-policy-form').default);
     ko.components.register('bucket-data-placement-policy-form',     require('./bucket/bucket-data-placement-policy-form/bucket-data-placement-policy-form').default);
-    ko.components.register('bucket-triggers-form', require('./bucket/bucket-triggers-form/bucket-triggers-form').default);
+    ko.components.register('bucket-triggers-form',                  require('./bucket/bucket-triggers-form/bucket-triggers-form').default);
     /** INJECT:bucket **/
 
     // -------------------------------
@@ -283,7 +283,6 @@ export default function register(ko) {
     ko.components.register('stepper',                   require('./shared/stepper/stepper').default);
     ko.components.register('multiselect',               require('./shared/multiselect/multiselect').default);
     ko.components.register('slider',                    require('./shared/slider/slider').default);
-    ko.components.register('wizard',                    require('./shared/wizard/wizard').default);
     ko.components.register('paginator',                 require('./shared/paginator/paginator').default);
     ko.components.register('drawer',                    require('./shared/drawer/drawer').default);
     ko.components.register('delete-button',             require('./shared/delete-button/delete-button').default);
@@ -309,11 +308,12 @@ export default function register(ko) {
     ko.components.register('breadcrumbs',               require('./shared/breadcrumbs/breadcrumbs').default);
     ko.components.register('side-nav',                  require('./shared/side-nav/side-nav').default);
     ko.components.register('token-field',               require('./shared/token-field/token-field').default);
-    ko.components.register('new-wizard',                require('./shared/new-wizard/new-wizard').default);
     ko.components.register('validation-message',        require('./shared/validation-message/validation-message').default);
     ko.components.register('validation-rules-list',     require('./shared/validation-rules-list/validation-rules-list').default);
     ko.components.register('validation-indicator',      require('./shared/validation-indicator/validation-indicator').default);
     ko.components.register('loading-indicator',         require('./shared/loading-indicator/loading-indicator').default);
     ko.components.register('drop-area',                 require('./shared/drop-area/drop-area').default);
+    ko.components.register('wizard',                    require('./shared/wizard/wizard').default);
+    ko.components.register('wizard-controls',           require('./shared/wizard-controls/wizard-controls').default);
     /** INJECT:shared **/
 }

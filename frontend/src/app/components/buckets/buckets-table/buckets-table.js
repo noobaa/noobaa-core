@@ -8,7 +8,7 @@ import ko from 'knockout';
 import { deepFreeze, flatMap, createCompareFunc, throttle } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { requestLocation, deleteBucket } from 'action-creators';
+import { requestLocation, deleteBucket, openCreateBucketModal } from 'action-creators';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
 import { getMany } from 'rx-extensions';
@@ -94,7 +94,6 @@ class BucketsTableViewModel extends Observer {
     });
     createBucketTooltip = ko.observable();
     isCreateBucketDisabled = ko.observable();
-    isCreateBucketWizardVisible = ko.observable();
 
     constructor() {
         super();
@@ -193,12 +192,8 @@ class BucketsTableViewModel extends Observer {
         action$.next(deleteBucket(name));
     }
 
-    showCreateBucketWizard() {
-        this.isCreateBucketWizardVisible(true);
-    }
-
-    hideCreateBucketWizard() {
-        this.isCreateBucketWizardVisible(false);
+    onCreateBucket() {
+        action$.next(openCreateBucketModal());
     }
 
     _query(params) {

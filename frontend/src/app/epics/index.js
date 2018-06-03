@@ -35,6 +35,7 @@ import downloadFile from './download-file';
 import fetchHostObjects from './fetch-host-objects';
 import tryDeleteAccount from './try-delete-account';
 import signOutDeletedUser from './sign-out-deleted-user';
+import createBucket from './create-bucket';
 import updateBucketQuota from './update-bucket-quota';
 import updateBucketSpillover from './update-bucket-spillover';
 import updateBucketPlacementPolicy from './update-bucket-placement-policy';
@@ -129,6 +130,7 @@ const accountRelatedEpics = [
 ];
 
 const bucketRelatedEpics = [
+    createBucket,
     updateBucketQuota,
     updateBucketSpillover,
     updateBucketPlacementPolicy,

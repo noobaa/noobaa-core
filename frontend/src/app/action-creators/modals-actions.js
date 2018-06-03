@@ -829,3 +829,16 @@ export function openCreateFuncModal() {
         }
     };
 }
+
+export function openCreateBucketModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'create-bucket-modal',
+            options: {
+                title: 'Create Bucket',
+                size: 'small'
+            }
+        }
+    };
+}

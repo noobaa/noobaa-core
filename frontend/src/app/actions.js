@@ -43,7 +43,6 @@ export function navigateTo(route = model.routeContext().pathname, params = {},  
 
     const uri = realizeUri(route, Object.assign({}, model.routeContext().params, params), query);
     action$.next(requestLocation(uri));
-
 }
 
 export function redirectTo(route = model.routeContext().pathname, params = {}, query = {}) {
@@ -302,56 +301,6 @@ export function loadCloudBucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createBucket(name, dataPlacement, pools) {
-    logAction('createBucket', { name, dataPlacement, pools });
-
-    // TODO: remove the random string after patching the server
-    // with a delete bucket that deletes also the policy
-    const bucket_with_suffix = `${name}#${Date.now().toString(36)}`;
-
-    api.tier.create_tier({
-        name: bucket_with_suffix,
-        data_placement: dataPlacement,
-        attached_pools: pools
-    })
-        .then(
-            tier => {
-                const policy = {
-                    name: bucket_with_suffix,
-                    tiers: [ { order: 0, tier: tier.name } ]
-                };
-
-                return api.tiering_policy.create_policy(policy)
-                    .then(
-                        () => policy
-                    );
-            }
-        )
-        .then(
-            policy => api.bucket.create_bucket({
-                name: name,
-                tiering: policy.name
-            })
-        )
-        .then(
-            () => notify(`Bucket ${name} created successfully`, 'success'),
-            () => notify(`Bucket ${name} creation failed`, 'error')
-        )
-        .then(() => action$.next(fetchSystemInfo()))
-        .done();
-}
-
-export function deleteCloudResource(name) {
-    logAction('deleteCloudResource', { name });
-
-    api.pool.delete_pool({ name })
-        .then(
-            () => notify(`Resource ${name} deleted successfully`, 'success'),
-            () => notify(`Resource ${name} deletion failed`, 'error')
-        )
-        .then(() => action$.next(fetchSystemInfo()))
-        .done();
-}
 
 export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });

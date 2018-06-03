@@ -1,39 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 
 wizard {
-    .modal-heading {
-        margin-bottom: 0;
-    }
+    display: block;
 
     stepper {
-        margin: 0 -@gutter;
         background-color: @color1;
     }
 
     .pages {
-        .row();
-        overflow: hidden;
+        overflow: visible;
 
         > .page {
             @duration: 500ms;
+            .fade-in();
 
             min-width: 100%;
-            visibility: hidden;
-            opacity: 0;
-            transition:
-                visibility 0ms linear @duration,
-                opacity @duration ease-in-out;
-
-            + .page {
-                margin-left: -100%;
-            }
-
-            &.selected {
-                opacity: 1;
-                z-index: 1;
-                visibility: visible;
-                transition: opacity @duration ease-in-out;
-            }
+            padding: 0 @gutter;
         }
     }
 }

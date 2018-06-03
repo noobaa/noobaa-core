@@ -1,32 +1,22 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<modal params="onClose: () => cancel(), title: heading" data-bind="css: stepClass">
-    <stepper class="push-next" params="steps: stepsLabels, current: step">
+<form class="column greedy"
+    novalidate
+    ko.let="{ _wizard_: $data }"
+    ko.submit="onSubmit"
+>
+    <stepper params="steps: steps, current: step">
     </stepper>
 
-    <div class="pages greedy push-next" data-bind="
-        foreach: $parentContext.$parentContext.$componentTemplateNodes
-    ">
-        <div class="page column" data-bind="
-            css: { selected: $parent.isInStep($index()) },
-            template: {
-                nodes: [$data],
-                data: $parents[3],
-                let: { $inActiveStep: $parent.isInStep($index()) }
-            }
-        "></div>
+    <div class="pages column greedy" ko.forEach="stepTemplate">
+        <div class="page column greedy" ko.template="{
+            nodes: [$data],
+            data: $parents[1],
+        }"></div>
     </div>
 
-    <div class="row buttons align-end content-middle">
-        <button class="link alt-colors push-next" data-bind="
-            click: prev,
-            text: prevText
-        "></button>
-
-        <button class="btn" data-bind="
-            click: next,
-            text: nextLabel,
-            shakeOnClick: !isStepValid()
-        "></button>
-    </div>
-</modal>
+    <!-- ko if: renderControls -->
+    <wizard-controls class="align-end hpad">
+    </wizard-controls>
+    <!-- /ko -->
+</form>

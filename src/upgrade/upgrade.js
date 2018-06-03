@@ -40,7 +40,7 @@ async function do_upgrade() {
         dbg.log0('failed preparing environment for upgrade_manager', err);
         // restart services to stop upgrade
         // TODO: better solution than restarting services
-        supervisor.restart('webserver');
+        supervisor.restart(['webserver']);
         process.exit(1);
     }
 }
@@ -63,8 +63,15 @@ async function start_upgrade_manager() {
     upgrade_prog.priority = '1';
     upgrade_prog.stopsignal = 'KILL';
     dbg.log0('UPGRADE: adding upgrade manager to supervisor and applying. configuration is', upgrade_prog);
-    await supervisor.add_program(upgrade_prog);
-    await supervisor.apply_changes();
+    try {
+        await supervisor.add_program(upgrade_prog);
+        await supervisor.apply_changes();
+    } catch (err) {
+        dbg.error(`UPGRADE: failed adding upgrade manager to supervisor. 
+        this probably means that supervisorctl is failing to connect to supervisord. restarting supervisord`, err);
+        await supervisor.restart_supervisord();
+        throw err;
+    }
 }
 
 function main() {

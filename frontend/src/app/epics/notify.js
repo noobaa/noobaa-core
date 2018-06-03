@@ -442,6 +442,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_LEAVE_MAINTENANCE_MODE]: () => ({
         message: 'Leave maintenance mode failed',
         severity: 'error'
+    }),
+
+    [types.COMPLETE_CREATE_BUCKET]: ({ name }) => ({
+        message: `Bucket ${name} created successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_CREATE_BUCKET]: ({ name }) => ({
+        message: `Bucket ${name} creation failed`,
+        severity: 'error'
     })
 });
 

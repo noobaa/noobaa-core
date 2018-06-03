@@ -48,7 +48,8 @@ export default function(action$) {
             types.COMPLETE_UPDATE_REMOTE_SYSLOG,
             types.COMPLETE_CREATE_LAMBDA_FUNC,
             types.COMPLETE_ENTER_MAINTENANCE_MODE,
-            types.COMPLETE_LEAVE_MAINTENANCE_MODE
+            types.COMPLETE_LEAVE_MAINTENANCE_MODE,
+            types.COMPLETE_CREATE_BUCKET
         ),
         map(() => refreshLocation())
     );

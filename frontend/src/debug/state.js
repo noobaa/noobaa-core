@@ -34,7 +34,8 @@ function onInitialize(prev, action) {
 }
 
 function onAcceptMessage(prev, action) {
-    const id = prev.messages[prev.messages.length - 1] + 1;
+    const lastMessage = prev.messages[prev.messages.length - 1];
+    const id = lastMessage ? lastMessage.id + 1 : 1;
     const messages = prev.messages
         .concat({ id, ...action.payload })
         .slice(-maxLogSize);

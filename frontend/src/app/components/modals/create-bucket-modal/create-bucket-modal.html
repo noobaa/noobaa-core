@@ -1,0 +1,90 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<wizard class="column greedy" params="
+    steps: steps,
+    step: form.step,
+    actionLabel: 'Create',
+    onBeforeStep: onBeforeStep.bind($component),
+    onComplete: form.submit,
+    onCancel: onCancel,
+    renderControls: false
+">
+    <section class="column greedy">
+         <editor class="push-prev greedy" params="label: 'Bucket Name'">
+            <input type="text"
+                    class="push-next-half"
+                    placeholder="Type here"
+                    ko.textInput="form.bucketName"
+                    ko.hasFocus="true"
+            />
+            <ul class="name-validation-list" ko.foreach="nameRestrictionList">
+                <li ko.text="label" ko.css="css"></li>
+            </ul>
+        </editor>
+        <div class="row content-middle page-footer">
+            <p class="remark greedy">
+                <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+                <span>The bucket name cannot be changed later</span>
+            </p>
+            <wizard-controls></wizard-controls>
+        </div>
+    </section>
+
+    <section class="column greedy">
+        <div class="push-next">
+            <h2 class="heading3">Policy Type</h2>
+            <ul class="list-no-style placement-selector">
+                <li>
+                    <radio-btn  params="
+                        group: 'policy-type',
+                        value: 'SPREAD',
+                        selected: form.policyType,
+                        label: 'Spread',
+                        hasFocus: true
+                    "></radio-btn>
+                    | Spreading the data across the chosen pools
+                </li>
+                <li>
+                    <radio-btn params="
+                        group: 'policy-type',
+                        value: 'MIRROR',
+                        selected: form.policyType,
+                        label: 'Mirror'
+                    "></radio-btn>
+                    | Full duplication of the data in each chosen pool
+                </li>
+            </ul>
+        </div>
+        <div class="column greedy push-next">
+             <div class="row content-middle push-next-half">
+                <h2 class="heading3 greedy push-next">
+                    Resources in Policy
+                </h2>
+                <div>
+                    <button class="link alt-colors" ko.click="onSelectAll">
+                        Select all
+                    </button>
+                    |
+                    <button class="link alt-colors" ko.click="onClearAll">
+                        Clear all
+                    </button>
+                </div>
+            </div>
+            <data-table class="resource-table greedy" params="
+                columns: resourceColumns,
+                data: resourceRows,
+                rowCssProp: 'disabledCss'
+            ">
+            </data-table>
+            <validation-message params="field: form.selectedResources"></validation-message>
+        </div>
+        <div class="row content-middle page-footer">
+            <p class="remark greedy">
+                <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+                <span>To create a new resource go to ></span>
+                <a class="link" ko.attr.href="resourcesHref">Resources</a>
+            </p>
+            <wizard-controls></wizard-controls>
+        </div>
+    </section>
+</wizard>

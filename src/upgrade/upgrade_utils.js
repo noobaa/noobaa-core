@@ -330,49 +330,59 @@ function new_pre_upgrade_checkups(params) {
     );
 }
 
-function do_yum_update() {
-    dbg.log0('fix_security_issues: Called');
-    return promise_utils.exec(`cp -fd /etc/localtime /tmp`, {
+async function do_yum_update() {
+    try {
+        dbg.log0('UPGRADE: do_yum_update: Called');
+        dbg.log0('UPGRADE: copying /etc/localtime to tmp');
+        await promise_utils.exec(`cp -fd /etc/localtime /tmp`, {
             ignore_rc: false,
             return_stdout: true,
             trim_stdout: true
-        })
-        .then(() => promise_utils.exec(`yum clean all`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(res => {
-            dbg.log0('fix_security_issues: yum clean', res);
-        })
-        .then(() => promise_utils.exec(`yum update -y`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(res => {
-            dbg.log0('fix_security_issues: yum update', res);
-        })
-        .then(() => promise_utils.exec(`yum clean all`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0(`Updated yum packages`);
-        })
-        .then(() => promise_utils.exec(`cp -fd /tmp/localtime /etc`, {
-            ignore_rc: false,
-            return_stdout: true,
-            trim_stdout: true
-        }))
-        .then(() => {
-            dbg.log0('fix_security_issues: Success');
-        })
-        .catch(function(err) {
-            dbg.error('fix_security_issues: Failure', err);
-            throw err;
         });
+        dbg.log0('UPGRADE: calling yum clean all');
+        const clean_res = await promise_utils.exec(`yum clean all`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        });
+        dbg.log0('UPGRADE: yum clean result:', clean_res);
+        let update_retries = 3;
+        while (update_retries > 0) {
+            try {
+                dbg.log0('UPGRADE: calling yum update -y');
+                const update_res = await promise_utils.exec(`yum update -y`, {
+                    ignore_rc: false,
+                    return_stdout: true,
+                    trim_stdout: true
+                });
+                dbg.log0('UPGRADE: yum update result:', update_res);
+                // no retires necessary
+                update_retries = 0;
+            } catch (err) {
+                update_retries -= 1;
+                if (update_retries === 0) throw err;
+                dbg.error(`yum update failed with error. retrying in 30 seconds`, err);
+                await P.delay(30000);
+            }
+        }
+        await promise_utils.exec(`yum clean all`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        });
+
+        dbg.log0(`Updated yum packages`);
+
+        await promise_utils.exec(`cp -fd /tmp/localtime /etc`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        });
+    } catch (err) {
+        dbg.error('do_yum_update: Failure', err);
+        throw err;
+
+    }
 }
 
 

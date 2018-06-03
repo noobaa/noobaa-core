@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const api = require('../../api');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
@@ -11,20 +12,20 @@ const { BucketFunctions } = require('../utils/bucket_functions');
 dbg.set_process_name('data_avilability');
 
 //define colors
-const YELLOW = "\x1b[33;1m";
 const NC = "\x1b[0m";
+const YELLOW = "\x1b[33;1m";
 
+let files = [];
+let errors = [];
+let current_size = 0;
+let stopped_oses = [];
+const suffixName = 'da';
 const s3ops = new S3OPS();
-const clientId = process.env.CLIENT_ID;
+let failures_in_test = false;
 const domain = process.env.DOMAIN;
+const clientId = process.env.CLIENT_ID;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-const suffixName = 'da';
-let stopped_oses = [];
-let failures_in_test = false;
-let errors = [];
-let files = [];
-let current_size = 0;
 
 //defining the required parameters
 let {
@@ -82,8 +83,11 @@ if (help) {
     process.exit(1);
 }
 
+const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const client = rpc.new_client({});
+
 let report = new Report();
-let bf = new BucketFunctions(server_ip, report);
+let bf = new BucketFunctions(client, report);
 
 const osesSet = af.supported_oses();
 
@@ -171,78 +175,69 @@ async function readFiles() {
     }
 }
 
-function clean_up_dataset() {
+async function clean_up_dataset() {
     console.log('runing clean up files from bucket ' + bucket);
-    return s3ops.get_list_files(server_ip, bucket, '')
-        .then(res => s3ops.delete_folder(server_ip, bucket, ...res))
-        .catch(err => console.error(`Errors during deleting `, err));
+    try {
+        const file_list = await s3ops.get_list_files(server_ip, bucket, '');
+        await s3ops.delete_folder(server_ip, bucket, ...file_list);
+    } catch (err) {
+        console.error(`Errors during deleting `, err);
+    }
 }
 
-function stopAgentsAndCheckFiles() {
+async function stopAgentsAndCheckFiles() {
     //Power down agents (random number between 1 to the max amount)
-    stopped_oses = [];
-    return af.getTestNodes(server_ip, suffix)
-        .then(res => af.stopRandomAgents(azf, server_ip, failed_agents_number, '', res))
-        .then(res => {
-            stopped_oses = res;
-            return readFiles();
-        });
+    const test_nodes = await af.getTestNodes(server_ip, suffix);
+    stopped_oses = await af.stopRandomAgents(azf, server_ip, failed_agents_number, '', test_nodes);
+    return readFiles();
 }
 
 async function run_main() {
-    return azf.authenticate()
-        .then(() => bf.changeTierSetting(server_ip, bucket, data_frags, parity_frags, replicas))
-        .then(() => af.getTestNodes(server_ip, suffix))
-        .then(res => {
-            if ((use_existing_env) && (res)) {
-                let agents = new Map();
-                let createdAgents = af.getRandomOsesFromList(agents_number, osesSet);
-                for (let i = 0; i < createdAgents.length; i++) {
-                    agents.set(suffix + i, createdAgents[i]);
+    try {
+        await azf.authenticate();
+        await bf.changeTierSetting(bucket, data_frags, parity_frags, replicas);
+        const test_nodes = await af.getTestNodes(server_ip, suffix);
+        if ((use_existing_env) && (test_nodes)) {
+            let agents = new Map();
+            let createdAgents = af.getRandomOsesFromList(agents_number, osesSet);
+            for (let i = 0; i < createdAgents.length; i++) {
+                agents.set(suffix + i, createdAgents[i]);
+            }
+            for (let i = 0; i < test_nodes.length; i++) {
+                if (agents.has(test_nodes[i])) {
+                    agents.delete(test_nodes[i]);
                 }
-                for (let i = 0; i < res.length; i++) {
-                    if (agents.has(res[i])) {
-                        agents.delete(res[i]);
-                    }
-                }
-                return af.createAgentsFromMap(azf, server_ip, storage, vnet, [], agents);
-            } else {
-                return af.clean_agents(azf, server_ip, suffix)
-                    .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet));
             }
-        })
-        .then(clean_up_dataset)
-        .then(() => uploadAndVerifyFiles())
-        .then(async function() {
-            for (let cycle = 0; cycle < iterationsNumber; cycle++) {
-                console.log(`starting cycle number: ${cycle}`);
-                await stopAgentsAndCheckFiles();
-                await af.startOfflineAgents(azf, server_ip, '', stopped_oses);
-            }
-        })
-        .catch(err => {
-            console.error('something went wrong :(' + err + errors);
-            failures_in_test = true;
-        })
-        .then(() => {
-            if (failures_in_test) {
-                console.error(':( :( Errors during data available test (replicas) ): ):' + errors);
-                process.exit(1);
-            } else if (use_existing_env) {
-                return clean_up_dataset()
-                    .then(() => {
-                        console.log(':) :) :) data available test (replicas files) were successful! (: (: (:');
-                        process.exit(0);
-                    });
-            } else {
-                return af.clean_agents(azf, server_ip, suffix)
-                    .then(clean_up_dataset)
-                    .then(() => {
-                        console.log(':) :) :) data available test (replicas files) were successful! (: (: (:');
-                        process.exit(0);
-                    });
-            }
-        });
+            await af.createAgentsFromMap(azf, server_ip, storage, vnet, [], agents);
+        } else {
+            await af.clean_agents(azf, server_ip, suffix);
+            await af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet);
+        }
+        await clean_up_dataset();
+        await uploadAndVerifyFiles();
+        for (let cycle = 0; cycle < iterationsNumber; cycle++) {
+            console.log(`starting cycle number: ${cycle}`);
+            await stopAgentsAndCheckFiles();
+            await af.startOfflineAgents(azf, server_ip, '', stopped_oses);
+        }
+    } catch (err) {
+        console.error('something went wrong :(' + err + errors);
+        failures_in_test = true;
+    }
+    if (failures_in_test) {
+        console.error('Errors during data available test (replicas)' + errors);
+        await report.print_report();
+        process.exit(1);
+    } else if (use_existing_env) {
+        await clean_up_dataset();
+        console.log('data available test (replicas files) were successful!');
+    } else {
+        await af.clean_agents(azf, server_ip, suffix);
+        await clean_up_dataset();
+        console.log('data available test (replicas files) were successful!');
+    }
+    await report.print_report();
+    process.exit(0);
 }
 
-return run_main();
+run_main();

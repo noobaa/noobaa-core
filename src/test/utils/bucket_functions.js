@@ -1,18 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
-
-const api = require('../../api');
-const auth_params = {
-    email: 'demo@noobaa.com',
-    password: 'DeMo1',
-    system: 'demo'
-};
-
 class BucketFunctions {
 
-    constructor(server_ip, report) {
-        this._rpc = api.new_rpc('wss://' + server_ip + ':8443');
-        this._client = this._rpc.new_client({});
+    constructor(client, report) {
+        this._client = client;
         this._report = report;
     }
 
@@ -29,7 +20,6 @@ class BucketFunctions {
     }
 
     async listBuckets(server_ip) {
-        await this._client.create_auth_token(auth_params);
         try {
             await this._client.bucket.list_buckets();
             await this.report_success(`List_Bucket`);
@@ -40,8 +30,7 @@ class BucketFunctions {
         }
     }
 
-    async createBucket(server_ip, name) {
-        await this._client.create_auth_token(auth_params);
+    async createBucket(name) {
         try {
             await this._client.bucket.create_bucket({ name });
             await this.report_success(`Create_Bucket`);
@@ -52,8 +41,7 @@ class BucketFunctions {
         }
     }
 
-    async deleteBucket(server_ip, name) {
-        await this._client.create_auth_token(auth_params);
+    async deleteBucket(name) {
         try {
             await this._client.bucket.delete_bucket({ name });
             await this.report_success(`Delete_Bucket`);
@@ -64,7 +52,7 @@ class BucketFunctions {
         }
     }
 
-    async changeTierSetting(server_ip, bucket, data_frags, parity_frags, replicas) {
+    async changeTierSetting(bucket, data_frags, parity_frags, replicas) {
         if (replicas && (data_frags || parity_frags)) {
             throw new Error('Both erasure coding and replicas cannot be set simultaneously ');
         } else if (!replicas && !(data_frags && parity_frags)) {
@@ -80,7 +68,6 @@ class BucketFunctions {
         }
 
         try {
-            await this._client.create_auth_token(auth_params);
             const read_bucket = await this._client.bucket.read_bucket({ name: bucket });
             await this._client.tier.update_tier({
                 name: read_bucket.tiering.tiers[0].tier,
@@ -97,7 +84,6 @@ class BucketFunctions {
 
     async setQuotaBucket(server_ip, bucket_name, size, unit) {
         console.log(`Setting quota ${size} ${unit} for bucket ${bucket_name}`);
-        await this._client.create_auth_token(auth_params);
         try {
             await this._client.bucket.update_bucket({
                 name: bucket_name,
@@ -116,7 +102,6 @@ class BucketFunctions {
 
     async disableQuotaBucket(server_ip, bucket_name) {
         console.log('Disabling quota bucket');
-        await this._client.create_auth_token(auth_params);
         try {
             await this._client.bucket.update_bucket({
                 name: bucket_name,
@@ -133,7 +118,6 @@ class BucketFunctions {
     async checkAvailableSpace(server_ip, bucket_name) {
         console.log('Checking available space in bucket ' + bucket_name);
         try {
-            await this._client.create_auth_token(auth_params);
             const system_info = await this._client.system.read_system({});
             const buckets = system_info.buckets;
             const indexBucket = buckets.findIndex(values => values.name === bucket_name);
@@ -146,9 +130,8 @@ class BucketFunctions {
         }
     }
 
-    async setSpillover(server_ip, bucket_name, pool) {
+    async setSpillover(bucket_name, pool) {
         console.log('Setting spillover ' + pool + ' for bucket ' + bucket_name);
-        await this._client.create_auth_token(auth_params);
         try {
             await this._client.bucket.update_bucket({
                 name: bucket_name,
@@ -163,9 +146,8 @@ class BucketFunctions {
     }
 
     //Attaching bucket to the pool with spread data placement
-    async editBucketDataPlacement(pool, bucket_name, server_ip) {
+    async editBucketDataPlacement(pool, bucket_name) {
         console.log('Getting tier for bucket ' + bucket_name);
-        await this._client.create_auth_token(auth_params);
         const system_info = await this._client.system.read_system({});
         const buckets = system_info.buckets;
         const indexBucket = buckets.findIndex(values => values.name === bucket_name);
@@ -186,9 +168,8 @@ class BucketFunctions {
     }
 
     //checking that bucket with enable or disable spillover
-    async checkIsSpilloverHasStatus(bucket_name, status, server_ip) {
+    async checkIsSpilloverHasStatus(bucket_name, status) {
         console.log('Checking for spillover status ' + status + ' for bucket ' + bucket_name);
-        await this._client.create_auth_token(auth_params);
         try {
             const system_info = await this._client.system.read_system({});
             const buckets = system_info.buckets;
@@ -205,8 +186,7 @@ class BucketFunctions {
         }
     }
 
-    async getInternalStoragePool(server_ip) {
-        await this._client.create_auth_token(auth_params);
+    async getInternalStoragePool() {
         const system_info = await this._client.system.read_system({});
         for (let i = 0; i < system_info.pools.length; i++) {
             if (system_info.pools[i].resource_type === 'INTERNAL') {
@@ -217,7 +197,6 @@ class BucketFunctions {
 
     async createNamespaceBucket(name, namespace) {
         console.log('Creating namespace bucket with namespace ' + namespace);
-        await this._client.create_auth_token(auth_params);
         try {
             await this._client.bucket.create_bucket({
                 name,
@@ -235,7 +214,6 @@ class BucketFunctions {
 
     async updateNamesapceBucket(name, read_resources = [], write_resource) {
         console.log(`updating bucket: ${name}, read_resources: ${read_resources}, write_resource: ${write_resource}`);
-        await this._client.create_auth_token(auth_params);
         try {
             await this._client.bucket.update_bucket({
                 name,

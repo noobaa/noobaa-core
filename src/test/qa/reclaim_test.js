@@ -27,8 +27,6 @@ const clientId = process.env.CLIENT_ID;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 
-let rpc;
-let client;
 let files = [];
 let errors = [];
 let current_size = 0;
@@ -71,8 +69,11 @@ if (argv.help) {
     process.exit(1);
 }
 
+const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const client = rpc.new_client({});
+
 let report = new Report();
-let bf = new BucketFunctions(server_ip, report);
+let bf = new BucketFunctions(client, report);
 
 const osesLinuxSet = af.supported_oses('LINUX');
 const osesWinSet = af.supported_oses('WIN');
@@ -172,9 +173,9 @@ async function reclaimCycle(oses, prefix) {
     try {
         const agents = await af.createRandomAgents(azf, server_ip, storage, vnet, oses.length, agentSuffix, oses);
         const agentList = Array.from(agents.keys());
-        await bf.createBucket(server_ip, bucket);
+        await bf.createBucket(bucket);
         await createReclaimPool(reclaim_pool, agentSuffix);
-        await bf.editBucketDataPlacement(reclaim_pool, bucket, server_ip);
+        await bf.editBucketDataPlacement(reclaim_pool, bucket);
         await uploadAndVerifyFiles(bucket);
         const stoppedAgent = await af.stopRandomAgents(azf, server_ip, 1, agentSuffix, agentList);
         await cleanupBucket(bucket);
@@ -186,8 +187,6 @@ async function reclaimCycle(oses, prefix) {
 }
 
 async function set_rpc_and_create_auth_token() {
-    rpc = api.new_rpc('wss://' + server_ip + ':8443');
-    client = rpc.new_client({});
     let auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',

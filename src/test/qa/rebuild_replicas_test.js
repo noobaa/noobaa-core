@@ -72,8 +72,11 @@ if (help) {
     process.exit(1);
 }
 
+const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const client = rpc.new_client({});
+
 let report = new Report();
-let bf = new BucketFunctions(server_ip, report);
+let bf = new BucketFunctions(client, report);
 
 const suffix = suffixName + '-' + id;
 
@@ -159,8 +162,6 @@ function getRebuildReplicasStatus(key) {
     let replicaStatusOnline = [];
     let filesReplicas = [];
     let fileParts = [];
-    const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
-    const client = rpc.new_client({});
     return client.create_auth_token(auth_params)
         .then(() => P.resolve(client.object.read_object_mappings({
             bucket,
@@ -209,8 +210,6 @@ function waitForRebuildReplicasParts(file) {
 function getFilesChunksHealthStatus(key) {
     let result = false;
     let parts = [];
-    const rpc = api.new_rpc_default_only('wss://' + server_ip + ':8443');
-    const client = rpc.new_client({});
     return client.create_auth_token(auth_params)
         .then(() => P.resolve(client.object.read_object_mappings({
             bucket,
@@ -288,7 +287,7 @@ function stopAgentAndCheckRebuildReplicas() {
 }
 
 return azf.authenticate()
-    .then(() => bf.changeTierSetting(server_ip, bucket, data_frags, parity_frags, replicas))
+    .then(() => bf.changeTierSetting(bucket, data_frags, parity_frags, replicas))
     .then(() => af.clean_agents(azf, server_ip, suffix))
     .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
     .then(res => {

@@ -2,6 +2,7 @@
 
 import template from './token-field.html';
 import ko from 'knockout';
+import { isFunction } from 'utils/core-utils';
 import { splice } from 'utils/string-utils';
 
 const enterKeyCode = 13;
@@ -12,13 +13,17 @@ class TokenFieldViewModel {
     constructor({
         tokens = ko.observable([]),
         disabled = false,
-        placeholder = 'Type to add tokens'
+        placeholder = 'Type to add tokens',
+        validator
     }) {
         this.text = ko.observable('');
         this.disabled = disabled;
         this.placeholder = ko.pureComputed(
             () => this.hasFocus() ? '' : ko.unwrap(placeholder)
         );
+        this.validateToken = isFunction(validator) ?
+            validator :
+            () => true;
 
         this.list = ko.observableArray(Array.from(ko.unwrap(tokens) || []));
         this.selection = ko.observable(0);

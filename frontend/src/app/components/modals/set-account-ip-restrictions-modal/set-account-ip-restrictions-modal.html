@@ -21,7 +21,8 @@
         <token-field class="column greedy" params="
             disabled: !form.usingIpRestrictions(),
             placeholder: allowedIpsPlaceholder,
-            tokens: form.allowedIps
+            tokens: form.allowedIps,
+            validator: tokenValidator
         "></token-field>
         <p class="remark"
             ko.visible="!form.allowedIps.isInvalidTouched()"

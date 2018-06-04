@@ -164,7 +164,7 @@ function create_namespace_resource(req) {
 function create_cloud_pool(req) {
     var name = req.rpc_params.name;
     var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
-    var cloud_info = {
+    var cloud_info = _.omitBy({
         endpoint: connection.endpoint,
         target_bucket: req.rpc_params.target_bucket,
         auth_method: connection.auth_method,
@@ -174,7 +174,7 @@ function create_cloud_pool(req) {
             account_id: req.account._id
         },
         endpoint_type: connection.endpoint_type || 'AWS'
-    };
+    }, _.isUndefined);
 
 
     const already_used_by = cloud_utils.get_used_cloud_targets([cloud_info.endpoint_type],
@@ -514,11 +514,12 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         host_count: p_hosts.nodes.data_activity_host_count || 0
     };
     if (_is_cloud_pool(pool)) {
-        info.cloud_info = {
+        info.cloud_info = _.omitBy({
             endpoint: pool.cloud_pool_info.endpoint,
             endpoint_type: pool.cloud_pool_info.endpoint_type || 'AWS',
-            target_bucket: pool.cloud_pool_info.target_bucket
-        };
+            target_bucket: pool.cloud_pool_info.target_bucket,
+            auth_method: pool.cloud_pool_info.auth_method
+        }, _.isUndefined);
         info.undeletable = check_resrouce_pool_deletion(pool);
         info.mode = calc_cloud_pool_mode(p_nodes);
     } else if (_is_mongo_pool(pool)) {
@@ -545,6 +546,7 @@ function get_namespace_resource_info(namespace_resource) {
         name: namespace_resource.name,
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,
+        auth_method: namespace_resource.connection.auth_method,
         cp_code: namespace_resource.connection.cp_code || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         identity: namespace_resource.connection.access_key,

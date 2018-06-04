@@ -480,6 +480,9 @@ module.exports = {
                         },
                         target_bucket: {
                             type: 'string'
+                        },
+                        auth_method: {
+                            $ref: 'common_api#/definitions/cloud_auth_method'
                         }
                     }
                 },

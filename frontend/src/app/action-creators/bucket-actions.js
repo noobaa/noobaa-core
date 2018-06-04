@@ -29,12 +29,6 @@ import {
     UPDATE_BUCKET_S3_ACCESS,
     COMPLETE_UPDATE_BUCKET_S3_ACCESS,
     FAIL_UPDATE_BUCKET_S3_ACCESS,
-    DELETE_CLOUD_SYNC_POLICY,
-    COMPLETE_DELETE_CLOUD_SYNC_POLICY,
-    FAIL_DELETE_CLOUD_SYNC_POLICY,
-    TOGGLE_CLOUD_SYNC_POLICY,
-    COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
-    FAIL_TOGGLE_CLOUD_SYNC_POLICY,
     ADD_BUCKET_TRIGGER,
     COMPLETE_ADD_BUCKET_TRIGGER,
     FAIL_ADD_BUCKET_TRIGGER,
@@ -254,48 +248,6 @@ export function failUpdateBucketS3Access(bucketName, error) {
     return {
         type: FAIL_UPDATE_BUCKET_S3_ACCESS,
         payload: { bucketName, error }
-    };
-}
-
-export function deleteCloudSyncPolicy(bucketName) {
-    return {
-        type: DELETE_CLOUD_SYNC_POLICY,
-        payload: { bucketName }
-    };
-}
-
-export function completeDeleteCloudSyncPolicy(bucketName) {
-    return {
-        type: COMPLETE_DELETE_CLOUD_SYNC_POLICY,
-        payload: { bucketName }
-    };
-}
-
-export function failDeleteCloudSyncPolicy(bucketName, error) {
-    return {
-        type: FAIL_DELETE_CLOUD_SYNC_POLICY,
-        payload: { bucketName, error }
-    };
-}
-
-export function toggleCloudSyncPolicy(bucketName, paused) {
-    return {
-        type: TOGGLE_CLOUD_SYNC_POLICY,
-        payload: { bucketName, paused }
-    };
-}
-
-export function completeToggleCloudSyncPolicy(bucketName, paused) {
-    return {
-        type: COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
-        payload: { bucketName, paused }
-    };
-}
-
-export function failToggleCloudSyncPolicy(bucketName, paused, error) {
-    return {
-        type: FAIL_TOGGLE_CLOUD_SYNC_POLICY,
-        payload: { bucketName, paused, error }
     };
 }
 

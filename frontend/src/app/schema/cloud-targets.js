@@ -25,7 +25,6 @@ export default {
                             kind: {
                                 type: 'string',
                                 enum: [
-                                    'CLOUD_SYNC',
                                     'CLOUD_RESOURCE',
                                     'NAMESPACE_RESOURCE'
                                 ]

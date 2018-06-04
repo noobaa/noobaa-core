@@ -61,8 +61,6 @@ import upgradeSystem from './upgrade-system';
 import reloadAfterSystemUpgrade from './reload-after-system-upgrade';
 import updateServerAddress from './update-server-address';
 import updateBucketS3Access from './update-bucket-s3-access';
-import deleteCloudSyncPolicy from './delete-cloud-sync-policy';
-import toggleCloudSyncPolicy from './toggle-cloud-sync-policy';
 import addBucketTrigger from './add-bucket-trigger';
 import updateBucketTrigger from './update-bucket-trigger';
 import removeBucketTrigger from './remove-bucket-trigger';
@@ -140,8 +138,6 @@ const bucketRelatedEpics = [
     updateNamespaceBucketPlacement,
     deleteNamespaceBucket,
     updateBucketS3Access,
-    deleteCloudSyncPolicy,
-    toggleCloudSyncPolicy,
     addBucketTrigger,
     updateBucketTrigger,
     removeBucketTrigger

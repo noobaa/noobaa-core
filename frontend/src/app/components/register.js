@@ -58,8 +58,6 @@ export default function register(ko) {
     ko.components.register('after-upgrade-modal',                           require('./modals/after-upgrade-modal/after-upgrade-modal').default);
     ko.components.register('add-cloud-resource-modal',                      require('./modals/add-cloud-resource-modal/add-cloud-resource-modal').default);
     ko.components.register('add-cloud-connection-modal',                    require('./modals/add-cloud-connection-modal/add-cloud-connection-modal').default);
-    ko.components.register('set-cloud-sync-modal',                          require('./modals/set-cloud-sync-modal/set-cloud-sync-modal').default);
-    ko.components.register('edit-cloud-sync-modal',                         require('./modals/edit-cloud-sync-modal/edit-cloud-sync-modal').default);
     ko.components.register('s3-access-details-modal',                       require('./modals/s3-access-details-modal/s3-access-details-modal').default);
     ko.components.register('edit-bucket-s3-access-modal',                   require('./modals/edit-bucket-s3-access-modal/edit-bucket-s3-access-modal').default);
     ko.components.register('start-maintenance-modal',                       require('./modals/start-maintenance-modal/start-maintenance-modal').default);
@@ -131,7 +129,6 @@ export default function register(ko) {
     ko.components.register('bucket-panel',                          require('./bucket/bucket-panel/bucket-panel').default);
     ko.components.register('bucket-summary',                        require('./bucket/bucket-summary/bucket-summary').default);
     ko.components.register('bucket-objects-table',                  require('./bucket/bucket-objects-table/bucket-objects-table').default);
-    ko.components.register('bucket-cloud-sync-form',                require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form').default);
     ko.components.register('bucket-s3-access-table',                require('./bucket/bucket-s3-access-table/bucket-s3-access-table').default);
     ko.components.register('bucket-data-policies-form',             require('./bucket/bucket-data-policies-form/bucket-data-policies-form').default);
     ko.components.register('bucket-spillover-policy-form',          require('./bucket/bucket-spillover-policy-form/bucket-spillover-policy-form').default);
@@ -298,7 +295,6 @@ export default function register(ko) {
     ko.components.register('date-time-chooser',         require('./shared/date-time-chooser/date-time-chooser').default);
     ko.components.register('pie-chart',                 require('./shared/pie-chart/pie-chart').default);
     ko.components.register('bar-chart',                 require('./shared/bar-chart/bar-chart').default);
-    ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table').default);
     ko.components.register('chart-legend',              require('./shared/chart-legend/chart-legend').default);
     ko.components.register('copy-to-clipboard-button',  require('./shared/copy-to-clipboard-button/copy-to-clipboard-button').default);
     ko.components.register('password-field',            require('./shared/password-field/password-field').default);

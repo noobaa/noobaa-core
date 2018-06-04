@@ -622,47 +622,6 @@ export function setSystemDebugLevel(level){
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, frequency, syncDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, connection, targetBucket, direction, frequency, syncDeletions });
-
-    api.bucket.set_cloud_sync({
-        name: bucket,
-        connection: connection,
-        target_bucket: targetBucket,
-        policy: {
-            n2c_enabled: Boolean(direction & 1),
-            c2n_enabled: Boolean(direction & 2),
-            schedule_min: frequency,
-            additions_only: !syncDeletions
-        }
-    })
-        .then(
-            () => notify(`${bucket} cloud sync policy was set successfully`, 'success'),
-            () => notify(`Setting ${bucket} cloud sync policy failed`, 'error')
-        )
-        .then(() => action$.next(fetchSystemInfo()))
-        .done();
-}
-
-export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletions) {
-    logAction('updateCloudSyncPolicy', { bucket, direction, frequency, syncDeletions });
-
-    api.bucket.update_cloud_sync({
-        name: bucket,
-        policy: {
-            n2c_enabled: Boolean(direction & 1),
-            c2n_enabled: Boolean(direction & 2),
-            schedule_min: frequency,
-            additions_only: !syncDeletions
-        }
-    })
-        .then(
-            () => notify(`${bucket} cloud sync policy updated successfully`, 'success'),
-            () => notify(`Updating ${bucket} cloud sync policy failed`, 'error')
-        )
-        .then(() => action$.next(fetchSystemInfo()));
-}
-
 export async function updatePhoneHomeConfig(proxyAddress) {
     logAction('updatePhoneHomeConfig', { proxyAddress });
 

@@ -313,26 +313,6 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_DELETE_CLOUD_SYNC_POLICY]: ({ bucketName }) => ({
-        message: `${bucketName} cloud sync policy removed successfully`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_DELETE_CLOUD_SYNC_POLICY]: ({ bucketName }) => ({
-        message: `Removing ${bucketName} cloud sync policy failed`,
-        severity: 'error'
-    }),
-
-    [types.COMPLETE_TOGGLE_CLOUD_SYNC_POLICY]: ({ bucketName, paused }) => ({
-        message: `${bucketName} cloud sync has been ${paused ? 'paused' : 'resumed'}`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_TOGGLE_CLOUD_SYNC_POLICY]: ({ bucketName, paused }) => ({
-        message: `${paused ? 'Pausing' : 'Resuming'} ${bucketName} cloud sync failed`,
-        severity: 'error'
-    }),
-
     [types.COMPLETE_ADD_BUCKET_TRIGGER]: ({ bucketName }) => ({
         message: `A trigger added to ${bucketName} successfully`,
         severity: 'success'

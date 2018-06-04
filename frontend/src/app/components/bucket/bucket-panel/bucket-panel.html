@@ -24,12 +24,6 @@
         >
             Triggers
         </a>
-        <a class="preview-only"
-            ko.css.selected="selectedTab.eq('cloud-sync')"
-            ko.attr.href="tabHref('cloud-sync')"
-        >
-            Cloud sync
-        </a>
     </nav>
 
     <div class="tabs-row">
@@ -52,10 +46,5 @@
             ko.css.selected="selectedTab.eq('triggers')"
             params="bucketName: bucket"
         ></bucket-triggers-form>
-
-        <bucket-cloud-sync-form class="tab preview-only"
-            ko.css.selected="selectedTab.eq('cloud-sync')"
-            params="bucketName: bucket"
-        ></bucket-cloud-sync-form>
     </div>
 </div>

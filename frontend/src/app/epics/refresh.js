@@ -37,8 +37,6 @@ export default function(action$) {
             types.COMPLETE_INVOKE_UPGRADE_SYSTEM,
             types.REMOVE_HOST,
             types.COMPLETE_UPDATE_BUCKET_S3_ACCESS,
-            types.COMPLETE_DELETE_CLOUD_SYNC_POLICY,
-            types.COMPLETE_TOGGLE_CLOUD_SYNC_POLICY,
             types.COMPLETE_ADD_BUCKET_TRIGGER,
             types.COMPLETE_UPDATE_BUCKET_TRIGGER,
             types.COMPLETE_REMOVE_BUCKET_TRIGGER,

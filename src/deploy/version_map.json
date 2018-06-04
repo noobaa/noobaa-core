@@ -53,6 +53,11 @@
             "ver": "2.6.0",
             "vhd": "2.6.0-2c95897.vhd",
             "released": true
+        },
+        {
+            "ver": "2.6.1",
+            "vhd": "2.6.1-9492c8b.vhd",
+            "released": true
         }
     ]
 }

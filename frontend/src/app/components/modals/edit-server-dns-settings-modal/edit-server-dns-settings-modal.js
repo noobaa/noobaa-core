@@ -13,6 +13,7 @@ class EditServerDNSSettingsModalViewModel extends BaseViewModel {
     constructor({ serverSecret, onClose }) {
         super();
 
+        this.tokenValidator = isDNSName;
         this.serverSecret = ko.unwrap(serverSecret);
         this.close = onClose;
 

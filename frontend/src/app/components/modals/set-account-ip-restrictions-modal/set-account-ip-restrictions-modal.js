@@ -6,7 +6,7 @@ import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { isIPOrIPRange } from 'utils/net-utils';
-import { setAccountIpRestrictions } from 'action-creators';
+import { setAccountIpRestrictions, closeModal } from 'action-creators';
 import { deepFreeze } from 'utils/core-utils';
 import { get } from 'rx-extensions';
 
@@ -20,12 +20,12 @@ const allowedIpsPlaceholder =
     `e.g., 10.5.3.2 or 10.2.253.5 - 24 and click enter ${String.fromCodePoint(0x23ce)}`;
 
 class setAccountIpRestrictionsModalViewModel extends Observer {
-    constructor({ onClose, accountName }) {
-        super();
+    tokenValidator = val => isIPOrIPRange(val).valid;
+    allowedIpsPlaceholder = allowedIpsPlaceholder;
+    isAccountReady = ko.observable(false)
 
-        this.close = onClose;
-        this.allowedIpsPlaceholder = allowedIpsPlaceholder;
-        this.isAccountReady = ko.observable(false);
+    constructor({ accountName }) {
+        super();
 
         this.observe(
             state$.pipe(get('accounts', ko.unwrap(accountName))),
@@ -78,11 +78,11 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
             usingIpRestrictions ? allowedIps : null
         ));
 
-        this.close();
+        action$.next(closeModal());
     }
 
     onCancel() {
-        this.close();
+        action$.next(closeModal());
     }
 
     dispose() {

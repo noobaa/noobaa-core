@@ -7,7 +7,9 @@
     ko.scroll="scroll"
 >
     <!-- ko foreach: list -->
-    <div class="row content-middle token">
+    <div class="row content-middle token"
+        ko.css.error=!$component.validateToken($data)
+    >
         <span class="greedy token-text"
             ko.preventBubble="'mousedown'"
             ko.text="$data"

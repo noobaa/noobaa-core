@@ -68,37 +68,6 @@ export function openAddCloudConnectionModal(allowedServices) {
     };
 }
 
-export function openSetCloudSyncModal(bucketName) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'set-cloud-sync-modal',
-                params: { bucketName }
-            },
-            options: {
-                title: 'Set Cloud Sync',
-                size: 'medium'
-            }
-        }
-    };
-}
-
-export function openEditCloudSyncModal(bucketName) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'edit-cloud-sync-modal',
-                params: { bucketName }
-            },
-            options: {
-                title: 'Edit Cloud Sync Policy'
-            }
-        }
-    };
-}
-
 export function openS3AccessDetailsModal(endpoint, accessKey, secretKey) {
     return {
         type: OPEN_MODAL,

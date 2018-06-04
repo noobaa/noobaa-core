@@ -3,15 +3,7 @@
 import { keyByProperty, groupBy, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { mapApiStorage } from 'utils/state-utils';
-import { bitsToNumber, deepFreeze } from 'utils/core-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
-import moment from 'moment';
-
-const directionMapping = deepFreeze({
-    0b00: 'SOURCE_TO_TARGET',
-    0b01: 'TARGET_TO_SOURCE',
-    0b10: 'BI_DIRECTIONAL'
-});
 
 // ------------------------------
 // Initial State
@@ -54,7 +46,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         record => tiersByName[record.tier]
     );
 
-    const { storage, data, quota, cloud_sync, stats, triggers, policy_modes } = bucket;
+    const { storage, data, quota, stats, triggers, policy_modes } = bucket;
     const { placement_status, resiliency_status, spillover_status, quota_status } = policy_modes;
     return {
         name: bucket.name,
@@ -64,7 +56,6 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         data: _mapData(data),
         quota: _mapQuota(quota_status, quota),
         objectCount: bucket.num_objects,
-        cloudSync: _mapCloudSync(cloud_sync),
         undeletable: bucket.undeletable,
         placement: _mapPlacement(placement_status, placementTiers[0], resTypeByName, resUsageByName),
         resiliency: _mapResiliency(resiliency_status, placementTiers[0]),
@@ -83,41 +74,6 @@ function _mapData(data){
         availableForUpload: data.free,
         availableForSpillover: data.spillover_free
     };
-}
-
-function _mapCloudSync(cloudSync) {
-    if (!cloudSync) return;
-
-    const { status, last_sync, policy, endpoint, access_key, target_bucket } = cloudSync;
-    const { paused, schedule_min, c2n_enabled, n2c_enabled, additions_only } = policy;
-    const direction = directionMapping[bitsToNumber(c2n_enabled, n2c_enabled)];
-
-    return {
-        state: {
-            mode: status,
-            lastSyncTime: last_sync,
-            isPaused: Boolean(paused)
-        },
-        policy: {
-            endpoint,
-            direction,
-            accessKey: access_key,
-            targetBucket: target_bucket,
-            syncDeletions: !additions_only,
-            frequency: _mapFrequency(schedule_min)
-        }
-    };
-}
-
-function _mapFrequency(scheduleMin) {
-    const schedule = moment.duration(scheduleMin, 'minutes');
-    const days = schedule.asDays();
-    const hours = schedule.asHours();
-    const minutes = schedule.asMinutes();
-
-    if (Number.isInteger(days)) return { unit: 'DAY', value: days };
-    if (Number.isInteger(hours)) return { unit: 'HOUR', value: hours };
-    if (Number.isInteger(minutes)) return { unit: 'MINUTE', value: minutes };
 }
 
 function _mapQuota(mode, quota) {

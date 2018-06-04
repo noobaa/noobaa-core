@@ -6,7 +6,7 @@ import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
-import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getCloudServiceMeta, getCloudTargetTooltip } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
 import { getFieldValue, isFieldTouched } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
@@ -19,12 +19,6 @@ import {
     closeModal,
     updateForm
 } from 'action-creators';
-
-const usedTargetTooltip = deepFreeze({
-    CLOUD_RESOURCE: name => `Already used by ${name} cloud resource`,
-    NAMESPACE_RESOURCE: name => `Already used by ${name} namespace resource`,
-    CLOUD_SYNC: name => `Already used by bucket's ${name} cloud sync policy`
-});
 
 const allowedServices = deepFreeze([
     'AWS',
@@ -112,13 +106,13 @@ class AddCloudResourceModalViewModel extends Observer {
 
         const fetchingTargetBuckets = cloudTargets.fetching && !cloudTargets.list;
         const targetBucketsOptions = (cloudTargets.list || [])
-            .map(({ usedBy, name: value }) => {
+            .map(target => {
+                const { usedBy, name: value } = target;
                 if (usedBy) {
-                    const { kind, name } = usedBy;
                     return {
                         value,
                         disabled: Boolean(usedBy),
-                        tooltip: usedTargetTooltip[kind](name)
+                        tooltip: getCloudTargetTooltip(target)
                     };
                 } else {
                     return { value };

@@ -61,21 +61,29 @@ class MDStore {
     }
 
     async is_objectmds_indexes_ready() {
+        const versioning_indexes = [
+            'null_object_index',
+            'version_object_index',
+            'latest_object_index',
+            'prev_object_index',
+            'list_uploads_index',
+            'list_versions_index'
+        ];
         // This checks if there is a current background operation that creates the indexes
         const current_ops_on_db = await await mongo_client.instance().db.admin().command({ currentOp: 1 });
         const indexing_ops_on_collection = _.flatten(_.filter(current_ops_on_db.inprog, job =>
                 job.command && job.command.createIndexes === 'objectmds')
             .map(index_job => index_job.command.indexes));
         const building_indexes_names = indexing_ops_on_collection.map(obj => obj.name);
-        const object_mds_indexes_building = building_indexes_names.includes(['bucket_1_key_1_deleted_1_upload_started_1', 'bucket_1_key_1_deleted_1_create_time_']);
+        const object_mds_indexes_building = building_indexes_names.includes(versioning_indexes);
 
         // This checks if the indexes are configured on a the collection
         const object_mds_indexes = await this._objects.col().indexes();
-        const object_mds_indexes_configured =
-            object_mds_indexes.find(index =>
-                index.name === 'bucket_1_key_1_deleted_1_upload_started_1' && index.unique) &&
-            object_mds_indexes.find(index =>
-                index.name === 'bucket_1_key_1_deleted_1_create_time_-1_upload_started_1' && !index.unique);
+        let object_mds_indexes_configured = true;
+        versioning_indexes.forEach(index => {
+            object_mds_indexes_configured = object_mds_indexes_configured &&
+                object_mds_indexes.find(ind => ind.name === index && ind.unique);
+        });
         return Boolean(object_mds_indexes_configured && !object_mds_indexes_building);
     }
 
@@ -130,8 +138,10 @@ class MDStore {
                 bucket: bucket_id,
                 key: key,
                 deleted: null,
-                upload_started: null,
-                is_obj_version: null
+                // This is a place filler for the prefix of the index
+                latest_object: null,
+                is_obj_version: null,
+                upload_started: null
             }, compact_updates(set_updates))
             .then(res => mongo_utils.check_update_one(res, 'object'));
     }
@@ -223,6 +233,8 @@ class MDStore {
             bucket: 1,
             key: 1,
             deleted: 1,
+            // This is done for index
+            list_versions: 1,
             version_id: -1
         };
         const { key_cond, regexp } = this._build_key_cond_for_list({ marker, prefix, delimiter });
@@ -230,10 +242,9 @@ class MDStore {
             bucket: bucket_id,
             key: _.isEmpty(key_cond) ? undefined : key_cond,
             deleted: null,
-            // TODO: I cannot write that since not all have versions
-            // version_id: { $exists: true },
-            // This is not required since we do not assign a sequence to uploading objects
-            // upload_started: null
+            // This is done for index
+            list_versions: null,
+            // The index does not include uploads so no need to worry
         });
 
         if (marker && version_id_marker) {
@@ -270,8 +281,11 @@ class MDStore {
             bucket: bucket_id,
             key: _.isEmpty(key_cond) ? undefined : key_cond,
             deleted: null,
+            latest_object: null,
+            is_obj_version: null,
             upload_started: null,
-            is_obj_version: null
+            // Couldn't push it into partial since other queries need to delete marker
+            delete_marker: null
         });
 
         const res = delimiter ? await this._objects.col().mapReduce(
@@ -386,8 +400,9 @@ class MDStore {
             bucket: bucket_id,
             key: key,
             deleted: null,
-            upload_started: null,
+            null_object: null,
             has_version: null,
+            upload_started: null,
         });
     }
 
@@ -396,6 +411,7 @@ class MDStore {
             bucket: bucket_id,
             key: key,
             deleted: null,
+            version_object: null,
             version_id
         });
     }
@@ -405,8 +421,9 @@ class MDStore {
             bucket: bucket_id,
             key: key,
             deleted: null,
-            upload_started: null,
+            latest_object: null,
             is_obj_version: null,
+            upload_started: null,
         });
     }
 
@@ -415,7 +432,10 @@ class MDStore {
             bucket: bucket_id,
             key: key,
             deleted: null,
+            // This is done in order to use index
+            version_id: { $exists: true },
             is_obj_version: true,
+            upload_started: null
         }, {
             sort: {
                 bucket: 1,
@@ -644,7 +664,11 @@ class MDStore {
         return this._objects.col().findOne({
                 bucket: bucket_id,
                 deleted: null,
+                latest_object: null,
+                is_obj_version: null,
                 upload_started: null,
+                // Couldn't push it into partial since other queries need to delete marker
+                delete_marker: null
             })
             .then(obj => Boolean(obj));
     }

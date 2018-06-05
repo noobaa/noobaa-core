@@ -699,7 +699,7 @@ async function delete_object_version(req) {
         const obj = delete_version === 'null' ?
             await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key) :
             await MDStore.instance().find_object_by_version(req.bucket._id, req.rpc_params.key, delete_version);
-        if (!obj) return { version_id: delete_version };
+        if (!obj) return { reply: { version_id: delete_version } };
         check_md_conditions(req, req.rpc_params.md_conditions, obj);
         const delete_marker = obj.delete_marker;
         if (obj.is_obj_version) {
@@ -733,7 +733,7 @@ async function delete_object_version(req) {
         }
     } else if (bucket_versioning === 'DISABLED') {
         const obj = delete_version === 'null' && await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key);
-        if (!obj) return { version_id: delete_version };
+        if (!obj) return { reply: { version_id: delete_version } };
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         check_md_conditions(req, req.rpc_params.md_conditions, obj);
         // 2, 3, 8
@@ -755,7 +755,7 @@ async function delete_object_only_key(req) {
             // 3, 5 
             const { version_id, delete_marker_version_id } = await MDStore.instance().insert_object_delete_marker_move_latest(
                 obj, /* has_version: */ true);
-            return { version_id, delete_marker: true, delete_marker_version_id };
+            return { obj, reply: { version_id, delete_marker: true, delete_marker_version_id } };
         } else {
             // 5
             const { version_id, delete_marker_version_id } = await MDStore.instance().insert_object_delete_marker({
@@ -764,7 +764,7 @@ async function delete_object_only_key(req) {
                 key: req.rpc_params.key,
                 has_version: true
             });
-            return { version_id, delete_marker: true, delete_marker_version_id };
+            return { reply: { version_id, delete_marker: true, delete_marker_version_id } };
         }
     } else if (bucket_versioning === 'SUSPENDED') {
         const obj = await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key);
@@ -779,7 +779,7 @@ async function delete_object_only_key(req) {
                     const { version_id, delete_marker_version_id } =
                     await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj, latest_obj);
                     if (!delete_marker) await map_deleter.delete_object_mappings(obj);
-                    return { version_id, delete_marker: true, delete_marker_version_id };
+                    return { obj, reply: { version_id, delete_marker: true, delete_marker_version_id } };
                 } else {
                     // TODO: Should not happen since it means that we do not have latest
                     throw new RpcError('NO_SUCH_OBJECT', 'No such object: ' + req.rpc_params.key);
@@ -789,7 +789,7 @@ async function delete_object_only_key(req) {
                 const { version_id, delete_marker_version_id } =
                 await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj);
                 if (!delete_marker) await map_deleter.delete_object_mappings(obj);
-                return { version_id, delete_marker: true, delete_marker_version_id };
+                return { obj, reply: { version_id, delete_marker: true, delete_marker_version_id } };
             }
         } else {
             const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
@@ -798,7 +798,7 @@ async function delete_object_only_key(req) {
                 // 3, 5 
                 const { version_id, delete_marker_version_id } =
                 await MDStore.instance().insert_object_delete_marker_move_latest(latest_obj);
-                return { version_id, delete_marker: true, delete_marker_version_id };
+                return { reply: { version_id, delete_marker: true, delete_marker_version_id } };
             } else {
                 // 5
                 const { version_id, delete_marker_version_id } = await MDStore.instance().insert_object_delete_marker({
@@ -806,18 +806,18 @@ async function delete_object_only_key(req) {
                     system: req.system._id,
                     key: req.rpc_params.key,
                 });
-                return { version_id, delete_marker: true, delete_marker_version_id };
+                return { reply: { version_id, delete_marker: true, delete_marker_version_id } };
             }
         }
     } else if (bucket_versioning === 'DISABLED') {
         const obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
-        if (!obj) return {};
+        if (!obj) return { reply: {} };
         check_md_conditions(req, req.rpc_params.md_conditions, obj);
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         // 2, 3, 8
         await MDStore.instance().remove_object_and_unset_latest(obj);
         await map_deleter.delete_object_mappings(obj);
-        return {};
+        return { reply: {} };
     }
 }
 
@@ -1088,6 +1088,8 @@ function list_uploads(req) {
 function list_object_versions(req) {
     dbg.log0('list_objects', req.rpc_params);
     load_bucket(req);
+    // TODO: Handle case when the marker is null since now we just crash inside the query of MDStore method
+    const parsed_version_id_marker = get_obj_version_id({ rpc_params: { version_id: req.rpc_params.version_id_marker } }, 'BAD_OBJECT_VERSION_ID');
     // Prefix mainly used as a folder name, in order to get all objects/prefixes inside that folder
     // Notice that the prefix can also be used as a searching tool among objects (not only folder)
     var prefix = req.rpc_params.prefix || '';
@@ -1098,7 +1100,7 @@ function list_object_versions(req) {
     var marker = req.rpc_params.key_marker ? (prefix + req.rpc_params.key_marker) : '';
     var version_id_marker = !_.isUndefined(req.rpc_params.key_marker) &&
         !_.isUndefined(req.rpc_params.version_id_marker) ?
-        req.rpc_params.version_id_marker : undefined;
+        parsed_version_id_marker : undefined;
     const received_limit = _.isUndefined(req.rpc_params.limit) ? 1000 : req.rpc_params.limit;
 
     if (received_limit < 0) {
@@ -1157,16 +1159,15 @@ function list_object_versions(req) {
                     const last = results[results.length - 1];
                     reply.next_marker = last.key;
                     reply.next_version_id_marker = (last.obj &&
-                        String(last.obj._id)) || undefined;
+                        last.obj.version_id.toString(16)) || undefined;
                     done = true;
                 } else {
                     // In this case we did not reach the end yet
                     const last = res[res.length - 1];
                     marker = last.key;
-                    version_id_marker = last.obj && String(last.obj._id);
+                    version_id_marker = last.obj && last.obj.version_id;
                 }
-            })
-        )
+            }))
         .then(() => {
             // This is done since the versioning requires a different sorting that other lists
             console.log(results);
@@ -1183,10 +1184,6 @@ function list_object_versions(req) {
 function list_objects_fe(req) {
     dbg.log0('list_objects_fe', req.rpc_params);
     load_bucket(req);
-    const versioning = {
-        bucket_activated: req.bucket.versioning !== 'DISABLED',
-        list_versions: req.rpc_params.list_versions
-    };
     let key;
     if (req.rpc_params.prefix) {
         key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
@@ -1211,8 +1208,7 @@ function list_objects_fe(req) {
             skip: req.rpc_params.skip,
             sort,
             order: req.rpc_params.order,
-            pagination: req.rpc_params.pagination,
-            versioning
+            pagination: req.rpc_params.pagination
         })
         .then(res => _wrap_objects_for_fe(res, req));
 }

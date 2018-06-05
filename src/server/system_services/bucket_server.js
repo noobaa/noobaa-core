@@ -362,9 +362,9 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy, object_
         single_bucket_update.tiering = tiering_policy._id;
     }
     if (update_request.versioning) {
-        // if (!object_mds_indexes_ready) {
-        //     throw new RpcError('BAD_REQUEST', 'Cannot set versioning when building indexes');
-        // }
+        if (!object_mds_indexes_ready) {
+            throw new RpcError('BAD_REQUEST', 'Cannot set versioning when building indexes');
+        }
         if (update_request.versioning === 'DISABLED') {
             throw new RpcError('BAD_REQUEST', 'Cannot set versioning to DISABLED');
         }

@@ -51,16 +51,16 @@ function get_bucket_versions(req) {
                 _.map(reply.objects, obj => (obj.delete_marker ? ({
                     DeleteMarker: {
                         Key: obj.key,
-                        VersionId: obj.has_version ? obj.obj_id : 'null',
-                        IsLatest: obj.is_latest || false,
+                        VersionId: obj.version_id,
+                        IsLatest: !obj.is_obj_version,
                         LastModified: s3_utils.format_s3_xml_date(obj.create_time),
                         Owner: s3_utils.DEFAULT_S3_USER,
                     }
                 }) : ({
                     Version: {
                         Key: obj.key,
-                        VersionId: obj.has_version ? obj.obj_id : 'null',
-                        IsLatest: obj.is_latest || false,
+                        VersionId: obj.version_id,
+                        IsLatest: !obj.is_obj_version,
                         LastModified: s3_utils.format_s3_xml_date(obj.create_time),
                         ETag: `"${obj.etag}"`,
                         Size: obj.size,

@@ -23,9 +23,7 @@ module.exports = {
     reduce_sum: reduce_sum,
     reduce_noop: reduce_noop,
     map_common_prefixes_and_objects: map_common_prefixes_and_objects,
-    regular_reduce_common_prefixes_occurrence_and_objects: regular_reduce_common_prefixes_occurrence_and_objects,
-    uploads_reduce_common_prefixes_occurrence_and_objects: uploads_reduce_common_prefixes_occurrence_and_objects,
-    versions_reduce_common_prefixes_occurrence_and_objects: versions_reduce_common_prefixes_occurrence_and_objects,
+    reduce_common_prefixes_occurrence_and_objects: reduce_common_prefixes_occurrence_and_objects,
 };
 
 // declare names that these functions expect to have in scope
@@ -53,32 +51,7 @@ function map_common_prefixes_and_objects() {
 // Reduce function of the common prefixes map.
 // In case of common prefix it will return the key and the number of occurrences.
 // In case of an object it will return the object's details.
-function regular_reduce_common_prefixes_occurrence_and_objects(key, values) {
-    if (key[1] === 'common_prefix') {
-        return values.reduce(function(total, curr) {
-            return total + curr;
-        }, 0);
-    }
-    values.sort((a, b) => (b.create_time - a.create_time));
-    return { objects: [values[0]] };
-}
-
-// Reduce function of the common prefixes map.
-// In case of common prefix it will return the key and the number of occurrences.
-// In case of an object it will return the object's details.
-function uploads_reduce_common_prefixes_occurrence_and_objects(key, values) {
-    if (key[1] === 'common_prefix') {
-        return values.reduce(function(total, curr) {
-            return total + curr;
-        }, 0);
-    }
-    return { objects: values };
-}
-
-// Reduce function of the common prefixes map.
-// In case of common prefix it will return the key and the number of occurrences.
-// In case of an object it will return the object's details.
-function versions_reduce_common_prefixes_occurrence_and_objects(key, values) {
+function reduce_common_prefixes_occurrence_and_objects(key, values) {
     if (key[1] === 'common_prefix') {
         return values.reduce(function(total, curr) {
             return total + curr;

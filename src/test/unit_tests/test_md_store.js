@@ -38,13 +38,13 @@ mocha.describe('md_store', function() {
                     num_parts: 0
                 }))
                 .then(() => md_store.update_object_by_id(info._id, { size: 777 }, { upload_size: 1 }, { num_parts: 88 }))
-                .then(() => md_store.find_object_by_key(bucket_id, info.key))
+                .then(() => md_store.find_object_latest(bucket_id, info.key))
                 .then(obj => assert_equal(obj, _.defaults({
                     size: 777,
                     num_parts: 88,
                 }, info)))
                 .then(() => md_store.update_object_by_id(info._id, { deleted: new Date() }))
-                .then(() => md_store.find_object_by_key(bucket_id, info.key))
+                .then(() => md_store.find_object_latest(bucket_id, info.key))
                 .then(obj => assert_equal(obj, null))
                 .then(() => md_store.update_objects_by_key_deleted(bucket_id, info.key, {
                     num_parts: 111

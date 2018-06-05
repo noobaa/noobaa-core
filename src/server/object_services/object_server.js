@@ -152,30 +152,12 @@ function complete_object_upload(req) {
                 set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
             }
         })
-        .then(() => MDStore.instance().find_object_by_key(
-            req.bucket._id,
-            req.rpc_params.key,
-            req.bucket.versioning === 'DISABLED' ? undefined : true
-        ))
-        .then(existing_obj => {
-            // In case of versioning bucket we should not delete the existing object
-            if (req.bucket.versioning === 'ENABLED') return;
-            // check if the conditions for overwrite are met, throws if not
-            check_md_conditions(req, req.rpc_params.md_conditions, existing_obj);
-            // we passed the checks, so we can delete the existing object if exists
-            return map_deleter.delete_object(existing_obj);
-        })
-        .then(() => {
-            // setting create_time close to the mdstore update
-            set_updates.create_time = new Date();
-            if (req.bucket.versioning === 'ENABLED') set_updates.has_version = true;
-            return MDStore.instance().update_object_by_id(obj._id, set_updates, unset_updates);
-        })
-        .then(() => {
+        .then(() => put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates }))
+        .tap(put_version => {
             const event_name = 'ObjectCreated:Put';
             return dispatch_triggers(req.bucket, obj, event_name, req.account._id, req.auth_token);
         })
-        .then(() => {
+        .then(put_version => {
             Dispatcher.instance().activity({
                 system: req.system._id,
                 level: 'info',
@@ -187,7 +169,7 @@ function complete_object_upload(req) {
 
             return {
                 etag: set_updates.etag,
-                version_id: req.bucket.versioning === 'ENABLED' ? obj._id.toString() : undefined
+                version_id: put_version.version_id && put_version.version_id.toString(16)
             };
         })
         .catch(err => {
@@ -243,13 +225,13 @@ function update_bucket_read_counters(req) {
  * abort_object_upload
  *
  */
-function abort_object_upload(req) {
+async function abort_object_upload(req) {
     //TODO: Maybe mark the ul as aborted so we won't continue to allocate parts
     //and only then delete. Thus not having currently allocated parts deleted,
     //while continuing to ul resulting in a partial file
-    return find_object_upload(req)
-        .then(obj => map_deleter.delete_object(obj))
-        .return();
+    const obj = await find_object_upload(req);
+    await MDStore.instance().delete_object_by_id(obj._id);
+    await map_deleter.delete_object_mappings(obj);
 }
 
 
@@ -543,60 +525,298 @@ function update_object_md(req) {
 async function delete_object(req) {
     load_bucket(req);
     const delete_version = req.rpc_params.version_id;
-    const bucket_versioning = req.bucket.versioning;
+    let response;
     try {
         throw_if_maintenance(req);
-        const obj = await find_object_md(req, true);
-        check_md_conditions(req, req.rpc_params.md_conditions, obj);
-        let info;
-
-        // In case of versioning bucket we should not delete the existing object
-        if (bucket_versioning === 'DISABLED') {
-            await map_deleter.delete_object(obj);
+        if (delete_version) {
+            const { reply, obj } = await delete_object_version(req);
+            if (reply.version_id) reply.version_id = reply.version_id.toString(16);
+            if (reply.delete_marker_version_id) reply.delete_marker_version_id = reply.delete_marker_version_id.toString(16);
+            response = { reply, obj };
         } else {
-            // Only if the object is a null 
-            if ((bucket_versioning === 'SUSPENDED' && !obj.has_version) || delete_version) {
-                await map_deleter.delete_object(obj);
-            }
-            if (delete_version) info = await _create_delete_marker(obj);
+            const { reply, obj } = await delete_object_only_key(req);
+            if (reply.version_id) reply.version_id = reply.version_id.toString(16);
+            if (reply.delete_marker_version_id) reply.delete_marker_version_id = reply.delete_marker_version_id.toString(16);
+            response = { reply, obj };
         }
 
-        Dispatcher.instance().activity({
-            system: req.system._id,
-            level: 'info',
-            event: 'obj.deleted',
-            obj: obj._id,
-            actor: req.account && req.account._id,
-            desc: `${obj.key} was deleted by ${req.account && req.account.email}`,
-        });
+        if (response.obj) {
+            Dispatcher.instance().activity({
+                system: req.system._id,
+                level: 'info',
+                event: 'obj.deleted',
+                obj: response.obj._id,
+                actor: req.account && req.account._id,
+                desc: `${response.obj.key} was deleted by ${req.account && req.account.email}`,
+            });
 
-        const event_name = 'ObjectRemoved:Delete';
-        dispatch_triggers(req.bucket, obj, event_name, req.account._id, req.auth_token);
-        let version_id = obj._id;
-        if (info) {
-            version_id = obj.has_version ? info._id : 'null';
+            const event_name = 'ObjectRemoved:Delete';
+            dispatch_triggers(req.bucket, response.obj, event_name, req.account._id, req.auth_token);
         }
-        const delete_marker = info ? info.delete_marker : obj.delete_marker;
-        return {
-            version_id: version_id.toString(),
-            delete_marker
-        };
+
+        return response.reply;
     } catch (err) {
         dbg.error('delete_object failed with', err);
-        if (err.rpc_code === 'NO_SUCH_OBJECT' && bucket_versioning !== 'DISABLED') {
-            if (delete_version) return { version_id: delete_version };
-            await _create_delete_marker({
-                system: req.system._id,
-                bucket: req.bucket._id,
-                key: req.rpc_params.key,
-                has_version: Boolean(bucket_versioning !== 'SUSPENDED')
+        throw err;
+    }
+}
+
+async function put_object_handle_latest({ req, put_obj, set_updates, unset_updates }) {
+    const bucket_versioning = req.bucket.versioning;
+    if (bucket_versioning === 'ENABLED') {
+        const obj = await MDStore.instance().find_object_latest(req.bucket._id, put_obj.key);
+        if (obj) {
+            check_md_conditions(req, req.rpc_params.md_conditions, obj);
+            // 3, 6 
+            await MDStore.instance().complete_object_upload_latest_mark_remove_current({
+                unmark_obj: obj,
+                put_obj,
+                set_updates,
+                unset_updates,
+                bucket_versioning
             });
-            return {
-                version_id: 'null',
-                delete_marker: true
-            };
+            return { version_id: put_obj.version_id };
+        } else {
+            // 6
+            const { version_id } = await complete_object_upload_latest_mark({
+                put_obj,
+                set_updates,
+                unset_updates,
+                bucket_versioning
+            });
+            return { version_id };
         }
-        if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
+    } else if (bucket_versioning === 'SUSPENDED') {
+        const obj = await MDStore.instance().find_object_null_version(req.bucket._id, put_obj.key);
+        if (obj) {
+            check_md_conditions(req, req.rpc_params.md_conditions, obj);
+            // 2, 3, 6, 7
+            if (obj.is_obj_version) {
+                const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, put_obj.key);
+                if (latest_obj) {
+                    check_md_conditions(req, req.rpc_params.md_conditions, latest_obj);
+                    // 2, 3, 6, 7
+                    await MDStore.instance().complete_object_upload_latest_mark_remove_current_and_delete({
+                        unmark_obj: latest_obj,
+                        put_obj: put_obj,
+                        set_updates,
+                        unset_updates,
+                        bucket_versioning
+                    });
+                    map_deleter.delete_object_mappings(obj);
+                    return {};
+                } else {
+                    // 6
+                    await complete_object_upload_latest_mark({
+                        put_obj,
+                        set_updates,
+                        unset_updates,
+                        bucket_versioning
+                    });
+                    return {};
+                }
+            } else {
+                await MDStore.instance().complete_object_upload_latest_mark_remove_current_and_delete({
+                    unmark_obj: obj,
+                    put_obj: put_obj,
+                    set_updates,
+                    unset_updates,
+                    bucket_versioning
+                });
+                map_deleter.delete_object_mappings(obj);
+                return {};
+            }
+        } else {
+            const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, put_obj.key);
+            if (latest_obj) {
+                check_md_conditions(req, req.rpc_params.md_conditions, latest_obj);
+                // 3, 6
+                await MDStore.instance().complete_object_upload_latest_mark_remove_current({
+                    unmark_obj: latest_obj,
+                    put_obj: put_obj,
+                    set_updates,
+                    unset_updates,
+                    bucket_versioning
+                });
+                return {};
+            } else {
+                // 6
+                await complete_object_upload_latest_mark({
+                    put_obj,
+                    set_updates,
+                    unset_updates,
+                    bucket_versioning
+                });
+                return {};
+            }
+        }
+    } else if (bucket_versioning === 'DISABLED') {
+        const obj = await MDStore.instance().find_object_null_version(req.bucket._id, put_obj.key);
+        if (obj) {
+            check_md_conditions(req, req.rpc_params.md_conditions, obj);
+            // 2, 3, 6, 7
+            await MDStore.instance().complete_object_upload_latest_mark_remove_current_and_delete({
+                unmark_obj: obj,
+                put_obj: put_obj,
+                set_updates,
+                unset_updates,
+                bucket_versioning
+            });
+            map_deleter.delete_object_mappings(obj);
+            return {};
+        } else {
+            // 6
+            await complete_object_upload_latest_mark({
+                put_obj,
+                set_updates,
+                unset_updates,
+                bucket_versioning
+            });
+            return {};
+        }
+    }
+}
+
+async function complete_object_upload_latest_mark({
+    put_obj,
+    set_updates,
+    unset_updates,
+    bucket_versioning
+}) {
+    set_updates.create_time = new Date();
+    set_updates.version_id = await MDStore.instance().get_object_version_seq();
+    if (bucket_versioning === 'ENABLED') {
+        set_updates.has_version = true;
+    }
+    await MDStore.instance().update_object_by_id(put_obj._id, set_updates, unset_updates);
+    return { version_id: set_updates.version_id };
+}
+
+async function delete_object_version(req) {
+    const delete_version = get_obj_version_id(req, 'BAD_OBJECT_VERSION_ID');
+    const bucket_versioning = req.bucket.versioning;
+    if (bucket_versioning === 'ENABLED' || bucket_versioning === 'SUSPENDED') {
+        const obj = delete_version === 'null' ?
+            await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key) :
+            await MDStore.instance().find_object_by_version(req.bucket._id, req.rpc_params.key, delete_version);
+        if (!obj) return { version_id: delete_version };
+        check_md_conditions(req, req.rpc_params.md_conditions, obj);
+        const delete_marker = obj.delete_marker;
+        if (obj.is_obj_version) {
+            // 2, 8
+            await MDStore.instance().delete_object_by_id(obj._id);
+            if (!delete_marker) await map_deleter.delete_object_mappings(obj);
+            return {
+                obj,
+                reply: { version_id: delete_version, delete_marker, delete_marker_version_id: delete_marker && delete_version }
+            };
+        } else {
+            const prev_version = await MDStore.instance().find_object_prev_version(req.bucket._id, req.rpc_params.key);
+            if (prev_version) {
+                check_md_conditions(req, req.rpc_params.md_conditions, prev_version);
+                // 2, 3, 4, 8
+                await MDStore.instance().remove_object_move_latest(obj, prev_version);
+                if (!delete_marker) await map_deleter.delete_object_mappings(obj);
+                return {
+                    obj,
+                    reply: { version_id: delete_version, delete_marker, delete_marker_version_id: delete_marker && delete_version }
+                };
+            } else {
+                // 2, 3, 8
+                await MDStore.instance().remove_object_and_unset_latest(obj);
+                if (!delete_marker) await map_deleter.delete_object_mappings(obj);
+                return {
+                    obj,
+                    reply: { version_id: delete_version, delete_marker, delete_marker_version_id: delete_marker && delete_version }
+                };
+            }
+        }
+    } else if (bucket_versioning === 'DISABLED') {
+        const obj = delete_version === 'null' && await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key);
+        if (!obj) return { version_id: delete_version };
+        if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
+        check_md_conditions(req, req.rpc_params.md_conditions, obj);
+        // 2, 3, 8
+        await MDStore.instance().remove_object_and_unset_latest(obj);
+        await map_deleter.delete_object_mappings(obj);
+        return {
+            obj,
+            reply: { version_id: delete_version }
+        };
+    }
+}
+
+async function delete_object_only_key(req) {
+    const bucket_versioning = req.bucket.versioning;
+    if (bucket_versioning === 'ENABLED') {
+        const obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
+        if (obj) {
+            check_md_conditions(req, req.rpc_params.md_conditions, obj);
+            // 3, 5 
+            const { version_id, delete_marker_version_id } = await MDStore.instance().insert_object_delete_marker_move_latest(
+                obj, /* has_version: */ true);
+            return { version_id, delete_marker: true, delete_marker_version_id };
+        } else {
+            // 5
+            const { version_id, delete_marker_version_id } = await MDStore.instance().insert_object_delete_marker({
+                bucket: req.bucket._id,
+                system: req.system._id,
+                key: req.rpc_params.key,
+                has_version: true
+            });
+            return { version_id, delete_marker: true, delete_marker_version_id };
+        }
+    } else if (bucket_versioning === 'SUSPENDED') {
+        const obj = await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key);
+        if (obj) {
+            check_md_conditions(req, req.rpc_params.md_conditions, obj);
+            const delete_marker = obj.delete_marker;
+            if (obj.is_obj_version) {
+                const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
+                if (latest_obj) {
+                    check_md_conditions(req, req.rpc_params.md_conditions, latest_obj);
+                    // 3, 5
+                    const { version_id, delete_marker_version_id } =
+                    await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj, latest_obj);
+                    if (!delete_marker) await map_deleter.delete_object_mappings(obj);
+                    return { version_id, delete_marker: true, delete_marker_version_id };
+                } else {
+                    // TODO: Should not happen since it means that we do not have latest
+                    throw new RpcError('NO_SUCH_OBJECT', 'No such object: ' + req.rpc_params.key);
+                }
+            } else {
+                // 2, 3, 5
+                const { version_id, delete_marker_version_id } =
+                await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj);
+                if (!delete_marker) await map_deleter.delete_object_mappings(obj);
+                return { version_id, delete_marker: true, delete_marker_version_id };
+            }
+        } else {
+            const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
+            if (latest_obj) {
+                check_md_conditions(req, req.rpc_params.md_conditions, latest_obj);
+                // 3, 5 
+                const { version_id, delete_marker_version_id } =
+                await MDStore.instance().insert_object_delete_marker_move_latest(latest_obj);
+                return { version_id, delete_marker: true, delete_marker_version_id };
+            } else {
+                // 5
+                const { version_id, delete_marker_version_id } = await MDStore.instance().insert_object_delete_marker({
+                    bucket: req.bucket._id,
+                    system: req.system._id,
+                    key: req.rpc_params.key,
+                });
+                return { version_id, delete_marker: true, delete_marker_version_id };
+            }
+        }
+    } else if (bucket_versioning === 'DISABLED') {
+        const obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
+        if (!obj) return {};
+        check_md_conditions(req, req.rpc_params.md_conditions, obj);
+        if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
+        // 2, 3, 8
+        await MDStore.instance().remove_object_and_unset_latest(obj);
+        await map_deleter.delete_object_mappings(obj);
         return {};
     }
 }
@@ -610,167 +830,35 @@ async function delete_multiple_objects(req) {
     dbg.log0('delete_multiple_objects: keys =', req.params.objects);
     throw_if_maintenance(req);
     load_bucket(req);
-    const versioning_bucket_enabled = req.bucket.versioning === 'ENABLED';
-    const versioning_bucket_disabled = req.bucket.versioning === 'DISABLED';
-    let key_only_deletions;
-    let version_only_deletions;
-    const objects_with_version_id = await Promise.all(req.params.objects.filter(obj => obj.version_id)
-        .map(async obj => {
-            if (obj.version_id === 'null') {
-                const null_ver_obj = await MDStore.instance().find_object_by_key(req.bucket._id, obj.key, true);
-                if (!null_ver_obj) {
-                    return {
-                        key: obj.key,
-                        system: req.system._id,
-                        bucket: req.bucket._id,
-                        version_id: obj.version_id.toString(),
-                        not_existing: true
-                    };
-                }
-                return null_ver_obj;
-            } else {
-                const ver_obj = await MDStore.instance().find_object_by_id(MDStore.instance().make_md_id(obj.version_id));
-                if (!ver_obj) {
-                    return {
-                        key: obj.key,
-                        system: req.system._id,
-                        bucket: req.bucket._id,
-                        version_id: obj.version_id.toString(),
-                        not_existing: true
-                    };
-                }
-                return ver_obj;
-            }
-        })
-    );
-    const objects_with_key_only = await Promise.all(req.params.objects.filter(obj => !obj.version_id)
-        .map(async obj => {
-            const res_obj = await MDStore.instance().find_object_by_key(
-                req.bucket._id, obj.key,
-                versioning_bucket_enabled ? undefined : true
+    const objects = req.params.objects;
+    return P.map(objects, async obj => {
+        try {
+            const res = await delete_object(
+                _.assign(req, {
+                    rpc_params: {
+                        version_id: obj.version_id,
+                        bucket: req.bucket.name,
+                        key: obj.key
+                    }
+                })
             );
-            if (!res_obj) return { key: obj.key, system: req.system._id, bucket: req.bucket._id, not_existing: true };
-            return res_obj;
-        }));
-
-    // This part handles the deletion of keys only (version_id not supplied in deletion record)
-    if (versioning_bucket_disabled) {
-        const existing_objects = objects_with_key_only.filter(obj => !obj.not_existing);
-        const non_existing_objects = objects_with_key_only.filter(obj => obj.not_existing);
-        const deletion_results = await map_deleter.delete_multiple_objects(existing_objects);
-        key_only_deletions = deletion_results.map(del_res => {
-            if (del_res.err) {
-                return compact({
-                    key: del_res.obj.key,
-                    // TODO: Should map the AccessDenied as well
-                    code: 'InternalError',
-                    message: del_res.err.message || 'UNKNOWN'
-                });
-            } else {
-                return compact({ key: del_res.obj.key });
-            }
-        });
-        // Adding all of the non existing objects as success
-        key_only_deletions = _.compact(_.concat(key_only_deletions, non_existing_objects.map(obj => compact({
-            key: obj.key,
-        }))));
-    } else if (versioning_bucket_enabled) {
-        key_only_deletions = await Promise.all(objects_with_key_only.map(async obj => {
-            try {
-                const delete_marker = await _create_delete_marker(obj);
-                return {
-                    key: obj.key,
-                    delete_marker: true,
-                    delete_marker_version_id: delete_marker._id.toString()
-                };
-            } catch (error) {
-                return {
-                    key: obj.key,
-                    // TODO: Should map the AccessDenied as well
-                    code: 'InternalError',
-                    message: error.message || 'UNKNOWN'
-                };
-            }
-        }));
-    } else {
-        // Means that we are in suspended
-        // The existing should be null objects
-        const existing_objects = objects_with_key_only.filter(obj => !obj.not_existing);
-        const non_existing_objects = objects_with_key_only.filter(obj => obj.not_existing);
-        const deletion_results = await map_deleter.delete_multiple_objects(existing_objects);
-        key_only_deletions = deletion_results.map(async del_res => {
-            try {
-                if (del_res.err) {
-                    throw new Error(del_res.err);
-                } else {
-                    // For null versions on delete without version_id we must create a marker in suspended
-                    await _create_delete_marker(del_res.obj);
-                    return compact({
-                        key: del_res.obj.key,
-                        delete_marker: true,
-                        version_id: 'null'
-                    });
-                }
-            } catch (error) {
-                return compact({
-                    key: del_res.obj.key,
-                    // TODO: Should map the AccessDenied as well
-                    code: 'InternalError',
-                    message: del_res.err.message || 'UNKNOWN'
-                });
-            }
-        });
-        // Adding all of the non existing objects as success
-        key_only_deletions = _.compact(_.concat(key_only_deletions, non_existing_objects.map(async obj => {
-            try {
-                // For non existing objects on delete we must create a marker in suspended
-                await _create_delete_marker(obj);
-                return compact({
-                    key: obj.key,
-                    delete_marker: true,
-                    version_id: 'null'
-                });
-            } catch (error) {
-                return compact({
-                    key: obj.key,
-                    // TODO: Should map the AccessDenied as well
-                    code: 'InternalError',
-                    message: error.message || 'UNKNOWN'
-                });
-            }
-        })));
-    }
-
-    const existing_objects = objects_with_version_id.filter(obj => !obj.not_existing);
-    const non_existing_objects = objects_with_version_id.filter(obj => obj.not_existing);
-    // This part handles the deletion of keys with version_id (version_id was supplied in deletion record)
-    const deletion_results = await map_deleter.delete_multiple_objects(existing_objects);
-    version_only_deletions = deletion_results.map(del_res => {
-        if (del_res.err) {
-            return compact({
-                key: del_res.obj.key,
-                version_id: del_res.obj._id.toString(),
+            return {
+                key: obj.key,
+                version_id: obj.version_id,
+                delete_marker_version_id: res.delete_marker && res.delete_marker_version_id,
+                delete_marker: res.delete_marker
+            };
+        } catch (err) {
+            dbg.error('Multiple delete for obj', obj, 'failed with reason', err);
+            return {
+                key: obj.key,
+                version_id: obj.version_id,
                 // TODO: Should map the AccessDenied as well
                 code: 'InternalError',
-                message: del_res.err.message || 'UNKNOWN'
-            });
-        } else {
-            return compact({
-                key: del_res.obj.key,
-                version_id: del_res.obj._id.toString(),
-                delete_marker: versioning_bucket_disabled ? undefined : del_res.obj.delete_marker,
-                delete_marker_version_id: del_res.obj.delete_marker && !versioning_bucket_disabled ?
-                    del_res.obj._id.toString() : undefined
-            });
+                message: err.message || 'UNKNOWN'
+            };
         }
     });
-    // Adding all of the non existing objects as success
-    version_only_deletions = _.compact(_.concat(version_only_deletions, non_existing_objects.map(obj => compact({
-        key: obj.key,
-        version_id: obj.version_id.toString()
-    }))));
-
-    return _.compact(_.concat(key_only_deletions, version_only_deletions));
 }
 
 /**
@@ -791,7 +879,15 @@ function delete_multiple_objects_by_prefix(req) {
         })
         .then(objects => {
             dbg.log0('delete_multiple_objects_by_prefix:', _.map(objects, 'key'));
-            return map_deleter.delete_multiple_objects(objects);
+            return delete_multiple_objects(_.assign(req, {
+                rpc_params: {
+                    bucket: req.bucket.name,
+                    objects: _.map(objects, obj => ({
+                        key: obj.key,
+                        version_id: (obj.has_version ? obj.version_id.toString(16) : 'null')
+                    }))
+                }
+            }));
         })
         .return();
 }
@@ -819,7 +915,6 @@ function list_objects(req) {
     // Last object's key that was received from list-objects last call (when truncated)
     // This is used in order to continue from a certain key when the response is truncated
     var marker = req.rpc_params.key_marker ? (prefix + req.rpc_params.key_marker) : '';
-    const versioning = req.bucket.versioning !== 'DISABLED';
     const received_limit = _.isUndefined(req.rpc_params.limit) ? 1000 : req.rpc_params.limit;
 
     if (received_limit < 0) {
@@ -857,7 +952,6 @@ function list_objects(req) {
                 prefix,
                 marker,
                 limit,
-                versioning
             })
             .then(res => {
                 results = _.concat(results, res);
@@ -1075,7 +1169,6 @@ function list_object_versions(req) {
         )
         .then(() => {
             // This is done since the versioning requires a different sorting that other lists
-            const sort_for_versioning_order = objects => _.orderBy(objects, ['key', 'create_time'], ['asc', 'desc']);
             console.log(results);
             // Fetching common prefixes and returning them in appropriate property
             reply.common_prefixes = _.map(_.filter(results, r => !r.obj), 'key');
@@ -1083,7 +1176,6 @@ function list_object_versions(req) {
             const prefixes_set = new Set(reply.common_prefixes);
             // Filtering all of the prefixes and returning only objects
             reply.objects = _.map(_.filter(results, r => r.obj && !prefixes_set.has(r.key)), r => get_object_info(r.obj));
-            reply.objects = sort_for_versioning_order(reply.objects);
             return reply;
         });
 }
@@ -1237,7 +1329,7 @@ function get_object_info(md) {
     var bucket = system_store.data.get_by_id(md.bucket);
     return {
         obj_id: md._id,
-        version_id: md.has_version ? md._id.toString() : 'null',
+        version_id: (md.has_version && md.version_id && md.version_id.toString(16)) || 'null',
         bucket: bucket.name,
         key: md.key,
         size: md.size || 0,
@@ -1250,7 +1342,7 @@ function get_object_info(md) {
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
         delete_marker: md.delete_marker,
-        is_latest: md.is_latest,
+        is_obj_version: md.is_obj_version,
         has_version: md.has_version,
         xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),
         cloud_synced: md.cloud_synced,
@@ -1286,31 +1378,29 @@ const object_md_cache = new LRUCache({
     }
 });
 
-function find_object_md(req, allow_delete_marker) {
+function find_object_md(req) {
     return P.resolve()
         .then(() => {
             load_bucket(req);
             // requests can omit obj_id if the caller does not care about consistency of the object identity between calls
             // which is othersize
-            if (req.rpc_params.obj_id || req.rpc_params.version_id) {
-                const _id = req.rpc_params.version_id ?
-                    get_obj_version_id(req, 'BAD_OBJECT_VERSION_ID') :
-                    get_obj_id(req, 'BAD_OBJECT_ID');
-                // This is the case when we want to delete the null version of the object
-                // In this case there should be a key as well
-                if (_id === 'null') {
-                    return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key, true);
+            if (req.rpc_params.version_id) {
+                const version_id = get_obj_version_id(req, 'BAD_OBJECT_VERSION_ID');
+                if (version_id === 'null') {
+                    return MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key);
                 } else {
-                    return MDStore.instance().find_object_by_id(_id);
+                    return MDStore.instance().find_object_by_version(req.bucket._id, req.rpc_params.key, version_id);
                 }
             }
-            if (allow_delete_marker && req.bucket.versioning !== 'ENABLED') {
-                return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key, true);
-            } else {
-                return MDStore.instance().find_object_by_key(req.bucket._id, req.rpc_params.key);
+
+            if (req.rpc_params.obj_id) {
+                const _id = get_obj_id(req, 'BAD_OBJECT_ID');
+                return MDStore.instance().find_object_by_id(_id);
             }
+
+            return MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
         })
-        .then(obj => check_object_mode(req, obj, 'NO_SUCH_OBJECT', allow_delete_marker));
+        .then(obj => check_object_mode(req, obj, 'NO_SUCH_OBJECT'));
 }
 
 function find_object_upload(req) {
@@ -1342,14 +1432,15 @@ function get_obj_id(req, rpc_code) {
 
 function get_obj_version_id(req, rpc_code) {
     if (req.rpc_params.version_id === 'null') return 'null';
-    if (!MDStore.instance().is_valid_md_id(req.rpc_params.version_id)) {
+    const parsed_version_id = parseInt(req.rpc_params.version_id, 16);
+    if (!_.isNumber(parsed_version_id) || isNaN(parsed_version_id)) {
         throw new RpcError(rpc_code, `invalid obj_version_id ${req.rpc_params.version_id}`);
     }
-    return MDStore.instance().make_md_id(req.rpc_params.version_id);
+    return parsed_version_id;
 }
 
-function check_object_mode(req, obj, rpc_code, allow_delete_marker) {
-    if (!obj || obj.deleted || (!allow_delete_marker && obj.delete_marker)) {
+function check_object_mode(req, obj, rpc_code) {
+    if (!obj || obj.deleted || obj.delete_marker) {
         throw new RpcError(rpc_code,
             `No such object: obj_id ${req.rpc_params.obj_id} bucket ${req.rpc_params.bucket} key ${req.rpc_params.key}`);
     }
@@ -1458,27 +1549,6 @@ function dispatch_triggers(bucket, obj, event_name, actor, token) {
     const triggers_to_run = events_dispatcher.get_triggers_for_event(bucket, obj, event_name);
     if (!triggers_to_run) return;
     setTimeout(() => events_dispatcher.run_bucket_triggers(triggers_to_run, bucket, obj, actor, token), 1000);
-}
-
-async function _create_delete_marker(obj) {
-    let info = {
-        _id: MDStore.instance().make_md_id(),
-        system: obj.system,
-        bucket: obj.bucket,
-        key: obj.key,
-        content_type: obj.content_type ||
-            mime.getType(obj.key) ||
-            'application/octet-stream',
-        delete_marker: true,
-        create_time: new Date()
-    };
-    if (obj.has_version) info.has_version = obj.has_version;
-    await MDStore.instance().insert_object(info);
-    return info;
-}
-
-function compact(obj) {
-    return _.omitBy(obj, _.isUndefined);
 }
 
 // EXPORTS

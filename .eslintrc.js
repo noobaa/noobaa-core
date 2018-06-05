@@ -68,7 +68,7 @@ module.exports = {
         'max-depth': ['error', 5],
 
         // max file length is 300 by default, we accept longer files
-        'max-lines': ['error', 1500],
+        'max-lines': ['error', 2000],
 
         // prefer small number of params to functions, otherwise send object
         // TODO eslint max-params per function should be reduced to ~4 instead of 6

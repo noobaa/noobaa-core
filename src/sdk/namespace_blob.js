@@ -107,6 +107,19 @@ class NamespaceBlob {
         });
     }
 
+    list_object_versions(params, object_sdk) {
+        dbg.log0('NamespaceBlob.list_object_versions:',
+            this.container,
+            inspect(params)
+        );
+        // TODO list object versions
+        return P.resolve({
+            objects: [],
+            common_prefixes: [],
+            is_truncated: false,
+        });
+    }
+
     /////////////////
     // OBJECT READ //
     /////////////////

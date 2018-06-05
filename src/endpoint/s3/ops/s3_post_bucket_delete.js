@@ -24,7 +24,7 @@ function post_bucket_delete(req) {
                     _.map(succeeded_delete, obj => (compact({
                         Deleted: {
                             Key: obj.key,
-                            VersionId: obj.has_version ? obj.version_id : 'null',
+                            VersionId: obj.version_id,
                             DeleteMarker: obj.delete_marker,
                             DeleteMarkerVersionId: obj.delete_marker_version_id,
                         }
@@ -32,7 +32,7 @@ function post_bucket_delete(req) {
                     _.map(failed_delete, obj => (compact({
                         Error: {
                             Key: obj.key,
-                            VersionId: obj.has_version ? obj.version_id : 'null',
+                            VersionId: obj.version_id,
                             Code: obj.code,
                             Message: obj.message,
                         }

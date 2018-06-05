@@ -32,6 +32,14 @@ module.exports = {
             type: 'boolean'
         },
 
+        is_obj_version: {
+            type: 'boolean'
+        },
+
+        version_id: {
+            type: 'integer'
+        },
+
         system: {
             objectid: true
         },

@@ -1,40 +1,50 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-module.exports = [{
-        // update_object_by_key()
-        // update_objects_by_key_deleted()
-        // find_object_by_key()
-        // find_objects()
-        // find_objects_by_prefix_and_delimiter()
-        // TODO index ??? has_any_completed_objects_in_bucket()
-        // TODO index ??? count_objects_of_bucket()
-        // TODO index ??? list_all_objects_of_bucket_ordered_by_key()
-        fields: {
-            bucket: 1,
-            key: 1,
-            deleted: 1,
-            upload_started: 1,
-        },
-        options: {
-            unique: false,
-        }
-    },
-    // find_object_by_key()
-    // find_objects()
-    // find_objects_by_prefix_and_delimiter()
-    {
-        fields: {
-            bucket: 1,
-            key: 1,
-            deleted: 1,
-            create_time: -1,
-            upload_started: 1,
-        },
-        options: {
-            unique: true,
-        }
-    },
+module.exports = [
+    // {
+    //     // update_object_by_key() same as latest
+    //     // update_objects_by_key_deleted() same as the prefix for all the objects
+    //     // find_object_by_key() same as latest
+    //     // find_objects() not indexed for the create_time
+    //     // find_objects_by_prefix_and_delimiter()
+    //     // TODO index ??? has_any_completed_objects_in_bucket()
+    //     // TODO index ??? count_objects_of_bucket()
+    //     // TODO index ??? list_all_objects_of_bucket_ordered_by_key()
+    //     fields: {
+    //         bucket: 1,
+    //         key: 1,
+    //         deleted: 1,
+    //         upload_started: 1,
+    //     },
+    //     options: {
+    //         unique: false,
+    //     }
+    // },
+    // // find_object_by_key()
+    // // find_objects()
+    // // find_objects_by_prefix_and_delimiter()
+    // {
+    //     fields: {
+    //         bucket: 1,
+    //         key: 1,
+    //         deleted: 1,
+    //         create_time: -1,
+    //         upload_started: 1,
+    //     },
+    //     options: {
+    //         unique: true,
+    //     }
+    // },
+
+
+
+
+
+
+
+
+
     {
         // list_all_objects_of_bucket_need_sync()
         // update_all_objects_of_bucket_unset_cloud_sync()

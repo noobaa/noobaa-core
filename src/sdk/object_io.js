@@ -213,6 +213,7 @@ class ObjectIO {
             })
             .then(object_md => {
                 params.copy_source.obj_id = object_md.obj_id;
+                params.copy_source.version_id = object_md.version_id;
                 create_params.md5_b64 = object_md.md5_b64;
                 create_params.sha256_b64 = object_md.sha256_b64;
                 if (!create_params.content_type && object_md.content_type) {

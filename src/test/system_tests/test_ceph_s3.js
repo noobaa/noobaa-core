@@ -172,6 +172,34 @@ const S3_CEPH_TEST_WHITELIST = [
     's3tests.functional.test_s3:test_ranged_request_skip_leading_bytes_response_code',
     's3tests.functional.test_s3:test_ranged_request_return_trailing_bytes_response_code',
     's3tests.functional.test_s3:test_ranged_request_invalid_range',
+    // Versioning tests
+    's3tests.functional.test_s3:test_bucket_list_return_data_versioning',
+    's3tests.functional.test_s3:test_bucket_list_marker_versioning',
+    's3tests.functional.test_s3:test_object_copy_versioned_bucket',
+    's3tests.functional.test_s3:test_object_copy_versioning_multipart_upload',
+    's3tests.functional.test_s3:test_versioning_bucket_create_suspend',
+    's3tests.functional.test_s3:test_versioning_obj_create_read_remove',
+    's3tests.functional.test_s3:test_versioning_obj_create_read_remove_head',
+    's3tests.functional.test_s3:test_versioning_obj_plain_null_version_removal',
+    's3tests.functional.test_s3:test_versioning_obj_plain_null_version_overwrite',
+    's3tests.functional.test_s3:test_versioning_obj_plain_null_version_overwrite_suspended',
+    's3tests.functional.test_s3:test_versioning_obj_suspend_versions',
+    's3tests.functional.test_s3:test_versioning_obj_suspend_versions_simple',
+    's3tests.functional.test_s3:test_versioning_obj_create_versions_remove_all',
+    's3tests.functional.test_s3:test_versioning_obj_create_versions_remove_special_names',
+    's3tests.functional.test_s3:test_versioning_obj_create_overwrite_multipart',
+    's3tests.functional.test_s3:test_versioning_copy_obj_version',
+    's3tests.functional.test_s3:test_versioning_multi_object_delete',
+    's3tests.functional.test_s3:test_versioning_multi_object_delete_with_marker',
+    's3tests.functional.test_s3:test_versioning_multi_object_delete_with_marker_create',
+    's3tests.functional.test_s3:test_versioning_bucket_atomic_upload_return_version_id',
+    's3tests.functional.test_s3:test_versioning_bucket_multipart_upload_return_version_id',
+    // 'test_multipart_copy_versioned - Doesn't work'
+    // 'test_versioning_obj_list_marker' - Fails on AWS as well
+    // 'test_versioned_concurrent_object_create_concurrent_remove' - We have problem with race on deletes (semaphore solves)
+    // 'test_versioned_concurrent_object_create_and_remove' - We have problem with race on deletes (semaphore solves)
+    // 'test_versioned_object_acl' - No support for acl
+    // 'test_versioned_object_acl_no_version_specified' - No support for acl
     's3tests.functional.test_utils:test_generate'
 ];
 

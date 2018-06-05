@@ -96,40 +96,7 @@ function delete_blocks_from_node(blocks) {
         });
 }
 
-/*
- * delete_object
- * delete objects mappings and MD
- */
-// TODO: Should also throw if did not succeed deleting from the node
-function delete_object(obj) {
-    if (!obj) return P.resolve();
-    return MDStore.instance().delete_object_by_id(obj._id)
-        .then(() => delete_object_mappings(obj))
-        .return();
-}
-
-/*
- * delete_multiple_objects
- * delete multiple bjects mappings and MD
- */
-// TODO: Should also throw if did not succeed deleting from the node
-function delete_multiple_objects(objects) {
-    if (!objects) return P.resolve();
-    return P.map(objects, async obj => {
-        try {
-            await delete_object(obj);
-            return { obj };
-        } catch (err) {
-            dbg.error('delete_multiple_objects failed for obj:', obj, 'with error: ', err);
-            return { obj, err };
-        }
-    }, { concurrency: 10 });
-}
-
-
 // EXPORTS
-exports.delete_object = delete_object;
 exports.delete_chunks = delete_chunks;
-exports.delete_multiple_objects = delete_multiple_objects;
 exports.delete_object_mappings = delete_object_mappings;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;

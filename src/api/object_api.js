@@ -428,6 +428,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
+                    version_id: { type: 'string' },
                     bucket: {
                         type: 'string',
                     },
@@ -697,9 +698,8 @@ module.exports = {
                 type: 'object',
                 properties: {
                     version_id: { type: 'string' },
-                    delete_marker: {
-                        type: 'boolean',
-                    },
+                    delete_marker: { type: 'boolean' },
+                    delete_marker_version_id: { type: 'string' }
                 }
             },
             auth: {
@@ -1245,7 +1245,7 @@ module.exports = {
                 delete_marker: {
                     type: 'boolean'
                 },
-                is_latest: {
+                is_obj_version: {
                     type: 'boolean'
                 },
                 // This was done on purpose to not create an upgrade script for ObjectMDs

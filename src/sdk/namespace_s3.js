@@ -49,6 +49,16 @@ class NamespaceS3 {
         });
     }
 
+    list_object_versions(params, object_sdk) {
+        dbg.log0('NamespaceS3.list_object_versions:', this.bucket, inspect(params));
+        // TODO list object versions
+        return P.resolve({
+            objects: [],
+            common_prefixes: [],
+            is_truncated: false,
+        });
+    }
+
     list_objects(params, object_sdk) {
         dbg.log0('NamespaceS3.list_objects:', this.bucket, inspect(params));
 

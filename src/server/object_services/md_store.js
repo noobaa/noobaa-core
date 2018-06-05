@@ -5,6 +5,7 @@ const _ = require('lodash');
 const assert = require('assert');
 const moment = require('moment');
 const mongodb = require('mongodb');
+const mime = require('mime');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -130,6 +131,7 @@ class MDStore {
                 key: key,
                 deleted: null,
                 upload_started: null,
+                is_obj_version: null
             }, compact_updates(set_updates))
             .then(res => mongo_utils.check_update_one(res, 'object'));
     }
@@ -148,26 +150,6 @@ class MDStore {
         return this._objects.col().findOne({
             _id: obj_id
         });
-    }
-
-    async find_object_by_key(bucket_id, key, has_version_null) {
-        const response = await this._objects.col().findOne(compact({
-            bucket: bucket_id,
-            key: key,
-            deleted: null,
-            create_time: { $exists: true },
-            upload_started: null,
-            has_version: has_version_null ? null : undefined,
-        }), {
-            sort: {
-                bucket: 1,
-                key: 1,
-                deleted: 1,
-                create_time: -1,
-                upload_started: 1
-            }
-        });
-        return response;
     }
 
     populate_objects(docs, doc_path, fields) {
@@ -237,39 +219,30 @@ class MDStore {
         limit,
         version_id_marker
     }) {
-        // This sort order is crucial for the query to work optimized
-        // Pay attention prior to any changes and analyze query results
-        // Basically we are interested in primary sort by key and secondary by _id
-        // Both the bucket and deleted will be the same, this is needed for index optimization
         const sort = {
             bucket: 1,
             key: 1,
             deleted: 1,
-            // This is used instead of _id since they are the same values
-            create_time: -1,
-            upload_started: 1,
+            version_id: -1
         };
         const { key_cond, regexp } = this._build_key_cond_for_list({ marker, prefix, delimiter });
         const query = compact({
             bucket: bucket_id,
             key: _.isEmpty(key_cond) ? undefined : key_cond,
             deleted: null,
-            // Notice that we use undefined so it will be removed from the query
-            // Since we have two different indexes we are interested in the most
-            // Optimal index that we can possibly get in case of null it will use
-            // A different index which was designed for the versioning
-            create_time: { $exists: true },
-            // $exists is less optimized than comparing to null
-            upload_started: null
+            // TODO: I cannot write that since not all have versions
+            // version_id: { $exists: true },
+            // This is not required since we do not assign a sequence to uploading objects
+            // upload_started: null
         });
 
         if (marker && version_id_marker) {
-            this._build_key_id_marker_for_list(query, { regexp, marker, id_marker: version_id_marker });
+            this._build_key_id_marker_for_list(query, { regexp, marker, version_id_marker });
         }
 
         const res = delimiter ? await this._objects.col().mapReduce(
             mongo_functions.map_common_prefixes_and_objects,
-            mongo_functions.versions_reduce_common_prefixes_occurrence_and_objects, {
+            mongo_functions.reduce_common_prefixes_occurrence_and_objects, {
                 query,
                 limit,
                 sort,
@@ -278,55 +251,32 @@ class MDStore {
             }
         ) : await this._objects.col().find(query, { limit, sort }).toArray();
 
-        const sort_in_order = response => _.sortBy(response, ['key', 'obj._id']);
-        let resolved_response = this._resolve_response(({ query: res, prefix, delimiter }));
-        this._mark_latest_keys(resolved_response);
-        return sort_in_order(resolved_response);
+        return this._resolve_response(({ query: res, prefix, delimiter }));
     }
-
 
     async list_objects({
         bucket_id,
         delimiter,
         prefix,
         marker,
-        limit,
-        versioning
+        limit
     }) {
-        // This sort order is crucial for the query to work optimized
-        // Pay attention prior to any changes and analyze query results
-        // Basically we are interested in primary sort by key and secondary by _id
-        // Both the bucket and deleted will be the same, this is needed for index optimization
-        const sort = versioning ? {
+        const sort = {
             bucket: 1,
             key: 1,
-            deleted: 1,
-            // This is used instead of _id since they are the same values
-            create_time: -1,
-            upload_started: 1,
-        } : {
-            bucket: 1,
-            key: 1,
-            deleted: 1,
-            // This is used instead of _id since they are the same values
-            upload_started: 1
         };
         const { key_cond } = this._build_key_cond_for_list({ marker, prefix, delimiter });
         const query = compact({
             bucket: bucket_id,
             key: _.isEmpty(key_cond) ? undefined : key_cond,
             deleted: null,
-            // Notice that we use undefined so it will be removed from the query
-            // Since we have two different indexes we are interested in the most
-            // Optimal index that we can possibly get in case of null it will use
-            // A different index which was designed for the versioning
-            create_time: versioning ? { $exists: true } : undefined,
-            upload_started: null
+            upload_started: null,
+            is_obj_version: null
         });
 
         const res = delimiter ? await this._objects.col().mapReduce(
             mongo_functions.map_common_prefixes_and_objects,
-            mongo_functions.regular_reduce_common_prefixes_occurrence_and_objects, {
+            mongo_functions.reduce_common_prefixes_occurrence_and_objects, {
                 query,
                 limit,
                 sort,
@@ -335,26 +285,7 @@ class MDStore {
             }
         ) : await this._objects.col().find(query, { limit, sort }).toArray();
 
-        const sort_in_order = response => _.sortBy(response, ['key', 'obj._id']);
-        let resolved_response = this._resolve_response(({ query: res, prefix, delimiter }));
-        this._mark_latest_keys(resolved_response);
-        if (versioning) {
-            const unique_response = this._get_unique_latest_keys(resolved_response);
-            const response_length = unique_response.length;
-            if (response_length) {
-                // We are only interested in getting the latest for objects
-                // There is no point in getting latest for common_prefix
-                const last_obj = unique_response[response_length - 1].obj;
-                if (last_obj) {
-                    const last_key_latest = await this.find_object_by_key(bucket_id, last_obj.key);
-                    if (String(last_key_latest._id) !== String(last_obj._id)) {
-                        unique_response[response_length - 1].obj = last_key_latest;
-                    }
-                }
-            }
-            resolved_response = unique_response;
-        }
-        return sort_in_order(resolved_response);
+        return this._resolve_response(({ query: res, prefix, delimiter }));
     }
 
     async list_uploads({
@@ -365,10 +296,6 @@ class MDStore {
         limit,
         upload_id_marker,
     }) {
-        // This sort order is crucial for the query to work optimized
-        // Pay attention prior to any changes and analyze query results
-        // Basically we are interested in primary sort by key and secondary by _id
-        // Both the bucket and deleted will be the same, this is needed for index optimization
         const sort = {
             bucket: 1,
             key: 1,
@@ -391,7 +318,7 @@ class MDStore {
 
         const res = delimiter ? await this._objects.col().mapReduce(
             mongo_functions.map_common_prefixes_and_objects,
-            mongo_functions.uploads_reduce_common_prefixes_occurrence_and_objects, {
+            mongo_functions.reduce_common_prefixes_occurrence_and_objects, {
                 query,
                 limit,
                 sort,
@@ -400,9 +327,7 @@ class MDStore {
             }
         ) : await this._objects.col().find(query, { limit, sort }).toArray();
 
-        const sort_in_order = response => _.sortBy(response, ['key', 'obj._id']);
-        let resolved_response = this._resolve_response({ query: res, prefix, delimiter });
-        return sort_in_order(resolved_response);
+        return this._resolve_response({ query: res, prefix, delimiter });
     }
 
     _resolve_response({ query, prefix, delimiter }) {
@@ -456,7 +381,235 @@ class MDStore {
         return { key_cond, regexp };
     }
 
-    _build_key_id_marker_for_list(query, { regexp, marker, id_marker }) {
+    async find_object_null_version(bucket_id, key) {
+        return this._objects.col().findOne({
+            bucket: bucket_id,
+            key: key,
+            deleted: null,
+            upload_started: null,
+            has_version: null,
+        });
+    }
+
+    async find_object_by_version(bucket_id, key, version_id) {
+        return this._objects.col().findOne({
+            bucket: bucket_id,
+            key: key,
+            deleted: null,
+            version_id
+        });
+    }
+
+    async find_object_latest(bucket_id, key) {
+        return this._objects.col().findOne({
+            bucket: bucket_id,
+            key: key,
+            deleted: null,
+            upload_started: null,
+            is_obj_version: null,
+        });
+    }
+
+    async find_object_prev_version(bucket_id, key) {
+        return this._objects.col().findOne({
+            bucket: bucket_id,
+            key: key,
+            deleted: null,
+            is_obj_version: true,
+        }, {
+            sort: {
+                bucket: 1,
+                key: 1,
+                deleted: 1,
+                version_id: -1
+            }
+        });
+    }
+
+    // 2, 3
+    async remove_object_and_unset_latest(obj) {
+        const res = await this._objects.col().updateOne({
+            _id: obj._id,
+            deleted: null
+        }, {
+            $set: { deleted: new Date(), cloud_synced: false, is_obj_version: true },
+        });
+        mongo_utils.check_update_one(res, 'object');
+    }
+
+    // 2, 3, 4
+    async remove_object_move_latest(old_latest_obj, new_latest_obj) {
+        const bulk = this._objects.col().initializeOrderedBulkOp();
+        bulk.find({ _id: old_latest_obj._id, deleted: null })
+            .updateOne({
+                $set: { deleted: new Date(), cloud_synced: false, is_obj_version: true },
+            });
+
+        bulk.find({
+                _id: new_latest_obj._id,
+                deleted: null
+            })
+            .updateOne({
+                $unset: { is_obj_version: true },
+            });
+
+        await bulk.execute();
+    }
+
+    async insert_object_delete_marker(obj) {
+        const object_sequence = await this.get_object_version_seq();
+        const delete_marker = {
+            _id: MDStore.instance().make_md_id(),
+            system: obj.system,
+            bucket: obj.bucket,
+            key: obj.key,
+            content_type: obj.content_type ||
+                mime.getType(obj.key) ||
+                'application/octet-stream',
+            delete_marker: true,
+            create_time: new Date(),
+            version_id: object_sequence,
+        };
+        if (obj.has_version) delete_marker.has_version = obj.has_version;
+        await MDStore.instance().insert_object(delete_marker);
+        return {
+            version_id: delete_marker.has_version ? object_sequence : 'null',
+            delete_marker_version_id: delete_marker.has_version ? object_sequence : 'null'
+        };
+    }
+
+    async insert_object_delete_marker_move_latest(obj, has_version) {
+        const bulk = this._objects.col().initializeOrderedBulkOp();
+        bulk.find({ _id: obj._id, deleted: null })
+            .updateOne({
+                $set: { is_obj_version: true }
+            });
+
+        const object_sequence = await this.get_object_version_seq();
+        const delete_marker = {
+            _id: MDStore.instance().make_md_id(),
+            system: obj.system,
+            bucket: obj.bucket,
+            key: obj.key,
+            content_type: obj.content_type ||
+                mime.getType(obj.key) ||
+                'application/octet-stream',
+            delete_marker: true,
+            create_time: new Date(),
+            version_id: object_sequence,
+        };
+        if (has_version) delete_marker.has_version = has_version;
+        bulk.insert(delete_marker);
+
+        await bulk.execute();
+        return {
+            version_id: has_version ? object_sequence : 'null',
+            delete_marker_version_id: has_version ? object_sequence : 'null'
+        };
+    }
+
+    async complete_object_upload_latest_mark_remove_current({
+        unmark_obj,
+        put_obj,
+        set_updates,
+        unset_updates,
+        bucket_versioning
+    }) {
+        const bulk = this._objects.col().initializeOrderedBulkOp();
+        bulk.find({ _id: unmark_obj._id, deleted: null })
+            .updateOne({
+                $set: { is_obj_version: true }
+            });
+        set_updates.create_time = new Date();
+        set_updates.version_id = await MDStore.instance().get_object_version_seq();
+        if (bucket_versioning === 'ENABLED') {
+            set_updates.has_version = true;
+        }
+        bulk.find({ _id: put_obj._id, deleted: null })
+            .updateOne({
+                $set: set_updates,
+                $unset: unset_updates
+            });
+        await bulk.execute();
+        return {
+            version_id: set_updates.version_id
+        };
+    }
+
+    async complete_object_upload_latest_mark_remove_current_and_delete({
+        unmark_obj,
+        put_obj,
+        set_updates,
+        unset_updates,
+        bucket_versioning
+    }) {
+        const bulk = this._objects.col().initializeOrderedBulkOp();
+        bulk.find({ _id: unmark_obj._id, deleted: null })
+            .updateOne({
+                $set: { deleted: new Date(), cloud_synced: false, is_obj_version: true },
+            });
+        set_updates.create_time = new Date();
+        set_updates.version_id = await MDStore.instance().get_object_version_seq();
+        if (bucket_versioning === 'ENABLED') {
+            set_updates.has_version = true;
+        }
+        bulk.find({ _id: put_obj._id, deleted: null })
+            .updateOne({
+                $set: set_updates,
+                $unset: unset_updates
+            });
+        await bulk.execute();
+    }
+
+    // This is for the 2, 3 and 3` for latest removal (3 objects)
+    async insert_object_delete_marker_move_latest_with_delete(obj, latest_obj) {
+        const bulk = this._objects.col().initializeOrderedBulkOp();
+        if (latest_obj) {
+            bulk.find({ _id: latest_obj._id, deleted: null })
+                .updateOne({
+                    $set: { is_obj_version: true }
+                });
+            bulk.find({ _id: obj._id, deleted: null })
+                .updateOne({
+                    $set: { deleted: new Date(), cloud_synced: false },
+                });
+        } else {
+            bulk.find({ _id: obj._id, deleted: null })
+                .updateOne({
+                    $set: { deleted: new Date(), cloud_synced: false, is_obj_version: true },
+                });
+        }
+
+        const object_sequence = await this.get_object_version_seq();
+        const delete_marker = {
+            _id: MDStore.instance().make_md_id(),
+            system: obj.system,
+            bucket: obj.bucket,
+            key: obj.key,
+            content_type: obj.content_type ||
+                mime.getType(obj.key) ||
+                'application/octet-stream',
+            delete_marker: true,
+            create_time: new Date(),
+            version_id: object_sequence,
+        };
+        if (obj.has_version) delete_marker.has_version = obj.has_version;
+        bulk.insert(delete_marker);
+
+        await bulk.execute();
+        return {
+            version_id: delete_marker.has_version ? delete_marker : 'null',
+            delete_marker_version_id: delete_marker.has_version ? delete_marker : 'null'
+        };
+    }
+
+    async get_object_version_seq() {
+        // TODO: Just a place holder right now
+        return Date.now();
+        // return Math.floor(Math.random() * Math.floor(100));
+    }
+
+    _build_key_id_marker_for_list(query, { regexp, marker, version_id_marker, id_marker }) {
         const key_cond2 = compact({
             $regex: regexp,
             $gte: marker || undefined
@@ -467,23 +620,16 @@ class MDStore {
             { key: query.key },
             compact({
                 key: _.isEmpty(key_cond2) ? undefined : key_cond2,
-                _id: { $gt: this.make_md_id(id_marker) }
+                // This was the _id so not sure about the index changing this
+                version_id: version_id_marker ? { $gt: version_id_marker } : undefined,
+                _id: id_marker ? { $gt: this.make_md_id(id_marker) } : undefined
             })
         ];
         delete query.key;
     }
 
-    _mark_latest_keys(keys) {
-        const only_objects = _.filter(keys, key => key.obj);
-        only_objects.sort((a, b) => (b.create_time - a.create_time));
-        const latest_versions = _.uniqBy(only_objects, 'key');
-        _.each(keys, element => {
-            if (element.obj && _.includes(latest_versions, element)) element.obj.is_latest = true;
-        });
-    }
-
     _get_unique_latest_keys(keys) {
-        return _.compact(_.map(keys, key => (key.obj ? (key.obj.is_latest && key) : key)));
+        return _.compact(_.map(keys, key => (key.obj ? (!key.obj.is_obj_version && key) : key)));
     }
 
     has_any_objects_in_system(system_id) {

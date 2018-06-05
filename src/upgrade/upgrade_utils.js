@@ -2,6 +2,8 @@
 'use strict';
 
 const _ = require('lodash');
+const ini = require('ini');
+
 const pkg = require('../../package.json');
 const fs = require('fs');
 const dbg = require('../util/debug_module')(__filename);
@@ -22,6 +24,7 @@ const NEW_TMP_ROOT = `${EXTRACTION_PATH}/noobaa-core`;
 const PACKAGE_FILE_NAME = 'new_version.tar.gz';
 const SPAWN_SCRIPT = `${NEW_TMP_ROOT}/src/deploy/NVA_build/two_step_upgrade_checkups_spawn.sh`;
 const ERRORS_PATH = `${TMP_PATH}/new_tests_errors.json`;
+const EPEL_REPO_PATH = '/etc/yum.repos.d/epel.repo';
 
 const ERROR_MAPPING = {
     COULD_NOT_COPY_PACKAGE: 'Failed to prepare the package for extraction, try to re-download the upgrade package and upload again.',
@@ -386,8 +389,27 @@ async function do_yum_update() {
 }
 
 
+async function fix_epel_repo() {
+    const repo_obj = ini.parse((await fs.readFileAsync(EPEL_REPO_PATH)).toString());
+    let write_file = false;
+    _.each(repo_obj, rep => {
+        if (!rep.mirrorlist) {
+            write_file = true;
+            rep.mirrorlist = 'https://mirrors.fedoraproject.org/metalink?repo=epel-6&arch=$basearch';
+        }
+    });
+    if (write_file) {
+        const epel_repo_data = ini.stringify(repo_obj);
+        dbg.log0(`UPGRADE: writing ${EPEL_REPO_PATH}:`, epel_repo_data);
+        await fs.writeFileAsync(EPEL_REPO_PATH, epel_repo_data);
+    }
+}
+
 async function packages_upgrade() {
     try {
+
+        await fix_epel_repo();
+
         const packages_to_install = [
             'sudo',
             'lsof',

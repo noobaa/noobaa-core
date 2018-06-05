@@ -189,6 +189,7 @@ export default class FormViewModel extends Observer {
                     if (!_state()) return '';
                     return _state().syncErrors[fieldName] ||
                         _state().asyncErrors[fieldName] ||
+                        _state().submitErrors[fieldName] ||
                         '';
                 }
             )

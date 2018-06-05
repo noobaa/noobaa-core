@@ -21,7 +21,10 @@ import {
     FAIL_DELETE_ACCOUNT,
     DELETE_EXTERNAL_CONNECTION,
     COMPLETE_DELETE_EXTERNAL_CONNECTION,
-    FAIL_DELETE_EXTERNAL_CONNECTION
+    FAIL_DELETE_EXTERNAL_CONNECTION,
+    REGENERATE_ACCOUNT_CREDENTIALS,
+    COMPLETE_REGENERATE_ACCOUNT_CREDENTIALS,
+    FAIL_REGENERATE_ACCOUNT_CREDENTIALS
 } from 'action-types';
 
 export function createAccount(
@@ -211,5 +214,26 @@ export function failDeleteExternalConnection(connection, error) {
     return {
         type: FAIL_DELETE_EXTERNAL_CONNECTION,
         payload: { connection, error }
+    };
+}
+
+export function regenerateAccountCredentials(accountName, verificationPassword) {
+    return {
+        type: REGENERATE_ACCOUNT_CREDENTIALS,
+        payload: { accountName, verificationPassword }
+    };
+}
+
+export function completeRegenerateAccountCredentials(accountName) {
+    return {
+        type: COMPLETE_REGENERATE_ACCOUNT_CREDENTIALS,
+        payload: { accountName }
+    };
+}
+
+export function failRegenerateAccountCredentials(accountName, error) {
+    return {
+        type: FAIL_REGENERATE_ACCOUNT_CREDENTIALS,
+        payload: { accountName, error }
     };
 }

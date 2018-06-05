@@ -285,19 +285,6 @@ export function exportAuditEnteries(categories) {
         .done();
 }
 
-export function loadCloudBucketList(connection) {
-    logAction('loadCloudBucketList', { connection });
-
-    api.bucket.get_cloud_buckets({
-        connection: connection
-    })
-        .then(
-            model.cloudBucketList,
-            () => model.cloudBucketList(null)
-        )
-        .done();
-}
-
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
@@ -792,34 +779,6 @@ export function attemptResolveSystemName(name) {
         .then(
             ({ valid, reason }) => model.nameResolutionState({ name, valid, reason })
         )
-        .done();
-}
-
-export function regenerateAccountCredentials(email, verificationPassword) {
-    logAction('regenerateAccountCredentials', { email, verificationPassword: '*****' });
-
-    model.regenerateCredentialState('IN_PROGRESS');
-    api.account.generate_account_keys({
-        email: email,
-        verification_password: verificationPassword
-    })
-        .then(
-            () => {
-                model.regenerateCredentialState('SUCCESS');
-                notify(`${email} credentials regenerated successfully`, 'success');
-            }
-        )
-        .catch(
-            err => {
-                if (err.rpc_code === 'UNAUTHORIZED') {
-                    model.regenerateCredentialState('UNAUTHORIZED');
-                } else {
-                    model.regenerateCredentialState('ERROR');
-                    notify(`Regenerating ${email} credentials failed`, 'error');
-                }
-            }
-        )
-        .then(() => action$.next(fetchSystemInfo()))
         .done();
 }
 

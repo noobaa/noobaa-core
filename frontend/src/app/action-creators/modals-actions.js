@@ -399,7 +399,7 @@ export function replaceWithAccountCreatedModal(accountName, password) {
     };
 }
 
-export function openSetAccountIpRestrictions(accountName) {
+export function openSetAccountIpRestrictionsModal(accountName) {
     return {
         type: OPEN_MODAL,
         payload: {
@@ -807,6 +807,23 @@ export function openCreateBucketModal() {
             options: {
                 title: 'Create Bucket',
                 size: 'small'
+            }
+        }
+    };
+}
+
+
+export function openRegenerateAccountCredentialsModal(accountName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'regenerate-account-credentials-modal',
+                params: { accountName }
+            },
+            options: {
+                title: 'Regenerate Account Credentials',
+                size: 'xsmall'
             }
         }
     };

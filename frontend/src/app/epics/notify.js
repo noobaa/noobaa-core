@@ -45,6 +45,16 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
+    [types.COMPLETE_REGENERATE_ACCOUNT_CREDENTIALS]: ({ accountName }) => ({
+        message: `${accountName} credentials regenerated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_REGENERATE_ACCOUNT_CREDENTIALS]: ({ accountName }) => ({
+        message: `Regenerating ${accountName} credentials failed`,
+        severity: 'error'
+    }),
+
     [types.COMPLETE_ADD_EXTERNAL_CONNECTION]: ({ connection }) => ({
         message: `Adding ${connection} completed successfully`,
         severity: 'success'

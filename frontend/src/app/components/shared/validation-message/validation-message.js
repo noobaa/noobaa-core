@@ -11,7 +11,6 @@ class ValidationMessageViewModel {
             () => error() ? wasTouched() : Boolean(warning())
         );
 
-
         this.css = ko.pureComputed(
             () => !isValid() ?  'error' : (warning() ? 'warning' : '')
         );

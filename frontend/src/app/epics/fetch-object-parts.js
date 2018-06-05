@@ -16,6 +16,7 @@ export default  function(action$, { api }) {
                 const { parts } = await api.object.read_object_mappings({
                     bucket: query.bucket,
                     key: query.key,
+                    version_id: query.version,
                     skip: query.skip,
                     limit: query.limit,
                     adminfo: true

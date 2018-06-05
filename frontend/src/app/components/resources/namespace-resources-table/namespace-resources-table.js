@@ -67,16 +67,12 @@ class NamespaceResourceTableViewModel extends Observer {
         this.sorting = ko.observable();
         this.filter = ko.observable();
         this.page = ko.observable();
-        this.selectedForDelete = ko.observable();
+        this.selectedForDelete = '';
         this.resourceCount = ko.observable();
         this.rows = ko.observableArray();
         this.resourcesLoaded = ko.observable();
         this.rowParams = {
-            deleteGroup: ko.pureComputed({
-                read: this.selectedForDelete,
-                write: this.onSelectForDelete,
-                owner: this
-            }),
+            onSelectForDelete: this.onSelectForDelete.bind(this),
             onDelete: this.onDeleteResource.bind(this)
         };
 
@@ -126,7 +122,7 @@ class NamespaceResourceTableViewModel extends Observer {
             .map((resource, i) => {
                 const row = this.rows()[i] || new ResourceRowViewModel(this.rowParams);
                 const connectedBuckets = connectedBucketsMap[resource.name] || [];
-                row.onState(resource, connectedBuckets, location.params.system);
+                row.onState(resource, connectedBuckets, location.params.system, selectedForDelete);
                 return row;
             });
 
@@ -135,7 +131,7 @@ class NamespaceResourceTableViewModel extends Observer {
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
         this.resourceCount(filteredRows.length);
-        this.selectedForDelete(selectedForDelete);
+        this.selectedForDelete = selectedForDelete;
         this.rows(rows);
         this.resourcesLoaded(true);
     }
@@ -157,8 +153,7 @@ class NamespaceResourceTableViewModel extends Observer {
     }
 
     onSelectForDelete(resource) {
-        const selectedForDelete = this.selectedForDelete() === resource ? null : resource;
-        this._query({ selectedForDelete });
+        this._query({ selectedForDelete: resource });
     }
 
     onPage(page) {
@@ -180,7 +175,7 @@ class NamespaceResourceTableViewModel extends Observer {
         filter = this.filter(),
         sorting = this.sorting(),
         page = this.page(),
-        selectedForDelete = this.selectedForDelete()
+        selectedForDelete = this.selectedForDelete
     }) {
         const query = {
             filter: filter || undefined,

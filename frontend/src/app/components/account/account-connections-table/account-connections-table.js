@@ -62,15 +62,10 @@ class AccountConnectionsTableViewModel extends Observer {
         this.sorting = ko.observable();
         this.pageSize = paginationPageSize;
         this.page = ko.observable();
-        this.selectedForDelete = ko.observable();
+        this.selectedForDelete = '';
         this.connectionCount = ko.observable();
         this.emptyMessage = ko.observable();
         this.rows = ko.observableArray();
-        this.deleteGroup = ko.pureComputed({
-            read: this.selectedForDelete,
-            write: val => this.onSelectForDelete(val)
-        });
-
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
         this.observe(
@@ -100,7 +95,7 @@ class AccountConnectionsTableViewModel extends Observer {
         const { compareKey } = columns.find(column => column.name === sortBy);
         const pageStart = Number(page) * this.pageSize;
         const rowParams = {
-            deleteGroup: this.deleteGroup,
+            onSelectForDelete: this.onSelectForDelete.bind(this),
             onDelete: this.onDeleteConnection.bind(this),
             onExpand: this.onExpand.bind(this)
         };
@@ -114,7 +109,8 @@ class AccountConnectionsTableViewModel extends Observer {
             .map((connection, i) => {
                 const row = this.rows.get(i) || new ConnectionRowViewModel(rowParams);
                 const isExpanded = expandedRow === connection.name;
-                row.onConnection(connection, buckets, namespaceBuckets, system, isExpanded);
+                row.onConnection(connection, buckets, namespaceBuckets, system,
+                    isExpanded, selectedForDelete);
                 return row;
             });
 
@@ -127,9 +123,9 @@ class AccountConnectionsTableViewModel extends Observer {
         this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
+        this.selectedForDelete = selectedForDelete;
         this.connectionCount(filteredConnections.length);
         this.emptyMessage(emptyMessage);
-        this.selectedForDelete(selectedForDelete);
         this.rows(rows);
         this.connectionsLoading(false);
     }
@@ -165,15 +161,14 @@ class AccountConnectionsTableViewModel extends Observer {
     }
 
     onSelectForDelete(resource) {
-        const selectedForDelete = this.selectedForDelete() === resource ? null : resource;
-        this._query({ selectedForDelete });
+        this._query({ selectedForDelete: resource });
     }
 
     _query({
         filter = this.filter(),
         sorting = this.sorting(),
         page = this.page(),
-        selectedForDelete = this.selectedForDelete(),
+        selectedForDelete = this.selectedForDelete,
         expandedRow = this.expandedRow
     }) {
         const query = {

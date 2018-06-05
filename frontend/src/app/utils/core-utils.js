@@ -181,7 +181,7 @@ export function keyBy(arrayOrIter, keySelector, valueMapper = echo) {
     return array.reduce(
         (map, item, i) => {
             const key = keySelector(item, i);
-            map[key] = valueMapper(item, map[key]);
+            map[key] = valueMapper(item, key, map[key]);
             return map;
         },
         {}
@@ -200,7 +200,7 @@ export function groupBy(array, keySelector, valueMapper = echo) {
     return keyBy(
         array,
         keySelector,
-        (item, list = []) => {
+        (item, _, list = []) => {
             list.push(valueMapper(item));
             return list;
         }
@@ -298,8 +298,17 @@ export function get(val, path, defaultValue) {
 }
 
 export function equalItems(arr1, arr2) {
-    return arr1.length === arr2.length &&
-        arr1.every((item, i) => Object.is(item, arr2[i]));
+    if (arr1.length !== arr2.length) {
+        return false;
+    }
+
+    for (let i = 0; i < arr1.length; ++i) {
+        if (!Object.is(arr1[i], arr2[i])) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 export function ensureArray(val) {
@@ -359,4 +368,14 @@ export function normalizeValues(values, newSum = 1, minValue = 0) {
         if (value === 0) return 0;
         return (value <= threshold ? minRatio : value * factor) * newSum;
     });
+}
+
+export function memoize(func, areArgsEqual = equalItems) {
+    let lastArgs = [], lastResult;
+    return function (...args) {
+        if (!areArgsEqual(args, lastArgs)) {
+            lastResult = deepFreeze(func(...(lastArgs = args)));
+        }
+        return lastResult;
+    };
 }

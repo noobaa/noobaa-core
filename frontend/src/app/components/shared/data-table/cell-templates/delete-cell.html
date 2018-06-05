@@ -2,9 +2,11 @@
 
 <delete-button params="
     id: ko.unwrap($data).id,
+    text: ko.unwrap($data).text,
     subject: ko.unwrap($data).subject,
-    group: ko.unwrap($data).group,
+    active: ko.unwrap($data).active,
     disabled: ko.unwrap($data).disabled,
     onDelete: ko.unwrap($data).onDelete || $data,
+    onToggle: ko.unwrap($data).onToggle,
     tooltip: ko.unwrap($data).tooltip
 "></delete-button>

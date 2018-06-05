@@ -203,12 +203,12 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
+    [types.COMPLETE_UPDATE_BUCKET_QUOTA_POLICY]: ({ bucket }) => ({
         message: `${bucket} quota updated successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_UPDATE_BUCKET_QUOTA]: ({ bucket }) => ({
+    [types.FAIL_UPDATE_BUCKET_QUOTA_POLICY]: ({ bucket }) => ({
         message: `Updating quota for ${bucket} failed`,
         severity: 'error'
     }),
@@ -232,6 +232,28 @@ const actionToNotification = deepFreeze({
         message: `Updating ${bucket} resiliency policy failed`,
         severity: 'error'
     }),
+
+    [types.COMPLETE_UPDATE_BUCKET_VERSIONING_POLICY]: ({ bucket, versioning }) => {
+        const action =
+            (versioning === 'ENABLED' && 'enabled') ||
+            (versioning === 'SUSPENDED' && 'suspended');
+
+        return {
+            message: `${bucket} versioning ${action} successfully`,
+            severity: 'success'
+        };
+    },
+
+    [types.FAIL_UPDATE_BUCKET_VERSIONING_POLICY]: ({ bucket, versioning }) => {
+        const action =
+            (versioning === 'ENABLED' && 'Enabling') ||
+            (versioning === 'SUSPENDED' && 'Suspending');
+
+        return {
+            message: `${action} ${bucket} versioning failed`,
+            severity: 'error'
+        };
+    },
 
     [types.COMPLETE_DELETE_BUCKET]: ({ bucket }) => ({
         message: `Bucket ${bucket} deleted successfully`,
@@ -283,15 +305,27 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_DELETE_OBJECT]: ({ key }) => ({
-        message: `File ${key} deleted successfully`,
-        severity: 'success'
-    }),
+    [types.COMPLETE_DELETE_OBJECT]: ({ objId }) => {
+        const name = objId.version ?
+            `${objId.key} (${objId.version})` :
+            objId.key;
 
-    [types.FAIL_DELETE_OBJECT]: ({ key }) => ({
-        message: `File ${key} deletion failed`,
-        severity: 'error'
-    }),
+        return {
+            message: `File ${name} deleted successfully`,
+            severity: 'success'
+        };
+    },
+
+    [types.FAIL_DELETE_OBJECT]: ({ objId }) => {
+        const name = objId.version ?
+            `${objId.key} (${objId.version})` :
+            objId.key;
+
+        return {
+            message: `File ${name} deletion failed`,
+            severity: 'error'
+        };
+    },
 
     [types.COMPLETE_DELETE_HOST]: () => ({
         message: 'Node deletion process has started, The node will be removed once all stored data is secured',
@@ -363,12 +397,12 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_UPDATE_BUCKET_SPILLOVER]: ({ bucket }) => ({
+    [types.COMPLETE_UPDATE_BUCKET_SPILLOVER_POLICY]: ({ bucket }) => ({
         message: `${bucket} spillover policy was updated successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_UPDATE_BUCKET_SPILLOVER]: ({ bucket }) => ({
+    [types.FAIL_UPDATE_BUCKET_SPILLOVER_POLICY]: ({ bucket }) => ({
         message: `Updating spillover policy for ${bucket} failed`,
         severity: 'error'
     }),

@@ -43,7 +43,7 @@ export default class UploadRowViewModel {
     }
 
     update(upload, system) {
-        const { name, bucket, completed, error, size } = upload;
+        const { name, bucket, versionId, completed, error, size } = upload;
         const fileNameData = {
             text: name,
             tooltip: {
@@ -56,7 +56,8 @@ export default class UploadRowViewModel {
             fileNameData.href = realizeUri(routes.object, {
                 system,
                 bucket,
-                object: name
+                object: name,
+                version: versionId
             });
         }
 

@@ -33,6 +33,7 @@ const initialObjectState = deepFreeze({
     id: '',
     name: '',
     bucket: '',
+    versionId: '',
     size: 0,
     loaded: 0,
     completed: false,
@@ -90,13 +91,14 @@ function onClearCompletedObjectUploads(uploads) {
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _completeUpload(uploads, { id, error }) {
+function _completeUpload(uploads, { id, extras, error }) {
     const objects = uploads.objects
         .map(obj => {
             if (obj.id !== id) return obj;
 
             return {
                 ...obj,
+                versionId: extras.verisonId,
                 completed: true,
                 error: error && {
                     code: error.code,

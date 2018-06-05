@@ -8,60 +8,60 @@ import { randomString } from 'utils/string-utils';
 class DeleteButtonViewModel {
     constructor({
         id = randomString(),
-        group = ko.observable(),
-        onDelete,
-        subject,
+        text = 'Delete',
+        active = ko.observable(),
         tooltip,
-        disabled = false
+        disabled = false,
+        onDelete,
+        onToggle
     }) {
         this.id = id;
         this.onDelete = isFunction(onDelete) ? onDelete : noop;
         this.disabled = disabled;
+        this.isActive = isFunction(onToggle) ?
+            this.isActive = ko.pureComputed({
+                read: active,
+                write: val => onToggle(val ? ko.unwrap(id) : null)
+            }) :
+            active;
 
-        this.isActive = ko.pureComputed({
-            read: () => group() === ko.unwrap(id),
-            write: val => group(val ? ko.unwrap(id) : null)
+        this.tooltip = ko.pureComputed(() => {
+            if (this.isActive()) return;
+            const naked = ko.unwrap(tooltip);
+
+            if (naked === null) {
+                return {
+                    align: 'end',
+                    text: ko.unwrap(text)
+                };
+
+            } else if (isString(naked)) {
+                return {
+                    align: 'end',
+                    text : naked
+                };
+
+            } else {
+                return {
+                    align: 'end',
+                    ...naked
+                };
+            }
         });
 
-        this.tooltip = ko.pureComputed(
-            () => {
-                if (this.isActive()) return;
-                const naked = ko.unwrap(tooltip);
-
-                if (naked === null) {
-                    return {
-                        align: 'end',
-                        text: `Delete ${ko.unwrap(subject)}`
-                    };
-
-                } else if (isString(naked)) {
-                    return {
-                        align: 'end',
-                        text : naked
-                    };
-
-                } else {
-                    return {
-                        align: 'end',
-                        ...naked
-                    };
-                }
-            }
-        );
-
-        this.icon = ko.pureComputed(
-            () => (ko.unwrap(this.disabled) || !this.isActive()) ?
+        this.icon = ko.pureComputed(() =>
+            (ko.unwrap(this.disabled) || !this.isActive()) ?
                 'bin-closed' :
                 'bin-opened'
         );
 
-        this.question = ko.pureComputed(
-            () => subject ? `Delete ${subject}?` : 'Delete ?'
+        this.question = ko.pureComputed(() =>
+            `${ko.unwrap(text)}?`
         );
     }
 
-    onActivate() {
-        this.isActive(true);
+    onToggle() {
+        this.isActive.toggle();
     }
 
     onConfirm() {

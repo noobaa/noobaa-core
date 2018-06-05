@@ -651,7 +651,8 @@ class MDStore {
         });
     }
 
-    async has_any_latest_objects_for_bucket(bucket_id) {
+    async has_any_latest_objects_for_bucket(bucket_id, upload_mode) {
+        if (upload_mode === true) return false;
         return this._objects.col().findOne({
                 bucket: bucket_id,
                 deleted: null,
@@ -842,11 +843,19 @@ class MDStore {
             .then(obj => Boolean(obj));
     }
 
-    has_any_objects_for_bucket(bucket_id) {
-        return this._objects.col().findOne({
+    has_any_objects_for_bucket(bucket_id, upload_mode) {
+        let upload_started;
+        if (upload_mode === true) {
+            upload_started = { $exists: true };
+        } else if (upload_mode === false) {
+            upload_started = null;
+        }
+
+        return this._objects.col().findOne(_.omitBy({
                 bucket: bucket_id,
-                deleted: null
-            })
+                deleted: null,
+                upload_started
+            }, _.isUndefined))
             .then(obj => Boolean(obj));
     }
 

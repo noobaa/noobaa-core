@@ -21,19 +21,20 @@ export default class CloudResourceRowViewModel {
     cloudBucket = ko.observable();
     deleteButton = {
         id: ko.observable(),
-        subject: 'resources',
-        group: null,
+        text: 'Delete resource',
+        active: ko.observable(),
         tooltip: ko.observable(),
         disabled: ko.observable(),
+        onToggle: null,
         onDelete: null
     };
 
-    constructor({ deleteGroup, onDelete }) {
-        this.deleteButton.group = deleteGroup;
+    constructor({ onSelectForDelete, onDelete }) {
+        this.deleteButton.onToggle = onSelectForDelete;
         this.deleteButton.onDelete = onDelete;
     }
 
-    onState(resource, system) {
+    onState(resource, system, selectedForDelete) {
         const { name, usedBy, target, undeletable } = resource;
         const bucketCount = usedBy.length;
 
@@ -56,6 +57,7 @@ export default class CloudResourceRowViewModel {
         this.usage(formatSize(resource.storage.used));
         this.cloudBucket(target);
         this.deleteButton.id(name);
+        this.deleteButton.active(selectedForDelete === name);
         this.deleteButton.disabled(Boolean(undeletable));
         this.deleteButton.tooltip(deleteTooltip);
     }

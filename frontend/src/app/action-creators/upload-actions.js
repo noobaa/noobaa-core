@@ -30,10 +30,10 @@ export function updateObjectUpload(id, loaded) {
     };
 }
 
-export function completeObjectUpload(id) {
+export function completeObjectUpload(id, extras) {
     return {
         type: COMPLETE_OBJECT_UPLOAD,
-        payload: { id }
+        payload: { id, extras }
     };
 }
 

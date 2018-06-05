@@ -87,7 +87,7 @@ function _getEndpointTooltip(service, endpoint) {
 }
 
 export default class ConnectionRowViewModel {
-    constructor({ deleteGroup, onDelete, onExpand }) {
+    constructor({ onSelectForDelete, onDelete, onExpand }) {
         this.usageColumns = ko.observableArray();
         this.expand = onExpand;
         this.emptyMessage = emptyMessage;
@@ -100,16 +100,24 @@ export default class ConnectionRowViewModel {
         this._isExpanded = ko.observable();
         this.isExpanded = ko.pc(this._isExpanded, this.onToggleExpand, this);
         this.deleteButton = {
-            subject: 'connection',
+            text: 'Delete connection',
             id: ko.observable(),
-            group: deleteGroup,
+            active: ko.observable(),
+            onToggle: onSelectForDelete,
             onDelete: onDelete,
             disabled: ko.observable(),
             tooltip: ko.observable()
         };
     }
 
-    onConnection(connection, buckets, namespaceBuckets, system, isExpanded) {
+    onConnection(
+        connection,
+        buckets,
+        namespaceBuckets,
+        system,
+        isExpanded,
+        selectedForDelete
+    ) {
         const { name, service, endpoint, identity, usage } = connection;
         const bucketsList = Object.values(buckets);
         const id = `${name}:${service}`;
@@ -158,6 +166,7 @@ export default class ConnectionRowViewModel {
         this.identity(identity);
         this.externalTargets(externalTargetsInfo);
         this.deleteButton.id(id);
+        this.deleteButton.active(selectedForDelete === name);
         this.deleteButton.disabled(hasExternalConnections);
         this.deleteButton.tooltip(deleteToolTip);
         this._isExpanded(isExpanded);

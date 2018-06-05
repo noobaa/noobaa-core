@@ -54,24 +54,31 @@ class ComponentGenerator extends Generator {
         };
     }
 
-    generate(params) {
+    async generate(params) {
         const src = Path.join(templatesPath, this.template);
         const dest = Path.join(componentsPath, params.area, params.folderName);
 
-        return pathExists(dest)
-            .then(exists => !exists || this.confirmOverwrite(
-                `A component at ${dest} already exists, overwrite:`
-            ))
-            .then(
-                execute => execute && scaffold(src, dest, params)
-                    .then(() => inject(
-                        componentRegistery,
-                        params.area,
-                        this.generateRegisterLine(params.area, params.folderName),
-                        false
-                    ))
-                    .then(() => true)
+        const exists = await pathExists(dest);
+        if (!exists || this.confirmOverwrite(`A component at ${dest} already exists, overwrite:`)) {
+            await scaffold(src, dest, params);
+
+            // Inject an import statement.
+            await inject(
+                componentRegistery,
+                `${params.area}.import`,
+                this.generateImportLine(params),
+                false
             );
+
+            // Inject a register statement.
+            await inject(
+                componentRegistery,
+                `${params.area}.list`,
+                this.generateListLine(params),
+                false
+            );
+            return true;
+        }
     }
 
     validateName(name) {
@@ -79,8 +86,13 @@ class ComponentGenerator extends Generator {
             'Name must start and end with a lowercased letter and may contain only dashes and lowercase letters';
     }
 
-    generateRegisterLine(area, name) {
-        return `ko.components.register('${name}', require('./${area}/${name}/${name}').default);\n    `;
+    generateImportLine(params) {
+        const { area, name, nameCammelCased, folderName } = params;
+        return `import ${nameCammelCased} from './${area}/${folderName}/${name}';\n`;
+    }
+
+    generateListLine(params) {
+        return `${params.nameCammelCased},\n        `;
     }
 }
 

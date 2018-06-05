@@ -3,8 +3,11 @@
 <table ko.css="tableCss" ko.scroll="scroll" ko.dataTable="rows">
     <thead>
         <tr class="header-row" ko.foreach="columns">
-            <th ko.css="css">
-                <span ko.text="label" ko.css="sortCss" ko.click="sortBy"></span>
+            <th ko.css="css" ko.visible="$component.isColumnVisible(name)">
+                <span ko.text="label"
+                    ko.css="sortCss"
+                    ko.click="sortBy"
+                ></span>
             </th>
         </tr>
     </thead>
@@ -21,7 +24,7 @@
         <tr class="sub-row text-left">
              <td ko.attr.colspan="md.columnCount">
                  <div class="column"
-                    ko.expand="md.isExpanded"
+                    ko.expand="md.$expanded"
                     ko.template="{ html: md.subRowTemplate, data: vm }"
                 ><div>
              </td>

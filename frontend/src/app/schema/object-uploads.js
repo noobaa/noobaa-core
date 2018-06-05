@@ -24,6 +24,9 @@ export default {
                     bucket: {
                         type: 'string'
                     },
+                    versionId: {
+                        type: 'string'
+                    },
                     size: {
                         type: 'integer'
                     },

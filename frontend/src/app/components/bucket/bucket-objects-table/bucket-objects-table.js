@@ -4,9 +4,10 @@ import template from './bucket-objects-table.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { deepFreeze, throttle } from 'utils/core-utils';
+import { deepFreeze, throttle, pick } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { isBucketWritable } from 'utils/bucket-utils';
+import { splitObjectId } from 'utils/object-utils';
 import ObjectRowViewModel from './object-row';
 import { state$, action$ } from 'state';
 import * as routes from 'routes';
@@ -20,6 +21,8 @@ import {
     dropObjectsView
 } from 'action-creators';
 
+const showVersionsTooltip = 'All the existing object versions that this bucket contains.';
+
 const columns = deepFreeze([
     {
         name: 'state',
@@ -28,9 +31,13 @@ const columns = deepFreeze([
     },
     {
         name: 'key',
-        label: 'File Name',
+        label: 'Object Name',
         type: 'newLink',
         sortable: true
+    },
+    {
+        name: 'versionId',
+        label: 'Version ID'
     },
     {
         name: 'creationTime',
@@ -47,6 +54,14 @@ const columns = deepFreeze([
         type: 'delete'
     }
 ]);
+
+const emptyMessages = deepFreeze({
+    NO_MATCHING_KEYS: 'The current filter does not match any object',
+    NO_RESULTS: 'This page does not contain any objects',
+    NO_OBJECTS: 'No objects in bucket',
+    NO_LATEST: 'All latest versions are delete markers',
+    NO_UPLOADS: 'No ongoing uploads in bucket'
+});
 
 function _getItemsCountByState(counters, state) {
     const { optimal, uploading } = counters;
@@ -65,7 +80,7 @@ function _getStateFilterOptions(counters) {
     return [
         {
             value: 'ALL',
-            label: `All Files (${
+            label: `All Object (${
                 numeral(_getItemsCountByState(counters, 'ALL')).format('0,0')
             })`
         },
@@ -110,13 +125,40 @@ function _getUploadTooltip(isOwner, isReadOnly, httpsNoCert) {
 }
 
 class BucketObjectsTableViewModel extends Observer {
+    viewName = this.constructor.name;
+    showVersionsTooltip = showVersionsTooltip;
+    columns = columns;
+    visibleColumns = ko.observableArray();
+    baseRoute = '';
+    bucketName = '';
+    currQuery = null;
+    currBucket = null;
+    bucket = ko.observable();
+    objectsLoaded = ko.observable();
+    isShowVersionsVisible = ko.observable();
+    rows = ko.observableArray();
+    uploadButton = ko.observable();
+    fileSelectorExpanded = ko.observable();
+    objectCount = ko.observable();
+    stateFilterOptions = ko.observableArray();
+    stateFilter = ko.observable();
+    showVersions = ko.observable();
+    onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+    pageSize = paginationPageSize;
+    filter = ko.observable();
+    sorting = ko.observable();
+    page = ko.observable();
+    emptyMessage = ko.observable();
+    selectedForDelete = ko.observable();
+    bucketObjects = {};
+
     constructor({ bucketName }) {
         super();
 
         this.viewName = this.constructor.name;
         this.columns = columns;
         this.baseRoute = '';
-        this.bucketName = bucketName;
+        this.bucketName = ko.unwrap(bucketName);
         this.currQuery = null;
         this.currBucket = null;
         this.bucket = ko.observable();
@@ -132,13 +174,9 @@ class BucketObjectsTableViewModel extends Observer {
         this.filter = ko.observable();
         this.sorting = ko.observable();
         this.page = ko.observable();
+        this.selectedForDelete = '';
         this.emptyMessage = ko.observable();
-        this.selectedForDelete = ko.observable();
         this.bucketObjects = {};
-        this.deleteGroup = ko.pureComputed({
-            read: this.selectedForDelete,
-            write: val => this.onSelectForDelete(val)
-        });
 
         this.observe(
             state$.pipe(get('location')),
@@ -147,7 +185,7 @@ class BucketObjectsTableViewModel extends Observer {
         this.observe(
             state$.pipe(
                 getMany(
-                    ['buckets', ko.unwrap(bucketName)],
+                    ['buckets', this.bucketName],
                     'objects',
                     ['session', 'user'],
                     ['accounts'],
@@ -168,6 +206,7 @@ class BucketObjectsTableViewModel extends Observer {
             sortBy = 'key',
             order = 1,
             page = 0,
+            showVersions = false,
             selectedForDelete
         } = location.query || {};
 
@@ -178,17 +217,13 @@ class BucketObjectsTableViewModel extends Observer {
             true
         );
 
-        const emptyMessage = (!filter && stateFilter === 'ALL') ?
-            'No files in bucket' :
-            'The current filter does not match any files in bucket';
-
         this.baseRoute = baseRoute;
-        this.stateFilter(stateFilter);
         this.filter(filter);
+        this.stateFilter(stateFilter);
+        this.showVersions(showVersions);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
-        this.selectedForDelete(selectedForDelete);
-        this.emptyMessage(emptyMessage);
+        this.selectedForDelete = selectedForDelete;
 
         action$.next(fetchObjects(
             this.viewName,
@@ -199,7 +234,8 @@ class BucketObjectsTableViewModel extends Observer {
                 order: Number(order),
                 skip: Number(page) * paginationPageSize,
                 limit: paginationPageSize,
-                stateFilter
+                stateFilter,
+                versions: showVersions
             },
             location.hostname
         ));
@@ -216,8 +252,17 @@ class BucketObjectsTableViewModel extends Observer {
             return;
         }
 
+        const isVersionedBucket = bucket.versioning.mode !== 'DISABLED';
+        const showVersionColumn =
+            isVersionedBucket &&
+            this.showVersions() &&
+            this.stateFilter() !== 'UPLOADING';
+
+        const visibleColumns = this.columns.map(col => col.name)
+            .filter(name => showVersionColumn || name !== 'versionId');
+
         const account = accounts[user];
-        const { counters, items: queryObjects } = query.result;
+        const { counters, items: queryObjects, emptyReason } = query.result;
         const s3Connection = account.hasS3Access ? {
             accessKey: account.accessKeys.accessKey,
             secretKey: account.accessKeys.secretKey,
@@ -225,7 +270,7 @@ class BucketObjectsTableViewModel extends Observer {
         } : null;
         const rowParams = {
             baseRoute: this.baseRoute,
-            deleteGroup: this.deleteGroup,
+            onSelectForDelete: this.onSelectForDelete.bind(this),
             onDelete: this.onDeleteBucketObject.bind(this)
         };
         const modeFilterOptions = _getStateFilterOptions(counters);
@@ -239,16 +284,20 @@ class BucketObjectsTableViewModel extends Observer {
         const rows = queryObjects
             .map((bucketObjectKey, i) => {
                 const row = this.rows.get(i) || new ObjectRowViewModel(rowParams);
-                const { bucket, key, uploadId } = bucketObjects.items[bucketObjectKey];
+                const obj = bucketObjects.items[bucketObjectKey];
                 row.onState(
-                    bucketObjects.items[bucketObjectKey],
                     bucketObjectKey,
+                    obj,
                     !account.isOwner,
-                    [bucket, key, uploadId]
+                    isVersionedBucket,
+                    this.showVersions(),
+                    this.selectedForDelete
                 );
                 return row;
             });
 
+        this.isShowVersionsVisible(isVersionedBucket);
+        this.visibleColumns(visibleColumns);
         this.s3Connection = s3Connection;
         this.stateFilterOptions(modeFilterOptions);
         this.fileSelectorExpanded(false);
@@ -256,12 +305,29 @@ class BucketObjectsTableViewModel extends Observer {
         this.pathname = location.pathname;
         this.objectCount(_getItemsCountByState(counters, this.stateFilter()));
         this.rows(rows);
+        this.emptyMessage(emptyMessages[emptyReason]);
         this.objectsLoaded(true);
     }
 
     onFilter(filter) {
         this._query({
             filter: filter,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
+    onFilterByState(state) {
+        this._query({
+            stateFilter: state,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
+    onShowVersions(state) {
+        this._query({
+            showVersions: state,
             page: 0,
             selectedForDelete: null
         });
@@ -282,21 +348,14 @@ class BucketObjectsTableViewModel extends Observer {
         });
     }
 
-    onFilterByState(state) {
-        this._query({
-            stateFilter: state,
-            page: 0,
-            selectedForDelete: null
-        });
-    }
-
     _query(params) {
         const {
             filter = this.filter(),
             sorting = this.sorting(),
             page = this.page(),
             selectedForDelete = this.selectedForDelete(),
-            stateFilter = this.stateFilter()
+            stateFilter = this.stateFilter(),
+            showVersions = this.showVersions()
         } = params;
 
         const { sortBy, order } = sorting;
@@ -306,7 +365,8 @@ class BucketObjectsTableViewModel extends Observer {
             order: order,
             page: page || undefined,
             selectedForDelete: selectedForDelete || undefined,
-            stateFilter: stateFilter
+            stateFilter: stateFilter,
+            showVersions: showVersions || undefined
         };
 
         action$.next(requestLocation(
@@ -315,12 +375,15 @@ class BucketObjectsTableViewModel extends Observer {
     }
 
     onSelectForDelete(selected) {
-        const selectedForDelete = this.selectedForDelete() === selected ? null : selected;
-        this._query({ selectedForDelete });
+        this._query({ selectedForDelete: selected });
     }
 
-    onDeleteBucketObject(bucket, key, uploadId) {
-        action$.next(deleteObject(bucket, key, uploadId, this.s3Connection));
+    onDeleteBucketObject(id) {
+        const objId = this.showVersions() ?
+            splitObjectId(id) :
+            pick(splitObjectId(id), ['bucket', 'key', 'uploadId']);
+
+        action$.next(deleteObject(objId, this.s3Connection));
     }
 
     uploadFiles(files) {
@@ -338,3 +401,5 @@ export default {
     viewModel: BucketObjectsTableViewModel,
     template: template
 };
+
+

@@ -13,6 +13,7 @@ export default class ColumnViewModel {
         const normalized = isObject(config) ? config : { name: config.toString() };
         const {
             name,
+            prop = name,
             label = addSpaces(name),
             type = 'text',
             accessor = noop,
@@ -21,6 +22,7 @@ export default class ColumnViewModel {
         } = normalized;
 
         this.name = name;
+        this.prop = prop;
         this.label = label;
         this.accessor = accessor;
         this.template = templates[type];
@@ -57,9 +59,10 @@ export default class ColumnViewModel {
     }
 
     generateCellTemplate() {
-        const { css, name, template } = this;
-        return `<td ko.css="'${css}'" ko.let="{ $data: $data.${name}, $rawData: $data.${name} }">${
-            template
-        }</td>`;
+        const { css, name, prop, template } = this;
+        const visibleValue = `$component.isColumnVisible('${name}')`;
+        const cssValue = `'${css}'`;
+        const letValue = `{ $data: $data.${prop}, $rawData: $data.${prop} }`;
+        return `<td ko.visible="${visibleValue}" ko.css="${cssValue}" ko.let="${letValue}">${template}</td>`;
     }
 }

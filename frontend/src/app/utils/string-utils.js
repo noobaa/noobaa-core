@@ -114,3 +114,7 @@ export function escapeQuotes(str) {
         .replace(/'/g, "\\'") // eslint-disable-line quotes
         .replace(/"/g, '\\"');
 }
+
+export function escapeRegExp(str) {
+    return str.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}

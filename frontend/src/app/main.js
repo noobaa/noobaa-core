@@ -31,6 +31,12 @@ import {
 } from 'utils/browser-utils';
 
 function configureKnockout(ko) {
+    const injectedServices = {
+        api,
+        state$,
+        action$
+    };
+
     // Enable knockout 3.4 deferred updates.
     ko.options.deferUpdates = true;
 
@@ -48,7 +54,7 @@ function configureKnockout(ko) {
     registerExtenders(ko);
     registerBindings(ko);
     registerValidationRules(ko);
-    registerComponents(ko);
+    registerComponents(ko, injectedServices);
 }
 
 function registerSideEffects(action$, state$) {

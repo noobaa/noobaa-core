@@ -61,6 +61,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         resiliency: _mapResiliency(resiliency_status, placementTiers[0]),
         spillover: _mapSpillover(spillover_status, spilloverTiers[0], resTypeByName, resUsageByName),
         failureTolerance: _mapFailureTolerance(bucket),
+        versioning: _mapVersioning(bucket),
         io: _mapIO(stats),
         triggers: _mapTriggers(triggers)
     };
@@ -177,6 +178,11 @@ function _mapTriggers(triggers) {
             lastRun: trigger.last_run
         })
     );
+}
+
+function _mapVersioning(bucket) {
+    const { versioning: mode } = bucket;
+    return { mode };
 }
 
 // ------------------------------

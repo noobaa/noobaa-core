@@ -68,11 +68,7 @@ class NamespaceBucketsTableViewModel extends Observer {
     rows = ko.observableArray();
     bucketsLoaded = ko.observable();
     rowParams = {
-        deleteGroup: ko.pureComputed({
-            read: this.selectedForDelete,
-            write: this.onSelectForDelete,
-            owner: this
-        }),
+        onSelectForDelete: this.onSelectForDelete.bind(this),
         onDelete: this.onDeleteBucket.bind(this)
     };
 
@@ -125,7 +121,7 @@ class NamespaceBucketsTableViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((bucket, i) => {
                 const row = this.rows()[i] || new BucketRowViewModel(this.rowParams);
-                row.onBucket(bucket, bucketRoute);
+                row.onBucket(bucket, bucketRoute, selectedForDelete);
                 return row;
             });
 
@@ -136,7 +132,7 @@ class NamespaceBucketsTableViewModel extends Observer {
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
         this.bucketCount(filteredRows.length);
-        this.selectedForDelete(selectedForDelete);
+        this.selectedForDelete = selectedForDelete;
         this.rows(rows);
         this.bucketsLoaded(true);
     }
@@ -158,8 +154,7 @@ class NamespaceBucketsTableViewModel extends Observer {
     }
 
     onSelectForDelete(bucket) {
-        const selectedForDelete = this.selectedForDelete() === bucket ? null : bucket;
-        this._query({ selectedForDelete });
+        this._query({ selectedForDelete: bucket });
     }
 
     onPage(page) {
@@ -185,7 +180,7 @@ class NamespaceBucketsTableViewModel extends Observer {
         filter = this.filter(),
         sorting = this.sorting(),
         page = this.page(),
-        selectedForDelete = this.selectedForDelete()
+        selectedForDelete = this.selectedForDelete
     }) {
         const query = {
             filter: filter || undefined,

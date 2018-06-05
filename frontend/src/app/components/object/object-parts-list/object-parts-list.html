@@ -3,11 +3,11 @@
 <div class="row content-middle alt-bg pad">
     <div class="column greedy push-next">
         <h3 class="heading3">
-            Part count for this file:
+            Part count for this object:
             {{partCount}}
         </h3>
         <span class="row">
-            File\'s bucket policy: {{placementType}}
+            Object\'s bucket policy: {{placementType}}
             <vr class="push-both-half"></vr>
             Data resiliency type: {{resilinecySummary}}
             <vr class="push-both-half"></vr>
@@ -20,7 +20,7 @@
             ko.css.disabled="!areActionsAllowed()"
             ko.click="onDownloadClick"
             ko.attr.href="s3SignedUrl" >
-            Download File
+            Download Object
         </a>
     </div>
 
@@ -28,7 +28,7 @@
         <button class="btn"
             ko.disable="!areActionsAllowed()"
             ko.click="onPreviewFile">
-            Preview File
+            Preview Object
         </button>
     </div>
 </div>
@@ -38,7 +38,7 @@
 ></loading-indicator>
 
 <div class="row greedy no-overflow"
-    ko.css.expanded="isRowSelected"
+    ko.css.expanded="isPaneExpanded"
     ko.visible="partsLoaded"
 >
     <ul class="part-list greedy list-no-style column" ko.foreach="rows">
@@ -96,6 +96,7 @@
 
                     <data-table class="alt-bg" params="
                         columns: columns,
+                        visibleColumns: visibleColumns,
                         data: rows,
                     ">
                         <template name="marking">

@@ -75,7 +75,7 @@ export default class FuncRowViewModel extends BaseViewModel {
         );
 
         this.deleteButton = {
-            subject: 'func',
+            text: 'Delete function',
             tooltip: 'delete func function',
             onDelete: () => {
                 return deleteFunc(this.name().text, this.version());

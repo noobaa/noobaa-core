@@ -11,7 +11,6 @@
   ],
   "homepage": "index.html",
   "dependencies": {
-    "aws-sdk": "aws-sdk-js#2.2.48",
     "knockout": "3.4.2",
     "knockout-mapping": "2.4.1",
     "knockout-projections": "1.1.0",

@@ -32,7 +32,8 @@ class DataTableViewModel {
             emptyMessage,
             loading = false,
             disabled = false,
-            expandColumn = false
+            expandColumn = false,
+            visibleColumns
         } = params;
 
         const templates = Object.assign({}, cellTemplates, inlineTemplates);
@@ -65,15 +66,16 @@ class DataTableViewModel {
                     descriptors = descriptors.concat(expandColumnDescriptor);
                 }
 
-                return descriptors.map(
-                    descriptor => new ColumnViewModel(descriptor, templates, sorting)
+                return descriptors.map(descriptor =>
+                    new ColumnViewModel(descriptor, templates, sorting)
                 );
             }
         );
-
-        this.columnCount = ko.pureComputed(
-            () => this.columns().length
-        );
+        this.visibleColumns = visibleColumns;
+        this.columnCount = ko.pureComputed(() => {
+            const visible = ko.unwrap(this.visibleColumns) || this.columns();
+            return visible.length;
+        });
 
         this.rowFactory = rowFactory;
         this.rows = ko.observableArray();
@@ -84,9 +86,7 @@ class DataTableViewModel {
         // computeds in the rowViewModel change values.
         this.rowTemplate = ko.pureComputed(
             () => this.columns()
-                .map(
-                    column => column.generateCellTemplate()
-                )
+                .map(column => column.generateCellTemplate())
                 .join('')
         );
 
@@ -159,6 +159,11 @@ class DataTableViewModel {
             isExpanded,
             clickHandler: this.rowClick && (() => this.rowClick(rowVM))
         };
+    }
+
+    isColumnVisible(name) {
+        const visibleColumns = ko.unwrap(this.visibleColumns);
+        return !Array.isArray(visibleColumns) || visibleColumns.includes(name);
     }
 
     dispose() {

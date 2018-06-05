@@ -70,6 +70,7 @@ function _queryMatch(q1, q2) {
     return true &&
         q1.bucket === q2.bucket &&
         q1.key === q2.key &&
+        q1.version === q2.version &&
         q1.limit === q2.limit &&
         q1.skip  === q2.skip;
 }

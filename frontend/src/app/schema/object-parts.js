@@ -16,6 +16,7 @@ export default {
             required: [
                 'bucket',
                 'key',
+                'version',
                 'limit',
                 'skip'
             ],
@@ -24,6 +25,9 @@ export default {
                     type: 'string'
                 },
                 key: {
+                    type: 'string'
+                },
+                version: {
                     type: 'string'
                 },
                 limit: {

@@ -34,10 +34,10 @@ export default function(action$, { S3 }) {
                         ContentType: file.type
                     },
                     s3UploadOptions,
-                    error => {
+                    (error, data) => {
                         const action = error ?
                             failObjectUpload(id, mapErrorObject(error)) :
-                            completeObjectUpload(id);
+                            completeObjectUpload(id, { verisonId: data.VersionId || 'null' });
 
                         uploadEvent$.next(action);
 

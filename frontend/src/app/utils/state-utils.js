@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { omitUndefined, pick } from 'utils/core-utils';
+import { omitUndefined, pick, equalItems } from 'utils/core-utils';
 
 const expFieldsToCopy = [
     'message',
@@ -24,4 +24,24 @@ export function mapApiStorage(storage, lastUpdate) {
         usedOther: storage.used_other,
         reserved: storage.reserved
     });
+}
+
+export function createSelector(argsSelectors, resultSelector, options = {}) {
+    const {
+        areResultArgsEqual = equalItems
+    } = options;
+
+    let lastResult, lastResultArgs = [];
+    return (...args) => {
+        const resultArgs = [];
+        for (let i = 0; i < argsSelectors.length; ++i) {
+            resultArgs.push(argsSelectors[i](...args));
+        }
+
+        if (!areResultArgsEqual(resultArgs, lastResultArgs)) {
+            lastResultArgs = resultArgs;
+            lastResult = resultSelector(...resultArgs);
+        }
+        return lastResult;
+    };
 }

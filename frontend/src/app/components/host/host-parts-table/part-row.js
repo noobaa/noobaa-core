@@ -33,10 +33,10 @@ export default class PartRowViewModel {
     }
 
     onState(part, system) {
-        const { mode, object, bucket, start, end } = part;
+        const { mode, bucket, object, version, start, end } = part;
         const objectCell = {
             text: object,
-            href: realizeUri(routes.object, { system, bucket, object }),
+            href: realizeUri(routes.object, { system, bucket, object, version }),
             tooltip: object
         };
         const bucketCell = {

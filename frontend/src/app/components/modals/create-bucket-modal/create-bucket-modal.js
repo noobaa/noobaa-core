@@ -242,7 +242,7 @@ class CreateBucketModalViewModel extends Observer {
     }
 
     onCancel() {
-        action$.next(closeModal);
+        action$.next(closeModal());
     }
 
     onSubmit(values) {

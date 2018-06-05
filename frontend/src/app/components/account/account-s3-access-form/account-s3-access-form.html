@@ -50,7 +50,7 @@
 
     <div ko.tooltip="regenerateCredentialsButtonTooltip">
         <button class="btn"
-            ko.click="showRegenerateAccountCredentialsModal"
+            ko.click="onRegenerateAccountCredentials"
             ko.disable="isS3AccessDisabled"
         >
             Regenerate Credentials
@@ -67,10 +67,3 @@
     </span>
     <property-sheet class="pad alt-bg" params="properties: credentials"></property-sheet>
 </div>
-
-<!-- ko if: isRegenerateAccountCredentialsModalVisible -->
-<regenerate-account-credentials-modal params="
-    email: accountName,
-    onClose: () => hideRegenerateAccountCredentialsModal()
-"></regenerate-account-credentials-modal>
-<!-- /ko -->

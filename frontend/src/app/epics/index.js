@@ -21,6 +21,7 @@ import uploadObjects from './upload-objects';
 import setAccountIpRestrictions from './set-account-ip-restrictions';
 import updateInstallNodesFormCommandsField from './update-install-nodes-form-commands-field';
 import changeAccountPassword from './change-account-password';
+import regenerateAccountCredentials from './regenerate-account-credentials';
 import addExternalConnection from './add-external-connection';
 import deleteExternalConnection from './delete-external-connection';
 import deleteResource from './delete-resource';
@@ -121,6 +122,7 @@ const accountRelatedEpics = [
     updateAccountS3Access,
     setAccountIpRestrictions,
     changeAccountPassword,
+    regenerateAccountCredentials,
     addExternalConnection,
     tryDeleteAccount,
     signOutDeletedUser,

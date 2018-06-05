@@ -5,7 +5,11 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { get } from 'rx-extensions';
-import { openEditAccountS3AccessModal, openSetAccountIpRestrictions } from 'action-creators';
+import {
+    openEditAccountS3AccessModal,
+    openSetAccountIpRestrictionsModal,
+    openRegenerateAccountCredentialsModal
+} from 'action-creators';
 
 const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
 const boxCount = 3;
@@ -54,9 +58,6 @@ class AccountS3AccessFormViewModel extends Observer {
     isAllowedIpVisible = ko.observable();
     setIPRestrictionsButtonTooltip = ko.observable();
     regenerateCredentialsButtonTooltip = ko.observable();
-
-    // TODO: Move RegenerateAccountCredentialsModal into Modal Maneger
-    isRegenerateAccountCredentialsModalVisible = ko.observable(false);
 
     s3AccessInfo = [
         {
@@ -178,15 +179,11 @@ class AccountS3AccessFormViewModel extends Observer {
     }
 
     onSetIPRestrictions() {
-        action$.next(openSetAccountIpRestrictions(this.accountName()));
+        action$.next(openSetAccountIpRestrictionsModal(this.accountName()));
     }
 
-    showRegenerateAccountCredentialsModal() {
-        this.isRegenerateAccountCredentialsModalVisible(true);
-    }
-
-    hideRegenerateAccountCredentialsModal() {
-        this.isRegenerateAccountCredentialsModalVisible(false);
+    onRegenerateAccountCredentials() {
+        action$.next(openRegenerateAccountCredentialsModal(this.accountName()));
     }
 }
 

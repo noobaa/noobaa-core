@@ -1,51 +1,69 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './regenerate-account-credentials-modal.html';
-import BaseViewModel from 'components/base-view-model';
-import ko from 'knockout';
-import { regenerateAccountCredentials } from 'actions';
-import { regenerateCredentialState } from 'model';
+import Observer from 'observer';
+import FormViewModel from 'components/form-view-model';
+import { action$ } from 'state';
+import { closeModal, regenerateAccountCredentials } from 'action-creators';
+import { api } from 'services';
 
-class RegenerateAccountCredentialsModalViewModel extends BaseViewModel {
-    constructor({ onClose, email }) {
+
+class RegenerateAccountCredentialsModalViewModel extends Observer {
+    formName = this.constructor.name;
+    targetAccount = '';
+    form = null;
+
+    constructor({ accountName }) {
         super();
 
-        this.onClose = onClose;
-        this.email = email;
-        this.password = ko.observable()
-            .extend({
-                required: { message: 'Password is required for security purposes' },
-                validation: {
-                    validator: () => this.touched() || regenerateCredentialState() !== 'UNAUTHORIZED',
-                    message: 'Please make sure your password is correct'
-                }
-            });
-        this.touched = ko.touched(this.password);
-
-        this.errors = ko.validation.group(this);
-
-        this.addToDisposeList(
-            regenerateCredentialState.subscribe(
-                state => {
-                    if (state === 'SUCCESS' || state === 'ERROR') {
-                        this.onClose();
-                    }
-                }
-            )
-        );
+        this.targetAccount = accountName;
+        this.form = new FormViewModel({
+            name: this.formName,
+            fields: {
+                userPassword: ''
+            },
+            onValidate: this.onValidate.bind(this),
+            onValidateSubmit: this.onValidateSubmit.bind(this),
+            onSubmit: this.onSubmit.bind(this)
+        });
     }
 
-    regenerate() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
-        } else {
-            this.touched(false);
-            regenerateAccountCredentials(ko.unwrap(this.email), this.password());
+    onValidate(values) {
+        const { userPassword } = values;
+        const errors = {};
+
+        if (!userPassword) {
+            errors.userPassword = 'Password is required for security purposes';
         }
+
+        return errors;
     }
 
-    cancel() {
-        this.onClose();
+    async onValidateSubmit(values) {
+        const { userPassword: verification_password } = values;
+        const errors = {};
+
+        const verified = await api.account.verify_authorized_account({ verification_password });
+        if (!verified) {
+            errors.userPassword = 'Please make sure your password is correct';
+        }
+
+        return errors;
+    }
+
+    onSubmit(values) {
+        const { userPassword } = values;
+        action$.next(regenerateAccountCredentials(this.targetAccount, userPassword));
+        action$.next(closeModal());
+    }
+
+    onCancel() {
+        action$.next(closeModal());
+    }
+
+    dispose() {
+        this.form.dispose();
+        super.dispose();
     }
 }
 

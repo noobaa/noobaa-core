@@ -22,9 +22,6 @@ export const serverInfo = ko.observable();
 // Hold current system information.
 export const systemInfo = ko.observable();
 
-// Hold the current cloud sync information.
-export const cloudBucketList = ko.observableArray();
-
 // Hold the audit log
 export const auditLog = ko.observableArray();
 auditLog.loadedCategories = ko.observableArray();
@@ -55,8 +52,6 @@ export const collectDiagnosticsState = ko.observable({});
 
 // Hold last rest password attampt result.
 export const resetPasswordState = ko.observable();
-
-export const regenerateCredentialState = ko.observable();
 
 // Hold verification state for attach server oprtations.
 export const serverVerificationState = ko.observable();

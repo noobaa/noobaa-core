@@ -2,6 +2,8 @@
 
 import ko from 'knockout';
 
+const event = 'resize';
+
 function setHeadPadding(table) {
     const head = table.querySelector('thead');
     const body = table.querySelector('tbody');
@@ -14,14 +16,14 @@ function setHeadPadding(table) {
     }
 }
 
-ko.bindingHandlers.dataTable = {
-    init(element, valueAccessor, allBindings, viewModel, bindingContext) {
-        ko.bindingHandlers.event.init(
-            window,
-            () => ({ resize: () => setHeadPadding(element) }),
-            allBindings,
-            viewModel,
-            bindingContext
+ko.bindingHandlers.datatable = {
+    init(element) {
+        const onResize = () => setHeadPadding(element);
+
+        global.addEventListener(event, onResize, false);
+        ko.utils.domNodeDisposal.addDisposeCallback(
+            element,
+            () => global.removeEventListener(event, onResize, false)
         );
     },
 

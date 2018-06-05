@@ -1,23 +1,32 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <object-summary class="push-next" params="
-    bucketName: bucket,
-    objKey: object
+    objectId: objectId,
+    fetchOwner: viewName
 "></object-summary>
 
 <div class="tabs greedy">
     <nav>
+        <a ko.css.selected="selectedTab.eq('properties')"
+            ko.attr.href="tabHref('properties')"
+        >
+            Properties
+        </a>
         <a ko.css.selected="selectedTab.eq('parts')"
             ko.attr.href="tabHref('parts')"
         >
-            File Parts
+            Object Parts
         </a>
     </nav>
 
     <div class="tabs-row">
+        <object-properties class="tab column"
+            ko.css.selected="selectedTab.eq('properties')"
+            params="objectId: objectId, fetchOwner: viewName"
+        ></object-properties>
         <object-parts-list class="tab column"
             ko.css.selected="selectedTab.eq('parts')"
-            params="bucketName: bucket, objKey: object"
+            params="objectId: objectId"
         ></object-parts-list>
     </div>
 </div>

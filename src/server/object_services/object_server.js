@@ -790,7 +790,7 @@ function _list_add_results(state, results) {
     }
 
     // this case avoids another last query when we got less results and no common prefixes
-    // with common prefixes we cannot avoid the last query because the results might be 
+    // with common prefixes we cannot avoid the last query because the results might be
     // less than the requested limit although there are more results to fetch
     if (!has_common_prefixes && count >= state.user_limit) {
         state.done = true;
@@ -860,9 +860,9 @@ async function list_objects_admin(req) {
                 res.empty_reason = 'NO_UPLOADS';
             }
         } else {
-            const has_objects = await MDStore.instance().has_any_objects_for_bucket(req.bucket._id);
+            const has_objects = await MDStore.instance().has_any_objects_for_bucket(req.bucket._id, req.rpc_params.upload_mode);
             if (has_objects) {
-                const has_latests = await MDStore.instance().has_any_latest_objects_for_bucket(req.bucket._id);
+                const has_latests = await MDStore.instance().has_any_latest_objects_for_bucket(req.bucket._id, req.rpc_params.upload_mode);
                 if (has_latests) {
                     res.empty_reason = 'NO_RESULTS';
                 } else {
@@ -1216,7 +1216,7 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
         const obj = await MDStore.instance().find_object_latest(req.bucket._id, put_obj.key);
         if (obj) {
             check_md_conditions(req, req.rpc_params.md_conditions, obj);
-            // 3, 6 
+            // 3, 6
             await MDStore.instance().complete_object_upload_latest_mark_remove_current({
                 unmark_obj: obj,
                 put_obj,
@@ -1348,7 +1348,7 @@ async function _delete_object_only_key(req) {
         const obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
         if (obj) {
             check_md_conditions(req, req.rpc_params.md_conditions, obj);
-            // 3, 5 
+            // 3, 5
             const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest(
                 obj, /* version_enabled: */ true);
             return { obj, reply: _get_delete_obj_reply(null, delete_marker) };
@@ -1390,7 +1390,7 @@ async function _delete_object_only_key(req) {
             const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
             if (latest_obj) {
                 check_md_conditions(req, req.rpc_params.md_conditions, latest_obj);
-                // 3, 5 
+                // 3, 5
                 const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest(latest_obj);
                 return { reply: _get_delete_obj_reply(null, delete_marker) };
             } else {

@@ -3,16 +3,17 @@
 import template from './object-panel.html';
 import Observer from 'observer';
 import { realizeUri } from 'utils/browser-utils';
+import { getObjectId } from 'utils/object-utils';
 import { get } from 'rx-extensions';
 import { state$, action$ } from 'state';
-import { fetchObjects, dropObjectsView } from 'action-creators';
+import { fetchObject, fetchObjectParts, dropObjectsView } from 'action-creators';
+import { paginationPageSize } from 'config';
 import ko from 'knockout';
 
 class ObjectPanelViewModel extends Observer {
     viewName = this.constructor.name;
     baseRoute = '';
-    bucket = ko.observable();
-    object = ko.observable();
+    objectId = ko.observable();
     selectedTab = ko.observable();
 
     constructor() {
@@ -25,17 +26,25 @@ class ObjectPanelViewModel extends Observer {
     }
 
     onState(location) {
-        const { route, params, hostname } = location;
-        const { system, bucket, object, tab = 'parts' } = params;
+        const { route, params, query, hostname } = location;
+        const { system, bucket, object, version, tab = 'properties' } = params;
         if (!object) return;
 
-        this.baseRoute = realizeUri(route, { system, bucket, object }, {}, true);
+        this.baseRoute = realizeUri(route, { system, bucket, object, version }, {}, true);
         this.selectedTab(tab);
-        this.bucket(bucket);
-        this.object(object);
+        this.objectId(getObjectId(bucket, object, version));
 
         // Load/update the object data.
-        action$.next(fetchObjects(this.viewName, { bucket, object }, hostname));
+        action$.next(fetchObject(this.viewName, bucket, object, version, hostname));
+
+        // Load/update object parts data.
+        action$.next(fetchObjectParts({
+            bucket,
+            key: object,
+            version,
+            skip: (Number(query.page) || 0) * paginationPageSize,
+            limit: paginationPageSize
+        }));
     }
 
     tabHref(tab) {

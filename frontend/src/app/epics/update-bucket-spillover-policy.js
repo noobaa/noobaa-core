@@ -2,12 +2,12 @@
 
 import { mergeMap } from 'rxjs/operators';
 import { ofType } from 'rx-extensions';
-import { UPDATE_BUCKET_SPILLOVER } from 'action-types';
-import { completeUpdateBucketSpillover, failUpdateBucketSpillover } from 'action-creators';
+import { UPDATE_BUCKET_SPILLOVER_POLICY } from 'action-types';
+import { completeUpdateBucketSpilloverPolicy, failUpdateBucketSpilloverPolicy } from 'action-creators';
 
 export default function(action$, { api }) {
     return action$.pipe(
-        ofType(UPDATE_BUCKET_SPILLOVER),
+        ofType(UPDATE_BUCKET_SPILLOVER_POLICY),
         mergeMap(async action => {
             const { bucket, resource } = action.payload;
 
@@ -16,9 +16,9 @@ export default function(action$, { api }) {
                     name: bucket,
                     spillover: resource
                 });
-                return completeUpdateBucketSpillover(bucket);
+                return completeUpdateBucketSpilloverPolicy(bucket);
             } catch (error) {
-                return failUpdateBucketSpillover(bucket, error);
+                return failUpdateBucketSpilloverPolicy(bucket, error);
             }
         })
     );

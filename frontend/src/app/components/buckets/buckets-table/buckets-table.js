@@ -1,16 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './buckets-table.html';
-import Observer from 'observer';
-import BucketRowViewModel from './bucket-row';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { deepFreeze, flatMap, createCompareFunc, throttle } from 'utils/core-utils';
+import numeral from 'numeral';
+import { deepFreeze, flatMap, createCompareFunc, throttle, groupBy } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getBucketStateIcon, getPlacementTypeDisplayName, getVersioningStateText } from 'utils/bucket-utils';
+import { formatSize } from 'utils/size-utils';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
-import { getMany } from 'rx-extensions';
 import {
     requestLocation,
     deleteBucket,
@@ -34,7 +34,7 @@ const columns = deepFreeze([
     },
     {
         name: 'objectCount',
-        label: 'files',
+        label: 'objects',
         sortable: true,
         compareKey: bucket => bucket.objectCount
     },
@@ -63,6 +63,11 @@ const columns = deepFreeze([
         }
     },
     {
+        name: 'versioning',
+        sortable: true,
+        compareKey: bucket => bucket.versioning.mode
+    },
+    {
         name: 'capacity',
         label: 'used capacity',
         type: 'capacity',
@@ -82,100 +87,217 @@ const createButtondDisabledTooltip = deepFreeze({
     align: 'end'
 });
 
-class BucketsTableViewModel extends Observer {
+const undeletableReasons = deepFreeze({
+    LAST_BUCKET: 'Last bucket cannot be deleted',
+    NOT_EMPTY: 'Cannot delete a bucket that contains objects or any objects versions'
+});
+
+const resourceGroupMetadata = deepFreeze({
+    HOSTS: {
+        icon: 'nodes-pool',
+        tooltipTitle: 'Nodes pool resources'
+    },
+    CLOUD: {
+        icon: 'cloud-hollow',
+        tooltipTitle: 'Cloud resources'
+    }
+});
+
+function _getResourceGroupTooltip(type, group, system) {
+    const { tooltipTitle } = resourceGroupMetadata[type];
+    if (group.length === 0) {
+        return `No ${tooltipTitle.toLowerCase()}`;
+
+    } else if (type === 'HOSTS') {
+        return {
+            template: 'linkListWithCaption',
+            text: {
+                title: tooltipTitle,
+                list: group.map(res => ({
+                    text: res.name,
+                    href: realizeUri(routes.pool, { system, pool: res.name })
+                }))
+            }
+        };
+
+    } else {
+        return {
+            template: 'listWithCaption',
+            text: {
+                title: tooltipTitle,
+                list: group.map(res => res.name)
+            }
+        };
+    }
+}
+
+function _mapResourceGroups(placement, system) {
+    const groups = groupBy(
+        flatMap(placement.mirrorSets, ms => ms.resources),
+        res => res.type
+    );
+
+    return Object.keys(resourceGroupMetadata)
+        .map(type => {
+            const group = groups[type] || [];
+            return {
+                icon: resourceGroupMetadata[type].icon,
+                lighted: Boolean(group.length),
+                tooltip: _getResourceGroupTooltip(type, group, system)
+            };
+        });
+}
+
+function _mapBucket(bucket, system, selectedForDelete) {
+    return {
+        state: getBucketStateIcon(bucket, 'start'),
+        name: {
+            text: bucket.name,
+            href: realizeUri(routes.bucket, { system, bucket: bucket.name }),
+            tooltip: {
+                text: bucket.name,
+                breakWords: true
+            }
+        },
+        objectCount: numeral(bucket.objectCount).format('0,0'),
+        placementPolicy: getPlacementTypeDisplayName(bucket.placement.policyType),
+        resources: _mapResourceGroups(bucket.placement, system),
+        spilloverUsage: formatSize(bucket.spillover ? bucket.spillover.usage : 0),
+        versioning: getVersioningStateText(bucket.versioning.mode),
+        capacity: {
+            total: bucket.storage.total,
+            used:bucket.storage.used
+        },
+        deleteButton: {
+            id: bucket.name,
+            active: selectedForDelete === bucket.name,
+            disabled: Boolean(bucket.undeletable),
+            tooltip: bucket.undeletable ? undeletableReasons[bucket.undeletable] : null
+        }
+    };
+}
+
+class RowViewModel {
+    table = null;
+    name = ko.observable();
+    state = ko.observable();
+    objectCount = ko.observable();
+    placementPolicy = ko.observable();
+    resources = ko.observable();
+    spilloverUsage = ko.observable();
+    versioning = ko.observable();
+    capacity = {
+        total: ko.observable(),
+        used: ko.observable()
+    };
+    deleteButton = {
+        text: 'Delete bucket',
+        disabled: ko.observable(),
+        tooltip: ko.observable(),
+        active: ko.observable(),
+        id: ko.observable(),
+        onDelete: this.onDelete.bind(this),
+        onToggle: this.onToggle.bind(this)
+    };
+
+    constructor({ table }) {
+        this.table = table;
+    }
+
+    onToggle(bucketName) {
+        this.table.onSelectForDelete(bucketName);
+    }
+
+    onDelete(bucketName) {
+        this.table.onDeleteBucket(bucketName);
+    }
+}
+
+class BucketsTableViewModel extends ConnectableViewModel {
     columns = columns;
     pageSize = paginationPageSize;
+    pathname = '';
+    BucketsTableViewModel
     filter = ko.observable();
     sorting = ko.observable();
     page = ko.observable();
     selectedForDelete = ko.observable();
-    rows = ko.observableArray();
     bucketCount = ko.observable();
     bucketsLoaded = ko.observable();
-    onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
-    deleteGroup = ko.pureComputed({
-        read: this.selectedForDelete,
-        write: val => this.onSelectForDelete(val)
-    });
     createBucketTooltip = ko.observable();
     isCreateBucketDisabled = ko.observable();
+    rows = ko.observableArray()
+        .ofType(RowViewModel, { table: this });
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'buckets',
-                    'location',
-                    'accounts',
-                    ['session', 'user']
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.location,
+            state.buckets,
+            (state.accounts || {})[state.session.user]
+        ];
     }
 
-    onState([ buckets, location, accounts, user ]) {
-        const { tab = 'data-buckets' } = location.params;
+    mapStateToProps(location, buckets, userAccount) {
+        const { system, tab = 'data-buckets' } = location.params;
         if (tab !== 'data-buckets') {
             return;
-        }
 
-        if (!buckets) {
-            this.bucketsLoaded(false);
-            this.isCreateBucketDisabled(true);
-            return;
-        }
-
-        const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = location.query;
-        const { compareKey } = columns.find(column => column.name === sortBy);
-        const pageStart = Number(page) * this.pageSize;
-        const bucketList = Object.values(buckets)
-            .filter(bucket => !filter || bucket.name.includes(filter.toLowerCase()));
-
-        const { system } = location.params;
-        const rowParams = {
-            baseRoute: realizeUri(routes.bucket, { system }, {}, true),
-            deleteGroup: this.deleteGroup,
-            onDelete: this.onDeleteBucket
-        };
-
-        const rows = bucketList
-            .sort(createCompareFunc(compareKey, order))
-            .slice(pageStart, pageStart + this.pageSize)
-            .map((bucket, i) => {
-                const row = this.rows.get(i) || new BucketRowViewModel(rowParams);
-                row.onState(bucket, system);
-                return row;
+        } else if (!buckets) {
+            ko.assignToProps(this, {
+                isCreateBucketDisabled: true,
+                bucketsLoaded: false
             });
 
-        const { canCreateBuckets } = accounts[user];
-        const createBucketTooltip = canCreateBuckets ? '' : createButtondDisabledTooltip;
+        } else {
+            const { pathname, query } = location;
+            const { filter = '', sortBy = 'name', selectedForDelete = '' } = query;
+            const order = Number(query.order || 1);
+            const page = Number(query.page || 0);
+            const { compareKey } = columns.find(column => column.name === sortBy);
+            const { canCreateBuckets = false } = userAccount;
+            const createBucketTooltip = canCreateBuckets ? '' : createButtondDisabledTooltip;
+            const bucketList = Object.values(buckets)
+                .filter(bucket => !filter || bucket.name.includes(filter.toLowerCase()));
+            const rows = bucketList
+                .sort(createCompareFunc(compareKey, order))
+                .slice(page * paginationPageSize, (page + 1) * paginationPageSize)
+                .map(bucket => _mapBucket(bucket, system, selectedForDelete));
 
-        this.pathname = location.pathname;
-        this.filter(filter);
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
-        this.selectedForDelete(selectedForDelete);
-        this.bucketCount(bucketList.length);
-        this.rows(rows);
-        this.bucketsLoaded(true);
-        this.createBucketTooltip(createBucketTooltip);
-        this.isCreateBucketDisabled(!canCreateBuckets);
+            ko.assignToProps(this, {
+                pathname,
+                filter,
+                sorting: { sortBy, order },
+                page,
+                selectedForDelete,
+                bucketCount: bucketList.length,
+                rows,
+                createBucketTooltip,
+                isCreateBucketDisabled: !canCreateBuckets,
+                bucketsLoaded: true
+            });
+        }
     }
 
-    onFilter(filter) {
+    onCreateBucket() {
+        this.dispatch(openCreateBucketModal());
+    }
+
+    onConnectApplication() {
+        this.dispatch(openConnectAppModal());
+    }
+
+    onFilter = throttle(filter => {
         this._query({
-            filter: filter,
+            filter,
             page: 0,
             selectedForDelete: null
         });
-    }
+    }, inputThrottle)
 
     onSort(sorting) {
         this._query({
-            sorting,
+            sortBy: sorting.sortBy,
+            order: sorting.order,
             page: 0,
             selectedForDelete: null
         });
@@ -188,47 +310,37 @@ class BucketsTableViewModel extends Observer {
         });
     }
 
-    onSelectForDelete(selected) {
-        const selectedForDelete = this.selectedForDelete() === selected ? null : selected;
+    onSelectForDelete(bucketName) {
+        const selectedForDelete = bucketName || '';
         this._query({ selectedForDelete });
     }
 
-    onDeleteBucket(name) {
-        action$.next(deleteBucket(name));
+    onDelete(bucketName) {
+        this.dispatch(deleteBucket(bucketName));
     }
 
-    onCreateBucket() {
-        action$.next(openCreateBucketModal());
-    }
-
-    onConnectApplication() {
-        action$.next(openConnectAppModal());
-    }
-
-    _query(params) {
+    _query(query) {
         const {
             filter = this.filter(),
-            sorting = this.sorting(),
+            sortBy = this.sorting().sortBy,
+            order = this.sorting().order,
             page = this.page(),
             selectedForDelete = this.selectedForDelete()
-        } = params;
+        } = query;
 
-        const { sortBy, order } = sorting;
-        const query = {
+        const queryUrl = realizeUri(this.pathname, null, {
             filter: filter || undefined,
             sortBy: sortBy,
             order: order,
             page: page,
             selectedForDelete: selectedForDelete || undefined
-        };
+        });
 
-        action$.next(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
+        this.dispatch(requestLocation(queryUrl));
     }
 }
 
 export default {
-    viewModel: BucketsTableViewModel,
-    template: template
+    template: template,
+    viewModel: BucketsTableViewModel
 };

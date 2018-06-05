@@ -2,6 +2,9 @@ import {
     FETCH_OBJECTS,
     COMPLETE_FETCH_OBJECTS,
     FAIL_FETCH_OBJECTS,
+    FETCH_OBJECT,
+    COMPLETE_FETCH_OBJECT,
+    FAIL_FETCH_OBJECT,
     DELETE_OBJECT,
     COMPLETE_DELETE_OBJECT,
     DROP_OBJECTS_VIEW,
@@ -32,24 +35,46 @@ export function failFetchObjects(query, error) {
     };
 }
 
-export function deleteObject(bucket, key, uploadId, accessData){
+export function fetchObject(view, bucket, object, version, s3Endpoint) {
+    return {
+        type: FETCH_OBJECT,
+        payload: { view, bucket, object, version, s3Endpoint }
+    };
+}
+
+export function completeFetchObject(bucket, object, version, response) {
+    return {
+        type: COMPLETE_FETCH_OBJECT,
+        payload: { bucket, object, version, response }
+    };
+}
+
+export function failFetchObject(bucket, object, version, error) {
+    return {
+        type: FAIL_FETCH_OBJECT,
+        payload: { bucket, object, version, error }
+    };
+
+}
+
+export function deleteObject(objId, accessData) {
     return {
         type: DELETE_OBJECT,
-        payload: { bucket, key, uploadId, accessData }
+        payload: { objId, accessData }
     };
 }
 
-export function completeDeleteObject(bucket, key, uploadId) {
+export function completeDeleteObject(objId) {
     return {
         type: COMPLETE_DELETE_OBJECT,
-        payload: { bucket, key, uploadId }
+        payload: { objId }
     };
 }
 
-export function failDeleteObject(bucket, key, uploadId, error) {
+export function failDeleteObject(objId, error) {
     return {
         type: FAIL_DELETE_OBJECT,
-        payload: { bucket, key, uploadId, error }
+        payload: { objId, error }
 
     };
 }

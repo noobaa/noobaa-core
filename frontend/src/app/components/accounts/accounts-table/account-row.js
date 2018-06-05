@@ -4,7 +4,7 @@ import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 
 export default class AccountRowViewModel {
-    constructor({ baseRoute, deleteGroup, onDelete }) {
+    constructor({ baseRoute, onSelectForDelete, onDelete }) {
         this.baseRoute = baseRoute;
         this.name = ko.observable();
         this.role = ko.observable();
@@ -16,15 +16,16 @@ export default class AccountRowViewModel {
 
         this.deleteButton = {
             id: ko.observable(),
-            subject: 'account',
-            group: deleteGroup,
+            text: 'Delete Account',
+            active: ko.observable(),
             disabled: this.isSystemOwner,
             tooltip: ko.observable(),
+            onToggle: onSelectForDelete,
             onDelete: email => onDelete(email, this.isCurrentUser)
         };
     }
 
-    onAccount(account, role, currentUser) {
+    onAccount(account, role, currentUser, selectedForDelete) {
         const { name, isOwner, hasS3Access, hasLoginAccess, defaultResource } = account;
         const defaultResourceInfo = {
             text: defaultResource || '(not set)',
@@ -49,6 +50,7 @@ export default class AccountRowViewModel {
         this.loginAccess(hasLoginAccess ? 'enabled' : 'disabled');
         this.defaultResource(defaultResourceInfo);
         this.deleteButton.id(name);
+        this.deleteButton.active(selectedForDelete === name);
         this.deleteButton.tooltip(isOwner ? 'Cannot delete system owner' : 'Delete account');
     }
 }

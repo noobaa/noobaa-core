@@ -195,6 +195,22 @@ export default {
                     }
                 ]
             },
+            versioning: {
+                type: 'object',
+                required: [
+                    'mode'
+                ],
+                properties: {
+                    mode: {
+                        type: 'string',
+                        enum: [
+                            'DISABLED',
+                            'SUSPENDED',
+                            'ENABLED'
+                        ]
+                    }
+                }
+            },
             io: {
                 type: 'object',
                 required: [

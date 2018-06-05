@@ -1,0 +1,20 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row content-middle alt-bg pad">
+    <h3 class="heading3 greedy">
+        Object Properties
+    </h3>
+    <!-- ko if: isBucketVersioned -->
+    <div class="heading3 push-next">Version:</div>
+    <dropdown params="
+        placeholder: 'Loading versions...',
+        options: versionsOptions,
+        loading: !versionsLoaded(),
+        selected: ko.pc(selectedVersion, onSelectVersion, $component)
+    "></dropdown>
+    <!-- /ko -->
+</div>
+<property-sheet class="pad" params="
+    properties: properties,
+    loading: !dataReady()
+"></property-sheet>

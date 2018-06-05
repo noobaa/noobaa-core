@@ -37,10 +37,11 @@ import fetchHostObjects from './fetch-host-objects';
 import tryDeleteAccount from './try-delete-account';
 import signOutDeletedUser from './sign-out-deleted-user';
 import createBucket from './create-bucket';
-import updateBucketQuota from './update-bucket-quota';
-import updateBucketSpillover from './update-bucket-spillover';
+import updateBucketQuotaPolicy from './update-bucket-quota-policy';
+import updateBucketSpilloverPolicy from './update-bucket-spillover-policy';
 import updateBucketPlacementPolicy from './update-bucket-placement-policy';
 import updateBucketResiliencyPolicy from './update-bucket-resiliency-policy';
+import updateBucketVersioningPolicy from './update-bucket-versioning-policy';
 import deleteBucket from './delete-bucket';
 import fetchCloudTargets from './fetch-cloud-targets';
 import createNamespaceResource from './create-namespace-resource';
@@ -50,6 +51,7 @@ import updateNamespaceBucketPlacement from './update-namespace-bucket-placement'
 import deleteNamespaceBucket from './delete-namespace-bucket';
 import retrustHost from './retrust-host';
 import fetchObjects from './fetch-objects';
+import fetchObject from './fetch-object';
 import deleteObject from './delete-object';
 import fetchObjectParts from './fetch-object-parts';
 import fetchSystemStorageHistory from './fetch-system-storage-history';
@@ -131,10 +133,11 @@ const accountRelatedEpics = [
 
 const bucketRelatedEpics = [
     createBucket,
-    updateBucketQuota,
-    updateBucketSpillover,
+    updateBucketQuotaPolicy,
+    updateBucketSpilloverPolicy,
     updateBucketPlacementPolicy,
     updateBucketResiliencyPolicy,
+    updateBucketVersioningPolicy,
     deleteBucket,
     createNamespaceBucket,
     updateNamespaceBucketPlacement,
@@ -148,6 +151,7 @@ const bucketRelatedEpics = [
 const objectRelatedEpics = [
     uploadObjects,
     fetchObjects,
+    fetchObject,
     deleteObject,
     fetchObjectParts
 ];

@@ -140,7 +140,7 @@ const resiliencyModeToIcon = deepFreeze({
 });
 
 const spilloverModeToIcon = deepFreeze({
-    SPILLING_BACK: _alignIconTooltip(bucketStateToIcon.SPILLING_BACK, 'start'),    
+    SPILLING_BACK: _alignIconTooltip(bucketStateToIcon.SPILLING_BACK, 'start'),
     SPILLOVER_ERRORS: {
         tooltip: {
             text: 'Spillover resource has errors',
@@ -204,13 +204,11 @@ const quotaModeToIcon = deepFreeze({
     }
 });
 
-function _alignIconTooltip(icon, align) {
-    const { tooltip: text, ...rest } = icon;
-    return {
-        ...rest,
-        tooltip: { text, align }
-    };
-}
+const versioningModeToText = deepFreeze({
+    ENABLED: 'Enabled',
+    SUSPENDED: 'Suspended',
+    DISABLED: 'Disabled'
+});
 
 export const bucketEvents = deepFreeze([
     {
@@ -222,6 +220,14 @@ export const bucketEvents = deepFreeze([
         label: 'Object Removed'
     }
 ]);
+
+function _alignIconTooltip(icon, align) {
+    const { tooltip: text, ...rest } = icon;
+    return {
+        ...rest,
+        tooltip: { text, align }
+    };
+}
 
 export function getBucketStateIcon(bucket, align) {
     return isUndefined(align) ?
@@ -362,4 +368,8 @@ export function getResiliencyRequirementsWarning(resiliencyType, drivesCount) {
 
 export function getSpilloverStateIcon(spilloverMode) {
     return spilloverModeToIcon[spilloverMode];
+}
+
+export function getVersioningStateText(versioningMode) {
+    return versioningModeToText[versioningMode];
 }

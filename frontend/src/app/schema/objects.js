@@ -59,6 +59,16 @@ export default {
                                     type: 'string'
                                 }
 
+                            },
+                            emptyReason: {
+                                type: 'string',
+                                enum: [
+                                    'NO_MATCHING_KEYS',
+                                    'NO_RESULTS',
+                                    'NO_OBJECTS',
+                                    'NO_LATEST',
+                                    'NO_UPLOADS'
+                                ]
                             }
                         }
                     }
@@ -70,8 +80,11 @@ export default {
             additionalProperties: {
                 type: 'object',
                 required: [
-                    'key',
                     'bucket',
+                    'key',
+                    'versionId',
+                    'latestVersion',
+                    'deleteMarker',
                     'mode',
                     'size',
                     'contentType',
@@ -81,11 +94,20 @@ export default {
                     's3SignedUrl'
                 ],
                 properties: {
+                    bucket: {
+                        type: 'string'
+                    },
                     key: {
                         type: 'string'
                     },
-                    bucket: {
+                    versionId: {
                         type: 'string'
+                    },
+                    latestVersion: {
+                        type: 'boolean'
+                    },
+                    deleteMarker: {
+                        type: 'boolean'
                     },
                     mode: {
                         type: 'string',

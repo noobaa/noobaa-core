@@ -45,8 +45,9 @@ function onCompleteFetchHostObjects(state, { payload }) {
     const parts = flatMap(response.objects, obj => {
         return obj.parts.map(part => ({
             mode: part.chunk.adminfo.health.toUpperCase(),
-            object: obj.key,
             bucket: obj.bucket,
+            object: obj.key,
+            version: obj.version_id,
             start: part.start,
             end: part.end
         }));

@@ -94,15 +94,9 @@ class PoolsTableViewModel extends Observer {
         this.sorting = ko.observable();
         this.pageSize = paginationPageSize;
         this.page = ko.observable();
-        this.selectedForDelete = ko.observable();
         this.poolCount = ko.observable();
         this.rows = ko.observableArray();
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
-
-        this.deleteGroup = ko.pureComputed({
-            read: this.selectedForDelete,
-            write: val => this.onSelectForDelete(val)
-        });
 
         this.observe(
             state$.pipe(
@@ -135,8 +129,8 @@ class PoolsTableViewModel extends Observer {
         const pageStart = Number(page) * this.pageSize;
         const rowParams = {
             baseRoute: realizeUri(routes.pool, { system }, {}, true),
-            deleteGroup: this.deleteGroup,
-            onDelete: this.onDeletePool
+            onSelectForDelete: this.onSelectForDelete.bind(this),
+            onDelete: this.onDeletePool.bind(this)
         };
 
         const filteredRows = poolList
@@ -158,7 +152,7 @@ class PoolsTableViewModel extends Observer {
             .map((pool, i) => {
                 const usingAccounts = accountsByUsingResource[pool.name] || [];
                 const row = this.rows.get(i) || new PoolRowViewModel(rowParams);
-                row.onState(pool, usingAccounts, system);
+                row.onState(pool, usingAccounts, system, selectedForDelete);
                 return row;
             });
 
@@ -168,7 +162,6 @@ class PoolsTableViewModel extends Observer {
         this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
-        this.selectedForDelete(selectedForDelete);
         this.poolCount(filteredRows.length);
         this.rows(rows);
         this.poolsLoaded(true);

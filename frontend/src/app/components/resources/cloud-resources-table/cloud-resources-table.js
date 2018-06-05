@@ -112,15 +112,15 @@ class CloudResourcesTableViewModel extends Observer {
     filter = ko.observable();
     typeFilter = ko.observable();
     sorting = ko.observable();
-    selectedForDelete = ko.observable();
+    selectedForDelete = '';
     page = ko.observable();
     resourceCount = ko.observable();
     emptyMessage = ko.observable();
     onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
-    deleteGroup = ko.pureComputed({
-        read: this.selectedForDelete,
-        write: val => this.onSelectForDelete(val)
-    });
+    rowParams = {
+        onSelectForDelete: this.onSelectForDelete.bind(this),
+        onDelete: this.onDeleteCloudResource.bind(this)
+    };
 
     constructor() {
         super();
@@ -156,17 +156,13 @@ class CloudResourcesTableViewModel extends Observer {
         const emptyMessage = filteredRows.length > 0 ?
             'The current filter does not match any cloud resource' :
             'System does not contain any cloud resources';
-        const rowParams = {
-            deleteGroup: this.deleteGroup,
-            onDelete: this.onDeleteCloudResource.bind(this)
-        };
 
         const rows = filteredRows
             .sort(createCompareFunc(compareKey, Number(order)))
             .slice(pageStart, pageStart + this.pageSize)
             .map((resource, i) => {
-                const row = this.rows.get(i) || new CloudResourceRowViewModel(rowParams);
-                row.onState(resource, params.system);
+                const row = this.rows.get(i) || new CloudResourceRowViewModel(this.rowParams);
+                row.onState(resource, params.system, selectedForDelete);
                 return row;
             });
 
@@ -176,7 +172,7 @@ class CloudResourcesTableViewModel extends Observer {
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
         this.resourceCount(filteredRows.length);
-        this.selectedForDelete(selectedForDelete);
+        this.selectedForDelete = selectedForDelete;
         this.rows(rows);
         this.emptyMessage(emptyMessage);
         this.resourcesLoaded(true);
@@ -215,8 +211,7 @@ class CloudResourcesTableViewModel extends Observer {
     }
 
     onSelectForDelete(selected) {
-        const selectedForDelete = this.selectedForDelete() === selected ? null : selected;
-        this._query({ selectedForDelete });
+        this._query({ selectedForDelete: selected });
     }
 
     onAddCloudResource() {
@@ -233,7 +228,7 @@ class CloudResourcesTableViewModel extends Observer {
             filter = this.filter(),
             sorting = this.sorting(),
             page = this.page(),
-            selectedForDelete = this.selectedForDelete()
+            selectedForDelete = this.selectedForDelete
         } = params;
 
         const { sortBy, order } = sorting;

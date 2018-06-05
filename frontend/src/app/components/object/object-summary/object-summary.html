@@ -26,13 +26,13 @@
             <!-- ko if: chart.visible -->
             <chart-legend class="pad" params="
                 items: size,
-                caption: 'File Size',
+                caption: 'Object Size',
                 format: 'size'
             "></chart-legend>
             <bar-chart class="greedy" params="values: chart.values"></bar-chart>
             <!-- /ko -->
             <!-- ko ifnot: chart.visible -->
-            <p class="size-not-avail">File Size Not Available</p>
+            <p class="size-not-avail">Object Size Not Available</p>
             <!-- /ko -->
         </div>
     </section>
@@ -45,14 +45,23 @@
 
         <hr />
 
-        <div class="greedy row content-middle">
+        <div class="greedy row content-middle" ko.visible="isVersioningOn">
+            <span class="c5 highlight push-next">Version ID:</span>
+            <span class="c7" ko.text="versionId"></span>
+        </div>
+        <div class="greedy row content-middle" ko.visible="!isVersioningOn()">
             <span class="c5 highlight push-next">Last read time:</span>
             <span class="c7" ko.text="lastReadTime"></span>
         </div>
 
         <hr />
 
-        <div class="greedy row content-middle">
+        <div class="greedy row content-middle" ko.visible="isVersioningOn">
+            <span class="c5 highlight push-next">Num of Versions:</span>
+            <span class="c7" ko.text="versionCount"></span>
+        </div>
+
+        <div class="greedy row content-middle" ko.visible="!isVersioningOn()">
             <span class="c5 highlight push-next">Read count:</span>
             <span class="c7" ko.text="readCount"></span>
         </div>

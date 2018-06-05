@@ -72,17 +72,13 @@ class BucketTriggersFormViewModel extends Observer {
     sorting = ko.observable({});
     pageSize = paginationPageSize;
     page = ko.observable();
-    selectedForDelete = ko.observable();
+    selectedForDelete = '';
     triggerCount = ko.observable();
     rows = ko.observableArray();
     rowParams = {
         onEdit: this.onEditTrigger.bind(this),
-        onDelete: this.onDeleteTrigger.bind(this),
-        deleteGroup: ko.pc(
-            this.selectedForDelete,
-            this.onSelectForDelete,
-            this
-        )
+        onSelectForDelete: this.onSelectForDelete.bind(this),
+        onDelete: this.onDeleteTrigger.bind(this)
     };
 
     constructor({ bucketName }) {
@@ -121,7 +117,7 @@ class BucketTriggersFormViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((trigger, i) => {
                 const row = this.rows.get(i) || new TriggerRowViewModel(this.rowParams);
-                row.onState(trigger, system);
+                row.onState(trigger, system, selectedForDelete);
                 return row;
             });
 
@@ -129,7 +125,7 @@ class BucketTriggersFormViewModel extends Observer {
         this.pathname = location.pathname;
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
-        this.selectedForDelete(selectedForDelete);
+        this.selectedForDelete = selectedForDelete;
         this.rows(rows);
         this.bucketLoaded(true);
     }
@@ -162,8 +158,7 @@ class BucketTriggersFormViewModel extends Observer {
     }
 
     onSelectForDelete(selected) {
-        const selectedForDelete = this.selectedForDelete() === selected ? null : selected;
-        this._query({ selectedForDelete });
+        this._query({ selectedForDelete: selected });
     }
 
     _query(params) {
@@ -171,7 +166,7 @@ class BucketTriggersFormViewModel extends Observer {
             sortBy = this.sorting().sortBy,
             order = this.sorting().order,
             page = this.page(),
-            selectedForDelete = this.selectedForDelete()
+            selectedForDelete = this.selectedForDelete
         } = params;
 
         const query = {

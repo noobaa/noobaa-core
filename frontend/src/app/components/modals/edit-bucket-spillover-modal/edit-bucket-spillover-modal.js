@@ -9,7 +9,7 @@ import { formatSize } from 'utils/size-utils';
 import { getCloudResourceTypeIcon } from 'utils/resource-utils';
 import { getMany } from 'rx-extensions';
 import { getInternalResourceDisplayName } from 'utils/resource-utils';
-import { closeModal, updateBucketSpillover } from 'action-creators';
+import { closeModal, updateBucketSpilloverPolicy } from 'action-creators';
 import { editBucketSpillover as learnMoreHref } from 'knowledge-base-articles';
 
 function _getResourceTypeIcon(type, resource) {
@@ -143,7 +143,7 @@ class EditBucketSpilloverModalViewModel extends Observer {
     onSubmit(values) {
         const { target, useSpillover } = values;
         const resource = useSpillover ? target : null;
-        action$.next(updateBucketSpillover(this.bucketName, resource));
+        action$.next(updateBucketSpilloverPolicy(this.bucketName, resource));
         action$.next(closeModal());
     }
 

@@ -2,18 +2,21 @@ import {
     CREATE_BUCKET,
     COMPLETE_CREATE_BUCKET,
     FAIL_CREATE_BUCKET,
-    UPDATE_BUCKET_QUOTA,
-    COMPLETE_UPDATE_BUCKET_QUOTA,
-    FAIL_UPDATE_BUCKET_QUOTA,
-    UPDATE_BUCKET_SPILLOVER,
-    COMPLETE_UPDATE_BUCKET_SPILLOVER,
-    FAIL_UPDATE_BUCKET_SPILLOVER,
+    UPDATE_BUCKET_QUOTA_POLICY,
+    COMPLETE_UPDATE_BUCKET_QUOTA_POLICY,
+    FAIL_UPDATE_BUCKET_QUOTA_POLICY,
+    UPDATE_BUCKET_SPILLOVER_POLICY,
+    COMPLETE_UPDATE_BUCKET_SPILLOVER_POLICY,
+    FAIL_UPDATE_BUCKET_SPILLOVER_POLICY,
     UPDATE_BUCKET_PLACEMENT_POLICY,
     COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
     FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
     UPDATE_BUCKET_RESILIENCY_POLICY,
     COMPLETE_UPDATE_BUCKET_RESILIENCY_POLICY,
     FAIL_UPDATE_BUCKET_RESILIENCY_POLICY,
+    UPDATE_BUCKET_VERSIONING_POLICY,
+    COMPLETE_UPDATE_BUCKET_VERSIONING_POLICY,
+    FAIL_UPDATE_BUCKET_VERSIONING_POLICY,
     DELETE_BUCKET,
     COMPLETE_DELETE_BUCKET,
     FAIL_DELETE_BUCKET,
@@ -61,44 +64,44 @@ export function failCreateBucket(name, error) {
     };
 }
 
-export function updateBucketQuota(bucket, quota) {
+export function updateBucketQuotaPolicy(bucket, quota) {
     return {
-        type: UPDATE_BUCKET_QUOTA,
+        type: UPDATE_BUCKET_QUOTA_POLICY,
         payload: { bucket, quota }
     };
 }
 
-export function completeUpdateBucketQuota(bucket) {
+export function completeUpdateBucketQuotaPolicy(bucket) {
     return {
-        type: COMPLETE_UPDATE_BUCKET_QUOTA,
+        type: COMPLETE_UPDATE_BUCKET_QUOTA_POLICY,
         payload: { bucket }
     };
 }
 
-export function failUpdateBucketQuota(bucket, error) {
+export function failUpdateBucketQuotaPolicy(bucket, error) {
     return {
-        type: FAIL_UPDATE_BUCKET_QUOTA,
+        type: FAIL_UPDATE_BUCKET_QUOTA_POLICY,
         payload: { bucket, error }
     };
 }
 
-export function updateBucketSpillover(bucket, resource) {
+export function updateBucketSpilloverPolicy(bucket, resource) {
     return {
-        type: UPDATE_BUCKET_SPILLOVER,
+        type: UPDATE_BUCKET_SPILLOVER_POLICY,
         payload: { bucket, resource }
     };
 }
 
-export function completeUpdateBucketSpillover(bucket) {
+export function completeUpdateBucketSpilloverPolicy(bucket) {
     return {
-        type: COMPLETE_UPDATE_BUCKET_SPILLOVER,
+        type: COMPLETE_UPDATE_BUCKET_SPILLOVER_POLICY,
         payload: { bucket }
     };
 }
 
-export function failUpdateBucketSpillover(bucket, error) {
+export function failUpdateBucketSpilloverPolicy(bucket, error) {
     return {
-        type: FAIL_UPDATE_BUCKET_SPILLOVER,
+        type: FAIL_UPDATE_BUCKET_SPILLOVER_POLICY,
         payload: { bucket, error }
     };
 }
@@ -142,6 +145,27 @@ export function failUpdateBucketResiliencyPolicy(bucket, error) {
     return {
         type: FAIL_UPDATE_BUCKET_RESILIENCY_POLICY,
         payload: { bucket, error }
+    };
+}
+
+export function updateBucketVersioningPolicy(bucket, versioning) {
+    return {
+        type: UPDATE_BUCKET_VERSIONING_POLICY,
+        payload: { bucket, versioning }
+    };
+}
+
+export function completeUpdateBucketVersioningPolicy(bucket, versioning) {
+    return {
+        type: COMPLETE_UPDATE_BUCKET_VERSIONING_POLICY,
+        payload: { bucket, versioning }
+    };
+}
+
+export function failUpdateBucketVersioningPolicy(bucket, versioning, error) {
+    return {
+        type: FAIL_UPDATE_BUCKET_VERSIONING_POLICY,
+        payload: { bucket, versioning, error }
     };
 }
 

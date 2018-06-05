@@ -1,20 +1,101 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './object-parts-list.html';
-import Observer from 'observer';
-import PartRowViewModel from './part-row';
-import PartDetailsViewModel from './part-details';
-import { action$, state$ } from 'state';
-import { fetchObjectParts, openObjectPreviewModal, requestLocation } from 'action-creators';
+import ConnectableViewModel from 'components/connectable';
+import { openObjectPreviewModal, requestLocation } from 'action-creators';
 import { paginationPageSize } from 'config';
-import { flatMap } from 'utils/core-utils';
+import { deepFreeze, flatMap, assignWith, sumBy, isDefined, unique } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { getObjectId, summerizePartDistribution } from 'utils/object-utils';
+import { splitObjectId, summerizePartDistribution, formatBlockDistribution } from 'utils/object-utils';
 import { getPlacementTypeDisplayName, getResiliencyTypeDisplay } from 'utils/bucket-utils';
-import { capitalize } from 'utils/string-utils';
-import { getMany } from 'rx-extensions';
-import { get } from 'rx-extensions';
+import { formatSize } from 'utils/size-utils';
+import { stringifyAmount, capitalize } from 'utils/string-utils';
+import { getHostDisplayName } from 'utils/host-utils';
+import numeral from 'numeral';
 import ko from 'knockout';
+import * as routes from 'routes';
+
+const partModeToState = deepFreeze({
+    UNAVAILABLE: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Unavailable'
+    },
+    BUILDING: {
+        name: 'working',
+        css: 'warning',
+        tooltip:'Rebuilding'
+    },
+    AVAILABLE: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    }
+});
+
+const groupTooltips = deepFreeze({
+    'MIRROR_SET:REPLICAS:HOSTS':  'Replicas on nodes pool are distributed between the different nodes in the pool according to the configured policy parameters',
+    'MIRROR_SET:FRAGMENTS:HOSTS': 'Fragments resides in nodes pool are distributed between the different nodes in the pool according to the configured policy parameters',
+    'MIRROR_SET:REPLICAS:CLOUD':  'NooBaa considers cloud resource as resilient and keeps only one replica on this type of resource',
+    'MIRROR_SET:FRAGMENTS:CLOUD': 'NooBaa considers cloud resource as resilient and keeps only data fragments on this type of resource',
+    'SPILLOVER_SET:REPLICAS':     'The spillover resource is used since the bucket storage is not enough to store new data. Once possible, data will be spilled-back according to the configured policy',
+    'SPILLOVER_SET:FRAGMENTS':    'Fragments resides in nodes pool are distributed between the different nodes in the pool according to the configured policy parameters',
+    'TO_BE_REMOVED':              'In a case of policy changes, data allocation might be changed and some replicas/ fragments will need to be removed'
+});
+
+const blocksTableColumns = deepFreeze([
+    {
+        name: 'state',
+        type: 'icon'
+    },
+    {
+        name: 'replicas',
+        prop: 'marking',
+        type: 'marking',
+        visibleFor: 'REPLICAS'
+    },
+    {
+        name: 'fragments',
+        prop: 'marking',
+        type: 'marking',
+        visibleFor: 'FRAGMENTS'
+    },
+    {
+        name: 'mixed',
+        prop: 'marking',
+        type: 'marking',
+        label: 'fragments / replicas',
+        visibleFor: 'MIXED'
+    },
+    {
+        name: 'resource',
+        type: 'newLink',
+        label: 'resource'
+    }
+]);
+
+const blockModeToState = deepFreeze({
+    NOT_ACCESSIBLE: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Unavailable'
+    },
+    MOCKED: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Allocating'
+    },
+    WIPING: {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'Wiping'
+    },
+    HEALTHY: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    }
+});
 
 function _summrizeResiliency(resiliency) {
     const { kind, replicas, dataFrags, parityFrags } = resiliency;
@@ -44,7 +125,229 @@ function _getActionsTooltip(isOwner, httpsNoCert, verb, align) {
     return '';
 }
 
-class ObjectPartsListViewModel extends Observer {
+function _mapPart(part, index, distribution, isSelected) {
+    const seq = numeral(part.seq + 1).format(',');
+    const size = formatSize(part.size);
+    const counters = {
+        replicas: 0,
+        dataFrags: 0,
+        parityFrags: 0,
+        toBeRemoved: 0
+    };
+
+    for (const group of distribution) {
+        if (group.type === 'TO_BE_REMOVED') {
+            counters.toBeRemoved +=  sumBy(Object.values(group.storagePolicy));
+        } else {
+            assignWith(counters, group.storagePolicy, (a, b) => a + b);
+        }
+    }
+
+    return {
+        index,
+        isSelected: isSelected,
+        summary: `Part ${seq} | ${size} | ${formatBlockDistribution(counters, ', ')}`,
+        state: partModeToState[part.mode]
+    };
+}
+
+function _getStorageType(group) {
+    if (!group.resources) {
+        return 'UNKNOWN';
+    }
+
+    const types = unique(group.resources.map(res => res.type));
+    if (types.length === 1) {
+        return types[0];
+    }
+
+    const candidate = group.blocks[0];
+    if (candidate.storage) {
+        return candidate.storage.kind;
+    }
+
+    return 'UNKNOWN';
+}
+
+function _getGroupTooltip(group, storageType, blocksCategory) {
+    const parts = [group.type];
+    if (group.type !== 'TO_BE_REMOVED') {
+        parts.push(blocksCategory);
+
+        if (group.type !== 'SPILLOVER_SET') {
+            parts.push(storageType);
+        }
+    }
+
+    return {
+        text: groupTooltips[parts.join(':')],
+        align: 'end'
+    };
+}
+
+function _getResourceSummary(resources) {
+    if (resources.length === 0) {
+        return;
+    }
+
+    if (resources.length === 1) {
+        return { text: resources[0].name };
+    }
+
+    const resourceNames = resources.map(resource => resource.name);
+    const tooltip = resourceNames.length > 1 ?
+        { template: 'list', text: resourceNames } :
+        resourceNames[0];
+
+    return {
+        text: stringifyAmount('resource', resources.length),
+        tooltip: tooltip
+    };
+}
+
+function _getBlockMarking(block) {
+    switch (block.kind) {
+        case 'REPLICA': {
+            return {
+                text: 'R',
+                tooltip: 'Replica'
+            };
+        }
+
+        case 'DATA': {
+            const digit = block.seq + 1;
+            return {
+                text: `D${digit}`,
+                tooltip: `Data Fragment ${digit}`
+            };
+
+        }
+        case 'PARITY': {
+            const digit = block.seq + 1;
+            return {
+                text: `P${digit}`,
+                tooltip: `Parity Fragment ${digit}`
+            };
+        }
+    }
+
+    const letter = block.kind[0];
+    const digit = block.seq == null ? '' : (block.seq + 1);
+    return `${letter}${digit}`;
+}
+
+function _getBlockResource(block, system) {
+    if (block.mode === 'MOCKED') {
+        return { text: 'Searching for resource' };
+    }
+
+    const { kind, resource, pool, host } = block.storage || {};
+    switch (kind) {
+        case 'HOSTS': {
+            const text = getHostDisplayName(host);
+            const href = realizeUri(routes.host, { system, pool, host });
+            return { text, href };
+        }
+
+        case 'CLOUD': {
+            return {
+                text: resource
+            };
+        }
+
+        case 'INTERNAL': {
+            return {
+                text: 'Internal Storage'
+            };
+        }
+    }
+}
+
+function _mapDistributionGroup(group, system) {
+    const policy = group.storagePolicy;
+    const blocksCategory =
+        (policy.replicas && (policy.dataFrags + policy.parityFrags) && 'MIXED') ||
+        (policy.replicas && 'REPLICAS') ||
+        'FRAGMENTS';
+
+    const visibleColumns = blocksTableColumns
+        .filter(col => col.prop !== 'marking' || col.name === blocksCategory.toLowerCase())
+        .map(col => col.name);
+
+    const groupLabel =
+        (group.type === 'MIRROR_SET' && `Mirror set ${group.index + 1}`) ||
+        (group.type === 'SPILLOVER_SET' && 'Spillover set') ||
+        (group.type === 'TO_BE_REMOVED' && 'To be removed');
+
+    return {
+        visibleColumns: visibleColumns,
+        label: groupLabel,
+        policy: formatBlockDistribution(policy),
+        tooltip: _getGroupTooltip(group.type, blocksCategory, _getStorageType(group)),
+        resources: _getResourceSummary(group.resources),
+        rows: group.blocks.map(block => ({
+            state: blockModeToState[block.mode],
+            marking: _getBlockMarking(block),
+            resource: _getBlockResource(block, system)
+        }))
+    };
+}
+
+class PartRowViewModel {
+    list = null;
+    index = -1;
+    css = ko.observable();
+    state = ko.observable();
+    summary = ko.observable();
+    isSelected = ko.observable();
+
+    constructor({ list }) {
+        this.list = list;
+    }
+
+    onMoreDetails() {
+        this.list.onSelectRow(this.index);
+    }
+}
+
+class BlockRowViewModel {
+    state = ko.observable();
+    marking = ko.observable();
+    resource = ko.observable();
+}
+
+class BlocksTableViewModel {
+    columns = blocksTableColumns;
+    visibleColumns = ko.observableArray();
+    label = ko.observable();
+    policy = ko.observable();
+    tooltip = ko.observable();
+    resources = ko.observable();
+    rows = ko.observableArray()
+        .ofType(BlockRowViewModel);
+}
+
+class PartDetailsViewModel {
+    list = null;
+    fade = ko.observable();
+    partSeq = ko.observable();
+    blockTables = ko.observableArray()
+        .ofType(BlocksTableViewModel)
+
+    constructor({ list }) {
+        this.list = list;
+    }
+
+    onAnimationEnd() {
+        this.fade(false);
+    }
+
+    onX() {
+        this.list.onCloseDetails();
+    }
+}
+
+class ObjectPartsListViewModel extends ConnectableViewModel {
     pageSize = paginationPageSize;
     pathname = '';
     selectedRow = -1;
@@ -57,134 +360,110 @@ class ObjectPartsListViewModel extends Observer {
     resourceCount = ko.observable();
     downloadTooltip = ko.observable();
     previewTooltip = ko.observable();
-    rows = ko.observableArray();
-    isRowSelected = ko.observable();
-    partDetails = new PartDetailsViewModel(() => this.onCloseDetails())
+    isPaneExpanded = ko.observable();
     areActionsAllowed = ko.observable();
     actionsTooltip = ko.observable();
+    partDetails = ko.observable()
+        .ofType(PartDetailsViewModel, { list: this });
+    rows = ko.observableArray()
+        .ofType(PartRowViewModel, { list: this });
 
-    constructor() {
-        super();
+    selectState(state, params) {
+        const { location, buckets, objects, objectParts, accounts, system } = state;
+        const { bucket: bucketName } = splitObjectId(params.objectId);
 
-        this.observe(
-            state$.pipe(get('location')),
-            this.onLocation
-        );
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'buckets',
-                    ['objects', 'items'],
-                    ['objectParts', 'items'],
-                    'accounts',
-                    ['session', 'user'],
-                    'location',
-                    ['system', 'sslCert']
-                )
-            ),
-            this.onState
-        );
+        return [
+            location,
+            buckets && buckets[bucketName],
+            objects && objects.items[params.objectId],
+            objectParts && objectParts.items,
+            accounts && accounts[state.session.user],
+            system && system.sslCert
+        ];
     }
 
-    onLocation(location) {
-        const { bucket, object } = location.params;
-        const { page } = location.query;
-        if (!bucket || !object) return;
+    mapStateToProps(location, bucket, object, parts, user, sslCert) {
+        if (!parts || !user) {
+            ko.assignToProps(this, {
+                partsLoaded: false,
+                areActionsAllowed: false
+            });
 
-        action$.next(fetchObjectParts({
-            bucket: bucket,
-            key: object,
-            skip: (Number(page) || 0) * this.pageSize,
-            limit: this.pageSize
-        }));
-    }
-
-    onState([buckets, objects, parts, accounts, user, location, sslCert]) {
-        const { pathname, query, params } = location;
-        const { system, bucket: bucketName, object: objId } = params;
-        const page = Number(query.page) || 0;
-        const selectedRow = query.row === null ? -1  : Number(query.row);
-        const bucket = buckets && buckets[bucketName];
-        const object = objects && objects[getObjectId(bucketName, objId)];
-
-        if (!bucket || !accounts || !user || !object || !parts) {
-            if (!bucket || !object) {
-                this.partCount(0);
-                this.placementType('');
-                this.resilinecySummary('');
-                this.resourceCount('');
-            }
-            this.partsLoaded(false);
-            this.areActionsAllowed(false);
+        } else if (!bucket || !object) {
+            ko.assignToProps(this, {
+                partCount: 0,
+                placementType: '',
+                resilinecySummary: '',
+                resourceCount: '',
+                partsLoaded: false,
+                areActionsAllowed: false
+            });
 
         } else {
-            const { isOwner } = accounts[user];
-            const { placement, resiliency } = bucket;
-            const httpsNoCert = location.protocol === 'https' && !sslCert;
-            const placementType = getPlacementTypeDisplayName(placement.policyType);
-            const resilinecySummary = _summrizeResiliency(resiliency);
-            const resources = flatMap(
-                placement.mirrorSets,
-                mirrorSet => mirrorSet.resources
-            );
+            const { params, query, protocol, pathname } = location;
+            const httpsNoCert = protocol === 'https' && !sslCert;
+            const resources = flatMap(bucket.placement.mirrorSets,  mirrorSet => mirrorSet.resources);
+            const partDistributions = parts.map(part => summerizePartDistribution(bucket, part));
+            const selectedRow = isDefined(query.row) ? Number(query.row) : -1;
+            const isRowSelected = selectedRow > -1;
 
-            const partDistributions = parts
-                .map(part => summerizePartDistribution(bucket, part));
-
-            const rows = parts
-                .map((part, i) => {
-                    const row = this.rows.get(i) || new PartRowViewModel(() => this.onSelectRow(i));
-                    row.onState(part, partDistributions[i], selectedRow === i);
-                    return row;
-                });
-
-            this.pathname = pathname;
-            this.s3SignedUrl(object.s3SignedUrl);
-            this.partCount(object.partCount);
-            this.placementType(placementType);
-            this.resilinecySummary(resilinecySummary);
-            this.resourceCount(resources.length);
-            this.downloadTooltip(_getActionsTooltip(isOwner, httpsNoCert, 'download'));
-            this.previewTooltip(_getActionsTooltip(isOwner, httpsNoCert, 'preview', 'end'));
-            this.rows(rows);
-            this.page(page);
-            this.isRowSelected(selectedRow >= 0);
-            this.areActionsAllowed(isOwner && !httpsNoCert);
-
-            if (selectedRow >= 0) {
-                const { seq } = parts[selectedRow];
-                const distribution = partDistributions[selectedRow];
-                this.partDetails.onState(seq, distribution, system);
-            }
-
-            this.partsLoaded(true);
+            ko.assignToProps(this, {
+                partsLoaded: true,
+                pathname: pathname,
+                s3SignedUrl: object.s3SignedUrl,
+                partCount: object.partCount,
+                placementType: getPlacementTypeDisplayName(bucket.placement.policyType),
+                resilinecySummary: _summrizeResiliency(bucket.resiliency),
+                resourceCount: resources.length,
+                downloadTooltip: _getActionsTooltip(user.isOwner, httpsNoCert, 'download'),
+                previewTooltip: _getActionsTooltip(user.isOwner, httpsNoCert, 'preview', 'end'),
+                page: Number(query.page || 0),
+                areActionsAllowed: user.isOwner && !httpsNoCert,
+                selectedRow: selectedRow,
+                rows: parts.map((part, i) =>
+                    _mapPart(part, i, partDistributions[i], selectedRow === i)
+                ),
+                isPaneExpanded: isRowSelected,
+                partDetails: !isRowSelected ? {} : {
+                    fade: true,
+                    partSeq: isRowSelected ? numeral(parts[selectedRow].seq + 1).format(',') : '',
+                    blockTables: partDistributions[selectedRow].map(group =>
+                        _mapDistributionGroup(group, params.system)
+                    )
+                }
+            });
         }
     }
 
     onPreviewFile() {
-        action$.next(openObjectPreviewModal(this.s3SignedUrl()));
+        this.dispatch(openObjectPreviewModal(this.s3SignedUrl()));
     }
 
     onDownloadClick() {
+        // If action are not allowed we prevent the default action
+        // on the download link.
         return this.areActionsAllowed();
     }
 
     onSelectRow(row) {
-        const page = this.page();
-        const url = realizeUri(this.pathname, {}, { page, row });
-        action$.next(requestLocation(url, this.isRowSelected()));
+        if (row === this.selectedRow) {
+            return;
+        }
+
+        this._query({ page: this.page(), row });
     }
 
     onPage(page) {
-        page = page || undefined;
-        const url = realizeUri(this.pathname, {}, { page });
-        action$.next(requestLocation(url, this.isRowSelected()));
+        this._query({ page });
     }
 
     onCloseDetails() {
-        const page = this.page();
-        const url = realizeUri(this.pathname, {}, { page });
-        action$.next(requestLocation(url, true));
+        this._query({ page: this.page() });
+    }
+
+    _query(query) {
+        const url = realizeUri(this.pathname, null, query);
+        this.dispatch(requestLocation(url));
     }
 }
 

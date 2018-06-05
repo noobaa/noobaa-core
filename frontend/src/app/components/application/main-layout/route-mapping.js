@@ -139,7 +139,7 @@ function _generateObjectCrumbs(params) {
         {
             url: realizeUri(
                 routes.object,
-                pick(params, ['system', 'bucket', 'object'])
+                pick(params, ['system', 'bucket', 'object', 'version'])
             ),
             label: params.object
         }

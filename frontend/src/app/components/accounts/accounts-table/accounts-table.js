@@ -72,13 +72,7 @@ class AccountsTableViewModel extends Observer {
         this.pageSize = paginationPageSize;
         this.page = ko.observable();
         this.accountCount = ko.observable();
-        this.selectedForDelete = ko.observable();
         this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
-
-        this.deleteGroup = ko.pureComputed({
-            read: this.selectedForDelete,
-            write: val => this.onSelectForDelete(val)
-        });
 
         this.observe(
             state$.pipe(
@@ -107,7 +101,7 @@ class AccountsTableViewModel extends Observer {
         const pageStart = Number(page) * this.pageSize;
         const rowParams = {
             baseRoute: realizeUri(routes.account, { system }, {}, true),
-            deleteGroup: this.deleteGroup,
+            onSelectForDelete: this.onSelectForDelete.bind(this),
             onDelete: this.onDeleteAccount.bind(this)
         };
 
@@ -119,7 +113,7 @@ class AccountsTableViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((account, i) => {
                 const row = this.rows.get(i) || new AccountRowViewModel(rowParams);
-                row.onAccount(account, _getAccountRole(account), session.user);
+                row.onAccount(account, _getAccountRole(account), session.user, selectedForDelete);
                 return row;
             });
 
@@ -128,7 +122,6 @@ class AccountsTableViewModel extends Observer {
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
         this.accountCount(filteredRows.length);
-        this.selectedForDelete(selectedForDelete);
         this.rows(rows);
         this.accountsLoading(false);
     }

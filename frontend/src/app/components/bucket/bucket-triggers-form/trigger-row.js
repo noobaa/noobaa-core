@@ -44,20 +44,20 @@ export default class TriggerRowViewModel {
         tooltip: 'Edit Trigger'
     };
     delete = {
-        subject: 'trigger',
+        text: 'Delete trigger',
         disabled: false,
+        active: ko.observable(),
         tooltip: '',
-        id: this.triggerId,
-        group: null
+        id: this.triggerId
     };
 
-    constructor({ onEdit, onDelete, deleteGroup }) {
+    constructor({ onEdit, onSelectForDelete, onDelete }) {
         this.edit.onClick = onEdit;
         this.delete.onDelete = onDelete;
-        this.delete.group = deleteGroup;
+        this.delete.onToggle = onSelectForDelete;
     }
 
-    onState(trigger, system) {
+    onState(trigger, system, selectedForDelete) {
         const event = bucketEvents
             .find(event => event.value === trigger.event)
             .label;
@@ -75,5 +75,6 @@ export default class TriggerRowViewModel {
         this.suffix(trigger.suffix || '(not set)');
         this.lastRun(_getLastRunText(trigger));
         this.triggerId(trigger.id);
+        this.delete.active(selectedForDelete === trigger.id);
     }
 }

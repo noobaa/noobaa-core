@@ -1,12 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { isObject, isUndefined, deepFreeze, isNumber, throttle } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
+import {
+    isObject,
+    isUndefined,
+    isFunction,
+    isNumber,
+    deepFreeze,
+    throttle
+} from 'utils/core-utils';
 
 // -----------------------------------------
 // Knockout object extnesions
 // -----------------------------------------
+
+// @DEPRECATED
 ko.observableWithDefault = function(valueAccessor) {
     const storage = ko.observable();
     return ko.pureComputed({
@@ -15,24 +24,7 @@ ko.observableWithDefault = function(valueAccessor) {
     });
 };
 
-ko.deepUnwrap = function(value) {
-    const naked = ko.unwrap(value);
-    if (isObject(naked)) {
-        let needUnwrap = false;
-        const res = Object.entries(naked).reduce(
-            (res, [key, val]) => {
-                res[key] = ko.deepUnwrap(val);
-                needUnwrap = res[key] !== val || needUnwrap;
-                return res;
-            },
-            Array.isArray(naked) ? [] : {}
-        );
-        return needUnwrap ? res : naked;
-    } else {
-        return naked;
-    }
-};
-
+// @DEPRECATED
 ko.touched = function(root) {
     let initialized = false;
     const trigger = ko.observable(false);
@@ -55,6 +47,31 @@ ko.touched = function(root) {
     });
 };
 
+// @DEPRECATED
+ko.group = function(...observables) {
+    return ko.pureComputed(
+        () => observables.map(obs => ko.unwrap(obs))
+    );
+};
+
+ko.deepUnwrap = function(value) {
+    const naked = ko.unwrap(value);
+    if (isObject(naked)) {
+        let needUnwrap = false;
+        const res = Object.entries(naked).reduce(
+            (res, [key, val]) => {
+                res[key] = ko.deepUnwrap(val);
+                needUnwrap = res[key] !== val || needUnwrap;
+                return res;
+            },
+            Array.isArray(naked) ? [] : {}
+        );
+        return needUnwrap ? res : naked;
+    } else {
+        return naked;
+    }
+};
+
 ko.renderToString = function(template, data) {
     const doc = new DOMParser().parseFromString(template, 'text/html');
     ko.applyBindings(data, doc.body);
@@ -63,15 +80,162 @@ ko.renderToString = function(template, data) {
     return htmlString;
 };
 
-ko.group = function(...observables) {
-    return ko.pureComputed(
-        () => observables.map(obs => ko.unwrap(obs))
-    );
-};
-
 ko.pc = function(read, write, owner) {
     return ko.pureComputed({ read, write, owner });
 };
+
+ko.isObservableArray = function(obs) {
+    return ko.isObservable(obs) && typeof obs.push === 'function';
+};
+
+ko.fromRx = function(stream$) {
+    const value = ko.observable();
+
+    let streamSub = null;
+    function onAwake() {
+        streamSub = stream$.subscribe(value);
+    }
+
+    function onAsleep() {
+        streamSub.unsubscribe();
+        streamSub = null;
+    }
+
+    const pure = ko.pureComputed(value);
+    pure.subscribe(onAwake, null, 'awake');
+    pure.subscribe(onAsleep, null, 'asleep');
+    return pure;
+};
+
+// Smart and fast assign of values to view model props.
+// Take into account observables, observable arrays, typed observables
+// and typed observable arrays.
+ko.assignToProps = (ko => {
+    const updateFuncs = new WeakMap();
+
+    const templates = deepFreeze({
+        STRUCT: (accessor, propValue) => {
+            const block = _generateStructUpdateCode(propValue);
+            return !block ? '' : `
+                if (parent = vm, typeof (value = values${accessor}) !== 'undefined') {
+                    const values = value, vm = parent${accessor};
+                    ${block}
+                }
+            `;
+        },
+        VALUE: (accessor, _, owner) => {
+            return Object.isFrozen(owner) ? '' : `
+                if (typeof (value = values${accessor}) !== 'undefined') vm${accessor} = value;
+            `;
+        },
+        OBS: accessor => `
+            if (typeof (value = values${accessor}) !== 'undefined') vm${accessor}(value);
+        `,
+        TYPED_OBS: accessor => `
+            if (typeof (value = values${accessor}) !== 'undefined') {
+                const obs = vm${accessor};
+                utils.updateTypedObs(obs, value, utils);
+            }
+        `,
+        TYPED_OBS_ARRAY: accessor => `
+            if (typeof (value = values${accessor}) !== 'undefined') {
+                const obs = vm${accessor};
+                utils.updateTypedObsArray(obs, value, utils);
+            }
+        `
+    });
+
+    const utils = deepFreeze({
+        updateTypedObsArray: _updateTypedObsArray,
+        updateTypedObs: _updateTypedObs
+    });
+
+    function _getPropType(value) {
+        if (ko.isObservableArray(value)) {
+            return value.typeInfo ?
+                'TYPED_OBS_ARRAY' :
+                'OBS';
+
+        } else if (ko.isWritableObservable(value)) {
+            return value.typeInfo ?
+                'TYPED_OBS' :
+                'OBS';
+
+        } else if (!ko.isObservable(value) && !isFunction(value)) {
+            return true &&
+                (Array.isArray(value) && value.length > 0 && 'STRUCT') ||
+                (isObject(value) && Object.keys(value).length > 0 && 'STRUCT') ||
+                'VALUE';
+
+        } else {
+            return 'UNSUPPORTED';
+        }
+    }
+
+    function _generateStructUpdateCode(vm) {
+        const isArray = Array.isArray(vm);
+        return Object.entries(vm)
+            .map(pair => {
+                const [propName, propValue] = pair;
+                const propType = _getPropType(propValue);
+                if (propType === 'UNSUPPORTED') {
+                    return '';
+                } else {
+                    const isIndex = isArray && Number.isInteger(Number(propName));
+                    const propAccessor = `[${isIndex ? propName : `'${propName}'`}]`;
+                    return templates[propType](propAccessor, propValue, vm).trim();
+                }
+            })
+            .filter(Boolean)
+            .join('\n');
+    }
+
+    function _generateUpdateFunction(vm) {
+        const body = `
+            let value, parent;
+            ${_generateStructUpdateCode(vm)}
+        `.trim();
+
+        return new Function('vm', 'values', 'utils', body);
+    }
+
+    function _updateTypedObsArray(obsArray, value, utils) {
+        const { Type, params } = obsArray.typeInfo;
+        const items = value.map((item, i) => {
+            const itemVm = obsArray.peek()[i] || new Type(params);
+            const update = _getUpdateFunc(itemVm);
+            update(itemVm, item, utils);
+            return itemVm;
+        });
+        obsArray(items);
+    }
+
+    function _updateTypedObs(obs, value, utils) {
+        if (value === null) {
+            obs(null);
+        } else {
+            const { Type, params } = obs.typeInfo;
+            let  valueVm = obs.peek();
+            if (valueVm == null) obs(valueVm = new Type(params));
+            const update = _getUpdateFunc(valueVm);
+            update(valueVm, value, utils);
+        }
+    }
+
+    function _getUpdateFunc(obj) {
+        const Type = obj.constructor;
+        let update = updateFuncs.get(Type);
+        if (!update) {
+            updateFuncs.set(Type, update = _generateUpdateFunction(obj));
+        }
+        return update;
+    }
+
+    return function(vm, values) {
+        const update = _getUpdateFunc(vm);
+        update(vm, values, utils);
+    };
+})(ko);
 
 // -----------------------------------------
 // Knockout subscribable extnesions
@@ -140,6 +304,14 @@ ko.subscribable.fn.throttle = function(duration = 1, owner) {
     });
 };
 
+ko.subscribable.fn.ofType = function(Type, params) {
+    if (typeof Type !== 'function') {
+        throw new TypeError('Must be a constructor function');
+    }
+    this.typeInfo = { Type, params };
+    return this;
+};
+
 ko.observable.fn.map = function(mapOp) {
     let prevItems = [];
     const projected = ko.pureComputed(
@@ -169,7 +341,6 @@ ko.observableArray.fn.peek = function(i) {
     } else {
         return ko.observable.fn.peek.call(this);
     }
-
 };
 
 // -----------------------------------------
@@ -236,7 +407,6 @@ const preprocessByNodeType = deepFreeze({
     [Node.TEXT_NODE]: preprocessTextNode,
     [Node.COMMENT_NODE]: preprocessComment
 });
-
 
 function preprocessElement(node) {
     const { attributes, dataset } = node;

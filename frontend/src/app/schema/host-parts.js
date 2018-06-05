@@ -30,10 +30,13 @@ export default {
                             'UNAVAILABLE'
                         ]
                     },
+                    bucket: {
+                        type: 'string'
+                    },
                     object: {
                         type: 'string'
                     },
-                    bucket: {
+                    version: {
                         type: 'string'
                     },
                     start: {

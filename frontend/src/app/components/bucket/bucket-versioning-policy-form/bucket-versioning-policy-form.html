@@ -1,0 +1,42 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="pad">
+    <div class="row content-middle bucket-policy-summary"
+        ko.click="onToggleSection"
+    >
+        <svg-icon class="push-next"
+            params="name: stateIcon().name"
+            ko.css="stateIcon().css"
+            ko.tooltip="stateIcon().tooltip"
+        ></svg-icon>
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Object Versioning</h2>
+            <p class="row content-middle"
+                ko.visible="!isExpanded()"
+            >
+                {{summary}}
+            </p>
+            <p ko.visible="isExpanded">
+                Versioning will keep multiple versions of an object in this bucket
+            </p>
+        </div>
+        <button class="btn push-both"
+            ko.click="onToggleVersioning"
+            ko.preventBubble="'click'"
+        >
+            {{toggleBtnText}}
+        </button>
+        <svg-icon class="icon-small rotate"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div class="column hpad" ko.expand="isExpanded">
+        <property-sheet class="hpad push-prev" params="properties: details">
+            <templates name="styled-text">
+                <span ko.css="css" ko.text="text"></span>
+            </templates>
+        </property-sheet>
+    </div>
+</section>
+

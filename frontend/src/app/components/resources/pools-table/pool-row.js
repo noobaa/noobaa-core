@@ -10,8 +10,7 @@ import ko from 'knockout';
 import numeral from 'numeral';
 
 export default class PoolRowViewModel {
-    constructor({ baseRoute, deleteGroup, onDelete }) {
-
+    constructor({ baseRoute, onSelectForDelete, onDelete }) {
         this.baseRoute = baseRoute;
         this.state = ko.observable();
         this.name = ko.observable();
@@ -44,19 +43,20 @@ export default class PoolRowViewModel {
         };
 
         this.deleteButton = {
-            subject: 'pool',
+            text: 'Delete pool',
             disabled: ko.observable(),
             tooltip: {
                 template: deleteBtnTooltipTemplate,
                 text: ko.observable()
             },
             id: ko.observable(),
-            group: deleteGroup,
+            active: ko.observable(),
+            onToggle: onSelectForDelete,
             onDelete: onDelete
         };
     }
 
-    onState(pool, lockingAccounts, system) {
+    onState(pool, lockingAccounts, system, selectedForDelete) {
         if (!pool) return;
         const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
         this.state(getHostsPoolStateIcon(pool));
@@ -90,6 +90,7 @@ export default class PoolRowViewModel {
 
         this.deleteButton.id(name);
         this.deleteButton.disabled(Boolean(undeletable));
+        this.deleteButton.active(selectedForDelete === name);
         this.deleteButton.tooltip.text({
             reason: undeletable,
             accounts: lockingAccounts

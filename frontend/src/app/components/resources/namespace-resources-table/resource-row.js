@@ -12,23 +12,24 @@ const undeletableReasonToTooltip = deepFreeze({
 });
 
 export default class ResourceRowViewModel {
-    constructor({ deleteGroup, onDelete }) {
+    constructor({ onSelectForDelete, onDelete }) {
         this.state = ko.observable();
         this.type = ko.observable();
         this.name = ko.observable();
         this.connectedBuckets = ko.observable();
         this.target = ko.observable();
         this.deleteButton = {
-            subject: 'resource',
+            text: 'Delete resource',
             id: ko.observable(),
+            active: ko.observable(),
             disabled: ko.observable(),
             tooltip: ko.observable(),
-            group: deleteGroup,
+            onToggle: onSelectForDelete,
             onDelete: onDelete
         };
     }
 
-    onState(resource, connectedBuckets, system) {
+    onState(resource, connectedBuckets, system, selectedForDelete) {
         const { name, target, undeletable } = resource;
         const conenctedBucketsInfo = {
             text: stringifyAmount('bucket', connectedBuckets.length),
@@ -50,6 +51,7 @@ export default class ResourceRowViewModel {
         this.connectedBuckets(conenctedBucketsInfo);
         this.target({ text: target, tooltip: target });
         this.deleteButton.id(name);
+        this.deleteButton.active(selectedForDelete == name);
         this.deleteButton.disabled(Boolean(undeletable));
         this.deleteButton.tooltip(deleteTooltip);
     }

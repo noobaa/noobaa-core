@@ -79,7 +79,7 @@ const libs = [
     },
     {
         name: 'aws-sdk',
-        module: 'dist/aws-sdk.js'
+        module: '../../../../node_modules/aws-sdk/dist/aws-sdk.min.js'
     },
     {
         name: 'jszip',

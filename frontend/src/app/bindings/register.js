@@ -1,7 +1,35 @@
 /* Copyright (C) 2016 NooBaa */
 
+/* Copyright (C) 2016 NooBaa */
+
+// Import extended existing handlers
+import template from './template-ex';
+import value from './value-ex';
+
+// Import new handlers
+import _let from './let';
+import visibility from './visibility';
+import href from './href';
+import scroll from './scroll';
+import canvas from './canvas';
+import expand from './expand';
+import tooltip from './tooltip';
+import scrollTo from './scroll-to';
+import hover from './hover';
+import shakeOnClick from './shake-on-click';
+import childEvent from './child-event';
+import globalEvent from './global-event';
+import selection from './selection';
+import preventBubble from './prevent-bubble';
+import validationCss from './validation-css';
+import bubbleEvents from './bubble-events';
+import trapFocus from './trap-focus';
+import keysToClicks from './keys-to-clicks';
+import keyboardNavigation from './keyboard-navigation';
+import hidden from './hidden';
+
 export default function register(ko) {
-    function registerHandler(name, handler) {
+    function registerHandler([name, handler]) {
         ko.bindingHandlers[name] = handler;
         ko.bindingHandlers[name.toLowerCase()] = handler;
 
@@ -11,29 +39,29 @@ export default function register(ko) {
         }
     }
 
-    // Extending existing handlers
-    registerHandler('template', require('./template-ex').default);
-    registerHandler('value', require('./value-ex').default);
-
-    // Registering new handlers
-    registerHandler('let',                  require('./let').default);
-    registerHandler('visibility',           require('./visibility').default);
-    registerHandler('href',                 require('./href').default);
-    registerHandler('scroll',               require('./scroll').default);
-    registerHandler('canvas',               require('./canvas').default);
-    registerHandler('expand',               require('./expand').default);
-    registerHandler('tooltip',              require('./tooltip').default);
-    registerHandler('scrollTo',             require('./scroll-to').default);
-    registerHandler('hover',                require('./hover').default);
-    registerHandler('shakeOnClick',         require('./shake-on-click').default);
-    registerHandler('childEvent',           require('./child-event').default);
-    registerHandler('globalEvent',          require('./global-event').default);
-    registerHandler('selection',            require('./selection').default);
-    registerHandler('preventBubble',        require('./prevent-bubble').default);
-    registerHandler('validationCss',        require('./validation-css').default);
-    registerHandler('bubbleEvents',         require('./bubble-events').default);
-    registerHandler('trapFocus',            require('./trap-focus').default);
-    registerHandler('keysToClicks',         require('./keys-to-clicks').default);
-    registerHandler('keyboardNavigation',   require('./keyboard-navigation').default);
-    registerHandler('hidden',               require('./hidden').default);
+    // Register the bindings.
+    Object.entries({
+        template,
+        value,
+        let: _let,
+        visibility,
+        href,
+        scroll,
+        canvas,
+        expand,
+        tooltip,
+        scrollTo,
+        hover,
+        shakeOnClick,
+        childEvent,
+        globalEvent,
+        selection,
+        preventBubble,
+        validationCss,
+        bubbleEvents,
+        trapFocus,
+        keysToClicks,
+        keyboardNavigation,
+        hidden
+    }).forEach(registerHandler);
 }

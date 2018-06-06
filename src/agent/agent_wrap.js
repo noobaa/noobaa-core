@@ -16,6 +16,7 @@ const WIN_AGENT = os.type() === 'Windows_NT';
 const P = require('../util/promise');
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
+const buffer_utils = require('../util/buffer_utils');
 const promise_utils = require('../util/promise_utils');
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('agent_wrapper');
@@ -27,6 +28,7 @@ const EXECUTABLE_MOD_VAL = 511;
 
 const CONFIGURATION = {
     SETUP_FILENAME: WIN_AGENT ? 'noobaa-setup.exe' : 'noobaa-setup',
+    MD5_FILENAME: WIN_AGENT ? 'noobaa-setup.exe.md5' : 'noobaa-setup.md5',
     UNINSTALL_FILENAME: WIN_AGENT ? 'uninstall-noobaa.exe' : 'uninstall_noobaa_agent.sh',
     PROCESS_DIR: path.join(__dirname, '..', '..'),
     AGENT_CLI: './src/agent/agent_cli',
@@ -36,6 +38,7 @@ const CONFIGURATION = {
 };
 
 CONFIGURATION.SETUP_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.SETUP_FILENAME);
+CONFIGURATION.MD5_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.MD5_FILENAME);
 CONFIGURATION.UNINSTALL_FILE = CONFIGURATION.PROCESS_DIR + (WIN_AGENT ? '\\' : '/') + CONFIGURATION.UNINSTALL_FILENAME;
 CONFIGURATION.INSTALLATION_COMMAND = WIN_AGENT ? `"${CONFIGURATION.SETUP_FILE}" /S` :
     `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
@@ -48,6 +51,23 @@ CONFIGURATION.BACKUP_DIR = path.join(process.cwd(), `backup`);
 
 var address = "";
 let new_backup_dir = CONFIGURATION.BACKUP_DIR;
+
+function _download_file(request_url, output) {
+    return new P((resolve, reject) => {
+        request.get({
+                url: request_url,
+                strictSSL: false,
+                timeout: 20000
+            })
+            .on('error', err => {
+                dbg.warn('Error downloading NooBaa agent upgrade from', address);
+                return reject(err);
+            })
+            .pipe(output)
+            .on('error', err => reject(err))
+            .on('finish', resolve);
+    });
+}
 
 dbg.log0('deleting file', CONFIGURATION.SETUP_FILE);
 fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
@@ -85,7 +105,7 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
             dbg.log0('Agent not found. calling agent_cli with --notfound flag');
             return promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--notfound'], { stdio: 'ignore' });
         }
-        dbg.log0('unkown error code. rethorwing');
+        dbg.log0('unkown error code. rethrowing');
         throw err;
     })
     // Currently, to signal an upgrade is required agent_cli exits with 0.
@@ -94,22 +114,21 @@ fs_utils.file_delete(CONFIGURATION.SETUP_FILE)
     .then(() => {
         dbg.log0('agent_cli exited with code 0. downloading upgrade file');
         const output = fs.createWriteStream(CONFIGURATION.SETUP_FILE);
-        return new P((resolve, reject) => {
-            const request_url = `https://${address}/public/${CONFIGURATION.SETUP_FILENAME}`;
-            dbg.log0(`Downloading Noobaa agent upgrade package from: ${request_url}`);
-            request.get({
-                    url: request_url,
-                    strictSSL: false,
-                    timeout: 20000
-                })
-                .on('error', err => {
-                    dbg.warn('Error downloading NooBaa agent upgrade from', address);
-                    return reject(err);
-                })
-                .pipe(output)
-                .on('error', err => reject(err))
-                .on('finish', resolve);
-        });
+        return _download_file(`https://${address}/public/${CONFIGURATION.SETUP_FILENAME}`, output);
+    })
+    .then(() => {
+        dbg.log0('downloading md5 file from server');
+        const output = buffer_utils.write_stream();
+        return P.all([_download_file(`https://${address}/public/${CONFIGURATION.MD5_FILENAME}`, output),
+                fs_utils.get_md5_of_file(CONFIGURATION.SETUP_FILE)
+            ])
+            .then(([, agent_md5]) => {
+                const server_md5 = buffer_utils.join(output.buffers).toString();
+                if (agent_md5 !== server_md5) {
+                    throw new Error(`MD5 is incompatible between server (MD5:${server_md5}) and agent(MD5:${agent_md5})`);
+                }
+                dbg.log0('Checking md5 of downloaded version passed:', agent_md5);
+            });
     })
     .then(() => fs.chmodAsync(CONFIGURATION.SETUP_FILE, EXECUTABLE_MOD_VAL))
     // before running setup move old code to backup dir

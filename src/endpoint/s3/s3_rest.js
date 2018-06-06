@@ -222,6 +222,7 @@ function parse_op_name(req) {
 
     // see http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html
     const is_path_style = !host ||
+        !virtual_host_suffix || // added case for when no DNS name is defined - if we work with IP always using path-style
         virtual_host_suffix === '.' + host ||
         net.isIP(host) ||
         host === 'localhost'; // we added this case on top of the S3 doc cases to handle requests with IP host

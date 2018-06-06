@@ -21,11 +21,17 @@ const serviceToMeta = deepFreeze({
         icon: 'google-cloud-dark',
         selectedIcon: 'google-cloud-colored'
     },
-    S3_COMPATIBLE: {
-        displayName: 'S3 Compatible service',
+    S3_V2_COMPATIBLE: {
+        displayName: 'S3 V2 Compatible service',
         subject: 'Bucket',
-        icon: 'cloud-dark',
-        selectedIcon: 'cloud-colored'
+        icon: 'cloud-v2-dark',
+        selectedIcon: 'cloud-v2-colored'
+    },
+    S3_V4_COMPATIBLE: {
+        displayName: 'S3 V4 Compatible service',
+        subject: 'Bucket',
+        icon: 'cloud-v4-dark',
+        selectedIcon: 'cloud-v4-colored'
     },
     NET_STORAGE: {
         displayName: 'NetStorage service',

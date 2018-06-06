@@ -11,7 +11,6 @@ const columns = deepFreeze([
         name: 'externalEntity',
         label: 'Azure Containers Under Connection',
         visibleFor: 'AZURE'
-
     },
     {
         name: 'externalEntity',
@@ -26,7 +25,12 @@ const columns = deepFreeze([
     {
         name: 'externalEntity',
         label: 'S3 Buckets Under Connection',
-        visibleFor: 'S3_COMPATIBLE'
+        visibleFor: 'S3_V2_COMPATIBLE'
+    },
+    {
+        name: 'externalEntity',
+        label: 'S3 Buckets Under Connection',
+        visibleFor: 'S3_V4_COMPATIBLE'
     },
     {
         name: 'externalEntity',

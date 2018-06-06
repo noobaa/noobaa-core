@@ -45,10 +45,17 @@ const serviceOptions = deepFreeze([
         remark: gcEndpoint
     },
     {
-        value: 'S3_COMPATIBLE',
-        label: 'Generic S3 Compatible Service',
-        icon: 'cloud-dark',
-        selectedIcon: 'cloud-colored',
+        value: 'S3_V2_COMPATIBLE',
+        label: 'Generic S3 V2 Compatible Service',
+        icon: 'cloud-v2-dark',
+        selectedIcon: 'cloud-v2-colored',
+        remark: 'No default endpoint'
+    },
+    {
+        value: 'S3_V4_COMPATIBLE',
+        label: 'Generic S3 V4 Compatible Service',
+        icon: 'cloud-v4-dark',
+        selectedIcon: 'cloud-v4-colored',
         remark: 'No default endpoint'
     },
     {
@@ -62,7 +69,8 @@ const serviceOptions = deepFreeze([
 const templates = deepFreeze({
     AWS: awsFieldsTemplate,
     AZURE: azureFieldsTemplate,
-    S3_COMPATIBLE: s3CompatibleFieldsTemplate,
+    S3_V2_COMPATIBLE: s3CompatibleFieldsTemplate,
+    S3_V4_COMPATIBLE: s3CompatibleFieldsTemplate,
     NET_STORAGE: netStorageTemplate,
     GOOGLE: googleCloudTemplate
 });
@@ -209,7 +217,8 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const serviceValidate =
             (service === 'AWS' && this.awsOnValidate) ||
             (service === 'AZURE' && this.azureOnValidate) ||
-            (service === 'S3_COMPATIBLE' && this.s3OnValidate) ||
+            (service === 'S3_V2_COMPATIBLE' && this.s3OnValidate) ||
+            (service === 'S3_V4_COMPATIBLE' && this.s3OnValidate) ||
             (service === 'NET_STORAGE' && this.nsOnValidate) ||
             (service === 'GOOGLE' && this.gcOnValidate) ||
             _getEmptyObj;
@@ -225,7 +234,8 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const serviceValidateAsync =
             (service === 'AWS' && this.awsOnValidateAsync) ||
             (service === 'AZURE' && this.azureOnValidateAsync) ||
-            (service === 'S3_COMPATIBLE' && this.s3OnValidateAsync) ||
+            (service === 'S3_V2_COMPATIBLE' && this.s3OnValidateAsync) ||
+            (service === 'S3_V4_COMPATIBLE' && this.s3OnValidateAsync) ||
             (service === 'NET_STORAGE' && this.nsOnValidateAsync) ||
             (service === 'GOOGLE' && this.gcOnValidateAsync) ||
             _getEmptyObj;
@@ -239,7 +249,8 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const fields =
             (service === 'AWS' && ['awsEndpoint', 'awsAccessKey', 'awsSecretKey']) ||
             (service === 'AZURE' && ['azureEndpoint', 'azureAccountName', 'azureAccountKey']) ||
-            (service === 'S3_COMPATIBLE' && ['s3Endpoint', 's3AccessKey', 's3SecretKey']) ||
+            (service === 'S3_V2_COMPATIBLE' && ['s3Endpoint', 's3AccessKey', 's3SecretKey']) ||
+            (service === 'S3_V4_COMPATIBLE' && ['s3Endpoint', 's3AccessKey', 's3SecretKey']) ||
             (service === 'NET_STORAGE' && ['nsHostname', 'nsStorageGroup', 'nsKeyName', 'nsCPCode', 'nsAuthKey']) ||
             (service === 'GOOGLE' && ['gcKeysJson']);
 
@@ -423,7 +434,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
         } else {
             const alreadyExists = existingConnections
                 .some(connection =>
-                    connection.service === 'S3_COMPATIBLE' &&
+                    (connection.service === 'S3_V2_COMPATIBLE' || connection.service === 'S3_V4_COMPATIBLE') &&
                     connection.endpoint === s3Endpoint &&
                     connection.identity === s3AccessKey
                 );

@@ -2,38 +2,27 @@
 
 import template from './risky-bucket-data-resiliency-warning-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { action$ } from 'state';
 import { updateBucketResiliencyPolicy, closeModal } from 'action-creators';
 import { all, sleep } from 'utils/promise-utils';
 import api from 'services/api';
-
-const formName = 'confirmRiskyDataResiliencyPolicy';
+import ko from 'knockout';
 
 class RiskyBucketDataResiliencyWarningModalViewModel extends Observer {
-    form = null;
+    formName = this.constructor.name;
     bucketName = '';
     tierName = '';
     policy = null;
+    fields = { password: '' }
 
-    constructor({ bucketName, tierName, policy }) {
+    constructor(params) {
         super();
+
+        const { bucketName, tierName, policy } = ko.deepUnwrap(params);
 
         this.bucketName = bucketName;
         this.tierName = tierName;
         this.policy = policy;
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                password: ''
-            },
-            asyncTriggers: [
-                'password'
-            ],
-            onValidate: this.onValidate.bind(this),
-            onValidateAsync: this.onValidateAsync.bind(this),
-            onSubmit: this.onSubmit.bind(this)
-        });
     }
 
     onValidate(values) {
@@ -44,10 +33,9 @@ class RiskyBucketDataResiliencyWarningModalViewModel extends Observer {
         }
 
         return errors;
-
     }
 
-    async onValidateAsync(values) {
+    async onValidateSubmit(values) {
         const errors = {};
 
         const [match] = await all(
@@ -72,11 +60,6 @@ class RiskyBucketDataResiliencyWarningModalViewModel extends Observer {
 
     onBack() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
     }
 }
 

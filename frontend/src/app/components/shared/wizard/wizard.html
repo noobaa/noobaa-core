@@ -1,10 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<form class="column greedy"
-    novalidate
-    ko.let="{ _wizard_: $data }"
-    ko.submit="onSubmit"
->
+<section class="column greedy" ko.let="{ _wizard_: $data }">
     <stepper params="steps: steps, current: step">
     </stepper>
 
@@ -19,4 +15,4 @@
     <wizard-controls class="align-end hpad">
     </wizard-controls>
     <!-- /ko -->
-</form>
+</section>

@@ -2,7 +2,6 @@
 
 import template from './edit-bucket-placement-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
 import { deepFreeze, pick, flatMap, createCompareFunc } from 'utils/core-utils';
@@ -15,8 +14,6 @@ import {
     updateForm,
     closeModal
 } from 'action-creators';
-
-const formName = 'editBucketPlacement';
 
 const columns = deepFreeze([
     {
@@ -65,17 +62,18 @@ const resourceCompareFunc = createCompareFunc(record => {
 }, 1);
 
 class EditBucketPlacementModalViewModel extends Observer {
+    formName = this.constructor.name;
     columns = columns;
     bucketName = '';
     tierName = '';
-    isFormInitialized = ko.observable();
-    form = null;
+    fields = ko.observable();
     rows = ko.observableArray();
     allResourceNames = [];
     isMixedPolicy = false;
     isPolicyRisky = false;
     spilloverResource = '';
     selectableResourceIds = [];
+    rowParams = { onToggle: this.onToggleResource.bind(this) };
 
     constructor({ bucketName }) {
         super();
@@ -87,7 +85,7 @@ class EditBucketPlacementModalViewModel extends Observer {
                     ['buckets', ko.unwrap(bucketName)],
                     'hostPools',
                     'cloudResources',
-                    ['forms', formName]
+                    ['forms', this.formName]
                 )
             ),
             this.onState
@@ -116,10 +114,6 @@ class EditBucketPlacementModalViewModel extends Observer {
             getFieldValue(form, 'selectedResources') :
             [];
 
-        const rowParams = {
-            onToggle: this.onToggleResource.bind(this)
-        };
-
         const selectableResourceIds = resourceList
             .filter(pair => pair.resource.name !== spilloverResource)
             .map(pair => ({ type: pair.type, name: pair.resource.name }));
@@ -127,51 +121,47 @@ class EditBucketPlacementModalViewModel extends Observer {
         const rows = resourceList
             .sort(resourceCompareFunc)
             .map((pair, i) => {
-                const row = this.rows.get(i) || new ResourceRow(rowParams);
+                const row = this.rows.get(i) || new ResourceRow(this.rowParams);
                 row.onResource(pair.type,  pair.resource, selectedResources, spilloverResource);
                 return row;
             });
 
+        this.tierName = bucket.tierName;
+        this.selectedResources = selectedResources;
         this.spilloverResource = spilloverResource;
         this.selectableResourceIds = selectableResourceIds;
         this.rows(rows);
 
-        if (!form) {
+        if (!this.fields()) {
             const { policyType, mirrorSets } = bucket.placement;
             const resources = flatMap(mirrorSets, ms => ms.resources);
             const selectedResources = resources
                 .map(record => pick(record, ['type', 'name']));
 
-            this.tierName = bucket.tierName;
-            this.form = new FormViewModel({
-                name: formName,
-                fields: { policyType, selectedResources },
-                onValidate: this.onValidate.bind(this),
-                onSubmit: this.onSubmit.bind(this)
-            });
-            this.isFormInitialized(true);
+            this.fields({ policyType, selectedResources });
         }
     }
 
     onToggleResource(id, select) {
-        const { selectedResources } = this.form;
+        const { selectedResources } = this;
         if (!select) {
-            const filtered = selectedResources()
+            const filtered = this.selectedResources
                 .filter(another => another.name !== id.name || another.type !== id.type);
 
-            selectedResources(filtered);
+            action$.next(updateForm(this.formName, { selectedResources: filtered }));
 
-        } else if (!selectedResources().includes(name)) {
-            selectedResources([ ...selectedResources(), id ]);
+        } else if (!selectedResources.includes(name)) {
+            const updated = [ ...selectedResources, id ];
+            action$.next(updateForm(this.formName, { selectedResources: updated }));
         }
     }
 
     onSelectAll() {
-        action$.next(updateForm(formName, { selectedResources: this.selectableResourceIds }));
+        action$.next(updateForm(this.formName, { selectedResources: this.selectableResourceIds }));
     }
 
     onClearAll() {
-        action$.next(updateForm(formName, { selectedResources: [] }));
+        action$.next(updateForm(this.formName, { selectedResources: [] }));
     }
 
     onCancel() {
@@ -210,11 +200,6 @@ class EditBucketPlacementModalViewModel extends Observer {
             action$.next(action);
             action$.next(closeModal());
         }
-    }
-
-    dispose(){
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

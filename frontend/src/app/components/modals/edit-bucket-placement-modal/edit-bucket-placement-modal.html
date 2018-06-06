@@ -1,7 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: isFormInitialized -->
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
     <section class="column push-next">
         <h2 class="heading3">Policy Type</h2>
 
@@ -9,7 +13,7 @@
             <radio-btn params="
                 group: 'policy-type',
                 value: 'SPREAD',
-                selected: form.policyType,
+                selected: $form.policyType,
                 label: 'Spread',
                 hasFocus: true
             "></radio-btn>
@@ -21,7 +25,7 @@
             <radio-btn params="
                 group: 'policy-type',
                 value: 'MIRROR',
-                selected: form.policyType,
+                selected: $form.policyType,
                 label: 'Mirror'
             "></radio-btn>
             <span class="push-both-half">|</span>
@@ -50,16 +54,15 @@
             rowCssProp: 'disabledCss'
         ">
         </data-table>
-        <validation-message params="field: form.selectedResources"></validation-message>
+        <validation-message params="field: $form.selectedResources"></validation-message>
     </section>
 
     <div class="row align-end">
         <button type="button" class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Save
         </button>
     </div>
 </form>
-<!-- /ko -->

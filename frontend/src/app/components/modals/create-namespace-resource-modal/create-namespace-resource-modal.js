@@ -2,12 +2,12 @@
 
 import template from './create-namespace-resource-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, throttle } from 'utils/core-utils';
 import { getCloudServiceMeta, getCloudTargetTooltip } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
+import { getFormValues, isFieldTouched } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import { inputThrottle } from 'config';
 import {
@@ -19,8 +19,6 @@ import {
     createNamespaceResource
 } from 'action-creators';
 
-const formName = 'createNSResourceForm';
-
 const allowedServices = deepFreeze([
     'AWS',
     'S3_COMPATIBLE',
@@ -28,16 +26,21 @@ const allowedServices = deepFreeze([
 ]);
 
 class CreateNamespaceResourceModalViewModel extends Observer {
+    formName = this.constructor.name;
+    fields = {
+        connection: '',
+        target: '',
+        resourceName: ''
+    };
     fetchingTargets = ko.observable();
     targetOptions = ko.observableArray();
-    existingNames = null;
+    existingNames = [];
     nameRestrictionList = ko.observableArray();
     targetBucketsEmptyMessage = ko.observable();
     targetBucketsErrorMessage = ko.observable();
     isTargetBucketsInError = ko.observable();
     targetBucketPlaceholder = ko.observable();
     targetBucketLabel = ko.observable();
-    form = null;
     connectionOptions = ko.observableArray();
     connectionActions = deepFreeze([
         {
@@ -45,23 +48,14 @@ class CreateNamespaceResourceModalViewModel extends Observer {
             onClick: this.onAddNewConnection.bind(this)
         }
     ]);
+    onResourceNameThrottled = throttle(
+        this.onResourceName.bind(this),
+        inputThrottle,
+        this
+    );
 
     constructor() {
         super();
-
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                connection: '',
-                target: '',
-                resourceName: ''
-            },
-            onValidate: values => this.onValidate(values, this.existingNames),
-            onSubmit: this.onSubmit.bind(this)
-        });
-
-        this.throttledResourceName = this.form.resourceName
-            .throttle(inputThrottle);
 
         this.observe(
             state$.pipe(
@@ -70,8 +64,8 @@ class CreateNamespaceResourceModalViewModel extends Observer {
                     'session',
                     'namespaceResources',
                     'hostPools',
-                    ['forms', formName],
-                    'cloudTargets'
+                    'cloudTargets',
+                    ['forms', this.formName],
                 )
             ),
             this.onState
@@ -83,8 +77,8 @@ class CreateNamespaceResourceModalViewModel extends Observer {
         session,
         namespaceResources,
         hostPools,
-        form,
-        cloudTargets
+        cloudTargets,
+        form
     ]) {
         if (!accounts || !namespaceResources || !hostPools || !form) return;
 
@@ -110,17 +104,18 @@ class CreateNamespaceResourceModalViewModel extends Observer {
                 tooltip: getCloudTargetTooltip(target)
             }));
 
-        const { connection, resourceName, target } = form.fields;
+        const { connection, resourceName, target } = getFormValues(form);
+        const isResourceNameTouched = isFieldTouched(form, 'resourceName');
 
         const existingNames = [ ...Object.keys(namespaceResources), ...Object.keys(hostPools) ];
-        const nameRestrictionList = validateName(resourceName.value, existingNames)
+        const nameRestrictionList = validateName(resourceName, existingNames)
             .map(result => {
                 // Use nocss class to indeicate no css is needed, cannot use empty string
                 // because of the use of logical or as condition fallback operator.
                 const css =
-                    (!connection.value && 'nocss') ||
+                    (!connection && 'nocss') ||
                     (result.valid && 'success') ||
-                    (resourceName.touched && 'error') ||
+                    (isResourceNameTouched && 'error') ||
                     'nocss';
 
                 return {
@@ -130,16 +125,19 @@ class CreateNamespaceResourceModalViewModel extends Observer {
             });
 
         // Load cloud targets of necessary.
-        if (connection.value && connection.value !== cloudTargets.connection) {
-            action$.next(fetchCloudTargets(connection.value));
+        if (connection && connection !== cloudTargets.connection) {
+            action$.next(fetchCloudTargets(connection));
         }
 
         // Suggest a name for the resource if the user didn't enter one himself.
-        if (!resourceName.touched && target.value && resourceName.value !== target.value) {
-            action$.next(updateForm(formName, { resourceName: target.value }, false));
+        if (!isResourceNameTouched && target) {
+            const suggestedName = target.toLowerCase();
+            if (resourceName !== suggestedName) {
+                action$.next(updateForm(this.formName, { resourceName: suggestedName }, false));
+            }
         }
 
-        const selectedConnection = externalConnections.find(con => con.name === connection.value);
+        const selectedConnection = externalConnections.find(con => con.name === connection);
         const subject = selectedConnection ? getCloudServiceMeta(selectedConnection.service).subject : '';
         const targetBucketPlaceholder = `Choose ${subject}`;
         const targetBucketLabel = `Target ${subject}`;
@@ -156,6 +154,10 @@ class CreateNamespaceResourceModalViewModel extends Observer {
         this.targetOptions(targetOptions);
         this.existingNames = existingNames;
         this.nameRestrictionList(nameRestrictionList);
+    }
+
+    onResourceName(resourceName) {
+        action$.updateForm(this.formName, { resourceName });
     }
 
     onValidate(values, existingNames) {
@@ -198,7 +200,6 @@ class CreateNamespaceResourceModalViewModel extends Observer {
 
     dispose() {
         action$.next(dropCloudTargets());
-        this.form.dispose();
         super.dispose();
     }
 }

@@ -1,11 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './wizard.html';
-import { ensureArray, noop } from 'utils/core-utils';
+import { deepFreeze, ensureArray, noop } from 'utils/core-utils';
 import ko from 'knockout';
 
-class NewWizardViewModel {
-    constructor(params, templates) {
+const methodsTobind = deepFreeze([
+    'onCancel',
+    'onStepForward',
+    'onStepBackword',
+    'onComplete'
+]);
+
+class WizardViewModel {
+    constructor(params, templates, owner) {
         const {
             steps = [],
             step = ko.observable(0),
@@ -24,9 +31,9 @@ class NewWizardViewModel {
         this.disabled = disabled;
         this.shakeOnFailedStep = shakeOnFailedStep;
         this.shake = ko.observable(false);
-        this.beforeStepHandler = onBeforeStep;
-        this.cancelHandler = onCancel;
-        this.completeHandler = onComplete;
+        this.beforeStepHandler = onBeforeStep.bind(owner);
+        this.cancelHandler = onCancel.bind(owner);
+        this.completeHandler = onComplete.bind(owner);
         this.renderControls = renderControls;
 
         this.stepTemplate = ko.pureComputed(() => {
@@ -52,7 +59,6 @@ class NewWizardViewModel {
             this.isLastStep() ? ko.unwrap(actionLabel) : 'Next'
         );
 
-        const methodsTobind = ['onCancel', 'onStepForward', 'onStepBackword', 'onSubmit'];
         for (const method of methodsTobind) {
             this[method] = this[method].bind(this);
         }
@@ -83,7 +89,7 @@ class NewWizardViewModel {
         this.step(this.step() - 1);
     }
 
-    async onSubmit() {
+    async onComplete() {
         if (!this.isLastStep()) {
             return;
         }
@@ -100,10 +106,12 @@ class NewWizardViewModel {
 }
 
 function _createViewModel(params, info) {
+    const owner = ko.dataFor(info.element);
     const templates = info.templateNodes
         .filter(({ nodeType }) => nodeType === Node.ELEMENT_NODE);
 
-    return new NewWizardViewModel(params, templates);
+
+    return new WizardViewModel(params, templates ,owner);
 }
 
 

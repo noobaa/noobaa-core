@@ -2,7 +2,6 @@
 
 import template from './set-account-ip-restrictions-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { isIPOrIPRange } from 'utils/net-utils';
@@ -20,9 +19,10 @@ const allowedIpsPlaceholder =
     `e.g., 10.5.3.2 or 10.2.253.5 - 24 and click enter ${String.fromCodePoint(0x23ce)}`;
 
 class setAccountIpRestrictionsModalViewModel extends Observer {
+    formName = this.constructor.name;
     tokenValidator = val => isIPOrIPRange(val).valid;
     allowedIpsPlaceholder = allowedIpsPlaceholder;
-    isAccountReady = ko.observable(false)
+    fields = ko.observable();
 
     constructor({ accountName }) {
         super();
@@ -34,24 +34,19 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
     }
 
     onAccount(account) {
-        if (!account || this.isAccountReady()) return;
+        if (!account) return;
 
         const usingIpRestrictions = Boolean(account.allowedIps);
         const allowedIps = (account.allowedIps || [])
             .map(({ start, end }) => start === end ? start : `${start} - ${end}`);
 
-        this.form = new FormViewModel({
-            name: 'setAccountIPRestriction',
-            fields: {
+        if (!this.fields()) {
+            this.fields({
                 accountName: account.name,
                 usingIpRestrictions: usingIpRestrictions,
                 allowedIps: allowedIps
-            },
-            onValidate: this.onValidate,
-            onSubmit: this.onSubmit.bind(this)
-        });
-
-        this.isAccountReady(true);
+            });
+        }
     }
 
     onValidate({ usingIpRestrictions, allowedIps }) {
@@ -83,11 +78,6 @@ class setAccountIpRestrictionsModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
     }
 }
 

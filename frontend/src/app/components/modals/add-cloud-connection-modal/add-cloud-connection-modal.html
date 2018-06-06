@@ -1,22 +1,28 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: isFormInitialized -->
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    asyncTriggers: asyncTriggers,
+    onValidate: values => onValidate(values, existingConnections),
+    onValidateAsync: onValidateAsync,
+    onSubmit: onSubmit
+">
     <editor params="label: 'Connection Name'">
         <input type="text"
             placeholder="Enter name"
-            ko.value="form.connectionName",
+            ko.value="$form.connectionName",
             ko.hasFocus="true"
-            ko.validationCss="form.connectionName"
+            ko.validationCss="$form.connectionName"
         />
-        <validation-message params="field: form.connectionName"></validation-message>
+        <validation-message params="field: $form.connectionName"></validation-message>
     </editor>
 
     <editor params="label: 'Service'">
         <dropdown params="
             options: serviceOptions,
-            selected: form.service,
-            disabled: form.isValidating
+            selected: $form.service,
+            disabled: $form.isValidating
         "></dropdown>
     </editor>
 
@@ -37,9 +43,8 @@
         <button type="button" class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Save
         </button>
     </div>
 </form>
-<!-- /ko -->

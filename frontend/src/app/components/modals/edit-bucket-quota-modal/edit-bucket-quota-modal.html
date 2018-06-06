@@ -1,36 +1,40 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: isFormInitalized -->
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
     <editor params="label: 'Bucket Quota'">
         <toggle-switch params="
-            value: form.enabled,
+            value: $form.enabled,
             onLabel: 'Enabled',
             offLabel: 'Disabled',
             hasFocus: true
         "></toggle-switch>
     </editor>
 
-    <editor params="label: 'Set Limit', disabled: !form.enabled()">
+    <editor params="label: 'Set Limit', disabled: !$form.enabled()">
         <div class="row">
             <input type="number" min="1"
                 class="push-next"
-                ko.enable="form.enabled"
-                ko.value="form.size"
-                ko.validationCss="form.size"
+                ko.enable="$form.enabled"
+                ko.value="$form.size"
+                ko.validationCss="$form.size"
                 ko.hasFocus="true"
             />
             <dropdown class="size-unit" params="
                 options: unitOptions,
-                disabled: !form.enabled(),
-                selected: form.unit
+                disabled: !$form.enabled(),
+                selected: $form.unit
             "></dropdown>
         </div>
-        <validation-message params="field: form.size"></validation-message>
+        <validation-message params="field: $form.size"></validation-message>
     </editor>
 
     <div class="greedy push-prev">
-        <bar class="push-prev align-start" ko.css.disabled="!form.enabled()" params="
+        <bar class="push-prev align-start" ko.css.disabled="!$form.enabled()" params="
             values: barValues,
             teeth: 5,
             limits: 'size',
@@ -41,7 +45,7 @@
 
         <chart-legend class="legend-row"
             params="items: barValues, format: 'size'"
-            ko.css.disabled="!form.enabled()"
+            ko.css.disabled="!$form.enabled()"
         ></chart-legend>
     </div>
 
@@ -53,10 +57,8 @@
         <button type="button" class="link alt-colors push-both" ko.click="onCancel">
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Save
         </button>
     </div>
-</form>
-<!-- /ko -->
-
+</managed-form>

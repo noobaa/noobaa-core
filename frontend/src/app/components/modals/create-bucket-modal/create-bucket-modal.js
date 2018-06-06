@@ -2,16 +2,21 @@
 
 import template from './create-bucket-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
 import { getMany } from 'rx-extensions';
-import { updateForm, updateModal, closeModal, createBucket } from 'action-creators';
 import ko from 'knockout';
-import { getFieldValue, isFieldTouched } from 'utils/form-utils';
+import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import * as routes from 'routes';
+import {
+    updateForm,
+    touchForm,
+    updateModal,
+    closeModal,
+    createBucket
+} from 'action-creators';
 
 const steps = deepFreeze([
     {
@@ -56,6 +61,11 @@ const resourceColumns = deepFreeze([
     }
 ]);
 
+const fieldsByStep = deepFreeze({
+    0: ['bucketName'],
+    1: ['policyType', 'selectedResources']
+});
+
 function _validatedName(name = '', existing) {
     return [
         {
@@ -87,15 +97,20 @@ function _validatedName(name = '', existing) {
 }
 
 class CreateBucketModalViewModel extends Observer {
+    formName = this.constructor.name;
     steps = steps.map(step => step.label);
     stepSize = steps[0].size;
     resourceColumns = resourceColumns;
-    formName = this.constructor.name;
-    form = null;
     nameRestrictionList = ko.observable();
     existingNames = [];
     resourceRows = ko.observableArray();
     selectableResourceIds = [];
+    fields = {
+        step: 0,
+        bucketName: '',
+        policyType: 'SPREAD',
+        selectedResources: []
+    };
     rowParams = {
         onToggle: this.onToggleResource.bind(this)
     };
@@ -103,37 +118,21 @@ class CreateBucketModalViewModel extends Observer {
     constructor() {
         super();
 
-        this.form = new FormViewModel({
-            name: this.formName,
-            fields: {
-                step: 0,
-                bucketName: '',
-                policyType: 'SPREAD',
-                selectedResources: []
-            },
-            groups: {
-                0: ['bucketName'],
-                1: ['policyType', 'selectedResources']
-            },
-            onValidate: values => this.onValidate(values, this.existingNames),
-            onSubmit: this.onSubmit.bind(this)
-        });
-
         this.observe(
             state$.pipe(
                 getMany(
                     'buckets',
                     'hostPools',
                     'cloudResources',
-                    ['forms', this.formName],
-                    ['location', 'params', 'system']
+                    ['location', 'params', 'system'],
+                    ['forms', this.formName]
                 )
             ),
             this.onState
         );
     }
 
-    onState([buckets, hostPools, cloudResources, form, system]) {
+    onState([buckets, hostPools, cloudResources, system,  form]) {
         if (!buckets || !hostPools || !cloudResources || !form) return;
 
         const existingNames = Object.keys(buckets);
@@ -163,13 +162,13 @@ class CreateBucketModalViewModel extends Observer {
                 return row;
             });
 
-
-
         this.existingNames = existingNames;
         this.nameRestrictionList(nameRestrictionList);
         this.selectableResourceIds = selectableResourceIds;
         this.resourceRows(resourceRows);
         this.resourcesHref = realizeUri(routes.resources, { system });
+        this.selectedResources = selectedResources;
+        this.isStepValid = isFormValid(form);
 
         const { size } = steps[step];
         if (size !== this.stepSize) {
@@ -206,8 +205,8 @@ class CreateBucketModalViewModel extends Observer {
     }
 
     onBeforeStep(step) {
-        if (!this.form.isValid()) {
-            this.form.touch(step);
+        if (!this.isStepValid) {
+            action$.next(touchForm(this.formName, fieldsByStep[step]));
             return false;
         }
 
@@ -229,15 +228,16 @@ class CreateBucketModalViewModel extends Observer {
     }
 
     onToggleResource(id, select) {
-        const { selectedResources } = this.form;
+        const { selectedResources } = this;
         if (!select) {
-            const filtered = selectedResources()
+            const filtered = selectedResources
                 .filter(another => another.name !== id.name || another.type !== id.type);
 
-            selectedResources(filtered);
+            action$.next(updateForm(this.formName, { selectedResources: filtered }));
 
-        } else if (!selectedResources().includes(name)) {
-            selectedResources([ ...selectedResources(), id ]);
+        } else if (!selectedResources.includes(name)) {
+            const updated = [ ...selectedResources, id ];
+            action$.next(updateForm(this.formName, { selectedResources: updated }));
         }
     }
 
@@ -252,12 +252,6 @@ class CreateBucketModalViewModel extends Observer {
         action$.next(createBucket(bucketName, policyType, resourceNames));
         action$.next(closeModal());
     }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
-    }
-
 }
 
 export default {

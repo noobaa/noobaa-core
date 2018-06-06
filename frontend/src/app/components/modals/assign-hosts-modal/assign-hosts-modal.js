@@ -2,17 +2,23 @@
 
 import template from './assign-hosts-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import HostRowViewModel from './host-row';
+import ko from 'knockout';
 import { state$, action$ } from 'state';
-import { fetchHosts, dropHostsView, assignHostsToPool } from 'action-creators';
-import { deepFreeze, union, equalItems, inputThrottle, mapValues, sumBy } from 'utils/core-utils';
+import { deepFreeze, union, equalItems, sumBy, throttle } from 'utils/core-utils';
 import { formatSize, sumSize } from 'utils/size-utils';
 import { getHostModeListForState} from 'utils/host-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { getFormValues } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
-import { paginationPageSize } from 'config';
-import ko from 'knockout';
+import { inputThrottle, paginationPageSize } from 'config';
+import {
+    fetchHosts,
+    updateForm,
+    dropHostsView,
+    assignHostsToPool,
+    closeModal
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -94,7 +100,7 @@ function _getTableEmptyMessage(hostCount, releventHostsCount) {
     }
 }
 
-function _fetchHosts(queryFields, poolList, targetPool) {
+function _fetchHosts(formName, queryFields, poolList, targetPool) {
     const {
         nameFilter,
         selectedPools,
@@ -112,73 +118,62 @@ function _fetchHosts(queryFields, poolList, targetPool) {
     const skip = page * paginationPageSize;
     const limit = paginationPageSize;
     const recommendedHint = sortBy === 'recommended' ? targetPool : undefined;
+    const query = { pools, name, modes, sortBy, order, skip, limit, recommendedHint };
 
-    action$.next(fetchHosts(
-        formName,
-        { pools, name, modes, sortBy, order, skip, limit, recommendedHint }
-    ));
+    action$.next(fetchHosts(formName, query));
 }
 
-const formName = 'assignHosts';
-
 class AssignHostsModalViewModel extends Observer {
-    constructor({ onClose, targetPool }) {
+    formName = this.constructor.name;
+    columns = columns;
+    pageSize = paginationPageSize;
+    targetPool = '';
+    visibleHosts = [];
+    query = [];
+    fetching = ko.observable();
+    poolOptions = ko.observableArray();
+    rows = ko.observableArray();
+    selectedMessage = ko.observable();
+    filteredHostCount = ko.observable();
+    emptyMessage = ko.observable();
+    onNameFilterThrottled = throttle(this.onNameFilter, inputThrottle, this);
+    rowParams = { onToggle: this.onToggleHost.bind(this) };
+    fields = {
+        nameFilter: '',
+        selectedPools: 'ALL',
+        showHealthy: true,
+        showIssues: false,
+        showOffline: false,
+        sorting: {
+            sortBy: 'name',
+            order: 1
+        },
+        page: 0,
+        selectedHosts: []
+    };
+
+    constructor({ targetPool }) {
         super();
 
-        this.columns = columns;
-        this.close = onClose;
-        this.pageSize = paginationPageSize;
-        this.targetPool = targetPool;
-        this.visibleHosts = [];
-        this.query = [];
-        this.fetching = ko.observable();
-        this.poolOptions = ko.observableArray();
-        this.rows = ko.observableArray();
-        this.selectedMessage = ko.observable();
-        this.filteredHostCount = ko.observable();
-        this.emptyMessage = ko.observable();
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                nameFilter: '',
-                selectedPools: 'ALL',
-                showHealthy: true,
-                showIssues: false,
-                showOffline: false,
-                sorting: {
-                    sortBy: 'name',
-                    order: 1
-                },
-                page: 0,
-                selectedHosts: []
-            },
-            onSubmit: this.onSubmit.bind(this)
-        });
-
-        // Throttle the input on the name filter field.
-        this.throttledNameFilter = this.form.nameFilter
-            .throttle(inputThrottle);
-
-        // Bind the toggleHost handler because we serve it as a callback.
-        this.onToggleHost = this.onToggleHost.bind(this);
+        this.targetPool = ko.unwrap(targetPool);
 
         this.observe(
             state$.pipe(
                 getMany(
                     'hostPools',
                     'hosts',
-                    ['forms', formName, 'fields']
+                    ['forms', this.formName ]
                 )
             ),
             this.onState
         );
     }
 
-    onState([ pools, hosts, formFields ]) {
-        if (!pools || !hosts || !formFields) return;
+    onState([ pools, hosts, form ]) {
+        if (!pools || !hosts || !form) return;
 
         // Extract the form values.
-        const formValues = mapValues(formFields, field => field.value);
+        const formValues = getFormValues(form);
         const { selectedHosts } = formValues;
 
         // Update pools related information.
@@ -194,11 +189,11 @@ class AssignHostsModalViewModel extends Observer {
 
         // Get updated host table rows.
         const { items, queries, views } = hosts;
-        const queryKey = views[formName];
+        const queryKey = views[this.formName];
         const result = queryKey && queries[queryKey].result;
         const hostList = result ? result.items.map(name => items[name]) : [];
         const rows = hostList.map((host, i) => {
-            const row = this.rows()[i] || new HostRowViewModel({ onToggle: this.onToggleHost });
+            const row = this.rows()[i] || new HostRowViewModel(this.rowParams);
             row.onHost(host, selectedHosts, ko.unwrap(this.targetPool));
             return row;
         });
@@ -217,10 +212,16 @@ class AssignHostsModalViewModel extends Observer {
 
         if (!equalItems(this.query, query)) {
             this.query = query;
-            _fetchHosts(formValues, releventPools.map(pool => pool.name), this.targetPool);
+            _fetchHosts(
+                this.formName,
+                formValues,
+                releventPools.map(pool => pool.name),
+                this.targetPool
+            );
         }
 
         // Update the view's observables.
+        this.selectedHosts = selectedHosts;
         this.visibleHosts = hostList.map(host => host.name);
         this.poolOptions(poolOptions);
         this.emptyMessage(emptyMessage);
@@ -230,47 +231,49 @@ class AssignHostsModalViewModel extends Observer {
         this.rows(rows);
     }
 
-    onToggleHost(host, select) {
-        const { selectedHosts } = this.form;
-        if (!select) {
-            const filtered = selectedHosts().filter(name => name !== host);
-            selectedHosts(filtered);
+    onNameFilter(nameFilter) {
+        action$.next(updateForm(this.formName, { nameFilter }));
+    }
 
-        } else if (!selectedHosts().includes(host)) {
-            selectedHosts([ ...selectedHosts(), host ]);
+    onToggleHost(host, select) {
+        const { selectedHosts } = this;
+        if (!select) {
+            const filtered = selectedHosts.filter(name => name !== host);
+            action$.next(updateForm(this.formName, { selectedHosts: filtered }));
+
+        } else if (!this.selectedHosts.includes(host)) {
+            const updated = [ ...selectedHosts, host ];
+            action$.next(updateForm(this.formName, { selectedHosts: updated }));
         }
     }
 
     onSelectAll() {
-        const { selectedHosts } = this.form;
-        const merged = union(selectedHosts(), this.visibleHosts);
-        selectedHosts(merged);
+        const merged = union(this.selectedHosts, this.visibleHosts);
+        action$.next(updateForm(this.formName, { selectedHosts: merged }));
     }
 
     onClearAll() {
-        const { selectedHosts } = this.form;
-        const filtered = selectedHosts()
+        const filtered = this.selectedHosts
             .filter(host => !this.visibleHosts.includes(host));
 
-        selectedHosts(filtered);
+        action$.next(updateForm(this.formName, { selectedHosts: filtered }));
     }
 
     onClearSelection() {
-        this.form.selectedHosts([]);
+        action$.next(updateForm(this.formName, { selectedHosts: [] }));
     }
 
     onSubmit({ selectedHosts }) {
         action$.next(assignHostsToPool(this.targetPool, selectedHosts));
-        this.close();
+        action$.next(closeModal());
     }
 
     onCancel() {
-        this.close();
+        action$.next(closeModal());
     }
 
     dispose() {
-        action$.next(dropHostsView(formName));
-        this.form.dispose();
+        action$.next(dropHostsView(this.formName));
         super.dispose();
     }
 }

@@ -2,7 +2,6 @@
 
 import template from './edit-namespace-bucket-data-placement-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ResourceRowViewModel from './resource-row';
 import ko from 'knockout';
 import { deepFreeze, mapValues } from 'utils/core-utils';
@@ -10,9 +9,11 @@ import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { state$, action$ } from 'state';
 import { getMany } from 'rx-extensions';
-import { closeModal, updateNamespaceBucketPlacement } from 'action-creators';
-
-const formName = 'editNamespaceBucketDataPlacement';
+import {
+    updateForm,
+    closeModal,
+    updateNamespaceBucketPlacement
+} from 'action-creators';
 
 const readPolicyTableColumns = deepFreeze([
     {
@@ -39,27 +40,27 @@ const readPolicyTableColumns = deepFreeze([
 ]);
 
 class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
+    formName = this.constructor.name;
+    bucketName = '';
+    readPolicyTableColumns = readPolicyTableColumns;
+    fields = ko.observable();
+    readPolicyRows = ko.observableArray();
+    writePolicyOptions = ko.observableArray();
+    isWritePolicyDisabled = ko.observable();
+    readPolicy = '';
+    readPolicyRowParams = { onToggle: this.onToggleReadPolicyResource.bind(this) };
+
     constructor({ bucket }) {
         super();
 
         this.bucketName = ko.unwrap(bucket);
-        this.readPolicyTableColumns = readPolicyTableColumns;
-        this.readPolicyRows = ko.observableArray();
-        this.writePolicyOptions = ko.observableArray();
-        this.isWritePolicyDisabled = ko.observable();
-        this.form = null;
-        this.isFormReady = ko.observable();
-
-        this.readPolicyRowParams = {
-            onToggle: this.onToggleReadPolicyResource.bind(this)
-        };
 
         this.observe(
             state$.pipe(
                 getMany(
                     ['namespaceBuckets', this.bucketName],
                     'namespaceResources',
-                    ['forms', formName]
+                    ['forms', this.formName]
                 )
             ),
             this.onState
@@ -90,24 +91,18 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
             resource => resource.service
         );
 
-        if (!form) {
-            this.form = new FormViewModel({
-                name: formName,
-                fields: {
-                    readPolicy: readFrom,
-                    writePolicy: writeTo
-                },
-                onValidate: this.onValidate.bind(this),
-                onWarn: values => this.onWarn(values, resourceServiceMapping),
-                onSubmit: this.onSubmit.bind(this)
-            });
-            this.isFormReady(true);
-        }
-
         this.isWritePolicyDisabled(readPolicy.length === 0);
+        this.readPolicy = readPolicy;
         this.readPolicyRows(readPolicyRows);
         this.writePolicyOptions(writePolicyOptions);
         this.resourceServiceMapping = resourceServiceMapping;
+
+        if (!this.fields()) {
+            this.fields({
+                readPolicy: readFrom,
+                writePolicy: writeTo
+            });
+        }
     }
 
     onValidate(values) {
@@ -124,7 +119,7 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
         return errors;
     }
 
-    onWarn (values, resourceServiceMapping) {
+    onWarn(values, resourceServiceMapping) {
         const { readPolicy } = values;
         const warnings = {};
 
@@ -141,13 +136,14 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
     }
 
     onToggleReadPolicyResource(resource, select) {
-        const { readPolicy } = this.form;
+        const { readPolicy } = this;
         if (!select) {
-            const filtered = readPolicy().filter(name => name !== resource);
-            readPolicy(filtered);
+            const filtered = readPolicy.filter(name => name !== resource);
+            action$.next(updateForm(this.formName, { readPolicy: filtered }));
 
-        } else if (!readPolicy().includes(resource)) {
-            readPolicy([ ...readPolicy(), resource ]);
+        } else if (!readPolicy.includes(resource)) {
+            const updated = [ ...readPolicy, resource ];
+            action$.next(updateForm(this.formName, { readPolicy: updated }));
         }
     }
 
@@ -159,11 +155,6 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

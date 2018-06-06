@@ -8,7 +8,6 @@ import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getFieldValue, isFormDirty } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
-import FormViewModel from 'components/form-view-model';
 import * as routes from 'routes';
 import { action$, state$ } from 'state';
 import { api } from 'services';
@@ -24,14 +23,17 @@ const addressOptions = deepFreeze([
 ]);
 
 class SystemAddressFormViewModel extends Observer {
-    form = null;
     formName = this.constructor.name;
     addressOptions = addressOptions;
     isExpanded = ko.observable();
-    isFormInitialized = ko.observable();
     isDirtyMarkerVisible = ko.observable();
     systemAddress = ko.observable();
     ipAddress = ko.observable();
+    fields = ko.observable();
+    asyncValidationTriggers = [
+        'addressType',
+        'dnsName'
+    ];
 
     constructor() {
         super();
@@ -51,7 +53,6 @@ class SystemAddressFormViewModel extends Observer {
 
     onState([dnsName, ipAddress, location, form]) {
         if (!ipAddress) {
-            this.isFormInitialized(false);
             this.isDirtyMarkerVisible(false);
             return;
         }
@@ -81,22 +82,9 @@ class SystemAddressFormViewModel extends Observer {
         this.isExpanded(section === sectionName);
         this.toggleUri = toggleUri;
 
-        if (!form) {
-            this.form = new FormViewModel({
-                name: this.formName,
-                fields: {
-                    addressType,
-                    dnsName:  dnsName
-                },
-                asyncTriggers: [
-                    'addressType',
-                    'dnsName'
-                ],
-                onValidate: this.onValidate.bind(this),
-                onValidateAsync: this.onValidateAsync.bind(this),
-                onSubmit: this.onSubmit.bind(this)
-            });
-            this.isFormInitialized(true);
+        if (!this.fields()) {
+            this.fields({ addressType, dnsName });
+
         }
     }
 
@@ -136,11 +124,6 @@ class SystemAddressFormViewModel extends Observer {
 
     onToggleSection() {
         action$.next(requestLocation(this.toggleUri));
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

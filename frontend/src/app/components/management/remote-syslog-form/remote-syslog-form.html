@@ -24,56 +24,58 @@
         ></svg-icon>
     </div>
     <div ko.expand="isExpanded">
-        <loading-indicator class="align-start pad" ko.visible="!isFormInitialized()"></loading-indicator>
-        <!-- ko if: isFormInitialized -->
-        <form class="column greedy" ko.submit="form.submit">
+        <managed-form params="
+            name: formName,
+            fields: fields,
+            onValidate: onValidate,
+            onSubmit: onSubmit
+        ">
             <editor params="label: 'Remote syslog'">
-                <toggle-switch params="value: form.enabled"></toggle-switch>
+                <toggle-switch params="value: $form.enabled"></toggle-switch>
             </editor>
 
-            <editor params="label: 'Protocol', disabled: !form.enabled()">
+            <editor params="label: 'Protocol', disabled: !$form.enabled()">
                 <radio-group params="
                     options: protocolOptions,
-                    selected: form.protocol,
-                    disabled: !form.enabled()
+                    selected: $form.protocol,
+                    disabled: !$form.enabled()
                 "></radio-group>
             </editor>
 
-            <editor params="label: 'Server address', disabled: !form.enabled()">
+            <editor params="label: 'Server address', disabled: !$form.enabled()">
                 <input class="proxy-name"
                     type="text"
                     placeholder="IP or DNS name"
-                    ko.value = "form.address"
-                    ko.enable = "form.enabled"
-                    ko.validationCss="form.address"
+                    ko.value = "$form.address"
+                    ko.enable = "$form.enabled"
+                    ko.validationCss="$form.address"
                 />
-                <validation-message params="field: form.address"></validation-message>
+                <validation-message params="field: $form.address"></validation-message>
             </editor>
 
-            <editor params="label: 'Server port', disabled: !form.enabled()">
+            <editor params="label: 'Server port', disabled: !$form.enabled()">
                 <input type="number"
                     disabled
                     ko.value="tcpPort"
-                    ko.visible="form.protocol.eq('TCP')"
+                    ko.visible="$form.protocol.eq('TCP')"
                 />
                 <input type="number"
                     min="1"
                     max="65535"
-                    ko.value="form.udpPort"
-                    ko.visible="form.protocol.eq('UDP')"
-                    ko.enable = "form.enabled"
-                    ko.validationCss="form.udpPort"
+                    ko.value="$form.udpPort"
+                    ko.visible="$form.protocol.eq('UDP')"
+                    ko.enable = "$form.enabled"
+                    ko.validationCss="$form.udpPort"
                 />
-                <validation-message params="field: form.udpPort"></validation-message>
+                <validation-message params="field: $form.udpPort"></validation-message>
             </editor>
 
             <button class="btn align-start push-prev"
-                ko.shakeOnClick="!form.isValid()"
+                ko.shakeOnClick="!$form.isValid()"
             >
                 Apply Changes
             </button>
-        </form>
-        <!-- /ko -->
+        </managed-form>
     </div>
 </section>
 

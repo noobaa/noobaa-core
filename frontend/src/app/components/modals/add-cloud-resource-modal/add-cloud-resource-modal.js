@@ -2,10 +2,9 @@
 
 import template from './add-cloud-resource-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, throttle } from 'utils/core-utils';
 import { getCloudServiceMeta, getCloudTargetTooltip } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
 import { getFieldValue, isFieldTouched } from 'utils/form-utils';
@@ -30,8 +29,6 @@ const allowedServices = deepFreeze([
 class AddCloudResourceModalViewModel extends Observer {
     formName = this.constructor.name;
     existingNames = null;
-    throttledResourceName = null;
-    form = null;
     connectionOptions = ko.observableArray();
     nameRestrictionList = ko.observableArray();
     targetBucketsEmptyMessage = ko.observable();
@@ -41,29 +38,23 @@ class AddCloudResourceModalViewModel extends Observer {
     targetBucketsOptions = ko.observableArray();
     targetBucketPlaceholder = ko.observable();
     targetBucketLabel = ko.observable();
-    connectionActions = deepFreeze([
-        {
-            label: 'Add new connection',
-            onClick: this.onAddNewConnection.bind(this)
-        }
-    ]);
+    connectionActions = deepFreeze([{
+        label: 'Add new connection',
+        onClick: this.onAddNewConnection.bind(this)
+    }]);
+    fields = {
+        connection: '',
+        targetBucket: '',
+        resourceName: ''
+    };
+    onResourceNameThrottled = throttle(
+        this.onResourceName,
+        inputThrottle,
+        this
+    );
 
     constructor() {
         super();
-
-        this.form = new FormViewModel({
-            name: this.formName,
-            fields: {
-                connection: '',
-                targetBucket: '',
-                resourceName: ''
-            },
-            onValidate: values => this.onValidate(values, this.existingNames),
-            onSubmit: this.onSubmit.bind(this)
-        });
-
-        this.throttledResourceName = this.form.resourceName
-            .throttle(inputThrottle);
 
         this.observe(
             state$.pipe(
@@ -168,6 +159,10 @@ class AddCloudResourceModalViewModel extends Observer {
         this.nameRestrictionList(nameRestrictionList);
     }
 
+    onResourceName(resourceName) {
+        action$.next(updateForm(this.formName, { resourceName }));
+    }
+
     onValidate(values, existingNames) {
         const { connection, targetBucket, resourceName } = values;
         const errors = {};
@@ -209,7 +204,6 @@ class AddCloudResourceModalViewModel extends Observer {
 
     dispose() {
         action$.next(dropCloudTargets());
-        this.form.dispose();
         super.dispose();
     }
 }

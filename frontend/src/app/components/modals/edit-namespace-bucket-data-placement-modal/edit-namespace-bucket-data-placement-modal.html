@@ -1,7 +1,12 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: isFormReady -->
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onWarn: values => onWarn(values, resourceServiceMapping),
+    onSubmit: onSubmit
+">
     <div class="column greedy push-next">
         <h2 class="heading3">Read Policy</h2>
         <p class="push-next-half">This namespace bucket will read its data from the selected namespace resources</p>
@@ -9,7 +14,7 @@
             columns: readPolicyTableColumns,
             data: readPolicyRows
         "></data-table>
-        <validation-message params="field: form.readPolicy"></validation-message>
+        <validation-message params="field: $form.readPolicy"></validation-message>
     </div>
 
     <div class="push-next">
@@ -21,12 +26,12 @@
         ">
             <dropdown params="
                     options: writePolicyOptions,
-                    selected: form.writePolicy,
+                    selected: $form.writePolicy,
                     disabled: isWritePolicyDisabled,
                 "
-                ko.validationCss="form.writePolicy"
+                ko.validationCss="$form.writePolicy"
             ></dropdown>
-            <validation-message params="field: form.writePolicy"></validation-message>
+            <validation-message params="field: $form.writePolicy"></validation-message>
         </editor>
     </div>
 
@@ -35,9 +40,8 @@
             Cancel
         </button>
 
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Save
         </button>
     </div>
-</form>
-<!-- /ko -->
+</managed-form>

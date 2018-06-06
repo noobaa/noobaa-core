@@ -2,30 +2,21 @@
 
 import template from './regenerate-account-credentials-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { action$ } from 'state';
 import { closeModal, regenerateAccountCredentials } from 'action-creators';
 import { api } from 'services';
 
-
 class RegenerateAccountCredentialsModalViewModel extends Observer {
     formName = this.constructor.name;
     targetAccount = '';
-    form = null;
+    fields = {
+        userPassword: ''
+    };
 
     constructor({ accountName }) {
         super();
 
         this.targetAccount = accountName;
-        this.form = new FormViewModel({
-            name: this.formName,
-            fields: {
-                userPassword: ''
-            },
-            onValidate: this.onValidate.bind(this),
-            onValidateSubmit: this.onValidateSubmit.bind(this),
-            onSubmit: this.onSubmit.bind(this)
-        });
     }
 
     onValidate(values) {
@@ -59,11 +50,6 @@ class RegenerateAccountCredentialsModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
     }
 }
 

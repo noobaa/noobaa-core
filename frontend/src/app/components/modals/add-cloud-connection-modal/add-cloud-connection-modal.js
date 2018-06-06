@@ -7,7 +7,6 @@ import s3CompatibleFieldsTemplate from './s3-compatible-fields.html';
 import netStorageTemplate from './net-storage-fields.html';
 import googleCloudTemplate from './google-cloud-fields.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { deepFreeze, pick, isUndefined } from 'utils/core-utils';
 import { getFieldValue, getFieldError } from 'utils/form-utils';
@@ -68,6 +67,26 @@ const templates = deepFreeze({
     GOOGLE: googleCloudTemplate
 });
 
+const asyncTriggers = deepFreeze([
+    'service',
+    'awsEndpoint',
+    'awsAccessKey',
+    'awsSecretKey',
+    'azureEndpoint',
+    'azureAccountName',
+    'azureAccountKey',
+    's3Endpoint',
+    's3AccessKey',
+    's3SecretKey',
+    'nsHostname',
+    'nsStorageGroup',
+    'nsKeyName',
+    'nsCPCode',
+    'nsAuthKey',
+    'gcKeysFileName',
+    'gcKeysJson'
+]);
+
 function _suggestConnectionName(existing) {
     const suffix = existing
         .map(({ name }) => {
@@ -90,8 +109,10 @@ function _getEmptyObj() {
 
 class AddCloudConnectionModalViewModel extends Observer  {
     formName = this.constructor.name;
+    fields = ko.observable();
+    asyncTriggers = asyncTriggers;
     allowedServices = null;
-    service = defaultService;
+    service = '';
     serviceOptions = null;
     existingConnections = null;
     form = null;
@@ -119,86 +140,54 @@ class AddCloudConnectionModalViewModel extends Observer  {
 
     onState([accounts, user, form]) {
         if (!accounts || !user) {
-            this.isFormInitialized(false);
             return;
         }
 
-        if (form) {
-            const service = getFieldValue(form, 'service');
-            if (this.service !== service) {
-                this.service = service;
-                this.subTemplate(templates[service]);
+        this.globalError(form ? getFieldError(form, 'global') : '');
+        this.existingConnections = accounts[user].externalConnections;
 
-                // Clear the touch state of the form whenever the
-                // service changes.
-                action$.next(untouchForm(this.formName));
-            }
+        const service = form ? getFieldValue(form, 'service') : defaultService;
+        if (this.service !== service) {
+            this.service = service;
+            this.subTemplate(templates[service]);
 
-            this.globalError(getFieldError(form, 'global'));
+            // Clear the touch state of the form whenever the
+            // service changes.
+            action$.next(untouchForm(this.formName));
+        }
 
-        } else {
-            const existingConnections = accounts[user].externalConnections;
-            this.form = new FormViewModel({
-                name: this.formName,
-                fields: {
-                    // Common fields
-                    connectionName: _suggestConnectionName(existingConnections),
-                    service: this.service,
+        if (!this.fields()) {
+            this.fields({
+                // Common fields
+                connectionName: _suggestConnectionName(this.existingConnections),
+                service: this.service,
 
-                    // AWS fields.
-                    awsEndpoint: 'https://s3.amazonaws.com',
-                    awsAccessKey: '',
-                    awsSecretKey: '',
+                // AWS fields.
+                awsEndpoint: 'https://s3.amazonaws.com',
+                awsAccessKey: '',
+                awsSecretKey: '',
 
-                    // Azure fields.
-                    azureEndpoint: 'https://blob.core.windows.net',
-                    azureAccountName: '',
-                    azureAccountKey: '',
+                // Azure fields.
+                azureEndpoint: 'https://blob.core.windows.net',
+                azureAccountName: '',
+                azureAccountKey: '',
 
-                    // S3 compatible fileds.
-                    s3Endpoint: '',
-                    s3AccessKey: '',
-                    s3SecretKey: '',
+                // S3 compatible fileds.
+                s3Endpoint: '',
+                s3AccessKey: '',
+                s3SecretKey: '',
 
-                    // Net Storage fileds.
-                    nsHostname: 'nsu.akamaihd.net',
-                    nsStorageGroup: '',
-                    nsKeyName: '',
-                    nsCPCode: '',
-                    nsAuthKey: '',
+                // Net Storage fileds.
+                nsHostname: 'nsu.akamaihd.net',
+                nsStorageGroup: '',
+                nsKeyName: '',
+                nsCPCode: '',
+                nsAuthKey: '',
 
-                    // Google Cloud field.
-                    gcKeysFileName: '',
-                    gcKeysJson: ''
-
-                },
-                asyncTriggers: [
-                    'service',
-                    'awsEndpoint',
-                    'awsAccessKey',
-                    'awsSecretKey',
-                    'azureEndpoint',
-                    'azureAccountName',
-                    'azureAccountKey',
-                    's3Endpoint',
-                    's3AccessKey',
-                    's3SecretKey',
-                    'nsHostname',
-                    'nsStorageGroup',
-                    'nsKeyName',
-                    'nsCPCode',
-                    'nsAuthKey',
-                    'gcKeysFileName',
-                    'gcKeysJson'
-                ],
-                onValidate: values => this.onValidate(values, existingConnections),
-                onValidateAsync: this.onValidateAsync.bind(this),
-                onSubmit: this.onSubmit.bind(this)
+                // Google Cloud field.
+                gcKeysFileName: '',
+                gcKeysJson: ''
             });
-
-            this.subTemplate(templates[defaultService]);
-            this.globalError('');
-            this.isFormInitialized(true);
         }
     }
 
@@ -283,7 +272,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
             const alreadyExists = existingConnections
                 .some(connection =>
                     connection.service === 'AWS' &&
-                    connection.awsEndpoint === awsEndpoint &&
+                    connection.endpoint === awsEndpoint &&
                     connection.identity === awsAccessKey
                 );
 
@@ -623,11 +612,6 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const gcKeysFileName = file.name;
         const gcKeysJson = await readFileAsText(file);
         action$.next(updateForm(this.formName, { gcKeysFileName, gcKeysJson }));
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

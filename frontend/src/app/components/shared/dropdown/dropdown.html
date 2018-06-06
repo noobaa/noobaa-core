@@ -84,7 +84,10 @@
                     ko.visible="$component.multiselect"
                 ></span>
                 <!-- ko if: icon -->
-                <svg-icon class="push-next-half" params="name: icon"></svg-icon>
+                <svg-icon class="push-next-half"
+                    ko.css="icon().css || ''"
+                    params="name: icon().name || icon()"
+                ></svg-icon>
                 <!-- /ko -->
                 <div class="no-wrap greedy dd-option-label">
                     <div class="no-wrap">{{label}}</div>

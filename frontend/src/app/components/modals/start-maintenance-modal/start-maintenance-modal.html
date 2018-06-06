@@ -1,5 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
     <div class="warning-msg warning row pad alt-bg content-middle">
         <svg-icon class="push-next warning" params="name: 'notif-warning'">
         </svg-icon>
@@ -14,17 +19,17 @@
                 <input class="push-next"
                     type="number"
                     min="0"
-                    ko.value="form.duration"
+                    ko.value="$form.duration"
                     ko.hasFocus="true"
-                    ko.validationCss="form.duration"
+                    ko.validationCss="$form.duration"
                 />
 
                 <dropdown class="duration-unit" params="
                     options: durationUnitOptions,
-                    selected: form.durationUnit
+                    selected: $form.durationUnit
                 "></dropdown>
             </div>
-            <validation-message params="field: form.duration"></validation-message>
+            <validation-message params="field: $form.duration"></validation-message>
         </editor>
     </div>
 
@@ -32,8 +37,8 @@
         <button class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Start maintenance
         </button>
     </div>
-</form>
+</managed-form>

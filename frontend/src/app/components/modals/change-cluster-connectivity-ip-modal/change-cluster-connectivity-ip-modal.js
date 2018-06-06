@@ -2,7 +2,6 @@
 
 import template from './change-cluster-connectivity-ip-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { isIP } from 'utils/net-utils';
 import { get } from 'rx-extensions';
 import ko from 'knockout';
@@ -10,12 +9,12 @@ import { updateServerAddress, closeModal } from 'action-creators';
 import { action$, state$ } from 'state';
 import { api } from 'services';
 
-const formName = 'changeClusterConnectivityIp';
-
 class ChangeClusterConnectivityIpModalViewModel extends Observer {
+    formName = this.constructor.name;
+    fields = { newAddress: '' };
+    asyncTriggers = [ 'newAddress' ];
     secret = '';
     hostname = '';
-    form = null;
     oldAddress = ko.observable();
     isServerLoaded = ko.observable();
 
@@ -23,17 +22,6 @@ class ChangeClusterConnectivityIpModalViewModel extends Observer {
         super();
 
         this.secret = ko.unwrap(secret);
-
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                newAddress: ''
-            },
-            asyncTriggers: ['newAddress'],
-            onSubmit: this.onSubmit.bind(this),
-            onValidate: this.onValidate.bind(this),
-            onValidateAsync: this.onValidateAsync.bind(this)
-        });
 
         this.observe(
             state$.pipe(get('topology', 'servers', this.secret)),
@@ -98,11 +86,6 @@ class ChangeClusterConnectivityIpModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
     }
 }
 

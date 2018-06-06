@@ -2,7 +2,6 @@
 
 import template from './edit-bucket-data-resiliency-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { state$, action$ } from 'state';
@@ -17,8 +16,6 @@ import {
     updateBucketResiliencyPolicy,
     openRiskyBucketDataResiliencyWarningModal
 } from 'action-creators';
-
-const formName = 'dataResiliency';
 
 const defaults = deepFreeze({
     replicas: 3,
@@ -91,8 +88,9 @@ function _getErasureCodingRebuildEffortInfo(rebuildEffort) {
 }
 
 class EditBucketDataResiliencyModalViewModel extends Observer {
-    advancedMode = ko.observable(false);
-    form = null;
+    formName = this.constructor.name;
+    fields = ko.observable();
+    advancedMode = false;
     toggleModeBtnText = ko.observable();
     isReplicationDisabled = ko.observable();
     isErasureCodingDisabled = ko.observable();
@@ -116,16 +114,16 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
         this.observe(
             state$.pipe(
                 getMany(
-                    ['forms', formName],
-                    ['buckets', bucketName],
-                    'hostPools'
+                    ['buckets', ko.unwrap(bucketName)],
+                    'hostPools',
+                    ['forms', this.formName],
                 )
             ),
             this.onState
         );
     }
 
-    onState([form, bucket, hostPools]) {
+    onState([bucket, hostPools, form]) {
         if (!bucket) return;
 
         const values = form ? getFormValues(form) : _getFormInitalValues(bucket);
@@ -134,6 +132,7 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
 
         this.bucketName = bucket.name;
         this.tierName = bucket.tierName;
+        this.advancedMode = values.advancedMode;
         this.toggleModeBtnText(values.advancedMode ? 'Basic Settings' : 'Advanced Settings');
         this.isReplicationDisabled(!values.advancedMode || values.resiliencyType !== 'REPLICATION');
         this.isErasureCodingDisabled(!values.advancedMode || values.resiliencyType !== 'ERASURE_CODING');
@@ -177,29 +176,24 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             this.ecIsPolicyRisky = summary.failureTolerance < 2;
         }
 
-        if (!this.form) {
-            this.form = new FormViewModel({
-                name: formName,
-                fields: {
-                    advancedMode: values.advancedMode,
-                    resiliencyType: values.resiliencyType,
-                    replicas: values.replicas,
-                    dataFrags: values.dataFrags,
-                    parityFrags: values.parityFrags
-                },
-                onValidate: this.onValidate.bind(this),
-                onSubmit: this.onSubmit.bind(this)
+        if (!this.fields()) {
+            this.fields({
+                advancedMode: values.advancedMode,
+                resiliencyType: values.resiliencyType,
+                replicas: values.replicas,
+                dataFrags: values.dataFrags,
+                parityFrags: values.parityFrags
             });
         }
     }
 
     onToggleMode() {
         const values = {
-            advancedMode: !this.form.advancedMode(),
+            advancedMode: !this.advancedMode,
             ...defaults
         };
 
-        action$.next(updateForm(formName, values, false));
+        action$.next(updateForm(this.formName, values, false));
     }
 
     onCancel() {
@@ -247,11 +241,6 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             action$.next(updateBucketResiliencyPolicy(this.bucketName, this.tierName, policy));
             action$.next(closeModal());
         }
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

@@ -1,115 +1,120 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: isFormInitialized -->
-<wizard class="column greedy" params="
-    steps: steps,
-    step: form.step,
-    actionLabel: 'Create',
-    disabled: form.isSubmitted,
-    onBeforeStep: onBeforeStep.bind($component),
-    onComplete: form.submit,
-    onCancel: onCancel.bind($component)
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
 ">
-    <section class="column greedy">
-        <editor params="label: 'Login Access'">
-            <toggle-switch params="
-                value: form.hasLoginAccess,
-                onLabel: 'Enabled',
-                offLabel: 'Disabled',
-                hasFocus: true
-            "></toggle-switch>
-            <p class="remark push-prev-half">
-                Enabling login access will generate a password that allows login to
-                NooBaa management  console as a system admin
-            </p>
-        </editor>
+    <wizard class="column greedy" params="
+        steps: steps,
+        step: $form.step,
+        actionLabel: 'Create',
+        disabled: $form.isSubmitted,
+        onBeforeStep: onBeforeStep,
+        onComplete: $form.submit,
+        onCancel: onCancel
+    ">
+        <section class="column greedy">
+            <editor params="label: 'Login Access'">
+                <toggle-switch params="
+                    value: $form.hasLoginAccess,
+                    onLabel: 'Enabled',
+                    offLabel: 'Disabled',
+                    hasFocus: true
+                "></toggle-switch>
+                <p class="remark push-prev-half">
+                    Enabling login access will generate a password that allows login to
+                    NooBaa management  console as a system admin
+                </p>
+            </editor>
 
-        <editor params="label: accountNameProps().label">
-            <input type="text"
-                ko.validationCss="form.accountName"
-                ko.value="form.accountName"
-                ko.attr.placeholder="accountNameProps().placeholder"
-            />
-            <p class="remark" ko.visible="accountNameProps().isRemarkVisible">
-                3 - 32 characters
-            </p>
-            <validation-message params="field: form.accountName"></validation-message>
-        </editor>
-    </section>
+            <editor params="label: accountNameProps().label">
+                <input type="text"
+                    ko.validationCss="$form.accountName"
+                    ko.value="$form.accountName"
+                    ko.attr.placeholder="accountNameProps().placeholder"
+                />
+                <p class="remark" ko.visible="accountNameProps().isRemarkVisible">
+                    3 - 32 characters
+                </p>
+                <validation-message params="field: $form.accountName"></validation-message>
+            </editor>
+        </section>
 
-    <section class="column greedy">
-        <editor params="label: 'S3 Access', disabled: form.isSubmitted">
-            <toggle-switch params="
-                value: form.hasS3Access,
-                onLabel: 'Enabled',
-                offLabel: 'Disabled',
-                disabled: form.isSubmitted,
-                hasFocus: true
-            "></toggle-switch>
-            <p class="remark push-prev-half" ko.css.disabled="form.isSubmitted">
-                Granting S3 access will allow this account to connect S3 client <br>
-                applications by generating security credentials (key set).
-            </p>
-            <validation-message params="field: form.hasS3Access"></validation-message>
-        </editor>
+        <section class="column greedy">
+            <editor params="label: 'S3 Access', disabled: $form.isSubmitted">
+                <toggle-switch params="
+                    value: $form.hasS3Access,
+                    onLabel: 'Enabled',
+                    offLabel: 'Disabled',
+                    disabled: $form.isSubmitted,
+                    hasFocus: true
+                "></toggle-switch>
+                <p class="remark push-prev-half" ko.css.disabled="$form.isSubmitted">
+                    Granting S3 access will allow this account to connect S3 client <br>
+                    applications by generating security credentials (key set).
+                </p>
+                <validation-message params="field: $form.hasS3Access"></validation-message>
+            </editor>
 
-        <editor params="
-            label: 'S3 default placement',
-            tooltip: s3PlacementToolTip,
-            disabled: isS3AccessDisabled
-        ">
-            <dropdown params="
+            <editor params="
+                label: 'S3 default placement',
+                tooltip: s3PlacementToolTip,
+                disabled: isS3AccessDisabled
+            ">
+                <dropdown params="
+                        filter: true,
+                        options: resourceOptions,
+                        selected: $form.defaultResource,
+                        disabled: isS3AccessDisabled,
+                        placeholder: 'Choose Resources'
+                    "
+                    ko.validationCss="$form.defaultResource"
+                ></dropdown>
+                 <validation-message params="field: $form.defaultResource"></validation-message>
+            </editor>
+
+            <editor params="
+                label: 'Full access to current and future buckets',
+                disabled: isS3AccessDisabled
+            ">
+                <toggle-switch params="
+                    value: $form.hasAccessToAllBuckets,
+                    onLabel: 'Enabled',
+                    offLabel: 'Disabled',
+                    disabled: isS3AccessDisabled
+                "></toggle-switch>
+            </editor>
+
+            <editor params="
+                label: 'Buckets Permissions',
+                disabled: isBucketSelectionDisabled
+            ">
+                <dropdown params="
+                    options: bucketOptions(),
+                    selected: $form.allowedBuckets,
+                    disabled: isBucketSelectionDisabled,
                     filter: true,
-                    options: resourceOptions,
-                    selected: form.defaultResource,
-                    disabled: isS3AccessDisabled,
-                    placeholder: 'Choose Resources'
-                "
-                ko.validationCss="form.defaultResource"
-            ></dropdown>
-             <validation-message params="field: form.defaultResource"></validation-message>
-        </editor>
+                    subject: 'bucket',
+                    placeholder: 'Choose Buckets',
+                    multiselect: true,
+                    selectAllLabel: 'All Current Buckets'
+                "></dropdown>
+            </editor>
 
-        <editor params="
-            label: 'Full access to current and future buckets',
-            disabled: isS3AccessDisabled
-        ">
-            <toggle-switch params="
-                value: form.hasAccessToAllBuckets,
-                onLabel: 'Enabled',
-                offLabel: 'Disabled',
+            <editor params="
+                label: 'Allow new bucket creation',
+                tooltip: allowBucketCreationTooltip,
                 disabled: isS3AccessDisabled
-            "></toggle-switch>
-        </editor>
-
-        <editor params="
-            label: 'Buckets Permissions',
-            disabled: isBucketSelectionDisabled
-        ">
-            <dropdown params="
-                options: bucketOptions(),
-                selected: form.allowedBuckets,
-                disabled: isBucketSelectionDisabled,
-                filter: true,
-                subject: 'bucket',
-                placeholder: 'Choose Buckets',
-                multiselect: true,
-                selectAllLabel: 'All Current Buckets'
-            "></dropdown>
-        </editor>
-
-        <editor params="
-            label: 'Allow new bucket creation',
-            tooltip: allowBucketCreationTooltip,
-            disabled: isS3AccessDisabled
-        ">
-            <toggle-switch params="
-                value: form.allowBucketCreation,
-                onLabel: 'Enabled',
-                offLabel: 'Disabled',
-                disabled: isS3AccessDisabled
-            "></toggle-switch>
-        </editor>
-    </section>
-</wizard>
-<!-- /ko -->
+            ">
+                <toggle-switch params="
+                    value: $form.allowBucketCreation,
+                    onLabel: 'Enabled',
+                    offLabel: 'Disabled',
+                    disabled: isS3AccessDisabled
+                "></toggle-switch>
+            </editor>
+        </section>
+    </wizard>
+</managed-form>

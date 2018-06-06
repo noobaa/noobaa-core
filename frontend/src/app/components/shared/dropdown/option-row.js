@@ -51,7 +51,6 @@ export default class OptionRowViewModel {
             disabled = false
         } = option;
 
-
         const isSelected = selectedValues.includes(value);
 
         this.value(value);

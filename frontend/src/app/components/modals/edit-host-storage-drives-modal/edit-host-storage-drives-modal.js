@@ -3,12 +3,17 @@
 import template from './edit-host-storage-drives-modal.html';
 import Observer from 'observer';
 import DriveNodeRowViewModel from './drive-node-row';
-import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
-import { openDisableHostStorageWarningModal, toggleHostNodes } from 'action-creators';
 import { deepFreeze, keyByProperty, mapValues } from 'utils/core-utils';
+import { getFieldValue } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
+import {
+    openDisableHostStorageWarningModal,
+    toggleHostNodes,
+    closeModal,
+    updateForm
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -32,63 +37,58 @@ const disabledModes = deepFreeze([
     'DECOMMISSIONING'
 ]);
 
-const formName = 'editStorageDrives';
-
 class EditHostStorageDrivesModalViewModel extends Observer {
-    constructor({ host, onClose }) {
+    formName = this.constructor.name;
+    fields =  ko.observable();
+    host = '';
+    isLastService = false;
+    columns = columns;
+    rows = ko.observableArray();
+    nodeState = {};
+    rowParams = {
+        onToggle: this.onToggleNode.bind(this)
+    };
+
+    constructor({ host }) {
         super();
 
         this.host = ko.unwrap(host);
-        this.isLastService = false;
-        this.close = onClose;
-        this.columns = columns;
-        this.rows = ko.observableArray();
-        this.formReady = ko.observable(false);
-        this.form = null;
-
-        this.onToggleNode = this.onToggleNode.bind(this);
 
         this.observe(
             state$.pipe(
                 getMany(
                     ['hosts', 'items', this.host, 'services'],
-                    ['forms', formName, 'fields']
+                    ['forms', this.formName]
                 )
             ),
             this.onState
         );
     }
 
-    onState([ services, formFields ]) {
+    onState([ services, form ]) {
         if (!services) return;
 
         const { endpoint, storage } = services;
-        const nodesState = formFields ? formFields.nodesState.value : {};
+        const nodesState = form ? getFieldValue(form, 'nodesState') : {};
         const rows = storage.nodes
             .map((node, i) => {
-                const row = this.rows()[i] || new DriveNodeRowViewModel({ onToggle: this.onToggleNode });
+                const row = this.rows()[i] || new DriveNodeRowViewModel(this.rowParams);
                 row.onNode(node, Boolean(nodesState[node.name]));
                 return row;
             });
 
         this.isLastService = disabledModes.includes(endpoint.mode);
         this.rows(rows);
-        this.formReady(Boolean(formFields));
+        this.nodesState = nodesState;
 
-        // Initalize the form once.
-        if (!this.formReady())  {
-            this.form = new FormViewModel({
-                name: formName,
-                fields: {
-                    serviceState: storage.enabled,
-                    nodesState: keyByProperty(
-                        storage.nodes,
-                        'name',
-                        node => !disabledModes.includes(node.mode)
-                    )
-                },
-                onValidate: this.onValidate.bind(this),
-                onSubmit: this.onSubmit.bind(this)
+        if (!this.fields()) {
+            this.fields({
+                serviceState: storage.enabled,
+                nodesState: keyByProperty(
+                    storage.nodes,
+                    'name',
+                    node => !disabledModes.includes(node.mode)
+                )
             });
         }
     }
@@ -104,8 +104,12 @@ class EditHostStorageDrivesModalViewModel extends Observer {
     }
 
     onToggleNode(node, select) {
-        const { nodesState } = this.form;
-        nodesState({ ...nodesState(), [node]: select });
+        const nodesState = {
+            ...this.nodesState,
+            [node]: select
+        };
+
+        action$.next(updateForm(this.formName, { nodesState }));
     }
 
     onSubmit({ serviceState, nodesState }) {
@@ -113,29 +117,22 @@ class EditHostStorageDrivesModalViewModel extends Observer {
             toggleHostNodes(this.host, nodesState) :
             openDisableHostStorageWarningModal(this.host, this.isLastService);
 
-        this.close();
+        action$.next(closeModal());
         action$.next(action);
     }
 
     onSelectAll() {
-        const { form } = this;
-        const state = mapValues(form.nodesState(), () => true);
-        form.nodesState(state);
+        const nodesState = mapValues(this.nodesState, () => true);
+        action$.next(updateForm(this.formName, { nodesState }));
     }
 
     onClearAll() {
-        const { form } = this;
-        const state = mapValues(form.nodesState(), () => false);
-        form.nodesState(state);
+        const nodesState = mapValues(this.nodesState, () => false);
+        action$.next(updateForm(this.formName, { nodesState }));
     }
 
     onCancel() {
-        this.close();
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
+        action$.next(closeModal());
     }
 }
 

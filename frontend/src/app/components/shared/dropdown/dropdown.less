@@ -114,7 +114,12 @@ dropdown {
         margin: 0 2px;
 
         svg-icon {
-            fill: #596067;
+            &:not(.warning),
+            &:not(.error),
+            &:not(.success),
+            &:nor(.info) {
+                fill: #596067;
+            }
         }
 
         .dd-checkbox {

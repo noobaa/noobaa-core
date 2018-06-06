@@ -1,10 +1,14 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onSubmit: onSubmit,
+">
     <div class="row push-next content-middle">
         <input type="search"
             placeholder="Filter by node name or IP"
-            ko.textInput="throttledNameFilter"
+            ko.textInput="ko.pc($form.nameFilter, onNameFilterThrottled)"
             ko.hasFocus="true"
         />
 
@@ -14,21 +18,21 @@
             filter: true,
             placeholder: 'All Pools',
             options: poolOptions,
-            selected: form.selectedPools
+            selected: $form.selectedPools
         "></dropdown>
 
         <div class="highlight row">
             <span class="push-next">Show:</span>
             <checkbox class="push-next" params="
-                checked: form.showHealthy,
+                checked: $form.showHealthy,
                 label: 'Healthy'
             "></checkbox>
             <checkbox class="push-next" params="
-                checked: form.showIssues,
+                checked: $form.showIssues,
                 label: 'Issues'
             "></checkbox>
             <checkbox class="push-next" params="
-                checked: form.showOffline,
+                checked: $form.showOffline,
                 label: 'Offline'
             "></checkbox>
         </div>
@@ -54,7 +58,7 @@
         columns: columns,
         data: rows,
         loading: fetching,
-        sorting: form.sorting,
+        sorting: $form.sorting,
         emptyMessage: emptyMessage
     "></data-table>
 
@@ -67,7 +71,7 @@
         <paginator class="greedy push-prev" params="
             itemCount: filteredHostCount,
             pageSize: pageSize,
-            page: form.page
+            page: $form.page
         "></paginator>
     </div>
 
@@ -79,4 +83,4 @@
             Assign
         </button>
     </div>
-</form>
+</managed-form>

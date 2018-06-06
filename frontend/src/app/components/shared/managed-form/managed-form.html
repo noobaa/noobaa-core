@@ -1,0 +1,14 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<loading-indicator class="align-start" ko.visible="!isInitialized()"></loading-indicator>
+<!-- ko if: isInitialized -->
+<form novalidate
+    class="column greedy"
+    ko.submit="submit"
+    ko.template="{
+        nodes: $componentTemplateNodes,
+        data: $parent,
+        let: { $form: $data }
+    }"
+></form>
+<!-- /ko -->

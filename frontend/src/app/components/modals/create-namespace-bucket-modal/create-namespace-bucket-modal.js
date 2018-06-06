@@ -2,18 +2,22 @@
 
 import template from './create-namespace-bucket-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ResourceRowViewModel from './resource-row';
 import ko from 'knockout';
-import { deepFreeze, mapValues } from 'utils/core-utils';
+import { deepFreeze, mapValues, throttle } from 'utils/core-utils';
 import { validateName } from 'utils/validation-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
-import { closeModal, createNamespaceBucket } from 'action-creators';
 import { inputThrottle } from 'config';
+import {
+    updateForm,
+    touchForm,
+    closeModal,
+    createNamespaceBucket
+} from 'action-creators';
 
-const formName = 'createNamespaceBucket';
 const steps = deepFreeze([
     'Choose Name',
     'Set Placement'
@@ -43,7 +47,13 @@ const readPolicyTableColumns = deepFreeze([
     }
 ]);
 
+const fieldsByStep = deepFreeze({
+    0: [ 'bucketName' ],
+    1: [ 'readPolicy', 'writePolicy' ]
+});
+
 class CreateNamespaceBucketModalViewModel extends Observer {
+    formName = this.constructor.name;
     steps = steps;
     nameRestrictionList = ko.observableArray();
     readPolicyTableColumns = readPolicyTableColumns;
@@ -51,63 +61,54 @@ class CreateNamespaceBucketModalViewModel extends Observer {
     isWritePolicyDisabled = ko.observable();
     writePolicyOptions = ko.observableArray();
     resourceServiceMapping = {};
-    form = null;
-    throttledBucketName = null;
+    readPolicy = [];
     readPolicyRowParams = {
         onToggle: this.onToggleReadPolicyResource.bind(this)
     };
+    fields = {
+        step: 0,
+        bucketName: '',
+        readPolicy: [],
+        writePolicy: undefined
+    };
+    onBucketNameThrottled = throttle(
+        this.onBucketName,
+        inputThrottle,
+        this
+    );
 
     constructor() {
         super();
 
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                step: 0,
-                bucketName: '',
-                readPolicy: [],
-                writePolicy: undefined
-            },
-            groups: {
-                0: [ 'bucketName' ],
-                1: [ 'readPolicy', 'writePolicy' ]
-            },
-            onValidate: this.onValidate.bind(this),
-            onWarn: values => this.onWarn(values, this.resourceServiceMapping),
-            onSubmit: this.onSubmit.bind(this)
-        });
-
-        this.throttledBucketName = this.form.bucketName
-            .throttle(inputThrottle);
-
         this.observe(
-            state$.pipe(
-                getMany(
-                    ['forms', formName],
-                    'buckets',
-                    'namespaceBuckets',
-                    'namespaceResources'
-                )
-            ),
+            state$.pipe(getMany(
+                'buckets',
+                'namespaceBuckets',
+                'namespaceResources',
+                ['forms', this.formName]
+            )),
             this.onState
         );
     }
 
-    onState([ form, buckets, namespaceBuckets, resources ]) {
-        if (!buckets || !form) return;
+    onState([ buckets, namespaceBuckets, resources, form ]) {
+        if (!buckets || !namespaceBuckets || !resources || !form) {
+            return;
+        }
 
-        const { bucketName, readPolicy } = form.fields;
+        const bucketName = getFieldValue(form, 'bucketName');
+        const readPolicy = getFieldValue(form, 'readPolicy');
         const existingNames = [
             ...Object.keys(buckets),
             ...Object.keys(namespaceBuckets)
         ];
 
-        const nameRestrictionList = validateName(bucketName.value, existingNames)
+        const nameRestrictionList = validateName(bucketName, existingNames)
             .map(result => {
                 // Use nocss class to indeicate no css is needed, cannot use empty string
                 // because of the use of logical or as condition fallback operator.
                 const css =
-                    (!bucketName.touched && 'nocss') ||
+                    (!isFieldTouched(form, 'bucketName') && 'nocss') ||
                     (result.valid && 'success') ||
                     'error';
 
@@ -121,11 +122,11 @@ class CreateNamespaceBucketModalViewModel extends Observer {
         const readPolicyRows = resourceList
             .map((resource, i) => {
                 const row = this.readPolicyRows.get(i) || new ResourceRowViewModel(this.readPolicyRowParams);
-                row.onResource(resource, readPolicy.value);
+                row.onResource(resource, readPolicy);
                 return row;
             });
         const writePolicyOptions = resourceList
-            .filter(resource => readPolicy.value.includes(resource.name))
+            .filter(resource => readPolicy.includes(resource.name))
             .map(resource => {
                 const { name: value, service } = resource;
                 const { icon, selectedIcon } = getCloudServiceMeta(service);
@@ -141,19 +142,26 @@ class CreateNamespaceBucketModalViewModel extends Observer {
         this.existingNames = existingNames;
         this.nameRestrictionList(nameRestrictionList);
         this.readPolicyRows(readPolicyRows);
-        this.isWritePolicyDisabled(readPolicy.value.length === 0);
+        this.isWritePolicyDisabled(readPolicy.length === 0);
         this.writePolicyOptions(writePolicyOptions);
         this.resourceServiceMapping = resourceServiceMapping;
+        this.isStepValid = isFormValid(form);
+        this.readPolicy = readPolicy;
+    }
+
+    onBucketName(bucketName) {
+        action$.next(updateForm(this.formName, { bucketName }));
     }
 
     onToggleReadPolicyResource(resource, select) {
-        const { readPolicy } = this.form;
+        const { readPolicy } = this;
         if (!select) {
-            const filtered = readPolicy().filter(name => name !== resource);
-            readPolicy(filtered);
+            const filtered = readPolicy.filter(name => name !== resource);
+            action$.next(updateForm(this.formName, { readPolicy: filtered }));
 
-        } else if (!readPolicy().includes(resource)) {
-            readPolicy([ ...readPolicy(), resource ]);
+        } else if (!readPolicy.includes(resource)) {
+            const updated = [ ...readPolicy, resource ];
+            action$.next(updateForm(this.formName, { readPolicy: updated }));
         }
     }
 
@@ -198,8 +206,8 @@ class CreateNamespaceBucketModalViewModel extends Observer {
     }
 
     onBeforeStep(step) {
-        if (!this.form.isValid()) {
-            this.form.touch(step);
+        if (!this.isStepValid) {
+            action$.next(touchForm(this.formName, fieldsByStep[step]));
             return false;
         }
 
@@ -214,11 +222,6 @@ class CreateNamespaceBucketModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
     }
 }
 

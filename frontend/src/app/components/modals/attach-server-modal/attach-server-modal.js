@@ -2,59 +2,61 @@
 
 import template from './attach-server-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
+import { isFormValid } from 'utils/form-utils';
 import { isIP } from 'utils/net-utils';
-import { get } from 'rx-extensions';
+import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
-import { attachServerToCluster, closeModal } from 'action-creators';
 import { api } from 'services';
+import {
+    touchForm,
+    attachServerToCluster,
+    closeModal
+} from 'action-creators';
 
-const formName = 'attachNewServer';
 const secretLength = 8;
 const steps = deepFreeze([
     'Configure Server',
     'Edit Details'
 ]);
 
+const fieldsByStep = {
+    0: ['address', 'secret'],
+    1: ['hostname', 'location']
+};
+
 class AttachServerModalViewModel extends Observer {
+    formName = this.constructor.name;
     steps = steps;
     form = null;
     version = ko.observable();
+    asyncValidationTriggers = ['address', 'secret'];
+    fields = {
+        step: 0,
+        address: '',
+        secret: '',
+        hostname: '',
+        location: 'DC1'
+    }
 
     constructor() {
         super();
 
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                step: 0,
-                address: '',
-                secret: '',
-                hostname: '',
-                location: 'DC1'
-            },
-            groups: {
-                0: ['address', 'secret'],
-                1: ['hostname', 'location']
-            },
-            asyncTriggers: ['address', 'secret'],
-            onValidate: this.onValidate.bind(this),
-            onValidateAsync: this.onValidateAsync.bind(this),
-            onSubmit: this.onSubmit.bind(this)
-        });
-
         this.observe(
-            state$.pipe(get('system', 'version')),
+            state$.pipe(getMany(
+                ['system', 'version'],
+                ['forms', this.formName]
+            )),
             this.onState
         );
     }
 
-    onState(version) {
+    onState([version, form]) {
         const tooltip = version ? `System version: ${version}` : '';
-        this.version(tooltip);
 
+        this.version(tooltip);
+        this.isStepValid = form ? isFormValid(form) : false;
     }
 
     onValidate(values) {
@@ -124,8 +126,8 @@ class AttachServerModalViewModel extends Observer {
     }
 
     onBeforeStep(step) {
-        if (!this.form.isValid()) {
-            this.form.touch(step);
+        if (!this.isStepValid) {
+            action$.next(touchForm(this.formName, fieldsByStep[step]));
             return false;
         }
 
@@ -143,11 +145,6 @@ class AttachServerModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
     }
 }
 

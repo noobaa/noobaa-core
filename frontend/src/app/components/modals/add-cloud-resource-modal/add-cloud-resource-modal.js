@@ -21,7 +21,8 @@ import {
 
 const allowedServices = deepFreeze([
     'AWS',
-    'S3_COMPATIBLE',
+    'S3_V2_COMPATIBLE',
+    'S3_V4_COMPATIBLE',
     'AZURE',
     'GOOGLE'
 ]);

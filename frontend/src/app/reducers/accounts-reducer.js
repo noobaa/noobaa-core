@@ -64,15 +64,20 @@ function onCompleteFetchSystemInfo(_, { payload }) {
 // ------------------------------
 function _mapExternalConnections(externalConnections) {
     return externalConnections.connections.map(conn => {
-        const endpoint = conn.cp_code ?
-            `${conn.endpoint} at ${conn.cp_code}` :
+        const { name, auth_method, endpoint_type, identity, cp_code } = conn;
+        const endpoint = cp_code ?
+            `${conn.endpoint} at ${cp_code}` :
             conn.endpoint;
 
+        const service = endpoint_type === 'S3_COMPATIBLE' ?
+            (auth_method === 'AWS_V2' ? 'S3_V2_COMPATIBLE' : 'S3_V4_COMPATIBLE') :
+            endpoint_type;
+
         return {
-            name: conn.name,
-            service: conn.endpoint_type,
-            endpoint: endpoint,
-            identity: conn.identity,
+            name,
+            service,
+            endpoint,
+            identity,
             usage: conn.usage.map(record => ({
                 entity: record.entity,
                 externalEntity: record.external_entity,

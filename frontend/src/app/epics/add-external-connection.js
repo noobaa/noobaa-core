@@ -20,13 +20,19 @@ function _getApiRequestParams(payload) {
             };
         }
 
-        case 'S3_COMPATIBLE': {
+        case 'S3_V2_COMPATIBLE':
+        case 'S3_V4_COMPATIBLE': {
+            const auth_method = service === 'S3_V2_COMPATIBLE' ?
+                'AWS_V2' :
+                'AWS_V4';
+
             return {
                 name,
-                endpoint_type: service,
+                endpoint_type: 'S3_COMPATIBLE',
                 endpoint: params.s3Endpoint,
                 identity: params.s3AccessKey,
-                secret: params.s3SecretKey
+                secret: params.s3SecretKey,
+                auth_method
             };
         }
 

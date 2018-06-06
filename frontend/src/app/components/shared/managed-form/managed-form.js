@@ -1,15 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { isDefined, isFunction, mapValues, noop, pick } from 'utils/core-utils';
+import template from './managed-form.html';
+import Observer from 'observer';
+import { isFunction, mapValues, noop, pick } from 'utils/core-utils';
 import { getFormValues, isFormValid, isFormDirty } from 'utils/form-utils';
 import { get } from 'rx-extensions';
-import Observer from 'observer';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import {
     initializeForm,
     updateForm,
-    touchForm,
     resetForm,
     setFormValidity,
     submitForm,
@@ -17,35 +17,35 @@ import {
     dropForm
 } from 'action-creators';
 
-
-export default class FormViewModel extends Observer {
+class ManagedFormViewModel extends Observer {
     constructor({
         name,
         fields = {},
-        groups = {},
-        onForm = noop,
         onWarn,
         onValidate,
         onValidateAsync,
         onValidateSubmit,
         asyncTriggers,
-        onSubmit = noop
+        onSubmit = noop,
+        owner = {}
     }) {
         super();
 
         this._name = name;
-        this._groups = groups;
-        this._submitHandler = onSubmit;
-        this._formCallback = onForm;
-        this._warnHandler = onWarn;
-        this._validateHandler = onValidate;
-        this._validateAsyncHandler = onValidateAsync;
-        this._validateSubmitHandler = onValidateSubmit;
+        this._submitHandler = onSubmit && onSubmit.bind(owner);
+        this._warnHandler = onWarn && onWarn.bind(owner);
+        this._validateHandler = onValidate && onValidate.bind(owner);
+        this._validateAsyncHandler = onValidateAsync && onValidateAsync.bind(owner);
+        this._validateSubmitHandler = onValidateSubmit && onValidateSubmit.bind(owner);
         this._asyncTriggers = asyncTriggers;
         this._asyncValidationHandle = null;
 
         // Create an observable to hold the loaded form state.
         const state = this._state = ko.observable();
+
+        this.isInitialized = ko.pureComputed(
+            () => Boolean(state())
+        );
 
         this.isValidating = ko.pureComputed(
             () => Boolean(state() && state().validatingAsync)
@@ -80,17 +80,15 @@ export default class FormViewModel extends Observer {
         );
 
         // Bind form action to the form view model.
-        ['submit', 'reset'].forEach(
-            method => this[method] = this[method].bind(this)
-        );
-
-        // Create the fields observables.
-        for (const fieldName of Object.keys(fields)) {
-            this[fieldName] = this._createFieldObservable(fieldName);
+        for (const method of ['submit', 'reset']) {
+            this[method] = this[method].bind(this);
         }
 
-        // Initialze the form.
-        action$.next(initializeForm(name, fields));
+        if (ko.isObservable(fields) && !fields()) {
+            fields.once(fields => this._initialize(fields));
+        } else {
+            this._initialize(ko.unwrap(fields));
+        }
 
         // listen for state changes.
         this.observe(
@@ -111,20 +109,19 @@ export default class FormViewModel extends Observer {
         action$.next(resetForm(this.name));
     }
 
-    touch(group) {
-        if (isDefined(group)) {
-            const fields = this._groups[group];
-            if (!fields) throw new Error(`Invalid group name ${group}`);
-            action$.next(touchForm(this.name, fields));
-
-        } else {
-            action$.next(touchForm(this.name));
-        }
-    }
-
     dispose() {
         action$.next(dropForm(this.name));
         super.dispose();
+    }
+
+    _initialize(fields) {
+        // Create the fields observables.
+        for (const fieldName of Object.keys(fields)) {
+            this[fieldName] = this._createFieldObservable(fieldName);
+        }
+
+        // Initialze the form.
+        action$.next(initializeForm(this.name, fields));
     }
 
     _createFieldObservable(fieldName) {
@@ -206,7 +203,6 @@ export default class FormViewModel extends Observer {
             Object.keys(values);
 
         this._state(state);
-        this._formCallback(state);
 
         if (changes.length > 0) {
             this._validate(values, changes);
@@ -319,3 +315,13 @@ export default class FormViewModel extends Observer {
         }
     }
 }
+
+function viewModelFactory(params, info) {
+    const owner = ko.dataFor(info.element);
+    return new ManagedFormViewModel(params, owner);
+}
+
+export default {
+    viewModel: { createViewModel: viewModelFactory },
+    template: template
+};

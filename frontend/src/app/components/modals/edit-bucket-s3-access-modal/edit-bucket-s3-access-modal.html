@@ -1,7 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: isFormInitialized -->
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onSubmit: onSubmit
+">
     <div class="row content-middle">
         <h2 class="heading3 greedy">Edit accounts S3 access permissions</h2>
         <div>
@@ -17,7 +20,7 @@
 
     <multiselect class="cols-3 greedy" params="
         options: accountOptions,
-        selected: form.selectedAccounts
+        selected: $form.selectedAccounts
     "></multiselect>
 
     <p class="push-next">
@@ -37,4 +40,3 @@
         </button>
     </div>
 </form>
-<!-- /ko -->

@@ -2,17 +2,16 @@
 
 import template from './edit-bucket-quota-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { deepFreeze, mapValues } from 'utils/core-utils';
 import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
-import { formatSize, toBytes, toBigInteger, unitsInBytes, isSizeZero, sumSize } from 'utils/size-utils';
 import style from 'style';
 import ko from 'knockout';
 import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { updateBucketQuota, closeModal } from 'action-creators';
+import { formatSize, toBytes, toBigInteger, fromBigInteger,
+    unitsInBytes, isSizeZero, sumSize } from 'utils/size-utils';
 
-const formName = 'editBucketQuota';
 const unitOptions = deepFreeze([
     {
         label: 'GB',
@@ -36,18 +35,18 @@ function _findMaxQuotaPossible(data) {
 
     if (total.greaterOrEquals(PETABYTE)) {
         return {
-            size: total.divide(PETABYTE),
+            size: fromBigInteger(total.divide(PETABYTE)),
             unit: 'PETABYTE'
         };
 
     } else if (total.greaterOrEquals(TERABYTE)) {
         return {
-            size: total.divide(TERABYTE),
+            size: fromBigInteger(total.divide(TERABYTE)),
             unit: 'TERABYTE'
         };
     } else if (total.greaterOrEquals(GIGABYTE)) {
         return {
-            size: total.divide(GIGABYTE),
+            size: fromBigInteger(total.divide(GIGABYTE)),
             unit: 'GIGABYTE'
         };
 
@@ -71,56 +70,58 @@ function _getQuota(formValues, bucket) {
 }
 
 class EditBucketQuotaModalViewModel extends Observer {
+    formName = this.constructor.name;
+    unitOptions = unitOptions;
+    bucketName = '';
+    fields = ko.observable();
+    markers = ko.observableArray();
+    barValues = [
+        {
+            label: 'Used Data',
+            color: style['color8'],
+            value: ko.observable()
+        },
+        {
+            label: 'Overused',
+            color: style['color10'],
+            value: ko.observable(),
+            visible: ko.observable()
+        },
+        {
+            label: 'Available',
+            color: style['color5'],
+            value: ko.observable()
+        },
+        {
+            label: 'Available on spillover',
+            color: style['color18'],
+            value: ko.observable(),
+            visible: ko.observable()
+        },
+        {
+            label: 'Potential',
+            color: style['color1'],
+            value: ko.observable(),
+            visible: false
+        },
+        {
+            label: 'Overallocated',
+            color: style['color11'],
+            value: ko.observable(),
+            visible: ko.observable()
+        }
+    ];
+
     constructor({ bucketName }) {
         super();
 
         this.bucketName = ko.unwrap(bucketName);
-        this.unitOptions = unitOptions;
-        this.form = null;
-        this.isFormInitalized = ko.observable();
-        this.markers = ko.observableArray();
-        this.barValues = [
-            {
-                label: 'Used Data',
-                color: style['color8'],
-                value: ko.observable()
-            },
-            {
-                label: 'Overused',
-                color: style['color10'],
-                value: ko.observable(),
-                visible: ko.observable()
-            },
-            {
-                label: 'Available',
-                color: style['color5'],
-                value: ko.observable()
-            },
-            {
-                label: 'Available on spillover',
-                color: style['color18'],
-                value: ko.observable(),
-                visible: ko.observable()
-            },
-            {
-                label: 'Potential',
-                color: style['color1'],
-                value: ko.observable(),
-                visible: false
-            },
-            {
-                label: 'Overallocated',
-                color: style['color11'],
-                value: ko.observable(),
-                visible: ko.observable()
-            }
-        ];
 
         this.observe(
             state$.pipe(
                 getMany(
                     ['buckets', this.bucketName],
-                    ['forms', formName]
+                    ['forms', this.formName]
                 )
             ),
             this.onState
@@ -128,10 +129,7 @@ class EditBucketQuotaModalViewModel extends Observer {
     }
 
     onState([ bucket, form ]) {
-        if (!bucket) {
-            this.isFormInitalized(false);
-            return;
-        }
+        if (!bucket) return;
 
         const formValues = form && mapValues(form.fields, field => field.value);
         const enabled = formValues ? formValues.enabled : Boolean(bucket.quota);
@@ -159,18 +157,12 @@ class EditBucketQuotaModalViewModel extends Observer {
 
         this.markers(markers);
 
-        if (!form) {
-            this.form = new FormViewModel({
-                name: formName,
-                fields: {
-                    enabled: enabled,
-                    unit: quota.unit,
-                    size: quota.size
-                },
-                onValidate: this.onValidate.bind(this),
-                onSubmit: this.onSubmit.bind(this)
+        if (!this.fields()) {
+            this.fields({
+                enabled: enabled,
+                unit: quota.unit,
+                size: quota.size
             });
-            this.isFormInitalized(true);
         }
     }
 
@@ -196,11 +188,6 @@ class EditBucketQuotaModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

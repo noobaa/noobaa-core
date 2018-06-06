@@ -2,55 +2,52 @@
 
 import template from './connect-app-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
-import { state$ } from 'state';
+import { state$, action$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import * as routes from 'routes';
-
-const formName = 'connectApp';
+import { closeModal } from 'action-creators';
 
 class ConnectAppModalViewModel extends Observer {
-    constructor({ onClose }) {
-        super();
+    formName = this.constructor.name;
+    fields = ko.observable();
+    accountsSettingsHref = ko.observable();
+    accessKey = ko.observable();
+    secretKey = ko.observable();
+    endpoint = ko.observable();
+    details = [
+        {
+            label: 'Storage Type',
+            value: 'S3 compatible storage'
+        },
+        {
+            label: 'REST Endpoint',
+            value: this.endpoint,
+            allowCopy: true
+        },
+        {
+            label: 'Access Key',
+            value: this.accessKey,
+            allowCopy: true
+        },
+        {
+            label: 'Secret Key',
+            value: this.secretKey,
+            allowCopy: true
+        }
+    ];
 
-        this.close = onClose;
-        this.isFormInitialized = ko.observable();
-        this.form = null;
-        this.accountsSettingsHref = ko.observable();
-        this.accessKey = ko.observable();
-        this.secretKey = ko.observable();
-        this.endpoint = ko.observable();
-        this.details = [
-            {
-                label: 'Storage Type',
-                value: 'S3 compatible storage'
-            },
-            {
-                label: 'REST Endpoint',
-                value: this.endpoint,
-                allowCopy: true
-            },
-            {
-                label: 'Access Key',
-                value: this.accessKey,
-                allowCopy: true
-            },
-            {
-                label: 'Secret Key',
-                value: this.secretKey,
-                allowCopy: true
-            }
-        ];
+    constructor() {
+        super();
 
         this.observe(
             state$.pipe(
                 getMany(
                     'accounts',
                     'location',
-                    ['forms', formName]
+                    ['forms', this.formName]
                 )
             ),
             this.onAccount
@@ -59,7 +56,6 @@ class ConnectAppModalViewModel extends Observer {
 
     onAccount([accounts, location, form]) {
         if (!accounts) {
-            this.isFormInitialized(false);
             return;
         }
 
@@ -84,28 +80,17 @@ class ConnectAppModalViewModel extends Observer {
             )
         );
 
-        if (!this.isFormInitialized()) {
-            this.form = new FormViewModel({
-                name: formName,
-                fields: {
-                    selectedAccount: selectedAccount
-                }
-            });
-            this.isFormInitialized(true);
+        if (!this.fields()) {
+            this.fields({ selectedAccount });
         }
     }
 
     onSubmit() {
-        this.close();
+        action$.next(closeModal());
     }
 
     onCancel() {
-        this.close();
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
+        action$.next(closeModal());
     }
 }
 

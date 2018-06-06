@@ -2,7 +2,6 @@
 
 import template from './create-account-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze, flatMap } from 'utils/core-utils';
@@ -10,9 +9,14 @@ import { sumSize, formatSize } from 'utils/size-utils';
 import { randomString } from 'utils/string-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { getMany } from 'rx-extensions';
-import { getFormValues, getFieldValue, isFieldTouched, isFieldValid } from 'utils/form-utils';
+import { getFormValues, getFieldValue, isFieldTouched, isFieldValid, isFormValid } from 'utils/form-utils';
 import { isEmail } from 'validations';
-import { closeModal, lockModal, createAccount } from 'action-creators';
+import {
+    touchForm,
+    closeModal,
+    lockModal,
+    createAccount
+} from 'action-creators';
 
 const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
 const allowBucketCreationTooltip = 'The ability to create new buckets. By disabling this option, the user could not create any new buckets via S3 client or via the management console';
@@ -29,6 +33,11 @@ const steps = deepFreeze([
     'Account Details',
     'S3 Access'
 ]);
+
+const fieldsByStep = deepFreeze({
+    0: [ 'accountName' ],
+    1: [ 'defaultResource' ]
+});
 
 function _getAccountNameFieldProps(form) {
     if (!form) return {};
@@ -53,20 +62,19 @@ function _getAccountNameFieldProps(form) {
     }
 }
 
-class CreateAccountWizardViewModel extends Observer {
+class CreateAccountModalViewModel extends Observer {
     formName = this.constructor.name;
     steps = steps;
     s3PlacementToolTip = s3PlacementToolTip;
     allowBucketCreationTooltip = allowBucketCreationTooltip;
     accountNames = null;
+    fields = ko.observable();
     resourceOptions = ko.observable();
     bucketOptions = ko.observable();
     password = randomString();
     accountNameProps = ko.observable();
     isS3AccessDisabled = ko.observable();
     isBucketSelectionDisabled = ko.observable();
-    form = null;
-    isFormInitialized = ko.observable();
 
     constructor() {
         super();
@@ -88,7 +96,6 @@ class CreateAccountWizardViewModel extends Observer {
     onState([accounts, hostPools, cloudResources, buckets, form]) {
         if (!accounts || !hostPools || !cloudResources || !buckets) {
             this.accountNameProps({});
-            this.isFormInitialized(false);
             return;
         }
 
@@ -112,31 +119,20 @@ class CreateAccountWizardViewModel extends Observer {
         this.accountNameProps(_getAccountNameFieldProps(form));
         this.isS3AccessDisabled(isS3AccessDisabled);
         this.isBucketSelectionDisabled(isBucketSelectionDisabled);
+        this.isStepValid = form ? isFormValid(form) : false;
 
-        if (!form) {
-            this.accountNameProps({});
-            this.form = new FormViewModel({
-                name: this.formName,
-                fields: {
-                    step: 0,
-                    accountName: '',
-                    hasLoginAccess: true,
-                    hasS3Access: hasS3Access,
-                    defaultResource: undefined,
-                    hasAccessToAllBuckets: hasAccessToAllBuckets,
-                    allowedBuckets: Object.keys(buckets),
-                    allowBucketCreation: true
-                },
-                groups: {
-                    0: [ 'accountName' ],
-                    1: [ 'defaultResource' ]
-                },
-                onValidate: this.onValidate.bind(this),
-                onSubmit: this.onSubmit.bind(this)
+        if (!this.fields()) {
+            this.fields({
+                step: 0,
+                accountName: '',
+                hasLoginAccess: true,
+                hasS3Access: hasS3Access,
+                defaultResource: undefined,
+                hasAccessToAllBuckets: hasAccessToAllBuckets,
+                allowedBuckets: Object.keys(buckets),
+                allowBucketCreation: true
             });
-            this.isFormInitialized(true);
         }
-
     }
 
     onValidate(values) {
@@ -183,22 +179,12 @@ class CreateAccountWizardViewModel extends Observer {
     }
 
     onBeforeStep(step) {
-        const { form } = this;
-        if (!form.isValid()) {
-            form.touch(step);
+        if (!this.isStepValid) {
+            action$.next(touchForm(this.formName, fieldsByStep[step]));
             return false;
         }
 
         return true;
-    }
-
-    onSelectAllBuckets() {
-        const allowedBuckets = this.bucketOptions();
-        this.form.allowedBuckets(allowedBuckets);
-    }
-
-    onClearSelectedBuckets() {
-        this.form.allowedBuckets([]);
     }
 
     onSubmit(values) {
@@ -219,14 +205,9 @@ class CreateAccountWizardViewModel extends Observer {
     onCancel() {
         action$.next(closeModal());
     }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
-    }
 }
 
 export default {
-    viewModel: CreateAccountWizardViewModel,
+    viewModel: CreateAccountModalViewModel,
     template: template
 };

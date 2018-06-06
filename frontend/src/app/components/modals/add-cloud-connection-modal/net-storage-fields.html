@@ -3,13 +3,13 @@
         <input type="text"
             class="push-next-half small-input"
             placeholder="Storage Group"
-            ko.value="form.nsStorageGroup"
-            ko.validationCss="form.nsStorageGroup"
+            ko.value="$form.nsStorageGroup"
+            ko.validationCss="$form.nsStorageGroup"
         />
-        <span class="push-next-half small-input">-{{form.nsHostname}}</span>
-        <validation-indicator params="field: form.nsStorageGroup"></validation-indicator>
+        <span class="push-next-half small-input">-{{$form.nsHostname}}</span>
+        <validation-indicator params="field: $form.nsStorageGroup"></validation-indicator>
     </div>
-    <validation-message params="field: form.nsStorageGroup"></validation-message>
+    <validation-message params="field: $form.nsStorageGroup"></validation-message>
 </editor>
 
 <editor params="label: 'Key name and CP code'">
@@ -18,21 +18,21 @@
             <input type="text"
                 class="small-input"
                 placeholder="Key Name"
-                ko.value="form.nsKeyName"
-                ko.validationCss="form.nsKeyName"
+                ko.value="$form.nsKeyName"
+                ko.validationCss="$form.nsKeyName"
             />
-            <validation-message params="field: form.nsKeyName"></validation-message>
+            <validation-message params="field: $form.nsKeyName"></validation-message>
         </div>
         <div class="column push-next-half">
             <input type="text"
                 class="small-input"
                 placeholder="CP Code"
-                ko.value="form.nsCPCode"
-                ko.validationCss="form.nsCPCode"
+                ko.value="$form.nsCPCode"
+                ko.validationCss="$form.nsCPCode"
             />
-            <validation-message params="field: form.nsCPCode"></validation-message>
+            <validation-message params="field: $form.nsCPCode"></validation-message>
         </div>
-        <validation-indicator params="field: form.nsCPCode"></validation-indicator>
+        <validation-indicator params="field: $form.nsCPCode"></validation-indicator>
     </div>
 </editor>
 
@@ -41,10 +41,10 @@
         <input type="text"
             class="push-next-half"
             placeholder="Enter Key"
-            ko.value="form.nsAuthKey"
-            ko.validationCss="form.nsAuthKey"
+            ko.value="$form.nsAuthKey"
+            ko.validationCss="$form.nsAuthKey"
         />
-        <validation-indicator params="field: form.nsAuthKey"></validation-indicator>
+        <validation-indicator params="field: $form.nsAuthKey"></validation-indicator>
     </div>
-    <validation-message params="field: form.nsAuthKey"></validation-message>
+    <validation-message params="field: $form.nsAuthKey"></validation-message>
 </editor>

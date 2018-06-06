@@ -2,14 +2,18 @@
 
 import template from './edit-account-s3-access-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
-import { updateAccountS3Access, closeModal } from 'action-creators';
 import { flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getFieldValue } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
+import {
+    updateForm,
+    updateAccountS3Access,
+    closeModal
+} from 'action-creators';
 
 const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
 const systemOwnerS3AccessTooltip = 'S3 access cannot be disabled for system owner';
@@ -32,8 +36,7 @@ class EditAccountS3AccessModalViewModel extends Observer {
     s3AccessToggleTooltip = ko.observable();
     resourceOptions = ko.observable();
     bucketOptions = ko.observable();
-    isFormInitialized = ko.observable(false);
-    form = null;
+    fields = ko.observable();
 
     constructor({ accountName }) {
         super();
@@ -45,16 +48,23 @@ class EditAccountS3AccessModalViewModel extends Observer {
                     'hostPools',
                     'cloudResources',
                     'buckets',
-                    'namespaceBuckets'
+                    'namespaceBuckets',
+                    ['forms', this.formName]
                 )
             ),
             this.onState
         );
     }
 
-    onState([ account, hostPools, cloudResources, buckets, namespaceBuckets ]) {
-        if (!account) {
-            this.isFormInitialized(false);
+    onState([
+        account,
+        hostPools,
+        cloudResources,
+        buckets,
+        namespaceBuckets,
+        form
+    ]) {
+        if (!account || !hostPools || !cloudResources || !buckets || !namespaceBuckets) {
             return;
         }
 
@@ -75,35 +85,26 @@ class EditAccountS3AccessModalViewModel extends Observer {
                 return { value, tooltip };
             });
 
+        const isBucketSelectionDisabled = form ?
+            (!getFieldValue(form, 'hasS3Access') || getFieldValue(form, 'hasAccessToAllBuckets')) :
+            true;
+
         this.isS3AccessToggleDisabled(account.isOwner);
         this.s3AccessToggleTooltip(account.isOwner ? systemOwnerS3AccessTooltip : '');
         this.resourceOptions(resourceOptions);
         this.bucketOptions(bucketOptions);
+        this.isBucketSelectionDisabled(isBucketSelectionDisabled);
 
-        if (!this.form) {
-            this.form = new FormViewModel({
-                name: this.formName,
-                fields: {
-                    accountName: account.name,
-                    hasS3Access: account.hasS3Access,
-                    hasAccessToAllBuckets: account.hasAccessToAllBuckets,
-                    allowedBuckets: account.allowedBuckets || [],
-                    defaultResource: account.defaultResource,
-                    allowBucketCreation: account.canCreateBuckets
-                },
-                onForm: this.onForm.bind(this),
-                onValidate: this.onValidate,
-                onSubmit: this.onSubmit.bind(this)
+        if (!this.fields()) {
+            this.fields({
+                accountName: account.name,
+                hasS3Access: account.hasS3Access,
+                hasAccessToAllBuckets: account.hasAccessToAllBuckets,
+                allowedBuckets: account.allowedBuckets || [],
+                defaultResource: account.defaultResource,
+                allowBucketCreation: account.canCreateBuckets
             });
-            this.isFormInitialized(true);
-
         }
-    }
-
-    onForm(form) {
-        if (!form) return;
-        const { hasS3Access, hasAccessToAllBuckets } = form.fields;
-        this.isBucketSelectionDisabled(!hasS3Access.value || hasAccessToAllBuckets.value);
     }
 
     onValidate({ hasS3Access, defaultResource }) {
@@ -121,11 +122,11 @@ class EditAccountS3AccessModalViewModel extends Observer {
         const allowedBuckets = this.bucketOptions()
             .map(opt => opt.value);
 
-        this.form.allowedBuckets(allowedBuckets);
+        action$.next(updateForm(this.formName, { allowedBuckets }));
     }
 
     onClearSelectedBuckets() {
-        this.form.allowedBuckets([]);
+        action$.next(updateForm(this.formName, { allowedBuckets: [] }));
     }
 
     onSubmit({
@@ -151,11 +152,6 @@ class EditAccountS3AccessModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

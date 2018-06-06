@@ -7,7 +7,6 @@ import { deepFreeze, clamp } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { isIPOrDNSName } from 'utils/net-utils';
 import { isFormDirty, getFieldValue } from 'utils/form-utils';
-import FormViewModel from 'components/form-view-model';
 import * as routes from 'routes';
 import { action$, state$ } from 'state';
 import { getMany } from 'rx-extensions';
@@ -25,12 +24,11 @@ const portValMessage = 'Please enter a port number between 1 and 65535';
 class RemoteSyslogFormViewModel extends Observer {
     formName = this.constructor.name;
     tcpPort = defaultPorts.TCP;
-    form = null;
     protocolOptions = Object.keys(defaultPorts);
     isExpanded = ko.observable();
     href = ko.observable();
-    isFormInitialized = ko.observable();
     isDirtyMarkerVisible = ko.observable();
+    fields = ko.observable();
 
     constructor() {
         super();
@@ -49,7 +47,6 @@ class RemoteSyslogFormViewModel extends Observer {
 
     onState([systemState, location, form]) {
         if (!systemState) {
-            this.isFormInitialized(false);
             this.isDirtyMarkerVisible(false);
             return;
         }
@@ -88,19 +85,13 @@ class RemoteSyslogFormViewModel extends Observer {
         this.toggleUri = toggleUri;
         this.isDirtyMarkerVisible(isDirtyMarkerVisible);
 
-        if (!form) {
-            this.form = new FormViewModel({
-                name: this.formName,
-                fields: {
-                    enabled,
-                    protocol,
-                    address,
-                    udpPort
-                },
-                onValidate: this.onValidate.bind(this),
-                onSubmit: this.onSubmit.bind(this)
+        if (!this.fields()) {
+            this.fields({
+                enabled,
+                protocol,
+                address,
+                udpPort
             });
-            this.isFormInitialized(true);
         }
     }
 
@@ -132,11 +123,6 @@ class RemoteSyslogFormViewModel extends Observer {
 
     onToggleSection() {
         action$.next(requestLocation(this.toggleUri));
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

@@ -2,7 +2,6 @@
 
 import template from './start-maintenance-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
@@ -25,19 +24,13 @@ class StartMaintenanceModalViewModel extends Observer {
     formName = this.constructor.name;
     durationUnitOptions = durationUnitOptions;
     durationInMin = ko.observable();
+    fields = {
+        duration: 30,
+        durationUnit: 1
+    };
 
     constructor() {
         super();
-
-        this.form = new FormViewModel({
-            name: this.formName,
-            fields: {
-                duration: 30,
-                durationUnit: 1
-            },
-            onValidate: this.onValidate.bind(this),
-            onSubmit: this.onSubmit.bind(this)
-        });
 
         this.observe(
             state$.pipe(get('forms', this.formName)),
@@ -72,11 +65,6 @@ class StartMaintenanceModalViewModel extends Observer {
     onSubmit() {
         action$.next(enterMaintenanceMode(this.durationInMin()));
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
     }
 }
 

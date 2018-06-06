@@ -311,5 +311,6 @@ export default function register(ko) {
     ko.components.register('drop-area',                 require('./shared/drop-area/drop-area').default);
     ko.components.register('wizard',                    require('./shared/wizard/wizard').default);
     ko.components.register('wizard-controls',           require('./shared/wizard-controls/wizard-controls').default);
+    ko.components.register('managed-form',              require('./shared/managed-form/managed-form').default);
     /** INJECT:shared **/
 }

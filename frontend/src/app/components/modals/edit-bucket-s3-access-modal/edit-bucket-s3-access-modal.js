@@ -3,14 +3,11 @@
 import template from './edit-bucket-s3-access-modal.html';
 import Observer from 'observer';
 import ko from 'knockout';
-import FormViewModel from 'components/form-view-model';
 import { realizeUri } from 'utils/browser-utils';
 import * as routes from 'routes';
 import { getMany } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import { closeModal, updateBucketS3Access, updateForm } from 'action-creators';
-
-const formName = 'editBucketS3Access';
 
 function _getAccountOption({ name, hasAccessToAllBuckets }) {
     return {
@@ -23,10 +20,10 @@ function _getAccountOption({ name, hasAccessToAllBuckets }) {
 }
 
 class EditBucketS3AccessModalViewModel extends Observer {
+    formName = this.constructor.name;
+    fields = ko.observable();
     accountOptions = ko.observableArray();
-    isFormInitialized = ko.observable();
     accountsHref = ko.observable();
-    form = null;
     bucketName = '';
 
     constructor({ bucketName }) {
@@ -38,48 +35,38 @@ class EditBucketS3AccessModalViewModel extends Observer {
             state$.pipe(
                 getMany(
                     'accounts',
-                    ['location', 'params', 'system'],
-                    ['forms', formName]
+                    ['location', 'params', 'system']
                 )
             ),
             this.onState
         );
     }
 
-    onState([accounts, system, form]) {
+    onState([accounts, system]) {
         if (!accounts) {
-            this.isFormInitialized(false);
             return;
         }
 
         const accountList = Object.values(accounts);
         const accountOptions = accountList.map(_getAccountOption);
 
-        if (!form) {
+        this.accountsHref = realizeUri(routes.accounts, { system });
+        this.accountOptions(accountOptions);
+
+        if (!this.fields()) {
             const selectedAccounts = accountList
                 .filter(account => account.allowedBuckets.includes(this.bucketName))
                 .map(account => account.name);
 
-            this.form = new FormViewModel({
-                name: formName,
-                fields: {
-                    selectedAccounts: selectedAccounts
-
-                },
-                onSubmit: this.onSubmit.bind(this)
-            });
-            this.isFormInitialized(true);
+            this.fields({ selectedAccounts });
         }
-
-        this.accountsHref = realizeUri(routes.accounts, { system });
-        this.accountOptions(accountOptions);
     }
 
     selectAllAccounts() {
         const selectedAccounts = this.accountOptions()
             .map(opt => opt.value);
 
-        action$.next(updateForm(formName, { selectedAccounts }));
+        action$.next(updateForm(this.formName, { selectedAccounts }));
     }
 
     clearAllAccounts() {
@@ -87,7 +74,7 @@ class EditBucketS3AccessModalViewModel extends Observer {
             .filter(opt => opt.disabled)
             .map(opt => opt.value);
 
-        action$.next(updateForm(formName, { selectedAccounts }));
+        action$.next(updateForm(this.formName, { selectedAccounts }));
     }
 
     onSubmit(values) {
@@ -99,10 +86,6 @@ class EditBucketS3AccessModalViewModel extends Observer {
         action$.next(closeModal());
     }
 
-    dispose(){
-        this.form && this.form.dispose();
-        super.dispose();
-    }
 }
 
 export default {

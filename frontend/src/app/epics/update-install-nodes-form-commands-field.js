@@ -9,7 +9,7 @@ export default function(action$) {
     return action$.pipe(
         ofType(COMPLETE_FETCH_NODE_INSTALLATION_COMMANDS),
         map(action => updateForm(
-            'installNodes',
+            'InstallNodeModalViewModel',
             { commands: action.payload.commands }
         ))
     );

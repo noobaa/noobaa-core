@@ -11,7 +11,7 @@ export default {
                 valid: isValid(),
                 validating: isValidating(),
                 invalid: wasTouched() && isInvalid(),
-                warned: wasTouched() && Boolean(warning())
+                warned: Boolean(warning())
             })
         );
 

@@ -1,6 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
     <p class="push-next">
         This node will be permanently deactivated and deleted from it's pool.
         The deactivation process will include a total data wiping and the NooBaa's daemon
@@ -9,19 +14,19 @@
 
     <editor class="greedy" params="label: fieldLabel">
         <input type="text"
-            ko.value="form.confirmText",
-            ko.validationCss="form.confirmText"
+            ko.value="$form.confirmText",
+            ko.validationCss="$form.confirmText"
             ko.hasFocus="true"
         />
-        <validation-message params="field: form.confirmText"></validation-message>
+        <validation-message params="field: $form.confirmText"></validation-message>
     </editor>
 
     <div class="row content-middle align-end">
         <button class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Start Node Deletion
         </button>
     </div>
-</form>
+</managed-form>

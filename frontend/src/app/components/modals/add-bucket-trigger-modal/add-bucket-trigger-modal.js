@@ -2,27 +2,37 @@
 
 import template from './add-bucket-trigger-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
-import { closeModal, addBucketTrigger } from 'action-creators';
 import { bucketEvents } from 'utils/bucket-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getFunctionOption } from 'utils/func-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import * as routes from 'routes';
-
-const formName = 'addBucketTrigger';
+import {
+    openCreateFuncModal,
+    addBucketTrigger,
+    closeModal
+} from 'action-creators';
 
 class AddBucketTriggerModalViewModel extends Observer {
+    formName = this.constructor.name;
     bucketName = '';
-    triggerKeys = null;
-    form = null;
-    isFormReady = ko.observable();
+    existingTriggers = null;
     funcsUrl = ko.observable();
     eventOptions = bucketEvents;
+    funcActions = [{
+        label: 'Create new function',
+        onClick: this.onCreateNewFunction
+    }];
     funcOptions = ko.observableArray();
-    areFuncsLoaded = ko.observable();
+    fields = {
+        func: null,
+        event: '',
+        prefix: '',
+        suffix: '',
+        active: true
+    };
 
     constructor({ bucketName }) {
         super();
@@ -44,34 +54,20 @@ class AddBucketTriggerModalViewModel extends Observer {
 
     onState([triggers, funcs, accounts, system]) {
         if (!triggers || !funcs || !accounts) {
-            this.isFormReady(false);
             return;
         }
 
-        const existingTriggers = Object.values(triggers);
         const funcsUrl = realizeUri(routes.funcs, { system: system });
         const funcOptions = Object.values(funcs)
             .map(func => getFunctionOption(func, accounts, this.bucketName));
 
+        this.existingTriggers = Object.values(triggers);
         this.funcsUrl(funcsUrl);
         this.funcOptions(funcOptions);
+    }
 
-        if (!this.form) {
-            this.form = new FormViewModel({
-                name: formName,
-                fields: {
-                    func: null,
-                    event: '',
-                    prefix: '',
-                    suffix: '',
-                    active: true
-                },
-                onValidate: this.onValidate.bind(this),
-                onValidateSubmit: values => this.onValidateSubmit(values, existingTriggers),
-                onSubmit: this.onSubmit.bind(this)
-            });
-            this.isFormReady(true);
-        }
+    onCreateNewFunction() {
+        action$.next(openCreateFuncModal());
     }
 
     onValidate(values) {
@@ -126,11 +122,6 @@ class AddBucketTriggerModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

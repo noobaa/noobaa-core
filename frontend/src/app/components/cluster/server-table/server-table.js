@@ -117,7 +117,7 @@ class ServerTableViewModel extends Observer {
         };
         const master = serverList.find(server => server.isMaster);
         const canAttachServer = Boolean(master.ntp);
-        const attachServerTooltip = canAttachServer ? noNtpTooltip : '';
+        const attachServerTooltip = !canAttachServer ? noNtpTooltip : '';
 
         const filteredRows = serverList
             .filter(server => _matchFilter(server, filter));

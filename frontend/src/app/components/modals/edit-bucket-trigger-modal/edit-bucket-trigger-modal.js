@@ -2,26 +2,31 @@
 
 import template from './edit-bucket-trigger-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
-import { closeModal, updateBucketTrigger } from 'action-creators';
 import { bucketEvents } from 'utils/bucket-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getFunctionOption } from 'utils/func-utils';
 import ko from 'knockout';
 import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
-
-const formName = 'updateBucketTrigger';
+import {
+    openCreateFuncModal,
+    updateBucketTrigger,
+    closeModal
+} from 'action-creators';
 
 class EditBucketTriggerModalViewModel extends Observer {
+    formName = this.constructor.name;
     bucketName = '';
-    triggerKeys = null;
-    form = null;
-    isFormReady = ko.observable();
+    existingTriggers = [];
+    fields = ko.observable();
     funcsUrl = ko.observable();
     eventOptions = bucketEvents;
     funcOptions = ko.observableArray();
+    funcActions = [{
+        label: 'Create new function',
+        onClick: this.onCreateNewFunction
+    }]
 
     constructor({ bucketName, triggerId }) {
         super();
@@ -50,18 +55,18 @@ class EditBucketTriggerModalViewModel extends Observer {
         }
 
         const trigger = triggers[this.triggerId];
+        const funcsUrl = realizeUri(routes.funcs, { system: system });
         const existingTriggers = Object.values(triggers)
             .filter(other => other !== trigger);
-
-        const funcsUrl = realizeUri(routes.funcs, { system: system });
         const funcOptions = Object.values(funcs)
             .map(func => getFunctionOption(func, accounts, this.bucketName));
 
 
+        this.existingTriggers = existingTriggers;
         this.funcsUrl(funcsUrl);
         this.funcOptions(funcOptions);
 
-        if (!this.isFormReady()) {
+        if (!this.fields()) {
             // Dropdown compare values by idnetity so we need to find
             // the object set in the options list that have the same name and version
             // as the one in the trigger state.
@@ -70,21 +75,18 @@ class EditBucketTriggerModalViewModel extends Observer {
                 opt.value.version === trigger.func.version
             );
 
-            this.form = new FormViewModel({
-                name: formName,
-                fields: {
-                    func: selectedOption ? selectedOption.value : null,
-                    event: trigger.event,
-                    prefix: trigger.prefix,
-                    suffix: trigger.suffix,
-                    active: trigger.mode !== 'DISABLED'
-                },
-                onValidate: this.onValidate.bind(this),
-                onValidateSubmit: values => this.onValidateSubmit(values, existingTriggers),
-                onSubmit: this.onSubmit.bind(this)
+            this.fields({
+                func: selectedOption ? selectedOption.value : null,
+                event: trigger.event,
+                prefix: trigger.prefix,
+                suffix: trigger.suffix,
+                active: trigger.mode !== 'DISABLED'
             });
-            this.isFormReady(true);
         }
+    }
+
+    onCreateNewFunction() {
+        action$.next(openCreateFuncModal());
     }
 
     onValidate(values) {
@@ -139,11 +141,6 @@ class EditBucketTriggerModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

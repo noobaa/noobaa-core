@@ -1,10 +1,15 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<form class="column greedy" ko.submit="form.submit" ko.if="isFormInitialized">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
     <editor params="label: 'S3 Access'">
         <div class="column">
             <toggle-switch ko.tooltip="s3AccessToggleTooltip" params="
-                value: form.hasS3Access,
+                value: $form.hasS3Access,
                 onLabel: 'Enabled',
                 offLabel: 'Disabled',
                 disabled: isS3AccessToggleDisabled,
@@ -21,29 +26,29 @@
     <editor params="
         label: 'S3 default placement',
         tooltip: s3PlacementToolTip,
-        disabled: !form.hasS3Access()
+        disabled: !$form.hasS3Access()
     ">
         <dropdown params="
                 filter: true,
                 options: resourceOptions,
-                selected: form.defaultResource,
-                disabled: !form.hasS3Access(),
+                selected: $form.defaultResource,
+                disabled: !$form.hasS3Access(),
                 placeholder: 'Choose Resource'
             "
-            ko.validationCss="form.defaultResource"
+            ko.validationCss="$form.defaultResource"
         ></dropdown>
-         <validation-message params="field: form.defaultResource"></validation-message>
+         <validation-message params="field: $form.defaultResource"></validation-message>
     </editor>
 
     <editor params="
         label: 'Full access to current and future buckets',
-        disabled: !form.hasS3Access()
+        disabled: !$form.hasS3Access()
     ">
         <toggle-switch params="
-            value: form.hasAccessToAllBuckets,
+            value: $form.hasAccessToAllBuckets,
             onLabel: 'Enabled',
             offLabel: 'Disabled',
-            disabled: !form.hasS3Access()
+            disabled: !$form.hasS3Access()
         "></toggle-switch>
     </editor>
 
@@ -53,7 +58,7 @@
     ">
         <dropdown params="
             options: bucketOptions(),
-            selected: form.allowedBuckets,
+            selected: $form.allowedBuckets,
             disabled: isBucketSelectionDisabled,
             filter: true,
             subject: 'bucket',
@@ -65,14 +70,14 @@
 
     <editor params="
         label: 'Allow new bucket creation',
-        tooltip:     allowBucketCreationTooltip = allowBucketCreationTooltip;,
-        disabled: !form.hasS3Access()
+        tooltip: allowBucketCreationTooltip,
+        disabled: !$form.hasS3Access()
     ">
         <toggle-switch params="
-            value: form.allowBucketCreation,
+            value: $form.allowBucketCreation,
             onLabel: 'Enabled',
             offLabel: 'Disabled',
-            disabled: !form.hasS3Access()
+            disabled: !$form.hasS3Access()
         "></toggle-switch>
     </editor>
 
@@ -80,8 +85,8 @@
         <button type="button" class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Save
         </button>
     </div>
-</form>
+</managed-form>>

@@ -2,12 +2,17 @@
 
 import template from './install-nodes-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
-import { get } from 'rx-extensions';
-import { fetchNodeInstallationCommands } from 'action-creators';
+import { getFieldValue, isFormValid } from 'utils/form-utils';
+import { getMany } from 'rx-extensions';
+import {
+    updateForm,
+    touchForm,
+    fetchNodeInstallationCommands,
+    closeModal
+} from 'action-creators';
 
 const steps = deepFreeze([
     'Assign',
@@ -33,42 +38,54 @@ const drivesInputPlaceholder =
     `e.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
 
 
-const formName = 'installNodes';
+class InstallNodeModalViewModel extends Observer {
+    formName = this.constructor.name;
+    steps = steps;
+    osTypes = osTypes;
+    drivesInputPlaceholder = drivesInputPlaceholder;
+    poolOptions = ko.observable();
+    osHint = ko.observable();
+    targetPool = '';
+    excludeDrives = [];
+    isStepValid = false;
+    fields = {
+        step: 0,
+        targetPool: '',
+        excludeDrives: false,
+        excludedDrives: [],
+        selectedOs: 'LINUX',
+        commands: {
+            LINUX: '',
+            WINDOWS: ''
+        }
+    };
 
-class InstallNodeWizardViewModel extends Observer {
-    constructor({ onClose }) {
+    constructor() {
         super();
 
-        this.close = onClose;
-        this.steps = steps;
-        this.osTypes = osTypes;
-        this.drivesInputPlaceholder = drivesInputPlaceholder;
-        this.poolOptions = ko.observable();
-        this.osHint = ko.observable();
-        this.form = new FormViewModel({
-            name: formName,
-            fields: {
-                step: 0,
-                targetPool: '',
-                excludeDrives: false,
-                excludedDrives: [],
-                selectedOs: 'LINUX',
-                commands: {
-                    LINUX: '',
-                    WINDOWS: ''
-                }
-            },
-            groups: {
-                0: ['targetPool']
-            },
-            onValidate: this.onValidate,
-            onForm: this.onForm.bind(this)
-        });
-
         this.observe(
-            state$.pipe(get('hostPools')),
-            this.onPools
+            state$.pipe(getMany(
+                'hostPools',
+                ['forms', this.formName]
+            )),
+            this.onState
         );
+    }
+
+    onState([hostPools, form]) {
+        if (!hostPools || !form) {
+            return;
+        }
+
+        const selectedOs = getFieldValue(form, 'selectedOs');
+        const { hint } = this.osTypes.find(os => os.value === selectedOs);
+        const poolOptions = Object.keys(hostPools);
+
+        this.osHint(hint);
+        this.poolOptions(poolOptions);
+        this.targetPool = getFieldValue(form, 'targetPool');
+        this.excludedDrives = getFieldValue(form, 'excludedDrives');
+        this.isStepValid = isFormValid(form);
     }
 
     onValidate(values) {
@@ -84,25 +101,17 @@ class InstallNodeWizardViewModel extends Observer {
         return errors;
     }
 
-    onForm({ fields })  {
-        const { value: selectedOs } = fields.selectedOs;
-        const { hint } = osTypes.find(os => os.value === selectedOs);
-        this.osHint(hint);
-    }
-
     onBeforeStep(step) {
-        const { form } = this;
-
-        if (!form.isValid()) {
-            form.touch(step);
+        if (!this.isStepValid) {
+            action$.next(touchForm(this.formName, ['targetPool']));
             return false;
         }
 
         if (step === 1) {
             // If moving to last step, fetch the intallation commands.
             action$.next(fetchNodeInstallationCommands(
-                form.targetPool(),
-                form.excludedDrives()
+                this.targetPool,
+                this.excludedDrives
             ));
         }
 
@@ -110,24 +119,15 @@ class InstallNodeWizardViewModel extends Observer {
     }
 
     onTab(osType) {
-        this.form.selectedOs(osType);
-    }
-
-    onPools(pools) {
-        this.poolOptions(Object.keys(pools));
+        action$.next(updateForm(this.formName, { selectedOs: osType }));
     }
 
     onDone() {
-        this.close();
-    }
-
-    dispose() {
-        this.form.dispose();
-        super.dispose();
+        action$.next(closeModal());
     }
 }
 
 export default {
-    viewModel: InstallNodeWizardViewModel,
+    viewModel: InstallNodeModalViewModel,
     template: template
 };

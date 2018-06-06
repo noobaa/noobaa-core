@@ -1,7 +1,12 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: isFormInitialized -->
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onWarn: values => onWarn(values, internalResourceNames),
+    onSubmit: onSubmit
+">
     <section class="column greedy">
         <p>
             The selected resource for spillover will be used automatically when this bucket storage is not
@@ -9,7 +14,7 @@
         </p>
         <editor params="label: 'Spillover for this bucket'">
             <toggle-switch params="
-                value: form.useSpillover,
+                value: $form.useSpillover,
                 onLabel: 'Enabled',
                 offLabel: 'Disabled',
                 hasFocus: true
@@ -17,17 +22,18 @@
         </editor>
         <editor params="
             label: 'Spillover Resource',
-            disabled: !form.useSpillover()
+            disabled: !$form.useSpillover()
         ">
-            <dropdown params="
-                options: resourceOptions,
-                selected: form.target,
-                disabled: !form.useSpillover(),
-                placeholder: 'Choose Resource'
+            <dropdown
+                params="
+                    options: resourceOptions,
+                    selected: $form.target,
+                    disabled: !$form.useSpillover(),
+                    placeholder: 'Choose Resource'
                 "
-                ko.validationCss="form.target"
+                ko.validationCss="$form.target"
             ></dropdown>
-            <validation-message params="field: form.target"></validation-message>
+            <validation-message params="field: $form.target"></validation-message>
         </editor>
     </section>
 
@@ -35,9 +41,9 @@
         <button class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             save
         </button>
     </div>
 </form>
-<!-- /ko -->
+

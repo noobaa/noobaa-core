@@ -1,7 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if :form -->
-<form class="column greedy" ko.submit="form.submit" novalidate>
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
     <div class="row content-middle">
         <h2 class="heading3 greedy push-next">Choose Resiliency Type</h2>
         <button class="link"
@@ -17,14 +21,14 @@
                 label: 'Replication',
                 value: 'REPLICATION',
                 group: 'dataResiliency',
-                selected: form.resiliencyType,
+                selected: $form.resiliencyType,
                 hasFocus: true
             "></radio-btn>
             <span class="push-both-half">|</span>
             Full copies of stored objects parts.
         </div>
         <div class="column pad-left">
-            <div class="row content-middle push-next" ko.expand="form.advancedMode">
+            <div class="row content-middle push-next" ko.expand="$form.advancedMode">
                 <span class="push-next"
                     ko.css.disabled="isReplicationDisabled"
                 >
@@ -34,12 +38,12 @@
                     <input type="number"
                         min="1"
                         max="32"
-                        ko.value="form.replicas"
+                        ko.value="$form.replicas"
                         ko.disable="isReplicationDisabled"
-                        ko.validationCss="form.replicas"
+                        ko.validationCss="$form.replicas"
                     />
                     <div class="validation-message-wrapper">
-                        <validation-message params="field: form.replicas">
+                        <validation-message params="field: $form.replicas">
                         </validation-message>
                     </div>
                 </div>
@@ -93,13 +97,13 @@
                 label: 'Erasure Coding',
                 value: 'ERASURE_CODING',
                 group: 'dataResiliency',
-                selected: form.resiliencyType
+                selected: $form.resiliencyType
             "></radio-btn>
             <span class="push-both-half">|</span>
             Data is broken into fragments and encoded with redundant data pieces.
         </div>
         <div class="column pad-left">
-            <div class="row push-next" ko.expand="form.advancedMode">
+            <div class="row push-next" ko.expand="$form.advancedMode">
                 <div class="row content-middle push-next"
                     ko.css.disabled="isErasureCodingDisabled"
                 >
@@ -108,12 +112,12 @@
                         <input type="number"
                             min="1"
                             max="32"
-                            ko.value="form.dataFrags"
+                            ko.value="$form.dataFrags"
                             ko.disable="isErasureCodingDisabled"
-                            ko.validationCss="form.dataFrags"
+                            ko.validationCss="$form.dataFrags"
                         />
                         <div class="validation-message-wrapper">
-                            <validation-message params="field: form.dataFrags">
+                            <validation-message params="field: $form.dataFrags">
                             </validation-message>
                         </div>
                     </div>
@@ -126,12 +130,12 @@
                         <input type="number"
                             min="1"
                             max="32"
-                            ko.value="form.parityFrags"
+                            ko.value="$form.parityFrags"
                             ko.disable="isErasureCodingDisabled"
-                            ko.validationCss="form.parityFrags"
+                            ko.validationCss="$form.parityFrags"
                         />
                         <div class="validation-message-wrapper">
-                            <validation-message params="field: form.parityFrags">
+                            <validation-message params="field: $form.parityFrags">
                             </validation-message>
                         </div>
                     </div>
@@ -209,9 +213,8 @@
         >
             Cancel
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Done
         </button>
     </div>
-</form>
-<!-- /ko -->
+</managed-form>

@@ -23,31 +23,36 @@
         ></svg-icon>
     </div>
     <div ko.expand="isExpanded">
-        <loading-indicator class="align-start pad" ko.visible="!isFormInitialized()"></loading-indicator>
-        <!-- ko if: isFormInitialized -->
-        <form class="column greedy" ko.submit="form.submit">
+        <managed-form params="
+            name: formName,
+            fields: fields,
+            asyncTriggers: asyncValidationTriggers,
+            onValidate: onValidate,
+            onValidateAsync: onValidateAsync,
+            onSubmit: onSubmit
+        ">
             <div class="column push-next">
                 <editor params="label: 'System Address'">
                     <radio-group params="
-                        selected: form.addressType,
+                        selected: $form.addressType,
                         options: addressOptions
                     "></radio-group>
                 </editor>
 
-                <editor params="label: 'IP Address'" ko.visible="form.addressType.eq('IP')">
+                <editor params="label: 'IP Address'" ko.visible="$form.addressType.eq('IP')">
                     <input type="text" disabled ko.value="ipAddress" />
                 </editor>
 
-                <editor class="push-next" params="label: 'DNS Name'" ko.visible="form.addressType.eq('DNS')">
+                <editor class="push-next" params="label: 'DNS Name'" ko.visible="$form.addressType.eq('DNS')">
                     <div class="row">
                         <input type="text"
                             class="push-next-half"
-                            ko.value="form.dnsName"
-                            ko.validationCss="form.dnsName"
+                            ko.value="$form.dnsName"
+                            ko.validationCss="$form.dnsName"
                         />
-                        <validation-indicator params="field: form.dnsName"></validation-indicator>
+                        <validation-indicator params="field: $form.dnsName"></validation-indicator>
                     </div>
-                    <validation-message params="field: form.dnsName"></validation-message>
+                    <validation-message params="field: $form.dnsName"></validation-message>
 
                     <p class="highlight push-both">
                         Before updating the changes follow the following procedure:
@@ -63,7 +68,7 @@
                             </span>
                             <span>
                                 <span class="highlight">Name:</span>
-                                <span class="text-tech" ko.text="form.dnsName"></span>
+                                <span class="text-tech" ko.text="$form.dnsName"></span>
                             </span>
                             </div>
                         </li>
@@ -86,11 +91,10 @@
             </p>
 
             <button class="btn align-start push-prev"
-                ko.shakeOnClick="!form.isValid()"
+                ko.shakeOnClick="!$form.isValid()"
             >
                 Update
             </button>
-        </form>
-        <!-- /ko -->
+        </managed-form>
     </div>
 </section>

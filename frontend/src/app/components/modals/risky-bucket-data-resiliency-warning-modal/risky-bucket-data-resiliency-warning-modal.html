@@ -1,5 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
-<form class="column greedy" ko.submit="form.submit">
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onValidateSubmit: onValidateSubmit,
+    onSubmit: onSubmit
+">
     <p class="push-next">
         The configured data resiliency policy that was set has less then 2 failure tolerance
         option, in any case of resource failure data may be at risk
@@ -8,15 +14,18 @@
     <editor class="greedy" params="label: 'Type your password to confirm'">
         <div class="row content-middle">
             <password-field class="push-next-half"
-                ko.validationCss="form.password"
+                ko.validationCss="$form.password"
                 params="
-                    value: form.password,
+                    value: $form.password,
                     hasFocus: true
                 "
             ></password-field>
-            <validation-indicator params="field: form.password"></validation-indicator>
+            <svg-icon class="spin"
+                params="name: 'in-progress'"
+                ko.visible="$form.isSubmitting"
+            ></svg-icon>
         </div>
-        <validation-message params="field: form.password"></validation-message>
+        <validation-message params="field: $form.password"></validation-message>
     </editor>
 
     <div class="row content-middle align-end">
@@ -26,7 +35,7 @@
         >
             Back to Edit Data Resiliency
         </button>
-        <button class="btn" ko.shakeOnClick="!form.isValid()">
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
             Done
         </button>
     </div>

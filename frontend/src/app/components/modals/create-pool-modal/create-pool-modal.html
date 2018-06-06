@@ -1,100 +1,107 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<wizard class="column greedy" params="
-    steps: steps,
-    step: form.step,
-    actionLabel: 'Create',
-    onBeforeStep: onBeforeStep.bind($component),
-    onComplete: form.submit,
-    onCancel: close.bind($component)
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
 ">
-    <section class="column greedy">
-        <editor class="push-prev" params="
-                label: 'Pool Name',
-                insertValMessages: false
-            ">
-            <input class="push-next"
-                type="text" placeholder="Type here"
-                ko.textInput="throttledPoolName"
-                ko.validationCss="form.poolName"
-                ko.hasFocus="true"
-            />
-            <ul class="name-validation-list" ko.foreach="nameRestrictionList">
-                <li ko.text="label" ko.css="css"></li>
-            </ul>
-        </editor>
-    </section>
+    <wizard class="column greedy" params="
+        steps: steps,
+        step: $form.step,
+        actionLabel: 'Create',
+        onBeforeStep: onBeforeStep,
+        onComplete: $form.submit,
+        onCancel: onCancel
+    ">
+        <section class="column greedy">
+            <editor class="push-prev" params="
+                    label: 'Pool Name',
+                    insertValMessages: false
+                ">
+                <input class="push-next"
+                    type="text" placeholder="Type here"
+                    ko.textInput="ko.pc($form.poolName, onPoolNameThrottled)"
+                    ko.validationCss="$form.poolName"
+                    ko.hasFocus="true"
+                />
+                <ul class="name-validation-list" ko.foreach="nameRestrictionList">
+                    <li ko.text="label" ko.css="css"></li>
+                </ul>
+            </editor>
+        </section>
 
-    <section class="column greedy">
-        <div class="row push-both content-middle" class="push-prev">
-            <input type="search"
-                placeholder="Filter by node name or IP"
-                ko.textInput="throttledNameFilter"
-                ko.hasFocus="true"
-            />
+        <section class="column greedy">
+            <div class="row push-both content-middle" class="push-prev">
+                <input type="search"
+                    placeholder="Filter by node name or IP"
+                    ko.textInput="ko.pc($form.nameFilter, onNameFilterThrottled)"
+                    ko.hasFocus="true"
+                />
 
-            <span class="push-both-half">in</span>
+                <span class="push-both-half">in</span>
 
-            <dropdown class="push-next" params="
-                placeholder: 'All Pools',
-                options: poolOptions,
-                selected: form.selectedPools
-            "></dropdown>
+                <dropdown class="push-next" params="
+                    placeholder: 'All Pools',
+                    options: poolOptions,
+                    selected: $form.selectedPools
+                "></dropdown>
 
-            <div class="highlight row">
-                <span class="push-next">Show:</span>
-                <checkbox class="push-next" params="
-                    checked: form.showHealthy,
-                    label: 'Healthy'
-                "></checkbox>
-                <checkbox class="push-next" params="
-                    checked: form.showIssues,
-                    label: 'Issues'
-                "></checkbox>
-                <checkbox class="push-next" params="
-                    checked: form.showOffline,
-                    label: 'Offline'
-                "></checkbox>
+                <div class="highlight row">
+                    <span class="push-next">Show:</span>
+                    <checkbox class="push-next" params="
+                        checked: $form.showHealthy,
+                        label: 'Healthy'
+                    "></checkbox>
+                    <checkbox class="push-next" params="
+                        checked: $form.showIssues,
+                        label: 'Issues'
+                    "></checkbox>
+                    <checkbox class="push-next" params="
+                        checked: $form.showOffline,
+                        label: 'Offline'
+                    "></checkbox>
+                </div>
             </div>
-        </div>
 
-         <div class="row content-middle">
-            <h2 class="heading3 greedy">
-                Select nodes you wish to move into this pool
-            </h2>
+             <div class="row content-middle">
+                <h2 class="heading3 greedy">
+                    Select nodes you wish to move into this pool
+                </h2>
 
-            <div>
-                <button class="link alt-colors" ko.click="onSelectAll">
-                    Select all
-                </button>
-                |
-                <button class="link alt-colors" ko.click="onClearAll">
-                    Clear all
-                </button>
+                <div>
+                    <button class="link alt-colors" ko.click="onSelectAll">
+                        Select all
+                    </button>
+                    |
+                    <button class="link alt-colors" ko.click="onClearAll">
+                        Clear all
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <data-table class="greedy host-table" params="
-            columns: columns,
-            data: rows,
-            loading: fetching,
-            sorting: form.sorting,
-            emptyMessage: emptyMessage
-        "></data-table>
+            <data-table class="greedy host-table" params="
+                columns: columns,
+                data: rows,
+                loading: fetching,
+                sorting: $form.sorting,
+                emptyMessage: emptyMessage
+            "></data-table>
 
-        <div class="row content-middle alt-bg">
-            <span class="selection-text push-prev" ko.text="selectedMessage"></span>
-            <span class="push-both-half">|</span>
-            <button class="link alt-colors" ko.click="onClearSelection">
-                Clear
-            </button>
-            <paginator class="greedy push-prev" params="
-                itemCount: filteredHostCount,
-                pageSize: pageSize,
-                page: form.page
-            "></paginator>
-        </div>
+            <div class="row content-middle alt-bg">
+                <span class="selection-text push-prev" ko.text="selectedMessage"></span>
+                <span class="push-both-half">|</span>
+                <button class="link alt-colors" ko.click="onClearSelection">
+                    Clear
+                </button>
+                <paginator class="greedy push-prev" params="
+                    itemCount: filteredHostCount,
+                    pageSize: pageSize,
+                    page: $form.page
+                "></paginator>
+            </div>
 
-        <validation-message class="selected-hosts-val-msg" params="field: form.selectedHosts"></validation-message>
-    </section>
-</wizard>
+            <validation-message class="selected-hosts-val-msg" params="field: $form.selectedHosts"></validation-message>
+        </section>
+    </wizard>
+</managed-form>

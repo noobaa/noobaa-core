@@ -5,12 +5,12 @@
         <input type="text"
             class="push-next-half"
             placeholder="Enter Endpoint"
-            ko.value="form.awsEndpoint"
-            ko.validationCss="form.awsEndpoint"
+            ko.value="$form.awsEndpoint"
+            ko.validationCss="$form.awsEndpoint"
         />
-        <validation-indicator params="field: form.awsEndpoint"></validation-indicator>
+        <validation-indicator params="field: $form.awsEndpoint"></validation-indicator>
     </div>
-    <validation-message params="field: form.awsEndpoint"></validation-message>
+    <validation-message params="field: $form.awsEndpoint"></validation-message>
 </editor>
 
 <editor params="label: 'Access Key'">
@@ -18,12 +18,12 @@
         <input type="text"
             class="push-next-half"
             placeholder="Enter Key"
-            ko.value="form.awsAccessKey"
-            ko.validationCss="form.awsAccessKey"
+            ko.value="$form.awsAccessKey"
+            ko.validationCss="$form.awsAccessKey"
         />
-        <validation-indicator params="field: form.awsAccessKey"></validation-indicator>
+        <validation-indicator params="field: $form.awsAccessKey"></validation-indicator>
     </div>
-    <validation-message params="field: form.awsAccessKey"></validation-message>
+    <validation-message params="field: $form.awsAccessKey"></validation-message>
 </editor>
 
 <editor params="label: 'Secret Key'">
@@ -32,10 +32,10 @@
             class="push-next-half"
             placeholder="Enter Secret"
             autocomplete="off"
-            ko.value="form.awsSecretKey"
-            ko.validationCss="form.awsSecretKey"
+            ko.value="$form.awsSecretKey"
+            ko.validationCss="$form.awsSecretKey"
         />
-        <validation-indicator params="field: form.awsSecretKey"></validation-indicator>
+        <validation-indicator params="field: $form.awsSecretKey"></validation-indicator>
     </div>
-    <validation-message params="field: form.awsSecretKey"></validation-message>
+    <validation-message params="field: $form.awsSecretKey"></validation-message>
 </editor>

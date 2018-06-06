@@ -2,16 +2,13 @@
 
 import template from './edit-bucket-spillover-modal.html';
 import Observer from 'observer';
-import FormViewModel from 'components/form-view-model';
 import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { flatMap } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { getMany } from 'rx-extensions';
-import {
-    getInternalResourceDisplayName
-} from 'utils/resource-utils';
+import { getInternalResourceDisplayName } from 'utils/resource-utils';
 import { closeModal, updateBucketSpillover } from 'action-creators';
 
 function _getResourceTypeIcon(type, resource) {
@@ -47,11 +44,10 @@ function _getResourceOptions(resources, usedResources, type) {
 }
 
 class EditBucketSpilloverModalViewModel extends Observer {
-    form = null;
-    bucketName = '';
-    isFormInitialized = ko.observable();
-    resourceOptions = ko.observableArray();
     formName = this.constructor.name;
+    bucketName = '';
+    resourceOptions = ko.observableArray();
+    fields = ko.observable();
 
     constructor({ bucketName }) {
         super();
@@ -73,7 +69,6 @@ class EditBucketSpilloverModalViewModel extends Observer {
 
     onState([bucket, hostPools, cloudResources, internalResources]) {
         if (!bucket || !hostPools || !cloudResources || !internalResources) {
-            this.isFormInitialized(false);
             return;
         }
 
@@ -90,24 +85,15 @@ class EditBucketSpilloverModalViewModel extends Observer {
         ];
 
         this.resourceOptions(optionList);
-        const internalResourceNames = Object.values(internalResources)
+        this.internalResourceNames = Object.values(internalResources)
             .map(resource => resource.name);
 
-        if (!this.isFormInitialized()) {
-            this.form = new FormViewModel({
-                name: this.formName,
-                fields: {
-                    useSpillover: Boolean(spillover),
-                    target: spillover ? spillover.name : ''
-                },
-                onValidate: this.onValidate.bind(this),
-                onWarn: values => this.onWarn(values, internalResourceNames),
-                onSubmit: this.onSubmit.bind(this)
+        if (!this.fields()) {
+            this.fields({
+                useSpillover: Boolean(spillover),
+                target: spillover ? spillover.name : ''
             });
-
-            this.isFormInitialized(true);
         }
-
     }
 
     onValidate(values) {
@@ -143,11 +129,6 @@ class EditBucketSpilloverModalViewModel extends Observer {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    dispose() {
-        this.form && this.form.dispose();
-        super.dispose();
     }
 }
 

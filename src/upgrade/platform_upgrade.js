@@ -303,6 +303,7 @@ async function copy_new_code() {
 // make sure that all the file which are requiered by the new version (.env, etc.) are in the new dir
 async function prepare_new_dir() {
     await _build_dotenv();
+    await _create_packages_md5();
 }
 
 // build .env file in new version by taking all required env vars from old version
@@ -317,6 +318,14 @@ async function _build_dotenv() {
     dbg.log0('UPGRADE: genertaing .env file for new version:', new_env);
 
     await fs.writeFileAsync(`${NEW_VERSION_DIR}/.env`, dotenv.stringify(new_env));
+}
+
+async function _create_packages_md5() {
+    const linux_md5_string = await fs_utils.get_md5_of_file(path.join(NEW_VERSION_DIR, 'build/public/noobaa-setup-' + pkg.version));
+    await fs.writeFileAsync(path.join(NEW_VERSION_DIR, 'build/public/noobaa-setup-' + pkg.version + '.md5'), linux_md5_string);
+    const win_md5_string = await fs_utils.get_md5_of_file(path.join(NEW_VERSION_DIR, 'build/public/noobaa-setup-' + pkg.version + '.exe'));
+    await fs.writeFileAsync(path.join(NEW_VERSION_DIR, 'build/public/noobaa-setup-' + pkg.version + '.exe.md5'), win_md5_string);
+    dbg.log0(`UPGRADE: creating a hash file for both linux/windows upgrade packs: ${linux_md5_string}/${win_md5_string}`);
 }
 
 async function update_services() {

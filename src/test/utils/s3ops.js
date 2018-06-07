@@ -311,7 +311,7 @@ class S3OPS {
             });
     }
 
-    get_list_files(ip, bucket, prefix) {
+    get_list_files(ip, bucket, prefix, supress_logs) {
         const rest_endpoint = 'http://' + ip + ':' + port;
         const s3bucket = new AWS.S3({
             endpoint: rest_endpoint,
@@ -330,11 +330,15 @@ class S3OPS {
             .then(res => {
                 list = res.Contents;
                 if (list.length === 0) {
-                    console.warn('No files with prefix in bucket');
+                    if (!supress_logs) {
+                        console.warn('No files with prefix in bucket');
+                    }
                 } else {
                     list.forEach(function(file) {
                         listFiles.push({ Key: file.Key });
-                        console.log('files key is: ' + file.Key);
+                        if (!supress_logs) {
+                            console.log('files key is: ' + file.Key);
+                        }
                     });
                 }
                 return listFiles;

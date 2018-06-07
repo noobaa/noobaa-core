@@ -75,7 +75,7 @@ let report = new Report();
 let bf = new BucketFunctions(server_ip, report);
 
 const osesLinuxSet = af.supported_oses('LINUX');
-const osesWinSet = af.supported_oses('WIN';)
+const osesWinSet = af.supported_oses('WIN');
 
 
 const baseUnit = 1024;

@@ -17,7 +17,8 @@ const test_name = 'dataset';
 dbg.set_process_name(test_name);
 
 module.exports = {
-    run_test: run_test
+    run_test: run_test,
+    init_parameters: init_parameters
 };
 
 const TEST_CFG_DEFAULTS = {
@@ -66,27 +67,9 @@ if (argv.help) {
 }
 
 let TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
-TEST_CFG.data_multiplier = UNIT_MAPPING[TEST_CFG.size_units.toUpperCase()].data_multiplier || UNIT_MAPPING.MB.data_multiplier;
-TEST_CFG.dataset_multiplier = UNIT_MAPPING[TEST_CFG.size_units.toUpperCase()].dataset_multiplier || UNIT_MAPPING.MB.dataset_multiplier;
-
-//getting the default dataset size to the proper units.
-if (TEST_CFG.dataset_size === 10) {
-    TEST_CFG.dataset_size = Math.floor(TEST_CFG.dataset_size * TEST_CFG.dataset_multiplier);
-}
-
-if (TEST_CFG.file_size_high <= TEST_CFG.file_size_low) {
-    TEST_CFG.file_size_low = 1;
-} else if (TEST_CFG.file_size_low >= TEST_CFG.file_size_high) {
-    TEST_CFG.file_size_high = TEST_CFG.dataset_size;
-} else if (TEST_CFG.file_size_high >= TEST_CFG.dataset_size || TEST_CFG.file_size_low >= TEST_CFG.dataset_size) {
-    TEST_CFG.file_size_low = 50;
-    TEST_CFG.file_size_high = 200;
-}
-
-Object.freeze(TEST_CFG);
+update_dataset_sizes();
 
 let report = new Report();
-
 report.init_reporter({ suite: test_name, conf: TEST_CFG });
 
 /*
@@ -212,6 +195,25 @@ function usage() {
                             server and bucket are the only applicable parameters when running in replay mode  
     --help              -   show this help
     `);
+}
+
+function update_dataset_sizes() {
+    TEST_CFG.data_multiplier = UNIT_MAPPING[TEST_CFG.size_units.toUpperCase()].data_multiplier || UNIT_MAPPING.MB.data_multiplier;
+    TEST_CFG.dataset_multiplier = UNIT_MAPPING[TEST_CFG.size_units.toUpperCase()].dataset_multiplier || UNIT_MAPPING.MB.dataset_multiplier;
+
+    //getting the default dataset size to the proper units.
+    if (TEST_CFG.dataset_size === 10) {
+        TEST_CFG.dataset_size = Math.floor(TEST_CFG.dataset_size * TEST_CFG.dataset_multiplier);
+    }
+
+    if (TEST_CFG.file_size_high <= TEST_CFG.file_size_low) {
+        TEST_CFG.file_size_low = 1;
+    } else if (TEST_CFG.file_size_low >= TEST_CFG.file_size_high) {
+        TEST_CFG.file_size_high = TEST_CFG.dataset_size;
+    } else if (TEST_CFG.file_size_high >= TEST_CFG.dataset_size || TEST_CFG.file_size_low >= TEST_CFG.dataset_size) {
+        TEST_CFG.file_size_low = 50;
+        TEST_CFG.file_size_high = 200;
+    }
 }
 
 function log_journal_file(item) {
@@ -666,6 +668,13 @@ function run_delete(params) {
 /*********
  * MAIN
  *********/
+function init_parameters(params) {
+    TEST_CFG = _.defaults(_.pick(params, _.keys(TEST_CFG)), TEST_CFG);
+    update_dataset_sizes();
+
+    report.init_reporter({ suite: test_name, conf: TEST_CFG });
+}
+
 function run_test() {
     return P.resolve()
         .then(() => log_journal_file(`${CFG_MARKER}${DATASET_NAME}-${JSON.stringify(TEST_CFG)}`))

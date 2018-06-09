@@ -34,7 +34,10 @@ import {
     FAIL_ENTER_MAINTENANCE_MODE,
     LEAVE_MAINTENANCE_MODE,
     COMPLETE_LEAVE_MAINTENANCE_MODE,
-    FAIL_LEAVE_MAINTENANCE_MODE
+    FAIL_LEAVE_MAINTENANCE_MODE,
+    UPDATE_PROXY_ADDRESS,
+    COMPLETE_UPDATE_PROXY_ADDRESS,
+    FAIL_UPDATE_PROXY_ADDRESS
 } from 'action-types';
 
 export function createSystem(
@@ -278,6 +281,35 @@ export function completeLeaveMaintenanceMode() {
 export function failLeaveMaintenanceMode(error) {
     return {
         type: FAIL_LEAVE_MAINTENANCE_MODE,
+        payload: { error }
+    };
+}
+
+export function setProxyAddress(address, port) {
+    return {
+        type: UPDATE_PROXY_ADDRESS,
+        payload: {
+            enabled: true,
+            address,
+            port
+        }
+    };
+}
+
+export function unsetProxyAddress() {
+    return {
+        type: UPDATE_PROXY_ADDRESS,
+        payload: { enabled: false }
+    };
+}
+
+export function completeUpdateProxyAddress() {
+    return { type: COMPLETE_UPDATE_PROXY_ADDRESS };
+}
+
+export function failUpdateProxyAddress(error) {
+    return {
+        type: FAIL_UPDATE_PROXY_ADDRESS,
         payload: { error }
     };
 }

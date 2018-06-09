@@ -95,6 +95,19 @@ export default {
                     type: 'integer'
                 }
             }
+        },
+        proxy: {
+            type: 'object',
+            required: [
+                'address',
+                'port'
+            ],
+            address: {
+                type: 'string'
+            },
+            port: {
+                $ref: '#/def/common/port'
+            }
         }
     }
 };

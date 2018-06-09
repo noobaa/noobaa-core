@@ -1,0 +1,76 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section>
+    <div class="row content-middle cursor-pointer"
+         ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">
+                Proxy Address
+                <dirty-mark ko.visible="isDirtyMarkerVisible"></dirty-mark>
+            </h2>
+            <p ko.visible="!isExpanded()">
+                Server address:
+                <span class="text-tech" ko.text="proxyAddressText" ko.visible="proxyAddressText"></span>
+                <span class="text-tech" ko.visible="!proxyAddressText()">Not set</span>
+            </p>
+            <p ko.visible="isExpanded">
+                If the appliance is not directly connected to the Internet you may need to configure an HTTP proxy to reach external resources and servers
+            </p>
+        </div>
+        <svg-icon class="icon-small rotate push-next-half"
+                  ko.css="{ 'deg-90': !isExpanded() }"
+                  params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded">
+        <managed-form params="
+            name: formName,
+            fields: fields,
+            onValidate: onValidate,
+            onSubmit: onSubmit,
+            dropActions: dropActions
+        ">
+            <editor params="label: 'Remote syslog', disabled: $form.isTestRunning">
+                <toggle-switch params="
+                    value: $form.enabled,
+                    disabled: $form.isTestRunning
+                "></toggle-switch>
+            </editor>
+
+            <editor params="label: 'Server address', disabled: !$form.enabled() || $form.isTestRunning">
+                <input class="proxy-name"
+                       type="text"
+                       placeholder="IP or DNS name"
+                       ko.value = "$form.address"
+                       ko.enable = "$form.enabled() && !$form.isTestRunning()"
+                       ko.validationCss="$form.address"
+                />
+                <validation-message params="field: $form.address"></validation-message>
+            </editor>
+
+            <editor params="
+                label: 'Server port',
+                disabled: !$form.enabled() || $form.isTestRunning
+            ">
+                <input type="number"
+                       min="1"
+                       max="65535"
+                       ko.value="$form.port"
+                       ko.enable = "$form.enabled() && !$form.isTestRunning()"
+                       ko.validationCss="$form.port"
+                />
+                <validation-message params="field: $form.port"></validation-message>
+            </editor>
+            <working-button type="submit" class="align-start push-prev" params="
+                    working: $form.isTestRunning,
+                    workingLabel: 'Testing...'
+                "
+                ko.shakeOnClick="!$form.isValid()"
+            >
+                Apply Changes
+            </working-button>
+        </managed-form>
+    </div>
+</section>
+

@@ -26,7 +26,8 @@ class ManagedFormViewModel extends Observer {
         onValidateAsync,
         onValidateSubmit,
         asyncTriggers,
-        onSubmit = noop
+        onSubmit = noop,
+        dropActions
     }, owner) {
         super();
 
@@ -88,9 +89,9 @@ class ManagedFormViewModel extends Observer {
         }
 
         if (ko.isObservable(fields) && !fields()) {
-            fields.once(fields => this._initialize(fields));
+            fields.once(fields => this._initialize(fields, dropActions));
         } else {
-            this._initialize(ko.unwrap(fields));
+            this._initialize(ko.unwrap(fields, dropActions));
         }
 
         // listen for state changes.
@@ -117,14 +118,14 @@ class ManagedFormViewModel extends Observer {
         super.dispose();
     }
 
-    _initialize(fields) {
+    _initialize(fields, dropActions) {
         // Create the fields observables.
         for (const fieldName of Object.keys(fields)) {
             this[fieldName] = this._createFieldObservable(fieldName);
         }
 
         // Initialze the form.
-        action$.next(initializeForm(this.name, fields));
+        action$.next(initializeForm(this.name, fields, dropActions));
     }
 
     _createFieldObservable(fieldName) {

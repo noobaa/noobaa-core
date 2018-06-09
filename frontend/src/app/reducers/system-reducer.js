@@ -24,7 +24,8 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         has_ssl_cert,
         remote_syslog_config,
         dns_name, ip_address,
-        maintenance_mode
+        maintenance_mode,
+        proxy_address
     } = payload;
     const { releaseNotes } = state || {};
 
@@ -35,6 +36,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         sslCert: has_ssl_cert ? {} : undefined,
         upgrade: _mapUpgrade(upgrade),
         remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
+        proxy: _mapProxy(proxy_address),
         releaseNotes,
         maintenanceMode: {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
@@ -108,6 +110,15 @@ function _mapRemoteSyslog(config) {
     if (!config) return;
 
     return pick(config, ['protocol', 'address', 'port']);
+}
+
+function _mapProxy(proxyAddress) {
+    if (!proxyAddress) return;
+
+    const address = proxyAddress.substring(proxyAddress.indexOf('://') + 3, proxyAddress.lastIndexOf(':'));
+    const port = proxyAddress.substr(proxyAddress.lastIndexOf(':') + 1);
+
+    return { address, port };
 }
 
 // ------------------------------

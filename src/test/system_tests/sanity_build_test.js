@@ -31,14 +31,14 @@ function main() {
         return;
     }
 
-    return upgrade_and_test(argv.target_ip, argv.upgrade_pack)
+    return upgrade_and_test(argv.target_ip, argv.upgrade_pack, false)
         .then(() => process.exit(0));
 }
 
-function upgrade_and_test(target_ip, upgrade_pack) {
+function upgrade_and_test(target_ip, upgrade_pack, dont_verify_version) {
     ops.disable_rpc_validation();
     console.log('Basic sanity test started, Upgrading MD server at', target_ip);
-    return P.resolve(ops.upload_and_upgrade(target_ip, upgrade_pack))
+    return P.resolve(ops.upload_and_upgrade(target_ip, upgrade_pack, dont_verify_version))
         .catch(function(error) {
             console.warn('Upgrading failed with', error, error.stack);
             stop();

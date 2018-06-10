@@ -32,7 +32,7 @@ function disable_rpc_validation() {
     rpc_validation_disabled = true;
 }
 
-function upload_and_upgrade(ip, upgrade_pack) {
+function upload_and_upgrade(ip, upgrade_pack, dont_verify_version) {
     console.log('Upgrading the machine');
     rpc_validation_disabled = true; //Running from a new code onto an older code server
     let client = get_rpc_client(ip);
@@ -119,6 +119,10 @@ function upload_and_upgrade(ip, upgrade_pack) {
         .then(() => client.system.read_system())
         .then(res => {
             //Server is up, check returned version to verify the server was upgraded
+            if (dont_verify_version) {
+                console.warn('Skipping version check - probably upgrading to the same version intensionly');
+                return;
+            }
             if (res.version === previous_srv_version) {
                 //Upgrade actually failed
                 console.error('Upgrade failed, version did not change');

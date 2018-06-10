@@ -1,0 +1,20 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="column group-wrapper"
+    ko.globalEvent.click="onClose"
+>
+    <div class="row main-action">
+        <!-- ko template: { nodes: [mainBtn], data: $parent } --><!-- /ko -->
+        <button class="btn more-toggle"
+            ko.preventBubble="['click']"
+            ko.click="onToggle"
+        >
+            <svg-icon class="icon-small dd-chevron" params="name: 'chevron'">
+            </svg-icon>
+        </button>
+    </div>
+    <div class="column more-actions"
+        ko.expand="opened"
+        ko.template="{ nodes: otherBtns, data: $parent }"
+    ></div>
+</div>

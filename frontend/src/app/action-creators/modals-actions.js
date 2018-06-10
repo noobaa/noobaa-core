@@ -39,6 +39,22 @@ export function openInstallNodesModal() {
     };
 }
 
+export function openInstallNodesToPoolModal(targetPool) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'install-nodes-to-pool-modal',
+                params: { targetPool }
+            },
+            options: {
+                title: 'Install Nodes to Pool',
+                size: 'medium'
+            }
+        }
+    };
+}
+
 export function openAddCloudResrouceModal() {
     return {
         type: OPEN_MODAL,

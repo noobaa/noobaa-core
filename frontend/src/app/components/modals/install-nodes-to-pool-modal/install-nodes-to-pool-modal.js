@@ -1,21 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './install-nodes-modal.html';
+import template from './install-nodes-to-pool-modal.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
-import { getFieldValue, isFormValid } from 'utils/form-utils';
-import { getMany } from 'rx-extensions';
+import { getFieldValue } from 'utils/form-utils';
+import { get } from 'rx-extensions';
 import {
     updateForm,
-    touchForm,
     fetchNodeInstallationCommands,
     closeModal
 } from 'action-creators';
 
 const steps = deepFreeze([
-    'Assign',
     'Select Drives',
     'Install'
 ]);
@@ -41,15 +39,13 @@ class InstallNodeModalViewModel extends Observer {
     formName = this.constructor.name;
     steps = steps;
     osTypes = osTypes;
+    targetPool = '';
     drivesInputPlaceholder = drivesInputPlaceholder;
-    poolOptions = ko.observable();
     osHint = ko.observable();
     targetPool = '';
     excludeDrives = [];
-    isStepValid = false;
     fields = {
         step: 0,
-        targetPool: '',
         excludeDrives: false,
         excludedDrives: [],
         selectedOs: 'LINUX',
@@ -59,54 +55,31 @@ class InstallNodeModalViewModel extends Observer {
         }
     };
 
-    constructor() {
+    constructor({ targetPool }) {
         super();
 
+        this.targetPool = ko.unwrap(targetPool);
+
         this.observe(
-            state$.pipe(getMany(
-                'hostPools',
-                ['forms', this.formName]
-            )),
+            state$.pipe(
+                get('forms', this.formName)
+            ),
             this.onState
         );
     }
 
-    onState([hostPools, form]) {
-        if (!hostPools || !form) {
-            return;
-        }
+    onState(form) {
+        if (!form) return;
 
         const selectedOs = getFieldValue(form, 'selectedOs');
         const { hint } = this.osTypes.find(os => os.value === selectedOs);
-        const poolOptions = Object.keys(hostPools);
 
         this.osHint(hint);
-        this.poolOptions(poolOptions);
-        this.targetPool = getFieldValue(form, 'targetPool');
         this.excludedDrives = getFieldValue(form, 'excludedDrives');
-        this.isStepValid = isFormValid(form);
-    }
-
-    onValidate(values) {
-        const errors = {};
-        const { step, targetPool } = values;
-
-        if (step === 0) {
-            if (!targetPool) {
-                errors.targetPool = 'Please select a pool from the list';
-            }
-        }
-
-        return errors;
     }
 
     onBeforeStep(step) {
-        if (!this.isStepValid) {
-            action$.next(touchForm(this.formName, ['targetPool']));
-            return false;
-        }
-
-        if (step === 1) {
+        if (step === 0) {
             // If moving to last step, fetch the intallation commands.
             action$.next(fetchNodeInstallationCommands(
                 this.targetPool,

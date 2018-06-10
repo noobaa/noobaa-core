@@ -54,6 +54,7 @@ export default function register(ko) {
     // Modals
     // -------------------------------
     ko.components.register('install-nodes-modal',                           require('./modals/install-nodes-modal/install-nodes-modal').default);
+    ko.components.register('install-nodes-to-pool-modal',                   require('./modals/install-nodes-to-pool-modal/install-nodes-to-pool-modal').default);
     ko.components.register('welcome-modal',                                 require('./modals/welcome-modal/welcome-modal').default);
     ko.components.register('after-upgrade-modal',                           require('./modals/after-upgrade-modal/after-upgrade-modal').default);
     ko.components.register('add-cloud-resource-modal',                      require('./modals/add-cloud-resource-modal/add-cloud-resource-modal').default);
@@ -312,5 +313,6 @@ export default function register(ko) {
     ko.components.register('wizard',                    require('./shared/wizard/wizard').default);
     ko.components.register('wizard-controls',           require('./shared/wizard-controls/wizard-controls').default);
     ko.components.register('managed-form',              require('./shared/managed-form/managed-form').default);
+    ko.components.register('button-group',              require('./shared/button-group/button-group').default);
     /** INJECT:shared **/
 }

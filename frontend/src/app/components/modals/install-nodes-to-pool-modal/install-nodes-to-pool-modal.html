@@ -1,0 +1,82 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+">
+    <wizard class="column greedy" params="
+        steps: steps,
+        step: $form.step,
+        onBeforeStep: onBeforeStep,
+        onCancel: onDone,
+        onComplete: onDone
+    ">
+        <section class="column greedy push-prev">
+            <h2 class="heading3">Choose drives for installation:</h2>
+            <radio-btn params="
+                group: 'drives',
+                value: false,
+                selected: $form.excludeDrives,
+                label: 'Include all drives in installed nodes',
+                hasFocus: true
+            "></radio-btn>
+            <p class="push-next">
+                All drives in the following installation will participate as NooBaa's capacity
+            </p>
+
+            <radio-btn params="
+                group: 'drives',
+                value: true,
+                selected: $form.excludeDrives,
+                label: 'Exclude drives for this installation'
+            "></radio-btn>
+            <p ko.css.disabled="!$form.excludeDrives()">
+                Choose the drives you which to exclude from this installation:
+            </p>
+            <token-field class="column greedy push-prev-half" params="
+                tokens: $form.excludedDrives,
+                placeholder: drivesInputPlaceholder,
+                disabled: !$form.excludeDrives()
+            "></token-field>
+            <p class="remark" ko.css.disabled="!$form.excludeDrives()">
+                Type drives names accurately, click enter after each drive name.
+            </p>
+        </section>
+
+        <section class="column greedy push-prev">
+            <h2 class="heading3">Network Installation</h2>
+            <p class="push-next">
+                Use your distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server.
+            </p>
+            <p class="push-next-half">
+                Use the following command in your distribution tool according to the OS type:
+            </p>
+
+            <div class="greedy tabs push-next-half">
+                <nav ko.foreach="osTypes">
+                    <a tabindex="0"
+                        ko.keysToClicks="['space', 'enter']"
+                        ko.css.selected="$form.selectedOs.eq(value)"
+                        ko.click="() => $parent.onTab(value)"
+                        ko.hasFocus="$index.eq(0)"
+                    >{{label}}</a>
+                </nav>
+
+                <div class="tabs-row alt-bg" ko.foreach="osTypes">
+                    <div class="tab pad row config-box"
+                        ko.css.selected="$form.selectedOs.eq(value)"
+                        ko.let.command="($form.commands() || {})[value]"
+                    >
+                        <p class="text-tech greedy">{{command}}</p>
+                        <copy-to-clipboard-button params="value: command">
+                        </copy-to-clipboard-button>
+                    </div>
+                </div>
+            </div>
+            <p class="remark">
+                <svg-icon class="icon-small" params="name: 'notif-info'"></svg-icon>
+                <span class="os-hint" ko.text="osHint"></span>
+            </p>
+        </section>
+    </wizard>
+</managed-form>

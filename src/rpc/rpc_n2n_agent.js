@@ -10,6 +10,7 @@ const tls = require('tls');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const url_utils = require('../util/url_utils');
+const ssl_utils = require('../util/ssl_utils');
 const nb_native = require('../util/nb_native');
 const EventEmitter = require('events').EventEmitter;
 const RpcN2NConnection = require('./rpc_n2n');
@@ -95,12 +96,7 @@ class RpcN2NAgent extends EventEmitter {
             ssl_options: {
                 // we allow self generated certificates to avoid public CA signing:
                 rejectUnauthorized: false,
-                secureContext: tls.createSecureContext({
-                    key: get_global_ssl_key(),
-                    cert: get_global_ssl_cert(),
-                    // TODO use a system ca certificate
-                    // ca: [tls_cert],
-                }),
+                secureContext: tls.createSecureContext(Object.assign({ honorCipherOrder: true }, ssl_utils.generate_ssl_certificate())),
             },
 
             // callback to create and bind nudp socket
@@ -139,7 +135,7 @@ class RpcN2NAgent extends EventEmitter {
 
     set_ssl_context(secure_context_params) {
         this.n2n_config.ssl_options.secureContext =
-            tls.createSecureContext(secure_context_params);
+            tls.createSecureContext(Object.assign({ honorCipherOrder: true }, secure_context_params));
     }
 
     update_n2n_config(config) {
@@ -211,66 +207,5 @@ class RpcN2NAgent extends EventEmitter {
 
 
 }
-
-
-// TODO this is a temporary place to keep the SSL certificate
-function get_global_ssl_key() {
-    return [
-        '-----BEGIN RSA PRIVATE KEY-----',
-        'MIIEpAIBAAKCAQEAvSegTfXkLDbLalfxrsjlFJXpaDWPDgb3ohS78+ByJXcgwPrG',
-        'Q2yNO47qY04UuWkgGEUW+RXis7iPCdpYwl4RfYjAPQHIUhhlw7v7U+Sv7PIv5uUv',
-        'kk/kzjz54m42K+z/NBvO/kpf/L777a9czOuUR5fCPbPg+br7PFyBh0djMw+RA/hk',
-        'KSEM87jru2k4e1y1cnMv4qupVCVNaegOszSkclrFvnCUxVhyHCofhidrx7nqQhZU',
-        '8zOVdrPmnakGcmX1Hux5v90eg5nm640c0xQcTOQ3rCCq3YkwYcwujtfQI+0p086d',
-        'eMMCF6jJ+i2Fb2NAHYQO65jhZNWoCHlJPzsvUQIDAQABAoIBAQCYT+RBYpLNF4JM',
-        'q2wtNg9guCYuh5Id1XZpyRBfnIfNq1NwkX48pJhFMRuDw0fk1MXHRTrub7UQyrhD',
-        'UtLOEDk9QHSrq1fG42ZualxCfY872PjBkCLySesQNwFwVxa/4CLPruTK1tDcEF2E',
-        'UwUC7V+FFqqOTN4HuYy8WjDi4ZT7c1RPD0N2xnpkk4ZmqSOhgfwWW0P29CmUorWJ',
-        'PCeW0zH30YF+0xjBUH0qORc/vbSZjGjpuGAZ6KOENYcSneRI+HAENn7Z/SmxW7EW',
-        'A9BQjitNRV88A+DTdGk7SC0AXxV6HN0GHlkE28N23CS+EUVtmqh8vwzpycoXkPWm',
-        'gb7aBxPBAoGBAPkfQuv+Rkvr6AD3LAJeES8/4kg25zQla8ck0iyieSjDuDE22MBd',
-        've2m/bAxCURTxiVuhUyI+7EbnYtjBydermyHGhNVih6JW4p7bgLdAT+j5XoXYtcs',
-        '3v8jlou4lnsGfs4wpP+bdEB9ipItb1bm4Isf0c1CuBSOCDVXv1OHGF4dAoGBAMJg',
-        'h4IIxXFIouUq48Qj+0yklqMpzBm1BRziwYxcoNFgQ5IaP1Q83pNO5cHuqKjr7HX/',
-        'AaB0k5vgfIDzPU36SzvYnqxEqRkYAMKcxClxqqR80+m4CseunxIF6TiJtIHMDsvb',
-        'YTHOYcpNQoF8fyPO46jnsbSCXfVAYrMOh4WLZl/FAoGAeolx9XrBQR7so2zw7Mkw',
-        'UrltqG+5EeFGPlJSPzo7tl1vAGYl/5kcjwUQy9WS5VT/pfHTB25pvxgCSkmPf0IH',
-        'McLShKgSpCqUKG3GEwp6Tr9jZMaUC5s6pOzwZBGLk0ACp5Et17yzVfVqb7SBi5FM',
-        '6aHhJMGoohOq3fInXgKZbdECgYBfv6Mgp+dyrUAouR7ncH4KvAzEJQO4KhZxqzWC',
-        'SeKiINRINQu7GBzf3X6KMGD+jPC3Ez2e564Km+NYtfkd30yOF1/aJhxSEyPUudpb',
-        'O/W9/wt4VsNgp6EOBMFkq1iyk206eD+BhFNhjvtSw5vxbKlye2drLsjP1b6Iy4Bw',
-        'hUGRrQKBgQCaVjWxbtd8Rv9tCNYDfgSAfYlfMkMziaLPiGMz/OD2LX8YV3rknAuJ',
-        'OEQN98dOkLWaJogYzMPJc6RBSaZaBrvRIPgkG3JcHzib42gVyBOSjsXwThe/09OU',
-        '8gj5btThBrTqiXQgm8VqSCwLgJEUwCmxUEEuXyFhgimOIimBUWg7AQ==',
-        '-----END RSA PRIVATE KEY-----',
-    ].join('\n');
-}
-
-// TODO this is a temporary place to keep the SSL certificate
-function get_global_ssl_cert() {
-    return [
-        '-----BEGIN CERTIFICATE-----',
-        'MIIDLjCCAhYCCQDbjDECU6toDDANBgkqhkiG9w0BAQUFADBZMQswCQYDVQQGEwJB',
-        'VTETMBEGA1UECBMKU29tZS1TdGF0ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0',
-        'cyBQdHkgTHRkMRIwEAYDVQQDEwlsb2NhbGhvc3QwHhcNMTUxMDA1MDI0OTExWhcN',
-        'MTUxMTA0MDI0OTExWjBZMQswCQYDVQQGEwJBVTETMBEGA1UECBMKU29tZS1TdGF0',
-        'ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMRIwEAYDVQQDEwls',
-        'b2NhbGhvc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC9J6BN9eQs',
-        'NstqV/GuyOUUleloNY8OBveiFLvz4HIldyDA+sZDbI07jupjThS5aSAYRRb5FeKz',
-        'uI8J2ljCXhF9iMA9AchSGGXDu/tT5K/s8i/m5S+ST+TOPPnibjYr7P80G87+Sl/8',
-        'vvvtr1zM65RHl8I9s+D5uvs8XIGHR2MzD5ED+GQpIQzzuOu7aTh7XLVycy/iq6lU',
-        'JU1p6A6zNKRyWsW+cJTFWHIcKh+GJ2vHuepCFlTzM5V2s+adqQZyZfUe7Hm/3R6D',
-        'mebrjRzTFBxM5DesIKrdiTBhzC6O19Aj7SnTzp14wwIXqMn6LYVvY0AdhA7rmOFk',
-        '1agIeUk/Oy9RAgMBAAEwDQYJKoZIhvcNAQEFBQADggEBAFZ0CKD10m+Yb2y/n4j4',
-        'EoLGr+pOaBPDIEgpcV5/Kf+BJpA6scs9UYaysPSCKUsLSk8SxKLOE8DxwiuYwxtu',
-        'M2W69nZU1n1t84BkrJ5JyphKe8lXtjiNJIlST2BNHyMOSx/5/dyZgC+P0MHUlCmy',
-        'aVeyz+7ckKB/ubr7bknNfuHkNPkZm2cUCnULZzRyCWcWl/RWA9p4CcAIxg3DZl76',
-        'mAB9B6VSVAnE7fOPIrfp/5ot7D+wnbv/R1s04cc78R3DUkhPKDJKHIvVMv12BEhq',
-        'On3Ht3GyCamJKqr174h4ynIk4neFaDeZ0N/jsMrkEYEpYYwiT/swuX9ZPAJ4CIKx',
-        '2RE=',
-        '-----END CERTIFICATE-----',
-    ].join('\n');
-}
-
 
 module.exports = RpcN2NAgent;

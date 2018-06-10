@@ -22,11 +22,11 @@ class RpcTcpServer extends EventEmitter {
         super();
         this.protocol = (tls_options ? 'tls:' : 'tcp:');
         this.server = tls_options ?
-            tls.createServer(tls_options, tcp_conn => this._on_tcp_conn(tcp_conn)) :
+            tls.createServer(Object.assign({ honorCipherOrder: true }, tls_options), tcp_conn => this._on_tcp_conn(tcp_conn)) :
             net.createServer(tcp_conn => this._on_tcp_conn(tcp_conn));
         this.server.on('close', err => {
-                dbg.log0('on close:', err);
-                this.emit('error', new Error('TCP SERVER CLOSED'));
+            dbg.log0('on close:', err);
+            this.emit('error', new Error('TCP SERVER CLOSED'));
         });
         this.server.on('error', err => this.emit('error', err));
     }

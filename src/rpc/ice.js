@@ -935,7 +935,7 @@ Ice.prototype._upgrade_to_tls = function(session) {
     dbg.log1('ICE UPGRADE TO TLS', session.key, session.state);
     var tcp_conn = session.tcp;
     var tls_conn;
-    var ssl_options = _.clone(self.config.ssl_options);
+    var ssl_options = Object.assign({ honorCipherOrder: true }, self.config.ssl_options);
     if (self.controlling) {
         ssl_options.socket = tcp_conn;
         tls_conn = tls.connect(ssl_options);

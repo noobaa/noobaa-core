@@ -6,13 +6,19 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { fetchHosts, dropHostsView, requestLocation, openAssignHostsModal } from 'action-creators';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { summrizeHostModeCounters, getHostModeListForState } from 'utils/host-utils';
 import { get } from 'rx-extensions';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
+import {
+    fetchHosts,
+    openAssignHostsModal,
+    openInstallNodesToPoolModal,
+    requestLocation,
+    dropHostsView
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -225,6 +231,10 @@ class PoolHostsTableViewModel extends Observer {
 
     onAssignNodes() {
         action$.next(openAssignHostsModal(this.poolName));
+    }
+
+    onInstallNewNodes() {
+        action$.next(openInstallNodesToPoolModal(this.poolName));
     }
 
     dispose() {

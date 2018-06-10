@@ -1,0 +1,41 @@
+/* Copyright (C) 2016 NooBaa */
+
+button-group {
+    display: block;
+    position: relative;
+
+    .more-toggle {
+        min-width: unset;
+        padding-left: @gutter/2;
+        padding-right: @gutter/2;
+        margin-left: 3px;
+
+        > svg-icon {
+            fill: @color8;
+        }
+
+        &:hover > svg-icon {
+            fill: @color6;
+        }
+    }
+
+    .more-actions {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        z-index: 999;
+        background: @color5;
+        margin-top: 3px;
+        opacity: 1;
+        transition: all 150ms linear;
+
+        > .btn {
+            width: 100%;
+
+            &:not(:first-child) {
+                border-top: none;
+            }
+        }
+    }
+}

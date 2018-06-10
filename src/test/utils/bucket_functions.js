@@ -115,17 +115,47 @@ class BucketFunctions {
         }
     }
 
-    async checkAvailableSpace(server_ip, bucket_name) {
-        console.log('Checking available space in bucket ' + bucket_name);
+    async checkFreeSpace(bucket_name) {
+        console.log('Checking free space in bucket ' + bucket_name);
         try {
             const system_info = await this._client.system.read_system({});
             const buckets = system_info.buckets;
             const indexBucket = buckets.findIndex(values => values.name === bucket_name);
             const space = buckets[indexBucket].data.free;
-            console.log('Available space in bucket ' + bucket_name + ' is ' + space);
+            console.log(`Free space in bucket ${bucket_name} is ${space / 1024 / 1024} MB}`);
             return space;
         } catch (err) {
-            console.log(`${server_ip} FAILED to check bucket size`, err);
+            console.log(`FAILED to check free space in bucket`, err);
+            throw err;
+        }
+    }
+
+    async checkAvilableSpace(bucket_name) {
+        console.log('Checking avilable space in bucket ' + bucket_name);
+        try {
+            const system_info = await this._client.system.read_system({});
+            const buckets = system_info.buckets;
+            const indexBucket = buckets.findIndex(values => values.name === bucket_name);
+            const avilable_space = buckets[indexBucket].data.available_for_upload;
+            console.log(`Avilable space in bucket ${bucket_name} is ${avilable_space / 1024 / 1024} MB`);
+            return avilable_space;
+        } catch (err) {
+            console.log(`FAILED to check avilable space in bucket`, err);
+            throw err;
+        }
+    }
+
+    async checkSpilloverFreeSpace(bucket_name) {
+        console.log('Checking spillover free space in bucket ' + bucket_name);
+        try {
+            const system_info = await this._client.system.read_system({});
+            const buckets = system_info.buckets;
+            const indexBucket = buckets.findIndex(values => values.name === bucket_name);
+            const spillover_free_space = buckets[indexBucket].data.spillover_free;
+            console.log(`Spillover free space in bucket ${bucket_name} is ${spillover_free_space / 1024 / 1024} MB`);
+            return spillover_free_space;
+        } catch (err) {
+            console.log(`FAILED to check spillover free space in bucket`, err);
             throw err;
         }
     }
@@ -146,7 +176,10 @@ class BucketFunctions {
     }
 
     //Attaching bucket to the pool with spread data placement
-    async editBucketDataPlacement(pool, bucket_name) {
+    async editBucketDataPlacement(pool, bucket_name, data_placement) {
+        if (data_placement !== 'SPREAD' && data_placement !== 'MIRROR') {
+            throw new Error(`data_placement is ${data_placement} and must be SPREAD or MIRROR`);
+        }
         console.log('Getting tier for bucket ' + bucket_name);
         const system_info = await this._client.system.read_system({});
         const buckets = system_info.buckets;
@@ -156,7 +189,7 @@ class BucketFunctions {
         try {
             await this._client.tier.update_tier({
                 attached_pools: [pool],
-                data_placement: 'SPREAD',
+                data_placement,
                 name: tier
             });
             await this.report_success(`Change_DataPlacement`);

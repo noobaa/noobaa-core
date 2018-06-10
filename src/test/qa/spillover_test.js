@@ -7,16 +7,18 @@ const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const af = require('../utils/agent_functions');
 const argv = require('minimist')(process.argv);
-const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const AzureFunctions = require('../../deploy/azureFunctions');
 const { BucketFunctions } = require('../utils/bucket_functions');
+const { CloudFunction } = require('../utils/cloud_functions');
 dbg.set_process_name('spillover');
 
+let errors = [];
 const s3ops = new S3OPS();
 let failures_in_test = false;
-let errors = [];
-let bucket;
+const time_stemp = (Math.floor(Date.now() / 1000));
+const bucket = 'spillover.bucket' + time_stemp;
+const healthy_pool = 'healthy.pool' + time_stemp;
 
 //defining the required parameters
 const {
@@ -31,9 +33,13 @@ const {
     help = false
 } = argv;
 
+//define colors
+const NC = "\x1b[0m";
+// const RED = "\x1b[31m";
+const YELLOW = "\x1b[33;1m";
+
 let pool_files = [];
 let over_files = [];
-let healthy_pool;
 const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
@@ -43,7 +49,7 @@ const suffix = 'spillover-' + id;
 function usage() {
     console.log(`
     --location              -   azure location (default: ${location})
-    --bucket                -   bucket to run on (default: ${bucket})
+    --bucket                -   bucket to run on (default: spillover.bucket + timestemp)
     --resource              -   azure resource group
     --storage               -   azure storage on the resource group
     --vnet                  -   azure vnet on the resource group
@@ -60,12 +66,14 @@ if (help) {
     process.exit(1);
 }
 
+console.log(`resource: ${resource}, storage: ${storage}, vnet: ${vnet}`);
+
 const rpc = api.new_rpc('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
-console.log(`resource: ${resource}, storage: ${storage}, vnet: ${vnet}`);
 let report = new Report();
 let bf = new BucketFunctions(client, report);
+const cf = new CloudFunction(client, report);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
 let osesSet = af.supported_oses();
@@ -85,265 +93,406 @@ const unit_mapping = {
         dataset_multiplier: Math.pow(baseUnit, 0)
     }
 };
+
 let { data_multiplier } = unit_mapping.MB;
 
 function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
+    failures_in_test = true;
 }
 
 
-function createBucketWithEnableSpillover() {
-    bucket = 'spillover.bucket' + (Math.floor(Date.now() / 1000));
+async function get_files_in_array() {
+    const list_files = await s3ops.get_list_files(server_ip, bucket);
+    const keys = list_files.map(key => key.Key);
+    return keys;
+}
+
+async function createBucketWithEnabledSpillover() {
     console.log('Creating bucket ' + bucket + ' with default pool first.pool');
-    return s3ops.create_bucket(server_ip, bucket)
-        .then(() => s3ops.get_list_buckets(server_ip))
-        .then(res => {
-            if (res.includes(bucket)) {
-                console.log('Bucket is successfully added');
-            } else {
-                saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list`, res);
-            }
-        })
-        .then(() => bf.getInternalStoragePool())
-        .then(internalpool => bf.setSpillover(bucket, internalpool))
-        .catch(err => {
-            saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
-            failures_in_test = true;
+    try {
+        await s3ops.create_bucket(server_ip, bucket);
+        const list_buckets = await s3ops.get_list_buckets(server_ip);
+        if (list_buckets.includes(bucket)) {
+            console.log('Bucket is successfully added');
+        } else {
+            saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list`, list_buckets);
+        }
+        const internalpool = await bf.getInternalStoragePool(server_ip);
+        await bf.setSpillover(server_ip, bucket, internalpool);
+    } catch (err) {
+        saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
+        throw err;
+    }
+}
+
+async function uploadFiles(dataset_size, files) {
+    let number_of_files = Math.floor(dataset_size / 1024); //dividing to 1024 will get files in GB
+    if (number_of_files < 1) number_of_files = 1; //making sure we have atlist 1 file.
+    const file_size = Math.floor(dataset_size / number_of_files) + 1; //writing extra MB so we will be sure we reache max capacity.
+    const parts_num = Math.floor(file_size / 100);
+    const timeStemp = (Math.floor(Date.now() / 1000));
+    console.log(`${YELLOW}Writing ${number_of_files} files with total size: ${dataset_size + number_of_files} MB${NC}`);
+    for (let count = 0; count < number_of_files; count++) {
+        const file_name = `file_${count}_${file_size}_${timeStemp}`;
+        files.push(file_name);
+        console.log(`Uploading ${file_name} with size ${file_size} MB`);
+        try {
+            await s3ops.upload_file_with_md5(server_ip, bucket, file_name, file_size, parts_num, data_multiplier);
+            await P.delay(1 * 1000);
+        } catch (err) {
+            saveErrorAndResume(`${server_ip} FAILED uploading files `, err);
             throw err;
-        });
+        }
+    }
+    console.log('files list is ' + files);
 }
 
-function uploadAndDeleteFiles(dataset_size, isOverSized, files) {
-    let parts = 20;
-    let partSize = dataset_size / parts;
-    let file_size = Math.floor(partSize);
-    let part = 0;
-    console.log('Writing and deleting data till size amount to grow ' + dataset_size + ' MB');
-    return promise_utils.pwhile(() => part < parts, () => {
-            let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
-            files.push(file_name);
-            console.log('files list is ' + files);
-            part += 1;
-            console.log('Uploading file with size ' + file_size + ' MB');
-            return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
-                .then(() => s3ops.delete_file(server_ip, bucket, file_name))
-                .then(() => s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier))
-                .delay(1000)
-                .catch(err => {
-                    saveErrorAndResume(`${server_ip} FAILED uploading and deleting files `, err);
-                    failures_in_test = true;
-                    throw err;
-                });
-        })
-        .then(() => {
-            if (isOverSized) {
-                console.log('Uploading for getting over size ' + dataset_size);
-                let file_name_over = 'file_over_' + file_size + (Math.floor(Date.now() / 1000));
-                return s3ops.put_file_with_md5(server_ip, bucket, file_name_over, file_size, data_multiplier)
-                    //When we get to the quota the writes should start failing
-                    .catch(error => {
-                        console.warn('Over size return error ' + error + ' - as should!!!');
-                    });
-            }
-        });
+async function test_failed_upload(dataset_size) {
+    const file_size = Math.floor(dataset_size);
+    const timeStemp = (Math.floor(Date.now() / 1000));
+    console.log(`Tring to upload ${dataset_size} MB after we have reached the quota`);
+    const file_name = `file_over_${file_size}_${timeStemp}`;
+    try {
+        await s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier);
+    } catch (error) { //When we get to the quota the writes should start failing
+        console.log('Tring to upload pass the quota failed - as should');
+        return;
+    }
+    throw new Error(`We should have failed uploading pass the quota`);
 }
 
-function checkFileInPool(file_name, pool) {
-    console.log('Checking file ' + file_name + ' is available and contains exactly in pool ' + pool);
-    return client.object.read_object_mappings({
-            bucket,
-            key: file_name,
-            adminfo: true
-        })
-        .then(res => {
-            let chunkAvailable = res.parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
-            let partsInPool = res.parts.filter(chunk => chunk.chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
-            let chunkNum = res.parts.length;
-            let actualPool = res.parts[chunkNum - 1].chunk.frags[0].blocks[0].adminfo.pool_name;
-            if (chunkAvailable === chunkNum) {
-                console.log(`Available chunks ${chunkAvailable} all amount chunks ${chunkNum}`);
-            } else {
-                console.warn('Some chunk of file ' + file_name + ' has non available status');
-            }
-            if (partsInPool === chunkNum) {
-                console.log(`All amount chunks ${chunkNum} in ${pool} parts ${partsInPool}`);
-            } else {
-                console.warn('Some chunk of file' + file_name + ' has pool ' + actualPool + ' instead ' + pool);
-            }
-        });
+async function checkFileInPool(file_name, pool) {
+    console.log(`Checking file ${file_name} is available and contains exactly in pool ${pool}`);
+    const object_mappings = await client.object.read_object_mappings({
+        bucket,
+        key: file_name,
+        adminfo: true
+    });
+    const chunkAvailable = object_mappings.parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
+    const partsInPool = object_mappings.parts.filter(chunk => chunk.chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
+    const chunkNum = object_mappings.parts.length;
+    // const actualPool = object_mappings.parts[chunkNum - 1].chunk.frags[0].blocks[0].adminfo.pool_name;
+    if (chunkAvailable === chunkNum) {
+        console.log(`Available chunks: ${chunkAvailable}/${chunkNum} for ${file_name}`);
+    } else {
+        throw new Error(`Expected ${chunkNum} chanks for file ${file_name} in ${pool}, recived ${chunkAvailable}`);
+    }
+    if (partsInPool === chunkNum) {
+        console.log(`All The ${chunkNum} chanks are in ${pool}`);
+    } else {
+        throw new Error(`Expected ${chunkNum} parts in ${pool} for file ${file_name}, recived ${partsInPool}`);
+    }
+    return true;
 }
 
-function createHealthyPool() {
-    healthy_pool = 'healthy.pool' + (Math.floor(Date.now() / 1000));
+async function createHealthyPool() {
     let list = [];
-    return client.host.list_hosts({})
-        .then(res => {
-            let hosts = res.hosts;
-            return P.each(hosts, host => {
-                let mode = host.mode;
-                if ((mode === 'OPTIMAL') && (host.name.includes(suffix))) {
-                    list.push(host.name);
-                }
-            });
-        })
-        .then(() => {
-            console.log('Creating pool with online agents: ' + list);
-            return client.pool.create_hosts_pool({
-                name: healthy_pool,
-                hosts: list
-            });
-        })
-        .catch(error => {
-            saveErrorAndResume('Failed create healthy pool ' + healthy_pool + error);
-            failures_in_test = true;
+    const list_hosts = await client.host.list_hosts({});
+    try {
+        for (const host of list_hosts.hosts) {
+            if ((host.mode === 'OPTIMAL') && (host.name.includes(suffix))) {
+                list.push(host.name);
+            }
+        }
+        console.log('Creating pool with online agents: ' + list);
+        await client.pool.create_hosts_pool({
+            name: healthy_pool,
+            hosts: list
         });
+        return healthy_pool;
+    } catch (error) {
+        saveErrorAndResume('Failed create healthy pool ' + healthy_pool + error);
+    }
 }
 
-function assignNodesToPool(pool) {
+async function assignNodesToPool(pool) {
     let listAgents = [];
-    return client.host.list_hosts({})
-        .then(res => {
-            let hosts = res.hosts;
-            return P.each(hosts, host => {
-                let mode = host.mode;
-                if (mode === 'OPTIMAL') {
-                    listAgents.push(host.name);
-                }
-            });
-        })
-        .then(() => {
-            console.log('Assigning online agents: ' + listAgents + ' to pool ' + pool);
-            return client.pool.assign_hosts_to_pool({
-                name: pool,
-                hosts: listAgents
-            });
-        })
-        .catch(error => {
-            saveErrorAndResume('Failed assigning nodes to pool ' + pool + error);
-            failures_in_test = true;
+    try {
+        const list_hosts = await client.host.list_hosts({});
+        for (const host of list_hosts.hosts) {
+            if (host.mode === 'OPTIMAL') {
+                listAgents.push(host.name);
+            }
+        }
+        console.log('Assigning online agents: ' + listAgents + ' to pool ' + pool);
+        await client.pool.assign_hosts_to_pool({
+            name: pool,
+            hosts: listAgents
         });
+    } catch (error) {
+        saveErrorAndResume('Failed assigning nodes to pool ' + pool + error);
+    }
 }
 
-function deletePool(pool) {
-    console.log('Deleting pool ' + pool);
-    return client.pool.delete_pool({
-            name: pool
-        })
-        .catch(error => {
-            saveErrorAndResume('Failed deleting pool ' + pool + error);
-            failures_in_test = true;
-        });
-}
-
-function clean_env() {
+async function clean_env() {
     console.log('Running cleaning data from ' + bucket);
-    return s3ops.get_list_files(server_ip, bucket, '')
-        .then(res => s3ops.delete_folder(server_ip, bucket, ...res))
-        .delay(10000)
-        .then(() => s3ops.delete_bucket(server_ip, bucket))
-        .delay(10000)
-        .then(() => assignNodesToPool('first.pool'))
-        .then(() => deletePool(healthy_pool))
-        .then(() => af.clean_agents(azf, server_ip, suffix));
+    const list_files = await s3ops.get_list_files(server_ip, bucket, '');
+    await s3ops.delete_folder(server_ip, bucket, ...list_files);
+    await P.delay(10 * 1000);
+    await s3ops.delete_bucket(server_ip, bucket);
+    await P.delay(10 * 1000);
+    await assignNodesToPool('first.pool');
+    await cf.deletePool(healthy_pool);
+    await af.clean_agents(azf, server_ip, suffix);
 }
 
-return azf.authenticate()
-    .then(() => af.clean_agents(azf, server_ip, suffix))
-    .then(() => P.fcall(function() {
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo1',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
-    }))
-    //On a system, create a bucket and before adding capacity to it (use an empty pool), enable spillover and see that the files are written into the internal storage
-    .then(() => createBucketWithEnableSpillover())
-    .then(() => bf.checkIsSpilloverHasStatus(bucket, true))
-    .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file', 10, data_multiplier))
-    .then(() => checkFileInPool('spillover_file', 'system-internal-storage-pool'))
-    //Add pool with resources to the bucket and see that all the files are moving from the internal storage to the pool (pullback)
-    .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
-    .then(res => createHealthyPool())
-    .then(() => bf.editBucketDataPlacement(healthy_pool, bucket))
-    .then(() => checkFileInPool('spillover_file', healthy_pool))
-    //Set Quota of X on the bucket, X should be smaller then the available space on the bucket
-    .then(() => bf.setQuotaBucket(server_ip, bucket, 1, 'GIGABYTE'))
-    //Start writing and and deleting data on it (more writes than deletes since we want the size to grow) and see that we are failing when we get into the quota
-    .then(() => uploadAndDeleteFiles(1000, false, pool_files))
-    .then(() => P.each(pool_files, file => checkFileInPool(file, healthy_pool)))
-    //Change the Quota of X on the bucket, X should be larger then the available space on the bucket
-    .then(() => bf.checkAvailableSpace(server_ip, bucket))
-    .then(res => {
-        let quotaGB = Math.floor(res / 1024 / 1024 / 1024);
-        let overQuota = quotaGB + 1;
-        let uploadSizeMB = Math.floor(res / 1024 / 1024);
-        console.log('Setting quota ' + overQuota + ' GB with available size ' + uploadSizeMB + 'MB');
-        return bf.setQuotaBucket(server_ip, bucket, overQuota, 'GIGABYTE')
-            //Start writing and and deleting data on it (more writes than deletes since we want the size to grow)
-            .then(() => uploadAndDeleteFiles(uploadSizeMB, true, pool_files));
-    })
-    .then(() => P.each(pool_files, file => checkFileInPool(file, healthy_pool)))
-    //Remove the quota
-    .then(() => bf.disableQuotaBucket(server_ip, bucket))
-    .delay(10000) //delay to get pool cooled down
+async function set_rpc_and_create_auth_token() {
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params);
+}
+
+async function check_internal_spillover_without_agents() {
+
+    /* On a system, create a bucket and before adding capacity to it (use an empty pool), 
+       enable spillover and see that the files are written into the internal storage */
+    try {
+        await createBucketWithEnabledSpillover();
+        await bf.checkIsSpilloverHasStatus(bucket, true, server_ip);
+        await s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file', 10, data_multiplier);
+        await checkFileInPool('spillover_file', 'system-internal-storage-pool');
+    } catch (e) {
+        throw new Error(`Failed to write on internal spillover: ${e}`);
+    }
+}
+
+async function check_file_evacuation(file, pool) {
+    const base_time = Date.now();
+    let file_in_pool;
+    while (Date.now() - base_time < 180 * 1000) {
+        try {
+            file_in_pool = await checkFileInPool(file, pool);
+            if (file_in_pool) break;
+        } catch (e) {
+            await P.delay(15 * 1000);
+        }
+    }
+    if (!file_in_pool) {
+        throw new Error(`${file} was not evacuated from the spillover`);
+    }
+}
+
+async function add_agents_and_check_evacuation() {
+    try {
+        //Add pool with resources to the bucket and see that all the files are moving from the internal storage to the pool (pullback)
+        await af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet);
+        await createHealthyPool();
+        await bf.editBucketDataPlacement(healthy_pool, bucket, 'SPREAD');
+        await check_file_evacuation('spillover_file', healthy_pool);
+    } catch (e) {
+        throw new Error(`Evacuation from the spillover failed: ${e}`);
+    }
+}
+
+async function list_files_in_a_pool(keys, pool) {
+    const files = [];
+    if (!keys) {
+        keys = await get_files_in_array();
+    }
+    if (keys) {
+        for (const file_name of keys) {
+            try {
+                await checkFileInPool(file_name, pool);
+                files.push(file_name);
+            } catch (e) {
+                //object not resides according to policy on the pool
+            }
+        }
+    }
+    return files;
+}
+
+async function clean_all_files_from_bucket(skip_form_spillover = false, pool) {
+    const keys = await get_files_in_array();
+    if (keys) {
+        if (skip_form_spillover) {
+            const files = await list_files_in_a_pool(keys, pool);
+            for (const file of files) {
+                await s3ops.delete_file(server_ip, bucket, file);
+            }
+        } else {
+            for (const file of keys) {
+                await s3ops.delete_file(server_ip, bucket, file);
+            }
+        }
+    }
+}
+
+async function aggregated_file_size(files_list, size, return_size = false) {
+    const files_to_delete = [];
+    let aggregated_size = 0;
+    for (const file of files_list) {
+        if (aggregated_size < size) {
+            aggregated_size = await s3ops.get_file_size(server_ip, bucket, file);
+            files_to_delete.push(file);
+        } else {
+            break;
+        }
+    }
+    if (return_size) {
+        return aggregated_size;
+    } else {
+        return files_to_delete;
+    }
+}
+
+//deleting files with at list "size" (MB)
+async function clean_files_from_bucket(skip_form_spillover, pool, size) {
+    const keys = await get_files_in_array();
+    let files_to_delete = [];
+    if (keys) {
+        if (skip_form_spillover) {
+            const files = await list_files_in_a_pool(keys, pool);
+            files_to_delete = await aggregated_file_size(files, size);
+            for (const file of files_to_delete) {
+                await s3ops.delete_file(server_ip, bucket, file);
+            }
+        } else {
+            files_to_delete = await aggregated_file_size(keys, size);
+            for (const file of files_to_delete) {
+                await s3ops.delete_file(server_ip, bucket, file);
+            }
+        }
+    }
+    return files_to_delete;
+}
+
+async function upload_and_check_evacuation() {
+    //start deleting data from the Bucket (files from the agents)
+    for (let count = 0; count < 5; count++) {
+        const spillover_files = [];
+        await uploadFiles(1024, spillover_files);
+        await checkFileInPool(spillover_files[0], 'system-internal-storage-pool');
+        await clean_files_from_bucket(false, healthy_pool, 1024);
+        for (const file of spillover_files) {
+            await check_file_evacuation(file, healthy_pool);
+        }
+    }
+}
+
+async function wait_no_avilabe_space() {
+    const base_time = Date.now();
+    let is_no_avilable;
+    while (Date.now() - base_time < 360 * 1000) {
+        try {
+            is_no_avilable = await bf.checkAvilableSpace(bucket);
+            if (is_no_avilable === 0) {
+                break;
+            } else {
+                await P.delay(15 * 1000);
+            }
+        } catch (e) {
+            throw new Error(`Something went wrong with checkAvilableSpace`);
+        }
+    }
+    if (is_no_avilable !== 0) {
+        throw new Error(`Avilable space should have been 0 by now`);
+    }
+}
+
+async function check_quota() {
+    await bf.setQuotaBucket(server_ip, bucket, 1, 'GIGABYTE');
+    // Start writing and see that we are failing when we get into the quota
+    await uploadFiles(1024, pool_files);
+    await wait_no_avilabe_space(bucket);
+    await test_failed_upload(1024);
+    for (const file of pool_files) {
+        await checkFileInPool(file, healthy_pool);
+    }
+}
+
+async function check_quota_on_spillover() {
+    const available_space = await bf.checkFreeSpace(bucket);
+    const available_space_GB = Math.floor(available_space / 1024 / 1024 / 1024);
+    const quota = available_space_GB + 1;
+    const uploadSizeMB = Math.floor(available_space / 1024 / 1024);
+    // Setting the quota so it will be on the spillover 
+    console.log(`Setting quota to ${quota} GB, larger the the available space (${uploadSizeMB / 1024} GB)`);
+    await bf.setQuotaBucket(server_ip, bucket, quota, 'GIGABYTE');
+    // Start writing
+    await uploadFiles(uploadSizeMB, pool_files);
+    await wait_no_avilabe_space(bucket);
+    await test_failed_upload(1024);
+    for (const file of pool_files) {
+        await checkFileInPool(file, healthy_pool);
+    }
+}
+
+async function disable_spillover_and_check() {
+    for (let count = 0; count < 5; count++) {
+        const free_space = await bf.checkFreeSpace(bucket);
+        if (free_space !== 0) {
+            const uploadSizeMB = Math.floor(free_space / 1024 / 1024);
+            await uploadFiles(uploadSizeMB, pool_files);
+        }
+        const keys = await get_files_in_array();
+        let spillover_files = await list_files_in_a_pool(keys, 'system-internal-storage-pool');
+        if (spillover_files.length === 0) {
+            await uploadFiles(1024, over_files);
+        }
+        //TODO: write some files into the spillover
+        await bf.setSpillover(server_ip, bucket, null);
+        await test_failed_upload(1024);
+        spillover_files = await list_files_in_a_pool(keys, 'system-internal-storage-pool');
+        const size = await aggregated_file_size(spillover_files, 10 * 1024 * 1024 * 1024, true); //making sure we get all files.
+        await clean_files_from_bucket(true, healthy_pool, size);
+        for (const file of spillover_files) {
+            await checkFileInPool(file, healthy_pool);
+        }
+    }
+}
+
+async function disable_quota_and_check() {
+    await bf.disableQuotaBucket(server_ip, bucket);
+    await P.delay(10 * 1000); //delay to get pool cool down
     //Continue to write and see that the writes pass
-    .then(() => uploadAndDeleteFiles(500, false, over_files))
-    .then(() => P.each(over_files, file => checkFileInPool(file, 'system-internal-storage-pool')))
-    //start deleting data from the Bucket
-    .then(() => {
-        console.log('Deleting files from healthy pool till will be free space');
-        let freeSpace = false;
-        let fileNumber = 0;
-        return promise_utils.pwhile(
-            () => freeSpace === false,
-            () => P.resolve(bf.checkAvailableSpace(server_ip, bucket))
-            .then(res => {
-                let space = res / 1024 / 1024 / 1024;
-                if (space >= 1) {
-                    freeSpace = true;
-                } else {
-                    fileNumber += 1;
-                    console.log('Waiting for free space and delete random file ' + pool_files[fileNumber]);
-                    return s3ops.delete_file(server_ip, bucket, pool_files[fileNumber]);
-                }
-                fileNumber += 1;
-            })
-            .delay(5000));
-    })
-    //Monitor the over uploaded objects , see that they start to be moved into the pool from the internal storage
-    .then(() => checkFileInPool(over_files[0], healthy_pool))
-    //write again and see that we writing into the internal storage again
-    .then(() => bf.checkAvailableSpace(server_ip, bucket))
-    .then(res => {
-        let uploadSizeMB = Math.floor(res / 1024 / 1024);
-        return uploadAndDeleteFiles(uploadSizeMB, true, pool_files);
-    })
-    .then(() => checkFileInPool(pool_files[pool_files.length - 1], 'system-internal-storage-pool'))
-    //stop the writes and disable the spillover on the bucket
-    .then(() => bf.setSpillover(bucket, null))
-    //try to write some more see that it fails
-    .then(() => s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file_without_internal_storage', 10, data_multiplier)
-        .catch(error => {
-            console.warn('Uploading without free space and disable spillover returns error ' + error + ' as should');
-        }))
-    .then(() => P.each(pool_files, file => s3ops.delete_file(server_ip, bucket, file)))
-    //Monitor the over uploaded objects , see that they start to be moved into the pool from the internal storage
-    .then(() => checkFileInPool(over_files[1], healthy_pool))
-    .catch(err => {
-        console.error('something went wrong :(' + err + errors);
-        failures_in_test = true;
-    })
-    .then(() => {
+    await uploadFiles(500, over_files);
+    for (const file of over_files) {
+        await checkFileInPool(file, 'system-internal-storage-pool');
+    }
+}
+
+/*async function set_cloud_spillover() {
+    const AWSDefaultConnection = cf.getAWSConnection();
+    await cf.createConnection(AWSDefaultConnection, 'AWS');
+    await cf.createCloudPool(AWSDefaultConnection.name, "qa-bucket", "QA-Bucket");
+    await bf.setSpillover(server_ip, bucket, "qa-bucket");
+}*/
+
+async function main() {
+    await azf.authenticate();
+    await af.clean_agents(azf, server_ip, suffix);
+    await set_rpc_and_create_auth_token();
+    try {
+        await check_internal_spillover_without_agents();
+        await add_agents_and_check_evacuation();
+        await clean_all_files_from_bucket(false, healthy_pool);
+        await check_quota();
+        await check_quota_on_spillover();
+        await disable_quota_and_check();
+        await upload_and_check_evacuation();
+        await disable_spillover_and_check();
+
+        /* TODO: 1. change the spillover to cloud
+                 2. repeate the steps above
+         */
         if (failures_in_test) {
-            console.error(':( :( Errors during spillover test ): ):' + errors);
+            console.error('Errors during spillover test' + errors);
             process.exit(1);
         } else {
-            return clean_env()
-                .then(() => {
-                    console.log(':) :) :) spillover test were successful! (: (: (:');
-                    process.exit(0);
-                });
+            await clean_env();
+            console.log('spillover test were successful!');
+            process.exit(0);
         }
-    });
+    } catch (err) {
+        console.error('something went wrong' + err + errors);
+        process.exit(1);
+    }
+}
+
+main();

@@ -22,6 +22,17 @@ class CloudFunction {
         }
     }
 
+    getAWSConnection() {
+        const AWSConnections = {
+            name: 'AWSConnection',
+            endpoint: "https://s3.amazonaws.com",
+            endpoint_type: "AWS",
+            identity: 'AKIAJJCHBZVA3VSS2YCQ',
+            secret: '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'
+        };
+        return AWSConnections;
+    }
+
     async createCloudPool(connection, name, target_bucket) {
         console.log('Creating cloud pool ' + connection);
         try {
@@ -74,10 +85,10 @@ class CloudFunction {
         }
     }
 
-    async createConnection(connetction, type) {
+    async createConnection(connection, type) {
         console.log(`Creating ${type} connection`);
         try {
-            await this._client.account.add_external_connection(connetction);
+            await this._client.account.add_external_connection(connection);
             await this.report_success(`Create_Connection_${type}`);
         } catch (err) {
             await this.report_fail(`Create_Connection_${type}`);

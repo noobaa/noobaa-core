@@ -175,7 +175,7 @@ async function reclaimCycle(oses, prefix) {
         const agentList = Array.from(agents.keys());
         await bf.createBucket(bucket);
         await createReclaimPool(reclaim_pool, agentSuffix);
-        await bf.editBucketDataPlacement(reclaim_pool, bucket);
+        await bf.editBucketDataPlacement(reclaim_pool, bucket, 'SPREAD');
         await uploadAndVerifyFiles(bucket);
         const stoppedAgent = await af.stopRandomAgents(azf, server_ip, 1, agentSuffix, agentList);
         await cleanupBucket(bucket);
@@ -211,4 +211,4 @@ async function run_main() {
     }
 }
 
-return run_main();
+run_main();

@@ -62,20 +62,12 @@ let bf = new BucketFunctions(client, report);
 
 report.init_reporter({ suite: test_name, conf: server_ip });
 
-let connections_mapping = {
-    AWS: {
-        name: 'AWSConnection',
-        endpoint: "https://s3.amazonaws.com",
-        endpoint_type: "AWS",
-        identity: 'AKIAJJCHBZVA3VSS2YCQ',
-        secret: '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'
-    }
-};
+const AWSDefaultConnection = cf.getAWSConnection();
 
 const s3ops = new S3OPS();
-const s3opsAWS = new S3OPS(connections_mapping.AWS.identity, connections_mapping.AWS.secret);
+const s3opsAWS = new S3OPS(AWSDefaultConnection.identity, AWSDefaultConnection.secret);
 
-connections_mapping = Object.assign({ AZURE: blobops.AzureDefaultConnection }, connections_mapping);
+const connections_mapping = Object.assign({ AZURE: blobops.AzureDefaultConnection }, { AWS: AWSDefaultConnection });
 
 //variables for using creating namespace resource
 const namespace_mapping = {

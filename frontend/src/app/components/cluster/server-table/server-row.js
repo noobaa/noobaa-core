@@ -38,7 +38,7 @@ function _getDiskUsage(server) {
         const total = toBytes(server.storage.total);
         const free = toBytes(server.storage.free);
         const used = total - free;
-        const usedRatio = used / total;
+        const usedRatio = total ? used / total : 0;
         const text = numeral(usedRatio).format('0%');
         const tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
 
@@ -56,8 +56,9 @@ function _getMemoryUsage(server) {
         return '---';
     } else {
         const { total, used } = server.memory;
+        const usedRatio = total ? used / total : total;
         return {
-            text: numeral(used / total).format('%'),
+            text: numeral(usedRatio).format('%'),
             tooltip: 'Avg. over the last minute'
         };
     }

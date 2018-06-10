@@ -10,6 +10,7 @@
 
     <dropdown class="push-next" params="
         filter: true,
+        actions: accountActions,
         options: accountOptions,
         selected: $form.selectedAccount,
         placeholder: 'Select account',
@@ -20,22 +21,10 @@
         Use the following infromation to config your application
     </h2>
 
-    <div class="alt-bg pad greedy">
+    <div class="alt-bg pad greedy push-next">
         <property-sheet class="greedy" params="properties: details">
         </property-sheet>
     </div>
-
-    <p class="push-prev-half">
-        <svg-icon class="icon-small" params="
-            name: 'notif-info'
-        "></svg-icon>
-        <span class="remark">
-            To create a new account go to System Management &gt;
-            <a class="link" ko.attr.href="accountsSettingsHref">
-                Accounts
-            </a>
-        </span>
-    </p>
 
     <div class="row align-end content-middle">
         <button type="button" class="link alt-colors push-next" ko.click="onCancel">

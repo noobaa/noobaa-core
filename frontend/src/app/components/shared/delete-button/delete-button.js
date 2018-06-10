@@ -2,7 +2,7 @@
 
 import template from './delete-button.html';
 import ko from 'knockout';
-import { isFunction, noop } from 'utils/core-utils';
+import { isString, isFunction, noop } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 
 class DeleteButtonViewModel {
@@ -26,13 +26,26 @@ class DeleteButtonViewModel {
         this.tooltip = ko.pureComputed(
             () => {
                 if (this.isActive()) return;
+                const naked = ko.unwrap(tooltip);
 
-                return {
-                    align: 'end',
-                    text: tooltip == null ?
-                        `Delete ${ko.unwrap(subject)}` :
-                        ko.unwrap(tooltip)
-                };
+                if (naked === null) {
+                    return {
+                        align: 'end',
+                        text: `Delete ${ko.unwrap(subject)}`
+                    };
+
+                } else if (isString(naked)) {
+                    return {
+                        align: 'end',
+                        text : naked
+                    };
+
+                } else {
+                    return {
+                        align: 'end',
+                        ...naked
+                    };
+                }
             }
         );
 

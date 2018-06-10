@@ -3,17 +3,22 @@
 import template from './connect-app-modal.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
-import { realizeUri } from 'utils/browser-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
-import * as routes from 'routes';
-import { closeModal } from 'action-creators';
+import {
+    openCreateAccountModal,
+    closeModal
+} from 'action-creators';
 
 class ConnectAppModalViewModel extends Observer {
     formName = this.constructor.name;
     fields = ko.observable();
-    accountsSettingsHref = ko.observable();
+    accountOptions = ko.observableArray();
+    accountActions = [{
+        label: 'Create new account',
+        onClick: this.onCreateNewAccount
+    }];
     accessKey = ko.observable();
     secretKey = ko.observable();
     endpoint = ko.observable();
@@ -46,43 +51,38 @@ class ConnectAppModalViewModel extends Observer {
             state$.pipe(
                 getMany(
                     'accounts',
-                    'location',
+                    ['location', 'hostname'],
                     ['forms', this.formName]
                 )
             ),
-            this.onAccount
+            this.onState
         );
     }
 
-    onAccount([accounts, location, form]) {
+    onState([accounts, hostname, form]) {
         if (!accounts) {
             return;
         }
 
-        const { params, hostname } = location;
         const accountList = Object.values(accounts)
             .filter(account => account.hasS3Access);
-        this.accountOptions = accountList.map(account => account.name);
+        const accountOptions = accountList.map(account => account.name);
         const { name: selectedAccount } = form ?
             accountList.find(account => account.name === getFieldValue(form, 'selectedAccount')) :
             accountList.find(account => account.isOwner);
 
+        this.accountOptions(accountOptions);
         this.accessKey(accounts[selectedAccount].accessKeys.accessKey);
         this.secretKey(accounts[selectedAccount].accessKeys.secretKey);
         this.endpoint(hostname);
-        this.accountsSettingsHref(
-            realizeUri(
-                routes.accounts,
-                {
-                    system: params.system,
-                    tab: 'accounts'
-                }
-            )
-        );
 
         if (!this.fields()) {
             this.fields({ selectedAccount });
         }
+    }
+
+    onCreateNewAccount() {
+        action$.next(openCreateAccountModal());
     }
 
     onSubmit() {

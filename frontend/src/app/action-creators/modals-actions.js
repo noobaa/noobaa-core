@@ -466,7 +466,7 @@ export function openConnectAppModal() {
         payload: {
             component: 'connect-app-modal',
             options:{
-                size: 'medium',
+                size: 'small',
                 title: 'Connect an Application'
             }
         }

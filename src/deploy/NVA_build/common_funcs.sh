@@ -34,7 +34,7 @@ function update_noobaa_net {
 }
 
 function check_mongo_status {
-    if [ $2 -eq '27000' ]; then
+    if [ "$2" == '27000' ]; then
       set_mongo_cluster_mode
     fi
     # even if the supervisor reports the service is running try to connect to it

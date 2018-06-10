@@ -46,8 +46,12 @@ class AgentBlocksVerifier {
             })
             .then(blocks_to_verify => {
                 if (!blocks_to_verify || !blocks_to_verify.length) return;
-                dbg.log0('AGENT_BLOCKS_VERIFIER:',
-                    'VERIFYING:', blocks_to_verify);
+                if (dbg.should_log(2)) {
+                    for (let i = 0; i < blocks_to_verify.length; i += 20) {
+                        dbg.log2('AGENT_BLOCKS_VERIFIER:',
+                            'VERIFYING:', blocks_to_verify.slice(i, i + 20));
+                    }
+                }
                 return this.verify_blocks_on_agents(blocks_to_verify);
             })
             .then(() => {

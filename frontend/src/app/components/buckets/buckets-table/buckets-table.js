@@ -8,10 +8,15 @@ import ko from 'knockout';
 import { deepFreeze, flatMap, createCompareFunc, throttle } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { requestLocation, deleteBucket, openCreateBucketModal } from 'action-creators';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
 import { getMany } from 'rx-extensions';
+import {
+    requestLocation,
+    deleteBucket,
+    openCreateBucketModal,
+    openConnectAppModal
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -194,6 +199,10 @@ class BucketsTableViewModel extends Observer {
 
     onCreateBucket() {
         action$.next(openCreateBucketModal());
+    }
+
+    onConnectApplication() {
+        action$.next(openConnectAppModal());
     }
 
     _query(params) {

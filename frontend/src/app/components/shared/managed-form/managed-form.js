@@ -26,9 +26,8 @@ class ManagedFormViewModel extends Observer {
         onValidateAsync,
         onValidateSubmit,
         asyncTriggers,
-        onSubmit = noop,
-        owner = {}
-    }) {
+        onSubmit = noop
+    }, owner) {
         super();
 
         this._name = name;

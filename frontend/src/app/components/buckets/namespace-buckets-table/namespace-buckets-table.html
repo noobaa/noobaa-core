@@ -8,6 +8,12 @@
                 placeholder="Filter by bucket name"
                 ko.textInput="ko.pc(filter, onFilterThrottled)" />
         </div>
+        <button class="btn push-next"
+            ko.click="onConnectApplication"
+            ko.enable="bucketsLoaded"
+        >
+            Connect Application
+        </button>
         <div ko.tooltip="createButtonTooltip">
             <button class="btn"
                 ko.click="onCreate"

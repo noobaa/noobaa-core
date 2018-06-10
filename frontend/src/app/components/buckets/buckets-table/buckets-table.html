@@ -6,6 +6,12 @@
             ko.textInput="ko.pc(filter, onFilterThrottled)"
         />
     </div>
+    <button class="btn push-next"
+        ko.click="onConnectApplication"
+        ko.enable="bucketsLoaded"
+    >
+        Connect Application
+    </button>
     <div ko.tooltip="createBucketTooltip">
         <button class="btn align-end"
             ko.click="onCreateBucket"

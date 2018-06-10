@@ -12,6 +12,7 @@ import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     openCreateNamespaceBucketModal,
+    openConnectAppModal,
     requestLocation,
     deleteNamespaceBucket
 } from 'action-creators';
@@ -170,6 +171,10 @@ class NamespaceBucketsTableViewModel extends Observer {
 
     onCreate() {
         action$.next(openCreateNamespaceBucketModal());
+    }
+
+    onConnectApplication() {
+        action$.next(openConnectAppModal());
     }
 
     onDeleteBucket(bucket) {

@@ -1,19 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze } from 'utils/core-utils';
+import deleteBtnTooltipTemplate  from './delete-button-tooltip.html';
 import { stringifyAmount } from 'utils/string-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getHostsPoolStateIcon } from 'utils/resource-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
 import numeral from 'numeral';
-
-const undeletableReasons = deepFreeze({
-    SYSTEM_ENTITY: 'Cannot delete system defined default pool',
-    NOT_EMPTY: 'Cannot delete a pool which contains nodes',
-    IN_USE: 'Cannot delete a pool that is assigned to a bucket policy',
-    DEFAULT_RESOURCE: 'Cannot delete a pool that is used as a default resource by an account'
-});
 
 export default class PoolRowViewModel {
     constructor({ baseRoute, deleteGroup, onDelete }) {
@@ -52,18 +45,19 @@ export default class PoolRowViewModel {
         this.deleteButton = {
             subject: 'pool',
             disabled: ko.observable(),
-            tooltip: ko.observable(),
+            tooltip: {
+                template: deleteBtnTooltipTemplate,
+                text: ko.observable()
+            },
             id: ko.observable(),
             group: deleteGroup,
             onDelete: onDelete
         };
     }
 
-    onPool(pool) {
+    onPool(pool, lockingAccounts) {
         if (!pool) return;
         const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
-
-        // TODO: calc pool icon based on mode.
         this.state(getHostsPoolStateIcon(pool));
 
         const uri = realizeUri(this.baseRoute, { pool: name });
@@ -87,9 +81,11 @@ export default class PoolRowViewModel {
         this.usedByOthersCapacity(usedOther);
         this.reservedCapacity(reserved);
 
-        const deleteTooltip = undeletableReasons[undeletable] || null;
         this.deleteButton.id(name);
         this.deleteButton.disabled(Boolean(undeletable));
-        this.deleteButton.tooltip(deleteTooltip);
+        this.deleteButton.tooltip.text({
+            reason: undeletable,
+            accounts: lockingAccounts
+        });
     }
 }

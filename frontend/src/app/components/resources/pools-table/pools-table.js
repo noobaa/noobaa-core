@@ -6,7 +6,7 @@ import PoolRowViewModel from './pool-row';
 import { state$, action$ } from 'state';
 import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
-import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, groupBy } from 'utils/core-utils';
 import ko from 'knockout';
 import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
@@ -108,6 +108,7 @@ class PoolsTableViewModel extends Observer {
             state$.pipe(
                 getMany(
                     'hostPools',
+                    'accounts',
                     'location'
                 )
             ),
@@ -115,12 +116,18 @@ class PoolsTableViewModel extends Observer {
         );
     }
 
-    onPools([ pools, location ]) {
-        if (!pools) {
+    onPools([ pools, accounts, location ]) {
+        if (!pools || !accounts) {
             this.poolsLoaded(false);
             this.isCreatePoolDisabled(true);
             return;
         }
+
+        const accountsByUsingResource = groupBy(
+            Object.values(accounts),
+            account => account.defaultResource,
+            account => account.name
+        );
 
         const { system, tab } = location.params;
         if (tab && tab !== 'pools') return;
@@ -145,8 +152,9 @@ class PoolsTableViewModel extends Observer {
             .sort(compareOp)
             .slice(pageStart, pageStart + this.pageSize)
             .map((pool, i) => {
+                const usingAccounts = accountsByUsingResource[pool.name] || [];
                 const row = this.rows.get(i) || new PoolRowViewModel(rowParams);
-                row.onPool(pool);
+                row.onPool(pool, usingAccounts);
                 return row;
             });
 

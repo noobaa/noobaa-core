@@ -70,8 +70,10 @@ async function delete_vm(status) {
 async function main() {
     try {
         await azf.authenticate();
-        await delete_vm('VM running');
-        await delete_vm('VM stopped');
+        const status_list = ['VM running', 'VM stopped', 'VM Failure'];
+        for (const status of status_list) {
+            await delete_vm(status);
+        }
         process.exit(0);
     } catch (e) {
         console.error(e);

@@ -22,9 +22,7 @@ function _getApiRequestParams(payload) {
 
         case 'S3_V2_COMPATIBLE':
         case 'S3_V4_COMPATIBLE': {
-            const auth_method = service === 'S3_V2_COMPATIBLE' ?
-                'AWS_V2' :
-                'AWS_V4';
+            const auth_method = service === 'S3_V2_COMPATIBLE' ? 'AWS_V2' : 'AWS_V4';
 
             return {
                 name,

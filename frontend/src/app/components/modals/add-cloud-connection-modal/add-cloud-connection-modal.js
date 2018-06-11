@@ -434,7 +434,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
         } else {
             const alreadyExists = existingConnections
                 .some(connection =>
-                    (connection.service === 'S3_V2_COMPATIBLE' || connection.service === 'S3_V4_COMPATIBLE') &&
+                    (['S3_V2_COMPATIBLE', 'S3_V4_COMPATIBLE'].includes(connection.service)) &&
                     connection.endpoint === s3Endpoint &&
                     connection.identity === s3AccessKey
                 );

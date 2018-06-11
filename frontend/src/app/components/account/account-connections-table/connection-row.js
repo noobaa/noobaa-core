@@ -25,12 +25,7 @@ const columns = deepFreeze([
     {
         name: 'externalEntity',
         label: 'S3 Buckets Under Connection',
-        visibleFor: 'S3_V2_COMPATIBLE'
-    },
-    {
-        name: 'externalEntity',
-        label: 'S3 Buckets Under Connection',
-        visibleFor: 'S3_V4_COMPATIBLE'
+        visibleFor: ['S3_V2_COMPATIBLE', 'S3_V4_COMPATIBLE']
     },
     {
         name: 'externalEntity',
@@ -151,7 +146,7 @@ export default class ConnectionRowViewModel {
             return row;
         });
         const usageColumns = columns
-            .filter(col => !col.visibleFor || col.visibleFor === service);
+            .filter(col => !col.visibleFor || col.visibleFor.includes(service));
 
         this.usageColumns(usageColumns);
         this.rows(rows);

@@ -2,7 +2,7 @@ import ko from 'knockout';
 import UsageRowViewModel from './usage-row';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, ensureArray } from 'utils/core-utils';
 
 const emptyMessage = 'Connection is not used by any resource';
 
@@ -146,7 +146,7 @@ export default class ConnectionRowViewModel {
             return row;
         });
         const usageColumns = columns
-            .filter(col => !col.visibleFor || col.visibleFor.includes(service));
+            .filter(col => !col.visibleFor || ensureArray(col.visibleFor).includes(service));
 
         this.usageColumns(usageColumns);
         this.rows(rows);

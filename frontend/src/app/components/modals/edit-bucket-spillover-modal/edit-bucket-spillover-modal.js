@@ -12,10 +12,29 @@ import { getInternalResourceDisplayName } from 'utils/resource-utils';
 import { closeModal, updateBucketSpillover } from 'action-creators';
 
 function _getResourceTypeIcon(type, resource) {
-    return true &&
-        type === 'HOSTS' && 'nodes-pool' ||
-        type === 'CLOUD' && getCloudResourceTypeIcon(resource).name ||
-        type === 'INTERNAL' && 'internal-storage';
+    switch (type) {
+        case 'HOSTS': {
+            return {
+                icon: 'nodes-pool',
+                selectedIcon: 'nodes-pool'
+            };
+        }
+
+        case 'CLOUD': {
+            const { name } =getCloudResourceTypeIcon(resource);
+            return {
+                icon: `${name}-dark`,
+                selectedIcon: `${name}-colored`
+            };
+        }
+
+        case 'INTERNAL': {
+            return {
+                icon: 'internal-storage',
+                selectedIcon: 'internal-storage'
+            };
+        }
+    }
 }
 
 function _getResourceOptions(resources, usedResources, type) {
@@ -23,8 +42,7 @@ function _getResourceOptions(resources, usedResources, type) {
         .map(resource => {
             const disabled = usedResources.has(resource.name);
             const tooltip = disabled ? 'Resource is already used for bucket data placement' : '';
-            const icon = _getResourceTypeIcon(type, resource);
-            const selectedIcon = type === 'CLOUD' ? `${icon}-colored` : undefined;
+            const { icon, selectedIcon } = _getResourceTypeIcon(type, resource);
             const label = type === 'INTERNAL' ? getInternalResourceDisplayName(resource) : resource.name;
             const usage = type === 'CLOUD' ?
                 `${formatSize(resource.storage.total)} Available` :

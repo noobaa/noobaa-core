@@ -24,6 +24,7 @@
     position: fixed;
     z-index: 999;
     animation: fade-in 400ms;
+    max-width: 20em;
 
     .break-words > .tooltip-box > .tooltip-content {
         word-wrap: break-word;
@@ -39,7 +40,6 @@
         border: 1px solid @color7;
         border-radius: @gutter/4;
         text-align: left;
-        max-width: 20em;
         box-shadow: 1px 1px 1px 1px @bg-color;
 
         &::before, &::after {

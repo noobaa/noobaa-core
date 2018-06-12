@@ -538,10 +538,19 @@ class ServerDetailsFormViewModel extends BaseViewModel {
 
                 const { phoneHomeServer, phoneHomeProxy } = this.issues();
                 const issues = [ phoneHomeServer, phoneHomeProxy ].filter(isDefined);
-                return {
-                    text: issues.length > 0 ? issues : 'Reachable and working',
-                    align: 'start'
-                };
+
+                if (issues > 1) {
+                    return {
+                        align: 'start',
+                        template: 'list',
+                        text: issues
+                    };
+                } else {
+                    return {
+                        text: issues[0] || 'Reachable and working',
+                        align: 'start'
+                    };
+                }
             }
         );
 

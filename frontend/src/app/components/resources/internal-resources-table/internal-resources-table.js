@@ -58,11 +58,11 @@ class InternalResourcesTableViewModel extends Observer {
                     'location'
                 )
             ),
-            this.onResources
+            this.onState
         );
     }
 
-    onResources([ resources, buckets, location ]) {
+    onState([ resources, buckets, location ]) {
         if (location.params.tab !== 'internal') {
             return;
         }
@@ -85,7 +85,12 @@ class InternalResourcesTableViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((resource, i) => {
                 const row = this.rows.get(i) || new ResourceRowViewModel();
-                row.onResources(resource, bucketList.length, bucketsWithSpillover);
+                row.onState(
+                    resource,
+                    bucketList.length,
+                    bucketsWithSpillover,
+                    location.params.system
+                );
                 return row;
             });
 

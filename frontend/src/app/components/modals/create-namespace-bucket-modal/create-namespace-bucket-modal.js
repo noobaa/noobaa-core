@@ -6,7 +6,7 @@ import ResourceRowViewModel from './resource-row';
 import ko from 'knockout';
 import { deepFreeze, mapValues, throttle } from 'utils/core-utils';
 import { validateName } from 'utils/validation-utils';
-import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getNamespaceResourceTypeIcon } from 'utils/resource-utils';
 import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
@@ -128,9 +128,12 @@ class CreateNamespaceBucketModalViewModel extends Observer {
         const writePolicyOptions = resourceList
             .filter(resource => readPolicy.includes(resource.name))
             .map(resource => {
-                const { name: value, service } = resource;
-                const { icon, selectedIcon } = getCloudServiceMeta(service);
-                return { value, icon, selectedIcon };
+                const { name: icon } = getNamespaceResourceTypeIcon(resource);
+                return {
+                    value: resource.name,
+                    icon: `${icon}-dark`,
+                    selectedIcon: `${icon}-colored`
+                };
             });
 
         const resourceServiceMapping = mapValues(

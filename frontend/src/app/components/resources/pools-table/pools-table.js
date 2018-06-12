@@ -78,7 +78,7 @@ const columns = deepFreeze([
 
 const notEnoughHostsTooltip = deepFreeze({
     align: 'end',
-    text: 'Not enough nodes to create a new pool, please install at least 3 nodes'
+    text: 'Not enough nodes to create a new pool, please install at least one node'
 });
 
 class PoolsTableViewModel extends Observer {
@@ -112,11 +112,11 @@ class PoolsTableViewModel extends Observer {
                     'location'
                 )
             ),
-            this.onPools
+            this.onState
         );
     }
 
-    onPools([ pools, accounts, location ]) {
+    onState([ pools, accounts, location ]) {
         if (!pools || !accounts) {
             this.poolsLoaded(false);
             this.isCreatePoolDisabled(true);
@@ -158,7 +158,7 @@ class PoolsTableViewModel extends Observer {
             .map((pool, i) => {
                 const usingAccounts = accountsByUsingResource[pool.name] || [];
                 const row = this.rows.get(i) || new PoolRowViewModel(rowParams);
-                row.onPool(pool, usingAccounts);
+                row.onState(pool, usingAccounts, system);
                 return row;
             });
 

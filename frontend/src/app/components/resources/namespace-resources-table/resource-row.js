@@ -3,7 +3,9 @@
 import ko from 'knockout';
 import { stringifyAmount } from 'utils/string-utils';
 import { deepFreeze } from 'utils/core-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
+import * as routes from 'routes';
 
 const undeletableReasonToTooltip = deepFreeze({
     IN_USE: 'Cannot delete a resource which is used by a namespace bucket'
@@ -26,11 +28,19 @@ export default class ResourceRowViewModel {
         };
     }
 
-    onResource(resource, connectedBuckets) {
+    onState(resource, connectedBuckets, system) {
         const { name, target, undeletable } = resource;
         const conenctedBucketsInfo = {
             text: stringifyAmount('bucket', connectedBuckets.length),
-            tooltip: connectedBuckets
+            tooltip: {
+                template: 'linkList',
+                text: connectedBuckets.length > 0 ?
+                    connectedBuckets.map(bucket => ({
+                        text: bucket,
+                        href: realizeUri(routes.namespaceBucket, { system, bucket })
+                    })) :
+                    null
+            }
         };
         const deleteTooltip = undeletableReasonToTooltip[undeletable] || 'Delete Resource';
 

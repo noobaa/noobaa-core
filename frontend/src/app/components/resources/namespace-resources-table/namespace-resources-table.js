@@ -90,11 +90,11 @@ class NamespaceResourceTableViewModel extends Observer {
                     'location'
                 )
             ),
-            this.onResources
+            this.onState
         );
     }
 
-    onResources([ resources, buckets, location ]) {
+    onState([ resources, buckets, location ]) {
         if (!resources || !buckets || location.params.tab !== 'namespace') {
             this.resourcesLoaded(Boolean(resources));
             return;
@@ -126,7 +126,7 @@ class NamespaceResourceTableViewModel extends Observer {
             .map((resource, i) => {
                 const row = this.rows()[i] || new ResourceRowViewModel(this.rowParams);
                 const connectedBuckets = connectedBucketsMap[resource.name] || [];
-                row.onResource(resource, connectedBuckets);
+                row.onState(resource, connectedBuckets, location.params.system);
                 return row;
             });
 

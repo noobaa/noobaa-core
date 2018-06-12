@@ -25,7 +25,10 @@ const columns = deepFreeze([
     {
         name: 'externalEntity',
         label: 'S3 Buckets Under Connection',
-        visibleFor: ['S3_V2_COMPATIBLE', 'S3_V4_COMPATIBLE']
+        visibleFor: [
+            'S3_V2_COMPATIBLE',
+            'S3_V4_COMPATIBLE'
+        ]
     },
     {
         name: 'externalEntity',
@@ -124,12 +127,14 @@ export default class ConnectionRowViewModel {
             text: endpoint,
             tooltip: _getEndpointTooltip(service, endpoint)
         };
+        const externalTargets = usage.map(entity => entity.externalEntity);
         const externalTargetsInfo = {
             text: stringifyAmount(subject, usage.length, 'No'),
-            tooltip: hasExternalConnections ? {
-                text: usage.map(entity => entity.externalEntity),
+            tooltip: {
+                template: 'list',
+                text: externalTargets.length ? externalTargets : null,
                 breakWords: true
-            } : ''
+            }
         };
         const deleteToolTip = hasExternalConnections ?
             'Cannot delete currently used connection' :

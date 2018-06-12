@@ -12,6 +12,7 @@ import { deepFreeze, pick, isUndefined } from 'utils/core-utils';
 import { getFieldValue, getFieldError } from 'utils/form-utils';
 import { isUri, readFileAsText } from 'utils/browser-utils';
 import { all, sleep } from 'utils/promise-utils';
+import { cloudServices, getCloudServiceMeta } from 'utils/cloud-utils';
 import { getMany } from 'rx-extensions';
 import { addExternalConnection, updateForm, untouchForm, closeModal } from 'action-creators';
 import { api } from 'services';
@@ -19,52 +20,17 @@ import { state$, action$ } from 'state';
 
 const nameRegExp = /^Connection (\d+)$/;
 const defaultService = 'AWS';
-const gcEndpoint = 'www.googleapis.com';
+const gcEndpoint = getCloudServiceMeta('GOOGLE').defaultEndpoint;
 const gcValidateFailureMessage = 'Try to regenerate and upload a new file';
 
-const serviceOptions = deepFreeze([
-    {
-        value: 'AWS',
-        label: 'AWS S3',
-        icon: 'aws-s3-dark',
-        selectedIcon: 'aws-s3-colored',
-        remark: 'https://s3.amazonaws.com'
-    },
-    {
-        value: 'AZURE',
-        label: 'Microsoft Azure',
-        icon: 'azure-dark',
-        selectedIcon: 'azure-colored',
-        remark: 'https://blob.core.windows.net'
-    },
-    {
-        value: 'GOOGLE',
-        label: 'Google Cloud',
-        icon: 'google-cloud-dark',
-        selectedIcon: 'google-cloud-colored',
-        remark: gcEndpoint
-    },
-    {
-        value: 'S3_V2_COMPATIBLE',
-        label: 'Generic S3 V2 Compatible Service',
-        icon: 'cloud-v2-dark',
-        selectedIcon: 'cloud-v2-colored',
-        remark: 'No default endpoint'
-    },
-    {
-        value: 'S3_V4_COMPATIBLE',
-        label: 'Generic S3 V4 Compatible Service',
-        icon: 'cloud-v4-dark',
-        selectedIcon: 'cloud-v4-colored',
-        remark: 'No default endpoint'
-    },
-    {
-        value: 'NET_STORAGE',
-        label: 'Akamai NetStorage',
-        icon: 'net-storage',
-        remark: 'No default endpoint'
-    }
-]);
+const serviceOptions = cloudServices
+    .map(service => ({
+        value: service.value,
+        label: service.displayName,
+        icon: service.icon,
+        selectedIcon: service.selectedIcon,
+        remark: service.defaultEndpoint || 'No default endpoint'
+    }));
 
 const templates = deepFreeze({
     AWS: awsFieldsTemplate,

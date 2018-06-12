@@ -2,9 +2,10 @@
 
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze, flatMap } from 'utils/core-utils';
+import { deepFreeze, flatMap, groupBy } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { formatSize } from 'utils/size-utils';
+import * as routes from 'routes';
 import {
     getBucketStateIcon,
     getPlacementTypeDisplayName
@@ -26,21 +27,48 @@ const resourceGroupMetadata = deepFreeze({
     }
 });
 
-function _mapResourceGroups(placement) {
-    const resources = flatMap(placement.mirrorSets, ms => ms.resources);
+function _getResourceGroupTooltip(type, group, system) {
+    const { tooltipTitle } = resourceGroupMetadata[type];
+
+    if (group.length === 0) {
+        return `No ${tooltipTitle.toLowerCase()}`;
+
+    } else if (type === 'HOSTS') {
+        return {
+            template: 'linkListWithCaption',
+            text: {
+                title: tooltipTitle,
+                list: group.map(res => ({
+                    text: res.name,
+                    href: realizeUri(routes.pool, { system, pool: res.name })
+                }))
+            }
+        };
+
+    } else {
+        return {
+            template: 'listWithCaption',
+            text: {
+                title: tooltipTitle,
+                list: group.map(res => res.name)
+            }
+        };
+    }
+}
+
+function _mapResourceGroups(placement, system) {
+    const groups = groupBy(
+        flatMap(placement.mirrorSets, ms => ms.resources),
+        res => res.type
+    );
+
     return Object.keys(resourceGroupMetadata)
         .map(type => {
-            const { icon, tooltipTitle } = resourceGroupMetadata[type];
-            const group = resources.filter(res => res.type === type);
-            const hasResources = group.length > 0;
-            const tooltipText = hasResources ?
-                { title: tooltipTitle, list: group.map(res => res.name) } :
-                `No ${tooltipTitle.toLowerCase()}`;
-
+            const group = groups[type] || [];
             return {
-                icon: icon,
-                lighted: hasResources > 0,
-                tooltip: { text: tooltipText }
+                icon: resourceGroupMetadata[type].icon,
+                lighted: Boolean(group.length),
+                tooltip: _getResourceGroupTooltip(type, group, system)
             };
         });
 }
@@ -72,7 +100,7 @@ export default class BucketRowViewModel {
         };
     }
 
-    onBucket(bucket) {
+    onState(bucket, system) {
         const name = {
             text: bucket.name,
             href: realizeUri(this.baseRoute, { bucket: bucket.name }),
@@ -88,7 +116,7 @@ export default class BucketRowViewModel {
         this.name(name);
         this.objectCount(numeral(bucket.objectCount).format('0,0'));
         this.placementPolicy(getPlacementTypeDisplayName(bucket.placement.policyType));
-        this.resources(_mapResourceGroups(bucket.placement));
+        this.resources(_mapResourceGroups(bucket.placement, system));
         this.spilloverUsage(spillover);
         this.totalCapacity(bucket.storage.total);
         this.usedCapacity(bucket.storage.used);

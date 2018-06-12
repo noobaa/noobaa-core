@@ -1,0 +1,11 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: $data.length === 1 -->
+<p class="highlight" ko.text="$data"></p>
+<!-- /ko -->
+
+<!-- ko if: $data.length > 1 -->
+<ul class="bullet-list highlight" ko.foreach="$data">
+    <li ko.text="$data"></li>
+</ul>
+<!-- /ko -->

@@ -2,13 +2,8 @@
 
 import ko from 'knockout';
 import { domFromHtml } from 'utils/browser-utils';
-import {
-    isDefined,
-    isObject,
-    isString,
-    deepFreeze,
-    runAsync
-} from 'utils/core-utils';
+import * as templates from './tooltip-templates';
+import { deepFreeze, runAsync } from 'utils/core-utils';
 
 const hiddenTooltipData = {
     template: null,
@@ -62,23 +57,6 @@ const tooltipHtml = `
     </div>
 `;
 
-const templates = deepFreeze({
-    text: `
-        <span class="highlight" ko.text="$data"></span>
-    `,
-    list: `
-        <ul class="bullet-list highlight" ko.foreach="$data">
-            <li ko.text="$data"></ul>
-        </ul>
-    `,
-    listWithCaption: `
-        <p class="highlight" ko.text="$data.title"></p>
-        <ul class="bullet-list highlight" ko.foreach="$data.list">
-            <li ko.text="$data"></ul>
-        </ul>
-    `
-});
-
 const positions = deepFreeze([
     'above',
     'after',
@@ -92,67 +70,11 @@ const alignments = deepFreeze([
     'end'
 ]);
 
-function _getTemplate(template, data) {
-    if (template) {
-        return {
-            html: template,
-            data: data
-        };
-    }
+function _getTemplate(template = 'text', data) {
+    if (!data) return null;
 
-    if (!data) {
-        return null;
-    }
-
-    if (isString(data)) {
-        return {
-            html: templates.text,
-            data: data
-        };
-    }
-
-    if (Array.isArray(data)) {
-        const list = data.filter(isDefined);
-        if (list.length < 2) {
-            return {
-                html: templates.text,
-                data: list[0] || ''
-            };
-
-        } else {
-            return {
-                html: templates.list,
-                data: list
-            };
-        }
-    }
-
-    if (isObject(data)) {
-        let { title, list = [] } = data;
-        if (!Array.isArray(list)) list = [list];
-        list = list.filter(isDefined);
-
-        if (title) {
-            return {
-                html: templates.listWithCaption,
-                data: { title, list }
-            };
-
-        } else if (list.length < 2) {
-            return {
-                html: templates.text,
-                data: list[0] || ''
-            };
-
-        } else {
-            return {
-                html: template.list,
-                data: list
-            };
-        }
-    }
-
-    return ko.renderToString(templates.text, data.toString());
+    const html = templates[template] || template;
+    return { html, data };
 }
 
 function _toPx(val) {
@@ -294,6 +216,7 @@ export default {
         });
         ko.utils.registerEventHandler(element, 'mouseleave', () => {
             // Throttle the leave event to give the user some grace time.
+            clearTimeout(handle);
             handle = setTimeout(() => hover(false), delay);
         });
 

@@ -20,21 +20,16 @@ const usageTypeMapping = deepFreeze({
 });
 
 function _getNoobaaBuckets(buckets, route, system) {
-    if (buckets.length === 1) {
-        const [ bucket ] = buckets;
-        return {
-            text: bucket,
-            tooltip: bucket,
-            href: realizeUri(route, { system, bucket })
-        };
-
-    } else {
-        const bucketCount = buckets.length;
-        return {
-            text: stringifyAmount('Bucket', bucketCount),
-            tooltip: bucketCount ? buckets : null
-        };
-    }
+    return {
+        text: stringifyAmount('Bucket', buckets.length),
+        tooltip: buckets.length > 0 ? {
+            template: 'linkList',
+            text: buckets.map(bucket => ({
+                text: bucket,
+                href: realizeUri(route, { system, bucket })
+            }))
+        } : null
+    };
 }
 
 export default class UsageRowViewModel {

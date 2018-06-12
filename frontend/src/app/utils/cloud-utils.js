@@ -1,49 +1,60 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze } from './core-utils';
+import { deepFreeze, keyByProperty } from './core-utils';
 
-const serviceToMeta = deepFreeze({
-    AWS: {
-        displayName: 'AWS S3 service',
+export const cloudServices = deepFreeze([
+    {
+        value: 'AWS',
+        displayName: 'AWS S3',
         subject: 'Bucket',
         icon: 'aws-s3-dark',
-        selectedIcon: 'aws-s3-colored'
+        selectedIcon: 'aws-s3-colored',
+        defaultEndpoint: 'https://s3.amazonaws.com'
     },
-    AZURE: {
-        displayName: 'Azure Blob Service',
+    {
+        value: 'AZURE',
+        displayName: 'Azure Blob',
         subject: 'Container',
         icon: 'azure-dark',
-        selectedIcon: 'azure-colored'
+        selectedIcon: 'azure-colored',
+        defaultEndpoint: 'https://blob.core.windows.net'
     },
-    GOOGLE: {
-        displayName: 'Google Cloud Service',
+    {
+        value: 'GOOGLE',
+        displayName: 'Google Cloud',
         subject: 'Bucket',
         icon: 'google-cloud-dark',
-        selectedIcon: 'google-cloud-colored'
+        selectedIcon: 'google-cloud-colored',
+        defaultEndpoint: 'www.googleapis.com'
     },
-    S3_V2_COMPATIBLE: {
+    {
+        value: 'S3_V2_COMPATIBLE',
         displayName: 'S3 V2 Compatible service',
         subject: 'Bucket',
         icon: 'cloud-v2-dark',
         selectedIcon: 'cloud-v2-colored'
     },
-    S3_V4_COMPATIBLE: {
+    {
+        value: 'S3_V4_COMPATIBLE',
         displayName: 'S3 V4 Compatible service',
         subject: 'Bucket',
         icon: 'cloud-v4-dark',
         selectedIcon: 'cloud-v4-colored'
     },
-    NET_STORAGE: {
+    {
+        value: 'NET_STORAGE',
         displayName: 'NetStorage service',
         subject: 'Bucket',
         icon: 'net-storage'
     }
-});
+]);
 
 const usedCloudTargetTooltip = deepFreeze({
     CLOUD_RESOURCE: name => `Already used by ${name} cloud resource`,
     NAMESPACE_RESOURCE: name => `Already used by ${name} namespace resource `
 });
+
+const serviceToMeta  = keyByProperty(cloudServices, 'value');
 
 export function getCloudServiceMeta(service) {
     return serviceToMeta[service];

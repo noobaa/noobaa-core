@@ -671,6 +671,6 @@ export function getActivityListTooltip(activityList) {
 
     return {
         template: dataActivityTooltipTemplate,
-        text: data
+        text: data.length ? data : null
     };
 }

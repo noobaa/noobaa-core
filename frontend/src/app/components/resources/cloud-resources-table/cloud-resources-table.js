@@ -166,7 +166,7 @@ class CloudResourcesTableViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((resource, i) => {
                 const row = this.rows.get(i) || new CloudResourceRowViewModel(rowParams);
-                row.onState(resource);
+                row.onState(resource, params.system);
                 return row;
             });
 

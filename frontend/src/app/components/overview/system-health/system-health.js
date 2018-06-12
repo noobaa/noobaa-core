@@ -65,6 +65,7 @@ function _getAlertsIcon(unreadCounters) {
 function _getAlertsTooltip(unreadCounters) {
     const { crit, major, info } = unreadCounters;
     return {
+        template: 'listWithCaption',
         text: {
             title: 'Uread alerts',
             list: [

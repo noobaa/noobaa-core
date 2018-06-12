@@ -123,12 +123,6 @@ class PoolsTableViewModel extends Observer {
             return;
         }
 
-        const accountsByUsingResource = groupBy(
-            Object.values(accounts),
-            account => account.defaultResource,
-            account => account.name
-        );
-
         const { system, tab } = location.params;
         if (tab && tab !== 'pools') return;
 
@@ -147,6 +141,16 @@ class PoolsTableViewModel extends Observer {
 
         const filteredRows = poolList
             .filter(pool => !filter || pool.name.includes(filter.toLowerCase()));
+
+        const accountsByUsingResource = groupBy(
+            Object.values(accounts),
+            account => account.defaultResource,
+            account => {
+                const name = account.name;
+                const href = realizeUri(routes.account, { system, account: name });
+                return { name, href };
+            }
+        );
 
         const rows = filteredRows
             .sort(compareOp)

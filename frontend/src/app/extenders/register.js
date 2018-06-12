@@ -1,9 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 
+import tween from './tween';
+import formatSize from './format-size';
+import formatNumber from './format-number';
+import formatTime from './format-time';
+import isModified from './is-modified';
+import compareUsing from './compare-using';
+
 export default function register(ko) {
-    ko.extenders.tween = require('./tween').default;
-    ko.extenders.formatSize = require('./format-size').default;
-    ko.extenders.formatNumber = require('./format-number').default;
-    ko.extenders.formatTime = require('./format-time').default;
-    ko.extenders.isModified = require('./is-modified').default;
+    Object.assign(ko.extenders, {
+        tween,
+        formatSize,
+        formatNumber,
+        formatTime,
+        isModified,
+        compareUsing
+    });
 }

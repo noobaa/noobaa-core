@@ -20,44 +20,48 @@
     @arrow-size: 14px;
     @arrow-offset: 10px;
 
+    background: transparent;
     position: fixed;
     z-index: 999;
-    padding: @gutter/2;
-    margin: 0;
-    font-size: @font-size1;
-    background-color: @bg-color;
-    border: 1px solid @color7;
-    border-radius: @gutter/4;
-    pointer-events: none;
-    text-align: left;
     animation: fade-in 400ms;
-    max-width: 20em;
-    box-shadow: 1px 1px 1px 1px @bg-color;
 
-    > .tooltip-content   {
-        overflow: hidden;
-    }
-
-    .break-words > .tooltip-content {
+    .break-words > .tooltip-box > .tooltip-content {
         word-wrap: break-word;
         word-break: break-all;
     }
 
-    &::before, &::after {
-        content: '';
-        position: absolute;
-        border: @arrow-size/2 solid transparent;
+     > .tooltip-box {
+        position: relative;
+        padding: @gutter/2;
+        margin: 0;
+        font-size: @font-size1;
+        background-color: @bg-color;
+        border: 1px solid @color7;
+        border-radius: @gutter/4;
+        text-align: left;
+        max-width: 20em;
+        box-shadow: 1px 1px 1px 1px @bg-color;
+
+        &::before, &::after {
+            content: '';
+            position: absolute;
+            border: @arrow-size/2 solid transparent;
+        }
+
+        > .tooltip-content {
+            overflow: hidden;
+        }
     }
 
     &.above {
-        margin-top: -@arrow-size;
+        padding-bottom: @arrow-size * 2/3;
 
-        &::before {
+        > .tooltip-box::before {
             bottom: -(@arrow-size + 1px);
             border-top-color: @color7;
         }
 
-        &::after {
+        > .tooltip-box::after {
             bottom: -@arrow-size;
             border-top-color: @bg-color;
         }
@@ -92,14 +96,14 @@
     }
 
     &.below {
-        margin-top: @arrow-size;
+        padding-top: @arrow-size * 2/3;
 
-        &::before {
+        > .tooltip-box::before {
             top: -(@arrow-size + 1px);
             border-bottom-color: @color7;
         }
 
-        &::after {
+        > .tooltip-box::after {
             top: -@arrow-size;
             border-bottom-color: @bg-color;
         }
@@ -134,14 +138,14 @@
     }
 
     &.before {
-        margin-left: -@arrow-size;
+        padding-right: @arrow-size * 2/3;
 
-        &::before {
+        > .tooltip-box::before {
             right: -(@arrow-size + 1px);
             border-left-color: @color7;
         }
 
-        &::after {
+        > .tooltip-box::after {
             right: -@arrow-size;
             border-left-color: @bg-color;
         }
@@ -160,14 +164,14 @@
     }
 
     &.after {
-        margin-left: @arrow-size;
+        padding-left: @arrow-size * 2/3;
 
-        &::before {
+        > .tooltip-box::before {
             left: -(@arrow-size + 1px);
             border-right-color: @color7;
         }
 
-        &::after {
+        > .tooltip-box::after {
             left: -@arrow-size;
             border-right-color: @bg-color;
         }
@@ -197,15 +201,19 @@
                 margin-right: @offset;
             }
 
-            &::before, &::after {
-                left: @arrow-offset;
+            > .tooltip-box {
+                &::before, &::after {
+                    left: @arrow-offset;
+                }
             }
         }
 
         &.center {
-            &::before, &::after {
-                left: 50%;
-                margin-left: -@arrow-size/2;
+            > .tooltip-box {
+                &::before, &::after {
+                    left: 50%;
+                    margin-left: -@arrow-size/2;
+                }
             }
         }
 
@@ -218,8 +226,10 @@
                 margin-right: -@offset;
             }
 
-            &::before, &::after {
-                right: @arrow-offset;
+            > .tooltip-box {
+                &::before, &::after {
+                    right: @arrow-offset;
+                }
             }
         }
     }
@@ -230,12 +240,14 @@
         &.start {
             margin-top: -(@arrow-offset + (@arrow-size / 2));
 
-            &::before, &::after {
-                top: @arrow-offset;
+            > .tooltip-box {
+                &::before, &::after {
+                    top: @arrow-offset;
+                }
             }
         }
 
-        &.center {
+        &.center > .tooltip-box {
             &::before, &::after {
                 top: 50%;
                 margin-top: -@arrow-size/2;
@@ -245,8 +257,10 @@
         &.end {
             margin-top: @arrow-offset + (@arrow-size / 2);
 
-            &::before, &::after {
-                bottom: @arrow-offset;
+             > .tooltip-box {
+                &::before, &::after {
+                    bottom: @arrow-offset;
+                }
             }
         }
     }

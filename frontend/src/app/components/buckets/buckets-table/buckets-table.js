@@ -146,7 +146,7 @@ class BucketsTableViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((bucket, i) => {
                 const row = this.rows.get(i) || new BucketRowViewModel(rowParams);
-                row.onBucket(bucket);
+                row.onState(bucket, system);
                 return row;
             });
 

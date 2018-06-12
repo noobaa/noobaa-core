@@ -12,11 +12,15 @@ import {
 } from 'action-creators';
 
 const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
-const boxCount = 3;
+const boxCount = 4;
 
 function _prepareListTemplateData(items) {
+    const hasExtra = items.length > boxCount;
+    const extraText =  `${items.length - (boxCount - 1)} more`;
+    const extraItems = items.slice(boxCount - 1);
+
     const visibleItems = items
-        .slice(0, boxCount)
+        .slice(0, hasExtra ? boxCount - 1 : items.length)
         .map(item => ({
             text: item,
             tooltip: {
@@ -24,10 +28,10 @@ function _prepareListTemplateData(items) {
                 breakWords: true
             }
         }));
-    const hasExtra = items.length > boxCount;
-    const extraText =  `${items.length - boxCount} more`;
+
     const extraTooltip = {
-        text: items.slice(boxCount),
+        text: extraItems,
+        template: extraItems.length > 1  ? 'list' : 'text',
         align: 'end',
         breakWords: true
     };

@@ -1,5 +1,9 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import numeral from 'numeral';
+import * as routes from 'routes';
+import { realizeUri } from 'utils/browser-utils';
 import {
     getInternalResourceStateIcon,
     getInternalResourceDisplayName
@@ -17,7 +21,7 @@ export default class ResourceRowViewModel {
         };
     }
 
-    onResources(resource, bucketCount, connectedBuckets) {
+    onState(resource, bucketCount, connectedBuckets, system) {
         const { storage } = resource;
         const connectedBucketsText = `${
             numeral(connectedBuckets.length).format('0,0')
@@ -27,7 +31,13 @@ export default class ResourceRowViewModel {
 
         const connectedBucketsValue = {
             text: connectedBucketsText,
-            tooltip: connectedBuckets
+            tooltip: connectedBuckets.length > 0 ? {
+                template: 'linkList',
+                text: connectedBuckets.map(bucket => ({
+                    text: bucket,
+                    href: realizeUri(routes.bucket, { system, bucket })
+                }))
+            } : null
         };
 
         this.state(getInternalResourceStateIcon(resource));

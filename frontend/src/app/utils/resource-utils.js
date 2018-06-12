@@ -209,6 +209,11 @@ export function getCloudResourceStateIcon(resource) {
     return isFunction(state) ? state(resource) : state;
 }
 
+export function getCloudResourceTypeIcon(resource) {
+    const { type } = resource;
+    return cloudAndNamespaceResourceTypeToIcon[type];
+}
+
 export function getInternalResourceStateIcon(resource) {
     const { mode } = resource;
     const state = internalResourceModeToStateIcon[mode];
@@ -228,11 +233,6 @@ export function getNamespaceResourceStateIcon(resource) {
 export function getNamespaceResourceTypeIcon(resource) {
     const { service } = resource;
     return cloudAndNamespaceResourceTypeToIcon[service];
-}
-
-export function getCloudResourceTypeIcon(resource) {
-    const { type } = resource;
-    return cloudAndNamespaceResourceTypeToIcon[type];
 }
 
 export function getResourceStateIcon(resourceType, resource) {

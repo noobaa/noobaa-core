@@ -30,7 +30,10 @@ export default class BucketRowViewModel {
         const { readFrom, writeTo } = bucket.placement;
         const readPolicy = {
             text: stringifyAmount('namespace resource', readFrom.length, 'No'),
-            tooltip: readFrom
+            tooltip: {
+                template: 'list',
+                text: readFrom
+            }
         };
 
         this.name(name);

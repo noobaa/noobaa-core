@@ -1,0 +1,19 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: $data.length === 1 -->
+<a class="link"
+    ko.attr.href="$data[0].href"
+    ko.text="$data[0].text"
+></a>
+<!-- /ko -->
+
+<!-- ko if: $data.length > 1 -->
+<ul class="bullet-list" ko.foreach="$data">
+    <li>
+        <a class="link"
+            ko.attr.href="href"
+            ko.text="text"
+        ></a>
+    </li>
+</ul>
+<!-- /ko -->

@@ -22,7 +22,8 @@ const columns = deepFreeze([
         type: 'newLink'
     },
     {
-        name: 'bucket'
+        name: 'bucket',
+        type: 'newLink'
     },
     {
         name: 'start'
@@ -54,7 +55,7 @@ class HostPartsTableViewModel extends Observer {
         );
         this.observe(
             state$.pipe(get('hostParts')),
-            this.onParts
+            this.onState
         );
     }
 
@@ -74,7 +75,7 @@ class HostPartsTableViewModel extends Observer {
         ));
     }
 
-    onParts({ fetching, partCount, parts }) {
+    onState({ fetching, partCount, parts }) {
         if (!parts) {
             this.fetching(fetching);
             this.rows([]);
@@ -83,7 +84,7 @@ class HostPartsTableViewModel extends Observer {
 
         const rows = parts.map((part, i) => {
             const row = this.rows()[i] || new PartRowViewModel();
-            row.onPart(part, this.system);
+            row.onState(part, this.system);
             return row;
         });
 

@@ -120,10 +120,14 @@ function _getResourceSummary(resources) {
         return { text: resources[0].name };
     }
 
-    const text = resources.map(resource => resource.name);
+    const resourceNames = resources.map(resource => resource.name);
+    const tooltip = resourceNames.length > 1 ?
+        { template: 'list', text: resourceNames } :
+        resourceNames[0];
+
     return {
         text: stringifyAmount('resource', resources.length),
-        tooltip: { text }
+        tooltip: tooltip
     };
 }
 

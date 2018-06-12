@@ -67,9 +67,10 @@ class CapacityBarViewModel {
                     return;
                 }
 
-                return usedNaked.map(
-                    ({ label, value }) => `${label}: ${formatSize(value)}`
-                );
+                return {
+                    template: 'list',
+                    text: usedNaked.map(({ label, value }) => `${label}: ${formatSize(value)}`)
+                };
             }
         );
     }

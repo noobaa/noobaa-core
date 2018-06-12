@@ -30,6 +30,10 @@ class ManagedFormViewModel extends Observer {
     }, owner) {
         super();
 
+        if (!name) {
+            throw new Error('Cannot create a form without a name');
+        }
+
         this._name = name;
         this._submitHandler = onSubmit && onSubmit.bind(owner);
         this._warnHandler = onWarn && onWarn.bind(owner);

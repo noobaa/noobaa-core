@@ -1,9 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<button class="icon-btn no-outline" tabindex="-1" data-bind="
-    tooltip: tooltip,
-    event: { click: copy, mouseleave: leave },
-    disable: disabled
+<button class="icon-btn no-outline"
+    tabindex="-1"
+    ko.tooltip="tooltip"
+    ko.event.mouseenter="onEnter"
+    ko.click="onClick"
 ">
     <svg-icon class="icon-small" params="name: 'copy-to-clipboard'"></svg-icon>
 </button>

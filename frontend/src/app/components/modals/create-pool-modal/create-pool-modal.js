@@ -159,7 +159,7 @@ function _fetchHosts(formName, queryFields) {
 }
 
 class CreatePoolModalViewModel extends Observer {
-    formName = this.constructor.formName;
+    formName = this.constructor.name;
     steps = steps.map(step => step.label);
     nameRestrictionList = ko.observableArray();
     columns = columns;

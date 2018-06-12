@@ -29,11 +29,11 @@ function _getTooltipByUsage(subject, used, usedByNoobaa, usedByOther) {
     const usageLevel = used > errorLevel ?
         'Very High' :
         (used > warningLevel) ? 'High' : '';
-    const title = `${usageLevel} ${subject} Pressure`.trim();
 
     return {
+        template: 'listWithCaption',
         text: {
-            title,
+            title: `${usageLevel} ${subject} Pressure`.trim(),
             list: [
                 `NooBaa utilization: ${numeral(usedByNoobaa).format('%')}`,
                 `Server local utilization: ${numeral(usedByOther).format('%')}`

@@ -32,13 +32,22 @@ export default class PartRowViewModel {
         this.size = ko.observable();
     }
 
-    onPart(part, system) {
+    onState(part, system) {
         const { mode, object, bucket, start, end } = part;
-        const objectHref = realizeUri(routes.object, { system, bucket, object });
+        const objectCell = {
+            text: object,
+            href: realizeUri(routes.object, { system, bucket, object }),
+            tooltip: object
+        };
+        const bucketCell = {
+            text: bucket,
+            href: realizeUri(routes.bucket, { system, bucket }),
+            tooltip: bucket
+        };
 
         this.state(modeToIcon[mode]);
-        this.object({ text: object, tooltip: object, href: objectHref });
-        this.bucket({ text: bucket, tooltip: bucket });
+        this.object(objectCell);
+        this.bucket(bucketCell);
         this.start(numeral(start).format('0.0 b'));
         this.end(numeral(end).format('0.0 b'));
         this.size(numeral(end - start).format('0.0 b'));

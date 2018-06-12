@@ -5,6 +5,7 @@ import { stringifyAmount } from 'utils/string-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getHostsPoolStateIcon } from 'utils/resource-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
+import * as routes from 'routes';
 import ko from 'knockout';
 import numeral from 'numeral';
 
@@ -55,7 +56,7 @@ export default class PoolRowViewModel {
         };
     }
 
-    onPool(pool, lockingAccounts) {
+    onState(pool, lockingAccounts, system) {
         if (!pool) return;
         const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
         this.state(getHostsPoolStateIcon(pool));
@@ -66,7 +67,13 @@ export default class PoolRowViewModel {
         const bucketCount = connectedBuckets.length;
         this.buckets({
             text: stringifyAmount('bucket',  bucketCount),
-            tooltip: bucketCount ? connectedBuckets : null
+            tooltip: bucketCount > 0 ? {
+                template: 'linkList',
+                text: connectedBuckets.map(bucket => ({
+                    text: bucket,
+                    href: realizeUri(routes.bucket, { system, bucket })
+                }))
+            } : null
         });
 
         const { all, healthy, hasIssues, offline } = summrizeHostModeCounters(hostsByMode);

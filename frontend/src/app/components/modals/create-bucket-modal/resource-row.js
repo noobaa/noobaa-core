@@ -67,7 +67,7 @@ export default class ResourceRowViewModel {
         this._id = { type: 'HOSTS', name };
         this._selected(isSelected);
         this.state(state);
-        this.type('nodes-pool');
+        this.type({ name: 'nodes-pool', tooltip: 'Nodes Pool' });
         this.name({ text: name, tooltip: name });
         this.healthyHosts(_formatCounts(healthyHosts, hostCount));
         this.healthyNodes(_formatCounts(healthyNodes, storageNodeCount));

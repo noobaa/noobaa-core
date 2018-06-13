@@ -163,12 +163,14 @@ const S3_CEPH_TEST_WHITELIST = [
     's3tests.functional.test_s3:test_object_copy_bucket_not_found',
     's3tests.functional.test_s3:test_object_copy_key_not_found',
     's3tests.functional.test_s3:test_multipart_upload_small',
-    //'s3tests.functional.test_s3:test_multipart_upload',
-    //'s3tests.functional.test_s3:test_multipart_upload_multiple_sizes',
-    //'s3tests.functional.test_s3:test_multipart_upload_contents',
-    //'s3tests.functional.test_s3:test_multipart_upload_overwrite_existing_object',
+    's3tests.functional.test_s3:test_multipart_upload',
+    's3tests.functional.test_s3:test_multipart_upload_multiple_sizes',
+    's3tests.functional.test_s3:test_multipart_upload_contents',
+    's3tests.functional.test_s3:test_multipart_upload_overwrite_existing_object',
+    's3tests.functional.test_s3:test_multipart_upload_incorrect_etag',
+    's3tests.functional.test_s3:test_multipart_upload_missing_part',
     's3tests.functional.test_s3:test_abort_multipart_upload',
-    //'s3tests.functional.test_s3:test_multipart_resend_first_finishes_last',
+    's3tests.functional.test_s3:test_multipart_resend_first_finishes_last',
     's3tests.functional.test_s3:test_ranged_request_response_code',
     's3tests.functional.test_s3:test_ranged_request_skip_leading_bytes_response_code',
     's3tests.functional.test_s3:test_ranged_request_return_trailing_bytes_response_code',
@@ -213,13 +215,7 @@ const SYSTEM_CEPH_TEST_WHITELIST = [
     // 's3tests.tests.test_realistic:TestFiles:test_random_file_valid'
 ];
 
-const IGNORE_S3_CEPH_TEST_LIST = [
-    's3tests.functional.test_s3:test_multipart_upload',
-    's3tests.functional.test_s3:test_multipart_upload_multiple_sizes',
-    's3tests.functional.test_s3:test_multipart_upload_contents',
-    's3tests.functional.test_s3:test_multipart_upload_overwrite_existing_object',
-    's3tests.functional.test_s3:test_multipart_resend_first_finishes_last'
-];
+const IGNORE_S3_CEPH_TEST_LIST = [];
 
 
 module.exports = {

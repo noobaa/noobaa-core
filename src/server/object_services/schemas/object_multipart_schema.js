@@ -52,5 +52,9 @@ module.exports = {
             type: 'string'
         },
 
+        create_time: {
+            date: true
+        },
+
     }
 };

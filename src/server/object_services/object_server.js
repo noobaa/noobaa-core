@@ -100,7 +100,7 @@ function complete_object_upload(req) {
             if (req.rpc_params.size !== obj.size) {
                 if (obj.size >= 0) {
                     throw new RpcError('BAD_SIZE',
-                        `size on complete object (${
+                        `size on find object (${
                             req.rpc_params.size
                         }) differs from create object (${
                             obj.size
@@ -127,8 +127,10 @@ function complete_object_upload(req) {
                 }
                 set_updates.sha256_b64 = req.rpc_params.sha256_b64;
             }
+            return req.rpc_params.multiparts ?
+                map_writer.complete_object_multiparts(obj, req.rpc_params.multiparts) :
+                map_writer.complete_object_parts(obj);
         })
-        .then(() => map_writer.complete_object_parts(obj, req.rpc_params.multiparts))
         .then(res => {
             if (req.rpc_params.size !== res.size) {
                 if (req.rpc_params.size >= 0) {
@@ -136,7 +138,7 @@ function complete_object_upload(req) {
                         `size on complete object (${
                             req.rpc_params.size
                         }) differs from parts (${
-                            obj.size
+                            res.size
                         })`);
                 }
             }
@@ -345,15 +347,12 @@ function complete_multipart(req) {
                 set_updates.sha256_b64 = req.rpc_params.sha256_b64;
             }
             set_updates.num_parts = req.rpc_params.num_parts;
-        })
-        .then(() => {
-            const event_name = 'ObjectCreated:CompleteMultipartUpload';
-            return dispatch_triggers(req.bucket, obj, event_name, req.account._id, req.auth_token);
+            set_updates.create_time = new Date();
         })
         .then(() => MDStore.instance().update_multipart_by_id(multipart_id, set_updates))
         .then(() => ({
             etag: Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex'),
-            create_time: multipart_id.getTimestamp().getTime(),
+            create_time: set_updates.create_time.getTime(),
         }));
 }
 
@@ -380,7 +379,7 @@ function list_multiparts(req) {
                     num: multipart.num,
                     size: multipart.size,
                     etag: Buffer.from(multipart.md5_b64, 'base64').toString('hex'),
-                    last_modified: multipart._id.getTimestamp().getTime(),
+                    last_modified: multipart.create_time.getTime(),
                 });
             }
             if (reply.multiparts.length > 0 && reply.multiparts.length >= limit) {

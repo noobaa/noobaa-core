@@ -505,19 +505,14 @@ class MDStore {
     find_multiparts_of_object(obj_id, num_gt, limit) {
         return this._multiparts.col().find({
                 obj: obj_id,
-                num: {
-                    $gt: num_gt
-                },
-                size: {
-                    $exists: true
-                },
-                md5_b64: {
-                    $exists: true
-                },
+                num: { $gt: num_gt },
+                size: { $exists: true },
+                md5_b64: { $exists: true },
+                create_time: { $exists: true },
             }, {
                 sort: {
                     num: 1,
-                    _id: -1, // last created first
+                    create_time: -1, // last-completed first
                 },
                 limit: limit,
             })
@@ -529,6 +524,21 @@ class MDStore {
         return this._multiparts.col().updateMany({
             obj: obj._id,
             deleted: null
+        }, {
+            $set: {
+                deleted: delete_date
+            },
+            $rename: {
+                // obj: 'obj_del',
+                num: 'num_del',
+            }
+        });
+    }
+
+    delete_multiparts(multiparts) {
+        const delete_date = new Date();
+        return this._multiparts.col().updateMany({
+            _id: { $in: mongo_utils.uniq_ids(multiparts, '_id') },
         }, {
             $set: {
                 deleted: delete_date
@@ -705,6 +715,22 @@ class MDStore {
         return this._parts.col().updateMany({
             obj: obj._id,
             deleted: null
+        }, {
+            $set: {
+                deleted: delete_date
+            },
+            $rename: {
+                // obj: 'obj_del',
+                start: 'start_del',
+                // chunk: 'chunk_del',
+            }
+        });
+    }
+
+    delete_parts(parts) {
+        const delete_date = new Date();
+        return this._parts.col().updateMany({
+            _id: { $in: mongo_utils.uniq_ids(parts, '_id') },
         }, {
             $set: {
                 deleted: delete_date

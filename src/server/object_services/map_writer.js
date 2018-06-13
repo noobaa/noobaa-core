@@ -16,6 +16,8 @@ const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
+const map_deleter = require('./map_deleter');
+const { RpcError } = require('../../rpc');
 
 // dbg.set_level(5);
 
@@ -265,65 +267,121 @@ function finalize_object_parts(bucket, obj, parts) {
         });
 }
 
+function process_next_parts(parts, context) {
+    parts.sort((a, b) => a.seq - b.seq);
+    for (const part of parts) {
+        const len = part.end - part.start;
+        if (part.seq !== context.seq) {
+            dbg.log0('complete_object_parts: update part at seq', context.seq,
+                'pos', context.pos, 'len', len,
+                'part', util.inspect(part, { colors: true, depth: null, breakLength: Infinity }));
+            context.parts_updates.push({
+                _id: part._id,
+                set_updates: {
+                    seq: context.seq,
+                    start: context.pos,
+                    end: context.pos + len,
+                }
+            });
+        }
+        context.pos += len;
+        context.seq += 1;
+        context.num_parts += 1;
+    }
+}
 
 /**
  *
  * complete_object_parts
  *
  */
-function complete_object_parts(obj, multiparts_req) {
-    // TODO consider multiparts_req
-    let pos = 0;
-    let seq = 0;
-    let num_parts = 0;
-    let multipart_etag = '';
-    const parts_updates = [];
+async function complete_object_parts(obj) {
+    const context = {
+        pos: 0,
+        seq: 0,
+        num_parts: 0,
+        parts_updates: [],
+    };
 
-    function process_next_parts(parts) {
-        parts.sort((a, b) => a.seq - b.seq);
-        for (const part of parts) {
-            const len = part.end - part.start;
-            if (part.seq !== seq) {
-                dbg.log0('complete_object_parts: update part at seq', seq,
-                    'pos', pos, 'len', len,
-                    'part', util.inspect(part, { colors: true, depth: null, breakLength: Infinity }));
-                parts_updates.push({
-                    _id: part._id,
-                    set_updates: {
-                        seq: seq,
-                        start: pos,
-                        end: pos + len,
-                    }
-                });
-            }
-            pos += len;
-            seq += 1;
-            num_parts += 1;
-        }
+    const parts = await MDStore.instance().find_parts_of_object(obj);
+    process_next_parts(parts, context);
+
+    // we do not expect any start/end/seq updates for non multipart uploads
+    if (context.parts_updates.length) {
+        dbg.error('complete_object_parts: unexpected parts update', context);
+        throw new Error('complete_object_parts: unexpected parts update');
+        // await  MDStore.instance().update_parts_in_bulk(context.parts_updates),
     }
 
-    return P.join(
-            MDStore.instance().find_parts_of_object(obj),
-            multiparts_req && MDStore.instance().find_multiparts_of_object(obj._id, 0, 10000)
-        )
-        .spread((parts, multiparts) => {
-            if (!multiparts) return process_next_parts(parts);
-            const parts_by_mp = _.groupBy(parts, 'multipart');
-            const md5 = crypto.createHash('md5');
-            for (const multipart of multiparts) {
-                md5.update(multipart.md5_b64, 'base64');
-                const mp_parts = parts_by_mp[multipart._id];
-                process_next_parts(mp_parts);
-            }
-            multipart_etag = md5.digest('hex') + '-' + multiparts.length;
-        })
-        .then(() => MDStore.instance().update_parts_in_bulk(parts_updates))
-        .then(() => ({
-            size: pos,
-            num_parts,
-            multipart_etag,
-        }));
+    return {
+        size: context.pos,
+        num_parts: context.num_parts,
+    };
 }
+
+/**
+ *
+ * complete_object_parts
+ *
+ */
+async function complete_object_multiparts(obj, multipart_req) {
+    const context = {
+        pos: 0,
+        seq: 0,
+        num_parts: 0,
+        parts_updates: [],
+    };
+    const parts_to_delete = [];
+    const multiparts_to_delete = [];
+
+    const [multiparts, parts] = await P.join(
+        MDStore.instance().find_multiparts_of_object(obj._id, 0, 10000),
+        MDStore.instance().find_parts_of_object(obj)
+    );
+
+    let next_part_num = 1;
+    const md5 = crypto.createHash('md5');
+    const parts_by_mp = _.groupBy(parts, 'multipart');
+    const multiparts_by_num = _.groupBy(multiparts, 'num');
+
+    _.forEach(multipart_req, part => {
+        const etag_md5_b64 = Buffer.from(part.etag, 'hex').toString('base64');
+        const mp_group = multiparts_by_num[part.num];
+        const mp_index = _.findIndex(mp_group, mp => mp.md5_b64 === etag_md5_b64);
+        if (mp_index < 0) throw new RpcError('INVALID_PART');
+        if (part.num !== next_part_num) throw new RpcError('INVALID_PART_ORDER');
+        next_part_num += 1;
+        const mp_selected = mp_group[mp_index];
+        md5.update(mp_selected.md5_b64, 'base64');
+        const mp_parts = parts_by_mp[mp_selected._id];
+        process_next_parts(mp_parts, context);
+
+        if (mp_group.length > 1) {
+            for (let i = 0; i < mp_group.length; ++i) {
+                if (i !== mp_index) {
+                    multiparts_to_delete.push(mp_group[i]);
+                    parts_to_delete.push(...parts_by_mp[mp_group[i]._id]);
+                }
+            }
+        }
+    });
+    const multipart_etag = md5.digest('hex') + '-' + (next_part_num - 1);
+
+    await P.join(
+        context.parts_updates.length && MDStore.instance().update_parts_in_bulk(context.parts_updates),
+        parts_to_delete.length && MDStore.instance().delete_parts(parts_to_delete),
+        multiparts_to_delete.length && MDStore.instance().delete_multiparts(multiparts_to_delete),
+        parts_to_delete.length && map_deleter.delete_chunks_if_unreferenced(parts_to_delete.map(part => part.chunk)),
+    );
+
+    return {
+        size: context.pos,
+        num_parts: context.num_parts,
+        multipart_etag,
+    };
+}
+
+
 
 
 // EXPORTS
@@ -331,3 +389,4 @@ exports.select_tier_for_write = select_tier_for_write;
 exports.allocate_object_parts = allocate_object_parts;
 exports.finalize_object_parts = finalize_object_parts;
 exports.complete_object_parts = complete_object_parts;
+exports.complete_object_multiparts = complete_object_multiparts;

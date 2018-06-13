@@ -1,8 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const url = require('url');
+
 const _ = require('lodash');
 const time_utils = require('../../util/time_utils');
+const endpoint_utils = require('../endpoint_utils');
 
 function set_response_object_md(res, object_md) {
     res.setHeader('ETag', '"' + object_md.etag + '"');
@@ -42,7 +45,18 @@ function parse_etag(etag) {
     return etag;
 }
 
+function parse_copy_source(req) {
+    const copy_source = req.headers['x-ms-copy-source'];
+    if (!copy_source) return;
+
+    const source_url = url.parse(copy_source).path;
+
+    return _.pick(endpoint_utils.parse_source_url(source_url), 'bucket', 'key');
+}
+
+
 exports.set_response_object_md = set_response_object_md;
 exports.get_request_xattr = get_request_xattr;
 exports.set_response_xattr = set_response_xattr;
 exports.parse_etag = parse_etag;
+exports.parse_copy_source = parse_copy_source;

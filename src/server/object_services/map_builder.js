@@ -37,38 +37,54 @@ const object_io = new ObjectIO();
  */
 class MapBuilder {
 
-    constructor(chunk_ids) {
-        this.chunk_ids = chunk_ids;
+
+    async run(chunk_ids) {
+        dbg.log1('MapBuilder.run:', 'batch start', chunk_ids);
+        if (!chunk_ids.length) return;
+
+        await builder_lock.surround_keys(_.map(chunk_ids, String), async () => {
+
+            // we run the build twice. first time to perform all allocation, second time to perform deletions
+            await this.run_build(chunk_ids);
+            // run build a second time on the allocated chunks
+            await this.run_build(this.allocated_chunk_ids);
+
+            // return error from the promise if any replication failed,
+            // so that caller will know the build isn't really complete,
+            // although it might partially succeeded
+            if (this.had_errors) {
+                throw new Error('MapBuilder had errors');
+            }
+
+        });
+    }
+
+
+
+    async run_build(chunk_ids) {
+        if (!chunk_ids.length) return;
+
+        // this.had_errors is intentially not reset to keep errors between calls to run_build
+        this.chunks = [];
         this.objects_to_delete = [];
         this.chunks_to_delete = [];
+        this.allocated_chunk_ids = [];
+        this.new_blocks = [];
+        this.delete_blocks = [];
+
+
+        await this.reload_chunks(chunk_ids);
+        await system_store.refresh();
+        const [parts_objects_res, ] = await P.all([
+            MDStore.instance().load_parts_objects_for_chunks(this.chunks),
+            MDStore.instance().load_blocks_for_chunks(this.chunks)
+        ]);
+        await this.prepare_and_fix_chunks(parts_objects_res);
+
+        await this.refresh_alloc();
+        await this.build_chunks();
+        await this.update_db();
     }
-
-    run() {
-        dbg.log1('MapBuilder.run:', 'batch start', this.chunk_ids);
-        if (!this.chunk_ids.length) return;
-
-        return builder_lock.surround_keys(_.map(this.chunk_ids, String),
-            () => P.resolve()
-            .then(() => this.reload_chunks(this.chunk_ids))
-            .then(() => system_store.refresh())
-            .then(() => P.join(
-                MDStore.instance().load_parts_objects_for_chunks(this.chunks),
-                MDStore.instance().load_blocks_for_chunks(this.chunks)
-            ))
-            .spread(parts_objects_res => this.prepare_and_fix_chunks(parts_objects_res))
-            .then(() => this.refresh_alloc())
-            .then(() => this.build_chunks())
-            .then(() => this.update_db())
-            .then(() => {
-                // return error from the promise if any replication failed,
-                // so that caller will know the build isn't really complete,
-                // although it might partially succeeded
-                if (this.had_errors) {
-                    throw new Error('MapBuilder had errors');
-                }
-            }));
-    }
-
 
     // In order to get the most relevant data regarding the chunks
     // Note that there is always a possibility that the chunks will cease to exist
@@ -186,7 +202,7 @@ class MapBuilder {
         );
     }
 
-    build_chunk(chunk) {
+    async build_chunk(chunk) {
         dbg.log2('MapBuilder.build_chunks: chunk', chunk);
 
         if (chunk.had_errors || chunk.bucket.deleted) return;
@@ -199,7 +215,6 @@ class MapBuilder {
         // that is no allocations needed, and is accessible.
         if (mapping.accessible && !mapping.allocations && mapping.deletions) {
             dbg.log0('MapBuilder.build_chunks: print mapping on deletions', mapping);
-            this.delete_blocks = this.delete_blocks || [];
             js_utils.array_push_all(this.delete_blocks, mapping.deletions);
         }
 
@@ -219,11 +234,12 @@ class MapBuilder {
         });
         chunk[util.inspect.custom] = custom_inspect_chunk;
 
-        return P.resolve()
-            .then(() => mapping.missing_frags && this.read_entire_chunk(chunk))
-            .then(chunk_info => P.map(mapping.allocations,
-                alloc => this.build_block(chunk, chunk_info, alloc)
-            ));
+        const chunk_info = mapping.missing_frags && await this.read_entire_chunk(chunk);
+        await P.map(mapping.allocations, alloc => this.build_block(chunk, chunk_info, alloc));
+        if (!chunk.had_errors) {
+            this.allocated_chunk_ids.push(chunk._id);
+        }
+
     }
 
     build_block(chunk, chunk_info, alloc) {
@@ -240,7 +256,6 @@ class MapBuilder {
                 throw new Error('MapBuilder.build_block: No sources');
             })
             .then(block => {
-                this.new_blocks = this.new_blocks || [];
                 this.new_blocks.push(block);
                 dbg.log0('MapBuilder.build_block: built new block', block._id, 'to', block.node.rpc_address);
             })

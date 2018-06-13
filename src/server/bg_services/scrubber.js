@@ -39,8 +39,8 @@ function background_worker() {
             this.marker = res.marker;
             if (!res.chunk_ids.length) return;
             dbg.log0('SCRUBBER:', 'WORKING ON', res.chunk_ids.length, 'CHUNKS');
-            const builder = new map_builder.MapBuilder(res.chunk_ids);
-            return builder.run();
+            const builder = new map_builder.MapBuilder();
+            return builder.run(res.chunk_ids);
         })
         .then(() => {
             // return the delay before next batch
@@ -73,8 +73,8 @@ function build_chunks(req) {
     return P.resolve()
         .then(() => {
             const chunk_ids = _.map(req.rpc_params.chunk_ids, id => MDStore.instance().make_md_id(id));
-            const builder = new map_builder.MapBuilder(chunk_ids);
-            return builder.run();
+            const builder = new map_builder.MapBuilder();
+            return builder.run(chunk_ids);
         })
         .return();
 }

@@ -67,8 +67,8 @@ coretest.describe_mapper_test_case({
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj = await make_object();
         await delete_blocks_keep_minimal_frags(obj);
-        const builder = new map_builder.MapBuilder(obj.chunk_ids);
-        await builder.run();
+        const builder = new map_builder.MapBuilder();
+        await builder.run(obj.chunk_ids);
         await load_chunks(obj);
         await assert_fully_built(obj);
     });
@@ -80,9 +80,9 @@ coretest.describe_mapper_test_case({
         await delete_blocks_keep_minimal_frags(obj1);
         await delete_blocks(_.flatMap(obj2.chunks, 'blocks'));
         const chunk_ids = _.concat(obj1.chunk_ids, obj2.chunk_ids);
-        const builder = new map_builder.MapBuilder(chunk_ids);
+        const builder = new map_builder.MapBuilder();
         try {
-            await builder.run();
+            await builder.run(chunk_ids);
             assert.fail('builder should have failed');
         } catch (err) {
             assert.strictEqual(err.message, 'MapBuilder had errors');
@@ -95,8 +95,8 @@ coretest.describe_mapper_test_case({
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj = await make_object();
         await delete_blocks_keep_minimal_replicas(obj);
-        const builder = new map_builder.MapBuilder(obj.chunk_ids);
-        await builder.run();
+        const builder = new map_builder.MapBuilder();
+        await builder.run(obj.chunk_ids);
         await load_chunks(obj);
         await assert_fully_built(obj);
     });
@@ -105,8 +105,8 @@ coretest.describe_mapper_test_case({
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj_before = await make_object();
         const obj_after = Object.assign({}, obj_before);
-        const builder = new map_builder.MapBuilder(obj_before.chunk_ids);
-        await builder.run();
+        const builder = new map_builder.MapBuilder();
+        await builder.run(obj_before.chunk_ids);
         await load_chunks(obj_after);
         await assert_fully_built(obj_after);
         const blocks_before = _.flatMap(obj_before.chunks, chunk => _.map(chunk.blocks, block => String(block._id))).sort();

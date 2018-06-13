@@ -2,12 +2,12 @@
 'use strict';
 
 const _ = require('lodash');
-const querystring = require('querystring');
 
 const dbg = require('../../util/debug_module')(__filename);
 const S3Error = require('./s3_errors').S3Error;
 const http_utils = require('../../util/http_utils');
 const time_utils = require('../../util/time_utils');
+const endpoint_utils = require('../endpoint_utils');
 
 const STORAGE_CLASS_STANDARD = 'STANDARD';
 
@@ -72,22 +72,7 @@ function parse_copy_source(req) {
 
     // I wonder: do we want to support copy source url with host:port too?
 
-    let slash_index = source_url.indexOf('/');
-    let start_index = 0;
-    if (slash_index === 0) {
-        start_index = 1;
-        slash_index = source_url.indexOf('/', 1);
-    }
-    let query_index = source_url.indexOf('?', slash_index);
-    let query;
-    if (query_index < 0) {
-        query_index = source_url.length;
-    } else {
-        query = querystring.parse(source_url.slice(query_index + 1));
-    }
-
-    const bucket = decodeURIComponent(source_url.slice(start_index, slash_index));
-    const key = decodeURIComponent(source_url.slice(slash_index + 1, query_index));
+    const { query, bucket, key } = endpoint_utils.parse_source_url(source_url);
     const version = query && query.versionId;
     const range = http_utils.parse_http_range(req.headers['x-amz-copy-source-range']);
     return {

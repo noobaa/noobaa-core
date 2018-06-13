@@ -646,7 +646,6 @@ class AgentCLI {
 
 
 function agent_cli_repl() {
-    console.log(`DZDZ: starting repl`);
     // start a Read-Eval-Print-Loop
     var repl_srv = repl.start({
         prompt: 'agent-cli > ',

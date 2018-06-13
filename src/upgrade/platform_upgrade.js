@@ -31,6 +31,7 @@ const DOTENV_VARS_FROM_OLD_VER = Object.freeze([
     'DEV_MODE',
     'MONGO_RS_URL',
     'MONGO_SSL_USER',
+    'ENDPOINT_BLOB_ENABLED'
 ]);
 
 const EXEC_DEFAULTS = Object.freeze({

@@ -5,7 +5,7 @@ import Observer from 'observer';
 import ResourceRowViewModel from './resource-row';
 import ko from 'knockout';
 import { deepFreeze, mapValues } from 'utils/core-utils';
-import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getNamespaceResourceTypeIcon } from 'utils/resource-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { state$, action$ } from 'state';
 import { getMany } from 'rx-extensions';
@@ -82,8 +82,8 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
         const writePolicyOptions = resourceList
             .filter(resource => readPolicy.includes(resource.name))
             .map(resource => {
-                const { name: value, service } = resource;
-                const { icon, selectedIcon } = getCloudServiceMeta(service);
+                const { name: value } = resource;
+                const { name: icon, selectedIcon } = getNamespaceResourceTypeIcon(resource);
                 return { value, icon, selectedIcon };
             });
         const resourceServiceMapping = mapValues(

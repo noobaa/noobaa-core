@@ -143,20 +143,11 @@ function _findStoragePolicy(resources, resiliency, blocks) {
             };
         }
     } else {
-        if (storageType === 'HOSTS') {
-            return {
-                replicas: 0,
-                dataFrags: resiliency.dataFrags,
-                parityFrags: resiliency.parityFrags
-            };
-
-        } else {
-            return {
-                replicas: 0,
-                dataFrags: resiliency.dataFrags,
-                parityFrags: 0
-            };
-        }
+        return {
+            replicas: 0,
+            dataFrags: resiliency.dataFrags,
+            parityFrags: resiliency.parityFrags
+        };
     }
 }
 

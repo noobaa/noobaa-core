@@ -5,7 +5,7 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
-import { getCloudServiceMeta } from 'utils/cloud-utils';
+import { getCloudResourceTypeIcon } from 'utils/resource-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
@@ -19,11 +19,12 @@ const s3PlacementToolTip = 'The selected resource will be associated to this acc
 const systemOwnerS3AccessTooltip = 'S3 access cannot be disabled for system owner';
 const allowBucketCreationTooltip = 'The ability to create new buckets. By disabling this option, the user could not create any new buckets via S3 client or via the management console';
 
-function mapResourceToOption({ type, name: value, storage }) {
+function mapResourceToOption(resource) {
+    const { type, name: value, storage } = resource;
     const { total, free: availableFree, unavailableFree } = storage;
     const free = sumSize(availableFree, unavailableFree);
     const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
-    const icons = type ? getCloudServiceMeta(type) : { icon: 'nodes-pool' };
+    const icons = { icon: type ? getCloudResourceTypeIcon(resource).name : 'nodes-pool' };
     return { ...icons, value, remark };
 }
 

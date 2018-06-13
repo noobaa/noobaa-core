@@ -177,15 +177,18 @@ const namespaceResourceModeToStateIcon = deepFreeze({
 const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
     AWS: {
         name: 'aws-s3',
-        tooltip: 'AWS S3 resource'
+        tooltip: 'AWS S3 resource',
+        selectedIcon: 'aws-s3-colored'
     },
     AZURE: {
         name: 'azure',
-        tooltip: 'Azure blob resource'
+        tooltip: 'Azure blob resource',
+        selectedIcon: 'azure-colored'
     },
     GOOGLE: {
         name: 'google-cloud',
-        tooltip: 'Google Cloud resource'
+        tooltip: 'Google Cloud resource',
+        selectedIcon: 'google-cloud-colored'
     },
     S3_COMPATIBLE: {
         name: 'cloud',

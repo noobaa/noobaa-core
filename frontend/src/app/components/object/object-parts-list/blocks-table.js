@@ -41,7 +41,7 @@ const tooltips = deepFreeze({
     'MIRROR_SET:FRAGMENTS:HOSTS': 'Fragments resides in nodes pool are distributed between the different nodes in the pool according to the configured policy parameters',
     'MIRROR_SET:REPLICAS:CLOUD':  'NooBaa considers cloud resource as resilient and keeps only one replica on this type of resource',
     'MIRROR_SET:FRAGMENTS:CLOUD': 'NooBaa considers cloud resource as resilient and keeps only data fragments on this type of resource',
-    'SPILLOVER_SET:REPLICAS':     'NooBaa considers spilled-over data as resilient and keeps only one replica on this type of resource. Once possible, data will be spilled-back according to the configured policy parameters',
+    'SPILLOVER_SET:REPLICAS':     'The spillover resource is used since the bucket storage is not enough to store new data. Once possible, data will be spilled-back according to the configured policy',
     'SPILLOVER_SET:FRAGMENTS':    'Fragments resides in nodes pool are distributed between the different nodes in the pool according to the configured policy parameters',
     'TO_BE_REMOVED':              'In a case of policy changes, data allocation might be changed and some replicas/ fragments will need to be removed'
 });

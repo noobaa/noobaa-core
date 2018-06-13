@@ -137,7 +137,18 @@ coretest.describe_mapper_test_case({
                 _id: MDStore.instance().make_md_id(),
                 system: bucket.system._id,
             };
-            const multiparts_req = undefined;
+            return map_writer.complete_object_parts(obj);
+        });
+    });
+
+    mocha.describe('complete_object_multiparts', function() {
+        mocha.it('works', function() {
+            const bucket = system_store.data.systems[0].buckets_by_name[bucket_name];
+            const obj = {
+                _id: MDStore.instance().make_md_id(),
+                system: bucket.system._id,
+            };
+            const multiparts_req = [];
             return map_writer.complete_object_parts(obj, multiparts_req);
         });
     });

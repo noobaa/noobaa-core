@@ -120,6 +120,7 @@ function delete_multiple_objects(objects) {
 // EXPORTS
 exports.delete_object = delete_object;
 exports.delete_chunks = delete_chunks;
+exports.delete_chunks_if_unreferenced = delete_chunks_if_unreferenced;
 exports.delete_multiple_objects = delete_multiple_objects;
 exports.delete_object_mappings = delete_object_mappings;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;

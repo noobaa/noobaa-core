@@ -211,12 +211,12 @@ function send_reply(req, res, reply, options) {
         return;
     }
     if (!reply || options.reply.type === 'empty') {
-        dbg.log0('HTTP REPLY EMPTY', req.method, req.originalUrl,
-            JSON.stringify(req.headers), res.statusCode);
-        if (req.method === 'DELETE' &&
+        if (!options.reply.keep_status_code && req.method === 'DELETE' &&
             (!res.statusCode || res.statusCode < 300)) {
             res.statusCode = 204;
         }
+        dbg.log0('HTTP REPLY EMPTY', req.method, req.originalUrl,
+            JSON.stringify(req.headers), res.statusCode);
         res.end();
         return;
     }

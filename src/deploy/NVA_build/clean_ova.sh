@@ -163,6 +163,7 @@ rm -rf /tmp/npm-*
 #Clean /backup
 rm -rf /backup
 
+mongo nbcore --eval 'db.dropDatabase()'
 #Clean supervisors
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/node_modules/noobaa-core/.env
@@ -178,7 +179,6 @@ if [ -d /root/node_modules/noobaa-core/noobaa_storage/ ]; then
     rm -rf /root/node_modules/noobaa-core/noobaa_storage/
 fi
 sleep 15
-mongo nbcore --eval 'db.dropDatabase()'
 
 sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40mNONE\x1b[0m.:" /etc/issue
 sudo sed -i "s:This server's secret is.*:No Server Secret:" /etc/issue

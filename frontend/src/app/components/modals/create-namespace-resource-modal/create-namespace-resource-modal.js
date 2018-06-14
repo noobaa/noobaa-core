@@ -23,7 +23,8 @@ const allowedServices = deepFreeze([
     'AWS',
     'S3_V2_COMPATIBLE',
     'S3_V4_COMPATIBLE',
-    'AZURE'
+    'AZURE',
+    'NET_STORAGE'
 ]);
 
 class CreateNamespaceResourceModalViewModel extends Observer {

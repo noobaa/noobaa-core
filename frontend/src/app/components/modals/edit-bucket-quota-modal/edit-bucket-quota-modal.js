@@ -171,7 +171,7 @@ class EditBucketQuotaModalViewModel extends Observer {
         const { size, enabled } = values;
 
         if (enabled && (!Number.isInteger(size) || size < 1)) {
-            errors.size = 'Must be an integer bigger or equal to 1';
+            errors.size = 'Please enter an integer bigger or equal to 1';
         }
 
         return errors;

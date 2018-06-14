@@ -186,6 +186,9 @@ const host = {
         ip: {
             type: 'string'
         },
+        publicIp: {
+            type: 'string'
+        },
         ports: {
             type: 'object',
             required: [

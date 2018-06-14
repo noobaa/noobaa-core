@@ -204,6 +204,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         mode: data.mode,
         version: data.version,
         ip: data.ip,
+        publicIp: data.public_ip,
         ports: ports && {
             min: ports.range.min || ports.range.port,
             max: ports.range.max || ports.range.port

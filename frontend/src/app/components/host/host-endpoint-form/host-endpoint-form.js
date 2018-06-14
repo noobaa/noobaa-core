@@ -22,44 +22,53 @@ const operationsDisabledTooltip = deepFreeze({
 });
 
 class HostEndpointFormViewModel extends Observer {
+    hostName = '';
+    hostLoaded = ko.observable();
+    isDisabled = ko.observable();
+    isToggleEndpointDisabled = ko.observable();
+    toggleEndpointTooltip = ko.observable();
+    toggleEndpointButtonText = ko.observable();
+    state = ko.observable();
+    wasUsed = false;
+    latestWrites = ko.observable();
+    latestReads = ko.observable();
+    restEndpoint = ko.observable();
+    restEndpointPublic = ko.observable();
+    details = [
+        {
+            template: 'state',
+            label: 'Endpoint State',
+            value: this.state
+        },
+        {
+            label: 'Data Written in Last 7 Days',
+            value: this.latestWrites,
+            disabled: this.isDisabled,
+            template: 'ioUsage'
+        },
+        {
+            label: 'Data read in Last 7 Days',
+            value: this.latestReads,
+            disabled: this.isDisabled,
+            template: 'ioUsage'
+        },
+        {
+            label: 'REST Endpoint',
+            value: this.restEndpoint,
+            disabled: this.isDisabled
+        },
+        {
+            label: 'REST Enpoint for public networks',
+            value: this.restEndpointPublic,
+            visible: this.restEndpointPublic,
+            disabled: this.isDisabled
+        }
+    ];
+
     constructor({ name }) {
         super();
 
         this.hostName = ko.unwrap(name);
-        this.hostLoaded = ko.observable();
-        this.isDisabled = ko.observable();
-        this.isToggleEndpointDisabled = ko.observable();
-        this.toggleEndpointTooltip = ko.observable();
-        this.toggleEndpointButtonText = ko.observable();
-        this.state = ko.observable();
-        this.wasUsed = false;
-        this.latestWrites = ko.observable();
-        this.latestReads = ko.observable();
-        this.restEndpoint = ko.observable();
-        this.details = [
-            {
-                template: 'state',
-                label: 'Endpoint State',
-                value: this.state
-            },
-            {
-                label: 'Data Written in Last 7 Days',
-                value: this.latestWrites,
-                disabled: this.isDisabled,
-                template: 'ioUsage'
-            },
-            {
-                label: 'Data read in Last 7 Days',
-                value: this.latestReads,
-                disabled: this.isDisabled,
-                template: 'ioUsage'
-            },
-            {
-                label: 'REST Endpoint',
-                value: this.restEndpoint,
-                disabled: this.isDisabled
-            }
-        ];
 
         this.observe(
             state$.pipe(
@@ -94,6 +103,7 @@ class HostEndpointFormViewModel extends Observer {
         this.state(getEndpointServiceStateIcon(host));
         this.isDisabled(isDisabled);
         this.restEndpoint(host.ip);
+        this.restEndpointPublic(host.publicIp || '');
         this.hostLoaded(true);
         this.isLastService = isLastService;
 

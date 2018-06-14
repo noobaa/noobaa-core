@@ -14,14 +14,14 @@
 
 <!-- ko if: reason === 'DEFAULT_RESOURCE' && accounts.length === 1 -->
 <p class="highlight">
-    Pool is used as a default resource by
+    Cannot delete. The pool is used as a default resource by
     <a class="link no-outline" ko.attr.href="accounts[0].href" ko.text="accounts[0].name"></a>
 </p>
 <!-- /ko -->
 
 <!-- ko if: reason === 'DEFAULT_RESOURCE' && accounts.length > 1 -->
 <p class="highlight">
-    Pool is used as a default resource by the following accounts:
+    Cannot delete. Pool is used as a default resource by the following accounts:
     <ul class="bullet-list highlight" ko.foreach="accounts">
         <li>
             <a class="link no-outline" ko.attr.href="href" ko.text="name"></a>

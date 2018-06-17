@@ -6,7 +6,7 @@ import PoolRowViewModel from './pool-row';
 import { state$, action$ } from 'state';
 import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
-import { deepFreeze, throttle, createCompareFunc, groupBy } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap } from 'utils/core-utils';
 import ko from 'knockout';
 import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
@@ -30,7 +30,8 @@ const columns = deepFreeze([
         name: 'buckets',
         label: 'buckets using resource',
         sortable: true,
-        compareKey: pool => pool.connectedBuckets.length
+        compareKey: (pool, bucketsByPool) =>
+            (bucketsByPool[pool.name] || []).length
     },
     {
         name: 'hostCount',
@@ -81,6 +82,27 @@ const notEnoughHostsTooltip = deepFreeze({
     text: 'Not enough nodes to create a new pool, please install at least one node'
 });
 
+function _getBucketsByPool(buckets) {
+    return Object.values(buckets).reduce((map, bucket) => {
+        const resources = [
+            ...flatMap(bucket.placement.mirrorSets, set => set.resources),
+            bucket.spillover
+        ];
+
+        const hostPools = resources
+            .filter(item => item && item.type === 'HOSTS')
+            .map(item => item.name);
+
+        for (const poolName of hostPools) {
+            let list = map[poolName];
+            if (!list) list = map[poolName] = [];
+            list.push(bucket);
+        }
+
+        return map;
+    }, {});
+}
+
 class PoolsTableViewModel extends Observer {
     constructor() {
         super();
@@ -103,6 +125,7 @@ class PoolsTableViewModel extends Observer {
                 getMany(
                     'hostPools',
                     'accounts',
+                    'buckets',
                     'location'
                 )
             ),
@@ -110,8 +133,8 @@ class PoolsTableViewModel extends Observer {
         );
     }
 
-    onState([ pools, accounts, location ]) {
-        if (!pools || !accounts) {
+    onState([ pools, accounts, buckets, location ]) {
+        if (!pools || !accounts || !buckets) {
             this.poolsLoaded(false);
             this.isCreatePoolDisabled(true);
             return;
@@ -122,10 +145,10 @@ class PoolsTableViewModel extends Observer {
 
         const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = location.query;
         const { compareKey } = columns.find(column => column.name === sortBy);
-
+        const bucketsByPool = _getBucketsByPool(buckets);
+        const compareOp = createCompareFunc(compareKey, order, bucketsByPool);
         const poolList = Object.values(pools);
         const hostCount = poolList.reduce((sum, pool) => sum + pool.hostCount, 0);
-        const compareOp = createCompareFunc(compareKey, order);
         const pageStart = Number(page) * this.pageSize;
         const rowParams = {
             baseRoute: realizeUri(routes.pool, { system }, {}, true),
@@ -152,7 +175,7 @@ class PoolsTableViewModel extends Observer {
             .map((pool, i) => {
                 const usingAccounts = accountsByUsingResource[pool.name] || [];
                 const row = this.rows.get(i) || new PoolRowViewModel(rowParams);
-                row.onState(pool, usingAccounts, system, selectedForDelete);
+                row.onState(pool, bucketsByPool[pool.name] || [], usingAccounts, system, selectedForDelete);
                 return row;
             });
 

@@ -14,10 +14,10 @@
     <!-- ko if: dataLoaded -->
     <div class="row push-next-half content-middle">
         <span class="greedy push-next-half">Raw Usage</span>
-        <toggle-filter params="
+        <toggle-group params="
             options: durationOptions,
             selected: ko.pc(selectedDuration, onSelectDuration, $component)
-        "></toggle-filter>
+        "></toggle-group>
     </div>
 
     <chart-legend class="push-next" params="

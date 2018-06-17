@@ -18,10 +18,10 @@
     <!-- ko if: resourcesLoaded -->
     <div class="row push-next content-middle">
         <span class="greedy push-next">Types</span>
-        <toggle-filter params="
+        <toggle-group params="
             options: resourceTypes,
             selected: ko.pc(selectedResourceType, onSelectResourceType, $component)
-        "></toggle-filter>
+        "></toggle-group>
     </div>
 
     <!-- ko if: selectedResourceType.eq('HOST_POOLS') -->

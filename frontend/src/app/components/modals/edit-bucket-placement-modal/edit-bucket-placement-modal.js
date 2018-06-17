@@ -10,12 +10,66 @@ import { realizeUri } from 'utils/browser-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import * as routes from 'routes';
+import { editBucketPlacementMirrorTooltip, editBucketPlacementSpreadTooltip } from 'knowledge-base-articles';
 import {
     openEmptyBucketPlacementWarningModal,
     updateBucketPlacementPolicy,
     updateForm,
     closeModal
 } from 'action-creators';
+
+const policyTypeOptions = deepFreeze([
+    {
+        policyType: 'SPREAD',
+        label: 'Spread',
+        description: 'Spreading the data across the chosen resources, does not include failure tolerance in case of resource failure',
+        tooltip: {
+            template: 'checkList',
+            text: {
+                list: [
+                    {
+                        text: 'Copies/fragments across the underlying resources for each of the object parts',
+                        checked: true
+                    },
+                    {
+                        text: 'Includes failure tolerance in case of resource failure',
+                        checked: false
+                    }
+                ],
+                link: {
+                    text: 'Learn more about spread policy',
+                    href: editBucketPlacementSpreadTooltip
+                }
+
+            }
+        }
+    },
+    {
+        policyType: 'MIRROR',
+        label: 'Mirror',
+        description: 'Full duplication of the data in each chosen resource, includes failure tolerance in case of resource failure',
+        tooltip: {
+            template: 'checkList',
+            text: {
+                list: [
+                    {
+                        text: 'Copies/fragments across the underlying resources for each of the object parts',
+                        checked: true
+                    },
+                    {
+                        text: 'Includes failure tolerance in case of resource failure',
+                        checked: true
+                    }
+                ],
+                link: {
+                    text: 'Learn more about mirror policy',
+                    href: editBucketPlacementMirrorTooltip
+                }
+
+            }
+        }
+    }
+]);
 
 const columns = deepFreeze([
     {
@@ -65,6 +119,7 @@ const resourceCompareFunc = createCompareFunc(record => {
 
 class EditBucketPlacementModalViewModel extends Observer {
     formName = this.constructor.name;
+    policyTypeOptions = policyTypeOptions;
     columns = columns;
     bucketName = '';
     tierName = '';

@@ -8,12 +8,12 @@
         />
 
         <div class="row content-middle greedy">
-            <toggle-filter class="push-next state-filter"
+            <toggle-group class="push-next state-filter"
                 params="
                     options: stateFilterOptions,
                     selected: ko.pc(stateFilter, onFilterByState, $component)
                 "
-            ></toggle-filter>
+            ></toggle-group>
 
             <div ko.visible="isShowVersionsVisible"
                 ko.css.disabled="stateFilter.eq('UPLOADING')"

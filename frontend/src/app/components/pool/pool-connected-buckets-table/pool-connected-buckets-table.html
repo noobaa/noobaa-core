@@ -1,0 +1,35 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<data-table class="column greedy buckets-table" params="
+    columns: columns,
+    data: rows,
+    loading: !dataLoaded(),
+    sorting: ko.pc(sorting, onSort, $component),
+    emptyMessage: 'No associated buckets for this pool'
+">
+    <template name="usage">
+        <span class="column">
+            <span class="row content-middle align-middle">
+                {{$data().size}}
+                <svg-icon class="icon-small warning push-prev-half"
+                    ko.visible="$data().usageWarning"
+                    ko.tooltip="$data().usageWarning"
+                    params="name: 'notif-info'"
+                ></svg-icon>
+            </span>
+        </span>
+    </template>
+</data-table>
+
+<div class="row content-middle alt-bg">
+    <p class="remark greedy push-next hpad row content-middle">
+        <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+        To edit a bucket's placement policy click on the bucket name then click "Edit Placement Policy"
+    </p>
+
+    <paginator params="
+        itemCount: bucketCount,
+        pageSize: pageSize,
+        page: ko.pc(page, onPage, $component)
+    "></paginator>
+</div>

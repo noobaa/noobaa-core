@@ -1,14 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './chart-legend.html';
-import { echo, deepFreeze, isFunction } from 'utils/core-utils';
-import { formatSize } from 'utils/size-utils';
+import { echo } from 'utils/core-utils';
+import { getFormatter} from 'utils/chart-utils';
 import ko from 'knockout';
-
-const namedFormats = deepFreeze({
-    none: echo,
-    size: formatSize
-});
 
 class ChartLegendViewModel {
     constructor({
@@ -17,7 +12,7 @@ class ChartLegendViewModel {
         format = 'none'
     }) {
         this.caption = caption;
-        this.formatter = isFunction(format) ? format : namedFormats[format];
+        this.formatter = getFormatter(format);
         this.items = ko.pureComputed(
             () => ko.unwrap(items).map(
                 item => this.normalizeItem(item)

@@ -7,6 +7,13 @@
             ko.checkedValue="value"
             ko.checked="$component.selected"
         />
-        <div class="toggle-btn" ko.text="label"></div>
+        <div class="toggle-btn content-middle" ko.css="layoutCss">
+            <!-- ko if: icon -->
+            <svg-icon class="icon-small" ko.css.push-next-half="label"
+                params="name: icon"
+            ></svg-icon>
+            <!-- /ko -->
+            {{label}}
+        </div>
     </label>
 </div>

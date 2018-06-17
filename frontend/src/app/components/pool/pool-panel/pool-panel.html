@@ -22,17 +22,17 @@
     </nav>
 
     <div class="tabs-row">
-        <pool-hosts-table class="tab"
+        <pool-hosts-table class="tab column"
             ko.css.selected="selectedTab.eq('nodes')"
             params="poolName: pool"
         ></pool-hosts-table>
 
-        <pool-connected-buckets-list class="tab"
+        <pool-connected-buckets-form class="tab column"
             ko.css.selected="selectedTab.eq('connected-buckets')"
             params="poolName: pool"
-        ></pool-connected-buckets-list>
+        ></pool-connected-buckets-form>
 
-        <pool-associated-accounts-list class="tab"
+        <pool-associated-accounts-list class="tab column"
             ko.css.selected="selectedTab.eq('associated-accounts')"
             params="poolName: pool"
         ></pool-associated-accounts-list>

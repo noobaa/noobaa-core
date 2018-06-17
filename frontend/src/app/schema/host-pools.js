@@ -5,16 +5,15 @@ export default {
         required: [
             'name',
             'mode',
-            'storage',
+            'activities',
             'associatedAccounts',
-            'connectedBuckets',
             'hostCount',
             'hostsByMode',
             'storageNodeCount',
             'storageNodesByMode',
             'endpointNodeCount',
             'endpointNodesByMode',
-            'activities'
+            'storage'
         ],
         properties: {
             name: {
@@ -88,12 +87,6 @@ export default {
                 }
             },
             associatedAccounts: {
-                type: 'array',
-                items: {
-                    type: 'string'
-                }
-            },
-            connectedBuckets: {
                 type: 'array',
                 items: {
                     type: 'string'

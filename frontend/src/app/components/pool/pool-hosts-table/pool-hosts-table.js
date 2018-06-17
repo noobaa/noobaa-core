@@ -112,8 +112,8 @@ class PoolHostsTableViewModel extends Observer {
     }
 
     onLocation({ route, params, query }) {
-        const { system, tab, pool } = params;
-        if (!pool) return;
+        const { system, pool, tab = 'nodes' } = params;
+        if (!pool || tab !== 'nodes') return;
 
         const { name, state = 'ALL', page = 0, sortBy = 'name', order = 1 } = query;
         this.poolName = pool;

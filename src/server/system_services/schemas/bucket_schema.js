@@ -28,6 +28,7 @@ module.exports = {
         'system',
         'name',
         'tiering',
+        'versioning'
     ],
     properties: {
         _id: {
@@ -77,62 +78,9 @@ module.exports = {
                 value: bigint
             }
         },
-        // cloud sync target, if exists
-        cloud_sync: {
-            type: 'object',
-            required: ['endpoint'],
-            properties: {
-                // Target endpoint, location + bucket
-                endpoint: {
-                    type: 'string'
-                },
-                endpoint_type: {
-                    type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
-                },
-                target_bucket: {
-                    type: 'string'
-                },
-                access_keys: {
-                    type: 'object',
-                    required: ['access_key', 'secret_key', 'account_id'],
-                    properties: {
-                        access_key: {
-                            type: 'string'
-                        },
-                        secret_key: {
-                            type: 'string'
-                        },
-                        account_id: {
-                            objectid: true
-                        }
-                    }
-                },
-                // Changed Objects query interval (in minutes)
-                schedule_min: {
-                    type: 'integer'
-                },
-                // Paused cloud sync
-                paused: {
-                    type: 'boolean',
-                },
-                // Last finished sync
-                last_sync: {
-                    idate: true
-                },
-                // Enable cloud to NooBaa bucket sync
-                c2n_enabled: {
-                    type: 'boolean',
-                },
-                // Enable NooBaa to cloud bucket sync
-                n2c_enabled: {
-                    type: 'boolean',
-                },
-                // If true, only additions will be synced, and not deletions
-                additions_only: {
-                    type: 'boolean',
-                }
-            }
+        versioning: {
+            type: 'string',
+            enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
         storage_stats: {
             type: 'object',

@@ -47,17 +47,17 @@ class AccountSpaceNB {
         return this.rpc_client.bucket.delete_bucket_lifecycle(params);
     }
 
-    ////////////////////////
-    // BUCKET REPLICATION //
-    ////////////////////////
+    ///////////////////////
+    // BUCKET VERSIONING //
+    ///////////////////////
 
-    set_bucket_replication(params) {
-        return this.rpc_client.bucket.set_cloud_sync(params);
+    set_bucket_versioning(params) {
+        return this.rpc_client.bucket.update_bucket({
+            name: params.name,
+            versioning: params.versioning
+        });
     }
 
-    delete_bucket_replication(params) {
-        return this.rpc_client.bucket.delete_cloud_sync(params);
-    }
 }
 
 module.exports = AccountSpaceNB;

@@ -18,10 +18,6 @@ module.exports = {
         'header'
     ],
 
-    parserOptions: {
-        ecmaVersion: 2017
-    },
-
     // RULES METHODOLOGY:
     // -----------------
     // we turn ON all of eslint rules by extending eslint:all
@@ -68,15 +64,15 @@ module.exports = {
         'max-depth': ['error', 5],
 
         // max file length is 300 by default, we accept longer files
-        'max-lines': ['error', 1500],
+        'max-lines': ['error', 2000],
 
         // prefer small number of params to functions, otherwise send object
         // TODO eslint max-params per function should be reduced to ~4 instead of 6
         'max-params': ['error', 7],
 
         // max statements in function
-        // TODO eslint max-statements per function should be reduced to ~20 instead of 60
-        'max-statements': ['error', 70],
+        // TODO eslint max-statements per function should be reduced to ~40 instead of 60
+        'max-statements': ['error', 60],
 
         'newline-per-chained-call': ['error', { ignoreChainWithDepth: 4 }],
 

@@ -22,7 +22,6 @@ api_schema.register_api(require('./object_api'));
 api_schema.register_api(require('./agent_api'));
 api_schema.register_api(require('./block_store_api'));
 api_schema.register_api(require('./stats_api'));
-api_schema.register_api(require('./cloud_sync_api'));
 api_schema.register_api(require('./scrubber_api'));
 api_schema.register_api(require('./debug_api'));
 api_schema.register_api(require('./redirector_api'));
@@ -104,7 +103,6 @@ function new_rpc(base_address) {
         api_routes: {
             object_api: 'md',
             func_api: 'md',
-            cloud_sync_api: 'bg',
             scrubber_api: 'bg',
             hosted_agents_api: 'hosted_agents',
             node_api: 'master',

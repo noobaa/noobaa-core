@@ -9,79 +9,70 @@ const http_utils = require('../../../util/http_utils');
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
  */
-function get_object(req, res) {
-    return req.object_sdk.read_object_md({
-            bucket: req.params.bucket,
-            key: req.params.key,
-            md_conditions: http_utils.get_md_conditions(req),
-        })
-        .then(object_md => {
-            s3_utils.set_response_object_md(res, object_md);
-            const obj_size = object_md.size;
-            const params = {
-                object_md,
-                obj_id: object_md.obj_id,
-                bucket: req.params.bucket,
-                key: req.params.key,
-            };
+async function get_object(req, res) {
 
-            // ranges:
-            //      undefined (no range)
-            //      400 (invalid syntax)
-            //      416 (unsatisfiable)
-            //      array (ranges)
-            const ranges = http_utils.normalize_http_ranges(
-                http_utils.parse_http_range(req.headers.range),
-                obj_size);
+    const object_md = await req.object_sdk.read_object_md({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        version_id: req.query.versionId,
+        md_conditions: http_utils.get_md_conditions(req),
+    });
 
-            if (!ranges) {
-                // stream the entire object to the response
-                dbg.log1('reading object', req.path, obj_size);
-                return req.object_sdk.read_object_stream(params);
-            }
+    s3_utils.set_response_object_md(res, object_md);
+    const obj_size = object_md.size;
+    const params = {
+        object_md,
+        obj_id: object_md.obj_id,
+        bucket: req.params.bucket,
+        key: req.params.key,
+    };
 
-            // return http 400 Bad Request
-            if (ranges === 400) {
-                dbg.log1('bad range request', req.headers.range, req.path, obj_size);
-                throw new S3Error(S3Error.InvalidArgument);
-            }
-
-            // return http 416 Requested Range Not Satisfiable
-            if (ranges === 416) {
-                dbg.warn('invalid range', req.headers.range, req.path, obj_size);
-                // let the client know of the relevant range
-                res.setHeader('Content-Range', 'bytes */' + obj_size);
-                throw new S3Error(S3Error.InvalidRange);
-            }
-
+    try {
+        const ranges = http_utils.normalize_http_ranges(
+            http_utils.parse_http_ranges(req.headers.range),
+            obj_size
+        );
+        if (ranges) {
             // reply with HTTP 206 Partial Content
             res.statusCode = 206;
             params.start = ranges[0].start;
-            params.end = ranges[0].end + 1; // use exclusive end
+            params.end = ranges[0].end;
             const content_range = `bytes ${params.start}-${params.end - 1}/${obj_size}`;
             dbg.log1('reading object range', req.path, content_range, ranges);
             res.setHeader('Content-Range', content_range);
             res.setHeader('Content-Length', params.end - params.start);
             // res.header('Cache-Control', 'max-age=0' || 'no-cache');
-            return req.object_sdk.read_object_stream(params);
+        } else {
+            dbg.log1('reading object', req.path, obj_size);
+        }
+    } catch (err) {
+        if (err.ranges_code === 400) {
+            // return http 400 Bad Request
+            dbg.log1('bad range request', req.headers.range, req.path, obj_size);
+            throw new S3Error(S3Error.InvalidArgument);
+        }
+        if (err.ranges_code === 416) {
+            // return http 416 Requested Range Not Satisfiable
+            dbg.warn('invalid range', req.headers.range, req.path, obj_size);
+            // let the client know of the relevant range
+            res.setHeader('Content-Range', 'bytes */' + obj_size);
+            throw new S3Error(S3Error.InvalidRange);
+        }
+        throw err;
+    }
 
-        })
-        .then(read_stream => {
-            if (!read_stream) {
-                res.end();
-                return;
-            }
-            // on http disconnection close the read stream to stop from buffering more data
-            req.on('aborted', () => {
-                dbg.log0('request aborted:', req.path);
-                if (read_stream.close) read_stream.close();
-            });
-            res.on('error', err => {
-                dbg.log0('response error:', err, req.path);
-                if (read_stream.close) read_stream.close();
-            });
-            read_stream.pipe(res);
-        });
+    const read_stream = await req.object_sdk.read_object_stream(params);
+
+    // on http disconnection close the read stream to stop from buffering more data
+    req.on('aborted', () => {
+        dbg.log0('request aborted:', req.path);
+        if (read_stream.close) read_stream.close();
+    });
+    res.on('error', err => {
+        dbg.log0('response error:', err, req.path);
+        if (read_stream.close) read_stream.close();
+    });
+    read_stream.pipe(res);
 }
 
 

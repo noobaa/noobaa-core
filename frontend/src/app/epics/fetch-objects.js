@@ -36,7 +36,7 @@ async function _fetchObjectList(api, query, s3Endpoint) {
     if (stateFilter !== 'ALL') uploadMode = false;
     if (stateFilter === 'UPLOADING') uploadMode = true;
 
-    return await api.object.list_objects({
+    return await api.object.list_objects_admin({
         bucket,
         key_query: filter,
         sort: sortBy,

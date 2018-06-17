@@ -38,7 +38,6 @@ class AccountSpaceNetStorage {
             })
             .catch(err => {
                 this._translate_error_code(err);
-                // dbg.warn('NamespaceNetStorage.read_object_md:', inspect(err));
                 throw err;
             });
     }
@@ -50,7 +49,6 @@ class AccountSpaceNetStorage {
             })
             .catch(err => {
                 this._translate_error_code(err);
-                // dbg.warn('NamespaceNetStorage.read_object_md:', inspect(err));
                 throw err;
             });
     }
@@ -64,7 +62,6 @@ class AccountSpaceNetStorage {
             })
             .catch(err => {
                 this._translate_error_code(err);
-                // dbg.warn('NamespaceNetStorage.read_object_md:', inspect(err));
                 throw err;
             });
     }
@@ -78,7 +75,6 @@ class AccountSpaceNetStorage {
             })
             .catch(err => {
                 this._translate_error_code(err);
-                // dbg.warn('NamespaceNetStorage.read_object_md:', inspect(err));
                 throw err;
             });
     }

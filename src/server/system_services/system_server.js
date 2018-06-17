@@ -387,12 +387,6 @@ function read_system(req) {
 
         obj_count_per_bucket: MDStore.instance().count_objects_per_bucket(system._id),
 
-        // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
-        // which is supported instead of sending the bucket name in an rpc req
-        // just to reuse the rpc function code without calling through rpc.
-        cloud_sync_by_bucket: P.props(_.mapValues(system.buckets_by_name,
-            bucket => bucket_server.get_cloud_sync(req, bucket))),
-
         accounts: P.fcall(() => server_rpc.client.account.list_accounts({}, {
             auth_token: req.auth_token
         })).then(
@@ -432,7 +426,6 @@ function read_system(req) {
         nodes_aggregate_pool_with_cloud_no_mongo,
         hosts_aggregate_pool,
         obj_count_per_bucket,
-        cloud_sync_by_bucket,
         accounts,
         has_ssl_cert,
         aggregate_data_free_by_tier,
@@ -514,7 +507,6 @@ function read_system(req) {
                         hosts_aggregate_pool,
                         aggregate_data_free_by_tier,
                         num_of_objects: obj_count_per_bucket[bucket._id] || 0,
-                        cloud_sync_policy: cloud_sync_by_bucket[bucket.name],
                         func_configs
                     });
                     if (deletable_buckets[bucket.name]) {

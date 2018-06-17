@@ -5,12 +5,12 @@
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadAbort.html
  * AKA Abort Multipart Upload
  */
-function delete_object_uploadId(req) {
-    return req.object_sdk.abort_object_upload({
+async function delete_object_uploadId(req) {
+    await req.object_sdk.abort_object_upload({
         obj_id: req.query.uploadId,
         bucket: req.params.bucket,
         key: req.params.key,
-    }).return();
+    });
 }
 
 module.exports = {

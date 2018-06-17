@@ -401,12 +401,11 @@ class MapBuilder {
             MDStore.instance().insert_blocks(this.new_blocks),
             MDStore.instance().update_blocks_by_ids(mongo_utils.uniq_ids(this.delete_blocks, '_id'), { deleted: now }),
             map_deleter.delete_blocks_from_nodes(this.delete_blocks),
-            map_deleter.delete_multiple_objects(objs_to_be_deleted)
-            .each(res => {
-                if (!res.isFulfilled()) {
-                    dbg.log0('Failed delete_multiple_objects', res);
-                }
-            }),
+            // We do not care about the latest flags for objects that do not have a bucket
+            P.map(objs_to_be_deleted, obj => MDStore.instance().remove_object_and_unset_latest(obj)
+                .then(() => map_deleter.delete_object_mappings(obj))
+                .catch(err => dbg.error('Failed to delete object', obj, 'with error', err))
+            ),
             map_deleter.delete_chunks(_.map(chunks_to_be_deleted, '_id'))
         );
     }

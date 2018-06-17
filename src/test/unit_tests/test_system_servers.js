@@ -25,7 +25,6 @@ mocha.describe('system_servers', function() {
     const NAMESPACE_BUCKET = `${PREFIX}-namespace-bucket`;
     const SYS1 = `${PREFIX}-${SYSTEM}-1`;
     const EMAIL1 = `${PREFIX}-${EMAIL}`;
-    const CLOUD_SYNC_CONNECTION = 'Connection 1';
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
     const NAMESPACE_RESOURCE_NAME = `${PREFIX}-namespace-resource`;
     const SERVER_RESTART_DELAY = 10000;
@@ -429,55 +428,6 @@ mocha.describe('system_servers', function() {
             .then(() => rpc_client.account.delete_external_connection({
                 connection_name: NAMESPACE_RESOURCE_CONNECTION,
             }));
-    });
-
-    mocha.it('cloud sync works', function() {
-        if (config.SKIP_EXTERNAL_TESTS) this.skip(); // eslint-disable-line no-invalid-this
-        this.timeout(90000); // eslint-disable-line no-invalid-this
-        if (!process.env.AWS_ACCESS_KEY_ID ||
-            !process.env.AWS_SECRET_ACCESS_KEY) {
-            throw new Error('No valid AWS credentials in env - ' +
-                'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
-                'for testing account.add_external_connection()');
-        }
-        return P.resolve()
-            .then(() => rpc_client.account.add_external_connection({
-                name: CLOUD_SYNC_CONNECTION,
-                endpoint: 'https://s3.amazonaws.com',
-                endpoint_type: 'AWS',
-                identity: process.env.AWS_ACCESS_KEY_ID,
-                secret: process.env.AWS_SECRET_ACCESS_KEY
-            }))
-            .then(() => rpc_client.account.delete_external_connection({
-                connection_name: CLOUD_SYNC_CONNECTION,
-            }))
-            .then(() => rpc_client.account.add_external_connection({
-                name: CLOUD_SYNC_CONNECTION,
-                endpoint: 'https://s3.amazonaws.com',
-                endpoint_type: 'AWS',
-                identity: process.env.AWS_ACCESS_KEY_ID,
-                secret: process.env.AWS_SECRET_ACCESS_KEY
-            }))
-            .then(() => rpc_client.bucket.set_cloud_sync({
-                name: BUCKET,
-                connection: CLOUD_SYNC_CONNECTION,
-                target_bucket: BUCKET,
-                policy: {
-                    schedule_min: 11
-                }
-            }))
-            // .then(() => rpc_client.bucket.get_cloud_buckets({
-            //     connection: CLOUD_SYNC_CONNECTION
-            // }))
-            .then(() => rpc_client.system.read_system())
-            // .then(() => rpc_client.bucket.get_cloud_sync({
-            //     name: BUCKET,
-            // }))
-            .then(() => rpc_client.bucket.delete_cloud_sync({
-                name: BUCKET,
-            }))
-            .then(() => rpc_client.bucket.get_all_cloud_sync())
-            .then(() => rpc_client.system.read_system());
     });
 
     /////////////

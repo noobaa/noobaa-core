@@ -62,10 +62,6 @@ export function _isNamespaceBucketUsingResource(bucket, resource) {
 function _getBucketsRelatedToUsage(usage, buckets, namespaceBuckets) {
     const { usageType, entity } = usage;
     switch (usageType) {
-        case 'CLOUD_SYNC': {
-            return [entity];
-        }
-
         case 'CLOUD_RESOURCE': {
             return buckets
                 .filter(bucket => _isBucketUsingResource(bucket, entity))

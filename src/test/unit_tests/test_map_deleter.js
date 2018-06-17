@@ -39,16 +39,8 @@ coretest.describe_mapper_test_case({
 
     // TODO test_map_deleter
 
-    mocha.it('delete_object', function() {
-        return map_deleter.delete_object();
-    });
-
     mocha.it('delete_chunks', function() {
         return map_deleter.delete_chunks();
-    });
-
-    mocha.it('delete_multiple_objects', function() {
-        return map_deleter.delete_multiple_objects();
     });
 
     mocha.it('delete_object_mappings', function() {

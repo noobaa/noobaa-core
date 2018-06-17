@@ -18,6 +18,7 @@ const Semaphore = require('../util/semaphore');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
 const ChunkCoder = require('../util/chunk_coder');
+const http_utils = require('../util/http_utils');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
 const promise_utils = require('../util/promise_utils');
@@ -144,6 +145,12 @@ class ObjectIO {
             })
             .then(() => dbg.log0('upload_object: complete upload', complete_params))
             .then(() => params.client.object.complete_object_upload(complete_params))
+            .then(complete_result => {
+                if (params.copy_source) {
+                    complete_result.copy_source = params.copy_source;
+                }
+                return complete_result;
+            })
             .catch(err => {
                 dbg.warn('upload_object: failed upload', complete_params, err);
                 if (!params.obj_id) throw err;
@@ -197,65 +204,77 @@ class ObjectIO {
             });
     }
 
-    _load_copy_source_md(params, create_params) {
+    async _load_copy_source_md(params, create_params) {
         if (!params.copy_source) return;
-        return params.client.object.read_object_md({
-                bucket: params.copy_source.bucket,
-                key: params.copy_source.key,
-                md_conditions: params.source_md_conditions,
-            })
-            .then(object_md => {
-                params.copy_source.obj_id = object_md.obj_id;
-                create_params.md5_b64 = object_md.md5_b64;
-                create_params.sha256_b64 = object_md.sha256_b64;
-                if (!create_params.content_type && object_md.content_type) {
-                    create_params.content_type = object_md.content_type;
-                }
-                if (params.xattr_copy) {
-                    create_params.xattr = object_md.xattr;
-                }
-            });
+        const { bucket, key, version_id } = params.copy_source;
+        const object_md = await params.client.object.read_object_md({
+            bucket,
+            key,
+            version_id,
+            md_conditions: params.source_md_conditions,
+        });
+        params.copy_source.obj_id = object_md.obj_id;
+        params.copy_source.version_id = object_md.version_id;
+        params.copy_source.ranges = http_utils.normalize_http_ranges(
+            params.copy_source.ranges, object_md.size);
+        create_params.md5_b64 = object_md.md5_b64;
+        create_params.sha256_b64 = object_md.sha256_b64;
+        if (!create_params.content_type && object_md.content_type) {
+            create_params.content_type = object_md.content_type;
+        }
+        if (params.xattr_copy) {
+            create_params.xattr = object_md.xattr;
+        }
     }
 
-    _upload_copy(params, complete_params) {
-        const start = _.get(params, 'copy_source.range.start');
-        const end = _.get(params, 'copy_source.range.end');
-        if ((params.copy_source.bucket !== params.bucket) || (!_.isUndefined(start) && !_.isUndefined(end))) {
-            params.source_stream = this.read_object_stream({
-                client: params.client,
-                obj_id: params.copy_source.obj_id,
-                bucket: params.copy_source.bucket,
-                key: params.copy_source.key,
-                start,
-                end
-            });
+    async _upload_copy(params, complete_params) {
+        const { obj_id, bucket, key, version_id, ranges } = params.copy_source;
+        if (bucket !== params.bucket || ranges) {
+            if (ranges) {
+                params.source_stream = this.read_object_stream({
+                    client: params.client,
+                    obj_id,
+                    bucket,
+                    key,
+                    version_id,
+                    start: ranges[0].start,
+                    end: ranges[0].end,
+                });
+            } else {
+                params.source_stream = this.read_object_stream({
+                    client: params.client,
+                    obj_id,
+                    bucket,
+                    key,
+                    version_id,
+                });
+            }
             return this._upload_stream(params, complete_params);
         }
 
         // copy mappings
-        return params.client.object.read_object_mappings({
-                obj_id: params.copy_source.obj_id,
-                bucket: params.copy_source.bucket,
-                key: params.copy_source.key,
-            })
-            .then(({ object_md, parts }) => {
-                complete_params.size = object_md.size;
-                complete_params.num_parts = parts.length;
-                complete_params.md5_b64 = object_md.md5_b64;
-                complete_params.sha256_b64 = object_md.sha256_b64;
-                complete_params.etag = object_md.etag; // preserve source etag
-                return params.client.object.finalize_object_parts({
-                    obj_id: params.obj_id,
-                    bucket: params.bucket,
-                    key: params.key,
-                    // sending part.chunk_id so no need for part.chunk info
-                    parts: _.map(parts, p => {
-                        const new_part = _.omit(p, 'chunk', 'multipart_id');
-                        new_part.multipart_id = complete_params.multipart_id;
-                        return new_part;
-                    }),
-                });
-            });
+        const { object_md, parts } = await params.client.object.read_object_mappings({
+            obj_id,
+            bucket,
+            key,
+            version_id,
+        });
+        complete_params.size = object_md.size;
+        complete_params.num_parts = parts.length;
+        complete_params.md5_b64 = object_md.md5_b64;
+        complete_params.sha256_b64 = object_md.sha256_b64;
+        complete_params.etag = object_md.etag; // preserve source etag
+        return params.client.object.finalize_object_parts({
+            obj_id: params.obj_id,
+            bucket: params.bucket,
+            key: params.key,
+            // sending part.chunk_id so no need for part.chunk info
+            parts: _.map(parts, p => {
+                const new_part = _.omit(p, 'chunk', 'multipart_id');
+                new_part.multipart_id = complete_params.multipart_id;
+                return new_part;
+            }),
+        });
     }
 
 

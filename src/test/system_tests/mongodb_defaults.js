@@ -69,9 +69,6 @@ db.nodes.remove({
 });
 
 db.buckets.updateMany({}, {
-    $unset: {
-        cloud_sync: true
-    },
     $set: {
         storage_stats: {
             chunks_capacity: 0,
@@ -142,7 +139,7 @@ db.roles.remove({
     }
 });
 
-//clean cloud sync credential cache
+//clean account credential cache
 db.accounts.updateMany({}, {
     $unset: {
         sync_credentials_cache: true

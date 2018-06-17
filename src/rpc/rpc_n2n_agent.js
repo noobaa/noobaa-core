@@ -9,6 +9,7 @@ const tls = require('tls');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
 const url_utils = require('../util/url_utils');
 const ssl_utils = require('../util/ssl_utils');
 const nb_native = require('../util/nb_native');
@@ -69,7 +70,7 @@ class RpcN2NAgent extends EventEmitter {
             offer_ipv6: false,
             accept_ipv4: true,
             accept_ipv6: true,
-            offer_internal: false,
+            offer_internal: config.N2N_OFFER_INTERNAL,
 
             // tcp options
             tcp_active: true,
@@ -138,9 +139,9 @@ class RpcN2NAgent extends EventEmitter {
             tls.createSecureContext(Object.assign({ honorCipherOrder: true }, secure_context_params));
     }
 
-    update_n2n_config(config) {
-        dbg.log0('UPDATE N2N CONFIG', config);
-        _.each(config, (val, key) => {
+    update_n2n_config(n2n_config) {
+        dbg.log0('UPDATE N2N CONFIG', n2n_config);
+        _.each(n2n_config, (val, key) => {
             if (key === 'tcp_permanent_passive') {
                 // since the tcp permanent object holds more info than just the port_range
                 // then we need to check if the port range cofig changes, if not we ignore

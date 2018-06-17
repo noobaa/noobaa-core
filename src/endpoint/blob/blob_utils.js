@@ -48,9 +48,7 @@ function parse_etag(etag) {
 function parse_copy_source(req) {
     const copy_source = req.headers['x-ms-copy-source'];
     if (!copy_source) return;
-
     const source_url = url.parse(copy_source).path;
-
     return _.pick(endpoint_utils.parse_source_url(source_url), 'bucket', 'key');
 }
 

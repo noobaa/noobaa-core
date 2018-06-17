@@ -17,9 +17,6 @@ module.exports = {
             objectid: true
         },
 
-        // on delete set deletion time
-        // see relation to cloud_synced, if deleted will ever be actually
-        // remove from the DB, need to wait until its cloud_synced === true
         deleted: {
             date: true
         },
@@ -36,6 +33,27 @@ module.exports = {
         key: {
             type: 'string'
         },
+
+        version_seq: { type: 'integer' },
+
+        version_past: {
+            // version_past = undefined  means latest version.
+            // version_past = true       means non latest.
+            // version_past = false      unused!
+            type: 'boolean'
+        },
+
+        version_enabled: {
+            // version_enabled = true       means a listed version
+            // version_enabled = undefined  means 'null' version (backward compatible for objects that existed before introducing versioning)
+            // version_enabled = false      unused!
+            // We defined it instead of version_null for backward compatibility on upgrades.
+            // The reason we have to separate it from version_seq is that 'null' version 
+            // also has to be sorted by creation order when listing versions.
+            type: 'boolean'
+        },
+
+        delete_marker: { type: 'boolean' },
 
         // size in bytes
         // NOTE: only updated once upload ends
@@ -81,11 +99,6 @@ module.exports = {
         },
         sha256_b64: {
             type: 'string'
-        },
-
-        // is the object synced with the cloud
-        cloud_synced: {
-            type: 'boolean',
         },
 
         // xattr saved as free form object

@@ -2,7 +2,7 @@
 'use strict';
 
 const S3Error = require('../s3_errors').S3Error;
-const s3_utils = require('../s3_utils');
+// const s3_utils = require('../s3_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETreplication.html
@@ -10,27 +10,28 @@ const s3_utils = require('../s3_utils');
 function get_bucket_replication(req) {
     return req.object_sdk.read_bucket({ name: req.params.bucket })
         .then(bucket_info => {
-            if (!bucket_info.cloud_sync ||
-                bucket_info.cloud_sync.status === 'NOTSET') {
-                throw new S3Error(S3Error.ReplicationConfigurationNotFoundError);
-            }
+            // TODO S3 get_bucket_replication not implemented
+            throw new S3Error(S3Error.ReplicationConfigurationNotFoundError);
+
+            /*
             return {
                 ReplicationConfiguration: {
-                    Role: `arn:noobaa:iam::112233445566:role/CloudSync`,
+                    Role: `arn:noobaa:iam::112233445566:role/replication`,
                     Rule: {
-                        ID: 'CloudSync',
-                        Status: bucket_info.cloud_sync.policy.paused ? 'Disabled' : 'Enabled',
+                        ID: 'replication',
+                        Status: status ? 'Enabled': 'Disabled',
                         Prefix: '',
                         Destination: {
-                            Bucket: bucket_info.cloud_sync.target_bucket,
+                            Bucket: target.bucket,
                             StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
                             // non standard fields
-                            Endpoint: bucket_info.cloud_sync.endpoint,
-                            EndpointType: bucket_info.cloud_sync.endpoint_type,
+                            Endpoint: target.endpoint,
+                            EndpointType: target.endpoint_type,
                         }
                     }
                 }
             };
+            */
         });
 }
 

@@ -11,9 +11,9 @@ const fs_utils = require('./fs_utils');
 const string_utils = require('./string_utils');
 const promise_utils = require('./promise_utils');
 
-const PROPRIETARY_KIND = 'PROPRIETARY';
-const PERMISSIVE_KIND = 'PERMISSIVE';
-const GPL_KIND = 'GPL';
+const PROPRIETARY_TYPE = 'PROPRIETARY';
+const PERMISSIVE_TYPE = 'PERMISSIVE';
+const GPL_TYPE = 'GPL';
 
 /**
  * LicenseDetector uses templates and string comparing algorithms
@@ -127,7 +127,7 @@ class LicenseScanner extends events.EventEmitter {
                 return P.map(paths, stat_if_exists)
                     .then(stats => {
                         const index = _.findIndex(stats, stat => Boolean(stat));
-                        this.emit('license', {
+                        this._emit_license({
                             path: paths[index < 0 ? 0 : index] + '/RPM',
                             license,
                             name,
@@ -168,7 +168,7 @@ class LicenseScanner extends events.EventEmitter {
         return fs.readFileAsync(file_path, 'utf8')
             .then(text => {
                 const license = this.detector.detect_license_text(text, file_path);
-                this.emit('license', {
+                this._emit_license({
                     path: file_path,
                     license,
                 });
@@ -199,7 +199,7 @@ class LicenseScanner extends events.EventEmitter {
                     return;
                 }
                 _.forEach(_.isArray(license) ? license : [license],
-                    l => this.emit('license', {
+                    l => this._emit_license({
                         path: file_path,
                         license: l.type || l,
                         name,
@@ -222,7 +222,7 @@ class LicenseScanner extends events.EventEmitter {
                     const text = buffer.slice(0, bytes_read).toString('utf8');
                     const license = this.detector.detect_license_text(text, file_path);
                     if (!license) return;
-                    this.emit('license', {
+                    this._emit_license({
                         path: file_path,
                         license,
                     });
@@ -241,6 +241,14 @@ class LicenseScanner extends events.EventEmitter {
         }
     }
 
+    _emit_license(license) {
+        license.license_type = get_license_type(license.license);
+        if (license.license_type !== PERMISSIVE_TYPE) {
+            console.error('GGG', license);
+        }
+        this.emit('license', license);
+}
+
 }
 
 function stat_if_exists(file_path) {
@@ -250,57 +258,60 @@ function stat_if_exists(file_path) {
         });
 }
 
-function get_license_permission(name) {
+function get_license_type(name) {
     // APACHE-2.0
     // APACHE 2.0
     // APACHE LICENSE 2.0
     // APACHE LICENSE VERSION 2.0
     // APACHE-2.0-APPENDIX
-    if (/^apache/i.test(name)) return PERMISSIVE_KIND;
+    if (/^apache/i.test(name)) return PERMISSIVE_TYPE;
     // MIT
     // MIT/X11
-    if (/^mit/i.test(name)) return PERMISSIVE_KIND;
+    if (/^mit/i.test(name)) return PERMISSIVE_TYPE;
     // BSD
     // BSD-2
     // BSD-2-CLAUSE
     // BSD-3
     // BSD-3-CLAUSE
     // BSD-3-CLAUSE AND MIT
-    if (/^bsd/i.test(name)) return PERMISSIVE_KIND;
+    if (/^bsd/i.test(name)) return PERMISSIVE_TYPE;
     // ISC
-    if (/^isc$/i.test(name)) return PERMISSIVE_KIND;
+    if (/^isc$/i.test(name)) return PERMISSIVE_TYPE;
     // Unlicense
-    if (/^unlicense$/i.test(name)) return PERMISSIVE_KIND;
+    if (/^unlicense$/i.test(name)) return PERMISSIVE_TYPE;
     // MPL-2.0
-    if (/^mpl/i.test(name)) return PERMISSIVE_KIND;
+    if (/^mpl/i.test(name)) return PERMISSIVE_TYPE;
     // MOZILLA 2.0
-    if (/^mozilla/i.test(name)) return PERMISSIVE_KIND;
+    if (/^mozilla/i.test(name)) return PERMISSIVE_TYPE;
     // WTF
     // WTFPL
     // WTFPL-2.0
-    if (/^wtf/i.test(name)) return PERMISSIVE_KIND;
+    if (/^wtf/i.test(name)) return PERMISSIVE_TYPE;
     // ZLIB
-    if (/^zlib/i.test(name)) return PERMISSIVE_KIND;
+    if (/^zlib/i.test(name)) return PERMISSIVE_TYPE;
     // Public domain
-    if (/^public.*domain/i.test(name)) return PERMISSIVE_KIND;
+    if (/^public.*domain/i.test(name)) return PERMISSIVE_TYPE;
     // ARTISTIC-2.0
     // ARTISTIC LICENSE 2.0
-    if (/^artistic/i.test(name)) return PERMISSIVE_KIND;
+    if (/^artistic/i.test(name)) return PERMISSIVE_TYPE;
     // AFL (Academic Free License)
-    if (/^afl/i.test(name)) return PERMISSIVE_KIND;
+    if (/^afl/i.test(name)) return PERMISSIVE_TYPE;
     // PYTHON-2.0
-    if (/^python/i.test(name)) return PERMISSIVE_KIND;
+    if (/^python/i.test(name)) return PERMISSIVE_TYPE;
     // W3C
-    if (/^w3c/i.test(name)) return PERMISSIVE_KIND;
+    if (/^w3c/i.test(name)) return PERMISSIVE_TYPE;
 
     // GPL
     // LGPL
-    if (/^l?gpl/i.test(name)) return GPL_KIND;
+    if (/^l?gpl/i.test(name)) return GPL_TYPE;
 
     // default
-    return PROPRIETARY_KIND;
+    return PROPRIETARY_TYPE;
 }
 
 exports.LicenseDetector = LicenseDetector;
 exports.LicenseScanner = LicenseScanner;
-exports.get_license_permission = get_license_permission;
+exports.get_license_type = get_license_type;
+exports.PROPRIETARY_TYPE = PROPRIETARY_TYPE;
+exports.PROPRIETARY_TYPE = PERMISSIVE_TYPE;
+exports.PROPRIETARY_TYPE = GPL_TYPE;

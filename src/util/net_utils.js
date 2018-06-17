@@ -170,12 +170,15 @@ function get_ntp_time({ server = 'pool.ntp.org', port = 123, timeout = 60000 } =
         .timeout(timeout);
 }
 
-function retrieve_public_ip() {
-    return P.ninvoke(request, 'get', {
-            url: 'http://api.ipify.org/',
-        })
-        .catch(() => undefined)
-        .then(res => res.body);
+async function retrieve_public_ip() {
+    try {
+        const res = await P.fromCallback(callback =>
+            request.get('http://api.ipify.org/', callback)
+        );
+        return res.body;
+    } catch (err) {
+        return undefined;
+    }
 }
 
 exports.ping = ping;

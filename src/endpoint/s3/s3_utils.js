@@ -69,30 +69,23 @@ function parse_part_number(num_str, err) {
 function parse_copy_source(req) {
     const source_url = req.headers['x-amz-copy-source'];
     if (!source_url) return;
-
     // I wonder: do we want to support copy source url with host:port too?
-
     const { query, bucket, key } = endpoint_utils.parse_source_url(source_url);
-    const version = query && query.versionId;
-    const range = http_utils.parse_http_range(req.headers['x-amz-copy-source-range']);
-    return {
-        bucket,
-        key,
-        version,
-        range,
-    };
+    const version_id = query && query.versionId;
+    const ranges = http_utils.parse_http_ranges(req.headers['x-amz-copy-source-range']);
+    return { bucket, key, version_id, ranges };
 }
 
-function format_copy_source(params) {
-    if (!params) return;
-    const range_str = http_utils.format_http_range(params.range);
-    let copy_source_str = `/${params.bucket}/${params.key}`;
-    if (params.version) {
-        copy_source_str += `?versionId=${params.version}`;
+function format_copy_source(copy_source) {
+    if (!copy_source) return;
+    const copy_source_range = http_utils.format_http_ranges(copy_source.ranges);
+    let copy_source_str = `/${copy_source.bucket}/${copy_source.key}`;
+    if (copy_source.version_id) {
+        copy_source_str += `?versionId=${copy_source.version_id}`;
     }
     return {
         copy_source: copy_source_str,
-        range: range_str
+        copy_source_range,
     };
 }
 
@@ -102,6 +95,7 @@ function set_response_object_md(res, object_md) {
     res.setHeader('Content-Type', object_md.content_type);
     res.setHeader('Content-Length', object_md.size);
     res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('x-amz-version-id', object_md.version_id);
     set_response_xattr(res, object_md.xattr);
     return object_md;
 }

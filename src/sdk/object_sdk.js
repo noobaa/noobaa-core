@@ -5,7 +5,7 @@ const _ = require('lodash');
 const util = require('util');
 require('../util/dotenv').load();
 
-const P = require('../util/promise');
+// const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const LRUCache = require('../util/lru_cache');
 const cloud_utils = require('../util/cloud_utils');
@@ -47,57 +47,49 @@ class ObjectSDK {
     }
 
     _get_account_namespace() {
-        return P.resolve()
-            .then(() => {
-                if (process.env.AKAMAI_ACCOUNT_NS === 'true') {
-                    return new AccountSpaceNetStorage({
-                        // This is the endpoint
-                        hostname: process.env.AKAMAI_HOSTNAME,
-                        // This is the access key
-                        keyName: process.env.AKAMAI_KEYNAME,
-                        // This is the secret key
-                        key: process.env.AKAMAI_KEY,
-                        // Should be the target bucket regarding the S3 storage
-                        cpCode: process.env.AKAMAI_CPCODE,
-                        // Not sure if relevant since we always talk using HTTP
-                        ssl: false
-                    });
-                }
-
-                return this.accountspace_nb;
+        if (process.env.AKAMAI_ACCOUNT_NS === 'true') {
+            return new AccountSpaceNetStorage({
+                // This is the endpoint
+                hostname: process.env.AKAMAI_HOSTNAME,
+                // This is the access key
+                keyName: process.env.AKAMAI_KEYNAME,
+                // This is the secret key
+                key: process.env.AKAMAI_KEY,
+                // Should be the target bucket regarding the S3 storage
+                cpCode: process.env.AKAMAI_CPCODE,
+                // Not sure if relevant since we always talk using HTTP
+                ssl: false
             });
+        }
+
+        return this.accountspace_nb;
     }
 
-    _get_bucket_namespace(name) {
-        return bucket_namespace_cache.get_with_cache({
-                sdk: this,
-                name,
-            })
-            .then(data => data.ns);
+    async _get_bucket_namespace(name) {
+        const { ns } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        return ns;
     }
 
-    _load_bucket_namespace(params) {
+    async _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
-        return P.resolve(params.bucket || this.rpc_client.bucket.get_bucket_namespaces({ name: params.name }))
-            .then(bucket => this._setup_bucket_namespace(bucket));
+        const bucket = params.bucket || await this.rpc_client.bucket.get_bucket_namespaces({ name: params.name });
+        return this._setup_bucket_namespace(bucket);
     }
 
-    _validate_bucket_namespace(data, params) {
+    async _validate_bucket_namespace(data, params) {
         const time = Date.now();
         if (time <= data.valid_until) return true;
-        return this.rpc_client.bucket.get_bucket_namespaces({ name: params.name })
-            .then(bucket => {
-                if (_.isEqual(bucket.namespace, data.bucket.namespace)) {
-                    // namespace unchanged - extend validity for another period
-                    data.valid_until = time + NAMESPACE_CACHE_EXPIRY;
-                    return true;
-                } else {
-                    // namespace changed - _load_bucket_namespace will be called by the cache
-                    // hang the new bucket on the cache params to reuse it
-                    params.bucket = bucket;
-                    return false;
-                }
-            });
+        const bucket = this.rpc_client.bucket.get_bucket_namespaces({ name: params.name });
+        if (_.isEqual(bucket.namespace, data.bucket.namespace)) {
+            // namespace unchanged - extend validity for another period
+            data.valid_until = time + NAMESPACE_CACHE_EXPIRY;
+            return true;
+        } else {
+            // namespace changed - _load_bucket_namespace will be called by the cache
+            // hang the new bucket on the cache params to reuse it
+            params.bucket = bucket;
+            return false;
+        }
     }
 
     _setup_bucket_namespace(bucket) {
@@ -210,24 +202,24 @@ class ObjectSDK {
     // BUCKET //
     ////////////
 
-    list_buckets() {
-        return this._get_account_namespace()
-            .then(ns => ns.list_buckets());
+    async list_buckets() {
+        const ns = this._get_account_namespace();
+        return ns.list_buckets();
     }
 
-    read_bucket(params) {
-        return this._get_account_namespace()
-            .then(ns => ns.read_bucket(params));
+    async read_bucket(params) {
+        const ns = this._get_account_namespace();
+        return ns.read_bucket(params);
     }
 
-    create_bucket(params) {
-        return this._get_account_namespace()
-            .then(ns => ns.create_bucket(params));
+    async create_bucket(params) {
+        const ns = this._get_account_namespace();
+        return ns.create_bucket(params);
     }
 
-    delete_bucket(params) {
-        return this._get_account_namespace()
-            .then(ns => ns.delete_bucket(params));
+    async delete_bucket(params) {
+        const ns = this._get_account_namespace();
+        return ns.delete_bucket(params);
     }
 
     //////////////////////
@@ -235,60 +227,63 @@ class ObjectSDK {
     //////////////////////
 
     get_bucket_lifecycle_configuration_rules(params) {
-        return this._get_account_namespace()
-            .then(ns => ns.get_bucket_lifecycle_configuration_rules(params));
+        const ns = this._get_account_namespace();
+        return ns.get_bucket_lifecycle_configuration_rules(params);
     }
 
     set_bucket_lifecycle_configuration_rules(params) {
-        return this._get_account_namespace()
-            .then(ns => ns.set_bucket_lifecycle_configuration_rules(params));
+        const ns = this._get_account_namespace();
+        return ns.set_bucket_lifecycle_configuration_rules(params);
     }
 
     delete_bucket_lifecycle(params) {
-        return this._get_account_namespace()
-            .then(ns => ns.delete_bucket_lifecycle(params));
+        const ns = this._get_account_namespace();
+        return ns.delete_bucket_lifecycle(params);
     }
 
-    ////////////////////////
-    // BUCKET REPLICATION //
-    ////////////////////////
+    ///////////////////////
+    // BUCKET VERSIONING //
+    ///////////////////////
 
-    set_bucket_replication(params) {
-        return this._get_account_namespace()
-            .then(ns => ns.set_cloud_sync(params));
-    }
-
-    delete_bucket_replication(params) {
-        return this._get_account_namespace()
-            .then(ns => ns.delete_cloud_sync(params));
+    async set_bucket_versioning(params) {
+        const ns = this._get_account_namespace();
+        return ns.set_bucket_versioning(params);
     }
 
     /////////////////
     // OBJECT LIST //
     /////////////////
 
-    list_objects(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.list_objects(params, this));
+    async list_objects(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.list_objects(params, this);
+    }
+
+    async list_uploads(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.list_uploads(params, this);
+    }
+
+    async list_object_versions(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.list_object_versions(params, this);
     }
 
     /////////////////
     // OBJECT READ //
     /////////////////
 
-    read_object_md(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.read_object_md(params, this));
+    async read_object_md(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.read_object_md(params, this);
     }
 
-    read_object_stream(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.read_object_stream(params, this))
-            .then(reply => {
-                // update counters in background
-                this.rpc_client.object.update_bucket_read_counters({ bucket: params.bucket });
-                return reply;
-            });
+    async read_object_stream(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        const reply = await ns.read_object_stream(params, this);
+        // update counters in background
+        this.rpc_client.object.update_bucket_read_counters({ bucket: params.bucket });
+        return reply;
     }
 
     ///////////////////
@@ -298,9 +293,10 @@ class ObjectSDK {
 
     // if upload is using a copy source fix the params according to source and target real location
     async fix_copy_source_params(params, target_ns) {
-        const source_params = _.pick(params.copy_source, 'bucket', 'key');
+        const { bucket, key, version_id, ranges } = params.copy_source;
+        const source_params = { bucket, key, version_id };
         // get the namespace for source bucket
-        const source_ns = await this._get_bucket_namespace(params.copy_source.bucket);
+        const source_ns = await this._get_bucket_namespace(bucket);
         const source_md = await source_ns.read_object_md(source_params, this);
         // take the actual namespace of the bucket either from md (in case of S3\Blob) or source_ns itself
         const actual_source_ns = source_md.ns || source_ns;
@@ -308,20 +304,19 @@ class ObjectSDK {
         // check if source and target are the same and can handle server side copy
         if (actual_target_ns.is_same_namespace(actual_source_ns)) {
             // fix copy_source in params to point to the correct cloud bucket
-            params.copy_source.bucket = actual_source_ns.get_bucket(params.copy_source.bucket);
+            params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
         } else {
             // source cannot be copied directly (different plaforms, accounts, etc.)
             // set the source_stream to read from the copy source
-            if (params.copy_source.range) {
-                source_params.start = params.copy_source.range.start;
-                source_params.end = params.copy_source.range.end;
+            if (ranges) {
+                if (ranges.length !== 1) throw new Error('fix_copy_source_params: multiple ranges not supported');
+                source_params.start = ranges[0].start;
+                source_params.end = ranges[0].end;
             }
             params.source_stream = await source_ns.read_object_stream(source_params, this);
             params.size = source_md.size;
-            if (params.xattr_copy) {
-                params.xattr = source_md.xattr;
-            }
-            params.xattr = _.omitBy(params.xattr, (val, key) => key.startsWith('noobaa-namespace'));
+            if (params.xattr_copy) params.xattr = source_md.xattr;
+            params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith('noobaa-namespace'));
             if (params.size > (100 * size_utils.MEGABYTE)) {
                 dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
                 so it can take some time and cause client timeouts`);
@@ -331,15 +326,10 @@ class ObjectSDK {
         }
     }
 
-
     async upload_object(params) {
-        const target_ns = await this._get_bucket_namespace(params.bucket);
-        let reply;
-        if (params.copy_source) {
-            await this.fix_copy_source_params(params, target_ns);
-        }
-
-        reply = await target_ns.upload_object(params, this);
+        const ns = await this._get_bucket_namespace(params.bucket);
+        if (params.copy_source) await this.fix_copy_source_params(params, ns);
+        const reply = await ns.upload_object(params, this);
         // update counters in background
         this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket });
         return reply;
@@ -349,37 +339,33 @@ class ObjectSDK {
     // OBJECT MULTIPART UPLOAD //
     /////////////////////////////
 
-    create_object_upload(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.create_object_upload(params, this));
+    async create_object_upload(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.create_object_upload(params, this);
     }
 
     async upload_multipart(params) {
-        const target_ns = await this._get_bucket_namespace(params.bucket);
-        if (params.copy_source) {
-            await this.fix_copy_source_params(params, target_ns);
-        }
-        return target_ns.upload_multipart(params, this);
+        const ns = await this._get_bucket_namespace(params.bucket);
+        if (params.copy_source) await this.fix_copy_source_params(params, ns);
+        return ns.upload_multipart(params, this);
     }
 
-    list_multiparts(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.list_multiparts(params, this));
+    async list_multiparts(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.list_multiparts(params, this);
     }
 
-    complete_object_upload(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.complete_object_upload(params, this))
-            .then(reply => {
-                // update counters in background
-                this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket });
-                return reply;
-            });
+    async complete_object_upload(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        const reply = await ns.complete_object_upload(params, this);
+        // update counters in background
+        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket });
+        return reply;
     }
 
-    abort_object_upload(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.abort_object_upload(params, this));
+    async abort_object_upload(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.abort_object_upload(params, this);
     }
 
 
@@ -406,14 +392,14 @@ class ObjectSDK {
     // OBJECT DELETE //
     ///////////////////
 
-    delete_object(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.delete_object(params, this));
+    async delete_object(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.delete_object(params, this);
     }
 
-    delete_multiple_objects(params) {
-        return this._get_bucket_namespace(params.bucket)
-            .then(ns => ns.delete_multiple_objects(params, this));
+    async delete_multiple_objects(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.delete_multiple_objects(params, this);
     }
 
 }

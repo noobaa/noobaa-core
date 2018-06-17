@@ -73,7 +73,7 @@ mocha.describe('s3_list_objects', function() {
                 // Uploading zero size objects from the key arrays that were provided
                 return P.resolve()
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_objects({
                                 bucket: BKT,
                                 delimiter: '#',
                             })
@@ -97,7 +97,7 @@ mocha.describe('s3_list_objects', function() {
                             });
                     })
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_objects({
                                 bucket: BKT,
                                 delimiter: '/',
                                 prefix: 'folder'
@@ -117,7 +117,7 @@ mocha.describe('s3_list_objects', function() {
                             });
                     })
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_objects({
                                 bucket: BKT,
                                 delimiter: '/',
                             })
@@ -138,7 +138,7 @@ mocha.describe('s3_list_objects', function() {
                             });
                     })
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_objects({
                                 bucket: BKT,
                                 delimiter: '/',
                                 prefix: 'folder1/'
@@ -160,7 +160,7 @@ mocha.describe('s3_list_objects', function() {
                             });
                     })
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_objects({
                                 bucket: BKT,
                                 delimiter: '/',
                                 limit: 5
@@ -189,7 +189,7 @@ mocha.describe('s3_list_objects', function() {
                             });
                     })
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_objects({
                                 bucket: BKT,
                                 prefix: 'file_without',
                             })
@@ -211,7 +211,7 @@ mocha.describe('s3_list_objects', function() {
                             });
                     })
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_objects({
                                 bucket: BKT,
                                 prefix: 'file_without_folder0',
                             })
@@ -231,7 +231,7 @@ mocha.describe('s3_list_objects', function() {
                             });
                     })
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_objects({
                                 bucket: BKT,
                                 limit: 0
                             })
@@ -278,7 +278,7 @@ mocha.describe('s3_list_objects', function() {
             // Uploading zero size objects from the key arrays that were provided
             return P.resolve()
                 .then(function() {
-                    return rpc_client.object.list_objects_s3({
+                    return rpc_client.object.list_objects({
                             bucket: BKT,
                             limit: 2604
                         })
@@ -296,7 +296,7 @@ mocha.describe('s3_list_objects', function() {
                 })
                 .then(function() {
                     // Note that in case of S3Controller we return an appropriate error value to the client
-                    return rpc_client.object.list_objects_s3({
+                    return rpc_client.object.list_objects({
                             bucket: BKT,
                             limit: -2604
                         })
@@ -343,9 +343,8 @@ mocha.describe('s3_list_objects', function() {
             // Uploading zero size objects from the key arrays that were provided
             return P.resolve()
                 .then(function() {
-                    return rpc_client.object.list_objects_s3({
+                    return rpc_client.object.list_uploads({
                             bucket: BKT,
-                            upload_mode: true,
                             delimiter: '/',
                             prefix: 'multipart/'
                         })
@@ -362,10 +361,9 @@ mocha.describe('s3_list_objects', function() {
                         });
                 })
                 .then(function() {
-                    return rpc_client.object.list_objects_s3({
+                    return rpc_client.object.list_uploads({
                             bucket: BKT,
                             delimiter: '/',
-                            upload_mode: true,
                             prefix: 'multipart/',
                             limit: 1
                         })
@@ -384,9 +382,8 @@ mocha.describe('s3_list_objects', function() {
                 })
                 .then(() => truncated_listing({
                     bucket: BKT,
-                    upload_mode: true,
                     limit: 1,
-                }, /* use_upload_id_marker = */ true))
+                }, /* use_upload_id_marker = */ true, /* upload_mode = */ true))
                 .then(listObjectsResponse => {
                     if (!(listObjectsResponse &&
                             listObjectsResponse.common_prefixes.length === 0 &&
@@ -413,9 +410,8 @@ mocha.describe('s3_list_objects', function() {
                 // Uploading zero size objects from the key arrays that were provided
                 return P.resolve()
                     .then(function() {
-                        return rpc_client.object.list_objects_s3({
+                        return rpc_client.object.list_uploads({
                                 bucket: BKT,
-                                upload_mode: true,
                                 delimiter: '/',
                                 limit: 25
                             })
@@ -487,7 +483,7 @@ mocha.describe('s3_list_objects', function() {
                 }))) :
             rpc_client.object.delete_multiple_objects({
                 bucket: BKT,
-                keys: array_of_names
+                objects: array_of_names.map(key => ({ key })),
             });
     }
 
@@ -506,7 +502,7 @@ mocha.describe('s3_list_objects', function() {
             .then(() => clean_up_after_case(only_initiate ? response_array : array_of_names, only_initiate));
     }
 
-    function truncated_listing(params, use_upload_id_marker) {
+    function truncated_listing(params, use_upload_id_marker, upload_mode) {
         return P.resolve()
             .then(function() {
                 // Initialization of IsTruncated in order to perform the first while cycle
@@ -532,7 +528,12 @@ mocha.describe('s3_list_objects', function() {
                         },
                         function() {
                             listObjectsResponse.is_truncated = false;
-                            return rpc_client.object.list_objects_s3(_.defaults(query_obj, params))
+                            const func_params = _.defaults(query_obj, params);
+                            return (
+                                    upload_mode ?
+                                    rpc_client.object.list_uploads(func_params) :
+                                    rpc_client.object.list_objects(func_params)
+                                )
                                 .then(function(res) {
                                     listObjectsResponse.is_truncated = res.is_truncated;
                                     let res_list = {

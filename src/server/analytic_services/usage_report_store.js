@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const mongodb = require('mongodb');
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const mongo_client = require('../../util/mongo_client');
 const s3_usage_schema = require('./s3_usage_schema');
@@ -30,7 +29,6 @@ class UsageReportStore {
                 }
             }],
         });
-
         this._usage_reports = mongo_client.instance().define_collection({
             name: 'usagereports',
             schema: usage_report_schema,
@@ -49,93 +47,61 @@ class UsageReportStore {
     // Usage reports funcs //
     /////////////////////////
 
-    insert_usage_reports(reports) {
+    async insert_usage_reports(reports) {
+        if (!reports || !reports.length) return;
         for (const report of reports) {
             report._id = report._id || new mongodb.ObjectID();
             report.first_sample_time = report.first_sample_time || report.start_time;
             report.aggregated_time_range = report.aggregated_time_range || 0;
             report.aggregated_time = report.aggregated_time || new Date();
-
             this._usage_reports.validate(report);
         }
         return this._usage_reports.col().insertMany(reports);
     }
 
-    get_latest_aggregated_report_time(params) {
+    async get_latest_aggregated_report_time(params) {
         const { aggregated_time_range, bucket, account } = params;
-        return this._usage_reports.col().findOne({
-                bucket,
-                account,
-                aggregated_time_range
-            }, {
-                sort: {
-                    aggregated_time: -1
-                }
-            })
-            .then(report => {
-                if (!report) {
-                    return 0;
-                }
-                return report.aggregated_time.getTime();
-            });
+        const report = await this._usage_reports.col().findOne({
+            bucket,
+            account,
+            aggregated_time_range
+        }, {
+            sort: { aggregated_time: -1 }
+        });
+        return report ? report.aggregated_time.getTime() : 0;
     }
 
-    update_aggregated_usage_reports(update) {
-        return this._usage_reports.col().findOne({
-                start_time: update.start_time,
-                aggregated_time_range: update.aggregated_time_range
-            })
-            .then(res => {
-                if (res) {
-                    // perform update if the range is already in the DB
-                    const $inc = _.pick(update, ['read_bytes', 'write_bytes', 'read_count', 'write_count']);
-                    return this._usage_reports.col().updateOne({
-                        start_time: update.start_time,
-                        aggregated_time_range: update.aggregated_time_range
-                    }, {
-                        $inc
-                    });
-                } else {
-                    // if not found preform an insert
-                    return this.insert_usage_reports([update]);
-                }
-            })
-            .return();
+    async update_aggregated_usage_reports(update) {
+        const res = await this._usage_reports.col().findOne({
+            start_time: update.start_time,
+            aggregated_time_range: update.aggregated_time_range
+        });
+        // insert if not found
+        if (!res) return this.insert_usage_reports([update]);
+        // update if the range is already in the DB
+        return this._usage_reports.col().updateOne({
+            start_time: update.start_time,
+            aggregated_time_range: update.aggregated_time_range
+        }, {
+            $inc: _.pick(update, 'read_bytes', 'write_bytes', 'read_count', 'write_count')
+        });
     }
 
-    get_usage_reports(params) {
+    async get_usage_reports(params) {
         const { since, till, lt_range, bucket } = params;
-        const start_time = {
-            $lt: till ? new Date(till) : new Date()
-        };
-        if (since) {
-            start_time.$gt = new Date(since);
-        }
-        const query = {
-            start_time,
-        };
-        if (lt_range) {
-            query.aggregated_time_range = {
-                $lt: lt_range
-            };
-        }
-        if (bucket) {
-            query.bucket = bucket;
-        }
-
-        return this._usage_reports.col().find(query)
-            .toArray();
+        const start_time = { $lt: till ? new Date(till) : new Date() };
+        if (since) start_time.$gt = new Date(since);
+        const query = { start_time };
+        if (lt_range) query.aggregated_time_range = { $lt: lt_range };
+        if (bucket) query.bucket = bucket;
+        return this._usage_reports.col().find(query).toArray();
     }
 
-    clean_usage_reports(params) {
+    async clean_usage_reports(params) {
         const { till, lt_aggregated_time_range } = params;
         return this._usage_reports.col().removeMany({
-            start_time: {
-                $lt: new Date(till)
-            },
-            aggregated_time_range: {
-                $lt: lt_aggregated_time_range
-            }
+            start_time: { $lt: new Date(till) },
+            aggregated_time_range: { $lt: lt_aggregated_time_range }
         });
     }
 
@@ -145,7 +111,7 @@ class UsageReportStore {
 
 
 
-    update_usage(system, usage_info, errors_info) {
+    async update_usage(system, usage_info, errors_info) {
         dbg.log1('update_usage');
         let update = {
             $inc: {}
@@ -157,36 +123,25 @@ class UsageReportStore {
             update.$inc[`s3_errors_info.${key}`] = count;
         });
         if (_.isEmpty(update.$inc)) return;
-        return P.resolve()
-            .then(() => this._s3_usage.col().findOneAndUpdate({
-                system: system._id
-            }, update, {
-                upsert: true,
-                returnNewDocument: true
-            }))
-            .then(res => this._s3_usage.validate(res.value, 'warn'))
-            .return();
+        const res = await this._s3_usage.col().findOneAndUpdate({ system: system._id },
+            update, { upsert: true, returnNewDocument: true });
+        this._s3_usage.validate(res.value, 'warn');
     }
 
-    reset_usage(system) {
+    async reset_usage(system) {
         dbg.log1('reset_usage');
-        return P.resolve()
-            .then(() => this._s3_usage.col().removeMany({
-                system: system._id,
-                bucket: null,
-                account: null,
-            }))
-            .return();
+        await this._s3_usage.col().removeMany({
+            system: system._id,
+            bucket: null,
+            account: null,
+        });
     }
 
-    get_usage(system) {
+    async get_usage(system) {
         dbg.log1('get_usage');
-        return P.resolve()
-            .then(() => this._s3_usage.col().findOne({
-                system: system._id
-            }))
-            .then(res => this._s3_usage.validate(res, 'warn'))
-            .then(res => _.pick(res, 's3_usage_info', 's3_errors_info'));
+        const res = await this._s3_usage.col().findOne({ system: system._id });
+        this._s3_usage.validate(res, 'warn');
+        return _.pick(res, 's3_usage_info', 's3_errors_info');
     }
 
 }

@@ -114,12 +114,18 @@ function process_block_list({ block_list, bucket, key, committed_list, uncommitt
         const end_offset = start_offset + resolved_block.size;
         const range = { start: start_offset, end: end_offset };
         start_offset = end_offset;
-        let copy_source = { bucket };
+        let copy_source;
         if (resolved_block.block_type === 'uncommitted') {
-            copy_source.key = `${get_uncommitted_blocks_path(bucket, key)}/${block.block_id}`;
+            copy_source = {
+                bucket,
+                key: `${get_uncommitted_blocks_path(bucket, key)}/${block.block_id}`,
+            };
         } else {
-            copy_source.key = key;
-            copy_source.range = resolved_block.range;
+            copy_source = {
+                bucket,
+                key,
+                ranges: [resolved_block.range],
+            };
         }
         return {
             block_id: block.block_id,
@@ -133,15 +139,13 @@ function process_block_list({ block_list, bucket, key, committed_list, uncommitt
 
 async function remove_block_lists({ bucket, key, uncommitted_list, remove_uncommitted, remove_committed, } = {}, object_sdk) {
     const uncommitted_path = get_uncommitted_blocks_path(bucket, key);
-    const keys = remove_uncommitted ? uncommitted_list.map(block => `${uncommitted_path}/${block.block_id}`) : [];
+    const objects = remove_uncommitted ? uncommitted_list.map(block => ({ key: `${uncommitted_path}/${block.block_id}` })) : [];
     if (remove_committed) {
         const committed_path = get_committed_blocks_path(bucket, key);
-        keys.push(committed_path);
+        objects.push({ key: committed_path });
     }
-    if (!keys.length) {
-        return;
-    }
-    return object_sdk.delete_multiple_objects({ bucket, keys });
+    if (!objects.length) return;
+    return object_sdk.delete_multiple_objects({ bucket, objects });
 }
 
 
@@ -235,16 +239,14 @@ async function delete_blocks({ bucket, keys } = {}, object_sdk) {
         }, object_sdk);
         const uncommitted_path = get_uncommitted_blocks_path(bucket, key);
         const committed_path = get_committed_blocks_path(bucket, key);
-        const delete_keys = lists.uncommitted.map(block => `${uncommitted_path}/${block.block_id}`);
-        delete_keys.push(committed_path);
-        return delete_keys;
+        const delete_objects = lists.uncommitted.map(block => ({ key: `${uncommitted_path}/${block.block_id}` }));
+        delete_objects.push({ key: committed_path });
+        return delete_objects;
     });
-    const all_keys = _.flatten(block_lists);
+    const all_objects = _.flatten(block_lists);
     // pass skip_blocks_delete to avoid recursion 
-    if (!all_keys.length) {
-        return;
-    }
-    await object_sdk.delete_multiple_objects({ bucket, keys: all_keys, skip_blocks_delete: true });
+    if (!all_objects.length) return;
+    await object_sdk.delete_multiple_objects({ bucket, objects: all_objects, skip_blocks_delete: true });
 }
 
 

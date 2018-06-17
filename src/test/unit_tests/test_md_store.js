@@ -9,7 +9,7 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
 
-const P = require('../../util/promise');
+// const P = require('../../util/promise');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 
 mocha.describe('md_store', function() {
@@ -20,126 +20,95 @@ mocha.describe('md_store', function() {
 
     mocha.describe('objects', function() {
 
-        mocha.it('insert/update/find_object()', function() {
+        mocha.it('insert/update/find_object()', async function() {
+            let obj;
+            const now = new Date();
             const info = {
                 _id: md_store.make_md_id(),
                 system: system_id,
                 bucket: bucket_id,
-                key: 'lala_' + Date.now().toString(36),
-                content_type: 'lulu_' + Date.now().toString(36),
+                key: 'lala_' + now.getTime().toString(36),
+                create_time: now,
+                content_type: 'lulu_' + now.getTime().toString(36),
             };
-            return P.resolve()
-                .then(() => md_store.insert_object(info))
-                .then(() => md_store.find_object_by_id(info._id))
-                .then(obj => assert_equal(obj, info))
-                .then(() => md_store.update_object_by_key(bucket_id, info.key, {
-                    upload_size: 666,
-                    num_parts: 0
-                }))
-                .then(() => md_store.update_object_by_id(info._id, { size: 777 }, { upload_size: 1 }, { num_parts: 88 }))
-                .then(() => md_store.find_object_by_key(bucket_id, info.key))
-                .then(obj => assert_equal(obj, _.defaults({
-                    size: 777,
-                    num_parts: 88,
-                }, info)))
-                .then(() => md_store.update_object_by_id(info._id, { deleted: new Date() }))
-                .then(() => md_store.find_object_by_key(bucket_id, info.key))
-                .then(obj => assert_equal(obj, null))
-                .then(() => md_store.update_objects_by_key_deleted(bucket_id, info.key, {
-                    num_parts: 111
-                }))
-                .then(() => md_store.populate_objects({ obj: info._id }, 'obj', {
-                    key: 1,
-                    num_parts: 1
-                }))
-                .then(res => {
-                    assert_equal(res.obj.key, info.key);
-                    assert_equal(res.obj.num_parts, 111);
-                })
-                .return();
+
+            await md_store.insert_object(info);
+            obj = await md_store.find_object_by_id(info._id);
+            assert_equal(obj, info);
+
+            await md_store.update_object_by_id(info._id, { size: 777 }, { upload_size: 1 }, { num_parts: 88 });
+            obj = await md_store.find_object_latest(bucket_id, info.key);
+            assert_equal(obj, _.defaults({ size: 777, num_parts: 88 }, info));
+
+            await md_store.update_object_by_id(info._id, { deleted: new Date() });
+            obj = await md_store.find_object_latest(bucket_id, info.key);
+            assert_equal(obj, null);
+
+            const res = await md_store.populate_objects({ obj: info._id }, 'obj', { key: 1, num_parts: 1 });
+            assert_equal(res.obj.key, info.key);
+            assert_equal(res.obj.num_parts, 88);
         });
 
-        mocha.it('insert_object() detects missing key (bad schema)', function() {
+        mocha.it('insert_object() detects missing key (bad schema)', async function() {
             const info = {
                 _id: md_store.make_md_id(),
                 system: system_id,
                 bucket: bucket_id,
             };
-            return P.resolve()
-                .then(() => md_store.insert_object(info))
-                .then(() => {
-                    throw new Error('should have failed');
-                }, err => {
-                    assert(err.message.startsWith('INVALID_SCHEMA_DB'));
-                });
+            let err_message = 'error not detected';
+            try {
+                await md_store.insert_object(info);
+            } catch (err) {
+                err_message = err.message;
+            }
+            assert(err_message.startsWith('INVALID_SCHEMA_DB'), err_message);
         });
 
-        mocha.it('find_objects()', function() {
+        mocha.it('find_objects()', async function() {
             return md_store.find_objects({ bucket_id });
         });
 
-        mocha.it('find_objects_by_prefix()', function() {
-            return md_store.find_objects_by_prefix_and_delimiter({
+        mocha.it('find_objects_by_prefix()', async function() {
+            return md_store.list_objects({
                 bucket_id,
                 prefix: '',
             });
         });
 
-        mocha.it('find_objects_by_prefix_and_delimiter()', function() {
-            return md_store.find_objects_by_prefix_and_delimiter({
+        mocha.it('list_objects()', async function() {
+            return md_store.list_objects({
                 bucket_id,
                 prefix: '',
-                delimiter: '/',
+                delimiter: '/'
             });
         });
 
-        mocha.it('has_any_objects_in_system()', function() {
-            return md_store.has_any_objects_in_system(system_id);
+        mocha.it('had_any_objects_in_system()', async function() {
+            return md_store.had_any_objects_in_system(system_id);
         });
 
-        mocha.it('has_any_completed_objects_in_bucket()', function() {
+        mocha.it('has_any_completed_objects_in_bucket()', async function() {
             return md_store.has_any_completed_objects_in_bucket(bucket_id);
         });
 
-        mocha.it('count_objects_of_bucket()', function() {
+        mocha.it('count_objects_of_bucket()', async function() {
             return md_store.count_objects_of_bucket(bucket_id);
         });
 
-        mocha.it('count_objects_per_bucket()', function() {
+        mocha.it('count_objects_per_bucket()', async function() {
             return md_store.count_objects_per_bucket(system_id);
         });
 
-        mocha.it('aggregate_objects_by_create_dates()', function() {
+        mocha.it('aggregate_objects_by_create_dates()', async function() {
             const till_time = Date.now();
             const from_time = till_time - (24 * 3600 * 1000);
             return md_store.aggregate_objects_by_create_dates(from_time, till_time);
         });
 
-        mocha.it('aggregate_objects_by_delete_dates()', function() {
+        mocha.it('aggregate_objects_by_delete_dates()', async function() {
             const till_time = Date.now();
             const from_time = till_time - (24 * 3600 * 1000);
             return md_store.aggregate_objects_by_delete_dates(from_time, till_time);
-        });
-
-    });
-
-
-    mocha.describe('cloud-sync', function() {
-
-        mocha.it('list_all_objects_of_bucket_ordered_by_key()', function() {
-            return md_store.list_all_objects_of_bucket_ordered_by_key(bucket_id);
-        });
-
-        mocha.it('list_all_objects_of_bucket_need_sync()', function() {
-            return md_store.list_all_objects_of_bucket_need_sync(bucket_id);
-        });
-
-        mocha.it('update_all_objects_of_bucket_unset_cloud_sync()', function() {
-            return md_store.update_all_objects_of_bucket_unset_cloud_sync(bucket_id);
-        });
-
-        mocha.it('update_all_objects_of_bucket_set_deleted_cloud_sync()', function() {
-            return md_store.update_all_objects_of_bucket_set_deleted_cloud_sync(bucket_id);
         });
 
     });
@@ -155,14 +124,12 @@ mocha.describe('md_store', function() {
             num: 1,
         };
 
-        mocha.it('insert_multipart()', function() {
+        mocha.it('insert_multipart()', async function() {
             return md_store.insert_multipart(multipart);
         });
 
-        mocha.it('delete_multiparts_of_object()', function() {
-            const obj = {
-                _id: multipart.obj,
-            };
+        mocha.it('delete_multiparts_of_object()', async function() {
+            const obj = { _id: multipart.obj };
             return md_store.delete_multiparts_of_object(obj);
         });
 
@@ -182,11 +149,11 @@ mocha.describe('md_store', function() {
             seq: 0,
         }];
 
-        mocha.it('insert_parts()', function() {
+        mocha.it('insert_parts()', async function() {
             return md_store.insert_parts(parts);
         });
 
-        mocha.it('find_parts_by_start_range()', function() {
+        mocha.it('find_parts_by_start_range()', async function() {
             return md_store.find_parts_by_start_range({
                 obj_id: parts[0].obj,
                 start_gte: 0,
@@ -195,39 +162,33 @@ mocha.describe('md_store', function() {
             });
         });
 
-        mocha.it('find_parts_chunk_ids()', function() {
-            const obj = {
-                _id: parts[0].obj,
-            };
+        mocha.it('find_parts_chunk_ids()', async function() {
+            const obj = { _id: parts[0].obj };
             return md_store.find_parts_chunk_ids(obj);
         });
 
-        mocha.it('find_parts_by_chunk_ids()', function() {
+        mocha.it('find_parts_by_chunk_ids()', async function() {
             const chunk_ids = _.map(parts, 'chunk');
             return md_store.find_parts_by_chunk_ids(chunk_ids);
         });
 
-        mocha.it('find_parts_unreferenced_chunk_ids()', function() {
+        mocha.it('find_parts_unreferenced_chunk_ids()', async function() {
             const chunk_ids = _.map(parts, 'chunk');
             return md_store.find_parts_unreferenced_chunk_ids(chunk_ids);
         });
 
-        mocha.it('find_parts_chunks_references()', function() {
+        mocha.it('find_parts_chunks_references()', async function() {
             const chunk_ids = _.map(parts, 'chunk');
             return md_store.find_parts_chunks_references(chunk_ids);
         });
 
-        mocha.it('load_parts_objects_for_chunks()', function() {
-            const chunks = _.map(parts, part => ({
-                _id: part.chunk
-            }));
+        mocha.it('load_parts_objects_for_chunks()', async function() {
+            const chunks = _.map(parts, part => ({ _id: part.chunk }));
             return md_store.load_parts_objects_for_chunks(chunks);
         });
 
-        mocha.it('delete_parts_of_object()', function() {
-            const obj = {
-                _id: parts[0].obj,
-            };
+        mocha.it('delete_parts_of_object()', async function() {
+            const obj = { _id: parts[0].obj };
             return md_store.delete_parts_of_object(obj);
         });
 
@@ -249,31 +210,27 @@ mocha.describe('md_store', function() {
             digest: Buffer.from('not a real digest'),
         }];
 
-        mocha.it('insert_chunks()', function() {
+        mocha.it('insert_chunks()', async function() {
             return md_store.insert_chunks(chunks);
         });
 
-        mocha.it('update_chunk_by_id()', function() {
-            return md_store.update_chunk_by_id(chunks[0]._id, { bucket: bucket_id })
-                .then(() => {
-                    chunks[0].bucket = bucket_id;
-                });
+        mocha.it('update_chunk_by_id()', async function() {
+            await md_store.update_chunk_by_id(chunks[0]._id, { bucket: bucket_id });
+            chunks[0].bucket = bucket_id;
         });
 
-        mocha.it('find_chunks_by_ids()', function() {
-            return md_store.find_chunks_by_ids(_.map(chunks, '_id'))
-                .then(res => {
-                    res.forEach(chunk => {
-                        if (chunk.digest) chunk.digest = chunk.digest.buffer;
-                        if (chunk.cipher_key) chunk.cipher_key = chunk.cipher_key.buffer;
-                        if (chunk.cipher_iv) chunk.cipher_iv = chunk.cipher_iv.buffer;
-                        if (chunk.cipher_auth_tag) chunk.cipher_auth_tag = chunk.cipher_auth_tag.buffer;
-                    });
-                    assert_equal_docs_list(res, chunks);
-                });
+        mocha.it('find_chunks_by_ids()', async function() {
+            const res = await md_store.find_chunks_by_ids(_.map(chunks, '_id'));
+            res.forEach(chunk => {
+                if (chunk.digest) chunk.digest = chunk.digest.buffer;
+                if (chunk.cipher_key) chunk.cipher_key = chunk.cipher_key.buffer;
+                if (chunk.cipher_iv) chunk.cipher_iv = chunk.cipher_iv.buffer;
+                if (chunk.cipher_auth_tag) chunk.cipher_auth_tag = chunk.cipher_auth_tag.buffer;
+            });
+            assert_equal_docs_list(res, chunks);
         });
 
-        mocha.it('delete_chunks_by_ids()', function() {
+        mocha.it('delete_chunks_by_ids()', async function() {
             return md_store.delete_chunks_by_ids(_.map(chunks, '_id'));
         });
 
@@ -291,11 +248,11 @@ mocha.describe('md_store', function() {
             size: 1,
         }];
 
-        mocha.it('insert_blocks()', function() {
+        mocha.it('insert_blocks()', async function() {
             return md_store.insert_blocks(blocks);
         });
 
-        mocha.it('delete_blocks_of_chunks()', function() {
+        mocha.it('delete_blocks_of_chunks()', async function() {
             return md_store.delete_blocks_of_chunks([blocks[0].chunk]);
         });
 
@@ -303,21 +260,18 @@ mocha.describe('md_store', function() {
     });
 
     mocha.describe('dedup-index', function() {
-        mocha.it('get_dedup_index_size()', function() {
+        mocha.it('get_dedup_index_size()', async function() {
             return md_store.get_dedup_index_size();
         });
 
-        mocha.it('get_aprox_dedup_keys_number()', function() {
+        mocha.it('get_aprox_dedup_keys_number()', async function() {
             return md_store.get_aprox_dedup_keys_number();
         });
 
-        mocha.it('iterate_indexed_chunks()', function() {
+        mocha.it('iterate_indexed_chunks()', async function() {
             return md_store.iterate_indexed_chunks(5);
         });
     });
-
-
-
 
 });
 

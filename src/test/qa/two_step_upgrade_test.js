@@ -332,7 +332,7 @@ function test_second_step() {
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before local disk'))
         .then(() => _fill_local_disk() //Full local disk & verify failure
-            .delay(10000)
+            .delay(25000)
             .then(() => _call_upgrade())
             .then(() => _verify_upgrade_status('FAILED', 'SUCCESS', '2nd step of upgrade, verify failure on not enough local disk'))
             .then(() => agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
@@ -341,10 +341,10 @@ function test_second_step() {
         .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before time skew'))
         //verify fail on time skew
         .then(() => rpc_client.cluster_server.update_time_config({
-            target_secret: TEST_CFG.secret,
-            timezone: "Asia/Jerusalem",
-            epoch: 1514798132
-        })
+                target_secret: TEST_CFG.secret,
+                timezone: "Asia/Jerusalem",
+                epoch: 1514798132
+            })
             .then(() => _call_upgrade())
             .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew'))
             //Reset time back to normal

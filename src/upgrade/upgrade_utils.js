@@ -33,7 +33,7 @@ const ERROR_MAPPING = {
     CANNOT_DOWNGRADE: 'Downgrade to an older version is not supported.',
     INTERNET_CONNECTIVITY: 'Failed to verify internet connectivity. Check network connectivity or set a proxy address.',
     COULD_NOT_GET_RAW_STORAGE: 'Failed to perform pre-upgrade tests.',
-    LOCAL_HARDDRIVE_MEMORY: `Not enough hard drive space on server required for upgrade, at leaset ${config.MIN_MEMORY_FOR_UPGRADE / 1024 / 1024}MB is required per server. Please increase local disk.`,
+    LOCAL_HARDDRIVE_MEMORY: `Not enough hard drive space on server required for upgrade, at least ${config.MIN_MEMORY_FOR_UPGRADE / 1024 / 1024}MB is required per server. Please increase local disk.`,
     PACKAGE_EXTRACTION: 'Failed to extract NooBaa upload package. try to re-download the upgrade package and upload again.',
     PACKAGE_INSTALLATION_TIMEOUT: 'Failed on pre-upgrade packages timeout.',
     COULD_NOT_EXTRACT_PARAMS: 'Failed to perform pre-upgrade tests.',

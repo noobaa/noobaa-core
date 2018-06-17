@@ -518,13 +518,14 @@ function manipulateLocalDisk(params) {
             password: params.secret,
             keepaliveInterval: 5000,
         })
-        .then(ssh_client => {
+        .tap(ssh_client => {
             if (params.sizeMB) {
                 return ssh_functions.ssh_exec(ssh_client, `sudo bash -c "fallocate -l ${params.sizeMB}M /tmp/manipulateLocalDisk.dat"`);
             } else {
                 return ssh_functions.ssh_exec(ssh_client, `sudo bash -c "rm -f /tmp/manipulateLocalDisk.dat"`);
             }
-        });
+        })
+        .then(ssh_client => ssh_functions.ssh_exec(ssh_client, `sudo bash -c "sync"`));
 }
 
 exports.supported_oses = supported_oses;

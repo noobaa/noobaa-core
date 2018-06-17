@@ -47,7 +47,7 @@ if (!bkt) {
     });
 } else {
     init_api().then(function() {
-            return client.object.list_objects({
+            return client.object.list_objects_admin({
                 bucket: bkt
             });
         })

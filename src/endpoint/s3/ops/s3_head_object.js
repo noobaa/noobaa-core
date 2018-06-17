@@ -8,13 +8,14 @@ const http_utils = require('../../../util/http_utils');
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
  */
-function head_object(req, res) {
-    return req.object_sdk.read_object_md({
-            bucket: req.params.bucket,
-            key: req.params.key,
-            md_conditions: http_utils.get_md_conditions(req),
-        })
-        .then(object_md => s3_utils.set_response_object_md(res, object_md));
+async function head_object(req, res) {
+    const object_md = await req.object_sdk.read_object_md({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        version_id: req.query.versionId,
+        md_conditions: http_utils.get_md_conditions(req),
+    });
+    s3_utils.set_response_object_md(res, object_md);
 }
 
 module.exports = {

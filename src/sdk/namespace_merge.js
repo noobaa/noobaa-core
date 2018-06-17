@@ -25,54 +25,17 @@ class NamespaceMerge {
 
     list_objects(params, object_sdk) {
         return this._ns_map(ns => ns.list_objects(params, object_sdk))
-            .then(res => {
-                res = this._throw_if_all_failed_or_get_succeeded(res);
-                if (res.length === 1) return res[0];
-                var i;
-                var j;
-                const map = {};
-                var is_truncated;
-                for (i = 0; i < res.length; ++i) {
-                    for (j = 0; j < res[i].objects.length; ++j) {
-                        const obj = res[i].objects[j];
-                        if (!map[obj.key] ||
-                            (map[obj.key] && obj.create_time > map[obj.key].create_time)
-                        ) map[obj.key] = obj;
-                    }
-                    for (j = 0; j < res[i].common_prefixes.length; ++j) {
-                        const prefix = res[i].common_prefixes[j];
-                        map[prefix] = prefix;
-                    }
-                    if (res[i].is_truncated) is_truncated = true;
-                }
-                const all_names = Object.keys(map);
-                all_names.sort();
-                const names = all_names.slice(0, params.limit || 1000);
-                const objects = [];
-                const common_prefixes = [];
-                for (i = 0; i < names.length; ++i) {
-                    const name = names[i];
-                    const obj_or_prefix = map[name];
-                    if (typeof obj_or_prefix === 'string') {
-                        common_prefixes.push(obj_or_prefix);
-                    } else {
-                        objects.push(obj_or_prefix);
-                    }
-                }
-                if (names.length < all_names.length) {
-                    is_truncated = true;
-                }
-                // TODO picking the name as marker is not according to spec of both S3 and Azure
-                // because the marker is opaque to the client and therefore it is not safe to assume that using this as next marker
-                // will really provide a stable iteration.
-                const next_marker = is_truncated ? names[names.length - 1] : undefined;
-                return {
-                    objects,
-                    common_prefixes,
-                    is_truncated,
-                    next_marker,
-                };
-            });
+            .then(res => this._handle_list(res, params));
+    }
+
+    list_uploads(params, object_sdk) {
+        return this._ns_map(ns => ns.list_uploads(params, object_sdk))
+            .then(res => this._handle_list(res, params));
+    }
+
+    list_object_versions(params, object_sdk) {
+        return this._ns_map(ns => ns.list_object_versions(params, object_sdk))
+            .then(res => this._handle_list(res, params));
     }
 
     /////////////////
@@ -224,6 +187,55 @@ class NamespaceMerge {
         } else {
             throw _.first(failed);
         }
+    }
+
+    _handle_list(res, params) {
+        res = this._throw_if_all_failed_or_get_succeeded(res);
+        if (res.length === 1) return res[0];
+        var i;
+        var j;
+        const map = {};
+        var is_truncated;
+        for (i = 0; i < res.length; ++i) {
+            for (j = 0; j < res[i].objects.length; ++j) {
+                const obj = res[i].objects[j];
+                if (!map[obj.key] ||
+                    (map[obj.key] && obj.create_time > map[obj.key].create_time)
+                ) map[obj.key] = obj;
+            }
+            for (j = 0; j < res[i].common_prefixes.length; ++j) {
+                const prefix = res[i].common_prefixes[j];
+                map[prefix] = prefix;
+            }
+            if (res[i].is_truncated) is_truncated = true;
+        }
+        const all_names = Object.keys(map);
+        all_names.sort();
+        const names = all_names.slice(0, params.limit || 1000);
+        const objects = [];
+        const common_prefixes = [];
+        for (i = 0; i < names.length; ++i) {
+            const name = names[i];
+            const obj_or_prefix = map[name];
+            if (typeof obj_or_prefix === 'string') {
+                common_prefixes.push(obj_or_prefix);
+            } else {
+                objects.push(obj_or_prefix);
+            }
+        }
+        if (names.length < all_names.length) {
+            is_truncated = true;
+        }
+        // TODO picking the name as marker is not according to spec of both S3 and Azure
+        // because the marker is opaque to the client and therefore it is not safe to assume that using this as next marker
+        // will really provide a stable iteration.
+        const next_marker = is_truncated ? names[names.length - 1] : undefined;
+        return {
+            objects,
+            common_prefixes,
+            is_truncated,
+            next_marker,
+        };
     }
 }
 

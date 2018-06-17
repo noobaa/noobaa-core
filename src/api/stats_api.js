@@ -53,16 +53,6 @@ module.exports = {
             }
         },
 
-        get_cloud_sync_stats: {
-            method: 'GET',
-            reply: {
-                $ref: '#/definitions/cloud_sync_stats'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         get_cloud_pool_stats: {
             method: 'GET',
             reply: {
@@ -266,55 +256,6 @@ module.exports = {
             }
         },
 
-        cloud_sync_stats: {
-            type: 'object',
-            required: ['bucket_count', 'sync_count', 'sync_type', 'sync_target'],
-            properties: {
-                bucket_count: {
-                    type: 'integer'
-                },
-                sync_count: {
-                    type: 'integer'
-                },
-                sync_type: {
-                    type: 'object',
-                    properties: {
-                        c2n: {
-                            type: 'integer'
-                        },
-                        n2c: {
-                            type: 'integer'
-                        },
-                        bi_directional: {
-                            type: 'integer'
-                        },
-                        additions_and_deletions: {
-                            type: 'integer'
-                        },
-                        additions_only: {
-                            type: 'integer'
-                        }
-                    }
-                },
-                sync_target: {
-                    type: 'object',
-                    properties: {
-                        amazon: {
-                            type: 'integer'
-                        },
-                        other: {
-                            type: 'integer'
-                        }
-                    }
-                },
-                histograms: {
-                    type: 'object',
-                    additionalProperties: true,
-                    properties: {}
-                }
-            }
-        },
-
         cloud_pool_stats: {
             type: 'object',
             required: ['pool_count', 'cloud_pool_count', 'cloud_pool_target'],
@@ -415,16 +356,13 @@ module.exports = {
 
         all_stats: {
             type: 'object',
-            required: ['systems_stats', 'cloud_sync_stats', 'nodes_stats',
+            required: ['systems_stats', 'nodes_stats',
                 'ops_stats', 'pools_stats', 'tier_stats', 'cloud_pool_stats',
                 'bucket_sizes_stats', 'object_usage_stats'
             ],
             properties: {
                 systems_stats: {
                     $ref: '#/definitions/systems_stats'
-                },
-                cloud_sync_stats: {
-                    $ref: '#/definitions/cloud_sync_stats'
                 },
                 nodes_stats: {
                     $ref: '#/definitions/nodes_stats'

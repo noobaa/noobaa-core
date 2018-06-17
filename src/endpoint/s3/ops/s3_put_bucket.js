@@ -4,12 +4,9 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
  */
-function put_bucket(req, res) {
-    return req.object_sdk.create_bucket({ name: req.params.bucket })
-        .then(() => {
-            res.setHeader('Location', '/' + req.params.bucket);
-        })
-        .return();
+async function put_bucket(req, res) {
+    await req.object_sdk.create_bucket({ name: req.params.bucket });
+    res.setHeader('Location', '/' + req.params.bucket);
 }
 
 module.exports = {

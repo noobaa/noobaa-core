@@ -36,7 +36,7 @@
     "agents": "node src/agent/agent_cli --scale 10",
     "start": "node src/server",
     "------": "---------------------------------------------------------------",
-    "clean:storage": "rm -rf ./noobaa_storage*/ ./metadata_storage/* agent_conf*.json",
+    "clean:db": "rm -rf ./noobaa_storage/* ./metadata_storage/* ./agent_conf.json",
     "clean:garbage": "find . -name .DS_Store -print -delete",
     "clean:install": "rm -rf ./node_modules",
     "clean:build": "rm -rf ./build",

@@ -388,10 +388,10 @@ function _describe_mapper_test_case(test_case, func) {
             mocha.after(function() {
                 this.timeout(600000); // eslint-disable-line no-invalid-this
                 return P.resolve()
-                    .then(() => rpc_client.object.list_objects({ bucket: bucket_name }))
+                    .then(() => rpc_client.object.list_objects_admin({ bucket: bucket_name }))
                     .then(res => rpc_client.object.delete_multiple_objects({
                         bucket: bucket_name,
-                        keys: res.objects.map(o => o.key),
+                        objects: res.objects.map(o => ({ key: o.key })),
                     }));
             });
         }

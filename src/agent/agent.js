@@ -47,8 +47,8 @@ const MASTER_MAX_CONNECT_ATTEMPTS = 20;
 
 class Agent {
 
+    /* eslint-disable max-statements */
     constructor(params) {
-
         // We set the agent name to dbg logger
         this.dbg = new DebugLogger(__filename);
         this.dbg.set_logger_name('Agent.' + params.node_name);

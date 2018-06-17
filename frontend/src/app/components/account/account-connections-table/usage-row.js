@@ -5,10 +5,6 @@ import { stringifyAmount } from 'utils/string-utils';
 import * as routes from 'routes';
 
 const usageTypeMapping = deepFreeze({
-    CLOUD_SYNC: {
-        text: 'Cloud Sync',
-        route: routes.bucket
-    },
     CLOUD_RESOURCE: {
         text: 'Cloud Resource',
         route: routes.bucket

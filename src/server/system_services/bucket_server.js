@@ -32,7 +32,6 @@ const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
-const cloud_sync_server = require('./cloud_sync_server');
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 
@@ -85,7 +84,8 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
             reads: 0,
             writes: 0,
         },
-        lambda_triggers: []
+        lambda_triggers: [],
+        versioning: 'DISABLED'
     };
 }
 
@@ -203,7 +203,7 @@ function create_bucket(req) {
                 tier: bucket_spillover_tier._id,
                 order: 1,
                 spillover: true,
-                disabled: true
+                disabled: !config.SPILLOVER_ENABLED_ON_CREATE_BUCKET,
             });
             changes.insert.tieringpolicies = [tiering_policy];
             changes.insert.tiers.push(bucket_spillover_tier);
@@ -262,7 +262,6 @@ function read_bucket(req) {
             aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
                 bucket.tiering.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id),
             num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
-            cloud_sync_policy: cloud_sync_server.get_cloud_sync(req, bucket),
             func_configs: get_bucket_func_configs(req, bucket),
             unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
         })
@@ -319,36 +318,7 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     changes.updates.buckets = [single_bucket_update];
 
     if (update_request.namespace) {
-        if (!bucket.namespace) {
-            throw new RpcError('CANNOT_CONVERT_BUCKET_TO_NAMESPACE_BUCKET');
-        }
-
-        if (!update_request.namespace.read_resources.length) {
-            throw new RpcError('INVALID_READ_RESOURCES');
-        }
-
-        const read_resources = _.compact(update_request.namespace.read_resources
-            .map(ns_name => req.system.namespace_resources_by_name[ns_name] && req.system.namespace_resources_by_name[ns_name]._id));
-        if (!read_resources.length || (read_resources.length !== update_request.namespace.read_resources.length)) {
-            throw new RpcError('INVALID_READ_RESOURCES');
-        }
-        _.set(single_bucket_update, 'namespace.read_resources', read_resources);
-        const wr_obj = req.system.namespace_resources_by_name[update_request.namespace.write_resource];
-        const write_resource = wr_obj && wr_obj._id;
-        if (!write_resource) {
-            throw new RpcError('INVALID_WRITE_RESOURCES');
-        }
-        _.set(single_bucket_update, 'namespace.write_resource', write_resource);
-        if (!_.includes(update_request.namespace.read_resources, update_request.namespace.write_resource)) {
-            throw new RpcError('INVALID_NAMESPACE_CONFIGURATION');
-        }
-
-
-        // reorder read resources so that the write resource is the first in the list
-        const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
-
-        _.set(single_bucket_update, 'namespace.read_resources', ordered_read_resources);
-        _.set(single_bucket_update, 'namespace.write_resource', write_resource);
+        get_bucket_changes_namespace(req, bucket, update_request, single_bucket_update);
     }
 
     if (update_request.new_name) {
@@ -360,104 +330,140 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     if (tiering_policy) {
         single_bucket_update.tiering = tiering_policy._id;
     }
-    if (!_.isUndefined(quota)) {
-
-        const quota_event = {
-            event: 'bucket.quota',
-            level: 'info',
-            system: req.system._id,
-            actor: req.account && req.account._id,
-            bucket: bucket._id,
-        };
-
-        if (quota === null) {
-            single_bucket_update.$unset = {
-                quota: 1
-            };
-            quota_event.desc = `Bucket quota was removed from ${bucket.name} by ${req.account && req.account.email}`;
-        } else {
-            if (quota.size <= 0) {
-                throw new RpcError('BAD_REQUEST', 'quota size must be positive');
-            }
-            single_bucket_update.quota = quota;
-            quota.value = size_utils.size_unit_to_bigint(quota.size, quota.unit).toJSON();
-            let used_percent = system_utils.get_bucket_quota_usage_percent(bucket, quota);
-            if (used_percent >= 100) {
-                changes.alerts.push({
-                    sev: 'MAJOR',
-                    sysid: system_store.data.systems[0]._id,
-                    alert: `Bucket ${bucket.name} exceeded its configured quota of ${
-                        size_utils.human_size(quota.value)
-                    }, uploads to this bucket will be denied`,
-                    rule: Dispatcher.rules.once_daily
-                });
-                dbg.warn(`the bucket ${bucket.name} used capacity is more than the updated quota. uploads will be denied`);
-            } else if (used_percent >= 90) {
-                changes.alerts.push({
-                    sev: 'INFO',
-                    sysid: system_store.data.systems[0]._id,
-                    alert: `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(quota.value)}`,
-                    rule: Dispatcher.rules.once_daily
-                });
-            }
-            quota_event.desc = `Quota of ${size_utils.human_size(quota.value)} was set on ${bucket.name} by ${req.account && req.account.email}`;
+    if (update_request.versioning) {
+        if (update_request.versioning === 'DISABLED') {
+            throw new RpcError('BAD_REQUEST', 'Cannot set versioning to DISABLED');
         }
-        changes.events.push(quota_event);
-
+        single_bucket_update.versioning = update_request.versioning;
     }
+
+    if (!_.isUndefined(quota)) {
+        get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
+    }
+
     if (spillover_sent) {
-        const spillover_pool = req.system.pools_by_name[update_request.spillover];
-        const tiering = tiering_policy || bucket.tiering;
-        let spillover_tier = tiering.tiers.find(tier_and_order => tier_and_order.spillover);
-        if (!spillover_tier) {
-            if (!spillover_pool) throw new RpcError('POOL NOT FOUND');
-            spillover_tier = req.system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${bucket._id}`];
-            if (!spillover_tier) {
-                spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, spillover_pool._id);
-                changes.inserts.tiers = changes.inserts.tiers || [];
-                changes.inserts.tiers.push(spillover_tier);
-            }
-            tiering.tiers.push({
-                tier: spillover_tier,
-                order: 1,
-                spillover: true,
-                disabled: !update_request.spillover
+        get_bucket_changes_spillover(req, bucket, update_request, tiering_policy, changes);
+    }
+
+    return changes;
+}
+
+function get_bucket_changes_namespace(req, bucket, update_request, single_bucket_update) {
+    if (!bucket.namespace) throw new RpcError('CANNOT_CONVERT_BUCKET_TO_NAMESPACE_BUCKET');
+    if (!update_request.namespace.read_resources.length) throw new RpcError('INVALID_READ_RESOURCES');
+
+    const read_resources = _.compact(update_request.namespace.read_resources
+        .map(ns_name => req.system.namespace_resources_by_name[ns_name] && req.system.namespace_resources_by_name[ns_name]._id));
+    if (!read_resources.length || (read_resources.length !== update_request.namespace.read_resources.length)) {
+        throw new RpcError('INVALID_READ_RESOURCES');
+    }
+    _.set(single_bucket_update, 'namespace.read_resources', read_resources);
+    const wr_obj = req.system.namespace_resources_by_name[update_request.namespace.write_resource];
+    const write_resource = wr_obj && wr_obj._id;
+    if (!write_resource) throw new RpcError('INVALID_WRITE_RESOURCES');
+    _.set(single_bucket_update, 'namespace.write_resource', write_resource);
+    if (!_.includes(update_request.namespace.read_resources, update_request.namespace.write_resource)) {
+        throw new RpcError('INVALID_NAMESPACE_CONFIGURATION');
+    }
+
+    // reorder read resources so that the write resource is the first in the list
+    const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
+
+    _.set(single_bucket_update, 'namespace.read_resources', ordered_read_resources);
+    _.set(single_bucket_update, 'namespace.write_resource', write_resource);
+}
+
+function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes) {
+    const quota_event = {
+        event: 'bucket.quota',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        bucket: bucket._id,
+    };
+
+    if (quota === null) {
+        single_bucket_update.$unset = { quota: 1 };
+        quota_event.desc = `Bucket quota was removed from ${bucket.name} by ${req.account && req.account.email}`;
+    } else {
+        if (quota.size <= 0) throw new RpcError('BAD_REQUEST', 'quota size must be positive');
+        single_bucket_update.quota = quota;
+        quota.value = size_utils.size_unit_to_bigint(quota.size, quota.unit).toJSON();
+        let used_percent = system_utils.get_bucket_quota_usage_percent(bucket, quota);
+        if (used_percent >= 100) {
+            changes.alerts.push({
+                sev: 'MAJOR',
+                sysid: system_store.data.systems[0]._id,
+                alert: `Bucket ${bucket.name} exceeded its configured quota of ${
+                    size_utils.human_size(quota.value)
+                }, uploads to this bucket will be denied`,
+                rule: Dispatcher.rules.once_daily
+            });
+            dbg.warn(`the bucket ${bucket.name} used capacity is more than the updated quota. uploads will be denied`);
+        } else if (used_percent >= 90) {
+            changes.alerts.push({
+                sev: 'INFO',
+                sysid: system_store.data.systems[0]._id,
+                alert: `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(quota.value)}`,
+                rule: Dispatcher.rules.once_daily
             });
         }
-        if (spillover_pool) {
-            changes.updates.tiers = [{
-                _id: spillover_tier.tier._id,
-                'mirrors.0.spread_pools': [spillover_pool._id]
-            }];
-        }
-        spillover_tier.disabled = !update_request.spillover;
-        changes.updates.tieringpolicies = changes.updates.tieringpolicies || [];
-        changes.updates.tieringpolicies.push({
-            _id: tiering._id,
-            tiers: tiering.tiers.map(tier_and_order => ({
-                tier: tier_and_order.tier._id,
-                order: tier_and_order.order,
-                spillover: tier_and_order.spillover,
-                disabled: tier_and_order.disabled
-            }))
-        });
+        quota_event.desc = `Quota of ${size_utils.human_size(quota.value)} was set on ${bucket.name} by ${req.account && req.account.email}`;
+    }
+    changes.events.push(quota_event);
+}
 
-        let desc;
-        if (update_request.spillover) {
-            desc = `Bucket ${bucket.name} spillover on resource ${update_request.spillover} was set by ${req.account && req.account.email}`;
-        } else {
-            desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
+function get_bucket_changes_spillover(req, bucket, update_request, tiering_policy, changes) {
+    const spillover_pool = req.system.pools_by_name[update_request.spillover];
+    const tiering = tiering_policy || bucket.tiering;
+    let spillover_tier = tiering.tiers.find(tier_and_order => tier_and_order.spillover);
+    if (!spillover_tier) {
+        if (!spillover_pool) throw new RpcError('POOL NOT FOUND');
+        spillover_tier = req.system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${bucket._id}`];
+        if (!spillover_tier) {
+            spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, spillover_pool._id);
+            changes.inserts.tiers = changes.inserts.tiers || [];
+            changes.inserts.tiers.push(spillover_tier);
         }
-        changes.events.push({
-            event: 'bucket.spillover',
-            level: 'info',
-            system: req.system._id,
-            actor: req.account && req.account._id,
-            bucket: bucket._id,
-            desc
+        tiering.tiers.push({
+            tier: spillover_tier,
+            order: 1,
+            spillover: true,
+            disabled: !update_request.spillover
         });
     }
-    return changes;
+    if (spillover_pool) {
+        changes.updates.tiers = [{
+            _id: spillover_tier.tier._id,
+            'mirrors.0.spread_pools': [spillover_pool._id]
+        }];
+    }
+    spillover_tier.disabled = !update_request.spillover;
+    changes.updates.tieringpolicies = changes.updates.tieringpolicies || [];
+    changes.updates.tieringpolicies.push({
+        _id: tiering._id,
+        tiers: tiering.tiers.map(tier_and_order => ({
+            tier: tier_and_order.tier._id,
+            order: tier_and_order.order,
+            spillover: tier_and_order.spillover,
+            disabled: tier_and_order.disabled
+        }))
+    });
+
+    let desc;
+    if (update_request.spillover) {
+        desc = `Bucket ${bucket.name} spillover on resource ${update_request.spillover} was set by ${req.account && req.account.email}`;
+    } else {
+        desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
+    }
+    changes.events.push({
+        event: 'bucket.spillover',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        bucket: bucket._id,
+        desc
+    });
 }
 
 function create_bucket_spillover_tier(system, bucket_id, pool_id) {
@@ -477,7 +483,7 @@ function create_bucket_spillover_tier(system, bucket_id, pool_id) {
  * GET_BUCKET_UPDATE
  *
  */
-function update_buckets(req) {
+async function update_buckets(req) {
     const insert_changes = {};
     const update_changes = {
         buckets: []
@@ -489,21 +495,21 @@ function update_buckets(req) {
         const bucket = find_bucket(req, update_request.name);
         const tiering_policy = update_request.tiering &&
             resolve_tiering_policy(req, update_request.tiering);
-        const { updates, inserts, events, alerts } = get_bucket_changes(req, update_request, bucket, tiering_policy);
+        const { updates, inserts, events, alerts } = get_bucket_changes(
+            req, update_request, bucket, tiering_policy);
         _.mergeWith(insert_changes, inserts, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
         _.mergeWith(update_changes, updates, (existing_inserts, new_inserts) => (existing_inserts || []).concat(new_inserts));
         update_events = update_events.concat(events);
         update_alerts = update_alerts.concat(alerts);
     }
 
-    return system_store.make_changes({
-            insert: insert_changes,
-            update: update_changes
-        })
-        .then(() => {
-            P.map(update_events, event => Dispatcher.instance().activity(event));
-            P.map(update_alerts, alert => Dispatcher.instance().alert(alert.sev, alert.sysid, alert.alert, alert.rule));
-        });
+    await system_store.make_changes({
+        insert: insert_changes,
+        update: update_changes
+    });
+
+    P.map(update_events, event => Dispatcher.instance().activity(event));
+    P.map(update_alerts, alert => Dispatcher.instance().alert(alert.sev, alert.sysid, alert.alert, alert.rule));
 }
 
 
@@ -628,13 +634,7 @@ function delete_bucket(req) {
                 }
             });
         })
-        .then(() => server_rpc.client.cloud_sync.refresh_policy({
-            bucket_id: bucket._id.toString(),
-            system_id: req.system._id.toString()
-        }, {
-            auth_token: req.auth_token
-        }))
-        .then(res => {
+        .then(() => {
             const accounts_update = _.compact(_.map(system_store.data.accounts,
                 account => {
                     if (!account.allowed_buckets ||
@@ -651,8 +651,7 @@ function delete_bucket(req) {
                     update: {
                         accounts: accounts_update
                     }
-                })
-                .return(res);
+                });
         })
         .return();
 }
@@ -1047,7 +1046,6 @@ function get_bucket_info({
     hosts_aggregate_pool,
     aggregate_data_free_by_tier,
     num_of_objects,
-    cloud_sync_policy,
     func_configs
 }) {
     const info = {
@@ -1067,11 +1065,11 @@ function get_bucket_info({
         usage_by_pool: undefined,
         quota: undefined,
         stats: undefined,
-        cloud_sync: undefined,
         mode: undefined,
         host_tolerance: undefined,
         node_tolerance: undefined,
-        bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR'
+        bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
+        versioning: bucket.versioning
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, info });
@@ -1109,11 +1107,6 @@ function get_bucket_info({
         last_write: last_write
     };
 
-    if (cloud_sync_policy) {
-        info.cloud_sync = cloud_sync_policy.status ? cloud_sync_policy : undefined;
-    } else {
-        info.cloud_sync = undefined;
-    }
     if (!bucket.namespace) {
         info.policy_modes = {
             placement_status: calc_data_placement_status(metrics),
@@ -1482,13 +1475,6 @@ exports.list_buckets = list_buckets;
 exports.update_buckets = update_buckets;
 //exports.generate_bucket_access = generate_bucket_access;
 exports.update_bucket_s3_access = update_bucket_s3_access;
-//Cloud Sync policies
-exports.get_cloud_sync = cloud_sync_server.get_cloud_sync;
-exports.get_all_cloud_sync = cloud_sync_server.get_all_cloud_sync;
-exports.delete_cloud_sync = cloud_sync_server.delete_cloud_sync;
-exports.set_cloud_sync = cloud_sync_server.set_cloud_sync;
-exports.update_cloud_sync = cloud_sync_server.update_cloud_sync;
-exports.toggle_cloud_sync = cloud_sync_server.toggle_cloud_sync;
 //Temporary - TODO: move to new server
 exports.get_cloud_buckets = get_cloud_buckets;
 exports.export_bucket_bandwidth_usage = export_bucket_bandwidth_usage;

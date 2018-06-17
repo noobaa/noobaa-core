@@ -17,7 +17,6 @@ var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var scrubber = require('./bg_services/scrubber');
 var lifecycle = require('./bg_services/lifecycle');
-var cloud_sync = require('./bg_services/cloud_sync');
 var cluster_hb = require('./bg_services/cluster_hb');
 var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
@@ -37,7 +36,6 @@ var db_cleaner = require('./bg_services/db_cleaner');
 const MASTER_BG_WORKERS = [
     'scrubber',
     'mirror_writer',
-    'cloud_sync_refresher',
     'system_server_stats_aggregator',
     'md_aggregator',
     'usage_aggregator',
@@ -95,10 +93,6 @@ function run_master_workers() {
             delay: config.central_stats.send_time_cycle,
         }, stats_aggregator.background_worker);
     }
-
-    register_bg_worker({
-        name: 'cloud_sync_refresher'
-    }, cloud_sync.background_worker);
 
     register_bg_worker({
         name: 'md_aggregator',

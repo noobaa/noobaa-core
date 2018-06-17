@@ -1366,8 +1366,8 @@ function _verify_join_preconditons(req) {
                             throw new Error('ALREADY_A_MEMBER');
                         }
 
-                        // verify there are no objects on the system
-                        return MDStore.instance().has_any_objects_in_system(system._id)
+                        // verify there were never objects on the joining system
+                        return MDStore.instance().had_any_objects_in_system(system._id)
                             .then(has_objects => {
                                 if (has_objects) {
                                     throw new Error('HAS_OBJECTS');
@@ -1642,7 +1642,7 @@ function _get_aws_owner() {
     return P.resolve()
         .then(() => {
             //paid version only - 8q32hahci09vwgsx568lhrzwl
-            dbg.log0('aws: process.end.PLATFORM === aws :' + (process.env.PLATFORM === 'aws') + 'Paid? ' + (process.env.AWS_PRODUCT_CODE === '8q32hahci09vwgsx568lhrzwl'));
+            dbg.log0('aws: process.env.PLATFORM === aws :' + (process.env.PLATFORM === 'aws') + 'Paid? ' + (process.env.AWS_PRODUCT_CODE === '8q32hahci09vwgsx568lhrzwl'));
             if ((process.env.PLATFORM !== 'aws' && process.env.PLATFORM !== 'azure' && process.env.PLATFORM !== 'google') ||
                 (process.env.PLATFORM === 'aws' && process.env.AWS_PRODUCT_CODE !== '8q32hahci09vwgsx568lhrzwl') ||
                 (process.env.PLATFORM === 'azure' && process.env.PAID !== 'true') ||

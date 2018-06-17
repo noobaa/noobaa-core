@@ -865,20 +865,13 @@ function delete_external_connection(req) {
 
     let connection_to_delete = cloud_utils.find_cloud_connection(account, params.connection_name);
 
-    if (_.find(system_store.data.buckets, bucket => (
-            bucket.cloud_sync &&
-            bucket.cloud_sync.endpoint === connection_to_delete.endpoint &&
-            bucket.cloud_sync.access_keys.account_id === account._id &&
-            bucket.cloud_sync.access_keys.access_key === connection_to_delete.access_key))) {
-        throw new Error('Cannot delete connection from account as it is being used for a cloud sync');
-    }
     if (_.find(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
             pool.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
             pool.cloud_pool_info.account_id === account._id &&
             pool.cloud_pool_info.access_key === connection_to_delete.access_key
         ))) {
-        throw new Error('Cannot delete account as it is being used for a cloud sync');
+        throw new Error('Cannot delete connection as it is being used for a cloud pool');
     }
 
     return system_store.make_changes({
@@ -1083,18 +1076,6 @@ function verify_authorized_account(req) {
 }
 
 function _list_connection_usage(account, credentials) {
-    let cloud_sync_usage = _.map(
-        _.filter(system_store.data.buckets, bucket => (
-            bucket.cloud_sync &&
-            bucket.cloud_sync.endpoint_type === credentials.endpoint_type &&
-            bucket.cloud_sync.endpoint === credentials.endpoint &&
-            bucket.cloud_sync.access_keys.account_id._id === account._id &&
-            bucket.cloud_sync.access_keys.access_key === credentials.access_key
-        )), bucket => ({
-            usage_type: 'CLOUD_SYNC',
-            entity: bucket.name,
-            external_entity: bucket.cloud_sync.target_bucket
-        })) || [];
     let cloud_pool_usage = _.map(
         _.filter(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
@@ -1107,7 +1088,7 @@ function _list_connection_usage(account, credentials) {
             usage_type: 'CLOUD_RESOURCE',
             entity: pool.name,
             external_entity: pool.cloud_pool_info.target_bucket
-        })) || [];
+        }));
     let namespace_resource_usage = _.map(
         _.filter(system_store.data.namespace_resources, ns => (
             ns.connection.endpoint_type === credentials.endpoint_type &&
@@ -1118,8 +1099,8 @@ function _list_connection_usage(account, credentials) {
             usage_type: 'NAMESPACE_RESOURCE',
             entity: ns_rec.name,
             external_entity: ns_rec.connection.target_bucket
-        })) || [];
-    return cloud_sync_usage.concat(cloud_pool_usage).concat(namespace_resource_usage);
+        }));
+    return _.concat(cloud_pool_usage, namespace_resource_usage);
 }
 
 // // TODO: Shall implement that for everyone and call it

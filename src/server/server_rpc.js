@@ -130,8 +130,6 @@ class ServerRpc {
         let rpc = this.rpc;
         let schema = rpc.schema;
         let options = this.get_server_options();
-        rpc.register_service(schema.cloud_sync_api,
-            require('./bg_services/cloud_sync'), options);
         rpc.register_service(schema.scrubber_api,
             require('./bg_services/scrubber'), options);
     }

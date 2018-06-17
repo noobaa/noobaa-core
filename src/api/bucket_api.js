@@ -220,117 +220,6 @@ module.exports = {
             }
         },
 
-        get_cloud_sync: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-            reply: {
-                $ref: '#/definitions/cloud_sync_info'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        get_all_cloud_sync: {
-            method: 'GET',
-            reply: {
-                type: 'array',
-                items: {
-                    $ref: '#/definitions/cloud_sync_info'
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        delete_cloud_sync: {
-            method: 'DELETE',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        set_cloud_sync: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['name', 'policy'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    connection: {
-                        type: 'string'
-                    },
-                    target_bucket: {
-                        type: 'string'
-                    },
-                    policy: {
-                        $ref: '#/definitions/cloud_sync_policy'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        update_cloud_sync: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['name', 'policy'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    policy: {
-                        $ref: '#/definitions/cloud_sync_policy'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        toggle_cloud_sync: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['name', 'pause'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    pause: {
-                        type: 'boolean'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         get_cloud_buckets: {
             method: 'GET',
             params: {
@@ -360,7 +249,7 @@ module.exports = {
                                 },
                                 usage_type: {
                                     type: 'string',
-                                    enum: ['CLOUD_SYNC', 'CLOUD_RESOURCE', 'NAMESPACE_RESOURCE']
+                                    enum: ['CLOUD_RESOURCE', 'NAMESPACE_RESOURCE']
                                 },
                             }
                         }
@@ -586,7 +475,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'bucket_type', 'tiering', 'usage_by_pool', 'storage', 'data', 'num_objects', 'host_tolerance', 'node_tolerance', 'writable', 'mode'],
+            required: ['name', 'bucket_type', 'tiering', 'versioning', 'usage_by_pool', 'storage', 'data', 'num_objects', 'host_tolerance', 'node_tolerance', 'writable', 'mode'],
             properties: {
                 name: {
                     type: 'string',
@@ -595,6 +484,7 @@ module.exports = {
                     enum: ['REGULAR', 'NAMESPACE'],
                     type: 'string',
                 },
+                versioning: { $ref: '#/definitions/versioning' },
                 namespace: {
                     $ref: '#/definitions/bucket_namespace'
                 },
@@ -696,9 +586,6 @@ module.exports = {
                 node_tolerance: {
                     type: 'integer'
                 },
-                cloud_sync: {
-                    $ref: '#/definitions/cloud_sync_info'
-                },
                 tag: {
                     type: 'string'
                 },
@@ -736,63 +623,6 @@ module.exports = {
                     items: {
                         $ref: '#/definitions/lambda_trigger_info'
                     }
-                }
-            }
-        },
-
-        cloud_sync_info: {
-            type: 'object',
-            properties: {
-                name: {
-                    type: 'string'
-                },
-                endpoint: {
-                    type: 'string'
-                },
-                endpoint_type: {
-                    type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
-                },
-                access_key: {
-                    type: 'string'
-                },
-                target_bucket: {
-                    type: 'string'
-                },
-                policy: {
-                    $ref: '#/definitions/cloud_sync_policy'
-                },
-                health: {
-                    type: 'boolean'
-                },
-                status: {
-                    $ref: '#/definitions/api_cloud_sync_status'
-                },
-                last_sync: {
-                    idate: true
-                },
-            }
-        },
-
-        cloud_sync_policy: {
-            type: 'object',
-            required: ['schedule_min'],
-            properties: {
-                schedule_min: {
-                    type: 'integer'
-                },
-                c2n_enabled: {
-                    type: 'boolean',
-                },
-                n2c_enabled: {
-                    type: 'boolean',
-                },
-                //If true, only additions will be synced
-                additions_only: {
-                    type: 'boolean',
-                },
-                paused: {
-                    type: 'boolean'
                 }
             }
         },
@@ -848,11 +678,6 @@ module.exports = {
                     type: 'string'
                 }
             }
-        },
-
-        api_cloud_sync_status: {
-            enum: ['PENDING', 'SYNCING', 'UNABLE', 'SYNCED', 'NOTSET'],
-            type: 'string',
         },
 
         storage_class_enum: {
@@ -913,7 +738,8 @@ module.exports = {
                             },
                         }
                     }
-                }
+                },
+                versioning: { $ref: '#/definitions/versioning' },
             }
         },
         policy_modes: {
@@ -1056,6 +882,11 @@ module.exports = {
                     type: 'string'
                 },
             }
+        },
+
+        versioning: {
+            type: 'string',
+            enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
 
         lambda_trigger_info: {

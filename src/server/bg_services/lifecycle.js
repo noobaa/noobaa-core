@@ -15,9 +15,6 @@ var LIFECYCLE = {
     schedule_min: 1 //run every 5 minutes
 };
 
-/*
- *************** Cloud Sync Background Worker & Other Eports
- */
 function background_worker() {
     if (!system_store.data.systems[0]) return P.resolve();
     return P.fcall(function() {

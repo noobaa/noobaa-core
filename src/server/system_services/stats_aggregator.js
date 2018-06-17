@@ -18,7 +18,6 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
-const bucket_server = require('../system_services/bucket_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
 const size_utils = require('../../util/size_utils');
@@ -170,22 +169,6 @@ var NODES_STATS_DEFAULTS = {
     nodes_with_issue: 0
 };
 
-const SYNC_STATS_DEFAULTS = {
-    bucket_count: 0,
-    sync_count: 0,
-    sync_type: {
-        bi_directional: 0,
-        n2c: 0,
-        c2n: 0,
-        additions_only: 0,
-        additions_and_deletions: 0,
-    },
-    sync_target: {
-        amazon: 0,
-        other: 0,
-    },
-};
-
 const CLOUD_POOL_STATS_DEFAULTS = {
     pool_count: 0,
     cloud_pool_count: 0,
@@ -270,60 +253,6 @@ function get_pool_stats(req) {
             ], 0)));
 }
 
-function get_cloud_sync_stats(req) {
-    var sync_stats = _.cloneDeep(SYNC_STATS_DEFAULTS);
-    var sync_histo = get_empty_sync_histo();
-    //Per each system fill out the needed info
-    return P.all(_.map(system_store.data.systems,
-            system => {
-                let new_req = _.defaults({
-                    system: system
-                }, req);
-                return bucket_server.get_all_cloud_sync(new_req);
-            }
-        ))
-        .then(results => {
-            for (var isys = 0; isys < results.length; ++isys) {
-                for (var ipolicy = 0; ipolicy < results[isys].length; ++ipolicy) {
-                    let cloud_sync = results[isys][ipolicy];
-                    sync_stats.bucket_count += 1;
-                    if (Object.getOwnPropertyNames(cloud_sync).length) {
-                        sync_stats.sync_count += 1;
-                        if (cloud_sync.policy.additions_only) {
-                            sync_stats.sync_type.additions_only += 1;
-                        } else {
-                            sync_stats.sync_type.additions_and_deletions += 1;
-                        }
-
-                        if (cloud_sync.policy.n2c_enabled && cloud_sync.policy.c2n_enabled) {
-                            sync_stats.sync_type.bi_directional += 1;
-                        } else if (cloud_sync.policy.n2c_enabled) {
-                            sync_stats.sync_type.n2c += 1;
-                        } else if (cloud_sync.policy.c2n_enabled) {
-                            sync_stats.sync_type.c2n += 1;
-                        }
-
-                        if (cloud_sync.endpoint) {
-                            if (cloud_sync.endpoint.indexOf('amazonaws.com') > -1) {
-                                sync_stats.sync_target.amazon += 1;
-                            } else {
-                                sync_stats.sync_target.other += 1;
-                            }
-                        }
-                        sync_histo.histo_schedule.add_value(cloud_sync.policy.schedule_min);
-                    }
-                }
-            }
-            sync_stats.histograms = _.mapValues(sync_histo, histo => histo.get_object_data(false));
-            return sync_stats;
-        })
-        .catch(err => {
-            dbg.warn('Error in collecting sync stats,',
-                'skipping current sampling point', err.stack || err);
-            throw err;
-        });
-}
-
 function get_object_usage_stats(req) {
     let new_req = req;
     new_req.rpc_params.from_time = req.system.last_stats_report;
@@ -386,7 +315,6 @@ function get_all_stats(req) {
     var stats_payload = {
         systems_stats: null,
         nodes_stats: null,
-        cloud_sync_stats: null,
         cloud_pool_stats: null,
         bucket_sizes_stats: null,
         ops_stats: null,
@@ -433,15 +361,6 @@ function get_all_stats(req) {
         })
         .then(cloud_pool_stats => {
             stats_payload.cloud_pool_stats = cloud_pool_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Cloud Sync');
-            return get_cloud_sync_stats(req)
-                .catch(err => {
-                    dbg.warn('Error in collecting cloud sync stats, skipping', err.stack, err);
-                    return {};
-                });
-        })
-        .then(cloud_sync_stats => {
-            stats_payload.cloud_sync_stats = cloud_sync_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Bucket Sizes');
             return get_bucket_sizes_stats(req)
                 .catch(err => {
@@ -625,23 +544,6 @@ function get_empty_nodes_histo() {
     return empty_nodes_histo;
 }
 
-function get_empty_sync_histo() {
-    //TODO: Add histogram for limit, once implemented
-    var empty_sync_histo = {};
-    empty_sync_histo.histo_schedule = new Histogram('SyncSchedule(Minutes)', [{
-        label: 'low',
-        start_val: 0
-    }, {
-        label: 'med',
-        start_val: 60 // 1 Hour
-    }, {
-        label: 'high',
-        start_val: 1440 // 1 Day
-    }]);
-
-    return empty_sync_histo;
-}
-
 function _handle_payload(payload) {
     return P.resolve()
         .then(() => {
@@ -809,7 +711,6 @@ exports.get_systems_stats = get_systems_stats;
 exports.get_nodes_stats = get_nodes_stats;
 exports.get_ops_stats = get_ops_stats;
 exports.get_pool_stats = get_pool_stats;
-exports.get_cloud_sync_stats = get_cloud_sync_stats;
 exports.get_cloud_pool_stats = get_cloud_pool_stats;
 exports.get_tier_stats = get_tier_stats;
 exports.get_all_stats = get_all_stats;

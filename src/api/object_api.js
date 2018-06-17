@@ -118,9 +118,8 @@ module.exports = {
                 type: 'object',
                 required: ['etag'],
                 properties: {
-                    etag: {
-                        type: 'string',
-                    }
+                    etag: { type: 'string' },
+                    version_id: { type: 'string' },
                 }
             },
             auth: {
@@ -430,6 +429,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
+                    version_id: { type: 'string' },
                     bucket: {
                         type: 'string',
                     },
@@ -612,6 +612,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
+                    version_id: { type: 'string' },
                     bucket: {
                         type: 'string',
                     },
@@ -679,18 +680,20 @@ module.exports = {
                     'key',
                 ],
                 properties: {
-                    obj_id: {
-                        objectid: true
-                    },
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    md_conditions: {
-                        $ref: '#/definitions/md_conditions',
-                    },
+                    bucket: { type: 'string' },
+                    key: { type: 'string' },
+                    obj_id: { objectid: true },
+                    version_id: { type: 'string' },
+                    md_conditions: { $ref: '#/definitions/md_conditions' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    deleted_version_id: { type: 'string' },
+                    deleted_delete_marker: { type: 'boolean' },
+                    created_version_id: { type: 'string' },
+                    created_delete_marker: { type: 'boolean' },
                 }
             },
             auth: {
@@ -704,17 +707,37 @@ module.exports = {
                 type: 'object',
                 required: [
                     'bucket',
-                    'keys',
+                    'objects',
                 ],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    keys: {
+                    bucket: { type: 'string' },
+                    objects: {
                         type: 'array',
                         items: {
-                            type: 'string'
+                            type: 'object',
+                            required: ['key'],
+                            properties: {
+                                key: { type: 'string' },
+                                version_id: { type: 'string' },
+                            }
                         }
+                    }
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        deleted_version_id: { type: 'string' },
+                        deleted_delete_marker: { type: 'boolean' },
+                        created_version_id: { type: 'string' },
+                        created_delete_marker: { type: 'boolean' },
+                        err_code: {
+                            type: 'string',
+                            enum: ['AccessDenied', 'InternalError']
+                        },
+                        err_message: { type: 'string' }
                     }
                 }
             },
@@ -723,7 +746,117 @@ module.exports = {
             }
         },
 
-        list_objects_s3: {
+        list_objects: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    delimiter: {
+                        type: 'string',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    key_marker: {
+                        type: 'string',
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['objects', 'is_truncated'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        }
+                    },
+                    common_prefixes: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    next_marker: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user', 'viewer']
+            }
+        },
+
+        list_object_versions: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    delimiter: {
+                        type: 'string',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    key_marker: {
+                        type: 'string',
+                    },
+                    version_id_marker: {
+                        type: 'string',
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['objects', 'is_truncated'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        }
+                    },
+                    common_prefixes: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    next_marker: {
+                        type: 'string'
+                    },
+                    next_version_id_marker: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user', 'viewer']
+            }
+        },
+
+        list_uploads: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -746,9 +879,6 @@ module.exports = {
                     },
                     limit: {
                         type: 'integer'
-                    },
-                    upload_mode: {
-                        type: 'boolean'
                     },
                 }
             },
@@ -780,11 +910,11 @@ module.exports = {
                 }
             },
             auth: {
-                system: 'admin'
+                system: ['admin', 'user', 'viewer']
             }
         },
 
-        list_objects: {
+        list_objects_admin: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -822,6 +952,9 @@ module.exports = {
                         type: 'integer',
                     },
                     upload_mode: {
+                        type: 'boolean'
+                    },
+                    latest_versions: {
                         type: 'boolean'
                     },
                     adminfo: {
@@ -1051,70 +1184,36 @@ module.exports = {
                 'bucket',
                 'key',
                 'size',
-                'content_type'
+                'content_type',
             ],
             properties: {
-                obj_id: {
-                    objectid: true
-                },
-                bucket: {
-                    type: 'string'
-                },
-                key: {
-                    type: 'string'
-                },
-                size: {
-                    type: 'integer',
-                },
-                content_type: {
-                    type: 'string',
-                },
-                create_time: {
-                    idate: true
-                },
-                upload_started: {
-                    idate: true
-                },
-                upload_size: {
-                    type: 'integer',
-                },
-                etag: {
-                    type: 'string',
-                },
-                md5_b64: {
-                    type: 'string',
-                },
-                sha256_b64: {
-                    type: 'string',
-                },
-                cloud_synced: {
-                    type: 'boolean'
-                },
-                xattr: {
-                    $ref: '#/definitions/xattr',
-                },
+                obj_id: { objectid: true },
+                bucket: { type: 'string' },
+                key: { type: 'string' },
+                size: { type: 'integer' },
+                version_id: { type: 'string' },
+                is_latest: { type: 'boolean' },
+                delete_marker: { type: 'boolean' },
+                num_parts: { type: 'integer' },
+                content_type: { type: 'string' },
+                create_time: { idate: true },
+                upload_started: { idate: true },
+                upload_size: { type: 'integer' },
+                etag: { type: 'string' },
+                md5_b64: { type: 'string' },
+                sha256_b64: { type: 'string' },
+                xattr: { $ref: '#/definitions/xattr' },
                 stats: {
                     type: 'object',
                     properties: {
-                        reads: {
-                            type: 'integer',
-                        },
-                        last_read: {
-                            idate: true,
-                        }
+                        reads: { type: 'integer' },
+                        last_read: { idate: true }
                     }
-                },
-                num_parts: {
-                    type: 'integer',
                 },
                 // This is the physical size (aggregation of all blocks)
                 // It does not pay attention to dedup
-                capacity_size: {
-                    type: 'integer',
-                },
-                s3_signed_url: {
-                    type: 'string'
-                }
+                capacity_size: { type: 'integer' },
+                s3_signed_url: { type: 'string' }
             }
         },
 

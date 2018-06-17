@@ -29,16 +29,28 @@ class NamespaceNetStorage {
     // // OBJECT LIST //
     // /////////////////
 
+    list_object_versions(params, object_sdk) {
+        dbg.log0('NamespaceNetStorage.list_object_versions:', this.ns_config.cpCode, inspect(params));
+        // TODO list object versions
+        return P.resolve({
+            objects: [],
+            common_prefixes: [],
+            is_truncated: false,
+        });
+    }
+
+    list_uploads(params, object_sdk) {
+        dbg.log0('NamespaceNetStorage.list_uploads:', this.ns_config.cpCode, inspect(params));
+        // TODO list uploads
+        return P.resolve({
+            objects: [],
+            common_prefixes: [],
+            is_truncated: false,
+        });
+    }
+
     list_objects(params, object_sdk) {
         dbg.log0('NamespaceNetStorage.list_objects:', this.ns_config.cpCode, inspect(params));
-        // TODO list uploads
-        if (params.upload_mode) {
-            return {
-                objects: [],
-                common_prefixes: [],
-                is_truncated: false,
-            };
-        }
         // return this.s3.listObjects({
         //         Prefix: params.prefix,
         //         Delimiter: params.delimiter,

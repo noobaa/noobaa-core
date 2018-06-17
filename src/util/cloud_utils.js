@@ -86,15 +86,6 @@ function get_s3_endpoint_signature_ver(endpoint, auth_method) {
 }
 
 function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace_resources) {
-    const cloud_sync_targets = bucket_list ? bucket_list.filter(bucket =>
-            (bucket.cloud_sync && _.includes(endpoint_type, bucket.cloud_sync.endpoint_type)))
-        .map(bucket_with_cloud_sync => ({
-            endpoint: bucket_with_cloud_sync.cloud_sync.endpoint,
-            endpoint_type: bucket_with_cloud_sync.cloud_sync.endpoint_type,
-            source_name: bucket_with_cloud_sync.name,
-            target_name: bucket_with_cloud_sync.cloud_sync.target_bucket,
-            usage_type: 'CLOUD_SYNC'
-        })) : [];
     const cloud_resource_targets = pool_list ? pool_list.filter(pool =>
             (pool.cloud_pool_info && !pool.cloud_pool_info.pending_delete && _.includes(endpoint_type, pool.cloud_pool_info.endpoint_type)))
         .map(pool_with_cloud_resource => ({
@@ -114,7 +105,7 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace
             target_name: ns_rec.connection.target_bucket,
             usage_type: 'NAMESPACE_RESOURCE'
         }, _.isUndefined))) : [];
-    return cloud_sync_targets.concat(cloud_resource_targets).concat(namespace_resource_targets);
+    return _.concat(cloud_resource_targets, namespace_resource_targets);
 }
 
 exports.find_cloud_connection = find_cloud_connection;

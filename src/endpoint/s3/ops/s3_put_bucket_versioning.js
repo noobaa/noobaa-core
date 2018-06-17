@@ -6,12 +6,17 @@ const S3Error = require('../s3_errors').S3Error;
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTVersioningStatus.html
  */
-function put_bucket_versioning(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO S3 put_bucket_versioning not implemented
-            throw new S3Error(S3Error.NotImplemented);
-        });
+async function put_bucket_versioning(req) {
+    const versioning = req.body.VersioningConfiguration.Status &&
+        req.body.VersioningConfiguration.Status[0];
+    if (!versioning) return;
+    if (versioning !== 'Suspended' && versioning !== 'Enabled') {
+        throw new S3Error(S3Error.InvalidArgument);
+    }
+    await req.object_sdk.set_bucket_versioning({
+        name: req.params.bucket,
+        versioning: versioning.toUpperCase()
+    });
 }
 
 module.exports = {

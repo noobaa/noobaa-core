@@ -86,7 +86,6 @@ class FtpFileSystemNB {
         // return this.authenticate.then(() => this.object_sdk.read_object_md({ bucket: this.bucket, key }))
         return this.authenticate.then(() => this.object_sdk.list_objects({
                 bucket: this.bucket,
-                upload_mode: false,
                 prefix: key,
                 delimiter: '/',
                 limit: 100
@@ -116,7 +115,6 @@ class FtpFileSystemNB {
         const key = this._get_absolute_path(dir_path).substring(1);
         const params = {
             bucket: this.bucket,
-            upload_mode: false,
             prefix: key.length ? path.join(key, '/') : undefined,
             delimiter: '/',
             limit: 1000

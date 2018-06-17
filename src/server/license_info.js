@@ -91,6 +91,10 @@ function main() {
         }
         _.defaults(obj, l);
         obj.scanned[basename] = l.license;
+        obj.license_type = license_utils.get_license_type(obj.license);
+        if (argv.perm && obj.license_type !== license_utils.PERMISSIVE_TYPE) {
+            console.error('NON PERMISSIVE:', obj);
+        }
         // console.log(`path: ${l.path} license: ${l.license} name: ${l.name} version: ${l.version} url: ${l.url}`);
     });
 

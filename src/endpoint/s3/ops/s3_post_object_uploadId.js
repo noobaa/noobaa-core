@@ -11,7 +11,7 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
  * AKA Complete Multipart Upload
  */
-function post_object_uploadId(req) {
+async function post_object_uploadId(req, res) {
 
     const multiparts = _.map(
         _.get(req.body, 'CompleteMultipartUpload.Part'),
@@ -24,21 +24,25 @@ function post_object_uploadId(req) {
         throw new S3Error(S3Error.MalformedXML);
     }
 
-    return req.object_sdk.complete_object_upload({
-            obj_id: req.query.uploadId,
-            bucket: req.params.bucket,
-            key: req.params.key,
-            md_conditions: http_utils.get_md_conditions(req),
-            multiparts
-        })
-        .then(reply => ({
-            CompleteMultipartUploadResult: {
-                Bucket: req.params.bucket,
-                Key: req.params.key,
-                ETag: `"${reply.etag}"`,
-                Location: req.originalUrl,
-            }
-        }));
+    const reply = await req.object_sdk.complete_object_upload({
+        obj_id: req.query.uploadId,
+        bucket: req.params.bucket,
+        key: req.params.key,
+        md_conditions: http_utils.get_md_conditions(req),
+        multiparts
+    });
+
+    if (reply.version_id && reply.version_id !== 'null') {
+        res.setHeader('x-amz-version-id', reply.version_id);
+    }
+    return {
+        CompleteMultipartUploadResult: {
+            Bucket: req.params.bucket,
+            Key: req.params.key,
+            ETag: `"${reply.etag}"`,
+            Location: req.originalUrl,
+        }
+    };
 }
 
 function get_bucket_usage(req, res) {

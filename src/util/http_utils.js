@@ -37,21 +37,21 @@ function parse_client_ip(req) {
 function get_md_conditions(req, prefix) {
     var cond;
     prefix = prefix || '';
-    if (prefix + 'if-modified-since' in req.headers) {
+    if (req.headers[prefix + 'if-modified-since']) {
         cond = cond || {};
         cond.if_modified_since =
             (new Date(req.headers[prefix + 'if-modified-since'])).getTime();
     }
-    if (prefix + 'if-unmodified-since' in req.headers) {
+    if (req.headers[prefix + 'if-unmodified-since']) {
         cond = cond || {};
         cond.if_unmodified_since =
             (new Date(req.headers[prefix + 'if-unmodified-since'])).getTime();
     }
-    if (prefix + 'if-match' in req.headers) {
+    if (req.headers[prefix + 'if-match']) {
         cond = cond || {};
         cond.if_match_etag = req.headers[prefix + 'if-match'];
     }
-    if (prefix + 'if-none-match' in req.headers) {
+    if (req.headers[prefix + 'if-none-match']) {
         cond = cond || {};
         cond.if_none_match_etag = req.headers[prefix + 'if-none-match'];
     }
@@ -81,59 +81,80 @@ function match_etag(condition, etag) {
 }
 
 /**
- * @param {String} range_str the range header string
- * @return {undefined|Number|Array} according to these options:
- *  - undefined (no range)
- *  - 400 (HTTP Bad request)
- *  - Array of objects {start,end}
+ * @param {String} range_header the range header string
+ * @return {Array} Array of objects {start,end}
  */
-function parse_http_range(range_str) {
-    if (!range_str) return;
-    const eq_index = range_str.indexOf('=');
-    if (eq_index < 0) return 400;
-    const units = range_str.slice(0, eq_index);
-    if (units !== 'bytes') return 400;
-    return range_str.slice(eq_index + 1)
-        .split(',')
-        .map(item => {
-            const r = item.split('-');
-            return {
-                start: Number(r[0] || NaN),
-                end: Number(r[1] || NaN),
-            };
-        });
+function parse_http_ranges(range_header) {
+    if (!range_header) return;
+    const eq_index = range_header.indexOf('=');
+    if (eq_index < 0) throw_ranges_error(400);
+    const units = range_header.slice(0, eq_index);
+    if (units !== 'bytes') throw_ranges_error(400);
+    return range_header.slice(eq_index + 1).split(',').map(_parse_one_http_range);
 }
 
-function format_http_range(range) {
-    if (!range) return;
-    return `bytes=${range.start}-${range.end}`;
+function _parse_one_http_range(range_str) {
+    const p = range_str.indexOf('-');
+    if (p < 0) throw_ranges_error(400);
+    const first = range_str.slice(0, p);
+    const second = range_str.slice(p + 1);
+    let start;
+    let end;
+    if (first) {
+        start = Number(first);
+        if (!Number.isInteger(start)) throw_ranges_error(400);
+        if (second) {
+            end = Number(second);
+            if (!Number.isInteger(end)) throw_ranges_error(400);
+            if (first) end += 1; // end is inclusive in http ranges
+        }
+    } else {
+        // suffix range
+        start = -Number(second);
+        if (!Number.isInteger(start)) throw_ranges_error(400);
+    }
+    return { start, end };
+}
+
+function format_http_ranges(ranges) {
+    if (!ranges || !ranges.length) return;
+    let range_header = `bytes=${_format_one_http_range(ranges[0])}`;
+    for (let i = 1; i < ranges.length; ++i) {
+        range_header += `,${_format_one_http_range(ranges[i])}`;
+    }
+    return range_header;
+}
+
+function _format_one_http_range({ start, end }) {
+    const start_str = start >= 0 ? start.toString() : '';
+    const end_str = end > 0 ? (end - 1).toString() : ''; // end is inclusive in http ranges
+    return `${start_str}-${end_str}`;
 }
 
 /**
  * @param {Array} ranges array of {start,end} from parse_http_range
  * @param {Number} size entity size in bytes
- * @return {Number|Array} according to these options:
- *  - undefined (no range)
- *  - 416 (HTTP Range not satisfiable)
- *  - Array of {start,end}
+ * @return {Array} Array of {start,end}
  */
 function normalize_http_ranges(ranges, size) {
-    if (!Array.isArray(ranges)) return ranges;
-    for (var i = 0; i < ranges.length; ++i) {
-        const r = ranges[i];
-        if (isNaN(r.end)) {
-            if (isNaN(r.start)) return 416;
-            r.end = size - 1;
-        } else if (isNaN(r.start)) {
-            r.start = size - r.end;
-            r.end = size - 1;
-        } else if (r.end >= size) {
-            r.end = size - 1;
+    if (!ranges) return;
+    for (const r of ranges) {
+        if (r.end === undefined) {
+            if (r.start < 0) r.start += size;
+            r.end = size;
+        } else if (r.end > size) {
+            r.end = size;
         }
-        if (r.start < 0 || r.start > r.end) return 416;
+        if (r.start < 0 || r.start > r.end) throw_ranges_error(416);
     }
-    if (ranges.length !== 1) return 416;
+    if (ranges.length !== 1) throw_ranges_error(416);
     return ranges;
+}
+
+function throw_ranges_error(code) {
+    const err = new Error('Bad Request');
+    err.ranges_code = code;
+    throw err;
 }
 
 function read_and_parse_body(req, options) {
@@ -286,8 +307,8 @@ exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
 exports.match_etag = match_etag;
-exports.parse_http_range = parse_http_range;
-exports.format_http_range = format_http_range;
+exports.parse_http_ranges = parse_http_ranges;
+exports.format_http_ranges = format_http_ranges;
 exports.normalize_http_ranges = normalize_http_ranges;
 exports.read_and_parse_body = read_and_parse_body;
 exports.send_reply = send_reply;

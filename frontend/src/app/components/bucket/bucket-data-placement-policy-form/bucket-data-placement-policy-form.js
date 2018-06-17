@@ -7,6 +7,7 @@ import { state$, action$ } from 'state';
 import { deepFreeze, flatMap } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getPlacementStateIcon, getPlacementTypeDisplayName } from 'utils/bucket-utils';
+import { getResourceId } from 'utils/resource-utils';
 import ko from 'knockout';
 import * as routes from 'routes';
 import { requestLocation, openEditBucketPlacementModal } from 'action-creators';
@@ -86,7 +87,7 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
             { system, bucket, tab, section: toggleSection }
         );
 
-        const { placement } = buckets[bucket];
+        const { placement, usageDistribution } = buckets[bucket];
         const resourceNames = flatMap(placement.mirrorSets, ms => ms.resources);
         const counters = resourceNames
             .reduce(
@@ -104,7 +105,8 @@ class BucketDataPlacementPolicyFormViewModel extends Observer {
 
         const rows = resourceNames
             .map((item, i) => {
-                const { type, name, usage } = item;
+                const { type, name } = item;
+                const usage = usageDistribution.resources[getResourceId(type, name)] || 0;
                 const resource = resources[type][name];
                 const row = this.rows.get(i) || new PlacementRowViewModel();
                 row.onResource(type, resource, usage, system);

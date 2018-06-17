@@ -21,7 +21,11 @@ export default {
             'objectCount',
             'placement',
             'resiliency',
-            'io'
+            'versioning',
+            'io',
+            'usageDistribution',
+            'failureTolerance',
+            'usageDistribution'
         ],
         properties: {
             name: {
@@ -128,8 +132,7 @@ export default {
                                         type: 'object',
                                         required: [
                                             'type',
-                                            'name',
-                                            'usage'
+                                            'name'
                                         ],
                                         properties: {
                                             type: {
@@ -141,9 +144,6 @@ export default {
                                             },
                                             name: {
                                                 type: 'string'
-                                            },
-                                            usage: {
-                                                $ref: '#/def/common/size'
                                             }
                                         }
                                     }
@@ -240,8 +240,7 @@ export default {
                     'type',
                     'mode',
                     'name',
-                    'mirrorSet',
-                    'usage'
+                    'mirrorSet'
                 ],
                 properties: {
                     type: {
@@ -266,9 +265,6 @@ export default {
                     },
                     mirrorSet: {
                         type: 'string'
-                    },
-                    usage: {
-                        $ref: '#/def/common/size'
                     }
                 }
             },
@@ -370,6 +366,24 @@ export default {
                         },
                         lastRun: {
                             type:' integer'
+                        }
+                    }
+                }
+            },
+            usageDistribution: {
+                type: 'object',
+                required: [
+                    'lastUpdate',
+                    'resources'
+                ],
+                properties: {
+                    lastUpdate: {
+                        type: 'integer'
+                    },
+                    resources: {
+                        type: 'object',
+                        additionalProperties: {
+                            type: 'integer'
                         }
                     }
                 }

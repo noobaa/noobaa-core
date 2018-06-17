@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { keyByProperty, groupBy, compare } from 'utils/core-utils';
+import { keyBy, keyByProperty, groupBy, compare } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
+import { getResourceId } from 'utils/resource-utils';
 import { mapApiStorage } from 'utils/state-utils';
 import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
 
@@ -17,13 +18,13 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     const dataBuckets = payload.buckets
         .filter(bucket => bucket.bucket_type === 'REGULAR');
 
-    const tiers = keyByProperty(payload.tiers, 'name');
+    const tiersByName = keyByProperty(payload.tiers, 'name');
     const resTypeByName = keyByProperty(payload.pools, 'name', res => res.resource_type);
 
     return keyByProperty(
         dataBuckets,
         'name',
-        bucket => _mapBucket(bucket, tiers, resTypeByName)
+        bucket => _mapBucket(bucket, tiersByName, resTypeByName)
     );
 }
 
@@ -33,12 +34,6 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 function _mapBucket(bucket, tiersByName, resTypeByName) {
     const enabledTiers = bucket.tiering.tiers
         .filter(record => !record.disabled);
-
-    const resUsageByName = keyByProperty(
-        bucket.usage_by_pool.pools,
-        'pool_name',
-        record => record.storage.blocks_size
-    );
 
     const { placementTiers = [], spilloverTiers = [] } = groupBy(
         enabledTiers,
@@ -57,13 +52,14 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         quota: _mapQuota(quota_status, quota),
         objectCount: bucket.num_objects,
         undeletable: bucket.undeletable,
-        placement: _mapPlacement(placement_status, placementTiers[0], resTypeByName, resUsageByName),
+        placement: _mapPlacement(placement_status, placementTiers[0], resTypeByName),
         resiliency: _mapResiliency(resiliency_status, placementTiers[0]),
-        spillover: _mapSpillover(spillover_status, spilloverTiers[0], resTypeByName, resUsageByName),
+        spillover: _mapSpillover(spillover_status, spilloverTiers[0], resTypeByName),
         failureTolerance: _mapFailureTolerance(bucket),
         versioning: _mapVersioning(bucket),
         io: _mapIO(stats),
-        triggers: _mapTriggers(triggers)
+        triggers: _mapTriggers(triggers),
+        usageDistribution: _mapUsageDistribution(bucket, resTypeByName)
     };
 }
 
@@ -86,7 +82,7 @@ function _mapQuota(mode, quota) {
     return { mode, size, unit };
 }
 
-function _mapPlacement(mode, tier, typeByName, usageByName) {
+function _mapPlacement(mode, tier, typeByName) {
     const { data_placement: policyType, mirror_groups } = tier;
     const mirrorSets = mirror_groups
         .sort((group1, group2) => compare(group1.name, group2.name))
@@ -95,8 +91,7 @@ function _mapPlacement(mode, tier, typeByName, usageByName) {
             const resources = pools
                 .map(name => {
                     const type = typeByName[name];
-                    const usage = usageByName[name] || 0;
-                    return { type, name, usage };
+                    return { type, name };
                 });
 
             return { name, resources };
@@ -124,13 +119,12 @@ function _mapResiliency(mode, tier) {
     }
 }
 
-function _mapSpillover(mode, tier, typeByName, usageByName) {
+function _mapSpillover(mode, tier, typeByName) {
     if (!tier) return;
     const { name: mirrorSet, pools } = tier.mirror_groups[0];
     const [name] = pools;
     const type = typeByName[name];
-    const usage = usageByName[name] || 0;
-    return { type, name, mode, mirrorSet, usage };
+    return { type, name, mode, mirrorSet };
 }
 
 function _mapFailureTolerance(bucket) {
@@ -183,6 +177,21 @@ function _mapTriggers(triggers) {
 function _mapVersioning(bucket) {
     const { versioning: mode } = bucket;
     return { mode };
+}
+
+function _mapUsageDistribution(bucket, resTypeByName) {
+    const { last_update, pools } = bucket.usage_by_pool;
+    return {
+        lastUpdate: last_update,
+        resources: keyBy(
+            pools,
+            record => {
+                const name = record.pool_name;
+                return getResourceId(resTypeByName[name], name);
+            },
+            record => record.storage.blocks_size
+        )
+    };
 }
 
 // ------------------------------

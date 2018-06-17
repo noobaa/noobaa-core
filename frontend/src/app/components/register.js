@@ -169,7 +169,9 @@ import poolPanel from './pool/pool-panel/pool-panel';
 import poolSummary from './pool/pool-summary/pool-summary';
 import poolHostsTable from './pool/pool-hosts-table/pool-hosts-table';
 import poolAssociatedAccountsList from './pool/pool-associated-accounts-list/pool-associated-accounts-list';
-import poolConnectedBucketsList from './pool/pool-connected-buckets-list/pool-connected-buckets-list';
+import poolConnectedBucketsForm from './pool/pool-connected-buckets-form/pool-connected-buckets-form';
+import poolConnectedBucketsTable from './pool/pool-connected-buckets-table/pool-connected-buckets-table';
+import poolConnectedBucketsChart from './pool/pool-connected-buckets-chart/pool-connected-buckets-chart';
 /** INJECT:pool.import **/
 
 // -------------------------------
@@ -286,7 +288,7 @@ import editor from './shared/editor/editor';
 import toggleSwitch from './shared/toggle-switch/toggle-switch';
 import propertySheet from './shared/property-sheet/property-sheet';
 import capacityBar from './shared/capacity-bar/capacity-bar';
-import toggleFilter from './shared/toggle-filter/toggle-filter';
+import toggleGroup from './shared/toggle-group/toggle-group';
 import dataTable from './shared/data-table/data-table';
 import timezoneChooser from './shared/timezone-chooser/timezone-chooser';
 import dateTimeChooser from './shared/date-time-chooser/date-time-chooser';
@@ -467,7 +469,9 @@ export default function register(ko, services) {
         poolSummary,
         poolHostsTable,
         poolAssociatedAccountsList,
-        poolConnectedBucketsList,
+        poolConnectedBucketsForm,
+        poolConnectedBucketsTable,
+        poolConnectedBucketsChart,
         /** INJECT:pool.list **/
 
         hostPanel,
@@ -554,7 +558,7 @@ export default function register(ko, services) {
         toggleSwitch,
         propertySheet,
         capacityBar,
-        toggleFilter,
+        toggleGroup,
         dataTable,
         timezoneChooser,
         dateTimeChooser,

@@ -56,10 +56,10 @@ export default class PoolRowViewModel {
         };
     }
 
-    onState(pool, lockingAccounts, system, selectedForDelete) {
+    onState(pool, connectedBuckets, lockingAccounts, system, selectedForDelete) {
         if (!pool) return;
-        const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
 
+        const { name, hostsByMode, storage, undeletable } = pool;
         const stateIcon = getHostsPoolStateIcon(pool);
         this.state({
             ...stateIcon,
@@ -74,13 +74,16 @@ export default class PoolRowViewModel {
 
         const bucketCount = connectedBuckets.length;
         this.buckets({
-            text: stringifyAmount('bucket',  bucketCount),
+            text: bucketCount ? stringifyAmount('bucket',  bucketCount) : 'None',
             tooltip: bucketCount > 0 ? {
                 template: 'linkList',
-                text: connectedBuckets.map(bucket => ({
-                    text: bucket,
-                    href: realizeUri(routes.bucket, { system, bucket })
-                }))
+                text: connectedBuckets.map(bucket => {
+                    const { name } = bucket;
+                    return {
+                        text: name,
+                        href: realizeUri(routes.bucket, { system, bucket: name })
+                    };
+                })
             } : null
         });
 

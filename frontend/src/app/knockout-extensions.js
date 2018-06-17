@@ -275,6 +275,10 @@ ko.subscribable.fn.eq = function(value) {
     return ko.pureComputed(() => this() === value);
 };
 
+ko.subscribable.fn.in = function(values) {
+    return ko.pureComputed(() => ko.unwrap(values).includes(this()));
+};
+
 ko.subscribable.fn.oneOf = function(...values) {
     return ko.pureComputed(() => values.includes(this()));
 
@@ -504,4 +508,3 @@ Object.entries(ko.bindingHandlers)
         const lcName = name.toLowerCase();
         if (lcName !== name) ko.bindingHandlers[lcName] = binding;
     });
-

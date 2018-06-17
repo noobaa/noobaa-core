@@ -8,6 +8,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, ensureArray } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { getSpilloverStateIcon } from 'utils/bucket-utils';
+import { getResourceId } from 'utils/resource-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import * as routes from 'routes';
@@ -86,7 +87,7 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
             { system, bucket, tab, section: toggleSection }
         );
 
-        const { spillover } = buckets[bucket];
+        const { spillover, usageDistribution } = buckets[bucket];
         const spilloverResource =
             (!spillover && []) ||
             Object.values(internalResources).find(resource => resource.name === spillover.name) ||
@@ -95,7 +96,12 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
 
         const rows = ensureArray(spilloverResource)
             .map((resource, i) => {
-                const usage = spillover ? spillover.usage : 0;
+                let usage = 0;
+                if (spillover) {
+                    const resourceId = getResourceId(spillover.type, spillover.name);
+                    usage = usageDistribution.resources[resourceId] || 0;
+                }
+
                 const row = this.rows.get(i) || new SpilloverRowViewModel();
                 row.onResource(spillover.type, resource, usage);
                 return row;
@@ -106,7 +112,8 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
         this.rows(rows);
 
         if (spillover) {
-            const formattedUsage = formatSize(spillover.usage);
+            const resourceId = getResourceId(spillover.type, spillover.name);
+            const formattedUsage = formatSize(usageDistribution.resources[resourceId] || 0);
             const formattedTotal = formatSize(spilloverResource.storage.total);
             const usage = `${formattedUsage} of ${formattedTotal} used by this bucket`;
             const stateIcon = getSpilloverStateIcon(spillover.mode);

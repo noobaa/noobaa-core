@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const ip_module = require('ip');
 const child_process = require('child_process');
 const os = require('os');
+const util = require('util');
 
 const P = require('../util/promise');
 const api = require('../api');
@@ -288,7 +289,7 @@ class Agent {
         }
         const previous_address = this.rpc.router.default;
         dbg.log0('previous_address =', previous_address);
-        dbg.log0('original servers list =', this.servers);
+        dbg.log0('original servers list =', util.inspect(this.servers));
         if (suggested) {
             //Find if the suggested server appears in the list we got from the initial connect
             const current_server = _.remove(this.servers, srv => srv.address === suggested);
@@ -300,7 +301,7 @@ class Agent {
             this.servers.push(this.servers.shift());
         }
         const new_address = suggested ? suggested : this.servers[0].address;
-        dbg.log0('new servers list =', this.servers);
+        dbg.log0('new servers list =', util.inspect(this.servers));
         dbg.log0('Chosen new address', new_address);
         return this._update_rpc_config_internal({
             base_address: new_address,
@@ -354,7 +355,7 @@ class Agent {
             hb_info.pool_name = this.mongo_info.pool_name;
         }
 
-        dbg.log0(`_do_heartbeat called`);
+        dbg.log0(`_do_heartbeat called. sending HB to ${this.base_address}`);
 
         return P.resolve()
             .then(() => {
@@ -548,6 +549,7 @@ class Agent {
             return P.fcall(() => this.client.node.ping(null, {
                     address: params.base_address
                 }))
+                .timeout(MASTER_RESPONSE_TIMEOUT)
                 .then(() => {
                     if (params.store_base_address) {
                         // store base_address to send in get_agent_info_and_update_masters

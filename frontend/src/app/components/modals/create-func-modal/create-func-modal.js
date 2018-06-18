@@ -12,6 +12,7 @@ import { getMany } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import { bufferStore } from 'services';
 import JSZip from 'jszip';
+import { createFunction as learnMoreHref } from 'knowledge-base-articles';
 import {
     updateForm,
     touchForm,
@@ -98,6 +99,7 @@ async function _selectCode(codeFormat, inlineCode, codePackage) {
 }
 
 class CreateFuncModalViewModel extends Observer {
+    learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     steps = steps;
     runtime = 'nodejs6';

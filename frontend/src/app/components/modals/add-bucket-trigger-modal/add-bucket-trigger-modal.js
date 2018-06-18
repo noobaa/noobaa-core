@@ -4,11 +4,10 @@ import template from './add-bucket-trigger-modal.html';
 import Observer from 'observer';
 import { state$, action$ } from 'state';
 import { bucketEvents } from 'utils/bucket-utils';
-import { realizeUri } from 'utils/browser-utils';
 import { getFunctionOption } from 'utils/func-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
-import * as routes from 'routes';
+import { addBucketTrigger as learnMoreHref } from 'knowledge-base-articles';
 import {
     openCreateFuncModal,
     addBucketTrigger,
@@ -16,10 +15,10 @@ import {
 } from 'action-creators';
 
 class AddBucketTriggerModalViewModel extends Observer {
+    learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     bucketName = '';
     existingTriggers = null;
-    funcsUrl = ko.observable();
     eventOptions = bucketEvents;
     funcActions = [{
         label: 'Create new function',
@@ -44,25 +43,22 @@ class AddBucketTriggerModalViewModel extends Observer {
                 getMany(
                     ['buckets', this.bucketName, 'triggers'],
                     'functions',
-                    'accounts',
-                    ['location', 'params', 'system']
+                    'accounts'
                 )
             ),
             this.onState
         );
     }
 
-    onState([triggers, funcs, accounts, system]) {
+    onState([triggers, funcs, accounts]) {
         if (!triggers || !funcs || !accounts) {
             return;
         }
 
-        const funcsUrl = realizeUri(routes.funcs, { system: system });
         const funcOptions = Object.values(funcs)
             .map(func => getFunctionOption(func, accounts, this.bucketName));
 
         this.existingTriggers = Object.values(triggers);
-        this.funcsUrl(funcsUrl);
         this.funcOptions(funcOptions);
     }
 

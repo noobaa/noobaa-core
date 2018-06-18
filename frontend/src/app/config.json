@@ -51,9 +51,6 @@
         "upgradeFailedSubject": "My system upgrade has failed",
         "managementConsoleSubject": "My NooBaa management console has crushed"
     },
-    "dataCenterArticles": {
-        "editDataResiliency": "https://noobaa.desk.com/customer/en/portal/articles/2918448-how-to-edit-bucket-data-resiliency-"
-    },
     "releaseNotes": {
         "baseUrl": "https://storage.googleapis.com/noobaa-fe-assets/release-notes",
         "suffix": "txt"

@@ -13,14 +13,15 @@
         actionLabel: 'Create',
         onBeforeStep: onBeforeStep,
         onComplete: $form.submit,
-        onCancel: onCancel
+        onCancel: onCancel,
+        renderControls: false
     ">
-        <section class="greedy push-both">
-            <p class="push-next">A Namespace bucket can be used for data display, the data will reside in
-            it's original source and will not be encrypted or replicated</p>
-
-
-            <editor params="label: 'Bucket Name'">
+        <section class="column greedy push-prev">
+            <p class="push-next">
+                A Namespace bucket can be used for data display, the data will reside in
+                it's original source and will not be encrypted or replicated
+            </p>
+            <editor class="greedy" params="label: 'Bucket Name'">
                 <input type="text"
                     class="push-next-half"
                     ko.textInput="ko.pc($form.bucketName, onBucketNameThrottled)"
@@ -31,9 +32,19 @@
                     <li ko.text="label" ko.css="css"></li>
                 </ul>
             </editor>
+
+            <div class="row content-middle">
+                <p class="remark greedy push-next">
+                    <svg-icon class="icon-small valign-bottom"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    The bucket name cannot be changed after creation
+                </p>
+                <wizard-controls></wizard-controls>
+            </div>
         </section>
 
-        <section class="column greedy push-both">
+        <section class="column greedy push-prev">
             <div class="column greedy push-next">
                 <h2 class="heading3">Read Policy</h2>
                 <p class="push-next-half">This namespace bucket will read its data from the selected namespace resources</p>
@@ -44,7 +55,7 @@
                 <validation-message params="field: $form.readPolicy"></validation-message>
             </div>
 
-            <div>
+            <div class="greedy">
                 <h2 class="heading3">Write Policy</h2>
                 <p>This namespace bucket will write its data to the selected namespace resource</p>
                 <editor params="
@@ -60,6 +71,20 @@
                     ></dropdown>
                     <validation-message params="field: $form.writePolicy"></validation-message>
                 </editor>
+            </div>
+            <div class="row content-middle">
+                <p class="remark greedy push-next">
+                    <svg-icon class="icon-small valign-bottom"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    Learn more about
+                    <a class="link"
+                        target=_blank"
+                        ko.attr.href="learnMoreHref">
+                        Namespace Buckets
+                    </a>
+                </p>
+                <wizard-controls></wizard-controls>
             </div>
         </section>
     </wizard>

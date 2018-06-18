@@ -64,18 +64,24 @@
             <!-- /ko -->
 
             <!-- ko ifnot: $form.errors().global -->
-            <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
-            <p>
-               To create a new function go to
-               <a class="link" ko.attr.href="funcsUrl">Functions </a>
-               &gt; Create Function
+            <p class="remark greedy push-next">
+                <svg-icon class="icon-small valign-bottom"
+                    params="name: 'notif-info'"
+                ></svg-icon>
+                Learn more about
+                <a class="link"
+                    target="_blank"
+                    ko.attr.href="learnMoreHref"
+                >
+                    Bucket Triggers and Functions
+                </a>
             </p>
             <!-- /ko -->
        </div>
         <button type="button"
             class="link alt-colors push-next"
             ko.click="onCancel"
-        >
+       >
             Cancel
         </button>
         <button class="btn" ko.shakeOnClick="!$form.isValid()">

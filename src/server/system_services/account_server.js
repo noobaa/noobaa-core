@@ -11,7 +11,7 @@ const _ = require('lodash');
 const net = require('net');
 const url = require('url');
 const AWS = require('aws-sdk');
-const GoogleStorage = require('@google-cloud/storage');
+const GoogleStorage = require('../../util/google_storage_wrap');
 const bcrypt = require('bcrypt');
 const { StorageError } = require('azure-storage/lib/common/errors/errors');
 

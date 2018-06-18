@@ -7,7 +7,7 @@ const AWS = require('aws-sdk');
 const net = require('net');
 const fs = require('fs');
 const url = require('url');
-const GoogleStorage = require('@google-cloud/storage');
+const GoogleStorage = require('../../util/google_storage_wrap');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);

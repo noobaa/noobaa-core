@@ -120,7 +120,7 @@ async function createBucketWithEnabledSpillover() {
             saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list`, list_buckets);
         }
         const internalpool = await bf.getInternalStoragePool(server_ip);
-        await bf.setSpillover(server_ip, bucket, internalpool);
+        await bf.setSpillover(bucket, internalpool);
     } catch (err) {
         saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
         throw err;
@@ -253,7 +253,7 @@ async function check_internal_spillover_without_agents() {
        enable spillover and see that the files are written into the internal storage */
     try {
         await createBucketWithEnabledSpillover();
-        await bf.checkIsSpilloverHasStatus(bucket, true, server_ip);
+        await bf.checkIsSpilloverHasStatus(bucket, true);
         await s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file', 10, data_multiplier);
         await checkFileInPool('spillover_file', 'system-internal-storage-pool');
     } catch (e) {
@@ -436,7 +436,7 @@ async function disable_spillover_and_check() {
             await uploadFiles(1024, over_files);
         }
         //TODO: write some files into the spillover
-        await bf.setSpillover(server_ip, bucket, null);
+        await bf.setSpillover(bucket, null);
         await test_failed_upload(1024);
         spillover_files = await list_files_in_a_pool(keys, 'system-internal-storage-pool');
         const size = await aggregated_file_size(spillover_files, 10 * 1024 * 1024 * 1024, true); //making sure we get all files.
@@ -461,7 +461,7 @@ async function disable_quota_and_check() {
     const AWSDefaultConnection = cf.getAWSConnection();
     await cf.createConnection(AWSDefaultConnection, 'AWS');
     await cf.createCloudPool(AWSDefaultConnection.name, "qa-bucket", "QA-Bucket");
-    await bf.setSpillover(server_ip, bucket, "qa-bucket");
+    await bf.setSpillover(bucket, "qa-bucket");
 }*/
 
 async function main() {

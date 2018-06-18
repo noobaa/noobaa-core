@@ -1,0 +1,9 @@
+{
+    "installNodes": "https://noobaa.desk.com/customer/en/portal/articles/2852040-install-nodes-?t=775839",
+    "createNamespaceResource": "https://noobaa.desk.com/customer/en/portal/articles/2921824-virtual-namespace",
+    "createNamespaceBucket": "https://noobaa.desk.com/customer/en/portal/articles/2921824-virtual-namespace",
+    "editBucketDataResiliency": "https://noobaa.desk.com/customer/en/portal/articles/2918448-how-to-edit-bucket-data-resiliency-",
+    "editBucketSpillover": "https://noobaa.desk.com/customer/portal/articles/2921822",
+    "createFunction": "https://noobaa.desk.com/customer/en/portal/articles/2939400-create-your-own-serverless-function",
+    "addBucketTrigger": "https://noobaa.desk.com/customer/en/portal/articles/2939400-create-your-own-serverless-function"
+}

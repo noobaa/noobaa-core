@@ -6,8 +6,10 @@ import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
 import { deepFreeze, pick, flatMap, createCompareFunc } from 'utils/core-utils';
 import { getFieldValue } from 'utils/form-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
+import * as routes from 'routes';
 import {
     openEmptyBucketPlacementWarningModal,
     updateBucketPlacementPolicy,
@@ -73,6 +75,7 @@ class EditBucketPlacementModalViewModel extends Observer {
     isPolicyRisky = false;
     spilloverResource = '';
     selectableResourceIds = [];
+    resourcesHref = ko.observable();
     rowParams = { onToggle: this.onToggleResource.bind(this) };
 
     constructor({ bucketName }) {
@@ -85,14 +88,15 @@ class EditBucketPlacementModalViewModel extends Observer {
                     ['buckets', ko.unwrap(bucketName)],
                     'hostPools',
                     'cloudResources',
-                    ['forms', this.formName]
+                    ['forms', this.formName],
+                    ['location', 'params', 'system']
                 )
             ),
             this.onState
         );
     }
 
-    onState([ bucket, hostPools, cloudResources, form ]) {
+    onState([bucket, hostPools, cloudResources, form, system]) {
         if (!bucket) {
             this.isFormInitialized(false);
             return;
@@ -126,11 +130,14 @@ class EditBucketPlacementModalViewModel extends Observer {
                 return row;
             });
 
+        const resourcesHref = realizeUri(routes.resources, { system });
+
         this.tierName = bucket.tierName;
         this.selectedResources = selectedResources;
         this.spilloverResource = spilloverResource;
         this.selectableResourceIds = selectableResourceIds;
         this.rows(rows);
+        this.resourcesHref(resourcesHref);
 
         if (!this.fields()) {
             const { policyType, mirrorSets } = bucket.placement;

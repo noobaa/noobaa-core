@@ -10,6 +10,7 @@ import { getCloudResourceTypeIcon } from 'utils/resource-utils';
 import { getMany } from 'rx-extensions';
 import { getInternalResourceDisplayName } from 'utils/resource-utils';
 import { closeModal, updateBucketSpillover } from 'action-creators';
+import { editBucketSpillover as learnMoreHref } from 'knowledge-base-articles';
 
 function _getResourceTypeIcon(type, resource) {
     switch (type) {
@@ -21,7 +22,7 @@ function _getResourceTypeIcon(type, resource) {
         }
 
         case 'CLOUD': {
-            const { name } =getCloudResourceTypeIcon(resource);
+            const { name } = getCloudResourceTypeIcon(resource);
             return {
                 icon: `${name}-dark`,
                 selectedIcon: `${name}-colored`
@@ -66,6 +67,7 @@ class EditBucketSpilloverModalViewModel extends Observer {
     bucketName = '';
     resourceOptions = ko.observableArray();
     fields = ko.observable();
+    learnMoreHref = learnMoreHref;
 
     constructor({ bucketName }) {
         super();

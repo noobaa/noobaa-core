@@ -18,6 +18,7 @@ import {
     closeModal,
     createNamespaceResource
 } from 'action-creators';
+import { createNamespaceResource as learnMoreHref } from 'knowledge-base-articles';
 
 const allowedServices = deepFreeze([
     'AWS',
@@ -28,6 +29,7 @@ const allowedServices = deepFreeze([
 ]);
 
 class CreateNamespaceResourceModalViewModel extends Observer {
+    learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     fields = {
         connection: '',

@@ -17,6 +17,7 @@ import {
     closeModal,
     createNamespaceBucket
 } from 'action-creators';
+import { createNamespaceBucket as learnMoreHref } from 'knowledge-base-articles';
 
 const steps = deepFreeze([
     'Choose Name',
@@ -53,6 +54,7 @@ const fieldsByStep = deepFreeze({
 });
 
 class CreateNamespaceBucketModalViewModel extends Observer {
+    learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     steps = steps;
     nameRestrictionList = ko.observableArray();

@@ -9,7 +9,7 @@ import { deepFreeze, pick } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
 import { countStorageNodesByMirrorSet, summrizeResiliency, getResiliencyRequirementsWarning } from 'utils/bucket-utils';
 import { getMany } from 'rx-extensions';
-import { dataCenterArticles as articles } from 'config';
+import { editBucketDataResiliency as learnMoreHref } from 'knowledge-base-articles';
 import {
     closeModal,
     updateForm,
@@ -106,7 +106,7 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
     ecRequiredDrives = ko.observable();
     ecRebuildEffort = ko.observable();
     ecIsPolicyRisky = false;
-    learnMoreUrl = articles.editDataResiliency;
+    learnMoreHref = learnMoreHref
 
     constructor({ bucketName }) {
         super();

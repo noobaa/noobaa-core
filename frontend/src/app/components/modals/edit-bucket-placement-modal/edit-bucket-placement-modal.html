@@ -57,7 +57,16 @@
         <validation-message params="field: $form.selectedResources"></validation-message>
     </section>
 
-    <div class="row align-end">
+    <div class="row content-middle">
+        <p class="remark greedy push-next">
+            <svg-icon class="icon-small valign-bottom"
+                params="name: 'notif-info'"
+            ></svg-icon>
+            To create a new resource go to
+            <a class="link" ko.attr.href="resourcesHref">
+                Resources
+            </a>
+        </p>
         <button type="button" class="link alt-colors push-next" ko.click="onCancel">
             Cancel
         </button>

@@ -12,7 +12,8 @@
         actionLabel: 'Create',
         onBeforeStep: onBeforeStep,
         onComplete: $form.submit,
-        onCancel: onCancel
+        onCancel: onCancel,
+        renderControls: false
     ">
         <section class="column greedy">
             <editor params="label: 'Function Name'">
@@ -31,9 +32,24 @@
                 <p class="hint" ko.visible="$form.funcDesc.isValid">Up to 256 characters</p>
                 <validation-message params="field: $form.funcDesc"></validation-message>
             </editor>
-            <editor params="label: 'Runtime', tooltip: runtimeTooltip">
+            <editor class="greedy" params="label: 'Runtime', tooltip: runtimeTooltip">
                 <input type="text" disabled ko.value="runtime" />
             </editor>
+            <div class="row content-middle">
+                <p class="remark greedy push-next">
+                    <svg-icon class="icon-small valign-bottom"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    Learn more about
+                    <a class="link"
+                        target="_blank"
+                        ko.attr.href="learnMoreHref"
+                    >
+                        Serverless Functions
+                    </a>
+                </p>
+                <wizard-controls></wizard-controls>
+            </div>
         </section>
 
         <section class="column greedy">
@@ -140,6 +156,22 @@
                 />
                 <validation-message params="field: $form.handlerFunc"></validation-message>
             </editor>
+
+            <div class="row content-middle">
+                <p class="remark greedy push-next">
+                    <svg-icon class="icon-small valign-bottom"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    Learn more about
+                    <a class="link"
+                        target="_blank"
+                        ko.attr.href="learnMoreHref"
+                    >
+                        Serverless Functions
+                    </a>
+                </p>
+                <wizard-controls></wizard-controls>
+            </div>
         </section>
 
         <section class="column greedy">
@@ -150,7 +182,7 @@
                     hasFocus: true
                 "></dropdown>
             </editor>
-            <editor params="label: 'Timeout'">
+            <editor class="greedy" params="label: 'Timeout'">
                 <div class="row">
                     <input type="number"
                         min="0"
@@ -172,6 +204,21 @@
                     params="field: $form.timeoutSeconds"
                 ></validation-message>
             </editor>
+            <div class="row content-middle">
+                <p class="remark greedy push-next">
+                    <svg-icon class="icon-small valign-bottom"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    Learn more about
+                    <a class="link"
+                        target="_blank"
+                        ko.attr.href="learnMoreHref"
+                    >
+                        Serverless Functions
+                    </a>
+                </p>
+                <wizard-controls></wizard-controls>
+            </div>
         </section>
     </wizard>
 </managed-form>

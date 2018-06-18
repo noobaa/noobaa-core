@@ -4,19 +4,13 @@
     Bucket Policies and Configurations
 </h1>
 <loading-indicator class="align-start pad" ko.visible="!bucketLoaded()"></loading-indicator>
-<section class="fade-in" ko.visible="bucketLoaded">
-    <bucket-data-placement-policy-form>
+<section class="fade-in column greedy scroll" ko.visible="bucketLoaded">
+    <bucket-data-placement-policy-form class="border-bottom push-next-half">
     </bucket-data-placement-policy-form>
-    <hr>
-    <bucket-data-resiliency-policy-form>
+    <bucket-data-resiliency-policy-form class="border-bottom push-next-half">
     </bucket-data-resiliency-policy-form>
-    <hr>
-    <bucket-quota-policy-form>
+    <bucket-quota-policy-form class="border-bottom push-next-half">
     </bucket-quota-policy-form>
-    <hr>
-    <bucket-spillover-policy-form>
+    <bucket-spillover-policy-form class="border-bottom push-next-half">
     </bucket-spillover-policy-form>
 </section>
-
-
-

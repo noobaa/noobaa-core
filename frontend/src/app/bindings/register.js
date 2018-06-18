@@ -24,6 +24,7 @@ export default function register(ko) {
     registerHandler('expand',               require('./expand').default);
     registerHandler('tooltip',              require('./tooltip').default);
     registerHandler('scrollTo',             require('./scroll-to').default);
+    registerHandler('scrollToIf',             require('./scroll-to-if').default);
     registerHandler('hover',                require('./hover').default);
     registerHandler('shakeOnClick',         require('./shake-on-click').default);
     registerHandler('childEvent',           require('./child-event').default);

@@ -2078,9 +2078,11 @@ class NodesMonitor extends EventEmitter {
         }
         dbg.log1('_update_data_activity: reason', reason, item.node.name);
         const now = Date.now();
-        const act = item.data_activity || {};
-        item.data_activity = act;
-        act.reason = reason;
+        // if no data activity, or activity reason has changed then reset data_activity
+        if (!item.data_activity || item.data_activity.reason !== reason) {
+            dbg.log0(`data activity reason of ${item.node.name} was changed from ${_.get(item, 'data_activity.reason')} to ${reason}`);
+            item.data_activity = { reason };
+        }
         this._update_data_activity_stage(item, now);
         this._update_data_activity_progress(item, now);
         this._update_data_activity_schedule(item);
@@ -3174,7 +3176,8 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
-        info.os_info.cpu_usage = Math.max(host_item.cpu_usage, host_item.node.cpu_usage); //Total can't be lower then a single process, we also subtract one from another in the FE
+        //Total cpu_usage can't be lower then a single process, we also subtract one from another in the FE
+        info.os_info.cpu_usage = Math.max(host_item.cpu_usage, host_item.node.cpu_usage) || 0;
         info.process_cpu_usage = host_item.node.cpu_usage;
         info.process_mem_usage = host_item.node.mem_usage;
         info.rpc_address = host_item.node.rpc_address;

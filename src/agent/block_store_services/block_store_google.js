@@ -9,7 +9,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
-const Storage = require('@google-cloud/storage');
+const Storage = require('../../util/google_storage_wrap');
 
 
 class BlockStoreGoogle extends BlockStoreBase {

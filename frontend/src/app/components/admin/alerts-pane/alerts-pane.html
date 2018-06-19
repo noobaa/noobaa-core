@@ -3,7 +3,7 @@
 <h1 class="row content-middle heading2 hpad pane-header push-next">
     <span class="greedy push-next">Alerts &amp; Notifications</span>
 
-    <button class="icon-btn no-outline" data-bind="click: onX">
+    <button class="icon-btn no-outline" ko.click="onX">
         <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
     </button>
 </h1>
@@ -20,51 +20,48 @@
             label: unreadCheckboxLabel
         "></checkbox>
 
-        <button class="link alt-colors" data-bind="
-            disable: markAllDisabled,
-            click: markListAsRead
-        ">
+        <button class="link alt-colors"
+            ko.disable="markAllDisabled"
+            ko.click="markListAsRead"
+        >
             Mark all as read
         </button>
     </div>
 
-    <div class="column alt-bg greedy alert-list" data-bind="scroll: scroll">
-        <ul class="list-no-style" data-bind="foreach: rows">
-            <li class="pad alert row content-middle" data-bind="css: css">
-                <svg-icon class="push-next" params="name: icon"></svg-icon>
+    <div class="column alt-bg greedy alert-list" ko.scroll="scroll">
+        <ul class="list-no-style" ko.foreach="rows">
+            <li class="vpad alert row content-middle" ko.css="css">
 
-                <div class="column greedy">
-                    <p class="greedy" data-bind="text: text"></p>
-                    <span class="remark" data-bind="text: time"></span>
+                <svg-icon class="column c1" params="name: icon"></svg-icon>
+                <div class="column c9">
+                    <p class="greedy" ko.text="text"></p>
+                    <span class="remark" ko.text="time"></span>
                 </div>
 
-                <button class="mark-as-read-btn link alt-colors remark align-start" data-bind="
-                    visible: markButton,
-                    click: $component.markRowAsRead
-                ">
+                <button class="column c2 mark-as-read-btn link alt-colors remark align-start content-middle"
+                    ko.visible="markButton"
+                    ko.click="$component.markRowAsRead"
+                >
                     Mark as read
                 </button>
 
-                <div class="align-top alerts-loader" data-bind="visible: updating">
-                    <span class="circle"></span>
-                    <span class="circle"></span>
-                    <span class="circle"></span>
-                </div>
+                <loading-indicator class="column c2 align-start"
+                    ko.visible="updating"
+                ></loading-indicator>
+
             </li>
         </ul>
 
-        <div class="align-middle alerts-loader pad" data-bind="visible: loading">
-            <span class="circle"></span>
-            <span class="circle"></span>
-            <span class="circle"></span>
-        </div>
+        <loading-indicator class="align-middle greedy pad"
+            ko.visible="loading"
+        ></loading-indicator>
 
-        <div class="align-middle remark pad" data-bind="visible: endOfList">
+        <div class="align-middle remark pad" ko.visible="endOfList">
             No more results
         </div>
 
-        <div class="link align-middle pad" data-bind="visible: loadFailed">
-            <button class="link no-outline error" data-bind="click: retryLoad">
+        <div class="link align-middle pad" ko.visible="loadFailed">
+            <button class="link no-outline error" ko.click="retryLoad">
                 Loading failed, click to retry
             </button>
         </div>

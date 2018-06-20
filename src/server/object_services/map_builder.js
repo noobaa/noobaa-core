@@ -97,7 +97,7 @@ class MapBuilder {
             });
     }
 
-    prepare_and_fix_chunks({ parts, objects }) {
+    async prepare_and_fix_chunks({ parts, objects }) {
         // first look for deleted chunks, and set it's blocks for deletion
         const [deleted_chunks, live_chunks] = _.partition(this.chunks, chunk => chunk.deleted);
         // set this.chunks to only hold live chunks
@@ -112,38 +112,36 @@ class MapBuilder {
                 js_utils.array_push_all(this.delete_blocks, live_blocks);
             }
         });
+
         const parts_by_chunk = _.groupBy(parts, 'chunk');
         const objects_by_id = _.keyBy(objects, '_id');
-        return P.map(this.chunks, chunk => {
+        await P.map(this.chunks, async chunk => {
             // if other actions should be done to prepare a chunk for build, those actions should be added here
             chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
             chunk.parts = parts_by_chunk[chunk._id];
             chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj])));
             system_utils.populate_pools_for_blocks(chunk.blocks);
-            return P.resolve()
-                .then(() => {
-                    if (!chunk.parts || !chunk.parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
-                    if (!chunk.objects || !chunk.objects.length) throw new Error('No valid objects are pointing to chunk', chunk._id);
-                })
-                .then(() => this.clean_up_undeleted_chunks_and_blocks(chunk))
-                .then(() => this.populate_chunk_bucket(chunk))
-                .catch(err => {
-                    dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
-                    chunk.had_errors = true;
-                    this.had_errors = true;
-                });
-        });
-    }
 
-    clean_up_undeleted_chunks_and_blocks(chunk) {
-        return P.resolve()
-            .then(() => {
-                const no_valid_parts = _.every(chunk.parts, part => Boolean(part.deleted));
-                if (no_valid_parts) {
-                    dbg.warn(`Chunk marked for deletion ${chunk._id}`);
-                    this.chunks_to_delete.push(chunk);
-                }
-            });
+            try {
+                if (!chunk.parts || !chunk.parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
+                if (!chunk.objects || !chunk.objects.length) throw new Error('No valid objects are pointing to chunk', chunk._id);
+
+                await this.populate_chunk_bucket(chunk);
+            } catch (err) {
+                dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
+                chunk.had_errors = true;
+                this.had_errors = true;
+            }
+        });
+
+        // do not build chunk that all of its parts are deleted. mark them for deletion
+        const [chunks_to_delete, chunks_to_build] = _.partition(this.chunks,
+            chunk => _.every(chunk.parts, part => Boolean(part.deleted)));
+        this.chunks_to_delete = chunks_to_delete;
+        if (this.chunks_to_delete.length) {
+            dbg.warn(`Chunks marked for deletion:`, this.chunks_to_delete);
+        }
+        this.chunks = chunks_to_build;
     }
 
     populate_chunk_bucket(chunk) {

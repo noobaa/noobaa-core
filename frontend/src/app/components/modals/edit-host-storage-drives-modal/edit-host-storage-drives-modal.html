@@ -26,13 +26,13 @@
             Choose the drives you wish to use as storage resources
         </h2>
         <div ko.css.disabled="!$form.serviceState()">
-            <button class="link alt-colors"
+            <button type="button" class="link alt-colors"
                 ko.enable="$form.serviceState"
                 ko.click="onSelectAll">
                 Select all
             </button>
             |
-            <button class="link alt-colors"
+            <button type="button" class="link alt-colors"
                 ko.enable="$form.serviceState"
                 ko.click="onClearAll"
             >

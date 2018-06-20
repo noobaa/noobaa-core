@@ -44,11 +44,11 @@
         </h2>
 
         <div>
-            <button class="link alt-colors" ko.click="onSelectAll">
+            <button type="button" class="link alt-colors" ko.click="onSelectAll">
                 Select all
             </button>
             |
-            <button class="link alt-colors" ko.click="onClearAll">
+            <button type="button" class="link alt-colors" ko.click="onClearAll">
                 Clear all
             </button>
         </div>
@@ -65,7 +65,7 @@
     <div class="row content-middle alt-bg push-next">
         <span class="selection-text push-prev" ko.text="selectedMessage"></span>
         <span class="push-both-half">|</span>
-        <button class="link alt-colors" ko.click="onClearSelection">
+        <button type="button" class="link alt-colors" ko.click="onClearSelection">
             Clear
         </button>
         <paginator class="greedy push-prev" params="

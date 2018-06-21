@@ -428,5 +428,20 @@ module.exports = {
                 lrc_type: { $ref: '#/definitions/parity_type' },
             }
         },
+
+        location_info: {
+            type: 'object',
+            properties: {
+                node_id: {
+                    objectid: true
+                },
+                host_id: {
+                    type: 'string'
+                },
+                pool_id: {
+                    objectid: true
+                }
+            }
+        }
     }
 };

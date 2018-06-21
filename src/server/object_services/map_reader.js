@@ -22,7 +22,7 @@ const system_utils = require('../utils/system_utils');
  * to make it ready for replying and simpler to iterate
  *
  */
-function read_object_mappings(obj, start, end, skip, limit, adminfo) {
+function read_object_mappings(obj, start, end, skip, limit, adminfo, location_info) {
     // check for empty range
     const rng = sanitize_object_range(obj, start, end);
     if (!rng) return P.resolve([]);
@@ -41,7 +41,7 @@ function read_object_mappings(obj, start, end, skip, limit, adminfo) {
             limit,
         })
         .then(parts => MDStore.instance().populate_chunks_for_parts(parts))
-        .then(parts => read_parts_mappings(parts, adminfo));
+        .then(parts => read_parts_mappings({ parts, adminfo, location_info }));
 }
 
 
@@ -61,7 +61,7 @@ function read_node_mappings(node_ids, skip, limit) {
             MDStore.instance().populate_chunks_for_parts(parts),
             MDStore.instance().populate_objects(parts, 'obj')
         ).return(parts))
-        .then(parts => read_parts_mappings(parts, true, true))
+        .then(parts => read_parts_mappings({ parts, adminfo: true, set_obj: true }))
         .then(parts => {
             const objects_by_id = {};
             const parts_per_obj_id = _.groupBy(parts, part => {
@@ -91,7 +91,7 @@ function read_node_mappings(node_ids, skip, limit) {
  *
  * @params: parts, set_obj, adminfo
  */
-function read_parts_mappings(parts, adminfo, set_obj) {
+function read_parts_mappings({ parts, adminfo, set_obj, location_info }) {
     const chunks = _.map(parts, 'chunk');
     const chunks_buckets = _.uniq(_.map(chunks, chunk => String(chunk.bucket)));
     const tiering_status_by_bucket_id = {};
@@ -115,7 +115,7 @@ function read_parts_mappings(parts, adminfo, set_obj) {
             system_utils.populate_pools_for_blocks(part.chunk.blocks);
             part.chunk.chunk_coder_config = system_store.data.get_by_id(part.chunk.chunk_config).chunk_coder_config;
             const part_info = mapper.get_part_info(
-                part, adminfo, tiering_status_by_bucket_id[part.chunk.bucket]
+                part, adminfo, tiering_status_by_bucket_id[part.chunk.bucket], location_info
             );
             if (set_obj) {
                 part_info.obj = part.obj;

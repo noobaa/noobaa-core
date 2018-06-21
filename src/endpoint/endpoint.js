@@ -47,6 +47,9 @@ const ENDPOINT_FTP_ENABLED = process.env.ENDPOINT_FTP_ENABLED === 'true';
 // it will be updated using update_virtual_host_suffix when getting updated on new base_address if agent
 // or when a system store load was done if server
 let virtual_host_suffix;
+// this "shared" object is used to save the location information on s3 agents 
+// it will be updated using update_location_info when getting updated on a change of the pool-id the agent is part of
+const location_info = {};
 
 function start_all() {
     dbg.set_process_name('Endpoint');
@@ -74,6 +77,8 @@ function start_all() {
         process.on('message', params => {
             if (params.message === 'update_base_address') {
                 if (params.base_address) update_virtual_host_suffix(params.base_address);
+            } else if (params.message === 'location_info') {
+                if (params.location_info) update_location_info(params.location_info);
             } else if (params.message === 'run_server') {
                 if (params.base_address) update_virtual_host_suffix(params.base_address);
                 if (!waiting) {
@@ -82,13 +87,12 @@ function start_all() {
                 }
                 waiting = false;
                 dbg.log0(`got ssl certificates. running server`);
+                if (params.location_info) update_location_info(params.location_info);
                 run_server({
                     s3: true,
                     lambda: true,
                     blob: ENDPOINT_BLOB_ENABLED,
                     certs: params.certs,
-                    node_id: params.node_id,
-                    host_id: params.host_id,
                     n2n_agent: true,
                 });
             }
@@ -159,7 +163,7 @@ function run_server(options) {
                     anonymous: true,
                     log: dbg
                 });
-                const obj_io = new ObjectIO(options.node_id, options.host_id);
+                const obj_io = new ObjectIO(location_info);
                 //
                 ftp_srv.on('login', (creds, resolve, reject) => {
                     dbg.log0(`got a login request from user ${creds.username}`);
@@ -213,7 +217,7 @@ function create_endpoint_handler(rpc, options) {
         const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
         n2n_agent.set_any_rpc_address();
     }
-    const object_io = new ObjectIO(options.node_id, options.host_id);
+    const object_io = new ObjectIO(location_info);
     return endpoint_request_handler;
 
     function endpoint_request_handler(req, res) {
@@ -336,7 +340,16 @@ function update_virtual_host_suffix(base_address) {
     } else {
         virtual_host_suffix = undefined;
     }
+    dbg.log0('The virtual host suffix of this agent was changed to this:', virtual_host_suffix);
 }
+
+function update_location_info(new_location_info) {
+    const keys = Object.keys(location_info);
+    for (const key of keys) delete location_info[key];
+    Object.assign(location_info, new_location_info);
+    dbg.log0('The location information of this agent was changed to this:', location_info);
+}
+
 
 exports.start_all = start_all;
 exports.create_endpoint_handler = create_endpoint_handler;

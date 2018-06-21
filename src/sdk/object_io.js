@@ -69,10 +69,9 @@ const FRAG_ATTRS = [
  */
 class ObjectIO {
 
-    constructor(node_id, host_id) {
+    constructor(location_info) {
         this._last_io_bottleneck_report = 0;
-        if (node_id) this._node_id = node_id;
-        if (host_id) this._host_id = host_id;
+        this.location_info = location_info;
         // global semaphores shared by all agents
         this._block_write_sem_global = new Semaphore(config.IO_WRITE_CONCURRENCY_GLOBAL);
         this._block_replicate_sem_global = new Semaphore(config.IO_REPLICATE_CONCURRENCY_GLOBAL);
@@ -81,7 +80,7 @@ class ObjectIO {
         this._block_write_sem_agent = new KeysSemaphore(config.IO_WRITE_CONCURRENCY_AGENT);
         this._block_replicate_sem_agent = new KeysSemaphore(config.IO_REPLICATE_CONCURRENCY_AGENT);
         this._block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT);
-        dbg.log0(`ObjectIO Configurations:: node_id:${node_id}, host_id:${host_id},
+        dbg.log0(`ObjectIO Configurations:: location_info:${util.inspect(location_info)},
             totalmem:${os.totalmem()}, ENDPOINT_FORKS_COUNT:${config.ENDPOINT_FORKS_COUNT}, 
             IO_SEMAPHORE_CAP:${config.IO_SEMAPHORE_CAP}`);
         this._io_buffers_sem = new Semaphore(config.IO_SEMAPHORE_CAP, {
@@ -436,7 +435,8 @@ class ObjectIO {
                     p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
                     p.chunk.frags = _.map(part.chunk.frags, frag => _.pick(frag, FRAG_ATTRS));
                     return p;
-                })
+                }),
+                location_info: this.location_info
             })
             .then(res => {
                 dbg.log1('UPLOAD:', params.desc,
@@ -905,6 +905,7 @@ class ObjectIO {
 
         // get meta data on object range we want to read
         let map_params = _.omit(params, 'client');
+        map_params.location_info = this.location_info;
         return params.client.object.read_object_mappings(map_params)
             .then(mappings_arg => {
                 mappings = mappings_arg;
@@ -1111,8 +1112,8 @@ class ObjectIO {
                 // Not interested in waiting for the response in order to not choke the upload
                 client.object.report_endpoint_problems({
                         problem: 'STRESS',
-                        node_id: this._node_id,
-                        host_id: this._host_id
+                        node_id: this.location_info && this.location_info.node_id,
+                        host_id: this.location_info && this.location_info.host_id,
                     })
                     .catch(error => {
                         dbg.error('_handle_semaphore_errors: had an error', error);

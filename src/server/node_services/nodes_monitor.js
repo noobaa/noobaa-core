@@ -1362,9 +1362,16 @@ class NodesMonitor extends EventEmitter {
     _update_node_service(item) {
         if (item.node.deleted) return;
         if (!item.connection) return;
-        let should_enable = !item.node.decommissioned;
-        if ((item.node.enabled && should_enable) || (!item.node.enabled && !should_enable)) {
-            // if agent service is as expected, do nothing.
+        if (!item.agent_info) return;
+        const should_enable = !item.node.decommissioned;
+        const location_info = {
+            node_id: String(item.node._id),
+            host_id: String(item.node.host_id),
+            pool_id: String(item.node.pool),
+        };
+        const service_enabled_not_changed = (item.node.enabled && should_enable) || (!item.node.enabled && !should_enable);
+        const location_info_not_changed = _.isEqual(item.agent_info.location_info, location_info);
+        if (service_enabled_not_changed && location_info_not_changed) {
             return;
         }
         dbg.log0(`node service is not as expected. setting node service to ${should_enable ? 'enabled' : 'disabled'}`);
@@ -1372,8 +1379,7 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.update_node_service({
             enabled: should_enable,
             ssl_certs: item.node.node_type === 'ENDPOINT_S3' ? this.ssl_certs : undefined,
-            node_id: String(item.node._id),
-            host_id: String(item.node.host_id)
+            location_info,
         }, {
             connection: item.connection
         });

@@ -542,6 +542,9 @@ class AgentCLI {
                 node_name: node_name,
                 test_hostname: self.params.test_hostname,
                 host_id: self.params.host_id,
+                location_info: {
+                    host_id: self.params.host_id,
+                },
                 storage_path: node_path,
                 permission_tempering: self.permission_tempering,
                 storage_limit: self.params.storage_limit,

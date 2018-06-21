@@ -94,8 +94,8 @@ class MirrorMapper {
         this.mirror_index = mirror_index;
     }
 
-    update_status(tier_status) {
-        const { redundant_pools } = this;
+    update_status(tier_status, location_info) {
+        const { redundant_pools, spread_pools } = this;
         this.regular_pools_valid = false;
         this.redundant_pools_valid = false;
 
@@ -106,6 +106,8 @@ class MirrorMapper {
         this.regular_pools_valid = size_utils.json_to_bigint(regular_free).greater(config.MIN_TIER_FREE_THRESHOLD);
         this.redundant_pools_valid = size_utils.json_to_bigint(redundant_free).greater(config.MIN_TIER_FREE_THRESHOLD);
         const regular_weight = this.regular_pools_valid ? 3 : 0;
+        this.is_local_mirror = location_info && spread_pools.some(pool => (location_info.pool_id === String(pool._id)));
+        const local_weight = this.is_local_mirror && (this.regular_pools_valid || this.redundant_pools_valid) ? 4 : 0;
         let redundant_weight = 0;
         if (this.redundant_pools_valid) {
             const redundant_has_mongo = redundant_pools.some(pool => Boolean(pool.mongo_pool_info));
@@ -115,7 +117,7 @@ class MirrorMapper {
                 redundant_weight = 2;
             }
         }
-        this.weight = redundant_weight || regular_weight;
+        this.weight = local_weight || redundant_weight || regular_weight;
     }
 
     /**
@@ -312,13 +314,13 @@ class TierMapper {
         this.write_mapper = this.mirror_mappers[0];
     }
 
-    update_status(tier_status) {
+    update_status(tier_status, location_info) {
         const { mirror_mappers } = this;
         this.write_mapper = undefined;
 
         for (let i = 0; i < mirror_mappers.length; ++i) {
             const mirror_mapper = mirror_mappers[i];
-            mirror_mapper.update_status(tier_status);
+            mirror_mapper.update_status(tier_status, location_info);
             if (!this.write_mapper || MirrorMapper.compare_mapper_for_write(mirror_mapper, this.write_mapper) > 0) {
                 this.write_mapper = mirror_mapper;
             }
@@ -479,13 +481,13 @@ class TieringMapper {
             .map(t => new TierMapper(t));
     }
 
-    update_status(tiering_status) {
+    update_status(tiering_status, location_info) {
         const { tier_mappers } = this;
 
         for (let i = 0; i < tier_mappers.length; ++i) {
             const tier_mapper = tier_mappers[i];
             const tier_status = tiering_status[tier_mapper.tier._id];
-            tier_mapper.update_status(tier_status);
+            tier_mapper.update_status(tier_status, location_info);
         }
     }
 
@@ -557,11 +559,11 @@ function _get_cached_tiering_mapper(tiering) {
  * @param {Object} tiering_status See node_allocator.get_tiering_status()
  * @returns {Object} mapping
  */
-function map_chunk(chunk, tiering, tiering_status) {
+function map_chunk(chunk, tiering, tiering_status, location_info) {
 
     // const tiering_mapper = new TieringMapper(tiering);
     const tiering_mapper = _get_cached_tiering_mapper(tiering);
-    tiering_mapper.update_status(tiering_status);
+    tiering_mapper.update_status(tiering_status, location_info);
 
     const chunk_mapper = new ChunkMapper(chunk);
     const mapping = tiering_mapper.map_tiering(chunk_mapper);
@@ -615,19 +617,19 @@ function get_num_blocks_per_chunk(tier) {
     return replicas * (data_frags + parity_frags);
 }
 
-function get_part_info(part, adminfo, tiering_status) {
+function get_part_info(part, adminfo, tiering_status, location_info) {
     return {
         start: part.start,
         end: part.end,
         seq: part.seq,
         multipart_id: part.multipart_id,
         chunk_id: part.chunk._id,
-        chunk: get_chunk_info(part.chunk, adminfo, tiering_status),
+        chunk: get_chunk_info(part.chunk, adminfo, tiering_status, location_info),
         chunk_offset: part.chunk_offset, // currently undefined
     };
 }
 
-function get_chunk_info(chunk, adminfo, tiering_status) {
+function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
     if (adminfo) {
         const bucket = system_store.data.get_by_id(chunk.bucket);
         const mapping = map_chunk(chunk, bucket.tiering, tiering_status);
@@ -649,16 +651,17 @@ function get_chunk_info(chunk, adminfo, tiering_status) {
         cipher_key_b64: chunk.cipher_key && chunk.cipher_key.toString('base64'),
         cipher_iv_b64: chunk.cipher_iv && chunk.cipher_iv.toString('base64'),
         cipher_auth_tag_b64: chunk.cipher_auth_tag && chunk.cipher_auth_tag.toString('base64'),
-        frags: chunk.frags && _.map(chunk.frags, frag => get_frag_info(chunk, frag, blocks_by_frag_id[frag._id], adminfo)),
+        frags: chunk.frags && _.map(chunk.frags, frag =>
+            get_frag_info(chunk, frag, blocks_by_frag_id[frag._id], adminfo, location_info)),
         adminfo: adminfo || undefined,
     };
 }
 
 
-function get_frag_info(chunk, frag, blocks, adminfo) {
+function get_frag_info(chunk, frag, blocks, adminfo, location_info) {
     // sorting the blocks to have most available node on front
     // TODO GUY OPTIMIZE what about load balancing - maybe random the order of good blocks
-    if (blocks) blocks.sort(_block_access_sort);
+    if (blocks) blocks.sort(location_info ? _block_sorter_local(location_info) : _block_sorter_basic);
     return {
         data_index: frag.data_index,
         parity_index: frag.parity_index,
@@ -732,12 +735,28 @@ function _is_block_good_node(block) {
 /**
  * sorting function for sorting blocks with most recent heartbeat first
  */
-function _block_access_sort(block1, block2) {
+function _block_sorter_basic(block1, block2) {
     const node1 = block1.node;
     const node2 = block2.node;
     if (node2.readable && !node1.readable) return 1;
     if (node1.readable && !node2.readable) return -1;
     return node2.heartbeat - node1.heartbeat;
+}
+
+function _block_sorter_local(location_info) {
+    return function(block1, block2) {
+        const node1 = block1.node;
+        const node2 = block2.node;
+        if (node2.readable && !node1.readable) return 1;
+        if (node1.readable && !node2.readable) return -1;
+        if (String(node2._id) === location_info.node_id && String(node1._id) !== location_info.node_id) return 1;
+        if (String(node1._id) === location_info.node_id && String(node2._id) !== location_info.node_id) return -1;
+        if (node2.host_id === location_info.host_id && node1.host_id !== location_info.host_id) return 1;
+        if (node1.host_id === location_info.host_id && node2.host_id !== location_info.host_id) return -1;
+        if (String(block2.node_pool_id) === location_info.pool_id && String(block1.node_pool_id) !== location_info.pool_id) return 1;
+        if (String(block1.node_pool_id) === location_info.pool_id && String(block2.node_pool_id) !== location_info.pool_id) return -1;
+        return node2.heartbeat - node1.heartbeat;
+    };
 }
 
 function _block_newer_first_sort(block1, block2) {

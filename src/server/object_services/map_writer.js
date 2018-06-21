@@ -29,10 +29,11 @@ const { RpcError } = require('../../rpc');
  */
 class MapAllocator {
 
-    constructor(bucket, obj, parts) {
+    constructor(bucket, obj, parts, location_info) {
         this.bucket = bucket;
         this.obj = obj;
         this.parts = parts;
+        this.location_info = location_info;
     }
 
     run_select_tier() {
@@ -123,7 +124,7 @@ class MapAllocator {
             const avoid_nodes = [];
             const allocated_hosts = [];
 
-            const mapping = mapper.map_chunk(chunk, this.bucket.tiering, this.tiering_status);
+            const mapping = mapper.map_chunk(chunk, this.bucket.tiering, this.tiering_status, this.location_info);
 
             _.forEach(mapping.allocations, ({ frag, pools }) => {
                 const node = node_allocator.allocate_node(pools, avoid_nodes, allocated_hosts);
@@ -134,8 +135,14 @@ class MapAllocator {
                     _id: MDStore.instance().make_md_id(),
                 };
                 mapper.assign_node_to_block(block, node, this.bucket.system._id);
+                const block_info = mapper.get_block_info(chunk, frag, block);
                 frag.blocks = frag.blocks || [];
-                frag.blocks.push(mapper.get_block_info(chunk, frag, block));
+                if (this.location_info && // optimizing local nodes/hosts - so it will be used for write rather than for replication 
+                    (this.location_info.host_id === node.host_id || this.location_info.node_id === String(node._id))) {
+                    frag.blocks.unshift(block_info);
+                } else {
+                    frag.blocks.push(block_info);
+                }
                 if (node.node_type === 'BLOCK_STORE_FS') {
                     avoid_nodes.push(String(node._id));
                     allocated_hosts.push(node.host_id);
@@ -150,8 +157,8 @@ function select_tier_for_write(bucket, obj) {
     return new MapAllocator(bucket, obj).run_select_tier();
 }
 
-function allocate_object_parts(bucket, obj, parts) {
-    return new MapAllocator(bucket, obj, parts).run_allocate_parts();
+function allocate_object_parts(bucket, obj, parts, location_info) {
+    return new MapAllocator(bucket, obj, parts, location_info).run_allocate_parts();
 }
 
 /**

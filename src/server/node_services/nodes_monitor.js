@@ -2947,6 +2947,7 @@ class NodesMonitor extends EventEmitter {
             used: 0,
             reserved: 0,
             unavailable_free: 0,
+            unavailable_used: 0,
             used_other: 0,
         };
         const data_activities = {};
@@ -3030,6 +3031,7 @@ class NodesMonitor extends EventEmitter {
             used: 0,
             reserved: 0,
             unavailable_free: 0,
+            unavailable_used: 0,
             used_other: 0,
         };
         const data_activities = {};
@@ -3613,6 +3615,7 @@ class NodesMonitor extends EventEmitter {
             reserved: size_utils.json_to_bigint(config.NODES_FREE_SPACE_RESERVE || 0),
             used_other: size_utils.json_to_bigint(item.node.storage.used_other || 0),
             unavailable_free: size_utils.json_to_bigint(item.node.storage.unavailable_free || 0),
+            unavailable_used: size_utils.json_to_bigint(item.node.storage.unavailable_used || 0),
         };
 
         reply.reserved = ignore_reserve ? BigInteger.zero : BigInteger.min(reply.reserved, reply.free);
@@ -3621,6 +3624,8 @@ class NodesMonitor extends EventEmitter {
         if (item.has_issues) {
             if (item.node.enabled) reply.unavailable_free = reply.free;
             reply.free = BigInteger.zero;
+            // unavailable_used is sent as indication to the frontend that used data is unavailable
+            reply.unavailable_used = reply.used;
         }
 
         reply.used_other = BigInteger.max(reply.total

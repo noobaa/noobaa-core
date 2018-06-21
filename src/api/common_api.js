@@ -33,6 +33,10 @@ module.exports = {
                 unavailable_free: {
                     $ref: '#/definitions/bigint'
                 },
+                // "Offline/Issues" used space
+                unavailable_used: {
+                    $ref: '#/definitions/bigint'
+                },
                 // Used By NooBaa
                 used: {
                     $ref: '#/definitions/bigint'

@@ -33,6 +33,7 @@ const SOTRAGE_OBJ_KEYS = [
     'free',
     'reserved',
     'unavailable_free',
+    'unavailable_used',
     'limit',
     'alloc',
     'real',

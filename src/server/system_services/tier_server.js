@@ -395,6 +395,7 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
                 total: 0,
                 free: 0,
                 unavailable_free: 0,
+                unavailable_used: 0,
                 used_other: 0,
                 reserved: 0
             })
@@ -405,6 +406,7 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
             total: 0,
             free: 0,
             unavailable_free: 0,
+            unavailable_used: 0,
             used_other: 0,
             reserved: 0
         });
@@ -425,6 +427,7 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
             total: 0,
             free: 0,
             unavailable_free: 0,
+            unavailable_used: 0,
             used_other: 0,
             reserved: 0
         });

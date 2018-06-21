@@ -24,6 +24,7 @@ const POOL_STORAGE_DEFAULTS = Object.freeze({
     free: 0,
     used_other: 0,
     unavailable_free: 0,
+    unavailable_used: 0,
     used: 0,
     reserved: 0,
 });

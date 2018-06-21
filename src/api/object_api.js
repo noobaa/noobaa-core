@@ -363,7 +363,10 @@ module.exports = {
                         items: {
                             $ref: '#/definitions/part_info'
                         }
-                    }
+                    },
+                    location_info: {
+                        $ref: 'common_api#/definitions/location_info'
+                    },
                 },
             },
             reply: {
@@ -447,6 +450,9 @@ module.exports = {
                     },
                     limit: {
                         type: 'integer',
+                    },
+                    location_info: {
+                        $ref: 'common_api#/definitions/location_info'
                     },
                     adminfo: {
                         type: 'boolean',
@@ -1409,6 +1415,6 @@ module.exports = {
                     },
                 }
             }
-        }
+        },
     },
 };

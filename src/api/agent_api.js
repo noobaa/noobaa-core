@@ -148,6 +148,9 @@ module.exports = {
                             }
                         }
                     },
+                    location_info: {
+                        $ref: 'common_api#/definitions/location_info'
+                    },
                 }
             },
         },
@@ -200,7 +203,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['enabled', 'node_id', 'host_id'],
+                required: ['enabled', 'location_info'],
                 properties: {
                     enabled: {
                         type: 'boolean'
@@ -217,11 +220,8 @@ module.exports = {
                             },
                         }
                     },
-                    node_id: {
-                        type: 'string'
-                    },
-                    host_id: {
-                        type: 'string'
+                    location_info: {
+                        $ref: 'common_api#/definitions/location_info'
                     }
                 }
             }

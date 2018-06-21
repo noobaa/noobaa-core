@@ -224,7 +224,8 @@ async function abort_object_upload(req) {
 async function allocate_object_parts(req) {
     throw_if_maintenance(req);
     const obj = await find_cached_object_upload(req);
-    return map_writer.allocate_object_parts(req.bucket, obj, req.rpc_params.parts);
+    const location_info = req.rpc_params.location_info;
+    return map_writer.allocate_object_parts(req.bucket, obj, req.rpc_params.parts, location_info);
 }
 
 
@@ -358,14 +359,14 @@ async function list_multiparts(req) {
  *
  */
 async function read_object_mappings(req) {
-    const { start, end, skip, limit, adminfo } = req.rpc_params;
+    const { start, end, skip, limit, adminfo, location_info } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED', 'read_object_mappings: role should be admin');
     }
 
     const obj = await find_object_md(req);
-    const parts = await map_reader.read_object_mappings(obj, start, end, skip, limit, adminfo);
+    const parts = await map_reader.read_object_mappings(obj, start, end, skip, limit, adminfo, location_info);
     const info = get_object_info(obj);
 
     // when called from admin console, we do not update the stats

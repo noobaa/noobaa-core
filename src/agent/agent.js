@@ -69,6 +69,7 @@ class Agent {
         this.proxy = params.proxy;
         dbg.log0(`this.base_address=${this.base_address}`);
         this.host_id = params.host_id;
+        this.location_info = params.location_info;
         this.test_hostname = params.test_hostname;
         this.host_name = os.hostname();
 
@@ -610,10 +611,9 @@ class Agent {
     // AGENT API //////////////////////////////////////////////////////////////////
 
     update_node_service(req) {
+        this.location_info = req.rpc_params.location_info;
         if (req.rpc_params.enabled) {
             this._ssl_certs = req.rpc_params.ssl_certs;
-            this._host_id = req.rpc_params.host_id;
-            this._node_id = req.rpc_params._node_id;
             return this._enable_service();
         } else {
             return this._disable_service();
@@ -652,9 +652,12 @@ class Agent {
             try {
                 if (this.endpoint_info.s3rver_process) {
                     dbg.warn('S3 server already started. process:', this.endpoint_info.s3rver_process);
+                    this.endpoint_info.s3rver_process.send({
+                        message: 'location_info',
+                        location_info: this.location_info,
+                    });
                     return;
                 }
-
 
                 // run node process, inherit stdio and connect ipc channel for communication.
                 this.endpoint_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', ['--s3_agent'], {
@@ -693,8 +696,7 @@ class Agent {
                     message: 'run_server',
                     base_address: this.base_address,
                     certs: this._ssl_certs,
-                    host_id: this._host_id,
-                    node_id: this._node_id
+                    location_info: this.location_info,
                 });
                 break;
             case 'STATS':
@@ -753,7 +755,8 @@ class Agent {
             debug_level: dbg.get_module_level('core'),
             node_type: this.node_type,
             mem_usage: process.memoryUsage().rss,
-            cpu_usage: cpu_percent
+            cpu_usage: cpu_percent,
+            location_info: this.location_info,
         };
         if (this.cloud_info && this.cloud_info.pool_name) {
             reply.pool_name = this.cloud_info.pool_name;

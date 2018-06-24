@@ -52,6 +52,9 @@
                         />
                         <validation-indicator params="field: $form.dnsName"></validation-indicator>
                     </div>
+                    <p class="remark" ko.visible="isDnsNameRemarkVisible">
+                        Set server IP as static and not DHCP
+                    </p>
                     <validation-message params="field: $form.dnsName"></validation-message>
 
                     <p class="highlight push-both">

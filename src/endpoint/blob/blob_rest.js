@@ -171,6 +171,7 @@ function load_ops() {
         put_blob: r('./ops/blob_put_blob'),
         put_blob_block: r('./ops/blob_put_blob_block'),
         put_blob_blocklist: r('./ops/blob_put_blob_blocklist'),
+        put_blob_properties: r('./ops/blob_put_blob_properties'),
         put_blob_lease: r('./ops/blob_put_blob_lease'),
         delete_blob: r('./ops/blob_delete_blob'),
     });

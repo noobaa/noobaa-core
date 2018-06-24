@@ -285,7 +285,8 @@ class ManagedFormViewModel extends Observer {
                 const asyncErrors = await _validateAsyncHandler(values);
                 if (this._asyncValidationHandle !== handle) return;
 
-                const fieldsValidity = Object.keys(asyncErrors).length > 0 ?
+                const hasAsyncErrors = Object.keys(asyncErrors).length > 0;
+                const fieldsValidity = hasAsyncErrors ?
                     mapValues(values, (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'UNKNOWN') :
                     mapValues(values, () => 'VALID');
 
@@ -296,7 +297,7 @@ class ManagedFormViewModel extends Observer {
                         fieldsValidity,
                         asyncErrors,
                         validatingAsync: null,
-                        touch: true
+                        touch: hasAsyncErrors
                     }
                 ));
                 break;

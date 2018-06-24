@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { isDNSName } from 'utils/net-utils';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { getFieldValue, isFormDirty } from 'utils/form-utils';
+import { getFieldValue, isFormDirty, isFieldTouchedAndInvalid } from 'utils/form-utils';
 import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import { action$, state$ } from 'state';
@@ -26,6 +26,7 @@ class SystemAddressFormViewModel extends Observer {
     formName = this.constructor.name;
     addressOptions = addressOptions;
     isExpanded = ko.observable();
+    isDnsNameRemarkVisible = ko.observable();
     isDirtyMarkerVisible = ko.observable();
     systemAddress = ko.observable();
     ipAddress = ko.observable();
@@ -67,6 +68,7 @@ class SystemAddressFormViewModel extends Observer {
             (form && getFieldValue(form, 'dnsName')) ||
             dnsName;
 
+        const isDnsNameRemarkVisible = !form || !isFieldTouchedAndInvalid(form, 'dnsName');
         const isDirtyMarkerVisible = form ? isFormDirty(form) : false;
         //TODO: remove  ``` = 'settings' ``` default tab should be used in uri if tab undefined
         const { system, tab = 'settings', section } = location.params;
@@ -76,6 +78,7 @@ class SystemAddressFormViewModel extends Observer {
             { system, tab, section: toggleSection }
         );
 
+        this.isDnsNameRemarkVisible(isDnsNameRemarkVisible);
         this.ipAddress(ipAddress);
         this.systemAddress(systemAddress);
         this.isDirtyMarkerVisible(isDirtyMarkerVisible);
@@ -84,7 +87,6 @@ class SystemAddressFormViewModel extends Observer {
 
         if (!this.fields()) {
             this.fields({ addressType, dnsName });
-
         }
     }
 

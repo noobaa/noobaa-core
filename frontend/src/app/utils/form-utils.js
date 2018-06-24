@@ -49,3 +49,7 @@ export function isFormDirty(form) {
     return Object.keys(form.fields)
         .some(field => isFieldDirty(form, field));
 }
+
+export function isFieldTouchedAndInvalid(form, fieldName) {
+    return isFieldTouched(form, fieldName) && !isFieldValid(form, fieldName);
+}

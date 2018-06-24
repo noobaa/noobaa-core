@@ -4,28 +4,8 @@ import ko from 'knockout';
 import {
     getResourceStateIcon,
     getInternalResourceDisplayName,
-    getCloudResourceTypeIcon
+    getResourceTypeIcon
 } from 'utils/resource-utils';
-
-function _getResourceTypeIcon(type, resource) {
-    if (type === 'HOSTS') {
-        return {
-            name: 'nodes-pool',
-            tooltip: 'Nodes Pool Resource'
-        };
-    }
-
-    if (type === 'CLOUD') {
-        return getCloudResourceTypeIcon(resource);
-    }
-
-    if (type === 'INTERNAL') {
-        return {
-            name: 'internal-storage',
-            tooltip: 'Internal Storage Resource'
-        };
-    }
-}
 
 export default class SpilloverRowViewModel {
     state = ko.observable();
@@ -38,7 +18,7 @@ export default class SpilloverRowViewModel {
 
         this.resourceName(name);
         this.state(getResourceStateIcon(type, resource));
-        this.type(_getResourceTypeIcon(type, resource));
+        this.type(getResourceTypeIcon(type, resource));
         this.bucketUsage({
             total: resource.storage.total,
             used: bucketUsage

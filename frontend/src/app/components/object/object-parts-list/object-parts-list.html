@@ -79,12 +79,28 @@
                         <p class="row greedy push-next content-middle">
                             <span class="highlight push-next-half">{{label}}:</span>
                             {{policy}}
-                            <!-- ko if: resources -->
-                            | Resides on
-                            <span class="box"
+                            <!-- ko if: resources  -->
+                            | Resides in
+                            <!-- ko if: resources().icon  -->
+                            <svg-icon class="push-prev-half"
+                                params="name: resources().icon.name"
+                                ko.tooltip="resources().icon.tooltip"
+                            ></svg-icon>
+                            <!-- /ko -->
+                            <!-- ko if: resources().href -->
+                            <a class="link push-prev-half"
+                                ko.text="resources().text"
+                                ko.tooltip="resources().tooltip"
+                                ko.attr.href="resources().href"
+                            ></a>
+                            <!-- /ko -->
+                            <!-- ko ifnot: resources().href -->
+                            <span class="push-prev-half"
+                                ko.css="resources().css"
                                 ko.text="resources().text"
                                 ko.tooltip="resources().tooltip"
                             ></span>
+                            <!-- /ko -->
                             <!-- /ko -->
                         </p>
                         <svg-icon class="icon-small"

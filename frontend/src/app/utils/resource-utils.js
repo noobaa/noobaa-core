@@ -197,6 +197,18 @@ const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
     }
 });
 
+const resourceTypeIconMapping = deepFreeze({
+    HOSTS: {
+        name: 'nodes-pool',
+        tooltip: 'Nodes Pool'
+    },
+
+    INTERNAL: {
+        name: 'internal-storage',
+        tooltip: 'Internal Storage'
+    }
+});
+
 export function getHostsPoolStateIcon(pool) {
     const { mode } = pool;
     const state = hostsPoolModeToStateIcon[mode];
@@ -240,4 +252,10 @@ export function getResourceStateIcon(resourceType, resource) {
         resourceType === 'HOSTS' && getHostsPoolStateIcon(resource) ||
         resourceType === 'CLOUD' && getCloudResourceStateIcon(resource) ||
         resourceType === 'INTERNAL' && getInternalResourceStateIcon(resource);
+}
+
+export function getResourceTypeIcon(resourceType, resource) {
+    return resourceType === 'CLOUD' ?
+        cloudAndNamespaceResourceTypeToIcon[resource.type] :
+        resourceTypeIconMapping[resourceType];
 }

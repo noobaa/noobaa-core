@@ -74,6 +74,7 @@ class ObjectPartsListViewModel extends Observer {
             state$.pipe(
                 getMany(
                     'buckets',
+                    'cloudResources',
                     ['objects', 'items'],
                     ['objectParts', 'items'],
                     'accounts',
@@ -99,7 +100,7 @@ class ObjectPartsListViewModel extends Observer {
         }));
     }
 
-    onState([buckets, objects, parts, accounts, user, location, sslCert]) {
+    onState([buckets, cloudResources, objects, parts, accounts, user, location, sslCert]) {
         const { pathname, query, params } = location;
         const { system, bucket: bucketName, object: objId } = params;
         const page = Number(query.page) || 0;
@@ -107,7 +108,7 @@ class ObjectPartsListViewModel extends Observer {
         const bucket = buckets && buckets[bucketName];
         const object = objects && objects[getObjectId(bucketName, objId)];
 
-        if (!bucket || !accounts || !user || !object || !parts) {
+        if (!bucket || !cloudResources || !accounts || !user || !object || !parts) {
             if (!bucket || !object) {
                 this.partCount(0);
                 this.placementType('');
@@ -123,13 +124,14 @@ class ObjectPartsListViewModel extends Observer {
             const httpsNoCert = location.protocol === 'https' && !sslCert;
             const placementType = getPlacementTypeDisplayName(placement.policyType);
             const resilinecySummary = _summrizeResiliency(resiliency);
+
             const resources = flatMap(
                 placement.mirrorSets,
                 mirrorSet => mirrorSet.resources
             );
 
             const partDistributions = parts
-                .map(part => summerizePartDistribution(bucket, part));
+                .map(part => summerizePartDistribution(bucket, part, cloudResources));
 
             const rows = parts
                 .map((part, i) => {

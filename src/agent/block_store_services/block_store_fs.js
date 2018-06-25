@@ -146,6 +146,7 @@ class BlockStoreFs extends BlockStoreBase {
                     overwrite_size = overwrite_stat.size + (md_overwrite_stat ?
                         md_overwrite_stat.size : 0);
                     overwrite_count = 1;
+                    dbg.warn('overwriting block', block_md, 'overwrite_size =', overwrite_size);
                 }
                 let usage = {
                     size: data.length + block_md_data.length - overwrite_size,

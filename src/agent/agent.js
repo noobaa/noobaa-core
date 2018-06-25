@@ -639,7 +639,8 @@ class Agent {
             this.endpoint_info.s3rver_process.kill('SIGTERM');
             this.endpoint_info.s3rver_process = null;
         } else {
-            dbg.warn('got _disable_service on storage agent');
+            // for storage nodes reset the usage count in block_store
+            this.block_store.reset_usage();
         }
     }
 

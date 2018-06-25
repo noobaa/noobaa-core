@@ -81,26 +81,23 @@
                             {{policy}}
                             <!-- ko if: resources  -->
                             | Resides in
-                            <!-- ko if: resources().icon  -->
                             <svg-icon class="push-prev-half"
-                                params="name: resources().icon.name"
-                                ko.tooltip="resources().icon.tooltip"
+                                params="name: resources().iconName"
+                                ko.tooltip="resources().iconTooltip"
+                                ko.visible="resources().isShowIcon"
                             ></svg-icon>
-                            <!-- /ko -->
-                            <!-- ko if: resources().href -->
                             <a class="link push-prev-half"
                                 ko.text="resources().text"
                                 ko.tooltip="resources().tooltip"
                                 ko.attr.href="resources().href"
+                                ko.visible="resources().href"
                             ></a>
-                            <!-- /ko -->
-                            <!-- ko ifnot: resources().href -->
                             <span class="push-prev-half"
                                 ko.css="resources().css"
                                 ko.text="resources().text"
                                 ko.tooltip="resources().tooltip"
+                                ko.visible="!resources().href"
                             ></span>
-                            <!-- /ko -->
                             <!-- /ko -->
                         </p>
                         <svg-icon class="icon-small"

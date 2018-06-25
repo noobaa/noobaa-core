@@ -255,7 +255,8 @@ export function getResourceStateIcon(resourceType, resource) {
 }
 
 export function getResourceTypeIcon(resourceType, resource) {
-    return resourceType === 'CLOUD' ?
-        cloudAndNamespaceResourceTypeToIcon[resource.type] :
-        resourceTypeIconMapping[resourceType];
+    return true &&
+        resourceType === 'HOSTS' && resourceTypeIconMapping[resourceType] ||
+        resourceType === 'CLOUD' && cloudAndNamespaceResourceTypeToIcon[resource.type] ||
+        resourceType === 'INTERNAL' && resourceTypeIconMapping[resourceType];
 }

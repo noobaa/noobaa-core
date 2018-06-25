@@ -124,7 +124,6 @@ class ObjectPartsListViewModel extends Observer {
             const httpsNoCert = location.protocol === 'https' && !sslCert;
             const placementType = getPlacementTypeDisplayName(placement.policyType);
             const resilinecySummary = _summrizeResiliency(resiliency);
-
             const resources = flatMap(
                 placement.mirrorSets,
                 mirrorSet => mirrorSet.resources

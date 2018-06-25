@@ -117,10 +117,14 @@ function _getTooltip(groupType, blocksCategory, storageType)  {
 
 function _mapResourceData(resource, system) {
     const { type, cloudType } = resource;
+    const href = resource.type === 'HOSTS' ?
+        realizeUri(routes.pool, { system, pool: resource.name }) :
+        undefined;
+
     return {
+        href,
         text: resource.name,
-        icon: getResourceTypeIcon(type, { type: cloudType }),
-        href: resource.type === 'HOSTS' ? realizeUri(routes.pool, { system, pool: resource.name }) : undefined
+        icon: getResourceTypeIcon(type, { type: cloudType })
     };
 }
 
@@ -130,11 +134,18 @@ function _getResourceSummary(resources, system) {
     }
 
     if (resources.length === 1) {
-        return _mapResourceData(resources[0], system);
+        const { href, text, icon } = _mapResourceData(resources[0], system);
+
+        return {
+            href,
+            text,
+            iconName: icon.name,
+            iconTooltip: icon.tooltip,
+            isShowIcon: true
+        };
     }
 
     const resourceList = resources.map(resource => _mapResourceData(resource, system));
-
     const tooltip = {
         template: mirrorsetResourcesTooltip,
         text: resourceList,
@@ -163,7 +174,6 @@ export default class BlocksTableViewModel {
         const label = _getGroupLabel(distributionGroup);
         const policy = formatBlockDistribution(storagePolicy);
         const tooltip = _getTooltip(type, blocksCategory, storageType);
-
         const rows = blocks
             .map((block, i) => {
                 const row = this.rows.get(i) || new BlockRowViewModel();

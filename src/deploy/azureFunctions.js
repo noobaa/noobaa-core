@@ -19,8 +19,7 @@ const ops = require('../test/utils/basic_server_ops');
 const ADMIN_USER_NAME = 'notadmin';
 const QA_USER_NAME = 'qaadmin';
 const ADMIN_PASSWORD = '0bj3ctSt0r3!';
-let DEFAULT_SIZE = 'Standard_B2s';
-
+const DEFAULT_VMSIZE = 'Standard_B2s';
 
 const DEV_ACTIVATION_KEY = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +
@@ -40,7 +39,9 @@ const NTP = 'pool.ntp.org';
 const TZ = 'Asia/Jerusalem';
 
 const blobSvc = azure_storage.createBlobService();
+
 class AzureFunctions {
+
     static get ADMIN_USER_NAME() {
         return ADMIN_USER_NAME;
     }
@@ -51,6 +52,10 @@ class AzureFunctions {
 
     static get ADMIN_PASSWORD() {
         return ADMIN_PASSWORD;
+    }
+
+    static get DEFAULT_VMSIZE() {
+        return DEFAULT_VMSIZE;
     }
 
     constructor(clientId, domain, secret, subscriptionId, resourceGroupName, location) {
@@ -177,7 +182,16 @@ class AzureFunctions {
             .then(res => res.privateIPAddress);
     }
 
-    createAgent({ vmName, storage, vnet, os, vmSize, agentConf, serverIP, allocate_pip = false }) {
+    createAgent({
+        vmName,
+        storage,
+        vnet,
+        os,
+        vmSize = DEFAULT_VMSIZE,
+        agentConf,
+        serverIP,
+        allocate_pip = false,
+    }) {
         const osDetails = this.getImagesfromOSname(os);
         return this.getSubnetInfo(vnet)
             .then(subnetInfo => this.allocate_nic(subnetInfo, `${vmName}_pip`, `${vmName}_nic`, `${vmName}_ip`, allocate_pip))
@@ -254,7 +268,7 @@ class AzureFunctions {
             vnet,
             storage,
             ipType = 'Dynamic',
-            vmSize = 'Standard_B2s',
+            vmSize = DEFAULT_VMSIZE,
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
             allocate_pip = true
@@ -293,7 +307,7 @@ class AzureFunctions {
             server_ip,
             os,
             ipType = 'Dynamic',
-            vmSize = DEFAULT_SIZE,
+            vmSize = DEFAULT_VMSIZE,
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
             exclude_drives = [],
@@ -468,8 +482,14 @@ class AzureFunctions {
         }, callback));
     }
 
-    createVirtualMachine(params) {
-        const { vmName, nicId, imageReference, storageAccountName, diskSizeGB, vmSize = DEFAULT_SIZE } = params;
+    createVirtualMachine({
+        vmName,
+        nicId,
+        imageReference,
+        storageAccountName,
+        diskSizeGB,
+        vmSize = DEFAULT_VMSIZE,
+    }) {
         if (!diskSizeGB) {
             throw new Error('must Enter disk size in GB');
         }
@@ -522,9 +542,19 @@ class AzureFunctions {
             });
     }
 
-    createVirtualMachineFromImage(params) {
-        console.log(params);
-        const { vmName, image, vnet, storageAccountName, osType, plan, ipType = 'Dynamic', diskSizeGB, vmSize = DEFAULT_SIZE, allocate_pip = false } = params;
+    createVirtualMachineFromImage({
+        vmName,
+        image,
+        vnet,
+        storageAccountName,
+        osType,
+        plan,
+        ipType = 'Dynamic',
+        diskSizeGB,
+        vmSize = DEFAULT_VMSIZE,
+        allocate_pip = false,
+    }) {
+        console.log(arguments[0]);
         var vmParameters = {
             location: this.location,
             plan: plan,
@@ -952,7 +982,7 @@ class AzureFunctions {
             vnet,
             storage,
             ipType = 'Dynamic',
-            vmSize = DEFAULT_SIZE,
+            vmSize = DEFAULT_VMSIZE,
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
             latesetRelease = true,

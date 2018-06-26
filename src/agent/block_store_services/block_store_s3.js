@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 
+const config = require('../../../config');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const http_utils = require('../../util/http_utils');
@@ -123,6 +124,25 @@ class BlockStoreS3 extends BlockStoreBase {
             Bucket: this.cloud_info.target_bucket,
             Key: this._block_key(block_md.id),
         };
+
+        if (!cloud_utils.is_aws_endpoint(this.cloud_info.endpoint) &&
+            config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_SIGNED_URL) {
+            // if S3 compatible does not support signed urls we return access\secret instead
+            // this is experimental, and not meant for normal use
+            const endpoint = this.cloud_info.endpoint;
+            return {
+                s3_params: {
+                    endpoint: endpoint,
+                    s3ForcePathStyle: true,
+                    accessKeyId: this.cloud_info.access_keys.access_key,
+                    secretAccessKey: this.cloud_info.access_keys.secret_key,
+                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
+                    s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
+                },
+                read_params: params,
+                proxy: this.proxy
+            };
+        }
         return {
             signed_url: this.s3cloud.getSignedUrl('getObject', params),
             proxy: this.proxy
@@ -148,6 +168,26 @@ class BlockStoreS3 extends BlockStoreBase {
             Key: block_key,
             Metadata: metadata
         };
+
+        if (!cloud_utils.is_aws_endpoint(this.cloud_info.endpoint) &&
+            config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_SIGNED_URL) {
+            // if S3 compatible does not support signed urls we return access\secret instead
+            // this is experimental, and not meant for normal use
+            const endpoint = this.cloud_info.endpoint;
+            return {
+                s3_params: {
+                    endpoint: endpoint,
+                    s3ForcePathStyle: true,
+                    accessKeyId: this.cloud_info.access_keys.access_key,
+                    secretAccessKey: this.cloud_info.access_keys.secret_key,
+                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
+                    s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
+                },
+                write_params: params,
+                proxy: this.proxy
+            };
+        }
+
         const signed_url = this.s3cloud.getSignedUrl('putObject', params);
 
         return {

@@ -123,7 +123,7 @@ class BlockStoreClient {
                 } = await rpc_client.block_store.delegate_write_block({ block_md, data_length: data.length }, options);
 
                 try {
-                    if (config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_SIGNED_URL && s3_params) {
+                    if (s3_params) {
                         if (!write_params) {
                             throw new Error('expected delegate_write_block to return write_params');
                         }
@@ -183,7 +183,7 @@ class BlockStoreClient {
                 }
 
                 try {
-                    if (config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_SIGNED_URL && s3_params) {
+                    if (s3_params) {
                         dbg.log1('got s3_params from block_store. reading using S3 sdk. s3_params =',
                             _.omit(s3_params, 'secretAccessKey'));
 

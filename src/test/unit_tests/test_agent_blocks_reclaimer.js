@@ -288,7 +288,8 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
         const blocks = [{
             _id: new mongodb.ObjectId(),
             node: nodes[0]._id,
-            deleted: new Date()
+            deleted: new Date(),
+            fail_to_delete: true
         }];
         const reclaimer_mock =
             new ReclaimerMock(blocks, nodes, self.test.title);
@@ -296,7 +297,7 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
             .then(() => reclaimer_mock.run_agent_blocks_reclaimer())
             .then(() => {
                 assert(!reclaimer_mock.blocks[0].reclaimed, 'Block was reclaimed');
-                assert(reclaimer_mock.reclaimed_blocks.length === 0, 'Reclaimer sent delete to offline node');
+                assert(reclaimer_mock.reclaimed_blocks.length === 1, 'Reclaimer did not try to delete on offline node');
             })
             .catch(err => {
                 console.error(err, err.stack);

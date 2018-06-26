@@ -64,15 +64,32 @@ async function delete_vm(status) {
                     throw new Error(`failed deleting ${vmName} with error: `, err.message);
                 });
         }
-    });
+    }, { concurrency: 30 });
 }
 
 async function main() {
     try {
         await azf.authenticate();
-        const status_list = ['VM running', 'VM stopped', 'VM Failure'];
-        for (const status of status_list) {
-            await delete_vm(status);
+        let keep_run = true;
+        let retry = 0;
+        const MAX_RETRY = 3;
+        while (keep_run) {
+            try {
+                const status_list = ['VM running', 'VM stopped', 'VM Failure'];
+                for (const status of status_list) {
+                    await delete_vm(status);
+                }
+                keep_run = false;
+            } catch (e) {
+                if (retry <= MAX_RETRY) {
+                    retry += 1;
+                    console.error(e);
+                    console.log(`Sleeping for 30 min and retrying`);
+                    await P.delay(30 * 60 * 1000);
+                } else {
+                    throw e;
+                }
+            }
         }
         process.exit(0);
     } catch (e) {

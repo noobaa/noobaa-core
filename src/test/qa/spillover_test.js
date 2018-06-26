@@ -164,27 +164,47 @@ async function test_failed_upload(dataset_size) {
 }
 
 async function checkFileInPool(file_name, pool) {
-    console.log(`Checking file ${file_name} is available and contains exactly in pool ${pool}`);
-    const object_mappings = await client.object.read_object_mappings({
-        bucket,
-        key: file_name,
-        adminfo: true
-    });
-    const chunkAvailable = object_mappings.parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
-    const partsInPool = object_mappings.parts.filter(chunk => chunk.chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
-    const chunkNum = object_mappings.parts.length;
-    // const actualPool = object_mappings.parts[chunkNum - 1].chunk.frags[0].blocks[0].adminfo.pool_name;
-    if (chunkAvailable === chunkNum) {
-        console.log(`Available chunks: ${chunkAvailable}/${chunkNum} for ${file_name}`);
-    } else {
-        throw new Error(`Expected ${chunkNum} chanks for file ${file_name} in ${pool}, recived ${chunkAvailable}`);
+    let keep_run = true;
+    let retry = 0;
+    const MAX_RETRY = 15;
+    let chunkAvailable;
+    while (keep_run) {
+        try {
+            console.log(`Checking file ${file_name} is available and contains exactly in pool ${pool}`);
+            const object_mappings = await client.object.read_object_mappings({
+                bucket,
+                key: file_name,
+                adminfo: true
+            });
+            chunkAvailable = object_mappings.parts.filter(chunk => chunk.chunk.adminfo.health === 'available');
+            const chunkAvailablelength = chunkAvailable.length;
+            const partsInPool = object_mappings.parts.filter(chunk =>
+                chunk.chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
+            const chunkNum = object_mappings.parts.length;
+            if (chunkAvailablelength === chunkNum) {
+                console.log(`Available chunks: ${chunkAvailablelength}/${chunkNum} for ${file_name}`);
+            } else {
+                throw new Error(`Chanks for file ${file_name} should all be in ${
+                    pool}, Expected ${chunkNum}, recived ${chunkAvailablelength}`);
+            }
+            if (partsInPool === chunkNum) {
+                console.log(`All The ${chunkNum} chanks are in ${pool}`);
+            } else {
+                throw new Error(`Expected ${chunkNum} parts in ${pool} for file ${file_name}, recived ${partsInPool}`);
+            }
+            keep_run = false;
+        } catch (e) {
+            if (retry <= MAX_RETRY) {
+                retry += 1;
+                console.error(e);
+                console.log(`Sleeping for 20 sec and retrying`);
+                await P.delay(20 * 1000);
+            } else {
+                console.error(chunkAvailable);
+                throw e;
+            }
+        }
     }
-    if (partsInPool === chunkNum) {
-        console.log(`All The ${chunkNum} chanks are in ${pool}`);
-    } else {
-        throw new Error(`Expected ${chunkNum} parts in ${pool} for file ${file_name}, recived ${partsInPool}`);
-    }
-    return true;
 }
 
 async function createHealthyPool() {
@@ -266,8 +286,9 @@ async function check_file_evacuation(file, pool) {
     let file_in_pool;
     while (Date.now() - base_time < 180 * 1000) {
         try {
-            file_in_pool = await checkFileInPool(file, pool);
-            if (file_in_pool) break;
+            await checkFileInPool(file, pool);
+            file_in_pool = true;
+            break;
         } catch (e) {
             await P.delay(15 * 1000);
         }
@@ -482,7 +503,7 @@ async function main() {
                  2. repeate the steps above
          */
         if (failures_in_test) {
-            console.error('Errors during spillover test' + errors);
+            console.error('Errors during spillover test ' + errors);
             process.exit(1);
         } else {
             await clean_env();
@@ -490,7 +511,7 @@ async function main() {
             process.exit(0);
         }
     } catch (err) {
-        console.error('something went wrong' + err + errors);
+        console.error('something went wrong ' + err + errors);
         process.exit(1);
     }
 }

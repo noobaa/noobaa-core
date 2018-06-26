@@ -7,7 +7,6 @@ const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const af = require('../utils/agent_functions');
 const argv = require('minimist')(process.argv);
-const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const AzureFunctions = require('../../deploy/azureFunctions');
 const { BucketFunctions } = require('../utils/bucket_functions');
@@ -25,7 +24,6 @@ const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 const suffixName = 'replica';
 let stopped_oses = [];
-let failures_in_test = false;
 let errors = [];
 let files = [];
 let oses = [];
@@ -90,13 +88,6 @@ if (!data_frags && !parity_frags && replicas) {
     console.log('Using replicas number = ' + replicas);
 }
 
-
-let auth_params = {
-    email: 'demo@noobaa.com',
-    password: 'DeMo1',
-    system: 'demo'
-};
-
 const osesSet = af.supported_oses();
 
 const baseUnit = 1024;
@@ -123,7 +114,7 @@ function saveErrorAndResume(message) {
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-function uploadAndVerifyFiles(num_agents) {
+async function uploadAndVerifyFiles(num_agents) {
     let { data_multiplier } = unit_mapping.MB;
     // 1/2 GB per agent. 1 GB seems like too much memory for the lg to handle
     let dataset_size = num_agents * 128;
@@ -132,188 +123,167 @@ function uploadAndVerifyFiles(num_agents) {
     let file_size = Math.floor(partSize);
     let part = 0;
     console.log('Writing and deleting data till size amount to grow ' + num_agents + ' GB');
-    return promise_utils.pwhile(() => part < parts, () => {
+    try {
+        while (part < parts) {
             let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
             files.push(file_name);
             console.log('files list is ' + files);
             part += 1;
             console.log('Uploading file with size ' + file_size + ' MB');
-            return s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier)
-                .then(() => s3ops.get_file_check_md5(server_ip, bucket, file_name));
-        })
-        .catch(err => {
-            saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
-            failures_in_test = true;
-            throw err;
-        });
-}
-
-function readFiles() {
-    return P.each(files, file => s3ops.get_file_check_md5(server_ip, bucket, file))
-        .catch(err => {
-            saveErrorAndResume(`${server_ip} FAILED read file`, err);
-            failures_in_test = true;
-            throw err;
-        });
-}
-
-function getRebuildReplicasStatus(key) {
-    let result = false;
-    let replicaStatusOnline = [];
-    let filesReplicas = [];
-    let fileParts = [];
-    return client.create_auth_token(auth_params)
-        .then(() => P.resolve(client.object.read_object_mappings({
-            bucket,
-            key,
-            adminfo: true
-        })))
-        .then(res => {
-            fileParts = res.parts;
-            return P.each(fileParts, part => filesReplicas.push(part.chunk.frags[0].blocks));
-        })
-        .then(() => {
-            for (let i = 0; i < filesReplicas.length; i++) {
-                replicaStatusOnline = filesReplicas[i].filter(replica => replica.adminfo.online === true);
-                if (replicaStatusOnline.length === replicas) {
-                    console.log('Part ' + i + ' contains 3 online replicas - as should');
-                    result = true;
-                } else {
-                    console.warn('Parts contain online replicas ' + replicaStatusOnline.length);
-                    result = false;
-                }
-            }
-        })
-        .catch(err => console.warn('Check rebuild replicas with error ' + err))
-        .then(() => result);
-}
-
-function waitForRebuildReplicasParts(file) {
-    let retries = 0;
-    let rebuild = false;
-    console.log('Waiting for rebuild object ' + file);
-    return promise_utils.pwhile(
-        () => rebuild === false && retries !== 36,
-        () => P.resolve(getRebuildReplicasStatus(file))
-        .then(res => {
-            if (res) {
-                rebuild = res;
-            } else {
-                retries += 1;
-                console.log('Waiting for rebuild replicas parts' + file + ' - will wait for extra 5 seconds retries ' + retries);
-            }
-        })
-        .catch(e => console.warn('Waiting for rebuild replicas parts ' + file + 'with error ' + e))
-        .delay(5000));
-}
-
-function getFilesChunksHealthStatus(key) {
-    let result = false;
-    let parts = [];
-    return client.create_auth_token(auth_params)
-        .then(() => P.resolve(client.object.read_object_mappings({
-            bucket,
-            key,
-            adminfo: true
-        })))
-        .then(res => {
-            parts = res.parts;
-            let chunkAvailable = parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
-            let chunkNum = parts.length;
-            if (chunkAvailable === chunkNum) {
-                console.log('Available chunks number ' + chunkAvailable + ' all amount chunks ' + chunkNum);
-                result = true;
-            } else {
-                console.warn('Some chunk of file ' + key + ' has non available status');
-                result = false;
-            }
-        })
-        .catch(err => console.warn('Read chunk with error ' + err))
-        .then(() => result);
-}
-
-function waitForRebuildChunks(file) {
-    let retries = 0;
-    let rebuild = false;
-    console.log('Waiting for rebuild object ' + file);
-    return promise_utils.pwhile(
-        () => rebuild === false && retries !== 36,
-        () => P.resolve(getFilesChunksHealthStatus(file))
-        .then(res => {
-            if (res) {
-                rebuild = res;
-            } else {
-                retries += 1;
-                console.log('Waiting for rebuild object' + file + ' - will wait for extra 5 seconds retries ' + retries);
-            }
-        })
-        .catch(e => console.warn('Waiting for rebuild file ' + file + 'with error ' + e))
-        .delay(5000));
-}
-
-function clean_up_dataset() {
-    console.log('runing clean up files from bucket ' + bucket);
-    return s3ops.get_list_files(server_ip, bucket, '')
-        .then(res => s3ops.delete_folder(server_ip, bucket, ...res))
-        .catch(err => console.error(`Errors during deleting `, err));
-}
-
-function stopAgentAndCheckRebuildReplicas() {
-    return af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses)
-        .then(res => {
-            stopped_oses = res;
-            //waiting for rebuild files by chunks and parts
-            return P.each(files, file => waitForRebuildReplicasParts(file));
-        })
-        //Read and verify the read
-        .then(() => P.each(files, file => getRebuildReplicasStatus(file)
-            .then(res => {
-                if (res === true) {
-                    console.log('File ' + file + ' rebuild replicas parts successfully');
-                } else {
-                    saveErrorAndResume('File ' + file + ' didn\'t rebuild replicas parts');
-                }
-            })))
-        .then(() => P.each(files, file => waitForRebuildChunks(file))
-            .then(() => P.each(files, file => getFilesChunksHealthStatus(file)
-                .then(res => {
-                    if (res === true) {
-                        console.log('File ' + file + ' rebuild files chunks successfully');
-                    } else {
-                        saveErrorAndResume('File ' + file + ' didn\'t rebuild files chunks');
-                    }
-                }))))
-        .then(readFiles);
-}
-
-return azf.authenticate()
-    .then(() => bf.changeTierSetting(bucket, data_frags, parity_frags, replicas))
-    .then(() => af.clean_agents(azf, server_ip, suffix))
-    .then(() => af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet))
-    .then(res => {
-        oses = Array.from(res.keys());
-        //Create a dataset on it (1/4 GB per agent)
-        return uploadAndVerifyFiles(agents_number);
-    })
-    .then(() => promise_utils.loop(iterations_number, cycle => {
-        console.log(`starting cycle number: ${cycle}`);
-        return stopAgentAndCheckRebuildReplicas()
-            .then(() => af.startOfflineAgents(azf, server_ip, suffix, stopped_oses));
-    }))
-    .catch(err => {
-        console.error('something went wrong :(' + err + errors);
-        failures_in_test = true;
-    })
-    .then(() => {
-        if (failures_in_test) {
-            console.error(':( :( Errors during rebuild replicas parts test (replicas) ): ):' + errors);
-            process.exit(1);
-        } else {
-            return af.clean_agents(azf, server_ip, suffix)
-                .then(clean_up_dataset)
-                .then(() => {
-                    console.log(':) :) :) rebuild replicas parts test (replicas) were successful! (: (: (:');
-                    process.exit(0);
-                });
+            await s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier);
+            await s3ops.get_file_check_md5(server_ip, bucket, file_name);
         }
+    } catch (err) {
+        saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
+        throw err;
+    }
+}
+
+async function readFiles() {
+    try {
+        for (let file of files) {
+            await s3ops.get_file_check_md5(server_ip, bucket, file);
+        }
+    } catch (err) {
+        saveErrorAndResume(`${server_ip} FAILED read file`, err);
+        throw err;
+    }
+}
+
+async function getRebuildReplicasStatus(key) {
+    const read_object_mappings = await client.object.read_object_mappings({
+        bucket,
+        key,
+        adminfo: true
     });
+    const fileParts = read_object_mappings.parts;
+    const filesReplicas = fileParts.map(part => part.chunk.frags[0].blocks);
+    for (let i = 0; i < filesReplicas.length; i++) {
+        const replicaStatusOnline = filesReplicas[i].filter(replica => replica.adminfo.online === true);
+        if (replicaStatusOnline.length === replicas) {
+            console.log('Part ' + i + ' contains 3 online replicas - as should');
+        } else {
+            throw new Error('Parts contain online replicas ' + replicaStatusOnline.length);
+        }
+    }
+}
+
+async function waitForRebuildReplicasParts(file) {
+    console.log('Waiting for rebuild object ' + file);
+    for (let retries = 1; retries <= 36; ++retries) {
+        try {
+            await getRebuildReplicasStatus(file);
+            return true;
+        } catch (e) {
+            console.log(`Waiting for rebuild replicas parts ${file} - will wait for extra 5 seconds retries ${retries}`);
+            await P.delay(5 * 1000);
+        }
+    }
+    console.warn(`Waiting for rebuild replicas parts ${file} Failed`);
+    return false;
+}
+
+async function getFilesChunksHealthStatus(key) {
+    try {
+        const read_object_mappings = await client.object.read_object_mappings({
+            bucket,
+            key,
+            adminfo: true
+        });
+        const parts = read_object_mappings.parts;
+        const chunkAvailable = parts.filter(chunk => chunk.chunk.adminfo.health === 'available').length;
+        const chunkNum = parts.length;
+        if (chunkAvailable === chunkNum) {
+            console.log(`Available chunks number ${chunkAvailable} all amount chunks${chunkNum}`);
+        } else {
+            console.warn(`Some chunk of file ${key} has non available status`);
+        }
+    } catch (err) {
+        console.warn('Read chunk with error ' + err);
+    }
+
+}
+
+async function waitForRebuildChunks(file) {
+    console.log('Waiting for rebuild object ' + file);
+    for (let retries = 1; retries <= 36; ++retries) {
+        try {
+            await getFilesChunksHealthStatus(file);
+            return;
+        } catch (e) {
+            console.log(`Waiting for rebuild replicas parts ${file} - will wait for extra 5 seconds retries ${retries}`);
+            await P.delay(5 * 1000);
+        }
+    }
+    throw new Error(`Waiting for rebuild replicas parts ${file} Failed`);
+}
+
+async function clean_up_dataset() {
+    console.log('runing clean up files from bucket ' + bucket);
+    try {
+        const list_files = await s3ops.get_list_files(server_ip, bucket, '');
+        await s3ops.delete_folder(server_ip, bucket, ...list_files);
+    } catch (err) {
+        console.error(`Errors during deleting `, err);
+    }
+}
+
+async function stopAgentAndCheckRebuildReplicas() {
+    stopped_oses = await af.stopRandomAgents(azf, server_ip, failed_agents_number, suffix, oses);
+    for (const file of files) {
+        //waiting for rebuild files by chunks and parts
+        await waitForRebuildReplicasParts(file);
+        //Read and verify the read
+        try {
+            await getRebuildReplicasStatus(file);
+            console.log('File ' + file + ' rebuild replicas parts successfully');
+        } catch (e) {
+            saveErrorAndResume('File ' + file + ' didn\'t rebuild replicas parts');
+        }
+        await waitForRebuildChunks(file);
+        try {
+            await getFilesChunksHealthStatus(file);
+            console.log('File ' + file + ' rebuild files chunks successfully');
+        } catch (e) {
+            saveErrorAndResume('File ' + file + ' didn\'t rebuild files chunks');
+        }
+    }
+    return readFiles;
+}
+
+async function set_rpc_and_create_auth_token() {
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params);
+}
+
+async function main() {
+    await azf.authenticate();
+    await set_rpc_and_create_auth_token();
+    try {
+        await bf.changeTierSetting(bucket, data_frags, parity_frags, replicas);
+        await af.clean_agents(azf, server_ip, suffix);
+        const agents = await af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet);
+        oses = Array.from(agents.keys());
+        //Create a dataset on it (1/4 GB per agent)
+        await uploadAndVerifyFiles(agents_number);
+        for (let cycle = 0; cycle < iterations_number; ++cycle) {
+            console.log(`starting cycle number: ${cycle}`);
+            await stopAgentAndCheckRebuildReplicas();
+            await af.startOfflineAgents(azf, server_ip, suffix, stopped_oses);
+        }
+    } catch (err) {
+        console.error('something went wrong :(' + err + errors);
+        console.error(':( :( Errors during rebuild replicas parts test (replicas) ): ):' + errors);
+        process.exit(1);
+    }
+    await af.clean_agents(azf, server_ip, suffix);
+    await clean_up_dataset();
+    console.log(':) :) :) rebuild replicas parts test (replicas) were successful! (: (: (:');
+    process.exit(0);
+}
+
+main();

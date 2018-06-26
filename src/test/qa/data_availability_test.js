@@ -192,9 +192,19 @@ async function stopAgentsAndCheckFiles() {
     return readFiles();
 }
 
+async function set_rpc_and_create_auth_token() {
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    return client.create_auth_token(auth_params);
+}
+
 async function run_main() {
     try {
         await azf.authenticate();
+        await set_rpc_and_create_auth_token();
         await bf.changeTierSetting(bucket, data_frags, parity_frags, replicas);
         const test_nodes = await af.getTestNodes(server_ip, suffix);
         if ((use_existing_env) && (test_nodes)) {

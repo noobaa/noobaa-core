@@ -799,7 +799,7 @@ class S3OPS {
         console.log('Reading object ', key);
         return P.ninvoke(s3bucket, 'getObject', params)
             .catch(err => {
-                console.error(`get_object:: getObject ${params} failed!`, err);
+                console.error(`get_object:: getObject ${JSON.stringify(params)} failed!`, err);
                 throw err;
             });
     }
@@ -825,7 +825,7 @@ class S3OPS {
         return P.ninvoke(s3bucket, 'getObject', params)
             .then(res => res.Body)
             .catch(err => {
-                console.error(`get_object_range:: getObject ${params} failed!`, err);
+                console.error(`get_object_range:: getObject ${JSON.stringify(params)} failed!`, err);
                 throw err;
             });
     }

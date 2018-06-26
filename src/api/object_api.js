@@ -521,6 +521,9 @@ module.exports = {
                                 key: {
                                     type: 'string'
                                 },
+                                version_id: {
+                                    type: 'string'
+                                },
                                 bucket: {
                                     type: 'string'
                                 },
@@ -581,6 +584,9 @@ module.exports = {
                                     idate: true
                                 },
                                 key: {
+                                    type: 'string'
+                                },
+                                version_id: {
                                     type: 'string'
                                 },
                                 bucket: {
@@ -961,6 +967,9 @@ module.exports = {
                         type: 'boolean'
                     },
                     latest_versions: {
+                        type: 'boolean'
+                    },
+                    filter_delete_markers: {
                         type: 'boolean'
                     },
                     adminfo: {

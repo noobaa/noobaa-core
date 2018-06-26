@@ -8,7 +8,6 @@ module.exports = [
     {
         // find_object_latest()
         // list_objects()
-        // has_any_completed_objects_in_bucket()
         fields: {
             bucket: 1,
             key: 1,
@@ -55,7 +54,8 @@ module.exports = [
     {
         // find_object_by_version()
         // find_object_prev_version()
-        // list_object_versions()
+        // list_object_versions()       
+        // has_any_completed_objects_in_bucket()
         fields: {
             bucket: 1,
             key: 1,

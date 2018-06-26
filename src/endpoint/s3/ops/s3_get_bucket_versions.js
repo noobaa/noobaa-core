@@ -43,7 +43,7 @@ async function get_bucket_versions(req) {
             _.map(reply.objects, obj => (obj.delete_marker ? ({
                 DeleteMarker: {
                     Key: obj.key,
-                    VersionId: obj.version_id,
+                    VersionId: obj.version_id || 'null',
                     IsLatest: obj.is_latest,
                     LastModified: s3_utils.format_s3_xml_date(obj.create_time),
                     Owner: s3_utils.DEFAULT_S3_USER,
@@ -51,7 +51,7 @@ async function get_bucket_versions(req) {
             }) : ({
                 Version: {
                     Key: obj.key,
-                    VersionId: obj.version_id,
+                    VersionId: obj.version_id || 'null',
                     IsLatest: obj.is_latest,
                     LastModified: s3_utils.format_s3_xml_date(obj.create_time),
                     ETag: `"${obj.etag}"`,

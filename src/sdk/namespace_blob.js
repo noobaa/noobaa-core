@@ -90,7 +90,8 @@ class NamespaceBlob {
             .slice(0, params.limit);
         const next_marker = cont_token && cont_token.nextMarker;
         return {
-            objects: _.map(_.filter(combined_reply, ent => !_.isUndefined(ent.etag)), obj => this._get_blob_md(obj, params.bucket)),
+            objects: _.map(_.filter(combined_reply, ent => !_.isUndefined(ent.etag)), obj =>
+                this._get_blob_object_info(obj, params.bucket)),
             common_prefixes: _.map(_.filter(combined_reply, ent => _.isUndefined(ent.etag)), obj => obj.name),
             is_truncated,
             next_marker
@@ -144,7 +145,7 @@ class NamespaceBlob {
                 inspect(params),
                 'obj', inspect(obj)
             );
-            return this._get_blob_md(obj, params.bucket);
+            return this._get_blob_object_info(obj, params.bucket);
 
         } catch (err) {
             this._translate_error_code(err);
@@ -264,7 +265,7 @@ class NamespaceBlob {
             inspect(_.omit(params, 'source_stream')),
             'obj', inspect(obj)
         );
-        return this._get_blob_md(obj, params.bucket);
+        return this._get_blob_object_info(obj, params.bucket);
     }
 
 
@@ -432,7 +433,7 @@ class NamespaceBlob {
             inspect(params),
             'obj', inspect(obj)
         );
-        const res = this._get_blob_md(obj, params.bucket);
+        const res = this._get_blob_object_info(obj, params.bucket);
         res.etag = md5_hash.digest('hex') + '-' + num_parts;
         return res;
     }
@@ -472,8 +473,10 @@ class NamespaceBlob {
         dbg.log0('NamespaceBlob.delete_multiple_objects:', this.container, inspect(params));
 
         const res = await P.map(params.objects, obj => P.fromCallback(
-            callback => this.blob.deleteBlob(this.container, obj.key, callback)
-        ), { concurrency: 10 });
+                callback => this.blob.deleteBlob(this.container, obj.key, callback)
+            )
+            .then(() => ({}))
+            .catch(err => ({ err_code: 'InternalError', err_message: err.message || 'InternalError' })), { concurrency: 10 });
 
         dbg.log0('NamespaceBlob.delete_multiple_objects:',
             this.container,
@@ -481,13 +484,11 @@ class NamespaceBlob {
             'res', inspect(res)
         );
 
-        return _.map(params.objects, obj => ({
-            key: obj.key,
-        }));
+        return res;
     }
 
 
-    _get_blob_md(obj, bucket) {
+    _get_blob_object_info(obj, bucket) {
         const blob_etag = blob_utils.parse_etag(obj.etag);
         const md5_b64 = (obj.contentSettings && obj.contentSettings.contentMD5) || '';
         const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');

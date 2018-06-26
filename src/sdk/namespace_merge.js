@@ -189,6 +189,9 @@ class NamespaceMerge {
         }
     }
 
+    // TODO: Currently it only takes the most recent objects without duplicates
+    // This means that in list_object_versions we will only see the is_latest objects
+    // Which is not what we wanted since we want to see all of the versions
     _handle_list(res, params) {
         res = this._throw_if_all_failed_or_get_succeeded(res);
         if (res.length === 1) return res[0];
@@ -230,11 +233,22 @@ class NamespaceMerge {
         // because the marker is opaque to the client and therefore it is not safe to assume that using this as next marker
         // will really provide a stable iteration.
         const next_marker = is_truncated ? names[names.length - 1] : undefined;
+        // In case of prefix there will be no object (which means undefined)
+        const last_obj_or_prefix = map[names[names.length - 1]];
+        const next_version_id_marker =
+            is_truncated && (typeof last_obj_or_prefix === 'object') ?
+            last_obj_or_prefix.version_id : undefined;
+        const next_upload_id_marker =
+            is_truncated && (typeof last_obj_or_prefix === 'object') ?
+            last_obj_or_prefix.obj_id : undefined;
+
         return {
             objects,
             common_prefixes,
             is_truncated,
             next_marker,
+            next_version_id_marker,
+            next_upload_id_marker
         };
     }
 }

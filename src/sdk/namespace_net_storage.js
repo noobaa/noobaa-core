@@ -17,6 +17,7 @@ const CONFIG_FIELDS = [
     'ssl'
 ];
 
+// TODO: This does not work after the versioning changes
 class NamespaceNetStorage {
 
     constructor(options) {

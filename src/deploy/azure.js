@@ -63,6 +63,7 @@ Usage:
       --resource <resource-group> The azure resource group to use
       --storage <storage-account> The azure storage account to use
       --vnet <vnet>               The azure virtual network to use
+      --vmsize <vmsize>           The azure VM size to use (default: ${AzureFunctions.DEFAULT_VMSIZE})
       --servers                   How many servers to create, default is 1
       --clusterize                If the number of servers > 1, this flag will clusterize all the servers together, default is false
       --nosystem                  Skip system creation, defaults is to create one. If clusterize is turned on, a system will be created
@@ -89,6 +90,7 @@ Usage:
     --resource <resource-group> The azure resource group to use
     --storage <storage-account> The azure storage account to use
     --vnet <vnet>               The azure virtual network to use
+    --vmsize <vmsize>           The azure VM size to use (default: ${AzureFunctions.DEFAULT_VMSIZE})
     --delete <agents-number>    Number of agents to delete
     --add <agents-number>       The number of agents to add
     --os <name>                 The desired os for the agent (default is centos7). Supported OS types:
@@ -118,6 +120,7 @@ function print_usage_lg() {
       --resource <resource-group> the azure resource group to use
       --storage <storage-account> the azure storage account to use
       --vnet <vnet>               the azure virtual network to use
+      --vmsize <vmsize>           The azure VM size to use (default: ${AzureFunctions.DEFAULT_VMSIZE})
       --lg_suffix <suffix>        add a suffix to the LG machine name  
     `);
 }
@@ -271,6 +274,7 @@ function _runServer() {
             console.log('createSystem', createSystem);
             return P.map(servers, server => azf.createServer({
                         serverName: server.name,
+                        vmSize: argv.vmsize,
                         vnet: argv.vnet,
                         storage: argv.storage,
                         createSystem: createSystem,
@@ -343,6 +347,7 @@ function _runAgent() {
                                 return af.getAgentConf(serverIP)
                                     .then(agentConf => azf.createAgent({
                                         vmName: machine.name,
+                                        vmSize: argv.vmsize,
                                         storage: argv.storage,
                                         vnet: argv.vnet,
                                         os: machine.os,
@@ -353,6 +358,7 @@ function _runAgent() {
                             } else {
                                 return azf.createAgentFromImage({
                                     vmName: machine.name,
+                                    vmSize: argv.vmsize,
                                     storage: argv.storage,
                                     vnet: argv.vnet,
                                     os: machine.os,
@@ -386,6 +392,7 @@ function _runLG() {
     return azf.authenticate()
         .then(() => azf.createLGFromImage({
             vmName: 'LG' + lg_suffix,
+            vmSize: argv.vmsize,
             vnet: argv.vnet,
             storage: argv.storage,
         }));

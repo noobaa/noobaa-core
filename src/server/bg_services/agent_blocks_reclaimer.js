@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
+
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
@@ -63,24 +65,24 @@ class AgentBlocksReclaimer {
             });
     }
 
-    populate_agent_blocks_reclaimer_blocks(blocks) {
+    async populate_agent_blocks_reclaimer_blocks(blocks) {
 
         if (!blocks || !blocks.length) return;
 
-        let blocks_with_nodes;
-        return this.populate_nodes_for_blocks(blocks)
-            .then(res => {
-                blocks_with_nodes = res;
-                const blocks_with_unpopulated_nodes = blocks_with_nodes.filter(block =>
-                    !(block.node && block.node.rpc_address));
-                const block_ids = mongo_utils.uniq_ids(blocks_with_unpopulated_nodes, '_id');
-                return block_ids.length && this.update_blocks_by_ids(block_ids, { reclaimed: new Date() });
-            })
-            .then(() => {
-                const blocks_with_alive_nodes = blocks_with_nodes.filter(block =>
-                    block.node && block.node.rpc_address && block.node.online);
-                return blocks_with_alive_nodes;
-            });
+        const populated_blocks = await this.populate_nodes_for_blocks(blocks);
+
+        // treat blocks that their node could not be populated as "orphan blocks" 
+        // that their nodes is missing for some reason (probably deleted)
+        const [orphan_blocks, live_blocks] = _.partition(populated_blocks, block => mongo_utils.is_object_id(block.node));
+
+        if (orphan_blocks.length) {
+            dbg.log0(`identified ${orphan_blocks.length} orphan blocks that their node could not be found. marking them as reclaimed`,
+                orphan_blocks);
+            // maybe we should mark dead blocks differently so we can do something with them later (report\retry\etc.)
+            await this.update_blocks_by_ids(mongo_utils.uniq_ids(orphan_blocks, '_id'), { reclaimed: new Date() });
+        }
+
+        return live_blocks;
     }
 
     /**

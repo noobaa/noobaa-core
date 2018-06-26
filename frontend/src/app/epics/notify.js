@@ -442,6 +442,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_CREATE_BUCKET]: ({ name }) => ({
         message: `Bucket ${name} creation failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_OBJECTS_UPLOAD]: ({ successCount }) => ({
+        message: `${successCount} files uploaded successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_OBJECT_UPLOAD]: ({ name }) => ({
+        message: `Failed to upload ${name}, please check connectivity or bucket S3 permissions`,
+        severity: 'error'
     })
 });
 

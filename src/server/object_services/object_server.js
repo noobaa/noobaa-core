@@ -166,7 +166,7 @@ async function complete_object_upload(req) {
 
     return {
         etag: set_updates.etag,
-        version_id: _get_object_version_id(set_updates),
+        version_id: MDStore.instance().get_object_version_id(set_updates),
     };
 }
 
@@ -521,19 +521,18 @@ async function delete_object(req) {
     return reply;
 }
 
-
 /**
  *
  * DELETE_MULTIPLE_OBJECTS
  *
  */
 async function delete_multiple_objects(req) {
-    dbg.log0('delete_multiple_objects: keys =', req.params.objects);
+    dbg.log0('delete_multiple_objects: keys =', req.rpc_params.objects);
     throw_if_maintenance(req);
     load_bucket(req);
     // group objects by key to run different keys concurrently but same keys sequentially.
     // we keep indexes to the requested objects list to return the results in the same order.
-    const objects = req.params.objects;
+    const objects = req.rpc_params.objects;
     const group_by_key = {};
     for (let i = 0; i < objects.length; ++i) {
         const obj = objects[i];
@@ -594,7 +593,7 @@ async function delete_multiple_objects_by_prefix(req) {
             bucket: req.bucket.name,
             objects: _.map(objects, obj => ({
                 key: obj.key,
-                version_id: _get_object_version_id(obj.version_id, obj.version_enabled),
+                version_id: MDStore.instance().get_object_version_id(obj.version_id, obj.version_enabled),
             }))
         }
     }));
@@ -692,7 +691,7 @@ async function list_object_versions(req) {
         next_version_id_marker: (
             state.is_truncated &&
             state.version_seq_marker &&
-            _get_object_version_id({
+            MDStore.instance().get_object_version_id({
                 version_enabled: true,
                 version_seq: state.version_seq_marker,
             })
@@ -813,6 +812,7 @@ async function list_objects_admin(req) {
         key: key,
         upload_mode: req.rpc_params.upload_mode,
         latest_versions: req.rpc_params.latest_versions,
+        filter_delete_markers: req.rpc_params.filter_delete_markers,
         max_create_time: req.rpc_params.create_time,
         limit: req.rpc_params.limit,
         skip: req.rpc_params.skip,
@@ -941,7 +941,7 @@ function get_object_info(md) {
         upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
-        version_id: _get_object_version_id(md),
+        version_id: bucket.versioning === 'DISABLED' ? undefined : MDStore.instance().get_object_version_id(md),
         is_latest: md.version_past ? undefined : true,
         delete_marker: md.delete_marker,
         xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),
@@ -1142,19 +1142,14 @@ function _parse_version_seq_from_version_id(version_str) {
     return (version_str.startsWith('nbver-') && Number(version_str.slice(6))) || undefined;
 }
 
-function _get_object_version_id({ version_seq, version_enabled }) {
-    if (!version_enabled || !version_seq) return 'null';
-    return `nbver-${version_seq}`;
-}
-
 function _get_delete_obj_reply(deleted_obj, created_obj) {
     const reply = {};
     if (deleted_obj) {
-        reply.deleted_version_id = _get_object_version_id(deleted_obj);
+        reply.deleted_version_id = MDStore.instance().get_object_version_id(deleted_obj);
         reply.deleted_delete_marker = deleted_obj.delete_marker;
     }
     if (created_obj) {
-        reply.created_version_id = _get_object_version_id(created_obj);
+        reply.created_version_id = MDStore.instance().get_object_version_id(created_obj);
         reply.created_delete_marker = created_obj.delete_marker;
     }
     return reply;
@@ -1212,6 +1207,7 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
                     check_md_conditions(req, req.rpc_params.md_conditions, latest_obj);
                     // 2, 3, 6, 7
                     await MDStore.instance().complete_object_upload_latest_mark_remove_current_and_delete({
+                        delete_obj: obj,
                         unmark_obj: latest_obj,
                         put_obj,
                         set_updates,

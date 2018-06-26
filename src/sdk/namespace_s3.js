@@ -53,7 +53,7 @@ class NamespaceS3 {
             'list', inspect(res));
 
         return {
-            objects: _.map(res.Contents, obj => this._get_s3_md(obj, params.bucket)),
+            objects: _.map(res.Contents, obj => this._get_s3_object_info(obj, params.bucket)),
             common_prefixes: _.map(res.CommonPrefixes, 'Prefix'),
             is_truncated: res.IsTruncated,
             next_marker: res.NextMarker,
@@ -66,20 +66,20 @@ class NamespaceS3 {
         const res = await this.s3.listMultipartUploads({
             Prefix: params.prefix,
             Delimiter: params.delimiter,
-            Marker: params.key_marker,
+            KeyMarker: params.key_marker,
             UploadIdMarker: params.upload_id_marker,
-            MaxKeys: params.limit,
+            MaxUploads: params.limit,
         }).promise();
 
         dbg.log0('NamespaceS3.list_uploads:', this.bucket, inspect(params),
             'list', inspect(res));
 
         return {
-            objects: _.map(res.Uploads, obj => this._get_s3_md(obj, params.bucket)),
+            objects: _.map(res.Uploads, obj => this._get_s3_object_info(obj, params.bucket)),
             common_prefixes: _.map(res.CommonPrefixes, 'Prefix'),
             is_truncated: res.IsTruncated,
             next_marker: res.NextMarker,
-            upload_id_marker: res.UploadIdMarker,
+            next_upload_id_marker: res.UploadIdMarker,
         };
     }
 
@@ -89,7 +89,7 @@ class NamespaceS3 {
         const res = await this.s3.listObjectVersions({
             Prefix: params.prefix,
             Delimiter: params.delimiter,
-            Marker: params.key_marker,
+            KeyMarker: params.key_marker,
             VersionIdMarker: params.version_id_marker,
             MaxKeys: params.limit,
         }).promise();
@@ -98,8 +98,11 @@ class NamespaceS3 {
             'list', inspect(res));
 
         return {
-            objects: _.map(_.concat(res.Versions, res.DeleteMarkers),
-                obj => this._get_s3_md(obj, params.bucket)),
+            objects: _.concat(
+                _.map(res.Versions, obj => this._get_s3_object_info(obj, params.bucket)),
+                _.map(res.DeleteMarkers, obj => this._get_s3_object_info(
+                    _.assign(obj, { DeleteMarker: true }), params.bucket))
+            ),
             common_prefixes: _.map(res.CommonPrefixes, 'Prefix'),
             is_truncated: res.IsTruncated,
             next_marker: res.NextMarker,
@@ -117,7 +120,7 @@ class NamespaceS3 {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
             const res = await this.s3.headObject({ Key: params.key }).promise();
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
-            return this._get_s3_md(res, params.bucket);
+            return this._get_s3_object_info(res, params.bucket);
         } catch (err) {
             this._translate_error_code(err);
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
@@ -186,7 +189,7 @@ class NamespaceS3 {
         }
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
-        return { etag };
+        return { etag, version_id: res.VersionId };
     }
 
     ////////////////////////
@@ -284,7 +287,7 @@ class NamespaceS3 {
 
         dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
-        return { etag };
+        return { etag, version_id: res.VersionId };
     }
 
     async abort_object_upload(params, object_sdk) {
@@ -315,11 +318,16 @@ class NamespaceS3 {
             'res', inspect(res)
         );
 
-        return {
-            version_id: params.version_id,
-            delete_marker: res.DeleteMarker,
-            delete_marker_version_id: res.VersionId,
-        };
+        if (params.version_id) {
+            return {
+                deleted_delete_marker: res.DeleteMarker
+            };
+        } else {
+            return {
+                created_version_id: res.VersionId,
+                created_delete_marker: res.DeleteMarker
+            };
+        }
     }
 
     async delete_multiple_objects(params, object_sdk) {
@@ -340,34 +348,49 @@ class NamespaceS3 {
             'res', inspect(res)
         );
 
-        return [
-            ...(res.Deleted ? res.Deleted.map(obj => ({
-                key: obj.Key,
-                version_id: obj.VersionId,
-                delete_marker: obj.DeleteMarker,
-                delete_marker_version_id: obj.DeleteMarkerVersionId,
-            })) : []),
-            ...(res.Errors ? res.Errors.map(err => ({
-                key: err.Key,
-                version_id: err.VersionId,
-                err_code: err.Code,
-                err_message: err.Message,
-            })) : [])
-        ];
+        return _.map(params.objects, obj => {
+            const deleted = _.find(res.Deleted, del_rec =>
+                (del_rec.VersionId === obj.version_id && del_rec.Key === obj.key)
+            );
+            if (deleted) {
+                if (deleted.VersionId) {
+                    return {
+                        deleted_version_id: deleted.DeleteMarkerVersionId,
+                        deleted_delete_marker: deleted.DeleteMarker,
+                    };
+                } else {
+                    return {
+                        created_version_id: deleted.DeleteMarkerVersionId,
+                        created_delete_marker: deleted.DeleteMarker,
+                    };
+                }
+            } else {
+                const error = _.find(res.Errors, err_rec =>
+                    (err_rec.VersionId === obj.version_id && err_rec.Key === obj.key)
+                );
+                return {
+                    err_code: error.Code,
+                    err_message: error.Message,
+                };
+            }
+        });
     }
 
-    _get_s3_md(res, bucket) {
+    _get_s3_object_info(res, bucket) {
         const etag = s3_utils.parse_etag(res.ETag);
         const xattr = _.extend(res.Metadata, {
             'noobaa-namespace-s3-bucket': this.bucket,
         });
         return {
-            obj_id: etag,
+            obj_id: res.UploadId || etag,
             bucket: bucket,
             key: res.Key,
             size: res.ContentLength || res.Size || 0,
             etag,
             create_time: new Date(res.LastModified),
+            version_id: res.VersionId,
+            is_latest: res.IsLatest,
+            delete_marker: res.DeleteMarker,
             content_type: res.ContentType,
             xattr,
         };

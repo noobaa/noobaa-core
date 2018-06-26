@@ -285,18 +285,28 @@ class MDStore {
     }
 
     async complete_object_upload_latest_mark_remove_current_and_delete({
+        delete_obj,
         unmark_obj,
         put_obj,
         set_updates,
         unset_updates,
     }) {
         const bulk = this._objects.col().initializeOrderedBulkOp();
-        bulk.find({ _id: unmark_obj._id, deleted: null })
-            .updateOne({ $set: { deleted: new Date(), version_past: true } });
+        if (delete_obj) {
+            bulk.find({ _id: delete_obj._id, deleted: null })
+                .updateOne({ $set: { deleted: new Date() } });
+            bulk.find({ _id: unmark_obj._id, deleted: null })
+                .updateOne({ $set: { version_past: true } });
+        } else {
+            bulk.find({ _id: unmark_obj._id, deleted: null })
+                .updateOne({ $set: { deleted: new Date(), version_past: true } });
+        }
+
         bulk.find({ _id: put_obj._id, deleted: null })
             .updateOne({ $set: set_updates, $unset: unset_updates });
         const res = await bulk.execute();
-        if (!res.ok || res.nMatched !== 2 || res.nModified !== 2) {
+        const number_of_queries = delete_obj ? 3 : 2;
+        if (!res.ok || res.nMatched !== number_of_queries || res.nModified !== number_of_queries) {
             dbg.error('complete_object_upload_latest_mark_remove_current_and_delete: partial bulk update',
                 _.clone(res), unmark_obj, put_obj, set_updates, unset_updates);
             throw new Error('complete_object_upload_latest_mark_remove_current_and_delete: partial bulk update');
@@ -348,6 +358,7 @@ class MDStore {
         key,
         upload_mode,
         latest_versions,
+        filter_delete_markers,
         max_create_time,
         skip,
         limit,
@@ -370,6 +381,7 @@ class MDStore {
                 $exists: upload_mode
             } : undefined,
             version_past,
+            delete_marker: typeof filter_delete_markers === 'boolean' && filter_delete_markers ? null : undefined
         });
 
         const completed_query = _.omit(query, 'upload_started');
@@ -617,16 +629,12 @@ class MDStore {
             bucket: bucket_id,
             // prefix for stored blob blocks information. TODO: move somwhere like config.js
             key: { $not: /^\.noobaa_blob_blocks/ },
-            version_past: null,
             // partialFilterExpression:
             deleted: null,
             upload_started: null,
-            // scan:
-            // TODO skipping delete_marker's in the bucket is not limited in DB effort
-            delete_marker: null
         }, {
-            hint: 'latest_version_index',
-            sort: { bucket: 1, key: 1, version_past: 1 },
+            hint: 'version_seq_index',
+            sort: { bucket: 1, key: 1, version_seq: -1 },
         });
         return Boolean(obj);
     }
@@ -726,6 +734,10 @@ class MDStore {
         });
     }
 
+    get_object_version_id({ version_seq, version_enabled }) {
+        if (!version_enabled || !version_seq) return 'null';
+        return `nbver-${version_seq}`;
+    }
 
     ////////////////
     // MULTIPARTS //

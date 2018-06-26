@@ -35,7 +35,7 @@ async function put_object(req, res) {
         res.setHeader('x-amz-version-id', reply.version_id);
     }
     if (copy_source) {
-        res.setHeader('x-amz-copy-source-version-id', reply.copy_source.version_id);
+        if (reply.copy_source.version_id) res.setHeader('x-amz-copy-source-version-id', reply.copy_source.version_id);
         return {
             CopyObjectResult: {
                 // TODO S3 last modified and etag should be for the new part

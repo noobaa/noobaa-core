@@ -79,7 +79,7 @@ class ObjectSDK {
     async _validate_bucket_namespace(data, params) {
         const time = Date.now();
         if (time <= data.valid_until) return true;
-        const bucket = this.rpc_client.bucket.get_bucket_namespaces({ name: params.name });
+        const bucket = await this.rpc_client.bucket.get_bucket_namespaces({ name: params.name });
         if (_.isEqual(bucket.namespace, data.bucket.namespace)) {
             // namespace unchanged - extend validity for another period
             data.valid_until = time + NAMESPACE_CACHE_EXPIRY;

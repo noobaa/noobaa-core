@@ -74,13 +74,13 @@ function read_node_mappings(node_ids, skip, limit) {
                 obj_id,
                 upload_started: obj.upload_started ? obj.upload_started.getTimestamp().getTime() : undefined,
                 key: obj.key,
+                version_id: MDStore.instance().get_object_version_id(obj),
                 bucket: system_store.data.get_by_id(obj.bucket).name,
                 parts: parts_per_obj_id[obj_id],
             }));
             return objects_reply;
         });
 }
-
 
 
 /**

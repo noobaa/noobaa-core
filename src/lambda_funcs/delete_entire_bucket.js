@@ -17,24 +17,27 @@ module.exports.handler = async function(event, context, callback) {
 
         let truncated = true;
         let marker;
+        let version_id_marker;
         let count = 0;
 
         while (truncated) {
 
-            const res = await s3.listObjects({
+            const res = await s3.listObjectVersions({
                 Bucket: event.bucket,
                 Marker: marker,
+                VersionIdMarker: version_id_marker
             }).promise();
 
             const objs = res.Contents;
             truncated = res.IsTruncated;
             marker = res.NextMarker;
+            version_id_marker = res.NextVersionIdMarker;
             count += objs.length;
 
             if (sure && objs.length) {
                 await s3.deleteObjects({
                     Bucket: event.bucket,
-                    Delete: { Objects: objs.map(o => ({ Key: o.Key })) }
+                    Delete: { Objects: objs.map(o => ({ Key: o.Key, VersionId: o.VersionId })) }
                 }).promise();
             }
         }

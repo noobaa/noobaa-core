@@ -334,6 +334,10 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         if (update_request.versioning === 'DISABLED') {
             throw new RpcError('BAD_REQUEST', 'Cannot set versioning to DISABLED');
         }
+        if (bucket.namespace) {
+            throw new RpcError('BAD_REQUEST', 'Cannot set versioning on namespace buckets');
+        }
+
         single_bucket_update.versioning = update_request.versioning;
     }
 
@@ -648,10 +652,10 @@ function delete_bucket(req) {
                 }));
 
             return system_store.make_changes({
-                    update: {
-                        accounts: accounts_update
-                    }
-                });
+                update: {
+                    accounts: accounts_update
+                }
+            });
         })
         .return();
 }

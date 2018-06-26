@@ -215,6 +215,16 @@ config.DB_CLEANER = {
     BACK_TIME: 3 * 30 * 24 * 60 * 60 * 1000 // 3 months
 };
 
+/////////////////////
+// CLOUD RESOURCES //
+/////////////////////
+// EXPERIMENTAL!! switch to turn off the use of signed urls to delegate cloud read\writes to object_io (s3 compatible only)
+// when this is set to true, block_store_s3 will return s3 credentials to the block_store_client so it can 
+// connect directly to the cloud target (and not via a signed url)
+config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_SIGNED_URL = false;
+
+
+
 //////////////////////
 // LIFECYCLE CONFIG //
 //////////////////////

@@ -159,6 +159,17 @@ class SupervisorCtrl {
             .then(() => this.apply_changes());
     }
 
+    restart_supervisord() {
+        return promise_utils.spawn('/etc/init.d/supervisord', ['restart'], {
+            detached: true
+        }, false)
+        .delay(5000) //TODO:: Better solution
+        .catch(function(err) {
+            console.error('failed to restart superisor daemon');
+            throw new Error('failed to restart superisor daemon ' + err);
+        });
+    }
+
     // Internals
     _serialize() {
         let data = '';

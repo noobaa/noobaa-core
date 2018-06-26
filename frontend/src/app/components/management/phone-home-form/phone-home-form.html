@@ -1,9 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <collapsible-section params="
-    title: 'Proxy Server',
-    collapsed: isCollapsed
-">
+        title: 'Proxy Server',
+        collapsed: isCollapsed
+    "
+    ko.scrollToElement="!isCollapsed()"
+>
     <section class="row" data-name="collapsed">
         <p>
             Proxy Address:

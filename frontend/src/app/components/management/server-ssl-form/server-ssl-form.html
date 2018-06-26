@@ -1,9 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <collapsible-section params="
-    title: 'SSL Certificate',
-    collapsed: isCollapsed
-">
+        title: 'SSL Certificate',
+        collapsed: isCollapsed
+    "
+    ko.scrollToElement="!isCollapsed()"
+>
     <section class="row" data-name="collapsed">
         <p data-bind="text: sslStatus"></p>
     </section>

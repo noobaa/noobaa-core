@@ -1,9 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <collapsible-section params="
-    title: 'Peer to Peer Settings',
-    collapsed: isCollapsed
-">
+        title: 'Peer to Peer Settings',
+        collapsed: isCollapsed
+    "
+    ko.scrollToElement="!isCollapsed()"
+>
     <section data-name="collapsed">
         <span data-bind="text: summaryLabel"></span>
         <span class="text-tech" data-bind="text: summaryValue"></span>

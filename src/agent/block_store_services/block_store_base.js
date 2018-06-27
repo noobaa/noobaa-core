@@ -171,6 +171,13 @@ class BlockStoreBase {
         );
     }
 
+    reset_usage() {
+        if (this._usage && (this._usage.size || this._usage.count)) {
+            dbg.warn('storage usage for this agent is expected to be zero but got', this._usage, '. resetting...');
+            this._update_usage({ size: -(this._usage.size || 0), count: -(this._usage.count || 0) });
+        }
+    }
+
     sample_stats() {
         const old_stats = this.stats;
         // zero all but the inflight

@@ -379,6 +379,7 @@ async function upgrade_mongodb_schemas(params) {
             'mongo_upgrade_2_3_0.js',
             'mongo_upgrade_2_3_1.js',
             'mongo_upgrade_2_6_0.js',
+            'mongo_upgrade_2_7_3.js',
             'mongo_upgrade_mark_completed.js'
         ];
     } else {

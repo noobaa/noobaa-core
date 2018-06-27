@@ -28,6 +28,11 @@
             "ver": "2.7.0",
             "vhd": "2.7.0-3cff484.vhd",
             "released": true
+        },
+        {
+            "ver": "2.8.0",
+            "vhd": "2.8.0-e3c612e.vhd",
+            "released": true
         }
     ]
 }

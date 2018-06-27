@@ -78,7 +78,12 @@ db.buckets.updateMany({}, {
             objects_count: 0,
             objects_hist: [],
             last_update: Date.now() - 600000
-        }
+        },
+        stats: {
+            reads: 0, writes: 0
+        },
+        lambda_triggers: [],
+        versioning: 'DISABLED'
     }
 });
 
@@ -126,7 +131,8 @@ db.accounts.update({
     $set: {
         allowed_buckets: {
             full_permission: true
-        }
+        },
+        allow_bucket_creation: true
     }
 });
 

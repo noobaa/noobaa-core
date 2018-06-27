@@ -92,7 +92,7 @@ class CloudFunction {
             await this.report_success(`Create_Connection_${type}`);
         } catch (err) {
             await this.report_fail(`Create_Connection_${type}`);
-            throw new Error('Failed to cretae connection ', err);
+            throw new Error('Failed to create connection ', err);
         }
     }
 

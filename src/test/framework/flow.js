@@ -4,10 +4,13 @@
 var steps = [
     //Upgrade moved externally to be run from the jenkins prior to the framework run
     {
+        //Restore DB to defaults, upgrade tests fills the system with all kinds of confugrations
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
         name: 'Clean Server for Run',
         common: 'clean_server_for_run',
-    },
-    {
+    }, {
         //Run FE Unit tests
         ignore_failure: true,
         name: 'FE Unit Tests',
@@ -19,8 +22,7 @@ var steps = [
         }, {
             arg: 'test'
         }],
-    },
-    {
+    }, {
         //Run BE Unit tests
         name: 'BE Unit Tests',
         action: 'npm',
@@ -35,8 +37,7 @@ var steps = [
             PATH: process.env.PATH,
             DEV_MODE: 'true'
         },
-    },
-    {
+    }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',

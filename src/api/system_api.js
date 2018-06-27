@@ -301,13 +301,32 @@ module.exports = {
             }
         },
 
-        update_phone_home_config: {
+        verify_proxy_address: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['proxy_address'],
+                required: ['address'],
                 properties: {
-                    proxy_address: {
+                    address: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_proxy_address: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['address'],
+                properties: {
+                    address: {
                         anyOf: [{
                             type: 'null'
                         }, {

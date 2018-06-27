@@ -72,6 +72,8 @@ import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
 import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
+import updateProxyAddress from './update-proxy-address';
+import dropForms from './drop-forms';
 
 const generalEpics = [
     handleLocationRequests,
@@ -101,7 +103,8 @@ const systemRelatedEpics = [
     upgradeSystem,
     updateRemoteSyslog,
     enterMaintenanceMode,
-    leaveMaintenanceMode
+    leaveMaintenanceMode,
+    updateProxyAddress
 ];
 
 const topologyRelatedEpics = [
@@ -179,6 +182,10 @@ const lambdaRelatedEpics = [
     createLambdaFunc
 ];
 
+const formRelatedEpics = [
+    dropForms
+];
+
 // A utility that combine multiple epics into one epic.
 function _combineEpics(epics) {
     return (action$, injected) => {
@@ -200,5 +207,6 @@ export default _combineEpics([
     ...resourceRelatedEpics,
     ...hostRelatedEpics,
     ...namespaceRelatedEpics,
-    ...lambdaRelatedEpics
+    ...lambdaRelatedEpics,
+    ...formRelatedEpics
 ]);

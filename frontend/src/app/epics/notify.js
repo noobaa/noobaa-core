@@ -442,6 +442,27 @@ const actionToNotification = deepFreeze({
     [types.FAIL_CREATE_BUCKET]: ({ name }) => ({
         message: `Bucket ${name} creation failed`,
         severity: 'error'
+    }),
+
+    [types.UPDATE_PROXY_ADDRESS]: ({ enabled }) => {
+        if (!enabled) return;
+
+        return {
+            message: 'Checking external services connectivity using configure proxy',
+            severity: 'info'
+        };
+    },
+
+    [types.COMPLETE_UPDATE_PROXY_ADDRESS]: () => ({
+        message: 'Proxy settings updated successfully',
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_PROXY_ADDRESS]: ({ error }) => ({
+        message: error.rpc_code === 'CONNECTIVITY_TEST_FAILED' ?
+            'External services could not be reached using configured proxy' :
+            'Updating Proxy settings failed',
+        severity: 'error'
     })
 });
 

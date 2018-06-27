@@ -345,8 +345,8 @@ function create_system(req) {
         })
         .then(() => {
             if (!process.env.PH_PROXY) return;
-            return server_rpc.client.system.update_phone_home_config({
-                proxy_address: process.env.PH_PROXY
+            return server_rpc.client.system.update_proxy_address({
+                address: process.env.PH_PROXY
             }, {
                 auth_token: reply_token
             });
@@ -913,35 +913,41 @@ function update_base_address(req) {
         });
 }
 
+function verify_proxy_address(req) {
+    dbg.log0('verify_connection_to_proxy_address', req.rpc_params);
+    return ph_utils.verify_connection_to_phonehome({ proxy: req.rpc_params.address })
+        .then(res => res === 'CONNECTED');
+}
+
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
-function update_phone_home_config(req) {
-    dbg.log0('update_phone_home_config', req.rpc_params);
+function update_proxy_address(req) {
+    dbg.log0('update_proxy_address', req.rpc_params);
 
     const previous_value = system_store.data.systems[0].phone_home_proxy_address;
     let desc_line = `Proxy address was `;
-    desc_line += req.rpc_params.proxy_address ? `set to ${req.rpc_params.proxy_address}. ` : `cleared. `;
+    desc_line += req.rpc_params.address ? `set to ${req.rpc_params.address}. ` : `cleared. `;
     desc_line += previous_value ? `Was previously set to ${previous_value}` : `Was not previously set`;
 
     let update = {
         _id: req.system._id
     };
-    if (req.rpc_params.proxy_address === null) {
+    if (req.rpc_params.address === null) {
         update.$unset = {
             phone_home_proxy_address: 1
         };
     } else {
-        update.phone_home_proxy_address = req.rpc_params.proxy_address;
+        update.phone_home_proxy_address = req.rpc_params.address;
     }
 
-    dbg.log0(`testing internet connectivity using proxy ${req.rpc_params.proxy_address}`);
-    return ph_utils.verify_connection_to_phonehome({ proxy: req.rpc_params.proxy_address })
+    dbg.log0(`testing internet connectivity using proxy ${req.rpc_params.address}`);
+    return ph_utils.verify_connection_to_phonehome({ proxy: req.rpc_params.address })
         .then(res => {
             if (res === 'CONNECTED') {
                 dbg.log0('connectivity test passed. configuring proxy address:', desc_line);
             } else {
-                dbg.error(`Failed connectivity test using proxy ${req.rpc_params.proxy_address}. test result: ${res}`);
-                if (req.rpc_params.proxy_address) {
-                    throw new RpcError('CONNECTIVITY_TEST_FAILED', `Failed connectivity test using proxy ${req.rpc_params.proxy_address}`);
+                dbg.error(`Failed connectivity test using proxy ${req.rpc_params.address}. test result: ${res}`);
+                if (req.rpc_params.address) {
+                    throw new RpcError('CONNECTIVITY_TEST_FAILED', `Failed connectivity test using proxy ${req.rpc_params.address}`);
                 }
                 dbg.warn('No connectivity without proxy! removing proxy settings anyway');
             }
@@ -951,7 +957,7 @@ function update_phone_home_config(req) {
                 systems: [update]
             }
         }))
-        .then(() => os_utils.set_yum_proxy(req.rpc_params.proxy_address))
+        .then(() => os_utils.set_yum_proxy(req.rpc_params.address))
         .then(() => server_rpc.client.hosted_agents.stop())
         .then(() => server_rpc.client.hosted_agents.start())
         .then(() => {
@@ -1378,7 +1384,8 @@ exports.log_client_console = log_client_console;
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
 exports.attempt_server_resolve = attempt_server_resolve;
-exports.update_phone_home_config = update_phone_home_config;
+exports.verify_proxy_address = verify_proxy_address;
+exports.update_proxy_address = update_proxy_address;
 exports.update_hostname = update_hostname;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;

@@ -9,13 +9,14 @@ import {
     SET_FORM_VALIDITY,
     SUBMIT_FORM,
     COMPLETE_SUBMIT_FORM,
-    DROP_FROM
+    DROP_FROM,
+    DROP_FROMS
 } from 'action-types';
 
-export function initializeForm(form, values = {}) {
+export function initializeForm(form, values = {}, dropActions) {
     return {
         type: INIT_FORM,
-        payload: { form, values }
+        payload: { form, values, dropActions }
     };
 }
 
@@ -82,5 +83,12 @@ export function dropForm(form) {
     return {
         type: DROP_FROM,
         payload: { form }
+    };
+}
+
+export function dropForms(actionType) {
+    return {
+        type: DROP_FROMS,
+        payload: { actionType }
     };
 }

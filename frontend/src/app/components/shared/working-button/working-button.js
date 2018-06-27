@@ -14,8 +14,12 @@ class WorkingBtnViewModel {
 
     onClick(parentViewModel) {
         const { working, clickHandler } = this;
-        if (isFunction(clickHandler) && !ko.unwrap(working)) {
-            clickHandler.call(parentViewModel);
+        if (!ko.unwrap(working)) {
+            if (isFunction(clickHandler)) {
+                clickHandler.call(parentViewModel);
+            } else {
+                return true;
+            }
         }
     }
 }

@@ -265,8 +265,8 @@ async function get_Phonehome_proxy_status() {
 async function set_Proxy_and_check() {
     try {
         console.log('Setting Proxy');
-        await client.system.update_phone_home_config({
-            proxy_address: proxy_server
+        await client.system.update_proxy_address({
+            address: proxy_server
         });
         const proxy_status = await get_Phonehome_proxy_status();
         const defined_proxy = proxy_status.phone_home_config.proxy_address;
@@ -295,8 +295,8 @@ async function set_Proxy_and_check() {
 async function disable_Proxy_and_check() {
     try {
         console.log('Setting disable Proxy');
-        await client.system.update_phone_home_config({ // phone home configuration
-            proxy_address: null
+        await client.system.update_proxy_address({ // phone home configuration
+            address: null
         });
         const proxy_status = await get_Phonehome_proxy_status();
         const proxy_config = proxy_status.phone_home_config;

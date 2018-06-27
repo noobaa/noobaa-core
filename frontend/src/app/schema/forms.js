@@ -11,7 +11,8 @@ export default {
             'validatingAsync',
             'validated',
             'submitting',
-            'submitted'
+            'submitted',
+            'dropActions'
         ],
         properties: {
             fields: {
@@ -84,6 +85,12 @@ export default {
             },
             submitted: {
                 type: 'boolean'
+            },
+            dropActions: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
             }
         }
     }

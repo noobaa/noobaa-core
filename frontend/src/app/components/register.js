@@ -197,7 +197,7 @@ export default function register(ko) {
     ko.components.register('version-form',              require('./management/version-form/version-form').default);
     ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form').default);
     ko.components.register('maintenance-form'   ,       require('./management/maintenance-form/maintenance-form').default);
-    ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form').default);
+    ko.components.register('proxy-server-form',         require('./management/proxy-server-form/proxy-server-form').default);
     ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form').default);
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form').default);
     ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form').default);

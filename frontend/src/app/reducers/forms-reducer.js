@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { mapValues } from 'utils/core-utils';
+import { keyBy } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import {
     INIT_FORM,
@@ -11,7 +12,8 @@ import {
     SET_FORM_VALIDITY,
     SUBMIT_FORM,
     COMPLETE_SUBMIT_FORM,
-    DROP_FROM
+    DROP_FROM,
+    DROP_FROMS
 } from 'action-types';
 
 // ------------------------------
@@ -28,7 +30,8 @@ const initialFormState = {
     validatingAsync: null,
     validated: false,
     submitting: false,
-    submitted: false
+    submitted: false,
+    dropActions: []
 };
 
 // ------------------------------
@@ -36,7 +39,7 @@ const initialFormState = {
 // ------------------------------
 function onInitForm(forms, { payload }) {
     if (forms[payload.form]) return forms;
-
+    const dropActions = payload.dropActions || [];
     const fields = mapValues(
         payload.values,
         _initializeValue
@@ -46,7 +49,8 @@ function onInitForm(forms, { payload }) {
         ...forms,
         [payload.form]: {
             ...initialFormState,
-            fields
+            fields,
+            dropActions
         }
     };
 }
@@ -221,6 +225,18 @@ function onDropForm(forms, { payload }) {
     return other;
 }
 
+function onDropForms(forms, { payload }) {
+    const formsList = Object.entries(forms);
+    const filteredFormsList = formsList
+        .filter(([, form]) => !form.dropActions.includes(payload.actionType));
+
+    return keyBy(
+        filteredFormsList,
+        ([key]) => key,
+        ([, form]) => form
+    );
+}
+
 // ------------------------------
 // Local utils function
 // ------------------------------
@@ -266,6 +282,6 @@ export default createReducer(initialState, {
     [SET_FORM_VALIDITY]: onSetFormValidity,
     [SUBMIT_FORM]: onSubmitForm,
     [COMPLETE_SUBMIT_FORM]: onCompleteSubmitForm,
-    [DROP_FROM]: onDropForm
+    [DROP_FROM]: onDropForm,
+    [DROP_FROMS]: onDropForms
 });
-

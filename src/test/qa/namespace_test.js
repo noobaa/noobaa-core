@@ -82,7 +82,6 @@ const namespace_mapping = {
         pool: 'cloud-resource-azure',
         bucket1: 'container1',
         bucket2: 'container2',
-        bucket3: 'container3',
         namespace: 'azure-resource-namespace',
         gateway: 'azure-gateway-bucket'
     }

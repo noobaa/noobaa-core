@@ -32,8 +32,9 @@ class BucketFunctions {
 
     async createBucket(name) {
         try {
-            await this._client.bucket.create_bucket({ name });
+            let buck = await this._client.bucket.create_bucket({ name });
             await this.report_success(`Create_Bucket`);
+            return buck;
         } catch (err) {
             await this.report_fail(`Create_Bucket`);
             console.log('Create bucket ERR', err);
@@ -82,7 +83,7 @@ class BucketFunctions {
     }
 
 
-    async setQuotaBucket(server_ip, bucket_name, size, unit) {
+    async setQuotaBucket(bucket_name, size, unit) {
         console.log(`Setting quota ${size} ${unit} for bucket ${bucket_name}`);
         try {
             await this._client.bucket.update_bucket({
@@ -95,7 +96,7 @@ class BucketFunctions {
             await this.report_success(`Set_Quota_Bucket`);
         } catch (err) {
             await this.report_fail(`Set_Quota_Bucket`);
-            console.log(`${server_ip} FAILED setting quota bucket `, err);
+            console.log(`$FAILED setting quota bucket `, err);
             throw err;
         }
     }

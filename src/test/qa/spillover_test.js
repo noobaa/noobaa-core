@@ -417,7 +417,7 @@ async function wait_no_avilabe_space() {
 }
 
 async function check_quota() {
-    await bf.setQuotaBucket(server_ip, bucket, 1, 'GIGABYTE');
+    await bf.setQuotaBucket(bucket, 1, 'GIGABYTE');
     // Start writing and see that we are failing when we get into the quota
     await uploadFiles(1024, pool_files);
     await wait_no_avilabe_space(bucket);
@@ -434,7 +434,7 @@ async function check_quota_on_spillover() {
     const uploadSizeMB = Math.floor(available_space / 1024 / 1024);
     // Setting the quota so it will be on the spillover 
     console.log(`Setting quota to ${quota} GB, larger the the available space (${uploadSizeMB / 1024} GB)`);
-    await bf.setQuotaBucket(server_ip, bucket, quota, 'GIGABYTE');
+    await bf.setQuotaBucket(bucket, quota, 'GIGABYTE');
     // Start writing
     await uploadFiles(uploadSizeMB, pool_files);
     await wait_no_avilabe_space(bucket);

@@ -274,7 +274,7 @@ function upgrade_test_env() {
         return;
     }
     console.log(`upgrading server with package ${upgrade}`);
-    return sanity_build_test.upgrade_and_test(server.ip, upgrade, false)
+    return sanity_build_test.run_test(server.ip, upgrade, false)
         .catch(err => {
             console.error('upgrade_test_env failed', err);
             throw err;
@@ -282,7 +282,7 @@ function upgrade_test_env() {
         .then(() => {
             if (rerun_upgrade) {
                 console.log(`Got rerun_upgrade flag. running upgrade again from the new version to the same version (${upgrade})`);
-                return sanity_build_test.upgrade_and_test(server.ip, upgrade, true)
+                return sanity_build_test.run_test(server.ip, upgrade, true)
                     .catch(err => {
                         console.error(`Failed upgrading from the new version ${upgrade}`, err);
                         throw err;

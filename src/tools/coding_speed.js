@@ -23,10 +23,10 @@ require('../util/console_wrapper').original_console();
 argv.forks = argv.forks || 1;
 argv.size = argv.size || 10240;
 argv.encode = (argv.encode !== false); // default is true, use --no-encode for false
-argv.decode = argv.encode && (argv.decode !== false); // default is true, use --no-decode for false
-argv.erase = argv.decode && (argv.erase !== false); // default is true, use --no-erase for false
-argv.ec = (argv.ec !== false); // default is true, use --no-ec for false
-argv.md5 = (argv.md5 !== false); // default is true, use --no-md5 for false
+argv.decode = Boolean(argv.encode && argv.decode); // default is false, use --decode
+argv.erase = Boolean(argv.decode && (argv.erase !== false)); // default is true (if decode), use --no-erase for false
+argv.ec = Boolean(argv.ec); // default is false, use --ec
+argv.md5 = Boolean(argv.md5); // default is false, use --md5
 argv.sha256 = Boolean(argv.sha256); // default is false
 argv.compare = Boolean(argv.compare); // default is false
 argv.verbose = Boolean(argv.verbose); // default is false

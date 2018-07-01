@@ -17,6 +17,7 @@ const size_units_mult = {
 
 argv.sig = argv.sig || 's3';
 argv.time = argv.time || 0;
+argv.concur = argv.concur || 1;
 argv.forks = argv.forks || 1;
 argv.size = argv.size || 1;
 argv.size_units = argv.size_units || 'MB';
@@ -47,7 +48,7 @@ if (argv.help) {
     print_usage();
 } else if (argv.head) {
     op_func = head_object;
-    op_size = 1;
+    op_size = 0;
 } else if (argv.get) {
     op_func = get_object;
     op_size = data_size;
@@ -113,18 +114,19 @@ if (cluster.isMaster) {
     run_worker();
 }
 
-function run_master() {
+async function run_master() {
     if (argv.forks > 1) {
         for (let i = 0; i < argv.forks; i++) {
             const worker = cluster.fork();
             console.warn('WORKER', worker.process.pid, 'STARTED');
             worker.on('message', handle_message);
         }
-        cluster.on('exit', function(worker, code, signal) {
-            console.warn('WORKER', worker.process.pid, 'EXITED');
+        cluster.on('exit', (worker, code, signal) => {
+            console.warn('WORKER', worker.process.pid, 'EXITED', code, signal);
+            exit_all();
         });
     } else {
-        setImmediate(run_worker);
+        run_worker();
     }
 
     setInterval(run_reporter, 1000).unref();
@@ -160,24 +162,36 @@ function run_reporter() {
 
     if (now - start_time > argv.time * 1000) {
         console.warn('TEST DONE');
-        Object.keys(cluster.workers).forEach(w => cluster.workers[w].send('exit'));
-        process.exit();
+        exit_all();
     }
 }
 
-function handle_message(msg) {
-    op_lat_sum += msg.took_ms;
-    op_count += 1;
+function exit_all() {
+    Object.keys(cluster.workers).forEach(w => cluster.workers[w].send('exit'));
+    process.exit();
 }
 
-function run_worker() {
-    process.on('message', msg => {
-        if (msg === 'exit') process.exit();
-    });
-    const hrtime = process.hrtime();
-    Promise.resolve()
-        .then(op_func)
-        .then(() => {
+function handle_message(msg) {
+    if (msg === 'exit') {
+        process.exit();
+    } else if (msg.took_ms >= 0) {
+        op_lat_sum += msg.took_ms;
+        op_count += 1;
+    }
+}
+
+async function run_worker() {
+    process.on('message', handle_message);
+    for (let i = 0; i < argv.concur; ++i) {
+        setImmediate(run_worker_loop);
+    }
+}
+
+async function run_worker_loop() {
+    try {
+        for (;;) {
+            const hrtime = process.hrtime();
+            await op_func();
             const hrtook = process.hrtime(hrtime);
             const took_ms = (hrtook[0] * 1e-3) + (hrtook[1] * 1e-6);
             if (process.send) {
@@ -185,24 +199,23 @@ function run_worker() {
             } else {
                 handle_message({ took_ms });
             }
-            setImmediate(run_worker);
-        })
-        .catch(err => {
-            console.error('WORKER', cluster.worker.process.pid, 'ERROR', err.stack || err);
-            process.exit();
-        });
+        }
+    } catch (err) {
+        console.error('WORKER', cluster.worker.process.pid, 'ERROR', err.stack || err);
+        process.exit();
+    }
 }
 
-function head_object() {
+async function head_object() {
     return s3.headObject({ Key: argv.head }).promise();
 }
 
-function get_object() {
+async function get_object() {
     return new Promise((resolve, reject) => {
         s3.getObject({
-            Key: argv.get,
-            Range: `bytes=0-${data_size}`
-        })
+                Key: argv.get,
+                Range: `bytes=0-${data_size}`
+            })
             .createReadStream()
             .on('finish', resolve)
             .on('error', reject)
@@ -212,27 +225,27 @@ function get_object() {
     });
 }
 
-function put_object() {
+async function put_object() {
     const upload_key = argv.put + '-' + Date.now().toString(36);
     return s3.putObject({
-        Key: upload_key,
-        ContentLength: data_size,
-        Body: new RandStream(data_size, {
-            highWaterMark: 1024 * 1024,
+            Key: upload_key,
+            ContentLength: data_size,
+            Body: new RandStream(data_size, {
+                highWaterMark: 1024 * 1024,
+            })
         })
-    })
         .promise();
 }
 
-function upload_object() {
+async function upload_object() {
     const upload_key = argv.upload + '-' + Date.now().toString(36);
     return s3.upload({
-        Key: upload_key,
-        ContentLength: data_size,
-        Body: new RandStream(data_size, {
-            highWaterMark: 1024 * 1024,
-        })
-    }, {
+            Key: upload_key,
+            ContentLength: data_size,
+            Body: new RandStream(data_size, {
+                highWaterMark: 1024 * 1024,
+            })
+        }, {
             partSize: argv.part_size * 1024 * 1024,
             queueSize: argv.part_concur
         })
@@ -248,7 +261,8 @@ Usage:
   --put <key>            put (single) to key (key can be omited
   --upload <key>         upload (multipart) to key (key can be omited
 Upload Flags:
-  --file <path>          use source file from local path
+  --concur <num>         concurrent operations to run from each process (default is 1)
+  --forks <num>          number of forked processes to run (default is 1)
   --size <num>           generate random data of size (default 1)
   --size_units KB|MB|GB  generate random data of size_units (default MB)
   --part_size <MB>       multipart size

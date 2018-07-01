@@ -165,34 +165,44 @@ function _verify_upgrade_status(expected, failed, message) {
 /*
  * Fill local disk of the server to reach just below the min threshold for upgrade
  */
-async function _fill_local_disk() {
+function _fill_local_disk() {
     const MIN_MEMORY_FOR_UPGRADE_MB = 1200 * 1024 * 1024;
-    let system = await rpc_client.system.read_system();
-    let free_server_space = system.cluster.shards[0].servers[0].storage.free;
-    let size_to_write;
-    if (free_server_space - MIN_MEMORY_FOR_UPGRADE_MB > 0) {
-        size_to_write = (free_server_space - MIN_MEMORY_FOR_UPGRADE_MB) / 1024 / 1024; //Reach threshold
-        size_to_write += 200; //Go over the threshold a little bit
-        size_to_write = Math.floor(size_to_write);
-    } else {
-        //Already under the threshold
-        size_to_write = 1;
-    }
-    const params = {
-        ip: TEST_CFG.ip,
-        secret: TEST_CFG.secret,
-        sizeMB: size_to_write
-    };
-    console.log(`Filling ${(size_to_write / 1024).toFixed(2)}GB of server's local disk`);
-    await agent_functions.manipulateLocalDisk(params);
-    let retries = 0;
-    while (free_server_space > MIN_MEMORY_FOR_UPGRADE_MB && retries < 5) {
-        await P.delay(5000);
-        retries += 1;
-        system = await rpc_client.system.read_system();
-        free_server_space = system.cluster.shards[0].servers[0].storage.free;
-    }
-    if (retries === 5) throw new Error("For some reason local disk could not get filled! - stopping test");
+    return rpc_client.system.read_system()
+        .then(res => {
+            const free_server_space = res.cluster.shards[0].servers[0].storage.free;
+            let size_to_write;
+            if (free_server_space - MIN_MEMORY_FOR_UPGRADE_MB > 0) {
+                size_to_write = (free_server_space - MIN_MEMORY_FOR_UPGRADE_MB) / 1024 / 1024; //Reach threshold
+                size_to_write += 200; //Go over the threshold a little bit
+                size_to_write = Math.floor(size_to_write);
+            } else {
+                //Already under the threshold
+                size_to_write = 1;
+            }
+            const params = {
+                ip: TEST_CFG.ip,
+                secret: TEST_CFG.secret,
+                sizeMB: size_to_write
+            };
+            console.log(`Filling ${(size_to_write / 1024).toFixed(2)}GB of server's local fisk`);
+            return agent_functions.manipulateLocalDisk(params);
+        })
+        .delay(10000)
+        .then(() => {
+            let updated = false;
+            let retries = 0;
+            promise_utils.pwhile(() => !updated, () => rpc_client.system.read_system()
+                .then(res => {
+                    if (res.cluster.shards[0].servers[0].storage.free < MIN_MEMORY_FOR_UPGRADE_MB) {
+                        updated = true;
+                    } else {
+                        retries += 1;
+                        if (retries === 5) throw new Error("For some reason local disk could not get filled! - stopping test");
+                    }
+                })
+                .delay(5000)
+            );
+        });
 }
 
 /*

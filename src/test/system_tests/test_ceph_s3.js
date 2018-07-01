@@ -174,12 +174,8 @@ const S3_CEPH_TEST_BLACKLIST = [
     's3tests.functional.test_s3.test_object_copy_canned_acl',
     's3tests.functional.test_s3.test_multipart_copy_small',
     's3tests.functional.test_s3.test_multipart_copy_invalid_range',
-    's3tests.functional.test_s3.test_multipart_copy_special_names',
-    's3tests.functional.test_s3.test_multipart_copy_multiple_sizes',
     's3tests.functional.test_s3.test_multipart_upload_size_too_small',
-    's3tests.functional.test_s3.test_abort_multipart_upload',
-    's3tests.functional.test_s3.test_abort_multipart_upload_not_found',
-    's3tests.functional.test_s3.test_list_multipart_upload',
+    's3tests.functional.test_s3.test_abort_multipart_upload_not_found', // fails on ‘InternalError’ suppose to return ‘NoSuchUpload’
     's3tests.functional.test_s3.test_100_continue',
     's3tests.functional.test_s3.test_bucket_acls_changes_persistent',
     's3tests.functional.test_s3.test_stress_bucket_acls_changes',
@@ -213,16 +209,16 @@ const S3_CEPH_TEST_BLACKLIST = [
     's3tests.functional.test_s3.test_encryption',
     's3tests.functional.test_s3.test_sse_kms',
     's3tests.functional.test_s3.test_bucket_policy',
-    's3tests.functional.test_s3.test_get_obj_tagging',
-    's3tests.functional.test_s3.test_get_obj_head_tagging',
-    's3tests.functional.test_s3.test_put_max_tags',
-    's3tests.functional.test_s3.test_put_excess_tags',
-    's3tests.functional.test_s3.test_put_max_kvsize_tags',
-    's3tests.functional.test_s3.test_put_excess_key_tags',
-    's3tests.functional.test_s3.test_put_excess_val_tags',
-    's3tests.functional.test_s3.test_put_modify_tags',
-    's3tests.functional.test_s3.test_put_delete_tags',
-    's3tests.functional.test_s3.test_put_obj_with_tags',
+    's3tests.functional.test_s3.test_get_obj_tagging', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_get_obj_head_tagging', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_put_max_tags', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_put_excess_tags', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_put_max_kvsize_tags', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_put_excess_key_tags', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_put_excess_val_tags', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_put_modify_tags', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_put_delete_tags', // S3 TODO (NotImplemented) put_object_tagging
+    's3tests.functional.test_s3.test_put_obj_with_tags', // S3 TODO (NotImplemented) get_object_tagging
     's3tests.functional.test_s3.test_get_tags_acl_public',
     's3tests.functional.test_s3.test_put_tags_acl_public',
     's3tests.functional.test_s3.test_delete_tags_obj_public',

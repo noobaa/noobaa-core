@@ -76,11 +76,11 @@ function start_all() {
 
         process.on('message', params => {
             if (params.message === 'update_base_address') {
-                if (params.base_address) update_virtual_host_suffix(params.base_address);
+                update_virtual_host_suffix(params.base_address);
             } else if (params.message === 'location_info') {
-                if (params.location_info) update_location_info(params.location_info);
+                update_location_info(params.location_info);
             } else if (params.message === 'run_server') {
-                if (params.base_address) update_virtual_host_suffix(params.base_address);
+                update_virtual_host_suffix(params.base_address);
                 if (!waiting) {
                     dbg.warn(`got ssl certificates, but already running server 8-O`);
                     return;
@@ -335,15 +335,15 @@ function setup_http_server(server) {
 
 function update_virtual_host_suffix(base_address) {
     const suffix = base_address && url.parse(base_address).hostname;
-    if (net_utils.is_fqdn(suffix)) {
-        virtual_host_suffix = '.' + suffix;
-    } else {
-        virtual_host_suffix = undefined;
+    const new_virtual_suffix = net_utils.is_fqdn(suffix) ? '.' + suffix : undefined;
+    if (new_virtual_suffix !== virtual_host_suffix) {
+        virtual_host_suffix = new_virtual_suffix;
+        dbg.log0('The virtual host suffix of this agent was changed to this:', virtual_host_suffix, 'base_address', base_address);
     }
-    dbg.log0('The virtual host suffix of this agent was changed to this:', virtual_host_suffix);
 }
 
 function update_location_info(new_location_info) {
+    if (!new_location_info) return;
     const keys = Object.keys(location_info);
     for (const key of keys) delete location_info[key];
     Object.assign(location_info, new_location_info);

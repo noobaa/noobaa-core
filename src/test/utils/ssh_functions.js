@@ -56,7 +56,28 @@ function ssh_stick(client) {
     return ssh_exec(client, command);
 }
 
+function add_alias_ip(ip, alias_ip, password) {
+    let ssh_client;
+    console.log(`creating ssh connection to ${ip}, password: ${password}`);
+    return ssh_connect({
+            host: ip,
+            username: 'noobaaroot',
+            password,
+            keepaliveInterval: 5000,
+        })
+        .then(client => {
+            ssh_client = client;
+            console.log(`setting ${alias_ip} as ${ip}`);
+            return ssh_exec(ssh_client, `sudo bash -c "iptables -t nat -A OUTPUT -d ${alias_ip}  -j DNAT --to-destination ${ip}"`);
+        })
+        .then(() => {
+            console.log(`running service iptables save`);
+            return ssh_exec(ssh_client, `sudo bash -c "service iptables save"`);
+        });
+}
+
 exports.ssh_connect = ssh_connect;
 exports.ssh_disconnect = ssh_disconnect;
 exports.ssh_exec = ssh_exec;
 exports.ssh_stick = ssh_stick;
+exports.add_alias_ip = add_alias_ip;

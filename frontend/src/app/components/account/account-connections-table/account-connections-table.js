@@ -193,7 +193,8 @@ class AccountConnectionsTableViewModel extends Observer {
         action$.next(openAddCloudConnectionModal());
     }
 
-    onDeleteConnection(name) {
+    onDeleteConnection(id) {
+        const [name] = id.split(':');
         action$.next(deleteExternalConnection(name));
     }
 }

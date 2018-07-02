@@ -881,6 +881,22 @@ class AzureFunctions {
             });
     }
 
+    getMachinByIp(ip) {
+        return this.listVirtualMachines('', '')
+            .then(machines_in_rg => {
+                const machine_with_ip = [];
+                return P.map(machines_in_rg, machine => this.getIpAddress(machine + '_pip')
+                        .then(machine_ip => {
+                            if (machine_ip === ip) {
+                                console.log(machine);
+                                console.log(machine_ip);
+                                machine_with_ip.push(machine);
+                            }
+                        }))
+                    .then(() => machine_with_ip);
+            });
+    }
+
     getRandomMachine(prefix, status) {
         return this.listVirtualMachines(prefix, status)
             .then(machines => {

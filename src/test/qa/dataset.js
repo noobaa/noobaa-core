@@ -18,7 +18,7 @@ dbg.set_process_name(test_name);
 
 module.exports = {
     run_test: run_test,
-    init_parameters: init_parameters
+    init_parameters: init_parameters,
 };
 
 const TEST_CFG_DEFAULTS = {
@@ -34,6 +34,12 @@ const TEST_CFG_DEFAULTS = {
     file_size_high: 200, // maximum 200Mb
     dataset_size: 10, // DS of 10GB
     versioning: false,
+};
+
+const TEST_STATE_INITIAL = {
+    current_size: 0,
+    count: 0,
+    aging: false
 };
 
 const BASE_UNIT = 1024;
@@ -67,6 +73,7 @@ if (argv.help) {
 }
 
 let TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
+let TEST_STATE = Object.assign({}, TEST_STATE_INITIAL);
 update_dataset_sizes();
 
 let report = new Report();
@@ -166,12 +173,6 @@ function populate_random_selection() {
     Object.freeze(RANDOM_SELECTION);
 }
 populate_random_selection();
-
-let TEST_STATE = {
-    current_size: 0,
-    count: 0,
-    aging: false
-};
 
 /*********
  * UTILS
@@ -307,7 +308,8 @@ function set_fileSize() {
 
 //Should use versioning operation randomizer
 function should_use_versioning() {
-    return TEST_CFG.versioning ? Math.round(Math.random()) : 0;
+    //When no objects exists (first upload), can't use versioning
+    return (TEST_CFG.versioning && TEST_STATE.count) ? Math.round(Math.random()) : 0;
 }
 
 function get_random_file(skip_version_check) {
@@ -376,7 +378,7 @@ function upload_new_randomizer() {
         .then(() => {
             if (should_use_versioning()) {
                 console.log('Uploading a new version');
-                return get_random_file(true /*skip version check*/)
+                return get_random_file(true) /*skip version check*/
                     .then(res => res.filename);
             } else {
                 console.log('Uploading a new key');
@@ -406,33 +408,33 @@ function upload_new(params) {
                 if (TEST_STATE.aging) {
                     console.log(`running upload new - multi-part`);
                 } else {
-                    console.log(`Loading... currently uploaded
-                        ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired 
-                        ${TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
+                    console.log(`Loading... currently uploaded ${
+                        TEST_STATE.current_size} ${TEST_CFG.size_units} from desired ${
+                            TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
                 }
                 console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
                 return s3ops.upload_file_with_md5(
                         TEST_CFG.server_ip, TEST_CFG.bucket, params.file_name,
                         params.rand_size, params.rand_parts, TEST_CFG.data_multiplier)
                     .then(res => {
-                        console.log(`file multi-part uploaded was
-                            ${params.file_name} with ${params.rand_parts} parts`);
+                        console.log(`file multi-part uploaded was ${
+                            params.file_name} with ${params.rand_parts} parts`);
                         TEST_STATE.current_size += params.rand_size;
                         TEST_STATE.count += 1;
                     });
             } else {
-                console.warn(`size parts are
-                    ${params.rand_size / params.rand_parts}
-                    , parts must be larger then 5MB, skipping upload overwrite - multi-part`);
+                console.warn(`size parts are ${
+                    params.rand_size / params.rand_parts
+                }, parts must be larger then 5MB, skipping upload overwrite - multi-part`);
             }
             // running put new
         } else {
             if (TEST_STATE.aging) {
                 console.log(`running upload new`);
             } else {
-                console.log(`Loading... currently uploaded 
-                    ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired 
-                    ${TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
+                console.log(`Loading... currently uploaded ${
+                    TEST_STATE.current_size} ${TEST_CFG.size_units} from desired ${
+                        TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
             }
             console.log(`uploading ${params.file_name} with size: ${params.rand_size}${TEST_CFG.size_units}`);
             return s3ops.put_file_with_md5(TEST_CFG.server_ip, TEST_CFG.bucket,
@@ -669,6 +671,7 @@ function run_delete(params) {
  * MAIN
  *********/
 function init_parameters(params) {
+    TEST_STATE = Object.assign({}, TEST_STATE_INITIAL);
     TEST_CFG = _.defaults(_.pick(params, _.keys(TEST_CFG)), TEST_CFG);
     update_dataset_sizes();
 
@@ -688,13 +691,13 @@ function run_test() {
                 }
                 return promise_utils.pwhile(() =>
                     (TEST_CFG.aging_timeout === 0 || ((Date.now() - start) / (60 * 1000)) < TEST_CFG.aging_timeout), () => {
-                        console.log(`Aging... currently uploaded ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired 
-                        ${TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
+                        console.log(`Aging... currently uploaded ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired ${
+                            TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
                         let action_type;
                         if (TEST_STATE.current_size > TEST_CFG.dataset_size) {
-                            console.log(`${Yellow}the current dataset size is
-                                ${TEST_STATE.current_size}${TEST_CFG.size_units} and the reqested dataset size is
-                                ${TEST_CFG.dataset_size}${TEST_CFG.size_units}, going to delete${NC}`);
+                            console.log(`${Yellow}the current dataset size is ${
+                                TEST_STATE.current_size}${TEST_CFG.size_units} and the reqested dataset size is ${
+                                    TEST_CFG.dataset_size}${TEST_CFG.size_units}, going to delete${NC}`);
                             action_type = 'DELETE';
                         } else {
                             action_type = 'RANDOM';
@@ -703,16 +706,10 @@ function run_test() {
                             .then(() => act_and_log(action_type));
                     });
             })
-            .then(() => report.print_report())
-            .then(() => {
-                console.log(`Everything finished with success!`);
-                process.exit(0);
+            .then(() => console.log(`Dataset finished successfully`))
+            .catch(err => {
+                throw new Error(`Errors during test`, err);
             })
-            .catch(err => report.print_report()
-                .then(() => {
-                    console.error(`Errors during test`, err);
-                    process.exit(4);
-                }))
         );
 }
 
@@ -783,16 +780,17 @@ function main() {
             if (argv.replay) {
                 return run_replay();
             } else {
-                return run_test();
+                return run_test()
+                    .then(() => report.print_report());
             }
         })
-        .then(() => {
-            process.exit(0);
-        })
-        .catch(err => {
-            console.warn('error while running test ', err);
-            process.exit(6);
-        });
+        .then(() => report.print_report()
+            .then(() => process.exit(0)))
+        .catch(err => report.print_report()
+            .then(() => {
+                console.warn('error while running test ', err);
+                process.exit(6);
+            }));
 }
 
 if (require.main === module) {

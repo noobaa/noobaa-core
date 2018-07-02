@@ -311,7 +311,9 @@ class S3OPS {
             });
     }
 
-    get_list_files(ip, bucket, prefix, supress_logs) {
+    get_list_files(ip, bucket, prefix, param = { supress_logs: false, maxKeys: 1000 }) {
+        const supress_logs = param.supress_logs;
+        const MaxKeys = param.maxKeys;
         const rest_endpoint = 'http://' + ip + ':' + port;
         const s3bucket = new AWS.S3({
             endpoint: rest_endpoint,
@@ -323,6 +325,7 @@ class S3OPS {
         let params = {
             Bucket: bucket,
             Prefix: prefix,
+            MaxKeys,
         };
         let list = [];
         let listFiles = [];

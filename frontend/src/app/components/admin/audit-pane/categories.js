@@ -148,6 +148,11 @@ export default {
                 entityId: ({ bucket }) => bucket && bucket.name
             },
 
+            versioning: {
+                message: 'Bucket Versioning Updated',
+                entityId: ({ bucket }) => bucket && bucket.name
+            },
+
             spillover: {
                 message: 'Bucket Spillover Configuration',
                 entityId: ({ bucket }) => bucket && bucket.name

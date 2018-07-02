@@ -331,14 +331,7 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         single_bucket_update.tiering = tiering_policy._id;
     }
     if (update_request.versioning) {
-        if (update_request.versioning === 'DISABLED') {
-            throw new RpcError('BAD_REQUEST', 'Cannot set versioning to DISABLED');
-        }
-        if (bucket.namespace) {
-            throw new RpcError('BAD_REQUEST', 'Cannot set versioning on namespace buckets');
-        }
-
-        single_bucket_update.versioning = update_request.versioning;
+        get_bucket_changes_versioning(req, bucket, update_request, single_bucket_update, changes);
     }
 
     if (!_.isUndefined(quota)) {
@@ -350,6 +343,27 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
     }
 
     return changes;
+}
+
+function get_bucket_changes_versioning(req, bucket, update_request, single_bucket_update, changes) {
+    const versioning_event = {
+        event: 'bucket.versioning',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        bucket: bucket._id,
+        desc: `Bucket versioning was changed from ${bucket.versioning} to ${update_request.versioning}`
+    };
+
+    if (update_request.versioning === 'DISABLED') {
+        throw new RpcError('BAD_REQUEST', 'Cannot set versioning to DISABLED');
+    }
+    if (bucket.namespace) {
+        throw new RpcError('BAD_REQUEST', 'Cannot set versioning on namespace buckets');
+    }
+
+    single_bucket_update.versioning = update_request.versioning;
+    changes.events.push(versioning_event);
 }
 
 function get_bucket_changes_namespace(req, bucket, update_request, single_bucket_update) {

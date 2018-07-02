@@ -208,9 +208,9 @@ class TestRunner {
             if (res.success) {
                 console.log(`===PASSED=== ${res.name} passed`);
             } else if (res.ignored) {
-                console.warn(`==FAILED=== ${res.name} failed - Result ignored`);
+                console.warn(`===FAILED-IGNORED=== ${res.name} failed - Result ignored`);
             } else {
-                console.error(`=FAILED=== ${res.name} failed!`);
+                console.error(`===FAILED=== ${res.name} failed!`);
             }
         }
     }

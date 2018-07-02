@@ -112,6 +112,7 @@ export default class ConnectionRowViewModel {
     onConnection(connection, buckets, namespaceBuckets, system, isExpanded) {
         const { name, service, endpoint, identity, usage } = connection;
         const bucketsList = Object.values(buckets);
+        const id = `${name}:${service}`;
         const namespaceBucketsList = Object.values(namespaceBuckets);
         const hasExternalConnections = Boolean(usage.length);
         const { icon, displayName, subject } = getCloudServiceMeta(service);
@@ -156,7 +157,7 @@ export default class ConnectionRowViewModel {
         this.endpoint(endpointInfo);
         this.identity(identity);
         this.externalTargets(externalTargetsInfo);
-        this.deleteButton.id(name);
+        this.deleteButton.id(id);
         this.deleteButton.disabled(hasExternalConnections);
         this.deleteButton.tooltip(deleteToolTip);
         this._isExpanded(isExpanded);

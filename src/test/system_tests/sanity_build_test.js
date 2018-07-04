@@ -63,11 +63,13 @@ async function main() {
     process.exit(0);
 }
 
-async function run_test(target_ip, upgrade_pack, dont_verify_version) {
+async function run_test(target_ip, upgrade_pack, dont_verify_version, skip_configuration) {
     await init_test(target_ip);
 
     try {
-        await create_configuration();
+        if (!skip_configuration) {
+            await create_configuration();
+        }
     } catch (error) {
         console.warn('Caught', error);
         stop();

@@ -45,7 +45,8 @@ const {
     num_agents = oses.length,
     help,
     min_required_agents = 7,
-    vm_size = 'B'
+    vm_size = 'B',
+    skip_configuration = false,
 } = argv;
 
 dbg.set_process_name('test_env_builder');
@@ -274,7 +275,7 @@ function upgrade_test_env() {
         return;
     }
     console.log(`upgrading server with package ${upgrade}`);
-    return sanity_build_test.run_test(server.ip, upgrade, false)
+    return sanity_build_test.run_test(server.ip, upgrade, false, skip_configuration)
         .catch(err => {
             console.error('upgrade_test_env failed', err);
             throw err;
@@ -282,7 +283,7 @@ function upgrade_test_env() {
         .then(() => {
             if (rerun_upgrade) {
                 console.log(`Got rerun_upgrade flag. running upgrade again from the new version to the same version (${upgrade})`);
-                return sanity_build_test.run_test(server.ip, upgrade, true)
+                return sanity_build_test.run_test(server.ip, upgrade, true, true /*skip configuration*/)
                     .catch(err => {
                         console.error(`Failed upgrading from the new version ${upgrade}`, err);
                         throw err;
@@ -395,6 +396,7 @@ Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storag
   --shell_script              shell script to run after env is ready
   --skip_agent_creation       do not create new agents
   --skip_server_creation      do not create a new server, --server_ip and --server_secret must be supplied
+  --skip_configuration        do not create configuration 
   --create_lg                 create lg
   --lg_ip                     existing lg ip
   --server_external_ip        running with the server external ip (default: internal)

@@ -253,11 +253,11 @@ function create_system(req) {
                 return;
             }
             return attempt_server_resolve(_.defaults({
-                    rpc_params: {
-                        server_name: req.rpc_params.dns_name,
-                        version_check: true
-                    }
-                }, req))
+                rpc_params: {
+                    server_name: req.rpc_params.dns_name,
+                    version_check: true
+                }
+            }, req))
                 .then(result => {
                     if (!result.valid) {
                         throw new Error('Could not resolve ' + req.rpc_params.dns_name +
@@ -296,62 +296,79 @@ function create_system(req) {
             });
             return system_store.make_changes(changes);
         })
-        .then(() => server_rpc.client.account.create_account({
-            //Create the owner account
-            name: req.rpc_params.name,
-            email: req.rpc_params.email,
-            password: req.rpc_params.password,
-            has_login: true,
-            s3_access: true,
-            new_system_parameters: {
-                account_id: account._id.toString(),
-                new_system_id: system_id.toString(),
-                default_pool: default_pool.toString(),
-                allowed_buckets: { full_permission: true },
-            },
-        }))
-        .then(response => {
+        .then(async () => {
+            const response = await server_rpc.client.account.create_account({
+                //Create the owner account
+                name: req.rpc_params.name,
+                email: req.rpc_params.email,
+                password: req.rpc_params.password,
+                has_login: true,
+                s3_access: true,
+                new_system_parameters: {
+                    account_id: account._id.toString(),
+                    new_system_id: system_id.toString(),
+                    default_pool: default_pool.toString(),
+                    allowed_buckets: { full_permission: true },
+                },
+            });
             reply_token = response.token;
 
+            await _ensure_spillover_structure(system_id, default_bucket);
+
             //Time config, if supplied
-            if (!req.rpc_params.time_config ||
-                (ntp_configured && !req.rpc_params.time_config.ntp_server)) {
-                return;
+            if (req.rpc_params.time_config &&
+                ntp_configured &&
+                req.rpc_params.time_config.ntp_server) {
+                let time_config = req.rpc_params.time_config;
+                time_config.target_secret = owner_secret;
+                try {
+                    await server_rpc.client.cluster_server.update_time_config(time_config, {
+                        auth_token: reply_token
+                    });
+                } catch (err) {
+                    dbg.error('Failed updating time config during create system', err);
+                }
             }
-            let time_config = req.rpc_params.time_config;
-            time_config.target_secret = owner_secret;
-            return server_rpc.client.cluster_server.update_time_config(time_config, {
-                auth_token: reply_token
-            });
-        })
-        .then(() => {
+
             //DNS servers, if supplied
-            if (_.isEmpty(req.rpc_params.dns_servers)) return;
-            return server_rpc.client.cluster_server.update_dns_servers({
-                target_secret: owner_secret,
-                dns_servers: req.rpc_params.dns_servers
-            }, {
-                auth_token: reply_token
-            });
-        })
-        .then(() => {
+            if (!_.isEmpty(req.rpc_params.dns_servers)) {
+                try {
+                    await server_rpc.client.cluster_server.update_dns_servers({
+                        target_secret: owner_secret,
+                        dns_servers: req.rpc_params.dns_servers
+                    }, {
+                        auth_token: reply_token
+                    });
+                } catch (err) {
+                    dbg.error('Failed updating dns server during create system', err);
+                }
+            }
+
             //DNS name, if supplied
-            if (!req.rpc_params.dns_name) return;
-            return server_rpc.client.system.update_hostname({
-                hostname: req.rpc_params.dns_name
-            }, {
-                auth_token: reply_token
-            });
+            if (req.rpc_params.dns_name) {
+                try {
+                    await server_rpc.client.system.update_hostname({
+                        hostname: req.rpc_params.dns_name
+                    }, {
+                        auth_token: reply_token
+                    });
+                } catch (err) {
+                    dbg.error('Failed updating hostname during create system', err);
+                }
+            }
+
+            if (process.env.PH_PROXY) {
+                try {
+                    await server_rpc.client.system.update_phone_home_config({
+                        proxy_address: process.env.PH_PROXY
+                    }, {
+                        auth_token: reply_token
+                    });
+                } catch (err) {
+                    dbg.error('Failed updating phone home config during create system', err);
+                }
+            }
         })
-        .then(() => {
-            if (!process.env.PH_PROXY) return;
-            return server_rpc.client.system.update_phone_home_config({
-                proxy_address: process.env.PH_PROXY
-            }, {
-                auth_token: reply_token
-            });
-        })
-        .then(() => _ensure_spillover_structure(system_id, default_bucket))
         .then(() => _init_system(system_id))
         .then(() => system_utils.mongo_wrapper_system_created())
         .then(() => ({

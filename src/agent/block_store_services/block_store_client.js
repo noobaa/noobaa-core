@@ -68,8 +68,9 @@ class BlockStoreClient {
                         block_key,
                         data, { metadata },
                         callback))
-                    .catch(error => {
-                        dbg.error('encountered error on _delegate_write_block_azure:', error);
+                    .catch(err => {
+                        dbg.error('encountered error on _delegate_write_block_azure:', err);
+                        const error = _.pick(err, 'message', 'code');
                         return rpc_client.block_store.handle_delegator_error({ error, usage }, options);
                     });
             })
@@ -94,14 +95,19 @@ class BlockStoreClient {
                             disableContentMD5Validation: true
                         },
                         callback))
-                    .catch(error => {
-                        dbg.error('encountered error on _delegate_read_block_azure:', error);
+                    .catch(err => {
+                        dbg.error('encountered error on _delegate_read_block_azure:', err);
+                        const error = _.pick(err, 'message', 'code');
                         return rpc_client.block_store.handle_delegator_error({ error }, options);
                     })
-                    .then(info => ({
-                        [RPC_BUFFERS]: { data: buffer_utils.join(writable.buffers, writable.total_length) },
-                        block_md: JSON.parse(Buffer.from(info.metadata.noobaablockmd || info.metadata.noobaa_block_md, 'base64'))
-                    }));
+                    .then(info => {
+                        const noobaablockmd = info.metadata.noobaablockmd || info.metadata.noobaa_block_md;
+                        const store_block_md = JSON.parse(Buffer.from(noobaablockmd, 'base64'));
+                        return {
+                            [RPC_BUFFERS]: { data: buffer_utils.join(writable.buffers, writable.total_length) },
+                            block_md: store_block_md,
+                        };
+                    });
             })
             .timeout(timeout);
     }
@@ -117,14 +123,16 @@ class BlockStoreClient {
                 const {
                     usage,
                     signed_url,
+                    disable_delegation,
+                    // disable_metadata,
                     s3_params,
                     write_params,
                     proxy
                 } = await rpc_client.block_store.delegate_write_block({ block_md, data_length: data.length }, options);
 
                 try {
-                    if (s3_params) {
-                        if (!write_params) {
+                    if (disable_delegation) {
+                        if (!s3_params || !write_params) {
                             throw new Error('expected delegate_write_block to return write_params');
                         }
                         dbg.log1('got s3_params from block_store. writing using S3 sdk. s3_params =',
@@ -152,8 +160,9 @@ class BlockStoreClient {
                         }
 
                     }
-                } catch (error) {
-                    dbg.error('encountered error on _delegate_write_block_s3:', error);
+                } catch (err) {
+                    dbg.error('encountered error on _delegate_write_block_s3:', err);
+                    const error = _.pick(err, 'message', 'code');
                     return rpc_client.block_store.handle_delegator_error({ error, usage }, options);
                 }
 
@@ -169,6 +178,8 @@ class BlockStoreClient {
                 const delegation_info = await rpc_client.block_store.delegate_read_block({ block_md: params.block_md }, options);
                 const {
                     cached_data,
+                    disable_delegation,
+                    disable_metadata,
                     s3_params,
                     read_params,
                     signed_url,
@@ -183,22 +194,23 @@ class BlockStoreClient {
                 }
 
                 try {
-                    if (s3_params) {
-                        dbg.log1('got s3_params from block_store. reading using S3 sdk. s3_params =',
-                            _.omit(s3_params, 'secretAccessKey'));
-
-                        if (!read_params) {
+                    if (disable_delegation) {
+                        if (!s3_params || !read_params) {
                             throw new Error('expected delegate_read_block to return read_params');
                         }
+                        dbg.log1('got s3_params from block_store. reading using S3 sdk. s3_params =',
+                            _.omit(s3_params, 'secretAccessKey'));
 
                         s3_params.httpOptions = { agent: http_utils.get_unsecured_http_agent(s3_params.endpoint, proxy) };
                         const s3 = new AWS.S3(s3_params);
 
                         const data = await s3.getObject(read_params).promise();
                         const noobaablockmd = data.Metadata.noobaablockmd || data.Metadata.noobaa_block_md;
+                        const store_block_md = disable_metadata ? params.block_md :
+                            JSON.parse(Buffer.from(noobaablockmd, 'base64'));
                         return {
                             [RPC_BUFFERS]: { data: data.Body },
-                            block_md: JSON.parse(Buffer.from(noobaablockmd, 'base64'))
+                            block_md: store_block_md,
                         };
                     } else {
                         const req_options = {
@@ -220,9 +232,11 @@ class BlockStoreClient {
                             const noobaablockmd =
                                 res.headers['x-amz-meta-noobaablockmd'] ||
                                 res.headers['x-amz-meta-noobaa_block_md'];
+                            const store_block_md = disable_metadata ? params.block_md :
+                                JSON.parse(Buffer.from(noobaablockmd, 'base64'));
                             const ret = {
                                 [RPC_BUFFERS]: { data: body },
-                                block_md: JSON.parse(Buffer.from(noobaablockmd, 'base64'))
+                                block_md: store_block_md,
                             };
                             return ret;
 
@@ -232,8 +246,9 @@ class BlockStoreClient {
                         }
                     }
 
-                } catch (error) {
-                    dbg.error('encountered error on _delegate_read_block_s3:', error);
+                } catch (err) {
+                    dbg.error('encountered error on _delegate_read_block_s3:', err);
+                    const error = _.pick(err, 'message', 'code');
                     return rpc_client.block_store.handle_delegator_error({ error }, options);
                 }
             })

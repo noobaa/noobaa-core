@@ -46,6 +46,8 @@ class BlockStoreS3 extends BlockStoreBase {
                 region: DEFAULT_REGION
             });
         } else {
+            this.disable_delegation = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION;
+            this.disable_metadata = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA;
             this.s3cloud = new AWS.S3({
                 endpoint: endpoint,
                 s3ForcePathStyle: true,
@@ -61,27 +63,25 @@ class BlockStoreS3 extends BlockStoreBase {
 
     }
 
-    init() {
-        let params = {
-            Bucket: this.cloud_info.target_bucket,
-            Key: this.usage_path
-        };
-
-        return P.ninvoke(this.s3cloud, 'headObject', params)
-            .then(head => {
-                let usage_data = head.Metadata[this.usage_md_key];
-                if (usage_data) {
-                    this._usage = this._decode_block_md(usage_data);
-                    dbg.log0('found usage data in', this.usage_path, 'usage_data = ', this._usage);
-                }
-            }, err => {
-                if (err.code === 'NotFound') {
-                    // first time init, continue without usage info
-                    dbg.log0('BlockStoreS3 init: no usage path');
-                } else {
-                    dbg.error('got error on init:', err);
-                }
-            });
+    async init() {
+        try {
+            const res = await this.s3cloud.getObject({
+                Bucket: this.cloud_info.target_bucket,
+                Key: this.usage_path,
+            }).promise();
+            const usage_data = this.disable_metadata ? res.Body.toString() : res.Metadata[this.usage_md_key];
+            if (usage_data && usage_data.length) {
+                this._usage = this._decode_block_md(usage_data);
+                dbg.log0('found usage data in', this.usage_path, 'usage_data = ', this._usage);
+            }
+        } catch (err) {
+            if (err.code === 'NotFound') {
+                // first time init, continue without usage info
+                dbg.log0('BlockStoreS3 init: no usage path');
+            } else {
+                dbg.error('got error on init:', err);
+            }
+        }
     }
 
     async _read_block_for_verification(block_md) {
@@ -90,7 +90,8 @@ class BlockStoreS3 extends BlockStoreBase {
             Key: this._block_key(block_md.id),
         }).promise();
         const store_md5 = block_info.ETag.toUpperCase();
-        const store_block_md = this._decode_block_md(block_info.Metadata.noobaablockmd || block_info.Metadata.noobaa_block_md);
+        const store_block_md = this.disable_metadata ? block_md :
+            this._decode_block_md(block_info.Metadata.noobaablockmd || block_info.Metadata.noobaa_block_md);
         return {
             block_md: store_block_md,
             store_md5
@@ -125,12 +126,12 @@ class BlockStoreS3 extends BlockStoreBase {
             Key: this._block_key(block_md.id),
         };
 
-        if (!cloud_utils.is_aws_endpoint(this.cloud_info.endpoint) &&
-            config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_SIGNED_URL) {
+        if (this.disable_delegation) {
             // if S3 compatible does not support signed urls we return access\secret instead
-            // this is experimental, and not meant for normal use
             const endpoint = this.cloud_info.endpoint;
             return {
+                disable_delegation: this.disable_delegation,
+                disable_metadata: this.disable_metadata,
                 s3_params: {
                     endpoint: endpoint,
                     s3ForcePathStyle: true,
@@ -150,11 +151,8 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     _delegate_write_block(block_md, data_length) {
-        const encoded_md = this._encode_block_md(block_md);
+        const encoded_md = this.disable_metadata ? '' : this._encode_block_md(block_md);
         const block_key = this._block_key(block_md.id);
-        const metadata = {
-            noobaablockmd: encoded_md
-        };
 
         const usage = data_length ? {
             size: data_length + encoded_md.length,
@@ -166,15 +164,15 @@ class BlockStoreS3 extends BlockStoreBase {
         const params = {
             Bucket: this.cloud_info.target_bucket,
             Key: block_key,
-            Metadata: metadata
+            Metadata: this.disable_metadata ? undefined : { noobaablockmd: encoded_md },
         };
 
-        if (!cloud_utils.is_aws_endpoint(this.cloud_info.endpoint) &&
-            config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_SIGNED_URL) {
+        if (this.disable_delegation) {
             // if S3 compatible does not support signed urls we return access\secret instead
-            // this is experimental, and not meant for normal use
             const endpoint = this.cloud_info.endpoint;
             return {
+                disable_delegation: this.disable_delegation,
+                disable_metadata: this.disable_metadata,
                 s3_params: {
                     endpoint: endpoint,
                     s3ForcePathStyle: true,
@@ -198,58 +196,55 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
 
-    _read_block(block_md) {
-        return P.ninvoke(this.s3cloud, 'getObject', {
+    async _read_block(block_md) {
+        try {
+            const res = await this.s3cloud.getObject({
                 Bucket: this.cloud_info.target_bucket,
                 Key: this._block_key(block_md.id),
-            })
-            .then(data => ({
-                data: data.Body,
-                block_md: this._decode_block_md(data.Metadata.noobaablockmd || data.Metadata.noobaa_block_md)
-            }))
-            .catch(err => {
-                dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
-                if (err.code === 'NoSuchBucket') {
-                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
-                } else if (err.code === 'AccessDenied') {
-                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
-                }
-                throw err;
-            });
+            }).promise();
+            const store_block_md = this.disable_metadata ? block_md :
+                this._decode_block_md(res.Metadata.noobaablockmd || res.Metadata.noobaa_block_md);
+            return {
+                data: res.Body,
+                block_md: store_block_md,
+            };
+        } catch (err) {
+            dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
+            if (err.code === 'NoSuchBucket') {
+                throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+            } else if (err.code === 'AccessDenied') {
+                throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
+            }
+            throw err;
+        }
     }
 
-    _write_block(block_md, data, options) {
-        let encoded_md;
-        let params = {
-            Bucket: this.cloud_info.target_bucket,
-            Key: this._block_key(block_md.id),
-        };
-        dbg.log3('writing block id to cloud: ', params.Key);
-        //  write block + md to cloud
-        encoded_md = this._encode_block_md(block_md);
-        params.Metadata = {
-            noobaablockmd: encoded_md
-        };
-        params.Body = data;
-        return this._put_object(params)
-            .then(() => {
-                if (options && options.ignore_usage) return;
-                // return usage count for the object
-                let usage = {
-                    size: data.length + encoded_md.length,
-                    count: 1
-                };
-                return this._update_usage(usage);
-            })
-            .catch(err => {
-                dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
-                if (err.code === 'NoSuchBucket') {
-                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
-                } else if (err.code === 'AccessDenied') {
-                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
-                }
-                throw err;
+    async _write_block(block_md, data, options) {
+        try {
+            const block_key = this._block_key(block_md.id);
+            const encoded_md = this.disable_metadata ? '' : this._encode_block_md(block_md);
+            dbg.log3('writing block id to cloud:', block_key);
+            await this._put_object({
+                Bucket: this.cloud_info.target_bucket,
+                Key: block_key,
+                Body: data,
+                Metadata: this.disable_metadata ? undefined : { noobaablockmd: encoded_md },
             });
+            if (options && options.ignore_usage) return;
+            // return usage count for the object
+            return this._update_usage({
+                size: data.length + encoded_md.length,
+                count: 1
+            });
+        } catch (err) {
+            dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
+            if (err.code === 'NoSuchBucket') {
+                throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+            } else if (err.code === 'AccessDenied') {
+                throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
+            }
+            throw err;
+        }
     }
 
     _handle_delegator_error(err, usage) {
@@ -262,26 +257,29 @@ class BlockStoreS3 extends BlockStoreBase {
         } else if (err.code === 'AccessDenied') {
             throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
         }
-        throw err;
+        throw new Error(err.message || 'unknown error');
     }
 
-    _write_usage_internal() {
-        let usage_data = this._encode_block_md(this._usage);
-        let params = {
+    async _write_usage_internal() {
+        const usage_data = this._encode_block_md(this._usage);
+        return this._put_object({
             Bucket: this.cloud_info.target_bucket,
             Key: this.usage_path,
-            Metadata: {}
-        };
-        params.Metadata[this.usage_md_key] = usage_data;
-        return this._put_object(params);
+            Body: this.disable_metadata ? usage_data : undefined,
+            Metadata: this.disable_metadata ? undefined : {
+                [this.usage_md_key]: usage_data
+            },
+        });
     }
 
-    _put_object(params) {
-        return P.ninvoke(this.s3cloud, 'putObject', params)
-            .catch(err => {
-                dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
-                throw err;
-            });
+    async _put_object(params) {
+        try {
+            const res = await this.s3cloud.putObject(params);
+            return res;
+        } catch (err) {
+            dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
+            throw err;
+        }
     }
 
     _delete_blocks(block_ids) {

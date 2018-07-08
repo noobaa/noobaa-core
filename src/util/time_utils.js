@@ -64,6 +64,21 @@ function parse_amz_date(str) {
     return Date.parse(iso);
 }
 
+function format_time_duration(millis, show_millis) {
+    const secs = Math.floor(millis / 1000 % 60);
+    const mins = Math.floor(millis / 60000 % 60);
+    const hours = Math.floor(millis / 3600000);
+    const secs_str = '00'.slice(secs.toString().length) + secs;
+    const mins_str = '00'.slice(mins.toString().length) + mins;
+    const hours_str = '00'.slice(hours.toString().length) + hours;
+    if (show_millis) {
+        const ms = Math.floor(millis % 1000);
+        const ms_str = '000'.slice(ms.toString().length) + ms;
+        return `${hours_str}:${mins_str}:${secs_str}.${ms_str}`;
+    }
+    return `${hours_str}:${mins_str}:${secs_str}`;
+}
+
 
 exports.millistamp = millistamp;
 exports.microstamp = microstamp;
@@ -74,3 +89,4 @@ exports.sectook = sectook;
 exports.format_http_header_date = format_http_header_date;
 exports.parse_http_header_date = parse_http_header_date;
 exports.parse_amz_date = parse_amz_date;
+exports.format_time_duration = format_time_duration;

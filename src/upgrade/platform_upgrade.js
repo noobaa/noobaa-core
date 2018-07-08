@@ -13,6 +13,7 @@ const fs_utils = require('../util/fs_utils');
 const dotenv = require('../util/dotenv');
 const os_utils = require('../util/os_utils');
 const supervisor = require('../server/utils/supervisor_ctrl');
+const mongo_client = require('../util/mongo_client');
 
 const EXTRACTION_PATH = '/tmp/test';
 const CORE_DIR = '/root/node_modules/noobaa-core';
@@ -220,6 +221,47 @@ async function set_new_node_version(ver) {
     }
 }
 
+async function update_npm_version() {
+    const REQUIRED_NPM_VERSION = '6.1.0';
+    const npm_version = await promise_utils.exec(`source /root/.nvm/nvm.sh && npm --version`, {
+        ignore_rc: false,
+        return_stdout: true,
+        trim_stdout: true
+    });
+    if (version_compare(npm_version, REQUIRED_NPM_VERSION) < 0) {
+        dbg.log0(`UPGRADE: npm version is ${npm_version}. upgrading to ${REQUIRED_NPM_VERSION}`);
+        const npm_update = await promise_utils.exec(`source /root/.nvm/nvm.sh && npm install -g npm@${REQUIRED_NPM_VERSION}`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        });
+        dbg.log0('npm update returned', npm_update);
+    } else {
+        dbg.log0(`UPGRADE: npm version is ${npm_version}. no need to upgrade`);
+    }
+}
+
+async function update_nvm_version() {
+    const REQUIRED_NVM_VERSION = '0.33.11';
+    const nvm_version = await promise_utils.exec(`source /root/.nvm/nvm.sh && nvm --version`, {
+        ignore_rc: false,
+        return_stdout: true,
+        trim_stdout: true
+    });
+    if (version_compare(nvm_version, REQUIRED_NVM_VERSION) < 0) {
+        dbg.log0(`UPGRADE: nvm version is ${nvm_version}. upgrading to ${REQUIRED_NVM_VERSION}`);
+        const nvm_update = await promise_utils.exec(
+            `curl -o- https://raw.githubusercontent.com/creationix/nvm/v${REQUIRED_NVM_VERSION}/install.sh | bash`, {
+                ignore_rc: false,
+                return_stdout: true,
+                trim_stdout: true
+            });
+        dbg.log0('nvm update returned', nvm_update);
+    } else {
+        dbg.log0(`UPGRADE: nvm version is ${nvm_version}. no need to upgrade`);
+    }
+}
+
 async function update_node_version() {
 
     let old_nodever;
@@ -268,6 +310,8 @@ async function update_node_version() {
 async function platform_upgrade_init() {
     if (!should_upgrade_platform()) return;
 
+    await update_npm_version();
+    await update_nvm_version();
     await update_node_version();
 }
 
@@ -329,6 +373,7 @@ async function _create_packages_md5() {
     dbg.log0(`UPGRADE: creating a hash file for both linux/windows upgrade packs: ${linux_md5_string}/${win_md5_string}`);
 }
 
+
 async function update_services() {
     // TODO: implement a good way to add\remove\update services from supervisor conf file without overriding
     // other changes (e.g. when creating a cluster we change noobaa_supervisor.conf)
@@ -336,9 +381,64 @@ async function update_services() {
 }
 
 async function upgrade_mongodb_version(params) {
-    // TODO: we should identify if mongodb should be upgraded to a new version. cluster upgrade should
-    // be done onde by one (https://docs.mongodb.com/manual/release-notes/3.6-upgrade-replica-set/)
-    dbg.log0('UPGRADE: skip mongodb version upgrade. mongodb should not be upgraded for this version');
+    let mongo_client_connected = true;
+    mongo_client.instance().on('close', () => {
+        mongo_client_connected = false;
+    });
+    mongo_client.instance().on('reconnect', () => {
+        mongo_client_connected = true;
+    });
+
+    if (params.should_upgrade_mongodb) {
+        if (params.is_cluster && await mongo_client.instance().is_master(params.ip)) {
+            // if this is the master, step down the and continue
+            try {
+                await mongo_client.instance().step_down_master({ force: true, duration: 120 });
+            } catch (err) {
+                dbg.error(`UPGRADE: failed to step down master. stopping mongo and continuing with upgrade`);
+            }
+        }
+        dbg.log0('UPGRADE: stopping mongo_wrapper service before upgrading mongodb');
+        await supervisor.stop(['mongo_wrapper']);
+        dbg.log0('UPGRADE: mongo_wrapper stopped');
+        const mongo_repo_path = `${NEW_VERSION_DIR}/src/deploy/NVA_build/mongo.repo`;
+        dbg.log0(`UPGRADE: copying ${mongo_repo_path} to /etc/yum.repos.d/mongodb-org-3.6.repo`);
+        fs_utils.file_copy(mongo_repo_path, '/etc/yum.repos.d/mongodb-org-3.6.repo');
+        fs_utils.file_delete('/etc/yum.repos.d/mongodb-org-3.4.repo');
+        const mongo_packages_to_install = [
+            `mongodb-org-${params.required_mongodb_version}`,
+            `mongodb-org-server-${params.required_mongodb_version}`,
+            `mongodb-org-shell-${params.required_mongodb_version}`,
+            `mongodb-org-mongos-${params.required_mongodb_version}`,
+            `mongodb-org-tools-${params.required_mongodb_version}`
+        ];
+        const yum_clean_res = await promise_utils.exec(`yum clean all`, {
+            ignore_rc: true,
+            return_stdout: true,
+            trim_stdout: true
+        });
+        dbg.log0('UPGRADE: yum clean all returned:', yum_clean_res);
+        const yum_res = await promise_utils.exec(`yum update -y ${mongo_packages_to_install.join(' ')} --disableexcludes=all`, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true
+        });
+        dbg.log0('UPGRADE: yum install returned:', yum_res);
+
+        dbg.log0('UPGRADE: restarting mongo_wrapper');
+        const mongo_wrapper_prog = await supervisor.get_program('mongo_wrapper');
+        // in 3.6 the default bind_ip is 127.0.01 (mongo cannot get connections from outside). change to bind all interfaces
+        mongo_wrapper_prog.command += ' --bind_ip_all';
+        await supervisor.update_program(mongo_wrapper_prog);
+        await supervisor.apply_changes();
+        await supervisor.start(['mongo_wrapper']);
+
+        // wait for mongo to reconnect
+        if (!mongo_client_connected) {
+            await promise_utils.wait_for_event(mongo_client.instance(), 'reconnect');
+        }
+
+    }
 }
 
 async function get_mongo_shell_command(is_cluster) {
@@ -408,6 +508,13 @@ async function upgrade_mongodb_schemas(params) {
         }
     }
 
+    if (!params.is_cluster ||
+        (params.is_cluster && params.mongodb_upgraded && await mongo_client.instance().is_master(params.ip))) {
+        // if mongodb was upgraded, once all members are up and schemas are upgraded, enable backwards-incompatible 3.6 features
+        dbg.log0(`this is master (${params.ip}). setting feature version to ${params.feature_version} after mongodb upgrade`);
+        await mongo_client.instance().set_feature_version({ version: params.feature_version });
+    }
+
     await set_mongo_debug_level(0);
 
     dbg.log0('UPGRADE: upgrade_mongodb_schemas: Success');
@@ -420,6 +527,24 @@ async function after_upgrade_cleanup() {
     await exec(`rm -rf /tmp/v*`, { ignore_err: true });
     await exec(`rm -rf /backup/build/public/*diagnostics*`, { ignore_err: true });
 }
+
+// compares 2 versions. returns positive if ver1 is larger, negative if ver2, 0 if equal
+function version_compare(ver1, ver2) {
+    const parse_ver = ver => ver.split('.').map(i => Number.parseInt(i, 10));
+    const ver1_arr = parse_ver(ver1);
+    const ver2_arr = parse_ver(ver2);
+    const max_length = Math.max(ver1_arr.length, ver2_arr.length);
+    for (let i = 0; i < max_length; ++i) {
+        const comp1 = ver1_arr[i] || 0;
+        const comp2 = ver2_arr[i] || 0;
+        const diff = comp1 - comp2;
+        // if version component is not the same, return the 
+        if (diff) return diff;
+    }
+    return 0;
+}
+
+
 
 
 
@@ -435,3 +560,4 @@ exports.upgrade_mongodb_schemas = upgrade_mongodb_schemas;
 exports.after_upgrade_cleanup = after_upgrade_cleanup;
 exports.stop_services = stop_services;
 exports.start_services = start_services;
+exports.version_compare = version_compare;

@@ -13,6 +13,9 @@ const platform_upgrade = require('./platform_upgrade');
 const dotenv = require('../util/dotenv');
 dotenv.load();
 
+const REQUIRED_MONGODB_VERSION = '3.6.5';
+
+
 mongo_client.instance().connect();
 system_store.load();
 dbg.set_process_name('UpgradeManager');
@@ -26,11 +29,54 @@ class UpgradeManager {
     async init() {
         // get the last stored upgrade stage from DB
         let server = system_store.get_local_cluster_info();
+        this.ip = server.owner_address;
         const upgrade_info = server.upgrade;
         dbg.log0('UPGRADE: upgrade info in db:', upgrade_info);
         this.upgrade_stage = _.get(server, 'upgrade.stage') || 'START_UPGRADE';
+        if (this.upgrade_stage === 'DB_READY') {
+            // if restarted while in DB_READY (can happen only on secondary memebers)
+            // just repeat the upgrade schema stage which should only wait for master
+            this.upgrade_stage = 'UPGRADE_MONGODB_SCHEMAS';
+        }
         dbg.log0('UPGRADE: last stored upgrade stage is', this.upgrade_stage);
         this.should_upgrade_schemas = upgrade_info.mongo_upgrade;
+
+        // define the upgrade stages order.
+        // upgrade stages will run one by one serially by run_upgrade_stages
+        this.UPGRADE_STAGES = Object.freeze([{
+                // stop services
+                name: 'START_UPGRADE',
+                func: () => this.start_upgrade_stage()
+            }, {
+                name: 'COPY_NEW_CODE',
+                func: () => this.copy_new_code_stage(),
+                rollback_on_error: true
+            }, {
+                // from this stage forward rollback is not trivial since we are changing platform components, services,
+                // DB version (possibly) and DB schemas. 
+                // TODO: better handling of failures in this stage. currently just log and set to DB.
+                name: 'UPGRADE_PLATFORM',
+                func: () => this.upgrade_platform_stage()
+            },
+            // currently upgrade is being run serially on all cluster members so running
+            // UPDATE_SERVICES and UPGRADE_MONGODB_VER does not need synchronization here.
+            // TODO: we can and should run the upgrade stages in parallel up to this point
+            // and only sync the next 2 stages to run serially.
+            {
+                name: 'UPDATE_SERVICES',
+                func: () => this.update_services_stage()
+            }, {
+                name: 'UPGRADE_MONGODB_VER',
+                func: () => this.upgrade_mongodb_version_stage()
+            }, {
+                name: 'UPGRADE_MONGODB_SCHEMAS',
+                func: () => this.upgrade_mongodb_schemas_stage()
+            }, {
+                name: 'CLEANUP',
+                func: () => this.cleanup_stage(),
+                ignore_errors: true
+            },
+        ]);
     }
 
     async end_upgrade(params = {}) {
@@ -107,15 +153,27 @@ class UpgradeManager {
     }
 
     async upgrade_mongodb_version_stage() {
+        const mongo_version = await mongo_client.instance().get_mongo_db_version();
+        this.upgrade_mongodb = platform_upgrade.version_compare(mongo_version, REQUIRED_MONGODB_VERSION) < 0;
+        dbg.log0(`UPGRADE: current mongodb version is ${mongo_version}, requiered mongodb version is ${REQUIRED_MONGODB_VERSION}`,
+            this.upgrade_mongodb ? 'upgrading to requiered version' : 'upgrade is not required');
         await platform_upgrade.upgrade_mongodb_version({
-            is_cluster: this.cluster
+            should_upgrade_mongodb: this.upgrade_mongodb,
+            required_mongodb_version: REQUIRED_MONGODB_VERSION,
+            is_cluster: this.cluster,
+            ip: this.owner_address
         });
     }
 
     async upgrade_mongodb_schemas_stage() {
+        const [major, minor] = REQUIRED_MONGODB_VERSION.split('.');
+        const feature_version = [major, minor].join('.');
         await platform_upgrade.upgrade_mongodb_schemas({
             is_cluster: this.cluster,
-            should_upgrade_schemas: this.should_upgrade_schemas
+            should_upgrade_schemas: this.should_upgrade_schemas,
+            mongodb_upgraded: this.upgrade_mongodb,
+            feature_version,
+            ip: this.ip
         });
     }
 
@@ -124,45 +182,17 @@ class UpgradeManager {
     }
 
     async run_upgrade_stages() {
-        const UPGRADE_STAGES = Object.freeze([{
-            name: 'START_UPGRADE',
-            func: () => this.start_upgrade_stage()
-        }, {
-            name: 'COPY_NEW_CODE',
-            func: () => this.copy_new_code_stage(),
-            rollback_on_error: true
-        }, {
-            // from this stage forward rollback is not trivial since we are changing platform components, services,
-            // DB version (possibly) and DB schemas. 
-            // TODO: better handling of failures in this stage. currently just log and set to DB.
-            name: 'UPGRADE_PLATFORM',
-            func: () => this.upgrade_platform_stage()
-        }, {
-            name: 'UPDATE_SERVICES',
-            func: () => this.update_services_stage()
-        }, {
-            name: 'UPGRADE_MONGODB_VER',
-            func: () => this.upgrade_mongodb_version_stage()
-        }, {
-            name: 'UPGRADE_MONGODB_SCHEMAS',
-            func: () => this.upgrade_mongodb_schemas_stage()
-        }, {
-            name: 'CLEANUP',
-            func: () => this.cleanup_stage(),
-            ignore_errors: true
-        }, ]);
-
         // Run upgrade stage by stage. each stage marks the next stage in DB
-        for (let i = 0; i < UPGRADE_STAGES.length; ++i) {
-            const stage = UPGRADE_STAGES[i];
+        for (let i = 0; i < this.UPGRADE_STAGES.length; ++i) {
+            const stage = this.UPGRADE_STAGES[i];
             if (this.upgrade_stage === stage.name) {
                 try {
                     dbg.log0(`UPGRADE: running upgrade stage - ${stage.name}`);
                     await stage.func();
                     dbg.log0(`UPGRADE: succesfully completed upgrade stage - ${stage.name}`);
-                    if (i < UPGRADE_STAGES.length - 1) {
+                    if (i < this.UPGRADE_STAGES.length - 1) {
                         // if we are not in the last stage - advance to next stage
-                        const next_stage = UPGRADE_STAGES[i + 1].name;
+                        const next_stage = this.UPGRADE_STAGES[i + 1].name;
                         await this.set_upgrade_stage(next_stage);
                     }
                 } catch (err) {
@@ -188,20 +218,16 @@ class UpgradeManager {
         dbg.log0('UPGRADE: system_store loaded. starting do_upgrade flow');
 
         await this.init();
-
         await this.run_upgrade_stages();
 
         dbg.log0('UPGRADE: upgrade completed successfully :)');
         await this.end_upgrade();
     }
-
-
 }
 
 
 async function main() {
     dbg.log0('UPGRADE: Started upgrade manager with arguments:', argv);
-
     const upgrade_manager = new UpgradeManager({
         cluster: argv.cluster_str === 'cluster',
     });

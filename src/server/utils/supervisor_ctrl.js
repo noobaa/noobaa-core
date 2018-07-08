@@ -114,6 +114,22 @@ class SupervisorCtrl {
             });
     }
 
+    async get_program(prog_name) {
+        await this.init();
+        const program = this._programs.find(prog => prog.name === prog_name);
+        if (program) {
+            return _.clone(program);
+        }
+    }
+
+    async update_program(program) {
+        await this.init();
+        const prog_index = this._programs.findIndex(prog => prog.name === program.name);
+        if (prog_index >= 0) {
+            this._programs[prog_index] = program;
+        }
+    }
+
     get_mongo_services() {
         let mongo_progs = [];
         return P.resolve()
@@ -161,13 +177,13 @@ class SupervisorCtrl {
 
     restart_supervisord() {
         return promise_utils.spawn('/etc/init.d/supervisord', ['restart'], {
-            detached: true
-        }, false)
-        .delay(5000) //TODO:: Better solution
-        .catch(function(err) {
-            console.error('failed to restart superisor daemon');
-            throw new Error('failed to restart superisor daemon ' + err);
-        });
+                detached: true
+            }, false)
+            .delay(5000) //TODO:: Better solution
+            .catch(function(err) {
+                console.error('failed to restart superisor daemon');
+                throw new Error('failed to restart superisor daemon ' + err);
+            });
     }
 
     // Internals

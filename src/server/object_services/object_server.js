@@ -16,6 +16,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const MDStore = require('./md_store').MDStore;
 const LRUCache = require('../../util/lru_cache');
 const size_utils = require('../../util/size_utils');
+const time_utils = require('../../util/time_utils');
 const { RpcError } = require('../../rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const http_utils = require('../../util/http_utils');
@@ -155,13 +156,21 @@ async function complete_object_upload(req) {
     await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });
 
     _dispatch_triggers(req.bucket, obj, 'ObjectCreated:Put', req.account._id, req.auth_token);
+
+    const took_ms = set_updates.create_time.getTime() - obj._id.getTimestamp().getTime();
+    const upload_duration = time_utils.format_time_duration(took_ms);
+    const upload_size = size_utils.human_size(set_updates.size);
+    const upload_speed = size_utils.human_size(set_updates.size / took_ms * 1000);
     Dispatcher.instance().activity({
         system: req.system._id,
         level: 'info',
         event: 'obj.uploaded',
         obj: obj._id,
         actor: req.account && req.account._id,
-        desc: `${obj.key} was uploaded by ${req.account && req.account.email} into bucket ${req.bucket.name}`,
+        desc: `${obj.key} was uploaded by ${req.account && req.account.email} into bucket ${req.bucket.name}.` +
+            `\nUpload size: ${upload_size}.` +
+            `\nUpload duration: ${upload_duration}.` +
+            `\nUpload speed: ${upload_speed}/sec.`,
     });
 
     return {

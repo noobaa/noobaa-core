@@ -393,7 +393,11 @@ class MongoClient extends EventEmitter {
                 dbg.log0('Recieved replSetConfig', res, 'Returning RS version', res.config.version);
                 return res.config.version;
             });
+    }
 
+    async get_mongo_db_version() {
+        const build_info = await this.db.admin().buildInfo();
+        return build_info.version;
     }
 
     set_debug_level(level) {
@@ -407,6 +411,43 @@ class MongoClient extends EventEmitter {
             return P.resolve(self.db.admin().command(command))
                 .then(res => dbg.log0(`Recieved ${res} from setParameter/logLevel command (${level})`));
         });
+    }
+
+    async is_master(ip) {
+        const is_master_res = await this.db.command({ isMaster: 1 });
+        return is_master_res.primary.startsWith(ip);
+    }
+
+    async step_down_master({ force, duration }) {
+        if (!process.env.MONGO_RS_URL) {
+            dbg.error('step down called but not in replica set');
+            return;
+        }
+        await this.db.admin().command({
+            replSetStepDown: duration,
+            force
+        });
+    }
+
+    async set_feature_version({ version }) {
+        const MAX_RETRIES = 10;
+        let retries = 0;
+        while (retries < MAX_RETRIES) {
+            // operation is idempotent. retry on failure
+            try {
+                await this.db.admin().command({ setFeatureCompatibilityVersion: version });
+                return;
+            } catch (err) {
+                retries += 1;
+                if (retries === MAX_RETRIES) {
+                    dbg.error(`failed to set feature compatability version to ${version}. aborting after ${MAX_RETRIES} retries`, err);
+                    throw err;
+                }
+                const DELAY = 10 * 1000;
+                dbg.error(`failed to set feature compatability version to ${version}. retrying in ${DELAY / 1000} seconds`, err);
+                await P.delay(10000);
+            }
+        }
     }
 
     force_mongo_sync_journal() {

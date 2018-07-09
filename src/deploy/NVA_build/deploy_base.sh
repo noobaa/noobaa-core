@@ -107,7 +107,7 @@ function install_platform {
     echo "#NooBaa Configured NTP Server"     >> /etc/ntp.conf
     echo "#NooBaa Configured Proxy Server"     >> /etc/yum.conf
     sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
-    ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
+    ln -sf /usr/share/zoneinfo/GMT /etc/localtime
 
 	deploy_log install_platform done
 }

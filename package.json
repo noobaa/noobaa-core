@@ -4,9 +4,6 @@
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "description": "",
-  "engines": {
-    "node": "8.9.3"
-  },
   "main": "index.js",
   "config": {
     "covdir": "coverage"

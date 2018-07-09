@@ -274,7 +274,7 @@ class BlockStoreS3 extends BlockStoreBase {
 
     async _put_object(params) {
         try {
-            const res = await this.s3cloud.putObject(params);
+            const res = await this.s3cloud.putObject(params).promise();
             return res;
         } catch (err) {
             dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));

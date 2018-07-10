@@ -126,7 +126,7 @@ function options_request(addr_url, req, res) {
         'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers',
         req.headers['access-control-request-headers'] ||
-        'Content-Type, Authorization, ETag, X-Amz-User-Agent, X-Amz-Date, X-Amz-Content-Sha256');
+        'Content-Type,Content-MD5,Authorization,ETag,X-Amz-User-Agent,X-Amz-Date,X-Amz-Content-Sha256');
     // must answer 200 to options requests
     console.log(req.method, req.url, '->', 200);
     res.writeHead(200);

@@ -849,6 +849,16 @@ async function list_objects_admin(req) {
         return obj;
     });
 
+    if (!res.objects.length) {
+        const delete_markers = await MDStore.instance().find_objects({
+            bucket_id: req.bucket._id,
+            limit: 1,
+            // This is used in order to only list delete markers
+            filter_delete_markers: false,
+        });
+        res.has_delete_markers = Boolean(delete_markers.objects.length);
+    }
+
     return res;
 }
 

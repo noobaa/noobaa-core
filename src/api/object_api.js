@@ -1010,6 +1010,9 @@ module.exports = {
                         items: {
                             $ref: '#/definitions/object_info'
                         }
+                    },
+                    has_delete_markers: {
+                        type: 'boolean'
                     }
                 }
             },

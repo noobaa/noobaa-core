@@ -369,6 +369,9 @@ class MDStore {
         let version_past;
         if (latest_versions === true) version_past = null;
         else if (latest_versions === false) version_past = true;
+        let delete_marker;
+        if (filter_delete_markers === true) delete_marker = null;
+        else if (filter_delete_markers === false) delete_marker = true;
         const query = compact({
             bucket: bucket_id,
             key: key,
@@ -381,7 +384,7 @@ class MDStore {
                 $exists: upload_mode
             } : undefined,
             version_past,
-            delete_marker: typeof filter_delete_markers === 'boolean' && filter_delete_markers ? null : undefined
+            delete_marker
         });
 
         const completed_query = _.omit(query, 'upload_started');
@@ -643,6 +646,8 @@ class MDStore {
         return this._objects.col().count({
             bucket: bucket_id,
             deleted: null,
+            delete_marker: null,
+            version_past: null
         });
     }
 
@@ -652,6 +657,8 @@ class MDStore {
             $match: {
                 system: system_id,
                 deleted: null,
+                delete_marker: null,
+                version_past: null
             }
         }, {
             $group: {

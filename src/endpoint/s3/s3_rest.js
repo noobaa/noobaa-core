@@ -97,8 +97,8 @@ function handle_request(req, res) {
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers',
-        'Content-Type,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag,X-Amz-Content-Sha256');
-    res.setHeader('Access-Control-Expose-Headers', 'ETag');
+        'Content-Type,Content-MD5,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag,X-Amz-Content-Sha256');
+    res.setHeader('Access-Control-Expose-Headers', 'ETag,X-Amz-Version-Id');
 
     if (req.method === 'OPTIONS') {
         dbg.log0('OPTIONS!');

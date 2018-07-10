@@ -35,7 +35,7 @@ function handle_request(req, res) {
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers',
-        'Content-Type,Date,ETag,Authorization,x-ms-version,x-ms-date');
+        'Content-Type,Content-MD5,Date,ETag,Authorization,x-ms-version,x-ms-date');
     res.setHeader('Access-Control-Expose-Headers', 'ETag');
 
     if (req.method === 'OPTIONS') {

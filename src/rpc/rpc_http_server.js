@@ -62,7 +62,7 @@ class RpcHttpServer extends events.EventEmitter {
     handle_request(req, res) {
         try {
             res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Content-MD5,Authorization');
             res.setHeader('Access-Control-Allow-Origin', '*');
             // note that browsers will not allow origin=* with credentials
             // but anyway we allow it by the agent server.

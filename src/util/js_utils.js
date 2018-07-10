@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const util = require('util');
 
 /**
  *
@@ -146,6 +147,22 @@ class PackedObject {
     }
 }
 
+/**
+ * Returns an empty object with lazy custom inspection 
+ * to avoid creating large strings when not the log print is optional.
+ * 
+ * Example:
+ * dbg.log2(inspect_lazy(very_deep_object, { depth: null, colors: true }));
+ * 
+ */
+function inspect_lazy(...inspect_args) {
+    return {
+        [util.inspect.custom]() {
+            return util.inspect(...inspect_args);
+        }
+    };
+}
+
 exports.self_bind = self_bind;
 exports.array_push_all = array_push_all;
 exports.array_push_keep_latest = array_push_keep_latest;
@@ -155,3 +172,4 @@ exports.make_object = make_object;
 exports.default_value = default_value;
 exports.sort_compare_by = sort_compare_by;
 exports.PackedObject = PackedObject;
+exports.inspect_lazy = inspect_lazy;

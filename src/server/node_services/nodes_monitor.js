@@ -1165,7 +1165,7 @@ class NodesMonitor extends EventEmitter {
                 updates.heartbeat = Date.now();
                 if (info.endpoint_info) {
                     updates.endpoint_stats = this._accumulate_endpoint_stats(item, info.endpoint_info.stats);
-                    updates.srv_error = info.endpoint_info.srv_error;
+                    if (info.endpoint_info.srv_error) updates.srv_error = info.endpoint_info.srv_error;
                 }
 
                 // node name is set once before the node is created in nodes_store

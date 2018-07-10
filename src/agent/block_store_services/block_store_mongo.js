@@ -73,7 +73,7 @@ class BlockStoreMongo extends BlockStoreBase {
             }))
             // You will always see errors on initialization when there was no GridFS collection prior
             .catch(err => {
-                console.error('read_usage_gridfs had error: ', err);
+                dbg.error('read_usage_gridfs had error: ', err);
                 return {
                     size: 0,
                     count: 0
@@ -150,7 +150,9 @@ class BlockStoreMongo extends BlockStoreBase {
         // check to see if the object already exists
         return this.head_block(block_name)
             .then(head => {
-                console.warn('block already found in mongo, will overwrite. id =', block_md.id);
+                if (block_md.id !== '_test_store_perf') {
+                    dbg.warn('block already found in mongo, will overwrite. id =', block_md.id);
+                }
                 return this._blocks_fs.gridfs().delete(head._id);
             }, err => {
                 if (err.code === 'NOT_FOUND') {

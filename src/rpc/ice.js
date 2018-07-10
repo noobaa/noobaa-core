@@ -111,6 +111,7 @@ util.inherits(Ice, EventEmitter);
 function Ice(connid, config, signal_target) {
     var self = this;
     EventEmitter.call(self);
+    self.setMaxListeners(100);
 
     // connid is provided externally for debugging
     self.connid = connid;
@@ -156,7 +157,7 @@ function Ice(connid, config, signal_target) {
     self.remote_candidates = {};
 
     self.on('error', function(err) {
-        dbg.warn('ICE CLOSE ON ERROR', err.stack || err);
+        dbg.log0('ICE CLOSE ON ERROR', err.stack || err);
         self.close();
     });
 }
@@ -702,7 +703,7 @@ Ice.prototype._init_udp_connection = function(conn) {
 
     function close_conn(err) {
         if (err) {
-            dbg.warn('ICE UDP CLOSING', err || '');
+            dbg.log0('ICE UDP CLOSING', err || '');
         }
         conn.close();
     }
@@ -757,13 +758,12 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
     conn.on('timeout', destroy_conn);
 
     function destroy_conn(err) {
-        if (err) {
-            dbg.warn('ICE TCP DESTROYING', err || '');
-        }
         temp_queue = null;
         conn.destroy();
         if (info.session) {
             info.session.close(err || new Error('ICE TCP DESTROYING'));
+        } else {
+            dbg.log1('ICE TCP DESTROYING', err || '');
         }
     }
 
@@ -953,9 +953,9 @@ Ice.prototype._upgrade_to_tls = function(session) {
 
     function destroy_conn(err) {
         if (err) {
-            dbg.warn('TLS ERROR:', session.key, err);
+            dbg.log0('TLS ERROR:', session.key, err);
         } else {
-            dbg.warn('TLS CLOSED:', session.key);
+            dbg.log0('TLS CLOSED:', session.key);
         }
         session.close(err);
     }

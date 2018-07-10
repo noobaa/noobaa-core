@@ -69,13 +69,17 @@ class BlockStoreS3 extends BlockStoreBase {
                 Bucket: this.cloud_info.target_bucket,
                 Key: this.usage_path,
             }).promise();
-            const usage_data = this.disable_metadata ? res.Body.toString() : res.Metadata[this.usage_md_key];
+
+            const usage_data = this.disable_metadata ?
+                res.Body.toString() :
+                res.Metadata[this.usage_md_key];
             if (usage_data && usage_data.length) {
                 this._usage = this._decode_block_md(usage_data);
                 dbg.log0('found usage data in', this.usage_path, 'usage_data = ', this._usage);
             }
+
         } catch (err) {
-            if (err.code === 'NotFound') {
+            if (err.code === 'NoSuchKey') {
                 // first time init, continue without usage info
                 dbg.log0('BlockStoreS3 init: no usage path');
             } else {
@@ -85,27 +89,24 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     async _read_block_for_verification(block_md) {
-        const block_info = await this.s3cloud.headObject({
+        const res = await this.s3cloud.headObject({
             Bucket: this.cloud_info.target_bucket,
             Key: this._block_key(block_md.id),
         }).promise();
-        const store_md5 = block_info.ETag.toUpperCase();
-        const store_block_md = this.disable_metadata ? block_md :
-            this._decode_block_md(block_info.Metadata.noobaablockmd || block_info.Metadata.noobaa_block_md);
         return {
-            block_md: store_block_md,
-            store_md5
+            block_md: this._get_store_block_md(block_md, res),
+            store_md5: res.ETag.toUpperCase(),
         };
     }
 
-    get_storage_info() {
+    async get_storage_info() {
         const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
-        return P.resolve(this._get_usage())
-            .then(usage => ({
-                total: PETABYTE + usage.size,
-                free: PETABYTE,
-                used: usage.size
-            }));
+        const usage = await this._get_usage();
+        return {
+            total: PETABYTE + usage.size,
+            free: PETABYTE,
+            used: usage.size
+        };
     }
 
     _get_usage() {
@@ -202,11 +203,9 @@ class BlockStoreS3 extends BlockStoreBase {
                 Bucket: this.cloud_info.target_bucket,
                 Key: this._block_key(block_md.id),
             }).promise();
-            const store_block_md = this.disable_metadata ? block_md :
-                this._decode_block_md(res.Metadata.noobaablockmd || res.Metadata.noobaa_block_md);
             return {
                 data: res.Body,
-                block_md: store_block_md,
+                block_md: this._get_store_block_md(block_md, res),
             };
         } catch (err) {
             dbg.error('_read_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
@@ -282,65 +281,57 @@ class BlockStoreS3 extends BlockStoreBase {
         }
     }
 
-    _delete_blocks(block_ids) {
+    async _delete_blocks(block_ids) {
         let deleted_storage = {
             size: 0,
             count: 0
         };
         let failed_to_delete_block_ids = [];
         // Todo: Assuming that all requested blocks were deleted, which a bit naive
-        return this._get_blocks_usage(block_ids)
-            .then(ret_usage => {
-                deleted_storage.size -= ret_usage.size;
-                deleted_storage.count -= ret_usage.count;
-                return P.ninvoke(this.s3cloud, 'deleteObjects', {
-                        Bucket: this.cloud_info.target_bucket,
-                        Delete: {
-                            Objects: _.map(block_ids, block_id => ({
-                                Key: this._block_key(block_id)
-                            }))
-                        }
-                    })
-                    .catch(err => {
-                        dbg.error('_delete_blocks failed:', err, _.omit(this.cloud_info, 'access_keys'));
-                        failed_to_delete_block_ids = block_ids;
-                        throw err;
-                    });
-            })
-            .then(() => this._update_usage(deleted_storage))
-            .then(() => ({
-                failed_block_ids: failed_to_delete_block_ids,
-                succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
-            }));
+        try {
+            const usage = await this._get_blocks_usage(block_ids);
+            deleted_storage.size -= usage.size;
+            deleted_storage.count -= usage.count;
+            await this.s3cloud.deleteObjects({
+                Bucket: this.cloud_info.target_bucket,
+                Delete: {
+                    Objects: _.map(block_ids, block_id => ({
+                        Key: this._block_key(block_id)
+                    }))
+                }
+            }).promise();
+        } catch (err) {
+            dbg.error('_delete_blocks failed:', err, _.omit(this.cloud_info, 'access_keys'));
+            failed_to_delete_block_ids = block_ids;
+            throw err;
+        }
+        this._update_usage(deleted_storage);
+        return {
+            failed_block_ids: failed_to_delete_block_ids,
+            succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
+        };
     }
 
-
-    _get_blocks_usage(block_ids) {
-        let usage = {
+    async _get_blocks_usage(block_ids) {
+        const usage = {
             size: 0,
             count: 0
         };
-        return P.map(block_ids, block_id => {
-                let params = {
+        await P.map(block_ids, async block_id => {
+            try {
+                const res = await this.s3cloud.headObject({
                     Bucket: this.cloud_info.target_bucket,
                     Key: this._block_key(block_id),
-                };
-                return P.ninvoke(this.s3cloud, 'headObject', params)
-                    .then(head => {
-                        let deleted_size = Number(head.ContentLength);
-                        const noobaablockmd = head.Metadata.noobaablockmd || head.Metadata.noobaa_block_md;
-                        const md_size = (noobaablockmd && noobaablockmd.length) || 0;
-                        deleted_size += md_size;
-                        usage.size += deleted_size;
-                        usage.count += 1;
-                    }, err => {
-                        dbg.warn('_get_blocks_usage:', err);
-                    });
-            }, {
-                // limit concurrency to 10
-                concurrency: 10
-            })
-            .then(() => usage);
+                }).promise();
+                const noobaablockmd = res.Metadata.noobaablockmd || res.Metadata.noobaa_block_md;
+                const md_size = (noobaablockmd && noobaablockmd.length) || 0;
+                usage.size += Number(res.ContentLength) + md_size;
+                usage.count += 1;
+            } catch (err) {
+                dbg.warn('_get_blocks_usage:', err);
+            }
+        }, { concurrency: 10 });
+        return usage;
     }
 
     _block_key(block_id) {
@@ -354,6 +345,12 @@ class BlockStoreS3 extends BlockStoreBase {
 
     _decode_block_md(noobaablockmd) {
         return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
+    }
+
+    _get_store_block_md(block_md, res) {
+        if (this.disable_metadata) return block_md;
+        const noobaablockmd = res.Metadata.noobaablockmd || res.Metadata.noobaa_block_md;
+        return this._decode_block_md(noobaablockmd);
     }
 
 }

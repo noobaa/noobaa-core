@@ -272,6 +272,7 @@ function get_drive_of_path(file_path) {
 
 
 function remove_linux_readonly_drives(volumes) {
+    if (os.type() === 'Darwin') return volumes;
     // grep command to get read only filesystems from /proc/mount
     let grep_command = 'grep "\\sro[\\s,]" /proc/mounts';
     return promise_utils.exec(grep_command, {

@@ -950,7 +950,7 @@ function get_object_info(md) {
         upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
-        version_id: bucket.versioning === 'DISABLED' ? undefined : MDStore.instance().get_object_version_id(md),
+        version_id: MDStore.instance().get_object_version_id(md),
         is_latest: md.version_past ? undefined : true,
         delete_marker: md.delete_marker,
         xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),

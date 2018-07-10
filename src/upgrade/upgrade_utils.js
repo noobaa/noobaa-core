@@ -390,8 +390,14 @@ async function do_yum_update() {
 
 
 async function fix_epel_repo() {
-    const repo_obj = ini.parse((await fs.readFileAsync(EPEL_REPO_PATH)).toString());
+    const epel_repo_content = (await fs.readFileAsync(EPEL_REPO_PATH)).toString();
     let write_file = false;
+    // fix cases where quotes were inserted around links - caused yum parsing errors
+    if (epel_repo_content.includes('"')) {
+        dbg.log0('UPGRADE: found repo components wrapped in quotes. will remove them');
+        write_file = true;
+    }
+    const repo_obj = ini.parse(epel_repo_content);
     _.each(repo_obj, rep => {
         if (!rep.mirrorlist) {
             write_file = true;
@@ -399,7 +405,8 @@ async function fix_epel_repo() {
         }
     });
     if (write_file) {
-        const epel_repo_data = ini.stringify(repo_obj);
+        // remove quotes that are inserted by ini.stringify
+        const epel_repo_data = ini.stringify(repo_obj).replace(/"/g, '');
         dbg.log0(`UPGRADE: writing ${EPEL_REPO_PATH}:`, epel_repo_data);
         await fs.writeFileAsync(EPEL_REPO_PATH, epel_repo_data);
     }

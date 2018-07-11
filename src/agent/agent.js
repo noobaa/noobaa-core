@@ -7,7 +7,6 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const assert = require('assert');
-const crypto = require('crypto');
 const ip_module = require('ip');
 const child_process = require('child_process');
 const os = require('os');
@@ -933,27 +932,8 @@ class Agent {
     }
 
     async test_store_perf(req) {
-        if (!this.block_store) {
-            return {};
-        }
-        const reply = {};
-        const count = req.rpc_params.count || 5;
-        const delay_ms = 200;
-        const data = crypto.randomBytes(1024);
-        const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE;
-        const block_md = {
-            id: '_test_store_perf',
-            digest_type,
-            digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
-        };
-        reply.write = await test_average_latency(count, delay_ms, async () => {
-            await this.block_store._write_block(block_md, data, { ignore_usage: true });
-        });
-        reply.read = await test_average_latency(count, delay_ms, async () => {
-            const { data: read_data } = await this.block_store._read_block(block_md);
-            assert(data.equals(read_data), 'test_store_perf: unexpected data on read');
-        });
-        return reply;
+        if (!this.block_store) return {};
+        return this.block_store.test_store_perf(req.rpc_params);
     }
 
     test_network_perf(req) {
@@ -1110,25 +1090,5 @@ class Agent {
     }
 
 }
-
-
-async function test_average_latency(count, delay_ms, async_func) {
-    // throw the first result which is sometimes skewed
-    await async_func();
-    await P.delay(delay_ms);
-    const results = [];
-    for (let i = 0; i < count; ++i) {
-        const start = time_utils.millistamp();
-        await async_func();
-        const took = time_utils.millistamp() - start;
-        results.push(took);
-        // use some jitter delay to avoid serializing on cpu when
-        // multiple tests are run together.
-        const jitter = 0.5 + Math.random(); // 0.5 - 1.5
-        await P.delay(delay_ms * jitter);
-    }
-    return results;
-}
-
 
 module.exports = Agent;

@@ -96,7 +96,7 @@ class BlockStoreAzure extends BlockStoreBase {
     }
 
 
-    async _read_block_for_verification(block_md) {
+    async _read_block_md(block_md) {
         const block_info = await P.fromCallback(callback => this.blob.getBlobProperties(
             this.container_name,
             this._block_key(block_md.id),
@@ -288,20 +288,6 @@ class BlockStoreAzure extends BlockStoreBase {
                 },
                 callback)
         );
-    }
-
-
-    _block_key(block_id) {
-        let block_dir = this._get_block_internal_dir(block_id);
-        return `${this.blocks_path}/${block_dir}/${block_id}`;
-    }
-
-    _encode_block_md(block_md) {
-        return Buffer.from(JSON.stringify(block_md)).toString('base64');
-    }
-
-    _decode_block_md(noobaablockmd) {
-        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
     }
 
 }

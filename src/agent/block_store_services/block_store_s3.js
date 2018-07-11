@@ -88,7 +88,7 @@ class BlockStoreS3 extends BlockStoreBase {
         }
     }
 
-    async _read_block_for_verification(block_md) {
+    async _read_block_md(block_md) {
         const res = await this.s3cloud.headObject({
             Bucket: this.cloud_info.target_bucket,
             Key: this._block_key(block_md.id),
@@ -223,12 +223,12 @@ class BlockStoreS3 extends BlockStoreBase {
             const block_key = this._block_key(block_md.id);
             const encoded_md = this.disable_metadata ? '' : this._encode_block_md(block_md);
             dbg.log3('writing block id to cloud:', block_key);
-            await this._put_object({
+            await this.s3cloud.putObject({
                 Bucket: this.cloud_info.target_bucket,
                 Key: block_key,
                 Body: data,
                 Metadata: this.disable_metadata ? undefined : { noobaablockmd: encoded_md },
-            });
+            }).promise();
             if (options && options.ignore_usage) return;
             // return usage count for the object
             return this._update_usage({
@@ -261,23 +261,54 @@ class BlockStoreS3 extends BlockStoreBase {
 
     async _write_usage_internal() {
         const usage_data = this._encode_block_md(this._usage);
-        return this._put_object({
+        const res = await this.s3cloud.putObject({
             Bucket: this.cloud_info.target_bucket,
             Key: this.usage_path,
             Body: this.disable_metadata ? usage_data : undefined,
             Metadata: this.disable_metadata ? undefined : {
                 [this.usage_md_key]: usage_data
             },
-        });
+        }).promise();
+        // if our target bucket returns version ids that means versioning is enabled
+        // and for the usage file that we keep replacing we want to keep only the latest
+        // so we delete the past versions of the usage file.
+        if (res.VersionId) await this._delete_past_versions(this.usage_path);
     }
 
-    async _put_object(params) {
-        try {
-            const res = await this.s3cloud.putObject(params).promise();
-            return res;
-        } catch (err) {
-            dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));
-            throw err;
+    /**
+     * This is used for cleanup in BlockStoreBase.test_store_perf()
+     * to keep only the latest versions of the test block.
+     */
+    async _delete_block_past_versions(block_md) {
+        return this._delete_past_versions(this._block_key(block_md.id));
+    }
+
+    async _delete_past_versions(key) {
+        let is_truncated = true;
+        let key_marker;
+        let version_marker;
+        while (is_truncated) {
+            const res = await this.s3cloud.listObjectVersions({
+                Bucket: this.cloud_info.target_bucket,
+                Prefix: key,
+                Delimiter: '/',
+                KeyMarker: key_marker,
+                VersionIdMarker: version_marker,
+            }).promise();
+            is_truncated = res.IsTruncated;
+            key_marker = res.NextKeyMarker;
+            version_marker = res.NextVersionIdMarker;
+            const delete_list = res.Versions.concat(res.DeleteMarkers)
+                .filter(it => it.Key === key && !it.IsLatest)
+                .map(it => ({ Key: it.Key, VersionId: it.VersionId }));
+            if (delete_list.length) {
+                dbg.log0('BlockStoreS3._delete_past_versions: target_bucket',
+                    this.cloud_info.target_bucket, 'delete_list', delete_list);
+                await this.s3cloud.deleteObjects({
+                    Bucket: this.cloud_info.target_bucket,
+                    Delete: { Objects: delete_list },
+                }).promise();
+            }
         }
     }
 
@@ -286,13 +317,13 @@ class BlockStoreS3 extends BlockStoreBase {
             size: 0,
             count: 0
         };
-        let failed_to_delete_block_ids = [];
+        let failed_block_ids = [];
         // Todo: Assuming that all requested blocks were deleted, which a bit naive
         try {
             const usage = await this._get_blocks_usage(block_ids);
             deleted_storage.size -= usage.size;
             deleted_storage.count -= usage.count;
-            await this.s3cloud.deleteObjects({
+            const res = await this.s3cloud.deleteObjects({
                 Bucket: this.cloud_info.target_bucket,
                 Delete: {
                     Objects: _.map(block_ids, block_id => ({
@@ -300,15 +331,20 @@ class BlockStoreS3 extends BlockStoreBase {
                     }))
                 }
             }).promise();
+            if (res.Errors) {
+                for (const delete_error of res.Errors) {
+                    const block_id = this._block_id_from_key(delete_error.Key);
+                    failed_block_ids.push(block_id);
+                }
+            }
         } catch (err) {
             dbg.error('_delete_blocks failed:', err, _.omit(this.cloud_info, 'access_keys'));
-            failed_to_delete_block_ids = block_ids;
-            throw err;
+            failed_block_ids.push(...block_ids);
         }
         this._update_usage(deleted_storage);
         return {
-            failed_block_ids: failed_to_delete_block_ids,
-            succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
+            failed_block_ids,
+            succeeded_block_ids: _.difference(block_ids, failed_block_ids)
         };
     }
 
@@ -332,19 +368,6 @@ class BlockStoreS3 extends BlockStoreBase {
             }
         }, { concurrency: 10 });
         return usage;
-    }
-
-    _block_key(block_id) {
-        let block_dir = this._get_block_internal_dir(block_id);
-        return `${this.blocks_path}/${block_dir}/${block_id}`;
-    }
-
-    _encode_block_md(block_md) {
-        return Buffer.from(JSON.stringify(block_md)).toString('base64');
-    }
-
-    _decode_block_md(noobaablockmd) {
-        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
     }
 
     _get_store_block_md(block_md, res) {

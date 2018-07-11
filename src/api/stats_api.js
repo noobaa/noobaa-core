@@ -109,6 +109,13 @@ module.exports = {
                 system: 'admin'
             }
         },
+
+        send_stats: {
+            method: 'PUT',
+            auth: {
+                system: 'admin'
+            }
+        }
     },
 
     definitions: {

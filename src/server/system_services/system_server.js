@@ -253,11 +253,11 @@ function create_system(req) {
                 return;
             }
             return attempt_server_resolve(_.defaults({
-                rpc_params: {
-                    server_name: req.rpc_params.dns_name,
-                    version_check: true
-                }
-            }, req))
+                    rpc_params: {
+                        server_name: req.rpc_params.dns_name,
+                        version_check: true
+                    }
+                }, req))
                 .then(result => {
                     if (!result.valid) {
                         throw new Error('Could not resolve ' + req.rpc_params.dns_name +
@@ -371,6 +371,12 @@ function create_system(req) {
         })
         .then(() => _init_system(system_id))
         .then(() => system_utils.mongo_wrapper_system_created())
+        .then(() => {
+            dbg.log0(`sending first stats to phone home`);
+            return server_rpc.client.stats.send_stats(null, {
+                auth_token: reply_token
+            });
+        })
         .then(() => ({
             token: reply_token
         }))

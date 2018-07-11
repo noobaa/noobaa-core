@@ -436,15 +436,12 @@ function add_sample_point(opname, duration) {
     ops_aggregation[opname].add_value(duration);
 }
 
-function object_usage_scrubber(req) {
+async function object_usage_scrubber(req) {
     let new_req = req;
     new_req.rpc_params.till_time = req.system.last_stats_report;
-    return object_server.remove_endpoint_usage_reports(new_req)
-        .then(() => {
-            new_req.rpc_params.last_stats_report = Date.now();
-            return system_server.set_last_stats_report_time(new_req);
-        })
-        .return();
+    await object_server.remove_endpoint_usage_reports(new_req);
+    new_req.rpc_params.last_stats_report = Date.now();
+    await system_server.set_last_stats_report_time(new_req);
 }
 
 //_.noop(send_stats_payload); // lint unused bypass
@@ -720,4 +717,5 @@ exports.get_object_usage_stats = get_object_usage_stats;
 exports.register_histogram = register_histogram;
 exports.add_sample_point = add_sample_point;
 exports.object_usage_scrubber = object_usage_scrubber;
+exports.send_stats = background_worker;
 exports.background_worker = background_worker;

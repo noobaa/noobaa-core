@@ -1,9 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
+import mirrorsetResourcesTooltip from './mirrorset-resources-tooltip.html';
 import { deepFreeze, unique } from 'utils/core-utils';
 import BlockRowViewModel from './block-row';
 import { formatBlockDistribution } from 'utils/object-utils';
 import { stringifyAmount } from 'utils/string-utils';
+import { getResourceTypeIcon } from 'utils/resource-utils';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
 import ko from 'knockout';
 
 const columns = deepFreeze([
@@ -111,21 +115,45 @@ function _getTooltip(groupType, blocksCategory, storageType)  {
     };
 }
 
-function _getResourceSummary(resources) {
+function _mapResourceData(resource, system) {
+    const { type, cloudType } = resource;
+    const href = resource.type === 'HOSTS' ?
+        realizeUri(routes.pool, { system, pool: resource.name }) :
+        undefined;
+
+    return {
+        href,
+        text: resource.name,
+        icon: getResourceTypeIcon(type, { type: cloudType })
+    };
+}
+
+function _getResourceSummary(resources, system) {
     if (resources.length === 0) {
         return;
     }
 
     if (resources.length === 1) {
-        return { text: resources[0].name };
+        const { href, text, icon } = _mapResourceData(resources[0], system);
+
+        return {
+            href,
+            text,
+            iconName: icon.name,
+            iconTooltip: icon.tooltip,
+            isShowIcon: true
+        };
     }
 
-    const resourceNames = resources.map(resource => resource.name);
-    const tooltip = resourceNames.length > 1 ?
-        { template: 'list', text: resourceNames } :
-        resourceNames[0];
+    const resourceList = resources.map(resource => _mapResourceData(resource, system));
+    const tooltip = {
+        template: mirrorsetResourcesTooltip,
+        text: resourceList,
+        breakWords: true
+    };
 
     return {
+        css: 'box',
         text: stringifyAmount('resource', resources.length),
         tooltip: tooltip
     };
@@ -157,7 +185,7 @@ export default class BlocksTableViewModel {
         this.label(label);
         this.policy(policy);
         this.tooltip(tooltip);
-        this.resources(_getResourceSummary(resources));
+        this.resources(_getResourceSummary(resources, system));
         this.rows(rows);
     }
 }

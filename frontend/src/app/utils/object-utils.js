@@ -19,7 +19,7 @@ export function getObjectId(bucket, key, uploadId) {
         `${bucket}:${key}`;
 }
 
-export function summerizePartDistribution(bucket, part) {
+export function summerizePartDistribution(bucket, part, cloudResources) {
     const { resiliency, placement, spillover } = bucket;
 
     const placementMirroSets = placement.mirrorSets
@@ -38,10 +38,17 @@ export function summerizePartDistribution(bucket, part) {
     const groups = placement.mirrorSets
         .map((mirrorSet, index) => {
             const type = 'MIRROR_SET';
-            const { name, resources } = mirrorSet;
-            const realBlocks = blocksByGorupId[name] || [];
-            const storagePolicy = _findStoragePolicy(resources, resiliency, realBlocks);
+            const realBlocks = blocksByGorupId[mirrorSet.name] || [];
+            const storagePolicy = _findStoragePolicy(mirrorSet.resources, resiliency, realBlocks);
             const blocks = _fillInMissingBlocks(realBlocks, storagePolicy);
+            const resources = mirrorSet.resources
+                .map(resource => ({
+                    ...resource,
+                    cloudType: resource.type === 'CLOUD' ?
+                        cloudResources[resource.name].type :
+                        undefined
+                }));
+
             return { type, index, storagePolicy, resources, blocks };
         });
 

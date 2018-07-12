@@ -1011,8 +1011,9 @@ module.exports = {
                             $ref: '#/definitions/object_info'
                         }
                     },
-                    has_delete_markers: {
-                        type: 'boolean'
+                    empty_reason: {
+                        type: 'string',
+                        enum: ['NO_MATCHING_KEYS', 'NO_RESULTS', 'NO_UPLOADS', 'NO_LATEST', 'NO_OBJECTS']
                     }
                 }
             },

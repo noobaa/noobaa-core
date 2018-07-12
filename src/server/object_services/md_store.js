@@ -651,6 +651,16 @@ class MDStore {
         });
     }
 
+    async has_any_latest_objects_for_bucket(bucket_id) {
+        return this._objects.col().findOne({
+                bucket: bucket_id,
+                deleted: null,
+                delete_marker: null,
+                version_past: null
+            })
+            .then(obj => Boolean(obj));
+    }
+
     async count_objects_per_bucket(system_id) {
         // TODO check which index is needed to cover this aggregation
         const res = await this._objects.col().aggregate([{
@@ -825,9 +835,26 @@ class MDStore {
         });
     }
 
+    has_any_objects_for_bucket_including_deleted(bucket_id) {
+        return this._objects.col().findOne({
+                bucket: bucket_id,
+            })
+            .then(obj => Boolean(obj));
+    }
+
     has_any_objects_for_bucket(bucket_id) {
         return this._objects.col().findOne({
                 bucket: bucket_id,
+                deleted: null
+            })
+            .then(obj => Boolean(obj));
+    }
+
+    has_any_uploads_for_bucket(bucket_id) {
+        return this._objects.col().findOne({
+                bucket: bucket_id,
+                deleted: null,
+                upload_started: { $exists: true }
             })
             .then(obj => Boolean(obj));
     }

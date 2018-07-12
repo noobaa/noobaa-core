@@ -850,13 +850,28 @@ async function list_objects_admin(req) {
     });
 
     if (!res.objects.length) {
-        const delete_markers = await MDStore.instance().find_objects({
-            bucket_id: req.bucket._id,
-            limit: 1,
-            // This is used in order to only list delete markers
-            filter_delete_markers: false,
-        });
-        res.has_delete_markers = Boolean(delete_markers.objects.length);
+        if (key) {
+            res.empty_reason = 'NO_MATCHING_KEYS';
+        } else if (req.rpc_params.upload_mode) {
+            const has_uploads = await MDStore.instance().has_any_uploads_for_bucket(req.bucket._id);
+            if (has_uploads) {
+                res.empty_reason = 'NO_RESULTS';
+            } else {
+                res.empty_reason = 'NO_UPLOADS';
+            }
+        } else {
+            const has_objects = await MDStore.instance().has_any_objects_for_bucket(req.bucket._id);
+            if (has_objects) {
+                const has_latests = await MDStore.instance().has_any_latest_objects_for_bucket(req.bucket._id);
+                if (has_latests) {
+                    res.empty_reason = 'NO_RESULTS';
+                } else {
+                    res.empty_reason = 'NO_LATEST';
+                }
+            } else {
+                res.empty_reason = 'NO_OBJECTS';
+            }
+        }
     }
 
     return res;

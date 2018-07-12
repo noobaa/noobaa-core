@@ -143,7 +143,7 @@ function clean_system_store(last_date_to_remove) {
             dbg.log2('DB_CLEANER: list buckets:', buckets);
             dbg.log2('DB_CLEANER: list pools:', pools);
             const filtered_buckets = buckets.filter(bucket =>
-                MDStore.instance().has_any_objects_for_bucket(bucket)
+                MDStore.instance().has_any_objects_for_bucket_including_deleted(bucket)
             );
             const filtered_pools = pools.filter(pool =>
                 nodes_store.has_any_nodes_for_pool(pool)

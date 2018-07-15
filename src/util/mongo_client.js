@@ -214,7 +214,9 @@ class MongoClient extends EventEmitter {
             throw new Error('define_collection: collection already defined ' + col.name);
         }
         if (col.schema) {
-            schema_utils.strictify(col.schema);
+            schema_utils.strictify(col.schema, {
+                additionalProperties: false
+            });
             this._ajv.addSchema(col.schema, col.name);
             col.validate = (doc, warn) => this.validate(col.name, doc, warn);
         }

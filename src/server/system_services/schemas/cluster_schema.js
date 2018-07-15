@@ -259,63 +259,74 @@ module.exports = {
                                     }
                                 }
                             }
+                        },
+                        storage: {
+                            $ref: 'common_api#/definitions/storage_info'
                         }
                     }
                 },
-                services_status: {
+            }
+        },
+        services_status: {
+            type: 'object',
+            required: ['ph_status'],
+            properties: {
+                dns_status: {
+                    type: 'string',
+                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                },
+                ph_status: {
                     type: 'object',
-                    required: ['ph_status'],
                     properties: {
-                        dns_status: {
+                        status: {
                             type: 'string',
                             enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
                         },
-                        ph_status: {
-                            type: 'string',
-                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                        },
-                        dns_name: {
-                            type: 'string',
-                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                        },
-                        ntp_status: {
-                            type: 'string',
-                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                        },
-                        internet_connectivity: {
-                            type: 'string',
-                            enum: ['FAULTY']
-                        },
-                        proxy_status: {
-                            type: 'string',
-                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                        },
-                        remote_syslog_status: {
-                            type: 'string',
-                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                        },
-                        cluster_status: {
-                            anyOf: [{
-                                type: 'string',
-                                enum: ['UNKNOWN']
-                            }, {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    required: ['secret', 'status'],
-                                    properties: {
-                                        secret: {
-                                            type: 'string'
-                                        },
-                                        status: {
-                                            type: 'string',
-                                            enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                                        }
-                                    }
-                                }
-                            }]
+                        test_time: {
+                            idate: true
                         }
                     }
+                },
+                dns_name: {
+                    type: 'string',
+                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                },
+                ntp_status: {
+                    type: 'string',
+                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                },
+                internet_connectivity: {
+                    type: 'string',
+                    enum: ['FAULTY']
+                },
+                proxy_status: {
+                    type: 'string',
+                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                },
+                remote_syslog_status: {
+                    type: 'string',
+                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                },
+                cluster_status: {
+                    anyOf: [{
+                        type: 'string',
+                        enum: ['UNKNOWN']
+                    }, {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['secret', 'status'],
+                            properties: {
+                                secret: {
+                                    type: 'string'
+                                },
+                                status: {
+                                    type: 'string',
+                                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
+                                }
+                            }
+                        }
+                    }]
                 }
             }
         }

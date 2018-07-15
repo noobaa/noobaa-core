@@ -211,9 +211,10 @@ class MirrorMapper {
             const block = accessible_blocks[i];
             // block on pools that do not belong to the current mirror anymore
             // can be accessible but will eventually be deallocated
-            const pool = pools_by_id[block.node_pool_id];
+            const pool = pools_by_id[block.pool];
             const is_good_node = _is_block_good_node(block);
             if (is_good_node && pool) {
+                block.is_local_mirror = this.is_local_mirror;
                 used_blocks.push(block);
                 // Also we calculate the weight of the current block allocations
                 // Notice that we do not calculate bad blocks into the weight
@@ -276,7 +277,7 @@ class MirrorMapper {
             for (let i = 0; i < used_blocks.length; ++i) {
                 if (keep_replicas >= replicas) break;
                 const block = used_blocks[i];
-                keep_replicas += _pool_has_redundancy(pools_by_id[block.node_pool_id]) ? replicas : 1;
+                keep_replicas += _pool_has_redundancy(pools_by_id[block.pool]) ? replicas : 1;
                 blocks_in_use.push(block);
             }
         }
@@ -343,6 +344,7 @@ class TierMapper {
         const { is_write, accessible } = chunk_mapper;
 
         const tier_mapping = Object.seal({
+            tier: this.tier,
             accessible,
             blocks_in_use: [],
             deletions: undefined,
@@ -602,7 +604,6 @@ function assign_node_to_block(block, node, system_id) {
 
     block.node = node;
     block.pool = pool._id;
-    block.node_pool_id = pool._id;
     block.system = system_id;
 }
 
@@ -718,7 +719,7 @@ function get_block_md(chunk, frag, block) {
         address: block.node.rpc_address,
         node: block.node._id,
         node_type: block.node.node_type,
-        pool: block.node_pool_id,
+        pool: block.pool,
         digest_type: chunk.chunk_coder_config.frag_digest_type,
         digest_b64: frag.digest_b64 || (frag.digest && frag.digest.toString('base64')),
     };
@@ -753,8 +754,8 @@ function _block_sorter_local(location_info) {
         if (String(node1._id) === location_info.node_id && String(node2._id) !== location_info.node_id) return -1;
         if (node2.host_id === location_info.host_id && node1.host_id !== location_info.host_id) return 1;
         if (node1.host_id === location_info.host_id && node2.host_id !== location_info.host_id) return -1;
-        if (String(block2.node_pool_id) === location_info.pool_id && String(block1.node_pool_id) !== location_info.pool_id) return 1;
-        if (String(block1.node_pool_id) === location_info.pool_id && String(block2.node_pool_id) !== location_info.pool_id) return -1;
+        if (String(block2.pool) === location_info.pool_id && String(block1.pool) !== location_info.pool_id) return 1;
+        if (String(block1.pool) === location_info.pool_id && String(block2.pool) !== location_info.pool_id) return -1;
         return node2.heartbeat - node1.heartbeat;
     };
 }
@@ -774,6 +775,28 @@ function _pool_has_redundancy(pool) {
     return pool.cloud_pool_info || pool.mongo_pool_info;
 }
 
+function should_rebuild_chunk_to_local_mirror(mapping, location_info) {
+    if (!location_info || !location_info.pool_id) return false;
+    if (!mapping.tier) return false;
+    // check if the selected tier is in mirroring mode
+    if (mapping.tier.data_placement !== 'MIRROR') return false;
+    // check if the location pool is in the selected tier policy
+    if (!mapping.tier.mirrors.find(mirror => mirror.spread_pools.find(pool => location_info.pool_id === String(pool._id)))) return false;
+    // check if there is already a good block on a mirror that we consider local
+    if (_.isEmpty(mapping.blocks_in_use)) return false;
+    for (const block of mapping.blocks_in_use) {
+        if (block.is_local_mirror) return false;
+    }
+    // check if the pool appear in the allocations list - if so then there is enough free space on the pool for this chunk and we should rebuild
+    if (!mapping.allocations) return false;
+    for (const allocation of mapping.allocations) {
+        if (allocation.pools.find(pool => location_info.pool_id === String(pool._id))) return true;
+    }
+    // if we didn't find local pool in all allocations (as supposed to by previous conditions) we shouldn't rebuild - not enough space
+    return false;
+    // TODO - we don't actually check for available storage on the local mirror - for now we only consider allocations
+}
+
 // EXPORTS
 exports.ChunkMapper = ChunkMapper;
 exports.TieringMapper = TieringMapper;
@@ -787,3 +810,4 @@ exports.get_chunk_info = get_chunk_info;
 exports.get_frag_info = get_frag_info;
 exports.get_block_info = get_block_info;
 exports.get_block_md = get_block_md;
+exports.should_rebuild_chunk_to_local_mirror = should_rebuild_chunk_to_local_mirror;

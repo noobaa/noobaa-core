@@ -20,7 +20,6 @@ const map_builder = require('../../server/object_services/map_builder');
 const map_deleter = require('../../server/object_services/map_deleter');
 const SliceReader = require('../../util/slice_reader');
 const system_store = require('../../server/system_services/system_store').get_instance();
-const system_utils = require('../../server/utils/system_utils');
 
 const { rpc_client } = coretest;
 const object_io = new ObjectIO();
@@ -152,7 +151,6 @@ coretest.describe_mapper_test_case({
     async function load_chunks(obj) {
         const chunks = await MDStore.instance().find_chunks_by_ids(obj.chunk_ids);
         await MDStore.instance().load_blocks_for_chunks(chunks);
-        _.forEach(chunks, chunk => system_utils.populate_pools_for_blocks(chunk.blocks));
         obj.chunks = chunks;
     }
 

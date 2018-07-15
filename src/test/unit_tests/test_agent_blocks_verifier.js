@@ -77,10 +77,6 @@ class VerifierMock extends AgentBlocksVerifier {
             });
     }
 
-    populate_pools_for_blocks(blocks) {
-        // We already create the pools in block's nodes as mock objects
-    }
-
     populate_nodes_for_blocks(blocks) {
         const docs = blocks;
         const doc_path = 'node';
@@ -166,7 +162,6 @@ mocha.describe('mocked agent_blocks_verifier', function() {
             node: nodes[0]._id,
             frag: chunks[0].frags[0]._id,
             chunk: chunks[0]._id,
-            node_pool_id: new mongodb.ObjectId()
         }];
         const verifier_mock = new VerifierMock(blocks, nodes, chunks, chunk_coder_configs);
         return P.resolve()
@@ -252,7 +247,6 @@ mocha.describe('mocked agent_blocks_verifier', function() {
             node: nodes[0]._id,
             frag: chunks[0].frags[0]._id,
             chunk: chunks[0]._id,
-            node_pool_id: new mongodb.ObjectId()
         }];
         const verifier_mock = new VerifierMock(blocks, nodes, chunks, chunk_coder_configs);
         return P.resolve()
@@ -295,7 +289,6 @@ mocha.describe('mocked agent_blocks_verifier', function() {
             node: new mongodb.ObjectId(),
             frag: chunks[0].frags[0]._id,
             chunk: chunks[0]._id,
-            node_pool_id: new mongodb.ObjectId()
         }];
         const verifier_mock = new VerifierMock(blocks, nodes, chunks, chunk_coder_configs);
         return P.resolve()

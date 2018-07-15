@@ -71,6 +71,9 @@ module.exports = {
         last_modified: {
             date: true
         },
+        resource_name: {
+            type: 'string'
+        },
         code_size: {
             type: 'integer'
         },

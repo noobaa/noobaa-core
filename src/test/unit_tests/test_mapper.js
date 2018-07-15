@@ -118,6 +118,14 @@ coretest.describe_mapper_test_case({
             mirrors_storage: tier.mirrors.map(mirror => ZERO_STORAGE)
         }]
     ));
+    const first_mirror_empty_tiering_status = _.fromPairs(_.map(tiering.tiers,
+        ({ tier, spillover }) => [tier._id, {
+            pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
+                pool => [pool._id, { valid_for_allocation: true, num_nodes: config.NODES_MIN_COUNT }]
+            )),
+            mirrors_storage: tier.mirrors.map((mirror, index) => (index === 0 ? ZERO_STORAGE : FULL_STORAGE))
+        }]
+    ));
     const regular_tiering_status = _.fromPairs(_.map(tiering.tiers,
         ({ tier, spillover }) => [tier._id, {
             pools: _.fromPairs(_.map(pools_by_tier_id[tier._id],
@@ -357,6 +365,76 @@ coretest.describe_mapper_test_case({
 
     });
 
+    mocha.describe('local replication', function() {
+        mocha.it('should replicate to local pool', function() {
+            const location_info = {
+                pool_id: String(regular_pools[0]._id)
+            };
+            const chunk = {
+                _id: 1,
+                frags,
+                chunk_coder_config,
+                blocks: regular_pools.length > 1 ? make_blocks({ pools: regular_pools.slice(1) }) : [],
+            };
+            const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status, location_info);
+            const should_rebuild = mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info);
+            if (data_placement === 'MIRROR' && regular_pools.length > 1) {
+                assert.strictEqual(should_rebuild, true);
+            } else {
+                assert.strictEqual(should_rebuild, false);
+                assert.strictEqual(((mapping.blocks_in_use && mapping.blocks_in_use.length) || 0) +
+                    ((mapping.allocations && mapping.allocations.length) || 0), total_blocks);
+                assert_allocations_in_tier(mapping.allocations, regular_tier);
+            }
+        });
+
+        mocha.it('should not replicate to local pool if local already has blocks', function() {
+            const location_info = {
+                pool_id: String(regular_pools[0]._id)
+            };
+            const chunk = {
+                _id: 1,
+                frags,
+                chunk_coder_config,
+                blocks: regular_pools.length > 1 ?
+                    make_blocks({ pools: regular_pools.slice(0, regular_pools.length - 1) }) : make_blocks({ pool: regular_pools[0] }),
+            };
+            const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status, location_info);
+            assert.strictEqual(mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info), false);
+        });
+
+        mocha.it('should not replicate to local pool if no allocation needed', function() {
+            const location_info = {
+                pool_id: String(regular_pools[0]._id)
+            };
+            const chunk = {
+                _id: 1,
+                frags,
+                chunk_coder_config,
+                blocks: regular_pools.length > 1 ?
+                    make_blocks({ pools: regular_pools }) : make_blocks({ pool: regular_pools[0] })
+            };
+            const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status, location_info);
+            assert.strictEqual(mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info), false);
+        });
+
+        mocha.it('should not replicate to local pool if local is full', function() {
+            const location_info = {
+                pool_id: String(regular_pools[0]._id)
+            };
+            const chunk = {
+                _id: 1,
+                frags,
+                chunk_coder_config,
+                blocks: regular_pools.length > 1 ? // will put blocks only on last pool - should allocate only to the empty pool, or none - pool[0] doesn't suppose to appear
+                    make_blocks({ pools: regular_pools.slice(regular_pools.length - 1) }) : [],
+            };
+            const mapping = mapper.map_chunk(chunk, tiering, first_mirror_empty_tiering_status, location_info);
+            const should_rebuild = mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info);
+            assert.strictEqual(should_rebuild, false);
+        });
+    });
+
     mocha.describe('tiering', function() {
 
         const REGULAR = 'regular';
@@ -472,7 +550,6 @@ coretest.describe_mapper_test_case({
             _id,
             frag: frag._id,
             pool: pool._id,
-            node_pool_id: pool._id,
             node: {
                 pool: pool._id,
                 readable: readable !== false,

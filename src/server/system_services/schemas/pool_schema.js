@@ -58,7 +58,7 @@ module.exports = {
                         node_token: {
                             type: 'string'
                         },
-                        mongo_pool: {
+                        mongo_path: {
                             type: 'string'
                         }
                     }

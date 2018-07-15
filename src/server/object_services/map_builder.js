@@ -117,10 +117,9 @@ class MapBuilder {
         const objects_by_id = _.keyBy(objects, '_id');
         await P.map(this.chunks, async chunk => {
             // if other actions should be done to prepare a chunk for build, those actions should be added here
-            chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
             chunk.parts = parts_by_chunk[chunk._id];
             chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj])));
-            system_utils.populate_pools_for_blocks(chunk.blocks);
+            system_utils.prepare_chunk_for_mapping(chunk);
 
             try {
                 if (!chunk.parts || !chunk.parts.length) throw new Error('No valid parts are pointing to chunk', chunk._id);
@@ -207,7 +206,7 @@ class MapBuilder {
 
         const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
         const mapping = mapper.map_chunk(chunk, chunk.bucket.tiering, tiering_status);
-        dbg.log2('MapBuilder.build_chunks: mapping', mapping);
+        dbg.log2('MapBuilder.build_chunks: mapping', chunk._id, util.inspect(mapping, { depth: null, colors: true }));
 
         // only delete blocks if the chunk is in good shape,
         // that is no allocations needed, and is accessible.

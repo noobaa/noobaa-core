@@ -75,7 +75,6 @@ class AgentBlocksVerifier {
 
         return this.populate_nodes_for_blocks(blocks)
             .then(blocks_with_nodes => {
-                this.populate_pools_for_blocks(blocks_with_nodes);
                 const blocks_with_alive_nodes = blocks_with_nodes.filter(block =>
                     block.node && block.node.rpc_address && block.node.online);
                 if (!blocks_with_alive_nodes || !blocks_with_alive_nodes.length) return;
@@ -155,13 +154,6 @@ class AgentBlocksVerifier {
      */
     verify_blocks(...args) {
         return server_rpc.client.block_store.verify_blocks(...args);
-    }
-
-    /**
-     * @override in unit tests for decoupling dependencies
-     */
-    populate_pools_for_blocks(...args) {
-        return system_utils.populate_pools_for_blocks(...args);
     }
 
 }

@@ -82,6 +82,9 @@ module.exports = {
             type: 'string',
             enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
+        tag: {
+            type: 'string',
+        },
         storage_stats: {
             type: 'object',
             required: ['chunks_capacity', 'pools', 'blocks_size', 'objects_size', 'objects_count', 'last_update'],

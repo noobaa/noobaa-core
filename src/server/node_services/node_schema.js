@@ -58,12 +58,28 @@ module.exports = {
 
         // a uuid to identify the host machine of the node (one host can hold several nodes, one for each drive)
         host_id: {
-            type: 'string'
+            type: 'string',
         },
 
         // an incremental sequence number
         host_sequence: {
-            type: 'integer'
+            type: 'integer',
+        },
+
+        host_name: {
+            type: 'string',
+        },
+
+        n2n_config: {
+            $ref: 'common_api#/definitions/n2n_config',
+        },
+
+        mem_usage: {
+            type: 'number'
+        },
+
+        cpu_usage: {
+            type: 'number'
         },
 
         ports_allowed: {
@@ -112,6 +128,12 @@ module.exports = {
         },
         force_hide: {
             idate: true
+        },
+        enabled: {
+            type: 'boolean',
+        },
+        geolocation: {
+            type: 'string'
         },
 
         // node storage stats - sum of drives

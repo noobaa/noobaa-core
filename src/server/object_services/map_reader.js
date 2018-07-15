@@ -4,13 +4,16 @@
 const _ = require('lodash');
 
 const P = require('../../util/promise');
-// const dbg = require('../../util/debug_module')(__filename);
+const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const mapper = require('./mapper');
+const util = require('util');
 const MDStore = require('./md_store').MDStore;
 const node_allocator = require('../node_services/node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
+const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 
 
 /**
@@ -91,37 +94,70 @@ function read_node_mappings(node_ids, skip, limit) {
  *
  * @params: parts, set_obj, adminfo
  */
-function read_parts_mappings({ parts, adminfo, set_obj, location_info }) {
+async function read_parts_mappings({ parts, adminfo, set_obj, location_info }) {
     const chunks = _.map(parts, 'chunk');
-    const chunks_buckets = _.uniq(_.map(chunks, chunk => String(chunk.bucket)));
     const tiering_status_by_bucket_id = {};
-    return P.join(
-            MDStore.instance().load_blocks_for_chunks(chunks),
-            adminfo && P.map(chunks_buckets, bucket_id => {
-                const bucket = system_store.data.get_by_id(bucket_id);
-                if (!bucket) {
-                    console.error(`read_parts_mappings: Bucket ${bucket_id} does not exist`);
-                    return P.resolve();
-                }
 
-                return node_allocator.refresh_tiering_alloc(bucket.tiering)
-                    .then(() => {
-                        tiering_status_by_bucket_id[bucket_id] =
-                            node_allocator.get_tiering_status(bucket.tiering);
-                    });
-            })
-        )
-        .then(() => _.map(parts, part => {
-            system_utils.populate_pools_for_blocks(part.chunk.blocks);
-            part.chunk.chunk_coder_config = system_store.data.get_by_id(part.chunk.chunk_config).chunk_coder_config;
-            const part_info = mapper.get_part_info(
-                part, adminfo, tiering_status_by_bucket_id[part.chunk.bucket], location_info
-            );
-            if (set_obj) {
-                part_info.obj = part.obj;
+    await _load_chunk_mappings(chunks, tiering_status_by_bucket_id);
+
+    if (location_info) {
+        const chunks_to_scrub = [];
+        try {
+            for (const chunk of chunks) {
+                const bucket = system_store.data.get_by_id(chunk.bucket);
+                const bucket_tiering_status = tiering_status_by_bucket_id[chunk.bucket];
+                system_utils.prepare_chunk_for_mapping(chunk);
+                const mapping = mapper.map_chunk(chunk, bucket.tiering, bucket_tiering_status, location_info);
+                if (mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info)) {
+                    dbg.log0('Chunk with following mapping will be sent for rebuilding', mapping);
+                    chunks_to_scrub.push(chunk);
+                }
             }
-            return part_info;
-        }));
+            if (chunks_to_scrub.length) {
+                dbg.log1('Chunks wasn\'t found in local pool - the following will be rebuilt:', util.inspect(chunks_to_scrub));
+                await server_rpc.client.scrubber.build_chunks({ chunk_ids: _.map(chunks_to_scrub, '_id') }, {
+                    auth_token: auth_server.make_auth_token({
+                        system_id: chunks_to_scrub[0].system,
+                        role: 'admin'
+                    })
+                });
+            }
+        } catch (err) {
+            dbg.warn('Chunks failed to rebuilt - skipping');
+        }
+        if (chunks_to_scrub.length) {
+            await _load_chunk_mappings(chunks, tiering_status_by_bucket_id);
+        }
+    }
+
+    return _.map(parts, part => {
+        system_utils.prepare_chunk_for_mapping(part.chunk);
+        const part_info = mapper.get_part_info(
+            part, adminfo, tiering_status_by_bucket_id[part.chunk.bucket], location_info
+        );
+        if (set_obj) {
+            part_info.obj = part.obj;
+        }
+        return part_info;
+    });
+}
+
+
+
+async function _load_chunk_mappings(chunks, tiering_status_by_bucket_id) {
+    const chunks_buckets = _.uniq(_.map(chunks, chunk => String(chunk.bucket)));
+    return P.join(
+        MDStore.instance().load_blocks_for_chunks(chunks),
+        P.map(chunks_buckets, async bucket_id => {
+            const bucket = system_store.data.get_by_id(bucket_id);
+            if (!bucket) {
+                console.error(`read_parts_mappings: Bucket ${bucket_id} does not exist`);
+                return;
+            }
+            await node_allocator.refresh_tiering_alloc(bucket.tiering);
+            tiering_status_by_bucket_id[bucket_id] = node_allocator.get_tiering_status(bucket.tiering);
+        })
+    );
 }
 
 // sanitizing start & end: we want them to be integers, positive, up to obj.size.

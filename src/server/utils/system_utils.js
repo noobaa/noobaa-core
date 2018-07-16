@@ -48,7 +48,6 @@ function prepare_chunk_for_mapping(chunk) {
     chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
 }
 
-
 exports.system_in_maintenance = system_in_maintenance;
 exports.get_bucket_quota_usage_percent = get_bucket_quota_usage_percent;
 exports.mongo_wrapper_system_created = mongo_wrapper_system_created;

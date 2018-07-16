@@ -1167,75 +1167,80 @@ class NodesMonitor extends EventEmitter {
                     updates.endpoint_stats = this._accumulate_endpoint_stats(item, info.endpoint_info.stats);
                     updates.srv_error = info.endpoint_info.srv_error;
                 }
-                return P.resolve()
-                    .then(() => {
-                        // node name is set once before the node is created in nodes_store
-                        // we take the name the agent sent as base, and add suffix if needed
-                        // to prevent collisions.
-                        if (item.node_from_store) {
-                            // calculate nodes cpu usage
-                            const new_cpus = _.get(info, 'os_info.cpus');
-                            const prev_cpus = _.get(item, 'node.os_info.cpus');
-                            item.cpu_usage = os_utils.calc_cpu_usage(new_cpus, prev_cpus);
-                            if (info.host_id !== item.node.host_id) {
-                                const old_host_id = item.node.host_id;
-                                const new_host_id = info.host_id;
-                                dbg.warn(`agent sent different host_id than the one stored in DB. updating from ${old_host_id} to ${new_host_id}`);
-                                // if host id changed then we should change it for all agents of this host for consistnecy
-                                const host_nodes = this._map_host_id.get(old_host_id);
-                                if (host_nodes) {
-                                    for (const update_item of host_nodes) {
-                                        update_item.node.host_id = new_host_id;
-                                        this._add_node_to_hosts_map(new_host_id, update_item);
-                                        this._set_need_update.add(update_item);
-                                    }
-                                    this._map_host_id.delete(old_host_id);
-                                    if (item.node.host_sequence) {
-                                        this._map_host_seq_num.set(String(item.node.host_sequence), new_host_id);
-                                    }
-                                }
-                            }
-                        } else {
-                            updates.name = info.name;
-                            updates.host_id = info.host_id;
-                            this._map_node_name.delete(String(item.node.name));
-                            let base_name = updates.name || 'node';
-                            let counter = 1;
-                            while (this._map_node_name.has(updates.name)) {
-                                updates.name = base_name + '-' + counter;
-                                counter += 1;
-                            }
-                            this._map_node_name.set(String(updates.name), item);
-                            dbg.log0('_get_agent_info: set node name',
-                                item.node.name, 'to', updates.name);
 
-                            item.new_host = !this._map_host_id.get(updates.host_id);
-                            if (!item.added_host) {
-                                this._add_node_to_hosts_map(updates.host_id, item);
-                                item.added_host = true;
+                // node name is set once before the node is created in nodes_store
+                // we take the name the agent sent as base, and add suffix if needed
+                // to prevent collisions.
+                if (item.node_from_store) {
+                    // calculate nodes cpu usage
+                    const new_cpus = _.get(info, 'os_info.cpus');
+                    const prev_cpus = _.get(item, 'node.os_info.cpus');
+                    item.cpu_usage = os_utils.calc_cpu_usage(new_cpus, prev_cpus);
+                    if (info.host_id !== item.node.host_id) {
+                        const old_host_id = item.node.host_id;
+                        const new_host_id = info.host_id;
+                        dbg.warn(`agent sent different host_id than the one stored in DB. updating from ${old_host_id} to ${new_host_id}`);
+                        // if host id changed then we should change it for all agents of this host for consistnecy
+                        const host_nodes = this._map_host_id.get(old_host_id);
+                        if (host_nodes) {
+                            for (const update_item of host_nodes) {
+                                update_item.node.host_id = new_host_id;
+                                this._add_node_to_hosts_map(new_host_id, update_item);
+                                this._set_need_update.add(update_item);
                             }
-
-                            let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
-                            // on first call to get_agent_info enable\disable the node according to the configuration
-                            let should_start_service = this._should_enable_agent(info, agent_config);
-                            dbg.log0(`first call to get_agent_info. ${info.node_type === 'ENDPOINT_S3' ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
-                            if (!should_start_service) {
-                                item.node.decommissioned = Date.now();
-                                item.node.decommissioning = item.node.decommissioned;
+                            this._map_host_id.delete(old_host_id);
+                            if (item.node.host_sequence) {
+                                this._map_host_seq_num.set(String(item.node.host_sequence), new_host_id);
                             }
                         }
+                    }
+                } else {
+                    updates.name = info.name;
+                    updates.host_id = info.host_id;
+                    this._map_node_name.delete(String(item.node.name));
+                    let base_name = updates.name || 'node';
+                    let counter = 1;
+                    while (this._map_node_name.has(updates.name)) {
+                        updates.name = base_name + '-' + counter;
+                        counter += 1;
+                    }
+                    this._map_node_name.set(String(updates.name), item);
+                    dbg.log0('_get_agent_info: set node name',
+                        item.node.name, 'to', updates.name);
 
-                        if (_.isUndefined(item.node.host_sequence)) {
-                            updates.host_sequence = this._get_host_sequence_number(info.host_id);
-                            this._map_host_seq_num.set(String(updates.host_sequence), info.host_id);
-                            dbg.log0(`node: ${updates.name} setting host_sequence to ${updates.host_sequence}`);
+                    item.new_host = !this._map_host_id.get(updates.host_id);
+                    if (!item.added_host) {
+                        if (!item.new_host) {
+                            const host_nodes = this._map_host_id.get(info.host_id);
+                            const host_item = this._consolidate_host(host_nodes);
+                            if (String(item.node.pool) !== String(host_item.node.pool)) {
+                                dbg.log0('Node pool changed', 'Node:', item.node, 'Host_Node:', host_item);
+                                updates.pool = host_item.node.pool;
+                            }
                         }
-                    })
-                    .then(() => {
-                        _.extend(item.node, updates);
-                        this._set_need_update.add(item);
-                        item.create_node_token = info.create_node_token;
-                    });
+                        this._add_node_to_hosts_map(updates.host_id, item);
+                        item.added_host = true;
+                    }
+
+                    let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
+                    // on first call to get_agent_info enable\disable the node according to the configuration
+                    let should_start_service = this._should_enable_agent(info, agent_config);
+                    dbg.log0(`first call to get_agent_info. ${info.node_type === 'ENDPOINT_S3' ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
+                    if (!should_start_service) {
+                        item.node.decommissioned = Date.now();
+                        item.node.decommissioning = item.node.decommissioned;
+                    }
+                }
+
+                if (_.isUndefined(item.node.host_sequence)) {
+                    updates.host_sequence = this._get_host_sequence_number(info.host_id);
+                    this._map_host_seq_num.set(String(updates.host_sequence), info.host_id);
+                    dbg.log0(`node: ${updates.name} setting host_sequence to ${updates.host_sequence}`);
+                }
+
+                _.extend(item.node, updates);
+                this._set_need_update.add(item);
+                item.create_node_token = info.create_node_token;
             })
             .catch(err => {
                 if (err.rpc_code === 'STORAGE_NOT_EXIST' && !item.storage_not_exist) {
@@ -1341,7 +1346,7 @@ class NodesMonitor extends EventEmitter {
 
     }
 
-    _migrate_items_to_pool(items, pool) {
+    async _migrate_items_to_pool(items, pool) {
         // now we update all nodes to the new pool
         _.each(items, item => {
             if (String(item.node.pool) !== String(pool._id)) {
@@ -1354,9 +1359,9 @@ class NodesMonitor extends EventEmitter {
             this._set_need_update.add(item);
             this._update_status(item);
         });
-        return this._update_nodes_store('force')
-            // we hurry the next run schedule in case it's not close, and prefer to do full update sooner
-            .then(() => this._schedule_next_run(3000));
+        await this._update_nodes_store('force');
+        // we hurry the next run schedule in case it's not close, and prefer to do full update sooner
+        return this._schedule_next_run(3000);
     }
 
     _update_node_service(item) {
@@ -1397,7 +1402,7 @@ class NodesMonitor extends EventEmitter {
         let auth_parmas = {
             system_id: String(item.node.system),
             account_id: system_store.data.get_by_id(item.node.system).owner._id,
-            role: 'create_node'
+            role: 'create_node',
         };
         let token = auth_server.make_auth_token(auth_parmas);
         dbg.log0(`new create_node_token: ${token}`);

@@ -476,6 +476,32 @@ const actionToNotification = deepFreeze({
     [types.FAIL_CREATE_BUCKET]: ({ name }) => ({
         message: `Bucket ${name} creation failed`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_SET_SERVER_DEBUG_MODE]: ({ secret, hostname, on }) => ({
+        message: `Debug mode was turned ${on ? 'on' : 'off'} for server ${
+            getServerDisplayName({ secret, hostname })
+        }`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_LEAVE_MAINTENANCE_MODE]: ({ secret, hostname, on }) => ({
+        message: `Could not turn ${on ? 'on' : 'off'} debug mode for server ${
+            getServerDisplayName({ secret, hostname })
+        }`,
+        severity: 'error'
+    }),
+
+    [types.COLLECT_SERVER_DIAGNOSTICS]: ({ secret, hostname }) => ({
+        message: `Collecting server ${
+            getServerDisplayName({ secret, hostname })
+        } diagnostics, it may take a few seconds`,
+        severity: 'info'
+    }),
+
+    [types.FAIL_COLLECT_SERVER_DIAGNOSTICS]: ({ secret, hostname }) => ({
+        message: `Collecting server ${getServerDisplayName({ secret, hostname })} diagnostics failed`,
+        severity: 'error'
     })
 });
 

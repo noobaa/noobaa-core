@@ -16,7 +16,8 @@ const server = {
         'phonehome',
         'clusterConnectivity',
         'debugMode',
-        'isMaster'
+        'isMaster',
+        'diagnostics'
     ],
     properties: {
         secret: {
@@ -183,7 +184,15 @@ const server = {
             }
         },
         debugMode: {
-            type: 'boolean'
+            type: 'object',
+            required: [
+                'till'
+            ],
+            properties: {
+                till: {
+                    type: 'integer'
+                }
+            }
         },
         isMaster: {
             type: 'boolean'
@@ -224,6 +233,25 @@ const server = {
                             type: 'string'
                         }
                     }
+                }
+            }
+        },
+        diagnostics: {
+            type: 'object',
+            required: [
+                'collecting',
+                'error',
+                'packageUri'
+            ],
+            properties: {
+                collecting: {
+                    type: 'boolean'
+                },
+                error: {
+                    type: 'boolean'
+                },
+                packageUri: {
+                    type: 'string'
                 }
             }
         }

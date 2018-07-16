@@ -74,6 +74,8 @@ import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
 import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
+import setServerDebugMode from './set-server-debug-mode';
+import collectServerDiagnostics  from './collect-server-diagnostics';
 
 const generalEpics = [
     handleLocationRequests,
@@ -108,7 +110,9 @@ const systemRelatedEpics = [
 
 const topologyRelatedEpics = [
     updateServerAddress,
-    attachServerToCluster
+    attachServerToCluster,
+    setServerDebugMode,
+    collectServerDiagnostics
 ];
 
 const alertsRelatedEpics = [

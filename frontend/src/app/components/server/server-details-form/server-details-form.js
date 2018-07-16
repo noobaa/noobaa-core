@@ -1,17 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './server-details-form.html';
-import BaseViewModel from 'components/base-view-model';
-import { systemInfo, serverTime } from 'model';
+import Observer from 'observer';
 import { deepFreeze, isDefined} from 'utils/core-utils';
-import { getServerIssues } from 'utils/cluster-utils';
+import { summarizeServerIssues, getServerDisplayName } from 'utils/cluster-utils';
+import { aggregateStorage } from 'utils/storage-utils';
 import { formatSize } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { loadServerTime } from 'actions';
 import { timeLongFormat } from 'config';
 import ko from 'knockout';
-import { action$ } from 'state';
+import { getMany } from 'rx-extensions';
+import moment from 'moment-timezone';
+import { action$, state$ } from 'state';
 import * as routes from 'routes';
+import { timeTickInterval } from 'config';
 import {
     openEditServerDetailsModal,
     openEditServerDNSSettingsModal,
@@ -34,569 +36,346 @@ const icons = deepFreeze({
     }
 });
 
-const tab = 'settings';
-
 const sections = deepFreeze({
-    serverDns: 'system-address',
+    systemAddress: 'system-address',
     remoteSyslog: 'remote-syslog',
     phoneHome: 'phone-home'
 });
 
-const requirementsMarker = (message) => `<span class="remark warning">&nbsp; * ${message ? message : ''}</span>`;
+function _getInfoSheet(server, minRequirements, internalResourcesList, baseResourcesRoute) {
+    const [ address = '', ...addresses ] = server.addresses;
+    const additionalAddresses = addresses.length ? addresses : 'None';
+    const { hostname, locationTag, memory, storage, cpus } = server;
+    const serverName = getServerDisplayName(server);
+    const isNotEnoughMemory = memory.total < minRequirements.memory;
+    const isNotEnoughStorage = storage.total < minRequirements.storage;
+    const isNotEnoughCpus = cpus.count < minRequirements.cpus;
+    const isMaster = server.isMaster ? 'Yes' : 'No';
+    const totalMemory = {
+        text: formatSize(memory.total),
+        message: isNotEnoughMemory ? formatSize(minRequirements.memory) : ''
+    };
 
-class ServerDetailsFormViewModel extends BaseViewModel {
-    constructor({ serverSecret, system }) {
+    const totalStorage = {
+        text: formatSize(storage.total),
+        message: isNotEnoughStorage ? formatSize(minRequirements.storage) : ''
+    };
+    
+    const cpusCount = {
+        text: `${cpus.count} CPUs`,
+        message: isNotEnoughCpus ? `${minRequirements.cpus} CPUs` : ''
+    };
+
+    const { used = 0, total = 0 }  = aggregateStorage(
+        ...internalResourcesList.map(resource => resource.storage)
+    );
+
+    const internalStorage = {
+        used: formatSize(used),
+        total: formatSize(total),
+        href: realizeUri(baseResourcesRoute, { tab: 'internal' })
+    };
+
+    return [
+        {
+            label: 'Cluster Connectivity IP',
+            value: address
+        },
+        {
+            label: 'Additional IPs',
+            value: additionalAddresses
+        },
+        {
+            label: 'Server Name',
+            value: serverName
+        },
+        {
+            label: 'Hostname',
+            value: hostname
+        },
+        {
+            label: 'Location Tag',
+            value: locationTag
+        },
+        {
+            label: 'Is Master',
+            value: isMaster
+        },
+        {
+            label: 'Total Memory',
+            value: totalMemory,
+            template: 'hardwareInfo'
+        },
+        {
+            label: 'Total Disk Size',
+            value: totalStorage,
+            template: 'hardwareInfo'
+        },
+        {
+            label: 'Number of CPUs',
+            value: cpusCount,
+            template: 'hardwareInfo'
+        },
+        {
+            label: 'Internal Storage Resource',
+            value: internalStorage,
+            template: 'internalStorage'
+        }
+    ];
+}
+
+function _getVersion(server, issues) {
+    const version = {
+        text: server.version
+    };
+
+    if (server.mode !== 'CONNECTED') {
+        version.icon = icons.unavailable;
+        version.tooltip = '';
+    } else {
+        version.icon = issues.version ? icons.problem : icons.healthy;
+        version.tooltip = {
+            text: issues.version || 'Synced with master',
+            align: 'start'
+        };
+    }
+
+    return version;
+}
+
+function _getServerTime(server, issues) {
+    const { mode, secret } = server;
+    const serverTime = {
+        secret,
+        ntp: server.ntp && server.ntp.server || 'Not configured'
+    };
+
+    if (mode !== 'CONNECTED') {
+        serverTime.icon = icons.unavailable;
+        serverTime.tooltip = '';
+    } else {
+        serverTime.icon = issues.ntp ? icons.problem : icons.healthy;
+        serverTime.tooltip = {
+            text: issues.ntpServer || 'Working Properly',
+            align: 'start'
+        };
+    }
+
+    return serverTime;
+}
+
+function _getDNSServers(server, issues) {
+    const { dns, secret, mode } = server;
+    const servers = dns.servers.list;
+
+    const dnsServers = {
+        secret,
+        primary: servers[0] || 'Not Configured' ,
+        secondary: servers[1] || 'Not Configured'
+    };
+
+    if (mode !== 'CONNECTED') {
+        dnsServers.icon = icons.unavailable;
+        dnsServers.tooltip = '';
+    } else if (servers.length === 0) {
+        dnsServers.icon = icons.unavailable;
+        dnsServers.tooltip = 'Not configured';
+    } else {
+        dnsServers.icon = issues.dnsServers ? icons.problem : icons.healthy;
+        dnsServers.tooltip = {
+            text: issues.dnsServers || 'Reachable and working',
+            align: 'start'
+        };
+    }
+
+    return dnsServers;
+}
+
+function _getDNSName(server, issues, name, configurationHref) {
+    const dnsName = {
+        configurationHref,
+        name: name || 'Not configured'
+    };
+
+    if (server.mode !== 'CONNECTED') {
+        dnsName.icon = icons.unavailable;
+        dnsName.tooltip = '';
+    } else if (!name) {
+        dnsName.icon = icons.unavailable;
+        dnsName.tooltip = '';
+    } else {
+        dnsName.icon = issues.dnsName ? icons.problem : icons.healthy;
+        dnsName.tooltip = {
+            text: issues.dnsName || 'Resolvable to server\'s IP',
+            align: 'start'
+        };
+    }
+
+    return dnsName;
+}
+
+function _getRemoteSyslog(server, issues, remoteSyslogConfig,  timezone, configurationHref) {
+    const { protocol, address, port } = remoteSyslogConfig || {};
+    const isConfigured = Boolean(server.remoteSyslog);
+    const { lastStatusCheck } = server.remoteSyslog || {};
+
+    const remoteSyslog = {
+        configurationHref,
+        isConfigured,
+        text: server.remoteSyslog ? `${protocol}://${address}:${port}` : '',
+        lastRSyslogSync: lastStatusCheck ? moment.tz(lastStatusCheck * 1000, timezone).format(timeLongFormat) : 'Not Tested Yet'
+    };
+
+    if (server.mode !== 'CONNECTED') {
+        remoteSyslog.icon = icons.unavailable;
+        remoteSyslog.tooltip = '';
+    } else if (!isConfigured) {
+        remoteSyslog.icon = icons.unavailable;
+        remoteSyslog.tooltip = 'Not configured';
+    } else {
+        remoteSyslog.icon = issues.remoteSyslog ? icons.problem : icons.healthy;
+        remoteSyslog.tooltip = {
+            text: issues.remoteSyslog || 'Reachable and working',
+            align: 'start'
+        };
+    }
+
+    return remoteSyslog;
+}
+
+function _getPhoneHome(server, phonehome, issues,  timezone, configurationHref) {
+    const { phoneHomeServer, phoneHomeProxy } = issues;
+    const phoneHomeIssues = [ phoneHomeServer, phoneHomeProxy ].filter(isDefined);
+    const lastPhoneHomeSync = server.phonehome.lastStatusCheck ?
+        moment.tz(server.phonehome.lastStatusCheck * 1000, timezone).format(timeLongFormat) :
+        'Not Synced Yet';
+
+    const phoneHome = {
+        lastPhoneHomeSync,
+        configurationHref,
+        proxy: phonehome || 'Not Configured'
+    };
+
+    if (server.mode !== 'CONNECTED') {
+        phoneHome.icon = icons.unavailable;
+        phoneHome.tooltip = '';
+    } else {
+        phoneHome.icon = (issues.phoneHomeServer || issues.phoneHomeProxy) ? icons.problem : icons.healthy;
+        phoneHome.tooltip = {
+            text: phoneHomeIssues.length > 0 ? phoneHomeIssues : 'Reachable and working',
+            align: 'start'
+        };
+    }
+
+    return phoneHome;
+}
+
+class ServerDetailsFormViewModel extends Observer {
+    secret = '';
+    server = ko.observable();
+    isConnected = ko.observable();
+    isMaster = ko.observable();
+    issues = ko.observable();
+    time = ko.observable();
+    timezone = ko.observable();
+    minRequirements = ko.observable();
+    isServerLoaded = ko.observable();
+    infoSheet = ko.observableArray();
+    version = ko.observable();
+    serverTime = ko.observable();
+    dnsServers = ko.observable();
+    dnsName = ko.observable();
+    remoteSyslog = ko.observable();
+    phoneHome = ko.observable();
+    formattedTime = ko.observable();
+
+    constructor({ serverSecret }) {
         super();
 
-        const baseConfigurationRoute = ko.pureComputed(
-            () => realizeUri(routes.management, { system: system(), tab }, {}, true)
-        );
+        this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
+        this.secret = ko.unwrap(serverSecret);
 
-        this.serverDnsConfigurationHref = ko.pureComputed(
-            () => realizeUri(baseConfigurationRoute(), { section: sections.serverDns })
-        );
-
-        this.remoteSyslogConfigurationHref = ko.pureComputed(
-            () => realizeUri(baseConfigurationRoute(), { section: sections.remoteSyslog })
-        );
-
-        this.phoneHomeConfigurationHref = ko.pureComputed(
-            () => realizeUri(baseConfigurationRoute(), { section: sections.phoneHome })
-        );
-
-        this.secret = serverSecret;
-        this.server = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return {};
-                }
-
-                const mySecret = ko.unwrap(serverSecret);
-                return systemInfo().cluster.shards[0].servers.find(
-                    ({ secret }) => secret === mySecret
-                );
-            }
-        );
-
-        this.isConnected = ko.pureComputed(
-            () => this.server().status === 'CONNECTED'
-        );
-
-        this.isMaster = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return false;
-                }
-
-                const masterSecret = systemInfo().cluster.master_secret;
-                return this.server().secret == masterSecret;
-            }
-        );
-
-        this.issues = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return {};
-                }
-
-                const { version, cluster } = systemInfo();
-                return getServerIssues(this.server(), version, cluster.min_requirements);
-            }
-        );
-
-        this.clock = ko.observableWithDefault(
-            () => serverTime() && serverTime().server ===  ko.unwrap(serverSecret) ?
-                serverTime().time * 1000 :
-                0
-        );
-
-        this.addToDisposeList(
-            setInterval(
-                () => this.clock() && this.clock(this.clock() + 1000),
-                1000
+        this.observe(
+            state$.pipe(
+                getMany(
+                    'topology',
+                    'system',
+                    'internalResources',
+                    'location'
+                )
             ),
-            clearInterval
+            this.onState
         );
 
-        const minRequirements = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.min_requirements
-        );
-
-        this.notEnoughMemory = ko.pureComputed(
-            () => {
-                const { memory } = this.server() || {};
-                if (!memory) {
-                    return false;
-                }
-
-                return memory.total < minRequirements().ram;
-            }
-        );
-
-        this.notEnoughStorage = ko.pureComputed(
-            () => {
-                const { storage } = this.server() || {};
-                if (!storage) {
-                    return false;
-                }
-
-                return storage.total < minRequirements().storage;
-            }
-        );
-
-        this.notEnoughCpus = ko.pureComputed(
-            () => {
-                const { cpus } = this.server() || {};
-                if (!cpus) {
-                    return false;
-                }
-
-                return cpus.count < minRequirements().cpu_count;
-            }
-        );
-
-        this.isBelowMinRequirements = ko.pureComputed(
-            () => this.notEnoughMemory() ||
-                this.notEnoughStorage() ||
-                this.notEnoughCpus()
-        );
-
-        const timezone = ko.pureComputed(() => this.server().timezone);
-        this.infoSheet = this.getInfoSheet(minRequirements);
-        this.version = this.getVersion();
-        this.serverTime = this.getServerTime(timezone);
-        this.dnsServers = this.getDNSServers();
-        this.dnsName = this.getDNSName();
-        this.remoteSyslog = this.getRemoteSyslog(timezone);
-        this.phoneHome = this.getPhoneHome(timezone);
-
-        loadServerTime(ko.unwrap(serverSecret));
+        this.onEditDNSServers = this.onEditDNSServers.bind(this);
+        this.onEditDateAndTime = this.onEditDateAndTime.bind(this);
     }
 
-    getInfoSheet(minRequirements) {
-        const address = ko.pureComputed(
-            () => (this.server().addresses || [])[0]
-        );
-
-        const additionalAddresses = ko.pureComputed(
-            () => {
-                const { addresses = [] } = this.server();
-                return addresses.length > 1 ? addresses.slice(1) : 'None';
-            }
-        );
-
-        const hostname = ko.pureComputed(
-            () => this.server().hostname
-        );
-
-        const serverName = ko.pureComputed(
-            () => `${this.server().hostname}-${this.server().secret}`
-        );
-
-        const locationTag = ko.pureComputed(
-            () => this.server().location || 'Not Set'
-        );
-
-        const isMaster = ko.pureComputed(
-            () => this.isMaster() ? 'Yes' : 'No'
-        );
-
-        const totalMemory = ko.pureComputed(
-            () => {
-                const { memory } = this.server() || {};
-                return memory ?
-                    `${formatSize(memory.total)} ${this.notEnoughMemory() ?
-                        requirementsMarker(`Minimum requirements: ${formatSize(minRequirements().ram)}`)  : ''}` :
-                    '';
-            }
-        );
-
-        const totalStorage = ko.pureComputed(
-            () => {
-                const { storage } = this.server() || {};
-                return storage ?
-                    `${formatSize(storage.total)} ${this.notEnoughStorage() ?
-                        requirementsMarker(`Minimum requirements: ${formatSize(minRequirements().storage)}`) : ''}` :
-                    '';
-            }
-        );
-
-        const cpusCount = ko.pureComputed(
-            () => {
-                const { cpus } = this.server() || {};
-                return cpus ?
-                    `${cpus.count} CPUs ${this.notEnoughCpus() ?
-                        requirementsMarker(`Minimum requirements: ${minRequirements().cpu_count} CPUs`) : ''}` :
-                    '';
-            }
-        );
-
-        const internalStorage = ko.pureComputed(
-            () => {
-                const storage = (systemInfo() ? systemInfo().pools : [])
-                    .filter(pool => pool.resource_type === 'INTERNAL')
-                    .map(pool => pool.storage)[0];
-
-                const { used = 0, total = 0 } = storage || {};
-                return {
-                    used: formatSize(used),
-                    total: formatSize(total),
-                    href: {
-                        route: 'resources',
-                        params: { tab: 'internal' }
-                    }
-                };
-            }
-        );
-
-        return [
-            {
-                label: 'Cluster Connectivity IP',
-                value: address
-            },
-            {
-                label: 'Additional IPs',
-                value: additionalAddresses
-            },
-            {
-                label: 'Server Name',
-                value: serverName
-            },
-            {
-                label: 'Hostname',
-                value: hostname
-            },
-            {
-                label: 'Location Tag',
-                value: locationTag
-            },
-            {
-                label: 'Is Master',
-                value: isMaster
-            },
-            {
-                label: 'Total Memory',
-                value: totalMemory
-            },
-            {
-                label: 'Total Disk Size',
-                value: totalStorage
-            },
-            {
-                label: 'Number of CPUs',
-                value: cpusCount
-            },
-            {
-                label: 'Internal Storage Resource',
-                value: internalStorage,
-                template: 'internal-storage'
-            }
-        ];
-    }
-
-    getVersion() {
-        const icon = ko.pureComputed(
-            () => {
-                if (!this.isConnected()) {
-                    return icons.unavailable;
-                }
-
-                return this.issues().version ? icons.problem : icons.healthy;
-            }
-        );
-
-        const tooltip = ko.pureComputed(
-            () => {
-                if (!this.isConnected()) {
-                    return '';
-                }
-
-                return {
-                    text: this.issues().version || 'Synced with master',
-                    align: 'start'
-                };
-            }
-        );
-
-        const text = ko.pureComputed(
-            () => this.server().version
-        );
-
-        return { icon, tooltip, text };
-    }
-
-    getServerTime(timezone) {
-        const icon = ko.pureComputed(
-            () => {
-                if (!this.isConnected()) {
-                    return icons.unavailable;
-                }
-
-                return this.issues().ntpServer ? icons.problem : icons.healthy;
-            }
-        );
-
-        const tooltip = ko.pureComputed(
-            () => {
-                if (!this.isConnected()) {
-                    return '';
-                }
-
-                return {
-                    text: this.issues().ntpServer || 'Working Properly',
-                    align: 'start'
-                };
-            }
-        );
-
-        const ntp = ko.pureComputed(
-            () => this.server().ntp_server || 'Not configured'
-        );
-
-        const clock = ko.pureComputed(
-            () => this.clock() || undefined
-        ).extend({
-            formatTime: {
-                format: timeLongFormat,
-                timezone,
-                notAvailableText: 'Not available'
-            }
-        });
-
-        const secret = this.secret;
-
-        return { icon, tooltip, clock, ntp, secret };
-    }
-
-    getDNSServers() {
-        const servers = ko.pureComputed(
-            () => (this.server().dns_servers || []).filter(isDefined)
-        );
-
-        const icon = ko.pureComputed(
-            () => {
-                if (!this.isConnected() || servers().length == 0) {
-                    return icons.unavailable;
-                }
-
-                return this.issues().dnsServers ? icons.problem : icons.healthy;
-            }
-        );
-
-        const tooltip = ko.pureComputed(
-            () => {
-                if (!this.isConnected()) {
-                    return '';
-                }
-
-                if (servers().length === 0) {
-                    return 'Not configured';
-                }
-
-                return {
-                    text: this.issues().dnsServers || 'Reachable and working',
-                    align: 'start'
-                };
-            }
-        );
-
-        const primary = ko.pureComputed(
-            () => servers()[0] || 'Not Configured'
-        );
-
-        const secondary = ko.pureComputed(
-            () => servers()[1] || 'Not Configured'
-        );
-
-        const secret = this.secret;
-
-        return { icon, tooltip, primary, secondary, secret };
-    }
-
-    getDNSName() {
-        const dnsName = ko.pureComputed(
-            () => systemInfo() && systemInfo().dns_name
-        );
-
-        const icon = ko.pureComputed(
-            () => {
-                if (!this.isConnected() || !dnsName()){
-                    return icons.unavailable;
-                }
-
-                return this.issues().dnsName ? icons.problem : icons.healthy;
-            }
-        );
-
-        const tooltip = ko.pureComputed(
-            () => {
-                if (!this.isConnected()) {
-                    return '';
-                }
-
-                if (!dnsName()) {
-                    return 'Not configured';
-                }
-
-                return {
-                    text: this.issues().dnsName || 'Resolvable to server\'s IP',
-                    align: 'start'
-                };
-            }
-        );
-
-        const name = ko.pureComputed(
-            () => (systemInfo() && systemInfo().dns_name) || 'Not configured'
-        );
-
-        const configurationHref = this.serverDnsConfigurationHref();
-
-        return { icon, tooltip, name, configurationHref };
-    }
-
-    getRemoteSyslog(timezone) {
-        const config = ko.pureComputed(
-            () => (systemInfo() || {}).remote_syslog_config
-        );
-
-        const icon = ko.pureComputed(
-            () => {
-                if (!this.isConnected() || !config()) {
-                    return icons.unavailable;
-                }
-
-                return this.issues().remoteSyslog ? icons.problem : icons.healthy;
-            }
-        );
-
-        const tooltip = ko.pureComputed(
-            () => {
-                if (!this.isConnected()) {
-                    return '';
-                }
-
-                if (!config()) {
-                    return 'Not configured';
-                }
-
-                return {
-                    text: this.issues().remoteSyslog || 'Reachable and working',
-                    align: 'start'
-                };
-            }
-        );
-
-        const isConfigured = ko.pureComputed(() => Boolean(config()));
-
-        const text = ko.pureComputed(
-            () => {
-                if (config()) {
-                    const { protocol, address, port } = config();
-                    return `${protocol}://${address}:${port}`;
-                }
-            }
-
-        );
-
-        const lastRSyslogSync = ko.pureComputed(
-            () => {
-                const { remote_syslog = {} } = this.server().services_status || {};
-                const { test_time } = remote_syslog;
-                return test_time && test_time * 1000;
-            }
-        ).extend({
-            formatTime: {
-                format: timeLongFormat,
-                timezone,
-                notAvailableText: 'Not Tested Yet'
-            }
-        });
-
-        const configurationHref = this.remoteSyslogConfigurationHref();
-
-        return { icon, tooltip, isConfigured, text, lastRSyslogSync, configurationHref };
-    }
-
-    getPhoneHome(timezone) {
-        const icon = ko.pureComputed(
-            () => {
-                if (!this.isConnected()) {
-                    return icons.unavailable;
-                }
-
-                return this.issues().phoneHomeServer || this.issues().phoneHomeProxy ?
-                    icons.problem :
-                    icons.healthy;
-            }
-        );
-
-        const tooltip = ko.pureComputed(
-            () => {
-                if (!this.isConnected()){
-                    return '';
-                }
-
-                const { phoneHomeServer, phoneHomeProxy } = this.issues();
-                const issues = [ phoneHomeServer, phoneHomeProxy ].filter(isDefined);
-
-                if (issues > 1) {
-                    return {
-                        align: 'start',
-                        template: 'list',
-                        text: issues
-                    };
-                } else {
-                    return {
-                        text: issues[0] || 'Reachable and working',
-                        align: 'start'
-                    };
-                }
-            }
-        );
-
-        const proxy = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return '';
-                }
-
-                return systemInfo().phone_home_config.proxy_address || 'Not Configured';
-            }
-        );
-
-        const lastPhoneHomeSync = ko.pureComputed(
-            () => {
-                const { phonehome_server = {} } = this.server().services_status || {};
-                const { test_time } = phonehome_server;
-                return test_time && test_time * 1000;
-            }
-        ).extend({
-            formatTime: {
-                format: timeLongFormat,
-                timezone,
-                notAvailableText: 'Not Synced Yet'
-            }
-        });
-
-        const configurationHref = this.phoneHomeConfigurationHref();
-
-        return { icon, tooltip, proxy, lastPhoneHomeSync, configurationHref };
+    onState([topology, system, internalResources, location]) {
+        if (!topology || !system) {
+            this.isServerLoaded(false);
+            return;
+        }
+
+        const { params } = location;
+        const { serverMinRequirements } = topology;
+        const server = topology.servers[this.secret];
+        const { mode, isMaster, time, timezone } = server;
+        const internalResourcesList = Object.values(internalResources);
+        const baseConfigurationRoute = realizeUri(routes.management, { system: params.system, tab: 'settings' }, {}, true);
+        const baseResourcesRoute = realizeUri(routes.resources, { system: params.system }, {}, true);
+        const serverDnsConfigurationHref = realizeUri(baseConfigurationRoute, { section: sections.systemAddress });
+        const remoteSyslogConfigurationHref = realizeUri(baseConfigurationRoute, { section: sections.remoteSyslog });
+        const phoneHomeConfigurationHref = realizeUri(baseConfigurationRoute, { section: sections.phoneHome });
+        const isConnected = mode === 'CONNECTED';
+        const issues = summarizeServerIssues(server, system.version, serverMinRequirements);
+        const formattedTime = moment.tz(time, this.timezone()).format(timeLongFormat);
+
+        this.isConnected(isConnected);
+        this.isMaster(isMaster);
+        this.issues(issues);
+        this.time(time);
+        this.timezone(timezone);
+        this.minRequirements(serverMinRequirements);
+        this.infoSheet(_getInfoSheet(server, serverMinRequirements, internalResourcesList, baseResourcesRoute));
+        this.version(_getVersion(server, issues));
+        this.serverTime(_getServerTime(server, issues));
+        this.formattedTime(formattedTime);
+        this.dnsServers(_getDNSServers(server, issues));
+        this.dnsName(_getDNSName(server, issues, system.dnsName, serverDnsConfigurationHref));
+        this.remoteSyslog(_getRemoteSyslog(server, issues, system.remoteSyslog, timezone, remoteSyslogConfigurationHref));
+        this.phoneHome(_getPhoneHome(server, system.phonehome, issues, timezone, phoneHomeConfigurationHref));
+        this.isServerLoaded(true);
     }
 
     onChangeClusterConnectivityIp() {
-        action$.next(openChangeClusterConnectivityIpModal(this.secret()));
+        action$.next(openChangeClusterConnectivityIpModal(this.secret));
     }
 
     onEditServerDetails() {
-        action$.next(openEditServerDetailsModal(this.secret()));
+        action$.next(openEditServerDetailsModal(this.secret));
     }
 
     onEditDNSServers() {
-        action$.next(openEditServerDNSSettingsModal(this.secret()));
+        action$.next(openEditServerDNSSettingsModal(this.secret));
     }
 
     onEditDateAndTime() {
-        action$.next(openEditServerTimeSettingsModal(this.secret()));
+        action$.next(openEditServerTimeSettingsModal(this.secret));
+    }
+
+    onTick() {
+        if (!this.time()) return;
+
+        const time = this.time() + timeTickInterval;
+        const formattedTime = moment.tz(time, this.timezone()).format(timeLongFormat);
+        this.time(time);
+        this.formattedTime(formattedTime);
+    }
+
+    dispose() {
+        clearInterval(this.ticker);
+        super.dispose();
     }
 }
 

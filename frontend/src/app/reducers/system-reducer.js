@@ -23,9 +23,12 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         upgrade,
         has_ssl_cert,
         remote_syslog_config,
-        dns_name, ip_address,
-        maintenance_mode
+        maintenance_mode,
+        dns_name,
+        ip_address,
+        phone_home_config
     } = payload;
+
     const { releaseNotes } = state || {};
 
     return {
@@ -38,7 +41,8 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         releaseNotes,
         maintenanceMode: {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
-        }
+        },
+        phonehome: phone_home_config && phone_home_config.proxy_address
     };
 }
 

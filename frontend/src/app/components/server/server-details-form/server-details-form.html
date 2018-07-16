@@ -17,26 +17,39 @@
             Edit Server Details
         </button>
     </div>
-    <property-sheet class="pad server-details" params="properties: infoSheet">
-        <template name="internal-storage">
+    <property-sheet class="pad server-details" params="
+        properties: infoSheet,
+        loading: !isServerLoaded()
+    ">
+        <template name="hardwareInfo">
+            <p class="row content-middle">
+                {{text}}
+                <!-- ko if: message -->
+                <span class="remark warning push-prev-half"> * Minimum requirements: {{message}}</span>
+                <!-- /ko -->
+            <p class="row content-middle">
+        </template>
+        <template name="internalStorage">
             <p class="row content-middle">
                 Using {{used}} of {{total}} (by bucket spillover)
-                <a class="link push-prev-half" ko.href="href">See internal resource</a>
+                <a class="link push-prev-half" ko.attr.href="href">See internal resource</a>
             </p>
         </template>
     </property-sheet>
 </section>
 
-<section class="column server-monitor" ko.css.disabled="!isConnected()">
+
+<section class="column server-monitor">
     <h2 class="heading3 pad alt-bg">
         Services Monitoring
     </h2>
-
+    <loading-indicator class="align-start pad" ko.visible="!isServerLoaded()"></loading-indicator>
+    <!-- ko if: isServerLoaded -->
     <ul class="pad column list-no-style status-list" >
-        <li class="row push-next" ko.with="version">
+        <li class="row push-next" ko.with="version()">
             <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
+                params="name: icon.name"
+                ko.css="icon.css"
                 ko.tooltip="tooltip"
             ></svg-icon>
             <span class="label push-next highlight">Version:</span>
@@ -44,16 +57,16 @@
             <span ko.visible="!$component.isConnected()">Not Available</span>
         </li>
 
-        <li class="row push-next" ko.with="serverTime">
+        <li class="row push-next" ko.with="serverTime()">
             <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
+                params="name: icon.name"
+                ko.css="icon.css"
                 ko.tooltip="tooltip"
             ></svg-icon>
             <span class="label push-next highlight">Server Date and Time:</span>
             <span class="row" ko.visible="$component.isConnected">
                 <span class="push-next-half">Server Clock:</span>
-                <span ko.text="clock"></span>
+                <span ko.text="$component.formattedTime"></span>
                 <span class="push-both">|</span>
 
                 <span class="push-next-half">NTP:</span>
@@ -69,10 +82,10 @@
             </button>
         </li>
 
-        <li class="row push-next" ko.with="dnsServers">
+        <li class="row push-next" ko.with="dnsServers()">
             <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
+                params="name: icon.name"
+                ko.css="icon.css"
                 ko.tooltip="tooltip"
             ></svg-icon>
             <span class="label push-next highlight">DNS Servers:</span>
@@ -95,10 +108,10 @@
             </button>
         </li>
 
-        <li class="row push-next" ko.with="dnsName">
+        <li class="row push-next" ko.with="dnsName()">
             <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
+                params="name: icon.name"
+                ko.css="icon.css"
                 ko.tooltip="tooltip"
             ></svg-icon>
             <span class="label push-next highlight">DNS Name:</span>
@@ -113,10 +126,10 @@
             </a>
         </li>
 
-        <li class="row push-next" ko.with="remoteSyslog">
+        <li class="row push-next" ko.with="remoteSyslog()">
             <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
+                params="name: icon.name"
+                ko.css="icon.css"
                 ko.tooltip="tooltip"
             ></svg-icon>
             <span class="label push-next highlight">Remote Syslog:</span>
@@ -144,10 +157,10 @@
             </a>
         </li>
 
-        <li class="row push-next" ko.with="phoneHome">
+        <li class="row push-next" ko.with="phoneHome()">
             <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
+                params="name: icon.name"
+                ko.css="icon.css"
                 ko.tooltip="tooltip"
             ></svg-icon>
             <span class="label push-next highlight">Phone Home:</span>
@@ -170,4 +183,5 @@
             </a>
         </li>
     </ul>
+    <!-- /ko -->
 </section>

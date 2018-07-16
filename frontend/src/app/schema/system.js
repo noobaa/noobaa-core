@@ -95,6 +95,9 @@ export default {
                     type: 'integer'
                 }
             }
+        },
+        phonehome: {
+            type: 'string'
         }
     }
 };

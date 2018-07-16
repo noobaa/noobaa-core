@@ -129,7 +129,7 @@ const serverModeToIcon = deepFreeze({
     },
 
     IN_PROGRESS: {
-        name: 'in-progress',
+        name: 'working',
         css: 'warning',
         tooltip: 'In Progress'
     },

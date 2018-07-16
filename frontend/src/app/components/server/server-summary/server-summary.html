@@ -1,13 +1,16 @@
 <!-- Copyright (C) 2016 NooBaa -->
+<div class="fill row" ko.visible="!isServerLoaded()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
 
-<section class="row">
+<section class="row" ko.if="isServerLoaded">
     <section class="c4 column pad borders">
         <div class="row greedy content-middle">
             <svg-icon class="push-next"
                 params="name: statusIcon().name"
-                data-bind="css: statusIcon().css"
+                ko.css="statusIcon().css"
             ></svg-icon>
-            <span class="highlight" data-bind="text: statusText"></span>
+            <span class="highlight" ko.text="statusText"></span>
         </div>
 
         <hr>
@@ -15,14 +18,10 @@
         <div class="row greedy content-middle">
             <svg-icon class="push-next"
                 params="name: issuesIcon().name"
-                data-bind="
-                    css: issuesIcon().css,
-                    tooltip: issuesTooltip
-            "></svg-icon>
-            <span class="highlight" data-bind="
-                text: issuesText,
-                css: { disabled: !isConnected() }
-            "></span>
+                ko.css="issuesIcon().css"
+                ko.tooltip="issuesIcon().tooltip"
+            ></svg-icon>
+            <span class="highlight" ko.text="issuesText"></span>
         </div>
     </section>
 
@@ -30,11 +29,11 @@
         <h3 class="heading3">
             Average utilization over last minute:
         </h3>
-        <bar-chart params="values: barValues, options: barOptions">
+        <bar-chart params="values: barValues, options: barOptions"></bar-chart>
     </section>
 
     <section class="c4 column pad borders">
-        <h3 class="heading3" data-bind="text: 'No Server Activities'"></h3>
+        <h3 class="heading3">No Server Activities</h3>
         <hr>
     </section>
 </section>

@@ -440,7 +440,10 @@ module.exports = {
                 },
                 pool_id: {
                     objectid: true
-                }
+                },
+                region: {
+                    type: 'string'
+                },
             }
         }
     }

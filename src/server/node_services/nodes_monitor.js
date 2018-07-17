@@ -1364,10 +1364,12 @@ class NodesMonitor extends EventEmitter {
         if (!item.connection) return;
         if (!item.agent_info) return;
         const should_enable = !item.node.decommissioned;
+        const item_pool = system_store.data.get_by_id(item.node.pool);
         const location_info = {
             node_id: String(item.node._id),
             host_id: String(item.node.host_id),
             pool_id: String(item.node.pool),
+            region: item_pool.region
         };
         const service_enabled_not_changed = (item.node.enabled && should_enable) || (!item.node.enabled && !should_enable);
         const location_info_not_changed = _.isEqual(item.agent_info.location_info, location_info);

@@ -490,6 +490,51 @@ function find_pool_by_name(req) {
     return pool;
 }
 
+async function assign_pool_to_region(req) {
+    const name = req.rpc_params.name;
+    const pool = req.system.pools_by_name[name];
+    if (!pool) {
+        throw new RpcError('NO_SUCH_POOL', 'No such pool: ' + name);
+    }
+    if (pool.resource_type === 'INTERNAL') {
+        throw new RpcError('NO_REGION_ON_INTERNAL', 'Can\'t set region for internal resource');
+    }
+    if (pool.region === req.rpc_params.region) return;
+    if (req.rpc_params.region === '' && _.isUndefined(pool.region)) return;
+    let desc;
+    if (req.rpc_params.region === '') {
+        await system_store.make_changes({
+            update: {
+                pools: [{
+                    _id: pool._id,
+                    $unset: { region: 1 },
+                }]
+            }
+        });
+        desc = `${pool.name} was unassigned from region ${pool.region} by ${req.account && req.account.email}`;
+    } else {
+        await system_store.make_changes({
+            update: {
+                pools: [{
+                    _id: pool._id,
+                    $set: {
+                        region: req.rpc_params.region,
+                    },
+                }]
+            }
+        });
+        desc = `${pool.name} was assigned to region ${req.rpc_params.region} by ${req.account && req.account.email}`;
+    }
+    Dispatcher.instance().activity({
+        event: pool.resource_type === 'CLOUD' ? 'resource.cloud_assign_region' : 'resource.pool_assign_region',
+        level: 'info',
+        system: req.system && req.system._id,
+        actor: req.account && req.account._id,
+        pool: pool._id,
+        desc,
+    });
+}
+
 function find_namespace_resource_by_name(req) {
     const name = req.rpc_params.name;
     const namespace_resource = req.system.namespace_resources_by_name[name];
@@ -508,7 +553,8 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         pool_node_type: pool.pool_node_type,
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier
-        storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS)
+        storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS),
+        region: pool.region,
     };
     info.data_activities = {
         activities: p_nodes.data_activities || [],
@@ -722,3 +768,4 @@ exports.assign_nodes_to_pool = assign_nodes_to_pool;
 exports.get_associated_buckets = get_associated_buckets;
 exports.get_pool_history = get_pool_history;
 exports.get_namespace_resource_extended_info = get_namespace_resource_extended_info;
+exports.assign_pool_to_region = assign_pool_to_region;

@@ -106,7 +106,7 @@ class MirrorMapper {
         this.regular_pools_valid = size_utils.json_to_bigint(regular_free).greater(config.MIN_TIER_FREE_THRESHOLD);
         this.redundant_pools_valid = size_utils.json_to_bigint(redundant_free).greater(config.MIN_TIER_FREE_THRESHOLD);
         const regular_weight = this.regular_pools_valid ? 3 : 0;
-        this.is_local_mirror = location_info && spread_pools.some(pool => (location_info.pool_id === String(pool._id)));
+        this.is_local_mirror = Boolean(find_local_pool(spread_pools, location_info));
         const local_weight = this.is_local_mirror && (this.regular_pools_valid || this.redundant_pools_valid) ? 4 : 0;
         let redundant_weight = 0;
         if (this.redundant_pools_valid) {
@@ -748,14 +748,21 @@ function _block_sorter_local(location_info) {
     return function(block1, block2) {
         const node1 = block1.node;
         const node2 = block2.node;
+        const { node_id, host_id, pool_id, region } = location_info;
         if (node2.readable && !node1.readable) return 1;
         if (node1.readable && !node2.readable) return -1;
-        if (String(node2._id) === location_info.node_id && String(node1._id) !== location_info.node_id) return 1;
-        if (String(node1._id) === location_info.node_id && String(node2._id) !== location_info.node_id) return -1;
-        if (node2.host_id === location_info.host_id && node1.host_id !== location_info.host_id) return 1;
-        if (node1.host_id === location_info.host_id && node2.host_id !== location_info.host_id) return -1;
-        if (String(block2.pool) === location_info.pool_id && String(block1.pool) !== location_info.pool_id) return 1;
-        if (String(block1.pool) === location_info.pool_id && String(block2.pool) !== location_info.pool_id) return -1;
+        if (String(node2._id) === node_id && String(node1._id) !== node_id) return 1;
+        if (String(node1._id) === node_id && String(node2._id) !== node_id) return -1;
+        if (node2.host_id === host_id && node1.host_id !== host_id) return 1;
+        if (node1.host_id === host_id && node2.host_id !== host_id) return -1;
+        if (String(block2.pool) === pool_id && String(block1.pool) !== pool_id) return 1;
+        if (String(block1.pool) === pool_id && String(block2.pool) !== pool_id) return -1;
+        if (region) {
+            const pool1 = system_store.data.get_by_id(block1.pool);
+            const pool2 = system_store.data.get_by_id(block2.pool);
+            if (pool2.region === region && pool1.region !== region) return 1;
+            if (pool1.region === region && pool2.region !== region) return -1;
+        }
         return node2.heartbeat - node1.heartbeat;
     };
 }
@@ -776,25 +783,38 @@ function _pool_has_redundancy(pool) {
 }
 
 function should_rebuild_chunk_to_local_mirror(mapping, location_info) {
-    if (!location_info || !location_info.pool_id) return false;
+    if (!location_info) return false;
+    if (!location_info.pool_id && !location_info.region) return false;
     if (!mapping.tier) return false;
     // check if the selected tier is in mirroring mode
     if (mapping.tier.data_placement !== 'MIRROR') return false;
-    // check if the location pool is in the selected tier policy
-    if (!mapping.tier.mirrors.find(mirror => mirror.spread_pools.find(pool => location_info.pool_id === String(pool._id)))) return false;
+    // check if a pool in the selected tier policy is the location range or pool
+    if (!find_local_mirror(mapping.tier.mirrors, location_info)) return false;
     // check if there is already a good block on a mirror that we consider local
     if (_.isEmpty(mapping.blocks_in_use)) return false;
     for (const block of mapping.blocks_in_use) {
         if (block.is_local_mirror) return false;
     }
-    // check if the pool appear in the allocations list - if so then there is enough free space on the pool for this chunk and we should rebuild
+    // check if a pool from the same region appear in the allocations list - 
+    // if so then there is enough free space on the pool for this chunk and we should rebuild
     if (!mapping.allocations) return false;
     for (const allocation of mapping.allocations) {
-        if (allocation.pools.find(pool => location_info.pool_id === String(pool._id))) return true;
+        if (find_local_pool(allocation.pools, location_info)) return true;
     }
     // if we didn't find local pool in all allocations (as supposed to by previous conditions) we shouldn't rebuild - not enough space
     return false;
     // TODO - we don't actually check for available storage on the local mirror - for now we only consider allocations
+}
+
+function find_local_mirror(mirrors, location_info) {
+    return mirrors.find(mirror => find_local_pool(mirror.spread_pools, location_info));
+}
+
+function find_local_pool(pools, location_info) {
+    return location_info && pools.find(pool =>
+        (location_info.region && location_info.region === pool.region) ||
+        location_info.pool_id === String(pool._id)
+    );
 }
 
 // EXPORTS

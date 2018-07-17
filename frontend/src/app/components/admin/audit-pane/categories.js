@@ -229,6 +229,16 @@ export default {
             assign_nodes: {
                 message: 'Pool Nodes Assigned',
                 entityId: ({ pool }) => pool && pool.name
+            },
+            
+            pool_assign_region: {
+                message: 'Pool Region Assigned',
+                entityId: ({ pool }) => pool && pool.name
+            },
+
+            cloud_assign_region: {
+                message: 'Cloud Resource Region Assigned',
+                entityId: ({ pool }) => pool && pool.name
             }
         }
     },

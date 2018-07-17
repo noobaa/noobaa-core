@@ -57,7 +57,7 @@ const YELLOW = "\x1b[33;1m";
 
 let report = new Report();
 
-report.init_reporter({ suite: test_name });
+report.init_reporter({ suite: test_name, conf: {}, mongo_report: true});
 
 //class Expect, should move to a util.
 class Expect {
@@ -489,11 +489,11 @@ async function main() {
             }
         }
         console.log(`Everything finished with success!`);
-        await report.print_report();
+        await report.report();
         process.exit(0);
     } catch (err) {
         console.error('TUI got an error:', err);
-        await report.print_report();
+        await report.report();
         process.exit(1);
     }
 }

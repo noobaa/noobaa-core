@@ -236,7 +236,7 @@ async function run_main() {
     }
     if (failures_in_test) {
         console.error('Errors during data available test (replicas)' + errors);
-        await report.print_report();
+        await report.report();
         process.exit(1);
     } else if (use_existing_env) {
         await clean_up_dataset();
@@ -246,7 +246,7 @@ async function run_main() {
         await clean_up_dataset();
         console.log('data available test (replicas files) were successful!');
     }
-    await report.print_report();
+    await report.report();
     process.exit(0);
 }
 

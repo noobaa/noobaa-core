@@ -77,7 +77,7 @@ let TEST_STATE = Object.assign({}, TEST_STATE_INITIAL);
 update_dataset_sizes();
 
 let report = new Report();
-report.init_reporter({ suite: test_name, conf: TEST_CFG });
+report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true});
 
 /*
 ActionTypes defines the operations which will be used in the test
@@ -674,7 +674,7 @@ function init_parameters(params) {
     TEST_CFG = _.defaults(_.pick(params, _.keys(TEST_CFG)), TEST_CFG);
     update_dataset_sizes();
 
-    report.init_reporter({ suite: test_name, conf: TEST_CFG });
+    report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true});
 }
 
 function run_test() {
@@ -705,10 +705,16 @@ function run_test() {
                             .then(() => act_and_log(action_type));
                     });
             })
-            .then(() => console.log(`Dataset finished successfully`))
-            .catch(err => {
-                throw new Error(`Errors during test`, err);
+            .then(() => report.report())
+            .then(() => {
+                console.log(`Everything finished with success!`);
+                process.exit(0);
             })
+            .catch(err => report.report()
+                .then(() => {
+                    console.error(`Errors during test`, err);
+                    process.exit(4);
+                }))
         );
 }
 

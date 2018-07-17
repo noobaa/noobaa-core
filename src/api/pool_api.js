@@ -319,6 +319,25 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+        assign_pool_to_region: {
+            doc: 'Add a region tag to a resource',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name', 'region'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    region: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 
@@ -505,7 +524,10 @@ module.exports = {
                     items: {
                         type: 'string',
                     }
-                }
+                },
+                region: {
+                    type: 'string'
+                },
             },
         },
 

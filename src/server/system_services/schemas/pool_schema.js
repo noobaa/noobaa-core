@@ -45,6 +45,9 @@ module.exports = {
             type: 'string',
             enum: ['HOSTS', 'CLOUD', 'INTERNAL']
         },
+        region: {
+            type: 'string'
+        },
         pool_node_type: node_schema.properties.node_type,
         mongo_pool_info: {
             type: 'object',
@@ -122,7 +125,7 @@ module.exports = {
                         node_token: {
                             type: 'string'
                         },
-                        cloud_pool: {
+                        cloud_path: {
                             type: 'string'
                         }
                     }

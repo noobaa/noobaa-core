@@ -43,7 +43,9 @@ const EXISTING_AUDIT_LOGS = {
         'delete',
         'cloud_create',
         'cloud_delete',
-        'assign_nodes'
+        'assign_nodes',
+        'pool_assign_region',
+        'cloud_assign_region'
     ],
     'dbg': ['set_debug_node',
         'diagnose_node',

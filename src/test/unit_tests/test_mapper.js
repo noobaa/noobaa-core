@@ -388,6 +388,48 @@ coretest.describe_mapper_test_case({
             }
         });
 
+        mocha.it.only('should replicate to pool with the same region', function() {
+            const location_info = {
+                region: 'REGION-X'
+            };
+            const chunk = {
+                _id: 1,
+                frags,
+                chunk_coder_config,
+                blocks: regular_pools.length > 1 ? make_blocks({ pools: regular_pools.slice(1) }) : [],
+            };
+            if (data_placement === 'MIRROR' && regular_pools.length > 1) {
+                regular_pools[0].region = 'REGION-X';
+            }
+            const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status, location_info);
+            const should_rebuild = mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info);
+            if (data_placement === 'MIRROR' && regular_pools.length > 1) {
+                assert.strictEqual(should_rebuild, true);
+            } else {
+                assert.strictEqual(should_rebuild, false);
+                assert.strictEqual(((mapping.blocks_in_use && mapping.blocks_in_use.length) || 0) +
+                    ((mapping.allocations && mapping.allocations.length) || 0), total_blocks);
+                assert_allocations_in_tier(mapping.allocations, regular_tier);
+            }
+        });
+
+        mocha.it.only('should not replicate to pool with the different region', function() {
+            const location_info = {
+                region: 'REGION-Y'
+            };
+            const chunk = {
+                _id: 1,
+                frags,
+                chunk_coder_config,
+                blocks: regular_pools.length > 1 ? make_blocks({ pools: regular_pools.slice(1) }) : [],
+            };
+            if (data_placement === 'MIRROR' && regular_pools.length > 1) {
+                regular_pools[0].region = 'REGION-X';
+            }
+            const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status, location_info);
+            assert.strictEqual(mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info), false);
+        });
+
         mocha.it('should not replicate to local pool if local already has blocks', function() {
             const location_info = {
                 pool_id: String(regular_pools[0]._id)

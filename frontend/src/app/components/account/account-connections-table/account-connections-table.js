@@ -63,6 +63,7 @@ class AccountConnectionsTableViewModel extends Observer {
         this.pageSize = paginationPageSize;
         this.page = ko.observable();
         this.selectedForDelete = '';
+        this.expandedRow = '';
         this.connectionCount = ko.observable();
         this.emptyMessage = ko.observable();
         this.rows = ko.observableArray();
@@ -108,9 +109,8 @@ class AccountConnectionsTableViewModel extends Observer {
             .slice(pageStart, pageStart + this.pageSize)
             .map((connection, i) => {
                 const row = this.rows.get(i) || new ConnectionRowViewModel(rowParams);
-                const isExpanded = expandedRow === connection.name;
                 row.onConnection(connection, buckets, namespaceBuckets, system,
-                    isExpanded, selectedForDelete);
+                    expandedRow, selectedForDelete);
                 return row;
             });
 

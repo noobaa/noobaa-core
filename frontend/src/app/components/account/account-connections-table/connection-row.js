@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import UsageRowViewModel from './usage-row';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
@@ -89,6 +91,7 @@ function _getEndpointTooltip(service, endpoint) {
 export default class ConnectionRowViewModel {
     constructor({ onSelectForDelete, onDelete, onExpand }) {
         this.usageColumns = ko.observableArray();
+        this.id = '';
         this.expand = onExpand;
         this.emptyMessage = emptyMessage;
         this.service = ko.observable();
@@ -115,7 +118,7 @@ export default class ConnectionRowViewModel {
         buckets,
         namespaceBuckets,
         system,
-        isExpanded,
+        expandedRow,
         selectedForDelete
     ) {
         const { name, service, endpoint, identity, usage } = connection;
@@ -160,19 +163,20 @@ export default class ConnectionRowViewModel {
 
         this.usageColumns(usageColumns);
         this.rows(rows);
+        this.id = id;
         this.name(name);
         this.service(serviceInfo);
         this.endpoint(endpointInfo);
         this.identity(identity);
         this.externalTargets(externalTargetsInfo);
         this.deleteButton.id(id);
-        this.deleteButton.active(selectedForDelete === name);
+        this.deleteButton.active(selectedForDelete === id);
         this.deleteButton.disabled(hasExternalConnections);
         this.deleteButton.tooltip(deleteToolTip);
-        this._isExpanded(isExpanded);
+        this._isExpanded(expandedRow === id);
     }
 
     onToggleExpand(val) {
-        this.expand(val ? this.name() : null);
+        this.expand(val ? this.id : null);
     }
 }

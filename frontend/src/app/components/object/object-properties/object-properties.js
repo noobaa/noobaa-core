@@ -69,7 +69,7 @@ class ObjectPropertiesViewModel extends ConnectableViewModel {
             value: ko.observable()
         },
         {
-            label: 'Nubmer of versions',
+            label: 'Number of versions',
             visible: ko.observable(),
             value: ko.observable()
         },

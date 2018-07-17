@@ -4,7 +4,7 @@ import template from './host-summary.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { state$ } from 'state';
-import { isNumber } from 'utils/core-utils';
+import { isNumber, mapValues } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { get } from 'rx-extensions';
@@ -125,13 +125,20 @@ class HostSummaryViewModel extends Observer {
         }
 
         { // Update host storage and usage
-            const { free, unavailableFree, used, usedOther, reserved } = host.storage;
+            const {
+                free,
+                unavailableFree,
+                used,
+                unavailableUsed,
+                usedOther,
+                reserved
+            } = mapValues(host.storage, toBytes);
 
-            this.availableCapacity(toBytes(free));
-            this.unavailableCapacity(toBytes(unavailableFree));
-            this.usedByNoobaaCapacity(toBytes(used));
-            this.usedByOthersCapacity(toBytes(usedOther));
-            this.reservedCapacity(toBytes(reserved));
+            this.availableCapacity(free);
+            this.unavailableCapacity(unavailableFree);
+            this.usedByNoobaaCapacity(used + unavailableUsed);
+            this.usedByOthersCapacity(usedOther);
+            this.reservedCapacity(reserved);
         }
 
         { // Update host data activity summary

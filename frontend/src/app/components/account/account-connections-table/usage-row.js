@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';

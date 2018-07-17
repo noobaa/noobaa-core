@@ -60,7 +60,7 @@ let report = new Report();
 let cf = new CloudFunction(client, report);
 let bf = new BucketFunctions(client, report);
 
-report.init_reporter({ suite: test_name, conf: server_ip });
+report.init_reporter({ suite: test_name, conf: {aws: true, azure: true}, mongo_report: true});
 
 const AWSDefaultConnection = cf.getAWSConnection();
 
@@ -423,7 +423,7 @@ async function main(clouds) {
             await clean_namespace_bucket(bucket);
             await clean_env(clouds);
         }
-        await report.print_report();
+        await report.report();
         if (failures_in_test) {
             console.error('Errors during namespace test');
             console.error(`${JSON.stringify(_.countBy(errors), null, 4)}`);
@@ -434,7 +434,7 @@ async function main(clouds) {
         }
     } catch (err) {
         saveErrorAndResume('something went wrong', err);
-        await report.print_report();
+        await report.report();
         process.exit(1);
     }
 }

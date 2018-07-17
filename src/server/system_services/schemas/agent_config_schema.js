@@ -22,7 +22,7 @@ module.exports = {
         pool: {
             objectid: true
         },
-        exclude_drive: {
+        exclude_drives: {
             type: 'array',
             items: {
                 type: 'string'

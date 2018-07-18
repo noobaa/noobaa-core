@@ -117,11 +117,19 @@ class NamespaceMerge {
     // TODO should we: (1) delete from all ns ? (2) delete from writable ns ? (3) create a "delete marker" on writable ns
 
     delete_object(params, object_sdk) {
-        return this._ns_put(ns => ns.delete_object(params, object_sdk));
+        return this._ns_map(ns => ns.delete_object(params, object_sdk))
+            .then(reply => {
+                const succeeded = this._throw_if_all_failed_or_get_succeeded(reply);
+                return _.first(succeeded);
+            });
     }
 
     delete_multiple_objects(params, object_sdk) {
-        return this._ns_put(ns => ns.delete_multiple_objects(params, object_sdk));
+        return this._ns_map(ns => ns.delete_multiple_objects(params, object_sdk))
+            .then(reply => {
+                const succeeded = this._throw_if_all_failed_or_get_succeeded(reply);
+                return _.first(succeeded);
+            });
     }
 
     //////////////
@@ -165,28 +173,25 @@ class NamespaceMerge {
     }
 
     _get_failed_responses(reply_array, except_reasons) {
-        return reply_array.filter(res => !res.success).map(rec => rec.error)
-            .filter(error => !_.includes(except_reasons || [], error.rpc_code || 'UNKNOWN_ERR'));
+        return reply_array.filter(
+                res => !res.success &&
+                !_.includes(except_reasons || [], res.error.rpc_code || 'UNKNOWN_ERR')
+            )
+            .map(rec => rec.error);
     }
 
     _throw_if_all_failed_or_get_succeeded(reply_array, except_reasons) {
-        const failed = this._get_failed_responses(reply_array, except_reasons);
         const succeeded = this._get_succeeded_responses(reply_array);
-        if (_.isEmpty(succeeded)) {
-            throw _.first(failed);
-        } else {
-            return succeeded;
-        }
+        if (!_.isEmpty(succeeded)) return succeeded;
+        const failed = this._get_failed_responses(reply_array, except_reasons);
+        throw _.first(failed);
     }
 
     _throw_if_any_failed_or_get_succeeded(reply_array, except_reasons) {
         const failed = this._get_failed_responses(reply_array, except_reasons);
+        if (!_.isEmpty(failed)) throw _.first(failed);
         const succeeded = this._get_succeeded_responses(reply_array);
-        if (_.isEmpty(failed)) {
-            return succeeded;
-        } else {
-            throw _.first(failed);
-        }
+        return succeeded;
     }
 
     // TODO: Currently it only takes the most recent objects without duplicates

@@ -318,7 +318,7 @@ function get_random_file(skip_version_check) {
         return s3ops.get_a_random_version_file(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
             .then(res => ({
                 filename: res.Key,
-                versionid: res.versionid,
+                versionid: res.VersionId,
                 extra: {
                     size: res.Size,
                 }
@@ -329,7 +329,6 @@ function get_random_file(skip_version_check) {
                 filename: res.Key
             }));
     }
-
 }
 
 /*********

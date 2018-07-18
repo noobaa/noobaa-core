@@ -296,9 +296,9 @@ class S3OPS {
             Prefix: prefix,
         };
 
-        return P.ninvoke(s3bucket, 'listObjects', params) //NBNB:: change call to the correct one 
+        return P.ninvoke(s3bucket, 'listObjectVersions', params)
             .then(res => {
-                let list = res.Contents;
+                let list = res.Versions;
                 if (list.length === 0) {
                     throw new Error('No files with prefix in bucket');
                 }
@@ -306,14 +306,15 @@ class S3OPS {
                 return list[rand];
             })
             .catch(err => {
-                console.error(`get_a_random_file:: listObjects ${params} failed!`, err);
+                console.error(`get_a_random_file:: listObjectVersions ${params} failed!`, err);
                 throw err;
             });
     }
 
-    get_list_files(ip, bucket, prefix, param = { supress_logs: false, maxKeys: 1000 }) {
+    get_list_files(ip, bucket, prefix, param = { supress_logs: false, maxKeys: 1000, version: false }) {
         const supress_logs = param.supress_logs;
         const MaxKeys = param.maxKeys;
+        let ops = 'listObjects';
         const rest_endpoint = 'http://' + ip + ':' + port;
         const s3bucket = new AWS.S3({
             endpoint: rest_endpoint,
@@ -329,16 +330,23 @@ class S3OPS {
         };
         let list = [];
         let listFiles = [];
-        return P.ninvoke(s3bucket, 'listObjects', params)
+        if (param.version) {
+            ops = 'listObjectVersions';
+        }
+        return P.ninvoke(s3bucket, ops, params)
             .then(res => {
-                list = res.Contents;
+                if (param.version) {
+                    list = res.Versions;
+                } else {
+                    list = res.Contents;
+                }
                 if (list.length === 0) {
                     if (!supress_logs) {
                         console.warn('No files with prefix in bucket');
                     }
                 } else {
                     list.forEach(function(file) {
-                        listFiles.push({ Key: file.Key });
+                        listFiles.push({ Key: file.Key, VersionId: file.VersionId });
                         if (!supress_logs) {
                             console.log('files key is: ' + file.Key);
                         }
@@ -347,7 +355,7 @@ class S3OPS {
                 return listFiles;
             })
             .catch(err => {
-                console.error(`get_list_files:: listObjects ${params} failed!`, err);
+                console.error(`get_list_files:: ${ops} ${params} failed!`, err);
                 throw err;
             });
     }

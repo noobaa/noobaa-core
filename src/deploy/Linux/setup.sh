@@ -12,11 +12,16 @@ if [ ! -d "/usr/local/noobaa" ]; then
         echo "usage: noobaa-setup <configuration string>"
         exit 1
     else
-        CONFIG=$1
-        mkdir /usr/local/noobaa
-        echo "config is:" ${CONFIG}
-        openssl enc -base64 -d -A <<<${CONFIG} >/usr/local/noobaa/agent_conf.json
-        cat /usr/local/noobaa/agent_conf.json
+        if [ `uname -m` == 'x86_64' ]; then
+            CONFIG=$1
+            mkdir /usr/local/noobaa
+            echo "config is:" ${CONFIG}
+            openssl enc -base64 -d -A <<<${CONFIG} >/usr/local/noobaa/agent_conf.json
+            cat /usr/local/noobaa/agent_conf.json
+        else 
+            echo "Agent can be installed only on 64bit distribution"
+            exit 1
+        fi
     fi
 else
     if [ ! -f /usr/local/noobaa/noobaa-setup ]; then

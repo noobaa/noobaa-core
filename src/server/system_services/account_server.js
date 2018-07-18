@@ -661,6 +661,13 @@ function check_external_connection(req) {
     const system = req.system;
     const proxy = system.phone_home_proxy_address;
     params.proxy = proxy;
+    const account = req.account;
+
+    const connection = req.rpc_params.name && account.sync_credentials_cache.find(sync_conn =>
+        sync_conn.name === req.rpc_params.name);
+    if (connection) {
+        throw new RpcError('CONNECTION_ALREADY_EXIST', 'Connection name already exists: ' + req.rpc_params.name);
+    }
 
     return P.resolve()
         .then(() => {
@@ -703,7 +710,7 @@ function check_azure_connection(params) {
     function err_to_status(err, status) {
         const ret_error = new Error(status);
         ret_error.err_code = err.code || 'Error';
-        ret_error.err_message = err.message || 'Unkown Error';
+        ret_error.err_message = err.message || 'Unknown Error';
         return ret_error;
     }
 
@@ -737,6 +744,12 @@ function check_azure_connection(params) {
             })
         )
         .timeout(check_connection_timeout, new Error('TIMEOUT'))
+        .then(service => {
+            if (!service.Logging) {
+                dbg.warn(`Error - connection for Premium account with params`, _.omit(params, 'secret'));
+                throw err_to_status({}, 'NOT_SUPPORTED');
+            }
+        })
         .then(
             () => ({ status: 'SUCCESS' }),
             err => ({

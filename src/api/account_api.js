@@ -332,6 +332,9 @@ module.exports = {
                 type: 'object',
                 required: ['identity', 'secret', 'endpoint'],
                 properties: {
+                    name: {
+                        type: 'string'
+                    },
                     endpoint: {
                         type: 'string'
                     },

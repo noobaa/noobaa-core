@@ -15,17 +15,22 @@ pool-hosts-table {
 
     > data-table {
         .state-col {
-            min-width: 70px;
+            min-width: 64px;
         }
 
         .hostname-col {
+            .no-wrap();
             text-align: left;
-            min-width: 7em;
+            max-width: 117px;
             width: 100%;
         }
 
         .ip-col {
             min-width: 120px;
+        }
+
+        .drives-col {
+            min-width: 100px;
         }
 
         .services-col {

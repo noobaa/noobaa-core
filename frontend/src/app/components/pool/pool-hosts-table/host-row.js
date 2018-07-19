@@ -11,12 +11,26 @@ import {
     getActivityListTooltip
 } from 'utils/host-utils';
 
+function _getStorageNodesSummary(storageService) {
+    const { enabled, nodes } = storageService;
+    if (!enabled) {
+        return 'None';
+
+    } else {
+        const healtyNodesCount = nodes
+            .filter(node => node.mode === 'OPTIMAL')
+            .length;
+
+        return `${healtyNodesCount} of ${nodes.length}`;
+    }
+}
 
 export default class HostRowViewModel {
     constructor({ baseRoute }) {
         this.baseRoute = baseRoute;
         this.state = ko.observable();
         this.hostname = ko.observable();
+        this.drives = ko.observable();
         this.ip = ko.observable();
         this.services = ko.observable();
         this.capacity = ko.observable();
@@ -41,6 +55,7 @@ export default class HostRowViewModel {
         this.state(getHostStateIcon(host));
         this.hostname(hostname);
         this.ip(ip);
+        this.drives(_getStorageNodesSummary(services.storage));
         this.services(servicesState);
         this.capacity(getNodeOrHostCapacityBarValues(host));
         this.dataActivity(dataActivity);

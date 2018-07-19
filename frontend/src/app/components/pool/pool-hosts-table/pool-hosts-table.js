@@ -38,6 +38,10 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'drives',
+        label: 'Healthy Drives'
+    },
+    {
         name: 'services',
         type: 'service-indicators',
         sortable: true

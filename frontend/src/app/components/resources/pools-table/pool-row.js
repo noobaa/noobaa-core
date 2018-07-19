@@ -59,7 +59,15 @@ export default class PoolRowViewModel {
     onState(pool, lockingAccounts, system, selectedForDelete) {
         if (!pool) return;
         const { name, connectedBuckets, hostsByMode, storage, undeletable } = pool;
-        this.state(getHostsPoolStateIcon(pool));
+
+        const stateIcon = getHostsPoolStateIcon(pool);
+        this.state({
+            ...stateIcon,
+            tooltip: {
+                text: stateIcon.tooltip,
+                align: 'start'
+            }
+        });
 
         const uri = realizeUri(this.baseRoute, { pool: name });
         this.name({ text: name, href: uri });

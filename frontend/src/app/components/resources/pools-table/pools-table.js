@@ -157,8 +157,8 @@ class PoolsTableViewModel extends Observer {
             });
 
         this.baseRoute = realizeUri(location.route, { system, tab }, {}, true);
-        this.isCreatePoolDisabled(hostCount <= 3);
-        this.createPoolTooltip(hostCount > 3 ? '' : notEnoughHostsTooltip);
+        this.isCreatePoolDisabled(hostCount == 0);
+        this.createPoolTooltip(hostCount > 0 ? '' : notEnoughHostsTooltip);
         this.filter(filter);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));

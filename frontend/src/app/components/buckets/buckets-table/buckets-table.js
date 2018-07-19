@@ -209,7 +209,7 @@ class RowViewModel {
     }
 
     onDelete(bucketName) {
-        this.table.onDeleteBucket(bucketName);
+        this.table.onDelete(bucketName);
     }
 }
 

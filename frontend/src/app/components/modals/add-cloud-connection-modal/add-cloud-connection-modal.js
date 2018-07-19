@@ -390,7 +390,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const errors = {};
         const { s3Endpoint, s3AccessKey, s3SecretKey } = values;
 
-        if (!isUri(s3Endpoint)) {
+        if (!isUri(s3Endpoint, false)) {
             errors.s3Endpoint = 'Please enter valid S3 compatible endpoint URI';
         }
 

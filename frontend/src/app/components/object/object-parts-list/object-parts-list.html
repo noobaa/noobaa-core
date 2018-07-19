@@ -81,10 +81,22 @@
                             {{policy}}
                             <!-- ko if: resources -->
                             | Resides on
-                            <span class="box"
-                                ko.text="resources().text"
-                                ko.tooltip="resources().tooltip"
-                            ></span>
+                            <!-- ko if: resources().href -->
+                            <a class="box row content-middle cursor-pointer" ko.attr.href="resources().href">
+                                <svg-icon class="icon-small highlight push-next-half" params="name: resources().icon">
+                                </svg-icon>
+                                {{resources().text}}
+                            </a>
+                            <!-- /ko -->
+                            <!-- ko ifnot: resources().href -->
+                            <span class="box row content-middle" ko.tooltip="resources().tooltip">
+                                <svg-icon class="icon-small highlight push-next-half"
+                                    ko.visible="resources().icon"
+                                    params="name: resources().icon"
+                                ></svg-icon>
+                                {{resources().text}}
+                            </span>
+                            <!-- /ko -->
                             <!-- /ko -->
                         </p>
                         <svg-icon class="icon-small"

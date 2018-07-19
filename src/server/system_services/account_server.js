@@ -618,13 +618,17 @@ async function add_external_connection(req) {
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || undefined;
     info = _.omitBy(info, _.isUndefined);
+    if ((info.endpoint_type === 'AWS' || info.endpoint_type === 'S3_COMPATIBLE') &&
+        (!info.endpoint.startsWith('http://') && !info.endpoint.startsWith('https://'))) {
+        info.endpoint = 'http://' + info.endpoint;
+    }
 
     // TODO: Maybe we should check differently regarding NET_STORAGE connections
     //Verify the exact connection does not exist
     const conn = _.find(req.account.sync_credentials_cache, function(cred) {
-        return cred.endpoint === req.rpc_params.endpoint &&
-            cred.endpoint_type === req.rpc_params.endpoint_type &&
-            cred.access_key === req.rpc_params.identity;
+        return cred.endpoint === info.endpoint &&
+            cred.endpoint_type === info.endpoint_type &&
+            cred.access_key === info.access_key;
     });
     if (conn) {
         throw new RpcError('External Connection Already Exists');
@@ -805,6 +809,9 @@ async function check_google_connection(params) {
 
 
 function check_aws_connection(params) {
+    if (!params.endpoint.startsWith('http://') && !params.endpoint.startsWith('https://')) {
+        params.endpoint = 'http://' + params.endpoint;
+    }
     const s3 = new AWS.S3({
         endpoint: params.endpoint,
         accessKeyId: params.identity,

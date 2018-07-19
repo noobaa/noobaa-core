@@ -167,9 +167,15 @@ export function formatEmailUri(uri, subject) {
     return `mailto:${uri}${query ? `?${query}` : ''}`;
 }
 
-export function isUri(str) {
-    const value = str.replace(/^\s+|\s+$/, ''); //Strip whitespace
-
+export function isUri(str, inforceHttp = true) {
+    const hasProtocol = str.startsWith('http://') || str.startsWith('https://');
+    const value = `${
+        !inforceHttp && !hasProtocol ? 'http://' : ''
+    }${
+        //Strip whitespace
+        str.replace(/^\s+|\s+$/, '')
+    }`;
+    
     //Regex by Diego Perini from: http://mathiasbynens.be/demo/url-regex
     //Modified regex - removed the restrictions for private ip ranges
     const regExp = new RegExp(

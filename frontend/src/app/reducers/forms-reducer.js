@@ -200,6 +200,7 @@ function onCompleteSubmitForm(forms, { payload }) {
         form.fields,
         (field, key) => ({
             ...field,
+            initial: submitted ? field.value : field.initial,
             validity: errors.hasOwnProperty(key) ? 'INVALID' : 'VALID'
         })
     );

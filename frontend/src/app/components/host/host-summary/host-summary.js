@@ -126,12 +126,12 @@ class HostSummaryViewModel extends Observer {
 
         { // Update host storage and usage
             const {
-                free,
-                unavailableFree,
-                used,
-                unavailableUsed,
-                usedOther,
-                reserved
+                free = 0,
+                unavailableFree = 0,
+                used = 0,
+                unavailableUsed = 0,
+                usedOther = 0,
+                reserved = 0
             } = mapValues(host.storage, toBytes);
 
             this.availableCapacity(free);

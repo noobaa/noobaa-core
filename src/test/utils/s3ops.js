@@ -78,7 +78,8 @@ class S3OPS {
             Key: destination,
             MetadataDirective: 'COPY'
         };
-        console.log('>>> SS COPY - About to copy object... from: ' + source + ' to: ' + destination);
+        const psource = source + (versionid ? ' v' + versionid : '');
+        console.log('>>> SS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
         let start_ts = Date.now();
         return P.ninvoke(s3bucket, 'copyObject', params)
             .then(res => {
@@ -91,7 +92,8 @@ class S3OPS {
     }
 
     client_side_copy_file_with_md5(ip, bucket, source, destination, versionid) {
-        console.log('>>> CS COPY - About to copy object... from: ' + source + ' to: ' + destination);
+        const psource = source + (versionid ? ' v' + versionid : '');
+        console.log('>>> CS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
 
         return this.get_file_check_md5(ip, bucket, source, {
                 return_data: true,
@@ -337,6 +339,7 @@ class S3OPS {
             .then(res => {
                 if (param.version) {
                     list = res.Versions;
+                    list = list.concat(res.DeleteMarkers);
                 } else {
                     list = res.Contents;
                 }
@@ -512,7 +515,8 @@ class S3OPS {
         }
 
         let start_ts = Date.now();
-        console.log('>>> DELETE - About to delete object...' + file_name);
+        const psource = file_name + (versionid ? 'v' + versionid : '');
+        console.log('>>> DELETE - About to delete object...' + psource);
         return P.ninvoke(s3bucket, 'deleteObject', params)
             .then(() => {
                 console.log('Delete object took', (Date.now() - start_ts) / 1000, 'seconds');
@@ -589,6 +593,9 @@ class S3OPS {
             params.VersionId = versionid;
         }
 
+        const psource = file_name + (versionid ? ' v' + versionid : '');
+        console.log('>>> SS SET FILE ATTR - on' + psource);
+
         return P.ninvoke(s3bucket, 'putObjectTagging', params)
             .catch(err => {
                 console.error(`set file attribute failed! ${file_name}`, err);
@@ -596,7 +603,7 @@ class S3OPS {
             });
     }
 
-    set_file_attribute_with_copy(ip, bucket, file_name) {
+    set_file_attribute_with_copy(ip, bucket, file_name, versionid) {
         const rest_endpoint = 'http://' + ip + ':' + port;
         const s3bucket = new AWS.S3({
             endpoint: rest_endpoint,
@@ -606,16 +613,26 @@ class S3OPS {
             sslEnabled: false,
         });
 
+        let getObjectOp = 'getObject';
+
         let params = {
             Bucket: bucket,
             Key: file_name,
         };
 
-        return P.ninvoke(s3bucket, 'getObject', params)
+        if (versionid) {
+            params.VersionId = versionid;
+            getObjectOp = 'getObjectTagging';
+        }
+
+        const psource = file_name + (versionid ? ' v' + versionid : '');
+        console.log('>>> SS SET FILE ATTR WITH COPY - on' + psource);
+
+        return P.ninvoke(s3bucket, getObjectOp, params)
             .then(res => {
                 params = {
                     Bucket: bucket,
-                    CopySource: bucket + '/' + file_name,
+                    CopySource: bucket + '/' + file_name + (versionid ? `?versionId=${versionid}` : ''),
                     Key: file_name,
                     MetadataDirective: 'REPLACE',
                     Metadata: {

@@ -357,7 +357,7 @@ function read_range_randomizer() {
 }
 
 function read_range(params) {
-    console.log(`running read_range`);
+    console.log(`running read_range ${params}`);
     return P.resolve()
         .then(() => s3ops.get_file_ranges_check_md5(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename,
             params.rand_parts, { versionid: params.versionid }));
@@ -541,7 +541,7 @@ function server_side_copy_randomizer() {
 }
 
 function server_side_copy(params) {
-    console.log(`running server_side copy object from ${params.old_filename.name} to ${params.new_filename}`);
+    console.log(`running server_side copy object from ${params.old_filename}  to ${params.new_filename}`);
     return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip,
             TEST_CFG.bucket,
             params.old_filename.name,
@@ -570,7 +570,7 @@ function client_side_copy_randomizer() {
 }
 
 function client_side_copy(params) {
-    console.log(`running client_side copy object from ${params.old_filename.name} to ${params.new_filename}`);
+    console.log(`running client_side copy object from ${params.old_filename} to ${params.new_filename}`);
     return s3ops.client_side_copy_file_with_md5(TEST_CFG.server_ip,
             TEST_CFG.bucket,
             params.old_filename.name,
@@ -600,7 +600,7 @@ function rename_randomizer() {
 
 function run_rename(params) {
     TEST_STATE.count += 1;
-    console.log(`running rename object from ${params.old_filename.name} to ${params.new_filename}`);
+    console.log(`running rename object from ${params.old_filename} to ${params.new_filename}`);
     return s3ops.server_side_copy_file_with_md5(TEST_CFG.server_ip,
             TEST_CFG.bucket,
             params.old_filename.name,
@@ -628,11 +628,11 @@ function set_attribute_randomizer() {
 }
 
 function set_attribute(params) {
-    console.log(`running set attribute for ${params.filename}`);
+    console.log(`running set attribute for ${params}`);
     //TEST_STATE.count += 1;
     if (params.useCopy) {
         console.log(`setting attribute using copyObject`);
-        return s3ops.set_file_attribute_with_copy(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename);
+        return s3ops.set_file_attribute_with_copy(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename, params.versionid);
     } else {
         console.log(`setting attribute using putObjectTagging`);
         return s3ops.set_file_attribute(TEST_CFG.server_ip, TEST_CFG.bucket, params.filename, params.versionid);
@@ -644,12 +644,12 @@ function delete_randomizer() {
         .then(res => ({
             filename: res.filename,
             versionid: res.versionid,
-            size: res.Size
+            size: res.extra.size
         }));
 }
 
 function run_delete(params) {
-    console.log(`runing delete`);
+    console.log(`runing delete ${params}`);
     return s3ops.get_file_number(TEST_CFG.server_ip, TEST_CFG.bucket, DATASET_NAME)
         .then(object_number => {
             // won't delete the last file in the bucket

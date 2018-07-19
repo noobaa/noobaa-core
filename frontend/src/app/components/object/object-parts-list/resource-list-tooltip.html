@@ -1,0 +1,14 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<ul class="list-no-style column" ko.foreach="$data">
+    <li class="row content-middle" ko.css="{ 'push-prev-half': $index() > 0 }">
+        <svg-icon class="icon-small highlight push-next-half" params="name: icon">
+        </svg-icon>
+        <!-- ko if: href -->
+        <a class="link no-outline greedy no-wrap" ko.attr.href="href" ko.text="text"></a>
+        <!-- /ko -->
+        <!-- ko ifnot: href -->
+        <span class="highlight greddy no-wrap" ko.text="text"></span>
+        <!-- /ko -->
+    </li>
+</ul>

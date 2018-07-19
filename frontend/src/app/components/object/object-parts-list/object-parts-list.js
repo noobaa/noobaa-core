@@ -1,11 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './object-parts-list.html';
+import resourceListTooltip from './resource-list-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import { openObjectPreviewModal, requestLocation } from 'action-creators';
 import { paginationPageSize } from 'config';
-import { deepFreeze, flatMap, assignWith, sumBy, isDefined, unique } from 'utils/core-utils';
+import { deepFreeze, flatMap, assignWith, sumBy, isDefined, unique, mapValues } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getCloudResourceTypeIcon } from 'utils/resource-utils';
 import { splitObjectId, summerizePartDistribution, formatBlockDistribution } from 'utils/object-utils';
 import { getPlacementTypeDisplayName, getResiliencyTypeDisplay } from 'utils/bucket-utils';
 import { formatSize } from 'utils/size-utils';
@@ -185,24 +187,45 @@ function _getGroupTooltip(group, storageType, blocksCategory) {
     };
 }
 
-function _getResourceSummary(resources) {
-    if (resources.length === 0) {
-        return;
+function _getResourceInfo(resource, cloudTypeMapping, system) {
+    const { type, name } = resource;
+    if (type === 'HOSTS') {
+        return {
+            icon: 'nodes-pool',
+            text: name,
+            href: realizeUri(routes.pool, { system, pool: name })
+        };
+
+    } else {
+        const cloudType = cloudTypeMapping[name];
+        return {
+            icon: getCloudResourceTypeIcon({ type: cloudType }).name,
+            text: name,
+            href: ''
+        };
     }
+}
 
-    if (resources.length === 1) {
-        return { text: resources[0].name };
+function _getResourceSummary(resources, system, cloudTypeMapping) {
+    switch (resources.length) {
+        case 0: {
+            return;
+        }
+
+        case 1: {
+            return _getResourceInfo(resources[0], cloudTypeMapping, system);
+        }
+
+        default: {
+            return {
+                text: stringifyAmount('resource', resources.length),
+                tooltip: {
+                    template: resourceListTooltip,
+                    text: resources.map(res => _getResourceInfo(res, cloudTypeMapping, system))
+                }
+            };
+        }
     }
-
-    const resourceNames = resources.map(resource => resource.name);
-    const tooltip = resourceNames.length > 1 ?
-        { template: 'list', text: resourceNames } :
-        resourceNames[0];
-
-    return {
-        text: stringifyAmount('resource', resources.length),
-        tooltip: tooltip
-    };
 }
 
 function _getBlockMarking(block) {
@@ -263,7 +286,7 @@ function _getBlockResource(block, system) {
     }
 }
 
-function _mapDistributionGroup(group, system) {
+function _mapDistributionGroup(group, cloudTypeMapping, system) {
     const policy = group.storagePolicy;
     const blocksCategory =
         (policy.replicas && (policy.dataFrags + policy.parityFrags) && 'MIXED') ||
@@ -284,7 +307,7 @@ function _mapDistributionGroup(group, system) {
         label: groupLabel,
         policy: formatBlockDistribution(policy),
         tooltip: _getGroupTooltip(group.type, blocksCategory, _getStorageType(group)),
-        resources: _getResourceSummary(group.resources),
+        resources: _getResourceSummary(group.resources, system, cloudTypeMapping),
         rows: group.blocks.map(block => ({
             state: blockModeToState[block.mode],
             marking: _getBlockMarking(block),
@@ -369,20 +392,23 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
         .ofType(PartRowViewModel, { list: this });
 
     selectState(state, params) {
-        const { location, buckets, objects, objectParts, accounts, system } = state;
         const { bucket: bucketName } = splitObjectId(params.objectId);
+        const { location, buckets, objects, objectParts,
+            cloudResources, accounts, system } = state;
+
 
         return [
             location,
             buckets && buckets[bucketName],
             objects && objects.items[params.objectId],
             objectParts && objectParts.items,
+            cloudResources,
             accounts && accounts[state.session.user],
             system && system.sslCert
         ];
     }
 
-    mapStateToProps(location, bucket, object, parts, user, sslCert) {
+    mapStateToProps(location, bucket, object, parts, cloudResources, user, sslCert) {
         if (!parts || !user) {
             ko.assignToProps(this, {
                 partsLoaded: false,
@@ -406,6 +432,7 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
             const partDistributions = parts.map(part => summerizePartDistribution(bucket, part));
             const selectedRow = isDefined(query.row) ? Number(query.row) : -1;
             const isRowSelected = selectedRow > -1;
+            const cloudTypeMapping = mapValues(cloudResources, res => res.type);
 
             ko.assignToProps(this, {
                 partsLoaded: true,
@@ -428,7 +455,7 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
                     fade: true,
                     partSeq: isRowSelected ? numeral(parts[selectedRow].seq + 1).format(',') : '',
                     blockTables: partDistributions[selectedRow].map(group =>
-                        _mapDistributionGroup(group, params.system)
+                        _mapDistributionGroup(group, cloudTypeMapping, params.system)
                     )
                 }
             });

@@ -2,9 +2,9 @@
 'use strict';
 
 const _ = require('lodash');
-const mongodb = require('mongodb');
 
 const dbg = require('../../util/debug_module')(__filename);
+const P = require('../../util/promise');
 const mongo_client = require('../../util/mongo_client');
 const s3_usage_schema = require('./s3_usage_schema');
 const usage_report_schema = require('./usage_report_schema');
@@ -47,61 +47,61 @@ class UsageReportStore {
     // Usage reports funcs //
     /////////////////////////
 
-    async insert_usage_reports(reports) {
+    async insert_usage_reports(reports, { accumulate } = {}) {
         if (!reports || !reports.length) return;
-        for (const report of reports) {
-            report._id = report._id || new mongodb.ObjectID();
-            report.first_sample_time = report.first_sample_time || report.start_time;
-            report.aggregated_time_range = report.aggregated_time_range || 0;
-            report.aggregated_time = report.aggregated_time || new Date();
-            this._usage_reports.validate(report);
-        }
-        return this._usage_reports.col().insertMany(reports);
-    }
 
-    async get_latest_aggregated_report_time(params) {
-        const { aggregated_time_range, bucket, account } = params;
-        const report = await this._usage_reports.col().findOne({
-            bucket,
-            account,
-            aggregated_time_range
-        }, {
-            sort: { aggregated_time: -1 }
-        });
-        return report ? report.aggregated_time.getTime() : 0;
-    }
-
-    async update_aggregated_usage_reports(update) {
-        const res = await this._usage_reports.col().findOne({
-            start_time: update.start_time,
-            aggregated_time_range: update.aggregated_time_range
-        });
-        // insert if not found
-        if (!res) return this.insert_usage_reports([update]);
-        // update if the range is already in the DB
-        return this._usage_reports.col().updateOne({
-            start_time: update.start_time,
-            aggregated_time_range: update.aggregated_time_range
-        }, {
-            $inc: _.pick(update, 'read_bytes', 'write_bytes', 'read_count', 'write_count')
+        // group the report by <bucket, account, start_time, end_time> tuple
+        const grouped_reports = _.groupBy(reports, report =>
+            `${report.bucket}#${report.account}#${report.start_time}#${report.end_time}`);
+        await P.map(_.values(grouped_reports), async group => {
+            const selector = {
+                system: group[0].system,
+                bucket: group[0].bucket,
+                account: group[0].account,
+                start_time: group[0].start_time,
+                end_time: group[0].end_time
+            };
+            const usage_data = {
+                read_bytes: _.sumBy(group, 'read_bytes'),
+                write_bytes: _.sumBy(group, 'write_bytes'),
+                read_count: _.sumBy(group, 'read_count'),
+                write_count: _.sumBy(group, 'write_count')
+            };
+            const update = accumulate ? {
+                $set: selector,
+                $inc: usage_data
+            } : {
+                $set: Object.assign({}, selector, usage_data)
+            };
+            const res = await this._usage_reports.col().findOneAndUpdate(
+                selector,
+                update, {
+                    upsert: true,
+                    returnNewDocument: true
+                }
+            );
+            this._usage_reports.validate(res.value, 'warn');
         });
     }
 
     async get_usage_reports(params) {
-        const { since, till, lt_range, bucket } = params;
-        const start_time = { $lt: till ? new Date(till) : new Date() };
-        if (since) start_time.$gt = new Date(since);
+        const { since, till, bucket } = params;
+        const start_time = since || till ? _.omitBy({
+            $gte: since,
+            $lt: till,
+        }, _.isUndefined) : undefined;
         const query = { start_time };
-        if (lt_range) query.aggregated_time_range = { $lt: lt_range };
         if (bucket) query.bucket = bucket;
-        return this._usage_reports.col().find(query).toArray();
+        return this._usage_reports.col().find(_.omitBy(query, _.isUndefined)).toArray();
     }
 
     async clean_usage_reports(params) {
-        const { till, lt_aggregated_time_range } = params;
+        const { since, till } = params;
         return this._usage_reports.col().removeMany({
-            start_time: { $lt: new Date(till) },
-            aggregated_time_range: { $lt: lt_aggregated_time_range }
+            start_time: _.omitBy({
+                $gte: since,
+                $lt: till
+            }, _.isUndefined)
         });
     }
 

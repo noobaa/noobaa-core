@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { makeArray } from './core-utils';
+import numeral from 'numeral';
 
 export const digits = '123456789';
 export const letters = 'abcdefghijklmnopqrstuvwxyz';
@@ -99,7 +100,7 @@ export function pluralize(word, amount = 2) {
 
 export function stringifyAmount(subject, amount, zeroMoniker = '0') {
     return `${
-        amount > 0 ? amount : zeroMoniker
+        amount > 0 ? numeral(amount).format(',') : zeroMoniker
     } ${
         pluralize(subject, amount)
     }`;

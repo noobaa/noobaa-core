@@ -1,36 +1,34 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pool-panel.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { state$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
-import { get } from 'rx-extensions';
 
-class PoolPanelViewModel extends Observer {
-    constructor() {
-        super();
+class PoolPanelViewModel extends ConnectableViewModel {
+    baseRoute = ko.observable();
+    pool = ko.observable();
+    selectedTab = ko.observable();
 
-        this.selectedTab = ko.observable();
-        this.pool = ko.observable();
-
-        this.observe(
-            state$.pipe(get('location')),
-            this.onLocation
-        );
+    selectState(state) {
+        return [
+            state.location
+        ];
     }
 
-    onLocation({ route, params }) {
-        const { system, pool, tab = 'nodes' } = params;
+    mapStateToProps(location) {
+        const { system, pool, tab = 'nodes' } = location.params;
         if (!pool) return;
 
-        this.baseRoute = realizeUri(route, { system, pool }, {}, true);
-        this.pool(pool);
-        this.selectedTab(tab);
+        ko.assignToProps(this, {
+            baseRoute: realizeUri(location.route, { system, pool }, {}, true),
+            pool: pool,
+            selectedTab: tab
+        });
     }
 
     tabHref(tab) {
-        return realizeUri(this.baseRoute, { tab });
+        return realizeUri(this.baseRoute(), { tab });
     }
 }
 

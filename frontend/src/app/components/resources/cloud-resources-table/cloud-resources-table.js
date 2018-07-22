@@ -26,9 +26,15 @@ const columns = deepFreeze([
     },
     {
         name: 'name',
+        type: 'newLink',
         label: 'resource name',
         sortable: true,
         compareKey: resource => resource.name
+    },
+    {
+        name: 'region',
+        sortable: true,
+        compareKey: resource => resource.region
     },
     {
         name: 'buckets',
@@ -88,16 +94,18 @@ const resourceTypeOptions = [
 ];
 
 function _matchFilters(resource, typeFilter, nameFilter) {
-    const { type, name } = resource;
+    const { type, name, region = '' } = resource;
 
     // Filter by resource type:
     if (typeFilter !== 'ALL' && type !== typeFilter) {
         return false;
     }
 
-    // Filter by resource name:
-    if (nameFilter && !name.toLowerCase().includes(nameFilter)) {
-        return false;
+    // Filter by name or region:
+    if (nameFilter) {
+        const lcNameFilter = nameFilter.toLowerCase();
+        return name.includes(lcNameFilter) ||
+            region.toLowerCase().includes(lcNameFilter);
     }
 
     return true;

@@ -41,6 +41,11 @@ export default deepFreeze({
         panel: 'pool',
         crumbsGenerator: _generatePoolCrumbs
     },
+    [routes.cloudResource]: {
+        area: 'resources',
+        panel: 'cloud-resource',
+        crumbsGenerator: _generateCloudResourceCrumb
+    },
     [routes.host]: {
         area: 'resources',
         panel: 'host',
@@ -103,13 +108,25 @@ function _generateBucketsCrumbs(params) {
                 pick(params, ['system'])
             ),
             label: 'Buckets'
+        },
+        {
+            url: realizeUri(
+                routes.buckets,
+                pick(params, ['system', 'tab'])
+            ),
+            label: (!params.tab && 'Data Buckets') ||
+                (params.tab === 'data-buckets' && 'Data Buckets') ||
+                (params.tab === 'namespace-buckets' && 'Namespace Buckets')
         }
     ];
 }
 
 function _generateDataBucketCrumbs(params) {
     return [
-        ..._generateBucketsCrumbs(params),
+        ..._generateBucketsCrumbs({
+            ...params, tab:
+            'data-buckets'
+        }),
         {
             url: realizeUri(
                 routes.bucket,
@@ -122,7 +139,10 @@ function _generateDataBucketCrumbs(params) {
 
 function _generateNamespaceBucketCrumbs(params) {
     return [
-        ..._generateBucketsCrumbs(params),
+        ..._generateBucketsCrumbs({
+            params,
+            tab: 'namespace-buckets'
+        }),
         {
             url: realizeUri(
                 routes.namespaceBucket,
@@ -154,19 +174,49 @@ function _generateResourcesCrumb(params) {
                 pick(params, ['system'])
             ),
             label: 'Resources'
+        },
+        {
+            url: realizeUri(
+                routes.resources,
+                pick(params, ['system', 'tab'])
+            ),
+            label: (!params.tab  && 'Node Pools') ||
+                (params.tab === 'pools' && 'Node Pools') ||
+                (params.tab === 'cloud' && 'Cloud Resources') ||
+                (params.tab === 'namespace' && 'Namespace Resources') ||
+                (params.tab === 'internal' && 'Internal Storage')
         }
     ];
 }
 
 function _generatePoolCrumbs(params) {
     return [
-        ..._generateResourcesCrumb(params),
+        ..._generateResourcesCrumb({
+            ...params, tab:
+            'pools'
+        }),
         {
             url: realizeUri(
                 routes.pool,
-                pick(params, ['system', 'pool'])
+                pick(params, ['system', 'pool']),
             ),
             label: params.pool
+        }
+    ];
+}
+
+function _generateCloudResourceCrumb(params) {
+    return [
+        ..._generateResourcesCrumb({
+            ...params,
+            tab: 'cloud'
+        }),
+        {
+            url: realizeUri(
+                routes.cloudResource,
+                pick(params, ['system', 'resource'])
+            ),
+            label: params.resource
         }
     ];
 }

@@ -21,7 +21,7 @@
             ">
                 <input class="push-next"
                     type="text" placeholder="Type here"
-                    ko.textInput="ko.pc($form.poolName, onPoolNameThrottled)"
+                    ko.textInput="ko.pc($form.poolName, onPoolName)"
                     ko.validationCss="$form.poolName"
                     ko.hasFocus="true"
                 />
@@ -34,34 +34,26 @@
         <section class="column greedy">
             <div class="row push-both content-middle" class="push-prev">
                 <input type="search"
+                    class="push-next"
                     placeholder="Filter by node name or IP"
-                    ko.textInput="ko.pc($form.nameFilter, onNameFilterThrottled)"
+                    ko.textInput="ko.pc($form.nameFilter, onNameFilter)"
                     ko.hasFocus="true"
                 />
 
-                <span class="push-both-half">in</span>
-
                 <dropdown class="push-next" params="
-                    placeholder: 'All Pools',
+                    subject: 'pool',
+                    filter: true,
+                    multiselect: true,
                     options: poolOptions,
                     selected: $form.selectedPools
                 "></dropdown>
 
-                <div class="highlight row">
-                    <span class="push-next">Show:</span>
-                    <checkbox class="push-next" params="
-                        checked: $form.showHealthy,
-                        label: 'Healthy'
-                    "></checkbox>
-                    <checkbox class="push-next" params="
-                        checked: $form.showIssues,
-                        label: 'Issues'
-                    "></checkbox>
-                    <checkbox class="push-next" params="
-                        checked: $form.showOffline,
-                        label: 'Offline'
-                    "></checkbox>
-                </div>
+                <dropdown class="push-next" params="
+                    subject: 'state',
+                    multiselect: true,
+                    options: stateOptions,
+                    selected: $form.selectedStates
+                "></dropdown>
             </div>
 
              <div class="row content-middle">

@@ -7,8 +7,9 @@ import { state$, action$ } from 'state';
 import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, keyBy } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { getResourceId } from 'utils/resource-utils';
 import * as routes from 'routes';
 import { createBucketMirrorTooltip, createBucketSpreadTooltip } from 'knowledge-base-articles';
 import {
@@ -99,6 +100,9 @@ const resourceColumns = deepFreeze([
     },
     {
         name: 'name'
+    },
+    {
+        name: 'region'
     },
     {
         name: 'healthyHosts',
@@ -217,6 +221,13 @@ class CreateBucketModalViewModel extends Observer {
                 return row;
             });
 
+        const regionByResource = keyBy(
+            resourceList,
+            record => getResourceId(record.type, record.resource.name),
+            record => record.resource.region
+        );
+
+
         this.existingNames = existingNames;
         this.nameRestrictionList(nameRestrictionList);
         this.selectableResourceIds = selectableResourceIds;
@@ -224,6 +235,7 @@ class CreateBucketModalViewModel extends Observer {
         this.resourcesHref = realizeUri(routes.resources, { system });
         this.selectedResources = selectedResources;
         this.isStepValid = isFormValid(form);
+        this.regionByResource = regionByResource;
 
         const { size } = steps[step];
         if (size !== this.stepSize) {
@@ -257,6 +269,22 @@ class CreateBucketModalViewModel extends Observer {
         }
 
         return errors;
+    }
+
+    onWarn(values, regionByResource) {
+        const warnings = {};
+        const { policyType, selectedResources } = values;
+
+        if (policyType === 'SPREAD') {
+            const [first, ...rest] = selectedResources
+                .map(({ type, name }) => regionByResource[getResourceId(type, name)] || '(Unassigned)');
+
+            if (first && rest.some(region => region !== first)) {
+                warnings.selectedResources = 'Combining resources with different assigned regions is not recommended and might raise costs';
+            }
+        }
+
+        return warnings;
     }
 
     onBeforeStep(step) {

@@ -43,6 +43,7 @@ function _mapPool(pool) {
         endpointNodeCount: 0, // pool.s3_nodes.count
         endpointNodesByMode: {}, // pool.s3_nodes.by_mode
         undeletable: pool.undeletable,
+        region: pool.region,
         activities: {
             hostCount: pool.data_activities.host_count,
             list: activityList

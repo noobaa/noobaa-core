@@ -5,7 +5,9 @@
   "license": "UNLICENSED",
   "description": "NooBaa Management Console",
   "main": "gulpfile.js",
-  "dependencies": {},
+  "dependencies": {
+    "numeral": "2.0.6"
+  },
   "devDependencies": {
     "ajv": "6.4.0",
     "app-module-path": "2.2.0",

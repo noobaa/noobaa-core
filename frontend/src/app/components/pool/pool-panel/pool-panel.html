@@ -2,7 +2,7 @@
 
 <pool-summary class="push-next" params="poolName: pool"></pool-summary>
 
-<div class="tabs greedy">
+<div class="tabs greedy" ko.if="baseRoute">
     <nav>
         <a ko.css.selected="selectedTab.eq('nodes')"
             ko.attr.href="tabHref('nodes')"
@@ -27,14 +27,14 @@
             params="poolName: pool"
         ></pool-hosts-table>
 
-        <pool-connected-buckets-form class="tab column"
+        <resource-connected-buckets-form class="tab column"
             ko.css.selected="selectedTab.eq('connected-buckets')"
-            params="poolName: pool"
-        ></pool-connected-buckets-form>
+            params="resourceType: 'HOSTS', resourceName: pool"
+        ></resource-connected-buckets-form>
 
-        <pool-associated-accounts-list class="tab column"
+        <resource-associated-account-list class="tab column"
             ko.css.selected="selectedTab.eq('associated-accounts')"
-            params="poolName: pool"
-        ></pool-associated-accounts-list>
+            params="resourceType: 'HOSTS', resourceName: pool"
+        ></resource-associated-account-list>
     </div>
 </div>

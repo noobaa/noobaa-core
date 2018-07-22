@@ -10,6 +10,7 @@ export const namespaceBucket    = `${root}/systems/:system/buckets/namespace-buc
 export const object             = `${root}/systems/:system/buckets/:bucket/objects/:object/:version/:tab?`;
 export const resources          = `${root}/systems/:system/resources/:tab?`;
 export const pool               = `${root}/systems/:system/resources/pools/:pool/:tab?`;
+export const cloudResource      = `${root}/systems/:system/resources/cloud/:resource/:tab?`;
 export const host               = `${root}/systems/:system/resources/pools/:pool/nodes/:host/:tab?`;
 export const management         = `${root}/systems/:system/management/:tab?/:section?`;
 export const accounts           = `${root}/systems/:system/accounts`;

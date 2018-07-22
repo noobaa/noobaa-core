@@ -7,7 +7,7 @@ import OptionRowViewModel from './option-row';
 import ActionRowViewModel from './action-row';
 import ko from 'knockout';
 import { isObject } from 'utils/core-utils';
-import { stringifyAmount } from 'utils/string-utils';
+import { stringifyAmount, pluralize } from 'utils/string-utils';
 import { inputThrottle } from 'config';
 
 const maxOptionCount = 1000;
@@ -177,9 +177,9 @@ class DropdownViewModel extends Observer {
     onUpdate(args) {
         const {
             subject = 'item',
-            placeholder = 'Choose...',
+            placeholder = subject ? `Select ${pluralize(subject)}` : 'Choose...',
             filter = false,
-            filterPlaceholder = 'Search',
+            filterPlaceholder = `Search ${subject || ''}`,
             filterText = '',
             multiselect = false,
             disabled = false,

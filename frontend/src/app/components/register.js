@@ -100,6 +100,7 @@ import editBucketSpilloverModal from './modals/edit-bucket-spillover-modal/edit-
 import createFuncModal from './modals/create-func-modal/create-func-modal';
 import afterUpgradeFailureModal from './modals/after-upgrade-failure-modal/after-upgrade-failure-modal';
 import createBucketModal from './modals/create-bucket-modal/create-bucket-modal';
+import assignRegionModal from './modals/assign-region-modal/assign-region-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -168,11 +169,15 @@ import internalResourcesTable from './resources/internal-resources-table/interna
 import poolPanel from './pool/pool-panel/pool-panel';
 import poolSummary from './pool/pool-summary/pool-summary';
 import poolHostsTable from './pool/pool-hosts-table/pool-hosts-table';
-import poolAssociatedAccountsList from './pool/pool-associated-accounts-list/pool-associated-accounts-list';
-import poolConnectedBucketsForm from './pool/pool-connected-buckets-form/pool-connected-buckets-form';
-import poolConnectedBucketsTable from './pool/pool-connected-buckets-table/pool-connected-buckets-table';
-import poolConnectedBucketsChart from './pool/pool-connected-buckets-chart/pool-connected-buckets-chart';
 /** INJECT:pool.import **/
+
+// -------------------------------
+// Cloud resource page components
+// -------------------------------
+import cloudResourcePanel from './cloud-resource/cloud-resource-panel/cloud-resource-panel';
+import cloudResourceSummary from './cloud-resource/cloud-resource-summary/cloud-resource-summary';
+import cloudResourcePropertiesForm from './cloud-resource/cloud-resource-properties-form/cloud-resource-properties-form';
+/** INJECT:cloud-resource.import **/
 
 // -------------------------------
 // Host page components
@@ -183,7 +188,6 @@ import hostDetailsForm from './host/host-details-form/host-details-form';
 import hostEndpointForm from './host/host-endpoint-form/host-endpoint-form';
 import hostStorageForm from './host/host-storage-form/host-storage-form';
 import hostDiagnosticsForm from './host/host-diagnostics-form/host-diagnostics-form';
-import hostPartsTable from './host/host-parts-table/host-parts-table';
 /** INJECT:host.import **/
 
 // -------------------------------
@@ -312,6 +316,11 @@ import wizard from './shared/wizard/wizard';
 import wizardControls from './shared/wizard-controls/wizard-controls';
 import managedForm from './shared/managed-form/managed-form';
 import buttonGroup from './shared/button-group/button-group';
+import resourceAssociatedAccountList from './shared/resource-associated-account-list/resource-associated-account-list';
+import resourceConnectedBucketsForm from './shared/resource-connected-buckets-form/resource-connected-buckets-form';
+import resourceDistributionTable from './shared/resource-distribution-table/resource-distribution-table';
+import resourceDistributionChart from './shared/resource-distribution-chart/resource-distribution-chart';
+import hostPartsTable from './shared/host-parts-table/host-parts-table';
 /** INJECT:shared.import **/
 
 // Register the components with knockout component container.
@@ -420,6 +429,7 @@ export default function register(ko, services) {
         createFuncModal,
         afterUpgradeFailureModal,
         createBucketModal,
+        assignRegionModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -468,11 +478,12 @@ export default function register(ko, services) {
         poolPanel,
         poolSummary,
         poolHostsTable,
-        poolAssociatedAccountsList,
-        poolConnectedBucketsForm,
-        poolConnectedBucketsTable,
-        poolConnectedBucketsChart,
         /** INJECT:pool.list **/
+
+        cloudResourcePanel,
+        cloudResourceSummary,
+        cloudResourcePropertiesForm,
+        /** INJECT:cloud-resource.list **/
 
         hostPanel,
         hostSummary,
@@ -480,7 +491,6 @@ export default function register(ko, services) {
         hostEndpointForm,
         hostStorageForm,
         hostDiagnosticsForm,
-        hostPartsTable,
         /** INJECT:host.list **/
 
         managementPanel,
@@ -582,6 +592,11 @@ export default function register(ko, services) {
         wizardControls,
         managedForm,
         buttonGroup,
+        resourceAssociatedAccountList,
+        resourceConnectedBucketsForm,
+        resourceDistributionTable,
+        resourceDistributionChart,
+        hostPartsTable,
         /** INJECT:shared.list **/
 
         // An empty component used for app/data loading periods

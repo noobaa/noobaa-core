@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, mapValues, sumBy, isNumber } from './core-utils';
+import { deepFreeze, mapValues, sumBy, isNumber, flatMap } from './core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -614,6 +614,10 @@ export function getNodeOrHostCapacityBarValues({ storage }) {
 
 export function getHostModeListForState(state) {
     return stateToModes[state];
+}
+
+export function getHostModeListForStates(...states) {
+    return flatMap(states, state => stateToModes[state]);
 }
 
 export function summrizeHostModeCounters(counters) {

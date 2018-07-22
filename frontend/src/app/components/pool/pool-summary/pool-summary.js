@@ -15,83 +15,84 @@ import style from 'style';
 import moment from 'moment';
 
 class PoolSummaryViewModel extends Observer {
+    poolLoaded = ko.observable(false);
+
+    // State observables.
+    state = ko.observable({});
+    hostCount = ko.observable();
+    driveCount = ko.observable();
+    region = ko.observable();
+
+    // Capacity observables.
+    availableCapacity = ko.observable();
+    unavailableCapacity = ko.observable();
+    usedByNoobaaCapacity = ko.observable();
+    usedByOthersCapacity = ko.observable();
+    reservedCapacity = ko.observable();
+    inProcessHotsts = ko.observable();
+    pieValues = [
+        {
+            label: 'Available',
+            color: style['color5'],
+            value: this.availableCapacity,
+            tooltip: 'The total aggregated storage from installed nodes in this pool, does not include any offline or deactivated node'
+        },
+        {
+            label: 'Unavailable Capacity',
+            color: style['color17'],
+            value: this.unavailableCapacity,
+            tooltip: 'The total aggregated storage from offline nodes or excluded drives in this pool'
+        },
+        {
+            label: 'NooBaa Usage',
+            color: style['color13'],
+            value: this.usedByNoobaaCapacity,
+            tooltip: 'The actual storage utilization of this pool by the buckets connected to it'
+        },
+        {
+            label: 'Other Usage',
+            color: style['color14'],
+            value: this.usedByOthersCapacity,
+            tooltip: 'The machines utilization by OS, local files etc'
+        },
+        {
+            label: 'Reserved',
+            color: style['color7'],
+            value: this.reservedCapacity,
+            tooltip: 'NooBaa reserves 10GB from each storage node to avoid a complete utilization of the local storage on the machine'
+        }
+    ];
+
+    // Data activity observables.
+    hasActivities = ko.observable();
+    activitiesTitle = ko.observable();
+    activityText = ko.observable();
+    activityDone = ko.observable();
+    activityLeft = ko.observable();
+    activityPrecentage = ko.observable();
+    activityEta = ko.observable();
+    hasAdditionalActivities = ko.observable();
+    additionalActivitiesMessage = ko.observable();
+    additionalActivitiesTooltip = ko.observable();
+    activityBar = {
+        values: [
+            {
+                value: this.activityDone,
+                color: style['color8']
+            },
+            {
+                value: this.activityLeft,
+                color: style['color15']
+            }
+        ],
+        marker: {
+            placement: this.activityDone,
+            label: this.activityPrecentage
+        }
+    };
+
     constructor({ poolName }) {
         super();
-
-        this.poolLoaded = ko.observable(false);
-
-        // State observables.
-        this.state = ko.observable({});
-        this.hostCount = ko.observable();
-        this.driveCount = ko.observable();
-
-        // Capacity observables.
-        this.availableCapacity = ko.observable();
-        this.unavailableCapacity = ko.observable();
-        this.usedByNoobaaCapacity = ko.observable();
-        this.usedByOthersCapacity = ko.observable();
-        this.reservedCapacity = ko.observable();
-        this.inProcessHotsts = ko.observable();
-        this.pieValues = [
-            {
-                label: 'Available',
-                color: style['color5'],
-                value: this.availableCapacity,
-                tooltip: 'The total aggregated storage from installed nodes in this pool, does not include any offline or deactivated node'
-            },
-            {
-                label: 'Unavailable Capacity',
-                color: style['color17'],
-                value: this.unavailableCapacity,
-                tooltip: 'The total aggregated storage from offline nodes or excluded drives in this pool'
-            },
-            {
-                label: 'NooBaa Usage',
-                color: style['color13'],
-                value: this.usedByNoobaaCapacity,
-                tooltip: 'The actual storage utilization of this pool by the buckets connected to it'
-            },
-            {
-                label: 'Other Usage',
-                color: style['color14'],
-                value: this.usedByOthersCapacity,
-                tooltip: 'The machines utilization by OS, local files etc'
-            },
-            {
-                label: 'Reserved',
-                color: style['color7'],
-                value: this.reservedCapacity,
-                tooltip: 'NooBaa reserves 10GB from each storage node to avoid a complete utilization of the local storage on the machine'
-            }
-        ];
-
-        // Data activity observables.
-        this.hasActivities = ko.observable();
-        this.activitiesTitle = ko.observable();
-        this.activityText = ko.observable();
-        this.activityDone = ko.observable();
-        this.activityLeft = ko.observable();
-        this.activityPrecentage = ko.observable();
-        this.activityEta = ko.observable();
-        this.hasAdditionalActivities = ko.observable();
-        this.additionalActivitiesMessage = ko.observable();
-        this.additionalActivitiesTooltip = ko.observable();
-        this.activityBar = {
-            values: [
-                {
-                    value: this.activityDone,
-                    color: style['color8']
-                },
-                {
-                    value: this.activityLeft,
-                    color: style['color15']
-                }
-            ],
-            marker: {
-                placement: this.activityDone,
-                label: this.activityPrecentage
-            }
-        };
 
         this.observe(
             state$.pipe(get('hostPools', ko.unwrap(poolName))),
@@ -101,12 +102,13 @@ class PoolSummaryViewModel extends Observer {
 
     onPool(pool) {
         if (!pool) return;
-        const { hostCount, storageNodeCount, storage, activities } = pool;
+        const { hostCount, storageNodeCount, region, storage, activities } = pool;
 
-        { // Update pool state and counters
+        { // Update pool state, counters and region.
             this.state(getHostsPoolStateIcon(pool));
             this.hostCount(numeral(hostCount).format('0,0'));
             this.driveCount(numeral(storageNodeCount).format('0,0'));
+            this.region(region || '(Unassigned)');
         }
 
         { // Update pool storage and usage

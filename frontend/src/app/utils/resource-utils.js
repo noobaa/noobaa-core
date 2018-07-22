@@ -197,6 +197,11 @@ const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
     }
 });
 
+const resourceTypeToDisplayName = deepFreeze({
+    HOSTS: 'pool',
+    CLOUD: 'cloud resource'
+});
+
 export function getResourceId(type, name) {
     return `${type}:${name}`;
 }
@@ -308,4 +313,8 @@ export function getUsageDistribution(resourceType, resourceName, buckets) {
         const ratio = totalUsage > 0 ? record.size / totalUsage : 0;
         return { ...record, ratio };
     });
+}
+
+export function getResourceTypeDisplayName(resourceType) {
+    return resourceTypeToDisplayName[resourceType];
 }

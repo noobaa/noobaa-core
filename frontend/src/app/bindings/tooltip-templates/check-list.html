@@ -1,21 +1,21 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="column">
+<ul class="list-no-style column">
     <!-- ko foreach: list -->
-    <div class="row content-middle highlight push-next-half">
+    <li class="row content-middle highlight push-next-half">
         <svg-icon class="c1 push-next-half"
             ko.css="checked ? 'success' : 'error'"
             params="name: checked ? 'v' : 'x'"
         ></svg-icon>
         <span class="c11">{{text}}</span>
-    </div>
+    </li>
     <!-- /ko -->
-    <!-- ko with: link -->
-    <a class="link no-outline push-prev-half"
-        target="_blank"
-        ko.attr.href="href"
-    >
-        {{text}}
-    </a>
-    <!-- /ko -->
-</div>
+</ul>
+<!-- ko with: link -->
+<a class="link no-outline push-prev-half"
+    target="_blank"
+    ko.attr.href="href"
+>
+    {{text}}
+</a>
+<!-- /ko -->

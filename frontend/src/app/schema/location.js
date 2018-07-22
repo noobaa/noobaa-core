@@ -4,7 +4,8 @@ export default {
         'pathname',
         'protocol',
         'query',
-        'hostname'
+        'hostname',
+        'refreshCount'
     ],
     properties: {
         pathname: {
@@ -39,6 +40,9 @@ export default {
                     }
                 ]
             }
+        },
+        refreshCount: {
+            type: 'number'
         }
     }
 };

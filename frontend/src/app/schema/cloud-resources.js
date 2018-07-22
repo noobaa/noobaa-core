@@ -8,7 +8,12 @@ export default {
             'storage',
             'target',
             'type',
-            'usedBy'
+            'usedBy',
+            'associatedAccounts',
+            'createdBy',
+            'creationTime',
+            'internalHost',
+            'io'
         ],
         properties: {
             name: {
@@ -40,6 +45,9 @@ export default {
                     'GOOGLE'
                 ]
             },
+            region: {
+                type: 'string'
+            },
             undeletable: {
                 type: 'string',
                 enum: [
@@ -51,6 +59,44 @@ export default {
                 type: 'array',
                 items: {
                     type: 'string'
+                }
+            },
+            associatedAccounts: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
+            },
+            createdBy: {
+                type: 'string'
+            },
+            creationTime: {
+                type: 'integer'
+            },
+            'internalHost': {
+                type: 'string'
+            },
+            io: {
+                type: 'object',
+                requires: [
+                    'readCount',
+                    'readSize',
+                    'writeCount',
+                    'writeSize'
+                ],
+                properties: {
+                    readCount: {
+                        type: 'integer'
+                    },
+                    readSize: {
+                        $ref: '#/def/common/size'
+                    },
+                    writeCount: {
+                        type: 'integer'
+                    },
+                    writeSize: {
+                        $ref: '#/def/common/size'
+                    }
                 }
             }
         }

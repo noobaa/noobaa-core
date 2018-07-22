@@ -3,9 +3,10 @@
 import template from './edit-bucket-spillover-modal.html';
 import Observer from 'observer';
 import ko from 'knockout';
+import numeral from 'numeral';
 import { state$, action$ } from 'state';
 import { flatMap } from 'utils/core-utils';
-import { formatSize } from 'utils/size-utils';
+import { sumSize, formatSize } from 'utils/size-utils';
 import { getCloudResourceTypeIcon } from 'utils/resource-utils';
 import { getMany } from 'rx-extensions';
 import { getInternalResourceDisplayName } from 'utils/resource-utils';
@@ -38,22 +39,60 @@ function _getResourceTypeIcon(type, resource) {
     }
 }
 
+function _getOptionTooltip(type, resource, isOptionDisabled) {
+    if (isOptionDisabled) {
+        return {
+            text: 'Resource is already used for bucket data placement',
+            position: 'before'
+        };
+    }
+
+    const isHostsPool = type === 'HOSTS';
+    const hostSummary = isHostsPool ? `${
+        numeral(resource.hostsByMode.OPTIMAL || 0).format(',')
+    } / ${
+        numeral(resource.hostCount).format(',')
+    }` : '';
+
+    const { free, unavailableFree, total } = resource.storage;
+    const usage = type === 'CLOUD' ?
+        formatSize(total) :
+        `${formatSize(sumSize(free, unavailableFree))} of ${formatSize(total)}`;
+
+    return {
+        template: 'propertySheet',
+        position: 'before',
+        text: [
+            {
+                label: 'Healthy nodes',
+                value: hostSummary,
+                visible: isHostsPool
+            },
+            {
+                label: 'Region',
+                value: resource.region || '(Unassigned)',
+                visible: type !== 'INTERNAL'
+            },
+            {
+                label: 'Available Capacity',
+                value: usage
+            }
+        ]
+    };
+}
+
 function _getResourceOptions(resources, usedResources, type) {
     return Object.values(resources)
         .map(resource => {
             const disabled = usedResources.has(resource.name);
-            const tooltip = disabled ? 'Resource is already used for bucket data placement' : '';
+            const tooltip = _getOptionTooltip(type, resource, disabled);
             const { icon, selectedIcon } = _getResourceTypeIcon(type, resource);
             const label = type === 'INTERNAL' ? getInternalResourceDisplayName(resource) : resource.name;
-            const usage = type === 'CLOUD' ?
-                `${formatSize(resource.storage.total)} Available` :
-                `${formatSize(resource.storage.free)} of ${formatSize(resource.storage.total)} Available`;
 
             return {
                 type,
                 label,
                 value: resource.name,
-                remark: usage,
                 icon,
                 selectedIcon,
                 disabled,

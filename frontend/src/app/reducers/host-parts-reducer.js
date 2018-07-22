@@ -5,7 +5,10 @@ import { flatMap } from 'utils/core-utils';
 import {
     FETCH_HOST_OBJECTS,
     COMPLETE_FETCH_HOST_OBJECTS,
-    FAIL_FETCH_HOST_OBJECTS
+    FAIL_FETCH_HOST_OBJECTS,
+    FETCH_CLOUD_RESOURCE_OBJECTS,
+    COMPLETE_FETCH_CLOUD_RESOURCE_OBJECTS,
+    FAIL_FETCH_CLOUD_RESOURCE_OBJECTS
 } from 'action-types';
 
 // ------------------------------
@@ -72,13 +75,51 @@ function onFailFetchHostObjects(state, { payload }) {
     };
 }
 
+function onFetchCloudResourceObjects(state, { payload }) {
+    return onFetchHostObjects(
+        state,
+        { payload: _resourceQueryToHostQuery(payload) }
+    );
+}
+
+function onCompleteFetchCloudResourceObjects(state, { payload }) {
+    return onCompleteFetchHostObjects(
+        state,
+        {
+            payload: {
+                query: _resourceQueryToHostQuery(payload.query),
+                response: payload.response
+            }
+        }
+    );
+}
+
+function onFailCloudResourceObjects(state, { payload }) {
+    return onFailFetchHostObjects(
+        state,
+        {
+            payload: {
+                query: _resourceQueryToHostQuery(payload.query),
+                error: payload.error
+            }
+        }
+    );
+}
+
 // ------------------------------
 // Local util functions
 // ------------------------------
 function _queryMatching(query, state) {
-    return query.host === state.host &&
+    return (
+        query.host === state.host &&
         query.skip === state.skip &&
-        query.limit === state.limit;
+        query.limit === state.limit
+    );
+}
+
+function _resourceQueryToHostQuery(query) {
+    const { resource: _, ...rest } = query;
+    return { ...rest, host: `${query.resource}#internal-host` };
 }
 
 // ------------------------------
@@ -87,5 +128,8 @@ function _queryMatching(query, state) {
 export default createReducer(initialState, {
     [FETCH_HOST_OBJECTS]: onFetchHostObjects,
     [COMPLETE_FETCH_HOST_OBJECTS]: onCompleteFetchHostObjects,
-    [FAIL_FETCH_HOST_OBJECTS]: onFailFetchHostObjects
+    [FAIL_FETCH_HOST_OBJECTS]: onFailFetchHostObjects,
+    [FETCH_CLOUD_RESOURCE_OBJECTS]: onFetchCloudResourceObjects,
+    [COMPLETE_FETCH_CLOUD_RESOURCE_OBJECTS]: onCompleteFetchCloudResourceObjects,
+    [FAIL_FETCH_CLOUD_RESOURCE_OBJECTS]: onFailCloudResourceObjects
 });

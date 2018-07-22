@@ -1,17 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './create-pool-modal.html';
-import Observer from 'observer';
-import HostRowViewModel from './host-row';
-import { state$, action$ } from 'state';
-import { deepFreeze, union, equalItems, sumBy, throttle } from 'utils/core-utils';
+import ConnectableViewModel from 'components/connectable';
+import { deepFreeze, union, sumBy, throttle, memoize, pick } from 'utils/core-utils';
 import { formatSize, sumSize } from 'utils/size-utils';
-import { getHostModeListForState } from 'utils/host-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { getFormValues, isFormValid, isFieldTouched } from 'utils/form-utils';
-import { getMany } from 'rx-extensions';
+import { getFormValues, isFormValid, getFieldValue, isFieldTouched } from 'utils/form-utils';
 import { paginationPageSize, inputThrottle } from 'config';
 import ko from 'knockout';
+import numeral from 'numeral';
+import {
+    getHostModeListForStates,
+    getHostDisplayName,
+    getHostStateIcon,
+    getNodeOrHostCapacityBarValues
+
+
+} from 'utils/host-utils';
 import {
     fetchHosts,
     updateForm,
@@ -66,15 +71,33 @@ const columns = deepFreeze([
     }
 ]);
 
-const allPoolsOption = deepFreeze({
-    label: 'All Node Pools',
-    value: 'ALL'
-});
+const filterFields = deepFreeze([
+    'nameFilter',
+    'selectedPools',
+    'selectedStates',
+    'sorting',
+    'page'
+]);
 
-const fieldsByStep = deepFreeze({
+const valueFieldsByStep = deepFreeze({
     0: [ 'poolName' ],
     1: [ 'selectedHosts' ]
 });
+
+const stateOptions = deepFreeze([
+    {
+        label: 'Healthy Nodes',
+        value: 'HEALTHY'
+    },
+    {
+        label: 'Nodes with issues',
+        value: 'HAS_ISSUES'
+    },
+    {
+        label: 'Offline Nodes',
+        value: 'OFFLINE'
+    }
+]);
 
 function _validatedName(name = '', existing) {
     return [
@@ -106,7 +129,7 @@ function _validatedName(name = '', existing) {
     ];
 }
 
-function _getPoolOption({ name, hostCount, storage }) {
+function _mapPoolToOption({ name, hostCount, storage }) {
     const { total, free: availableFree, unavailableFree } = storage;
     const free = sumSize(availableFree, unavailableFree);
     const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
@@ -115,10 +138,7 @@ function _getPoolOption({ name, hostCount, storage }) {
         'Pool is empty';
 
     return {
-        tooltip: {
-            text: tooltip,
-            position: 'after'
-        },
+        tooltip: tooltip,
         label: name,
         value: name,
         icon: 'nodes-pool',
@@ -126,176 +146,214 @@ function _getPoolOption({ name, hostCount, storage }) {
     };
 }
 
-function _getModesFromStateFlags(healthy, issues, offline) {
-    return [
-        ...(healthy ? getHostModeListForState('HEALTHY') : []),
-        ...(issues ? getHostModeListForState('HAS_ISSUES') : []),
-        ...(offline ? getHostModeListForState('OFFLINE') : [])
-    ];
+function _mapHostToRow(host, pools, selectedHosts) {
+    const pool = pools[host.pool];
+    return {
+        name: host.name,
+        isSelected: selectedHosts.includes(host.name),
+        displayName: getHostDisplayName(host.name),
+        state: getHostStateIcon(host),
+        ip: host.ip,
+        capacity: getNodeOrHostCapacityBarValues(host),
+        pool: {
+            text: host.pool,
+            tooltip: {
+                template: 'propertySheet',
+                text: [
+                    {
+                        label: 'Healthy Nodes',
+                        value: `${
+                            numeral(pool.hostsByMode.OPTIMAL).format(',')
+                        } / ${
+                            numeral(pool.hostCount).format(',')
+                        }`
+                    },
+                    {
+                        label: 'Region',
+                        value: pool.region || '(Unassigned)'
+                    },
+                    {
+                        label: 'Free capacity',
+                        value: formatSize(sumSize(
+                            pool.storage.free,
+                            pool.storage.unavailableFree
+                        ))
+                    }
+                ]
+            }
+        }
+    };
 }
 
-function _fetchHosts(formName, queryFields) {
-    const {
-        nameFilter,
-        selectedPools,
-        showHealthy,
-        showIssues,
-        showOffline,
-        sorting,
-        page
-    } = queryFields;
+class RowViewModel {
+    table = null;
+    name = '';
+    displayName = ko.observable();
+    state = ko.observable();
+    ip = ko.observable();
+    capacity = ko.observable();
+    pool = ko.observable();
+    isSelected = ko.observable();
 
-    const { sortBy, order } = sorting;
-    const name = nameFilter || undefined;
-    const pools = selectedPools === 'ALL' ? undefined : [ selectedPools ];
-    const modes = _getModesFromStateFlags(showHealthy, showIssues, showOffline);
-    const skip = page * paginationPageSize;
-    const limit = paginationPageSize;
+    // This pure computed is used to bound the checkbox column.
+    selected = ko.pureComputed({
+        read: this.isSelected,
+        write: this.onToggle,
+        owner: this
+    });
 
-    action$.next(fetchHosts(
-        formName,
-        { pools, name, modes, sortBy, order, skip, limit }
-    ));
+    constructor({ table }) {
+        this.table = table;
+    }
+
+    onToggle(selected) {
+        this.table.onToggleHost(this.name, selected);
+    }
 }
 
-class CreatePoolModalViewModel extends Observer {
+class CreatePoolModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
-    steps = steps.map(step => step.label);
-    nameRestrictionList = ko.observableArray();
     columns = columns;
+    steps = steps.map(step => step.label);
+    stateOptions = stateOptions;
+    lastQuery = '';
+    modalSize = '';
+    isStepValid = false;
     pageSize = paginationPageSize;
     poolNames = [];
     visibleHosts = [];
-    query = [];
-    modalSize = '';
+    selectedHosts = [];
+    nameRestrictionList = ko.observableArray();
     fetching = ko.observable();
     poolOptions = ko.observableArray();
-    rows = ko.observableArray();
     selectedMessage = ko.observable();
     filteredHostCount = ko.observable();
     emptyMessage = ko.observable();
-    fields = {
-        step: 0,
-        poolName: '',
-        nameFilter: '',
-        selectedPools: 'ALL',
-        showHealthy: true,
-        showIssues: false,
-        showOffline: false,
-        sorting: {
-            sortBy: 'name',
-            order: 1
-        },
-        page: 0,
-        selectedHosts: []
-    };
-    hostRowParams = {
-        onToggle: this.onToggleHost.bind(this)
-    };
-    onPoolNameThrottled = throttle(
-        this.onPoolName,
-        inputThrottle,
-        this
-    );
-    onNameFilterThrottled = throttle(
-        this.onNameFilter,
-        inputThrottle,
-        this
-    );
+    fields = ko.observable();
+    rows = ko.observableArray()
+        .ofType(RowViewModel, { table: this });
 
-    constructor() {
-        super();
-
-        // Connect to the state tree.
-        this.observe(
-            state$.pipe(getMany(
-                'hostPools',
-                'hosts',
-                ['forms', this.formName]
-            )),
-            this.onState
-        );
-    }
-
-    onState([ pools, hosts, form ]) {
-        if (!pools || !hosts || !form) return;
-
-        // Extract the form values.
-        const formValues = getFormValues(form);
-        const { selectedHosts, poolName } = formValues;
-
-        // Get name restriction list.
-        const poolList = Object.values(pools);
-        const poolNames = poolList.map(pool => pool.name);
-        const nameRestrictionList = _validatedName(poolName, poolNames)
-            .map(({ valid, message }) => ({
-                label: message,
-                css: isFieldTouched(form, 'poolName') ? (valid ? 'success' : 'error') : ''
-            }));
-
-        // Get the pool options.
-        const poolOptions = [
-            allPoolsOption,
-            ...poolList.map(_getPoolOption)
-        ];
-
-        // Get updated host table rows.
-        const { items, queries, views } = hosts;
+    selectHosts = memoize(hostsState => {
+        const { items, queries, views } = hostsState;
         const queryKey = views[this.formName];
-        const result = queryKey && queries[queryKey].result;
-        const hostList = result ? result.items.map(name => items[name]) : [];
-        const rows = hostList.map((host, i) => {
-            const row = this.rows()[i] || new HostRowViewModel(this.hostRowParams);
-            row.onHost(host, selectedHosts, ko.unwrap(this.targetPool));
-            return row;
-        });
+        const { result } = queryKey ? queries[queryKey] : {};
 
-        // Calculate extra information.
-        const hostCount = sumBy(poolList, pool => pool.hostCount);
-        const selectedMessage = `${selectedHosts.length} selected of all nodes (${hostCount})`;
-        const filteredHostCount = result ? result.counters.nonPaginated : 0;
-        const emptyMessage = hostCount === 0 ?
-            'The system contains no nodes' :
-            'Current filter does not match any node';
+        return {
+            list: result ? result.items.map(name => items[name]) : [],
+            fetching: !result,
+            nonPaginatedCount: result ? result.counters.nonPaginated : 0
+        };
+    });
 
-        // Start a new fetch if needded.
-        const { sortBy, order } = formValues.sorting;
-        const query = [formValues.nameFilter, formValues.selectedPools, formValues.showHealthy,
-            formValues.showIssues, formValues.showOffline, sortBy, order, formValues.page];
+    onState(state, params) {
+        super.onState(state, params);
 
-        if (!equalItems(this.query, query)) {
-            this.query = query;
-            _fetchHosts(this.formName, formValues, this.targetPool);
+        const form = state.forms[this.formName];
+        if (form) {
+            this.fetchHosts(form);
+            this.updateModalSize(form);
+        }
+    }
+
+    fetchHosts(form) {
+        if (getFieldValue(form, 'step') !== 1) {
+            return;
         }
 
-        // Update the view's observables.
-        this.poolNames = poolNames;
-        this.visibleHosts = hostList.map(host => host.name);
-        this.nameRestrictionList(nameRestrictionList);
-        this.poolOptions(poolOptions);
-        this.emptyMessage(emptyMessage);
-        this.selectedMessage(selectedMessage);
-        this.fetching(!result);
-        this.filteredHostCount(filteredHostCount);
-        this.rows(rows);
-        this.selectedHosts = selectedHosts;
-        this.isStepValid = isFormValid(form);
+        const filters = pick(getFormValues(form), filterFields);
+        const query = JSON.stringify(filters);
 
-        // Match the modal isze woth the current step.
-        const size = steps[formValues.step].size;
+        if (this.lastQuery !== query) {
+            this.lastQuery = query;
+            this.dispatch(fetchHosts(this.formName, {
+                pools: filters.selectedPools,
+                name: filters.nameFilter || undefined,
+                modes: getHostModeListForStates(...filters.selectedStates),
+                sortBy: filters.sorting.sortBy,
+                order: filters.sorting.order,
+                skip: filters.page * paginationPageSize,
+                limit: paginationPageSize
+            }));
+        }
+    }
+
+    updateModalSize(form) {
+        const { size } = steps[getFieldValue(form, 'step')];
         if (this.modalSize !== size) {
-            action$.next(updateModal({ size }));
             this.modalSize = size;
+            this.dispatch(updateModal({ size }));
         }
     }
 
-    onPoolName(poolName) {
-        action$.next(updateForm(this.formName, { poolName }));
+    selectState(state) {
+        return [
+            state.hostPools,
+            this.selectHosts(state.hosts),
+            state.forms[this.formName]
+        ];
     }
 
-    onNameFilter(nameFilter) {
-        action$.next(updateForm(this.formName, { nameFilter }));
+    mapStateToProps(pools, hosts, form) {
+        if (!pools || !hosts) {
+            ko.assignToProps(this, {
+                fetching: true
+            });
+
+        } else {
+            const selectedHosts = form ? getFieldValue(form, 'selectedHosts') : [];
+            const poolName = form ? getFieldValue(form, 'poolName'): '';
+            const isPoolNameTouched = form ? isFieldTouched(form, 'poolName') : false;
+            const poolList = Object.values(pools);
+            const poolNames = poolList.map(pool => pool.name);
+            const validationResults = form ? _validatedName(poolName, poolNames) : [];
+            const hostCount = sumBy(poolList, pool => pool.hostCount);
+
+            ko.assignToProps(this, {
+                fetching: hosts.fetching,
+                poolNames: poolNames,
+                visibleHosts: hosts.list.map(host => host.name),
+                nameRestrictionList: validationResults.map(record => ({
+                    label: record.message,
+                    css: isPoolNameTouched ? (record.valid ? 'success' : 'error') : ''
+                })),
+                poolOptions: poolList.map(_mapPoolToOption),
+                emptyMessage: hostCount === 0 ?
+                    'The system contains no nodes' :
+                    'Current filter does not match any node',
+                selectedMessage: `${selectedHosts.length} selected of all nodes (${hostCount})`,
+                selectedHosts: selectedHosts,
+                filteredHostCount: hosts.nonPaginatedCount,
+                isStepValid: form ? isFormValid(form) : false,
+                rows: hosts.list.map(host => _mapHostToRow(
+                    host,
+                    pools,
+                    selectedHosts
+                )),
+                fields: !form ? {
+                    step: 0,
+                    poolName: '',
+                    nameFilter: '',
+                    selectedPools: poolList.map(pool => pool.name),
+                    selectedStates: stateOptions.map(option => option.value),
+                    sorting: { sortBy: 'name', order: 1 },
+                    page: 0,
+                    selectedHosts: []
+                } : undefined
+            });
+        }
     }
+
+    onPoolName = throttle(
+        poolName => this.dispatch(updateForm(this.formName, { poolName })),
+        inputThrottle,
+        this
+    );
+
+    onNameFilter = throttle(
+        nameFilter => this.dispatch(updateForm(this.formName, { nameFilter })),
+        inputThrottle,
+        this
+    );
 
     onValidate({ step, poolName, selectedHosts }) {
         const errors = {};
@@ -315,39 +373,33 @@ class CreatePoolModalViewModel extends Observer {
         return errors;
     }
 
-    onToggleHost(host, select) {
-        const { selectedHosts } = this;
-        if (!select) {
-            const filtered = selectedHosts.filter(name => name !== host);
-            action$.next(updateForm(this.formName, { selectedHosts: filtered }));
+    onToggleHost(host, isSelected) {
+        const selectedHosts = isSelected ?
+            [...this.selectedHosts, host] :
+            this.selectedHosts.filter(name => name !== host);
 
-        } else if (!selectedHosts.includes(host)) {
-            const updated = [ ...selectedHosts, host ];
-            action$.next(updateForm(this.formName, { selectedHosts: updated }));
-        }
+        this.dispatch(updateForm(this.formName, { selectedHosts }));
     }
 
     onSelectAll() {
-        const { selectedHosts } = this;
-        const merged = union(selectedHosts, this.visibleHosts);
-        action$.next(updateForm(this.formName, { selectedHosts: merged }));
+        const selectedHosts = union(this.selectedHosts, this.visibleHosts);
+        this.dispatch(updateForm(this.formName, { selectedHosts }));
     }
 
     onClearAll() {
-        const { selectedHosts } = this;
-        const filtered = selectedHosts
+        const selectedHosts = this.selectedHosts
             .filter(host => !this.visibleHosts.includes(host));
 
-        action$.next(updateForm(this.formName, { selectedHosts: filtered }));
+        this.dispatch(updateForm(this.formName, { selectedHosts }));
     }
 
     onClearSelection() {
-        action$.next(updateForm(this.formName, { selectedHosts: [] }));
+        this.dispatch(updateForm(this.formName, { selectedHosts: [] }));
     }
 
     onBeforeStep(step) {
         if (!this.isStepValid) {
-            action$.next(touchForm(this.formName, fieldsByStep[step]));
+            this.dispatch(touchForm(this.formName, valueFieldsByStep[step]));
             return false;
         }
 
@@ -355,16 +407,18 @@ class CreatePoolModalViewModel extends Observer {
     }
 
     onSubmit({ poolName, selectedHosts }) {
-        action$.next(createHostsPool(poolName, selectedHosts));
-        action$.next(closeModal());
+        this.dispatch(
+            createHostsPool(poolName, selectedHosts),
+            closeModal()
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     dispose() {
-        action$.next(dropHostsView(this.formName));
+        this.dispatch(dropHostsView(this.formName));
         super.dispose();
     }
 }

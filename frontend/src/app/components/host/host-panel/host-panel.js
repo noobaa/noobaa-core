@@ -3,13 +3,14 @@
 import template from './host-panel.html';
 import Observer  from 'observer';
 import { state$, action$ } from 'state';
-import { fetchHosts, dropHostsView, requestLocation } from 'action-creators';
+import { fetchHosts, fetchHostObjects, dropHostsView, requestLocation } from 'action-creators';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 import { sleep } from 'utils/promise-utils';
 import { get } from 'rx-extensions';
 import * as routes from 'routes';
 import { redirectOverlayDuration } from 'config';
+import { paginationPageSize } from 'config';
 
 const viewName = 'hostPanel';
 
@@ -33,7 +34,8 @@ class HostPanelViewModel extends Observer {
         );
     }
 
-    onLocation({ route, params }) {
+    onLocation(location) {
+        const { route, params, query } = location;
         const { system, pool, host, tab = 'details' } = params;
         if (!host) return;
 
@@ -44,6 +46,15 @@ class HostPanelViewModel extends Observer {
 
         // Load/update the host data.
         action$.next(fetchHosts(viewName, { hosts: [host] }, true));
+
+        // load the host object list.
+        if (tab === 'parts') {
+            action$.next(fetchHostObjects(
+                params.host,
+                Number(query.page || 0) * paginationPageSize,
+                paginationPageSize
+            ));
+        }
     }
 
     async onHosts(hosts) {

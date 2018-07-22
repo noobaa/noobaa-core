@@ -30,14 +30,30 @@ function onCompleteFetchSystemInfo(_, { payload }) {
 // Local util functions
 // ------------------------------
 function _mapResource(resource, bucketsByPools) {
-    const { name, mode, cloud_info, storage, undeletable } = resource;
+    const {
+        name,
+        mode,
+        cloud_info,
+        region,
+        storage,
+        undeletable,
+        create_time,
+        io_stats
+    } = resource;
+
     return {
         name,
         mode,
+        region,
         type: cloud_info.endpoint_type,
         target: cloud_info.target_bucket,
         storage: mapApiStorage(storage),
         usedBy: bucketsByPools[name] || [],
+        associatedAccounts: resource.associated_accounts || [],
+        createdBy: cloud_info.created_by,
+        creationTime: create_time,
+        internalHost: `${name}#internal-host`,
+        io: _mapIO(io_stats),
         undeletable
     };
 }
@@ -85,6 +101,14 @@ function _mapPoolsToBuckets(buckets, tiers) {
     );
 }
 
+function _mapIO(stats) {
+    return {
+        readCount: stats.read_count,
+        readSize: stats.read_bytes,
+        writeCount: stats.write_count,
+        writeSize: stats.write_bytes
+    };
+}
 
 // ------------------------------
 // Exported reducer function.

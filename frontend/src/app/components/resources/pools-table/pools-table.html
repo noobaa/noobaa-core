@@ -4,8 +4,8 @@
     <div class="row content-middle push-next">
         <div class="greedy">
             <input type="search"
-                placeholder="Filter by pool name"
-                ko.textInput="ko.pc(filter, onFilterThrottled)"
+                placeholder="Filter by name or region"
+                ko.textInput="ko.pc(filter, onFilter)"
             />
         </div>
         <div class="column align-start"
@@ -26,7 +26,7 @@
     columns: columns,
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
-    loading: !poolsLoaded(),
+    loading: !dataReady(),
     emptyMessage: 'The current filter does not match any nodes pool'
 "></data-table>
 

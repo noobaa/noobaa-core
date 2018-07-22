@@ -43,8 +43,7 @@ const columns = deepFreeze([
     },
     {
         name: 'noobaaBuckets',
-        label: 'NooBaa Buckets',
-        type: 'newLink'
+        label: 'NooBaa Buckets'
     }
 ]);
 

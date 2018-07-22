@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './pool-connected-buckets-chart.html';
+import template from './resource-distribution-chart.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, sumBy, makeArray, memoize, decimalRound } from 'utils/core-utils';
@@ -18,33 +18,41 @@ const colors = deepFreeze([
     style['color6']
 ]);
 
-class PoolConnectedBucketsGraphViewModel2 extends ConnectableViewModel {
-    dataLoaded = ko.observable();
+function _formatRatio(ratio) {
+    const rounded = decimalRound(ratio, 3);
+    return numeral(rounded).format(Number.isInteger(rounded * 100) ? '%' : '0.0%');
+}
+
+class ResourceDistributionChartViewModel extends ConnectableViewModel {
+    formatRatio = _formatRatio;
+    dataReady = ko.observable();
     chartValues = makeArray(maxChartValues, i => ({
         value: ko.observable(),
         color: colors[i],
         label: ko.observable(),
-        visible: ko.observable()
+        visible: ko.observable(),
+        tooltip: ko.observable()
     }));
 
-    selectUsageDistribution = memoize((pool, buckets) => {
-        return pool ? getUsageDistribution('HOSTS', pool.name, buckets) : [];
+    selectUsageDistribution = memoize((resourceType, resourceName, buckets) => {
+        return buckets && getUsageDistribution(resourceType, resourceName, buckets);
     });
 
     selectState(state, params) {
-        const { hostPools = {}, buckets } = state;
-        const pool = hostPools[params.poolName];
-        const usageDistribution = this.selectUsageDistribution(pool, buckets);
+        const usageDistribution = this.selectUsageDistribution(
+            params.resourceType,
+            params.resourceName,
+            state.buckets
+        );
 
         return [
-            pool,
             usageDistribution
         ];
     }
 
-    mapStateToProps(pool, usageDistribution) {
-        if (!pool) {
-            ko.assignToProps(this, { dataLoaded: false });
+    mapStateToProps(usageDistribution) {
+        if (!usageDistribution) {
+            ko.assignToProps(this, { dataReady: false });
 
         } else {
             const orderedByUsage = Array.from(usageDistribution)
@@ -62,13 +70,21 @@ class PoolConnectedBucketsGraphViewModel2 extends ConnectableViewModel {
                     const other = orderedByUsage.slice(maxChartValues - 1);
                     const visible = other.length > 0;
                     const value = visible ? sumBy(other, bucket => bucket.ratio) : 0;
-                    const label = visible ? `Other buckets (${other.length})` : 0;
-                    return { value, label, visible };
+                    const label = visible ? `Other buckets (${other.length})` : '';
+                    const tooltip = {
+                        template: 'propertySheet',
+                        text: other.map(item => ({
+                            label: item.bucket,
+                            value: _formatRatio(item.ratio)
+                        }))
+                    };
+
+                    return { value, label, visible, tooltip };
                 }
             });
 
             ko.assignToProps(this, {
-                dataLoaded: true,
+                dataReady: true,
                 chartValues: chartValues
             });
         }
@@ -81,6 +97,6 @@ class PoolConnectedBucketsGraphViewModel2 extends ConnectableViewModel {
 }
 
 export default {
-    viewModel: PoolConnectedBucketsGraphViewModel2,
+    viewModel: ResourceDistributionChartViewModel,
     template: template
 };

@@ -5,6 +5,7 @@ import ko from 'knockout';
 
 const subSym = Symbol('Props subscription');
 const lastSelectionSym = Symbol('Last state selection');
+const actionsSym = Symbol('Actions stream');
 
 function _isStateSelectionValid(selection) {
     return true &&
@@ -13,16 +14,16 @@ function _isStateSelectionValid(selection) {
 }
 
 export default class ConnectableViewModel {
-    dispatch = null;
+    [actionsSym] = null;
     [lastSelectionSym] = [];
     [subSym] = null;
 
-    constructor (params, { state$, action$ }) {
-        this.dispatch = action$.next.bind(action$);
+    constructor (params = {}, { state$, action$ }) {
+        this[actionsSym] = action$;
 
-        // Schedule th computed on the ko tasks queue to ensure that the
-        /// sub class constructor run and initialize fields before calling
-        //  first onState.
+        // Schedule the computed on the ko tasks queue to ensure that the
+        // sub class constructor run and initialize fields before calling
+        // first onState.
         ko.tasks.schedule(() => {
             const state = ko.fromRx(state$);
             this[subSym] = ko.computed(() =>
@@ -45,11 +46,17 @@ export default class ConnectableViewModel {
     }
 
     selectState(/*state, params*/) {
-        throw new Error('Not implemented');
+        return [];
     }
 
     mapStateToProps(/*...selection*/) {
-        throw new Error('Not implemented');
+    }
+
+    dispatch(...actions) {
+        const action$ = this[actionsSym];
+        for (const action of actions) {
+            action$.next(action);
+        }
     }
 
     dispose() {

@@ -122,6 +122,9 @@ export default {
             storage: {
                 $ref: '#/def/common/storage'
             },
+            region: {
+                type: 'string'
+            },
             undeletable: {
                 type: 'string',
                 enum: [

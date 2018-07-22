@@ -92,37 +92,36 @@ const undeletableReasons = deepFreeze({
 const resourceGroupMetadata = deepFreeze({
     HOSTS: {
         icon: 'nodes-pool',
-        tooltipTitle: 'Nodes pool resources'
+        tooltipTitle: 'Nodes pool resources',
+        uriFor: (resName, system) => realizeUri(
+            routes.pool,
+            { system, pool: resName }
+        )
     },
     CLOUD: {
         icon: 'cloud-hollow',
-        tooltipTitle: 'Cloud resources'
+        tooltipTitle: 'Cloud resources',
+        uriFor: (resName, system) => realizeUri(
+            routes.cloudResource,
+            { system, resource: resName }
+        )
     }
 });
 
 function _getResourceGroupTooltip(type, group, system) {
-    const { tooltipTitle } = resourceGroupMetadata[type];
+    const { tooltipTitle, uriFor } = resourceGroupMetadata[type];
     if (group.length === 0) {
         return `No ${tooltipTitle.toLowerCase()}`;
 
-    } else if (type === 'HOSTS') {
+    } else {
         return {
             template: 'linkListWithCaption',
             text: {
                 title: tooltipTitle,
                 list: group.map(res => ({
                     text: res.name,
-                    href: realizeUri(routes.pool, { system, pool: res.name })
+                    href: uriFor(res.name, system)
                 }))
-            }
-        };
-
-    } else {
-        return {
-            template: 'listWithCaption',
-            text: {
-                title: tooltipTitle,
-                list: group.map(res => res.name)
             }
         };
     }

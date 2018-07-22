@@ -68,8 +68,11 @@ class CapacityBarViewModel {
                 }
 
                 return {
-                    template: 'list',
-                    text: usedNaked.map(({ label, value }) => `${label}: ${formatSize(value)}`)
+                    template: 'propertySheet',
+                    text: usedNaked.map(({ label, value }) => ({
+                        label,
+                        value: formatSize(value)
+                    }))
                 };
             }
         );

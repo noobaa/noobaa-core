@@ -58,7 +58,7 @@ const libs = [
     },
     {
         name: 'numeral',
-        module: 'numeral.js'
+        module: '../../../node_modules/numeral/numeral.js'
     },
     {
         name: 'page',

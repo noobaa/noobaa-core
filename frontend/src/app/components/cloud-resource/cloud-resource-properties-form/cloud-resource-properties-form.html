@@ -1,0 +1,19 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="column">
+    <div class="row pad alt-bg content-middle">
+        <h3 class="heading3 greedy push-next">
+            Cloud Resource Properties
+        </h3>
+
+        <button class="btn" ko.click="onAssignRegion">
+            Assign Region
+        </button>
+    </div>
+    <property-sheet class="pad" params="
+        loading: !dataReady(),
+        properties: properties
+    "></property-sheet>
+</section>
+
+

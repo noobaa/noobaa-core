@@ -4,7 +4,8 @@ import template from './edit-bucket-placement-modal.html';
 import Observer from 'observer';
 import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
-import { deepFreeze, pick, flatMap, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, pick, flatMap, createCompareFunc, keyBy } from 'utils/core-utils';
+import { getResourceId} from 'utils/resource-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getMany } from 'rx-extensions';
@@ -87,6 +88,9 @@ const columns = deepFreeze([
     },
     {
         name: 'name'
+    },
+    {
+        name: 'region'
     },
     {
         name: 'healthyHosts',
@@ -185,12 +189,19 @@ class EditBucketPlacementModalViewModel extends Observer {
                 return row;
             });
 
+        const regionByResource = keyBy(
+            resourceList,
+            record => getResourceId(record.type, record.resource.name),
+            record => record.resource.region
+        );
+
         const resourcesHref = realizeUri(routes.resources, { system });
 
         this.tierName = bucket.tierName;
         this.selectedResources = selectedResources;
         this.spilloverResource = spilloverResource;
         this.selectableResourceIds = selectableResourceIds;
+        this.regionByResource = regionByResource;
         this.rows(rows);
         this.resourcesHref(resourcesHref);
 
@@ -245,6 +256,22 @@ class EditBucketPlacementModalViewModel extends Observer {
         }
 
         return errors;
+    }
+
+    onWarn(values, regionByResource) {
+        const warnings = {};
+        const { policyType, selectedResources } = values;
+
+        if (policyType === 'SPREAD') {
+            const [first, ...rest] = selectedResources
+                .map(({ type, name }) => regionByResource[getResourceId(type, name)] || '(Unassigned)');
+
+            if (first && rest.some(region => region !== first)) {
+                warnings.selectedResources = 'Combining resources with different assigned regions is not recommended and might raise costs';
+            }
+        }
+
+        return warnings;
     }
 
     onSubmit(values) {

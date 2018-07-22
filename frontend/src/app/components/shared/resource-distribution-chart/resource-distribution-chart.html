@@ -1,10 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <loading-indicator class="align-start pad"
-    ko.visible="!dataLoaded()"
+    ko.visible="!dataReady()"
 ></loading-indicator>
 
-<div class="row pad" ko.if="dataLoaded">
+<div class="row pad" ko.if="dataReady">
     <chart-legend class="push-next" params="
         caption: 'Usage Distribution',
         items: chartValues,
@@ -17,3 +17,5 @@
         format: formatRatio
     "></pie-chart>
 </div>
+
+

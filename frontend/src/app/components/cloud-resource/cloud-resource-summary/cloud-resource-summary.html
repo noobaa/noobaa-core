@@ -1,0 +1,54 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="fill row" ko.visible="!dataReady()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
+
+<div class="summary greedy row" ko.css.visible="dataReady">
+    <section class="c3 column pad borders">
+        <div class="greedy row content-middle" ko.if="state">
+            <svg-icon class="push-next" params="name: state().icon.name"
+                ko.css="state().icon.css"
+                ko.tooltip="state().icon.tooltip"
+            ></svg-icon>
+            <span class="heading3 greedy" ko.text="state().text"></span>
+        </div>
+        <hr/>
+        <div class="greedy row content-middle">
+            <span class="c6 highlight push-next">Service:</span>
+            <span class="c6 text-right" ko.text="service"></span>
+        </div>
+        <hr>
+        <div class="greedy row content-middle">
+            <span class="c6 highlight push-next">Cloud Target Bucket:</span>
+            <span class="c6 text-right" ko.text="targetBucket"></span>
+        </div>
+    </section>
+
+    <section class="c6 column push-both">
+        <div class="row align-middle">
+            <chart-legend class="pad push-next" params="
+                items: chartLegend,
+                caption: 'Resource R/W traffic',
+                format: 'size'
+            "></chart-legend>
+            <bar-chart class="greedy" params="values: chartValues"></bar-chart>
+        </div>
+    </section>
+
+    <section class="c3 column pad borders">
+        <div class="row content-middle highlight">
+            Number of R/W operations
+        </div>
+        <hr>
+        <div class="row content-middle greedy">
+            <span class="c6 highlight push-next">Reads:</span>
+            <span class="c6 text-right" ko.text="writeCount"></span>
+        </div>
+        <hr/>
+        <div class="row content-middle greedy">
+            <span class="c6 highlight push-next">Writes:</span>
+            <span class="c6 text-right" ko.text="readCount"></span>
+        </div>
+    </section>
+</div>

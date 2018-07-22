@@ -188,7 +188,7 @@ const actionToNotification = deepFreeze({
         severity: 'success'
     }),
 
-    [types.FAIL_CREATE_NAMSPACE_RESOURCE]: ({ name }) => ({
+    [types.FAIL_CREATE_NAMESPACE_RESOURCE]: ({ name }) => ({
         message: `Namespace resource ${name} creation failed`,
         severity: 'error'
     }),
@@ -198,7 +198,7 @@ const actionToNotification = deepFreeze({
         severity: 'success'
     }),
 
-    [types.FAIL_DELETE_NAMSPACE_RESOURCE]: ({ name }) => ({
+    [types.FAIL_DELETE_NAMESPACE_RESOURCE]: ({ name }) => ({
         message: `Namespace resource ${name} deletion failed`,
         severity: 'error'
     }),
@@ -475,6 +475,16 @@ const actionToNotification = deepFreeze({
 
     [types.FAIL_CREATE_BUCKET]: ({ name }) => ({
         message: `Bucket ${name} creation failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_ASSIGN_REGION_TO_RESOURCE]: ({ resourceName, region }) => ({
+        message: `A region was ${region ? 'assigned to' : 'removed from'} ${resourceName} successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_ASSIGN_REGION_TO_RESOURCE]: ({ resourceName, region }) => ({
+        message: `Failed to ${region ? 'assign a region to' : 'remove a region from'} ${resourceName}`,
         severity: 'error'
     })
 });

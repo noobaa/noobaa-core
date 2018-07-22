@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
-import { isObject } from 'utils/core-utils';
+import { isString } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 
 function _getOptionTooltip(tooltip) {
@@ -9,17 +9,21 @@ function _getOptionTooltip(tooltip) {
         return '';
     }
 
-    if (isObject(tooltip) && !Array.isArray(tooltip) && !null) {
+    if (isString(tooltip)) {
+        return {
+            text: tooltip,
+            position: 'after'
+        };
+    }
+
+    if (!tooltip.position) {
         return {
             ...tooltip,
             position: 'after'
         };
     }
 
-    return {
-        text: tooltip,
-        position: 'after'
-    };
+    return tooltip;
 }
 
 export default class OptionRowViewModel {

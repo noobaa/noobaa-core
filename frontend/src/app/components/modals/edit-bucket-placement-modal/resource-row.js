@@ -24,6 +24,7 @@ export default class ResourceRowViewModel {
     state = ko.observable();
     type = ko.observable();
     name = ko.observable();
+    region = ko.observable();
     healthyHosts = ko.observable();
     healthyNodes = ko.observable();
     usage = ko.observable();
@@ -63,7 +64,16 @@ export default class ResourceRowViewModel {
     }
 
     _onHostPool(pool, selected) {
-        const { name, storage, hostCount, hostsByMode, storageNodeCount, storageNodesByMode } = pool;
+        const {
+            name,
+            region = '(Unassigned)',
+            storage,
+            hostCount,
+            hostsByMode,
+            storageNodeCount,
+            storageNodesByMode
+        } = pool;
+
         const isSelected = selected.some(record => record.type === 'HOSTS' && record.name === name);
         const state = getHostsPoolStateIcon(pool);
         const healthyHosts = sumBy(
@@ -80,13 +90,14 @@ export default class ResourceRowViewModel {
         this.state(state);
         this.type('nodes-pool');
         this.name({ text: name, tooltip: name });
+        this.region(region);
         this.healthyHosts(_formatCounts(healthyHosts, hostCount));
         this.healthyNodes(_formatCounts(healthyNodes, storageNodeCount));
         this.usage({ total: storage.total, used: storage.used });
     }
 
     _onCloudResource(resource, selected) {
-        const { name, storage } = resource;
+        const { name, region = '(Unassigned)', storage } = resource;
         const isSelected = selected.some(record => record.type === 'CLOUD' && record.name === name);
         const state = getCloudResourceStateIcon(resource);
 
@@ -95,6 +106,7 @@ export default class ResourceRowViewModel {
         this.state(state);
         this.type(getCloudResourceTypeIcon(resource));
         this.name({ text: name, tooltip: name });
+        this.region(region);
         this.healthyHosts('---');
         this.healthyNodes('---');
         this.usage({ total: storage.total, used: storage.used });

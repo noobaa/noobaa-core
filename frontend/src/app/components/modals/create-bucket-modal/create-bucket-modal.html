@@ -4,6 +4,7 @@
     name: formName,
     fields: fields,
     onValidate: values => onValidate(values, existingNames),
+    onWarn: values => onWarn(values, regionByResource),
     onSubmit: onSubmit
 ">
     <wizard class="column greedy" params="

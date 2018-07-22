@@ -19,18 +19,6 @@ module.exports = {
         end_time: {
             idate: true
         },
-        // the time of the first sample in the range (the "real" start time)
-        first_sample_time: {
-            idate: true
-        },
-        // the time range in ms that this document is aggregated to
-        // e.g. aggregated_time_range for 1 hour is 3600000
-        aggregated_time_range: {
-            type: 'integer',
-        },
-        aggregated_time: {
-            idate: true
-        },
         bucket: {
             objectid: true
         },

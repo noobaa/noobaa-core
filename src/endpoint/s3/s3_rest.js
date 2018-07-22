@@ -354,33 +354,31 @@ function submit_usage_report(op, req, res) {
         bucket_usage_info.write_count += write_count;
     }
 
-    // TODO: Maybe we should plus both total_calls and total_errors and check their limit?
-    if (usage_report.s3_usage_info.total_calls < 10 &&
-        usage_report.s3_errors_info.total_errors < 10) {
-        return;
-    }
-
-
-    // TODO: Maybe we should change from 30 seconds to a higher number cycle? Like minutes/hours?
+    // if there is any information to send, and enough time passed (30 secs), then send report
     const now = Date.now();
-    if (now - usage_report.start_time < 30000) {
-        return;
-    }
+    const time_since_last_report = now - usage_report.start_time;
+    const num_reports = usage_report.s3_usage_info.total_calls +
+        usage_report.s3_errors_info.total_errors +
+        usage_report.bandwidth_usage_info.size;
+
+    if (num_reports === 0 || time_since_last_report < 30000) return;
 
     const report_to_send = usage_report;
     report_to_send.end_time = now;
     usage_report = new_usage_report();
 
-    const bandwidth_usage_info = Array.from(report_to_send.bandwidth_usage_info.values());
+    const map_values = report_to_send.bandwidth_usage_info.values();
+    const bandwidth_usage_info = Array.from(map_values);
     // submit to background
-    dbg.log1(`sending report`, report_to_send);
-    req.object_sdk.rpc_client.object.add_endpoint_usage_report({
-            start_time: report_to_send.start_time,
-            end_time: report_to_send.end_time,
-            s3_usage_info: report_to_send.s3_usage_info,
-            s3_errors_info: report_to_send.s3_errors_info,
-            bandwidth_usage_info
-        })
+    const rpc_req = {
+        start_time: report_to_send.start_time,
+        end_time: report_to_send.end_time,
+        s3_usage_info: report_to_send.s3_usage_info,
+        s3_errors_info: report_to_send.s3_errors_info,
+        bandwidth_usage_info
+    };
+    dbg.log0(`sending report`, rpc_req);
+    req.object_sdk.rpc_client.object.add_endpoint_usage_report(rpc_req)
         .catch(err => {
             console.log('add_endpoint_usage_report did not succeed:', err);
         });

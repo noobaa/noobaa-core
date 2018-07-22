@@ -244,7 +244,7 @@ config.STATISTICS_COLLECTOR_EXPIRATION = 31 * 24 * 60 * 60 * 1000; // 1 month
 // USAGE REPORTS //
 ///////////////////
 
-config.USAGE_AGGREGATOR_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+config.USAGE_AGGREGATOR_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
 
 ///////////////////

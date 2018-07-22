@@ -754,7 +754,7 @@ function export_bucket_bandwidth_usage(req) {
     const inner_path = `${process.cwd()}/build${out_path}`;
     return fs_utils.file_delete(inner_path)
         .then(() => fs_utils.create_path(`${process.cwd()}/build/public`))
-        .then(() => usage_aggregator.get_daily_reports_for_bucket({ bucket: bucket._id, since, till }))
+        .then(() => usage_aggregator.get_bandwidth_report({ bucket: bucket._id, since, till, resolution: 'day' }))
         .then(entries => {
             const out_lines = entries.reduce((lines, entry) => {
                 lines.push(`${entry.date}, ${entry.read_count}, ${entry.read_bytes}, ${entry.write_count}, ${entry.write_bytes}`);
@@ -767,7 +767,26 @@ function export_bucket_bandwidth_usage(req) {
             dbg.error('received error when writing to bucket usage csv file:', inner_path, err);
             throw err;
         });
+}
 
+async function get_bucket_throughput_usage(req) {
+    const DAY = 1000 * 60 * 60 * 24;
+    const WEEK = DAY * 7;
+    const MONTH = DAY * 30;
+    const period_to_ms = { MONTH, WEEK, DAY };
+    const { period } = req.rpc_params;
+    // for a period of month we return a resolution of days. for weeks and days we reutrn hours
+    const resolution = period === 'MONTH' ? 'day' : 'hour';
+    const till = Date.now();
+    const since = till - period_to_ms[period];
+    const report = await usage_aggregator.get_bandwidth_report({ resolution, since, till });
+    return report.map(entry => _.pick(entry,
+        'bucket',
+        'timestamp',
+        'read_count',
+        'write_count',
+        'write_bytes',
+        'read_bytes'));
 }
 
 
@@ -1496,6 +1515,7 @@ exports.update_bucket_s3_access = update_bucket_s3_access;
 //Temporary - TODO: move to new server
 exports.get_cloud_buckets = get_cloud_buckets;
 exports.export_bucket_bandwidth_usage = export_bucket_bandwidth_usage;
+exports.get_bucket_throughput_usage = get_bucket_throughput_usage;
 //Triggers
 exports.add_bucket_lambda_trigger = add_bucket_lambda_trigger;
 exports.update_bucket_lambda_trigger = update_bucket_lambda_trigger;

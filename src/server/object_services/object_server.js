@@ -889,8 +889,7 @@ async function report_error_on_object(req) {
 
 async function add_endpoint_usage_report(req) {
     const start_time = new Date(req.rpc_params.start_time);
-    const end_time = new Date(req.rpc_params.end_time);
-    const inserts = req.rpc_params.bandwidth_usage_info.map(record => {
+    const reports = req.rpc_params.bandwidth_usage_info.map(record => {
         const insert = _.pick(record, ['read_bytes', 'write_bytes', 'read_count', 'write_count']);
         insert.system = req.system._id;
 
@@ -905,14 +904,16 @@ async function add_endpoint_usage_report(req) {
             if (account) insert.account = account._id;
         }
 
-        insert.start_time = start_time;
-        insert.end_time = end_time;
-
+        // truncate start time to the start of current hour
+        // set end_time to the end of the hour
+        const HOUR = 60 * 60 * 1000;
+        insert.start_time = Math.floor(start_time / HOUR) * HOUR;
+        insert.end_time = insert.start_time + HOUR - 1;
         return insert;
     });
     await P.join(
         UsageReportStore.instance().update_usage(req.system, req.rpc_params.s3_usage_info, req.rpc_params.s3_errors_info),
-        UsageReportStore.instance().insert_usage_reports(inserts)
+        UsageReportStore.instance().insert_usage_reports(reports, { accumulate: true })
     );
 }
 

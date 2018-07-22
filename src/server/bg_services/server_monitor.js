@@ -78,7 +78,8 @@ function _verify_cluster_configuration() {
         .then(() => _verify_dns_cluster_config())
         .then(() => _verify_proxy_cluster_config())
         .then(() => _verify_remote_syslog_cluster_config())
-        .then(() => _verify_server_certificate());
+        .then(() => _verify_server_certificate())
+        .then(() => _verify_vmtools());
 }
 
 function _verify_ntp_cluster_config() {
@@ -126,6 +127,18 @@ function _verify_dns_cluster_config() {
 
     return os_utils.ensure_dns_and_search_domains(cluster_conf)
         .catch(err => dbg.error('failed to reconfigure dns cluster config on the server. reason:', err));
+}
+
+async function _verify_vmtools() {
+    if (process.env.PLATFORM !== 'esx') return;
+    if (os.type() !== 'Linux') return;
+    dbg.log2('Verifying vmtools configuration in relation to cluster config');
+    let cluster_vmtools_install = server_conf.vmtools_installed;
+    const server_vmtools_install = await os_utils.is_vmtools_installed();
+    if (cluster_vmtools_install && !server_vmtools_install) {
+        dbg.warn(`Server doesn't have vmtools installed while cluster have it enabled, installing...`);
+        await os_utils.install_vmtools();
+    }
 }
 
 

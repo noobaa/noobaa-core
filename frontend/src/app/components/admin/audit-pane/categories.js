@@ -348,6 +348,11 @@ export default {
                 entityId: () => ''
             },
 
+            vmtools_install: {
+                message: 'VMware tools installed',
+                entityId: () => ''
+            },
+
             upload_package: {
                 message: 'Upgrade package upload started',
                 entityId: () => ''

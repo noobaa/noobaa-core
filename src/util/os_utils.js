@@ -1233,6 +1233,23 @@ function get_iptables_rules() {
         });
 }
 
+async function install_vmtools() {
+    if (os.type() !== 'Linux') return;
+    if (process.env.PLATFORM !== 'esx') return;
+    await promise_utils.exec('yum install -y open-vm-tools');
+    await promise_utils.exec('systemctl start vmtoolsd.service');
+}
+
+async function is_vmtools_installed() {
+    try {
+        await promise_utils.exec('yum -q list installed open-vm-tools', { ignore_rc: false });
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+
 
 // EXPORTS
 exports.os_info = os_info;
@@ -1275,3 +1292,5 @@ exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
 exports.get_iptables_rules = get_iptables_rules;
 exports.ensure_dns_and_search_domains = ensure_dns_and_search_domains;
 exports.get_services_ps_info = get_services_ps_info;
+exports.install_vmtools = install_vmtools;
+exports.is_vmtools_installed = is_vmtools_installed;

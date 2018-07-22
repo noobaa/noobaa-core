@@ -199,7 +199,8 @@ function get_cluster_info(rs_status) {
             timezone: cinfo.ntp && cinfo.ntp.timezone,
             dns_servers: cinfo.dns_servers || [],
             search_domains: cinfo.search_domains || [],
-            time_epoch: time_epoch
+            time_epoch: time_epoch,
+            vmtools_installed: Boolean(cinfo.vmtools_installed)
         };
 
         const status = cinfo.services_status;

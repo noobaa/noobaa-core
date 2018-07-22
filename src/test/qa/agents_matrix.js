@@ -17,7 +17,6 @@ var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 var shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 
-const s3ops = new S3OPS();
 const dbg = require('../../util/debug_module')(__filename);
 const testName = 'agents_matrix';
 const suffixName = 'am';
@@ -89,6 +88,7 @@ let errors = [];
 let initial_node_number;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
+const s3ops = new S3OPS(server_ip);
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -206,8 +206,8 @@ function runAgentDebug() {
 
 function verifyAgent() {
     console.log(`Starting the verify agents stage`);
-    return s3ops.put_file_with_md5(server_ip, bucket, '100MB_File', 100, 1048576)
-        .then(() => s3ops.get_file_check_md5(server_ip, bucket, '100MB_File'))
+    return s3ops.put_file_with_md5(bucket, '100MB_File', 100, 1048576)
+        .then(() => s3ops.get_file_check_md5(bucket, '100MB_File'))
         .then(runAgentDiagnostics)
         .then(runAgentDebug);
 }

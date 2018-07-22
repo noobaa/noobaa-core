@@ -8,7 +8,7 @@ const blobops = require('../utils/blobops');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
-const ops = require('../utils/basic_server_ops');
+const srv_ops = require('../utils/basic_server_ops');
 const dbg = require('../../util/debug_module')(__filename);
 const AzureFunctions = require('../../deploy/azureFunctions');
 const { CloudFunction } = require('../utils/cloud_functions');
@@ -74,7 +74,8 @@ console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}$
 const rpc = api.new_rpc('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
-const s3ops = new S3OPS();
+const s3ops = new S3OPS(server_ip);
+let s3ops_compatible;
 const report = new Report();
 const bf = new BucketFunctions(client, report);
 const cf = new CloudFunction(client, report);
@@ -155,7 +156,7 @@ async function create_noobaa_for_compatible() {
             server.ip = ip;
         }
         if (!_.isUndefined(upgrade_pack)) {
-            await ops.upload_and_upgrade(server.ip, upgrade_pack);
+            await srv_ops.upload_and_upgrade(server.ip, upgrade_pack);
         }
         server.internal_ip = await azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
         connections_mapping.COMPATIBLE.endpoint = 'https://' + server.internal_ip;
@@ -166,22 +167,23 @@ async function create_noobaa_for_compatible() {
         cf_compatible = new CloudFunction(client2, report);
         await cf_compatible.createConnection(connections_mapping.AZURE, 'AZURE');
         await cf_compatible.createCloudPool(connections_mapping.AZURE.name, cloudPoolForCompatible, "noobaa-for-compatible");
+        s3ops_compatible = new S3OPS(server.ip);
     } catch (err) {
         console.log(err);
         throw new Error('Can\'t create server and upgrade servers', err);
     }
 }
 
-async function clean_cloud_bucket(ip, bucket) {
+async function clean_cloud_bucket(ops, bucket) {
     let run_list = true;
-    console.log(`cleaning all files from ${bucket} in ${ip}`);
+    console.log(`cleaning all files from ${bucket}`);
     while (run_list) {
-        const list_files = await s3ops.get_list_files(ip, bucket, '', { maxKeys: 1000 });
+        const list_files = await ops.get_list_files(bucket, '', { maxKeys: 1000 });
         if (list_files.length < 1000) {
             run_list = false;
         }
         for (const file of list_files) {
-            await s3ops.delete_file(ip, bucket, file.Key);
+            await ops.delete_file(bucket, file.Key);
         }
     }
 }
@@ -235,7 +237,7 @@ async function createCloudPools(type) {
 
 async function clean_env() {
     for (const bucket_name of bucket_names) {
-        await clean_cloud_bucket(server_ip, bucket_name);
+        await clean_cloud_bucket(s3ops, bucket_name);
         await bf.deleteBucket(bucket_name);
     }
     bucket_names = [];
@@ -248,7 +250,7 @@ async function clean_env() {
     }
     connections_names = [];
     for (const bucket_name of remote_bucket_names) {
-        await clean_cloud_bucket(server.ip, bucket_name);
+        await clean_cloud_bucket(s3ops_compatible, bucket_name);
         await bf_compatible.deleteBucket(bucket_name);
     }
     remote_bucket_names = [];

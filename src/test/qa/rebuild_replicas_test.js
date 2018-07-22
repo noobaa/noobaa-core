@@ -12,7 +12,6 @@ const AzureFunctions = require('../../deploy/azureFunctions');
 const { BucketFunctions } = require('../utils/bucket_functions');
 dbg.set_process_name('rebuild_replicas');
 
-const s3ops = new S3OPS();
 
 //define colors
 const YELLOW = "\x1b[33;1m";
@@ -72,6 +71,7 @@ if (help) {
 
 const rpc = api.new_rpc('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
+const s3ops = new S3OPS(server_ip);
 
 let report = new Report();
 let bf = new BucketFunctions(client, report);
@@ -130,8 +130,8 @@ async function uploadAndVerifyFiles(num_agents) {
             console.log('files list is ' + files);
             part += 1;
             console.log('Uploading file with size ' + file_size + ' MB');
-            await s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier);
-            await s3ops.get_file_check_md5(server_ip, bucket, file_name);
+            await s3ops.put_file_with_md5(bucket, file_name, file_size, data_multiplier);
+            await s3ops.get_file_check_md5(bucket, file_name);
         }
     } catch (err) {
         saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
@@ -142,7 +142,7 @@ async function uploadAndVerifyFiles(num_agents) {
 async function readFiles() {
     try {
         for (let file of files) {
-            await s3ops.get_file_check_md5(server_ip, bucket, file);
+            await s3ops.get_file_check_md5(bucket, file);
         }
     } catch (err) {
         saveErrorAndResume(`${server_ip} FAILED read file`, err);
@@ -221,7 +221,7 @@ async function waitForRebuildChunks(file) {
 async function clean_up_dataset() {
     console.log('runing clean up files from bucket ' + bucket);
     try {
-        await s3ops.delete_all_objects_in_bucket(server_ip, bucket, true);
+        await s3ops.delete_all_objects_in_bucket(bucket, true);
     } catch (err) {
         console.error(`Errors during deleting `, err);
     }

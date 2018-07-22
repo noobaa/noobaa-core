@@ -15,7 +15,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const testName = 'cluster_test';
 let suffix = testName.replace(/_test/g, '');
 dbg.set_process_name(testName);
-const s3ops = new S3OPS();
+let s3ops;
 
 //define colors
 const YELLOW = "\x1b[33;1m";
@@ -231,6 +231,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
                     .then(() => {
                         master_ip = servers[masterIndex].ip.trim();
                         console.log('Master ip', master_ip);
+                        s3ops = new S3OPS(master_ip);
                         rpc = api.new_rpc('wss://' + master_ip + ':8443');
                         client = rpc.new_client({});
                         return P.fcall(() => {
@@ -400,8 +401,8 @@ function createCluster(requestedServes, masterIndex, clusterIndex) {
 function verifyS3Server() {
     console.log(`starting the verify s3 server on `, master_ip);
     let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
-    return s3ops.create_bucket(master_ip, bucket)
-        .then(() => s3ops.get_list_buckets(master_ip))
+    return s3ops.create_bucket(bucket)
+        .then(() => s3ops.get_list_buckets())
         .then(res => {
             if (res.includes(bucket)) {
                 console.log('Bucket is successfully added');
@@ -409,8 +410,8 @@ function verifyS3Server() {
                 saveErrorAndResume(`Created bucket ${master_ip} bucket is not returns on list`, res);
             }
         })
-        .then(() => s3ops.put_file_with_md5(master_ip, bucket, '100MB_File', 100, 1048576)
-            .then(() => s3ops.get_file_check_md5(master_ip, bucket, '100MB_File')))
+        .then(() => s3ops.put_file_with_md5(bucket, '100MB_File', 100, 1048576)
+            .then(() => s3ops.get_file_check_md5(bucket, '100MB_File')))
         .catch(err => {
             saveErrorAndResume(`${master_ip} FAILED verification s3 server`, err);
             failures_in_test = true;
@@ -466,7 +467,7 @@ function runSecondFlow() {
         .then(() => stopVirtualMachineWithStatus(2, 180))
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
-            return s3ops.create_bucket(master_ip, bucket)
+            return s3ops.create_bucket(bucket)
                 .catch(err => console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`));
         })
         .then(() => startVirtualMachineWithStatus(1, 180))
@@ -487,7 +488,7 @@ function runThirdFlow() {
         })
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
-            return s3ops.create_bucket(master_ip, bucket)
+            return s3ops.create_bucket(bucket)
                 .catch(err => console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`));
         })
         .then(() => {

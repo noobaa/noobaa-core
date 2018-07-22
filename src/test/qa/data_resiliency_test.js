@@ -13,7 +13,6 @@ dbg.set_process_name('data_avilability');
 const YELLOW = "\x1b[33;1m";
 const NC = "\x1b[0m";
 
-const s3ops = new S3OPS();
 const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
@@ -75,6 +74,7 @@ function usage() {
 }
 
 const suffix = suffixName + '-' + id;
+const s3ops = new S3OPS(server_ip);
 
 if (help) {
     usage();
@@ -143,8 +143,8 @@ async function uploadAndVerifyFiles() {
             files.push(file_name);
             current_size += file_size;
             console.log('Uploading file with size ' + file_size + ' MB');
-            await s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier);
-            await s3ops.get_file_check_md5(server_ip, bucket, file_name);
+            await s3ops.put_file_with_md5(bucket, file_name, file_size, data_multiplier);
+            await s3ops.get_file_check_md5(bucket, file_name);
         } catch (err) {
             saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
             failures_in_test = true;
@@ -157,7 +157,7 @@ async function readFiles() {
     for (let index = 0; index < files.length; index++) {
         const file = files[index];
         try {
-            await s3ops.get_file_check_md5(server_ip, bucket, file);
+            await s3ops.get_file_check_md5(bucket, file);
         } catch (err) {
             saveErrorAndResume(`${server_ip} FAILED read file`, err);
             failures_in_test = true;
@@ -169,7 +169,7 @@ async function readFiles() {
 function clean_up_dataset() {
     console.log('runing clean up files from bucket ' + bucket);
 
-    return s3ops.delete_all_objects_in_bucket(server_ip, bucket, true)
+    return s3ops.delete_all_objects_in_bucket(bucket, true)
         .catch(err => console.error(`Errors during deleting `, err));
 }
 

@@ -14,7 +14,6 @@ const { CloudFunction } = require('../utils/cloud_functions');
 dbg.set_process_name('spillover');
 
 let errors = [];
-const s3ops = new S3OPS();
 let failures_in_test = false;
 const time_stemp = (Math.floor(Date.now() / 1000));
 const bucket = 'spillover.bucket' + time_stemp;
@@ -70,6 +69,7 @@ console.log(`resource: ${resource}, storage: ${storage}, vnet: ${vnet}`);
 
 const rpc = api.new_rpc('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
+const s3ops = new S3OPS(server_ip);
 
 let report = new Report();
 let bf = new BucketFunctions(client, report);
@@ -104,7 +104,7 @@ function saveErrorAndResume(message) {
 
 
 async function get_files_in_array() {
-    const list_files = await s3ops.get_list_files(server_ip, bucket);
+    const list_files = await s3ops.get_list_files(bucket);
     const keys = list_files.map(key => key.Key);
     return keys;
 }
@@ -112,8 +112,8 @@ async function get_files_in_array() {
 async function createBucketWithEnabledSpillover() {
     console.log('Creating bucket ' + bucket + ' with default pool first.pool');
     try {
-        await s3ops.create_bucket(server_ip, bucket);
-        const list_buckets = await s3ops.get_list_buckets(server_ip);
+        await s3ops.create_bucket(bucket);
+        const list_buckets = await s3ops.get_list_buckets();
         if (list_buckets.includes(bucket)) {
             console.log('Bucket is successfully added');
         } else {
@@ -139,7 +139,7 @@ async function uploadFiles(dataset_size, files) {
         files.push(file_name);
         console.log(`Uploading ${file_name} with size ${file_size} MB`);
         try {
-            await s3ops.upload_file_with_md5(server_ip, bucket, file_name, file_size, parts_num, data_multiplier);
+            await s3ops.upload_file_with_md5(bucket, file_name, file_size, parts_num, data_multiplier);
             await P.delay(1 * 1000);
         } catch (err) {
             saveErrorAndResume(`${server_ip} FAILED uploading files `, err);
@@ -155,7 +155,7 @@ async function test_failed_upload(dataset_size) {
     console.log(`Tring to upload ${dataset_size} MB after we have reached the quota`);
     const file_name = `file_over_${file_size}_${timeStemp}`;
     try {
-        await s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier);
+        await s3ops.put_file_with_md5(bucket, file_name, file_size, data_multiplier);
     } catch (error) { //When we get to the quota the writes should start failing
         console.log('Tring to upload pass the quota failed - as should');
         return;
@@ -248,9 +248,9 @@ async function assignNodesToPool(pool) {
 
 async function clean_env() {
     console.log('Running cleaning data from ' + bucket);
-    await s3ops.delete_all_objects_in_bucket(server_ip, bucket, true);
+    await s3ops.delete_all_objects_in_bucket(bucket, true);
     await P.delay(10 * 1000);
-    await s3ops.delete_bucket(server_ip, bucket);
+    await s3ops.delete_bucket(bucket);
     await P.delay(10 * 1000);
     await assignNodesToPool('first.pool');
     await cf.deletePool(healthy_pool);
@@ -273,7 +273,7 @@ async function check_internal_spillover_without_agents() {
     try {
         await createBucketWithEnabledSpillover();
         await bf.checkIsSpilloverHasStatus(bucket, true);
-        await s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file', 10, data_multiplier);
+        await s3ops.put_file_with_md5(bucket, 'spillover_file', 10, data_multiplier);
         await checkFileInPool('spillover_file', 'system-internal-storage-pool');
     } catch (e) {
         throw new Error(`Failed to write on internal spillover: ${e}`);
@@ -333,11 +333,11 @@ async function clean_all_files_from_bucket(skip_form_spillover = false, pool) {
         if (skip_form_spillover) {
             const files = await list_files_in_a_pool(keys, pool);
             for (const file of files) {
-                await s3ops.delete_file(server_ip, bucket, file);
+                await s3ops.delete_file(bucket, file);
             }
         } else {
             for (const file of keys) {
-                await s3ops.delete_file(server_ip, bucket, file);
+                await s3ops.delete_file(bucket, file);
             }
         }
     }
@@ -348,7 +348,7 @@ async function aggregated_file_size(files_list, size, return_size = false) {
     let aggregated_size = 0;
     for (const file of files_list) {
         if (aggregated_size < size) {
-            aggregated_size = await s3ops.get_file_size(server_ip, bucket, file);
+            aggregated_size = await s3ops.get_file_size(bucket, file);
             files_to_delete.push(file);
         } else {
             break;
@@ -370,12 +370,12 @@ async function clean_files_from_bucket(skip_form_spillover, pool, size) {
             const files = await list_files_in_a_pool(keys, pool);
             files_to_delete = await aggregated_file_size(files, size);
             for (const file of files_to_delete) {
-                await s3ops.delete_file(server_ip, bucket, file);
+                await s3ops.delete_file(bucket, file);
             }
         } else {
             files_to_delete = await aggregated_file_size(keys, size);
             for (const file of files_to_delete) {
-                await s3ops.delete_file(server_ip, bucket, file);
+                await s3ops.delete_file(bucket, file);
             }
         }
     }

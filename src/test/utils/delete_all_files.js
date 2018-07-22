@@ -28,23 +28,8 @@ if (argv.help) {
 
 const s3ops = new S3OPS();
 
-async function clean_cloud_bucket(ip, bucket_to_clean, is_version) {
-    let run_list = true;
-    console.log(`cleaning all files from ${bucket_to_clean} in ${ip}`);
-    while (run_list) {
-        const list_files = await s3ops.get_list_files(ip, bucket_to_clean, '', { maxKeys: 1000, version: is_version });
-        console.log(`list_files.length is ${list_files.length}`);
-        if (list_files.length < 1000) {
-            run_list = false;
-        }
-        for (const file of list_files) {
-            if (is_version) {
-                await s3ops.delete_file(ip, bucket_to_clean, file.Key, file.VersionId);
-            } else {
-                await s3ops.delete_file(ip, bucket_to_clean, file.Key);
-            }
-        }
-    }
+async function main() {
+    await s3ops.delete_all_objects_in_bucket(server_ip, bucket, version);
 }
 
-clean_cloud_bucket(server_ip, bucket, version);
+main();

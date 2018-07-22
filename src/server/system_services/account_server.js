@@ -663,7 +663,7 @@ function check_external_connection(req) {
     params.proxy = proxy;
     const account = req.account;
 
-    const connection = req.rpc_params.name && account.sync_credentials_cache.find(sync_conn =>
+    const connection = req.rpc_params.name && _.find(account.sync_credentials_cache, sync_conn =>
         sync_conn.name === req.rpc_params.name);
     if (connection) {
         throw new RpcError('CONNECTION_ALREADY_EXIST', 'Connection name already exists: ' + req.rpc_params.name);

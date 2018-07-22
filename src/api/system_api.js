@@ -855,6 +855,9 @@ module.exports = {
                         },
                     },
                 },
+                vmtools_installed: {
+                    type: 'boolean'
+                },
                 services_status: {
                     $ref: '#/definitions/services_status'
                 },

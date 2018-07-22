@@ -106,6 +106,10 @@ module.exports = {
             idate: true
         },
 
+        vmtools_installed: {
+            type: 'boolean'
+        },
+
         //Upgrade proccess
         upgrade: {
             type: 'object',

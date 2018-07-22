@@ -348,8 +348,8 @@ class S3OPS {
                         console.warn('No files with prefix in bucket');
                     }
                 } else {
-                    list.forEach(function(file) {
-                        listFiles.push({ Key: file.Key, VersionId: file.VersionId });
+                    list.forEach(file => {
+                        listFiles.push(_.omitBy(_.pick(file, ['Key', 'VersionId']), !_.isUndefined));
                         if (!supress_logs) {
                             console.log('files key is: ' + file.Key);
                         }
@@ -556,11 +556,11 @@ class S3OPS {
         }
 
         let start_ts = Date.now();
-        console.log(`>>> MULTI DELETE - About to delete multiple objects... ${util.inspect(files)}`);
+        console.log(`>>> MULTI DELETE - About to delete multiple objects... ${files.length}`);
         return P.ninvoke(s3bucket, 'deleteObjects', params)
             .then(() => {
                 console.log('Multi delete took', (Date.now() - start_ts) / 1000, 'seconds');
-                console.log(`files ${util.inspect(files)} successfully deleted`);
+                console.log(`${files.length} files successfully deleted`);
             })
             .catch(err => {
                 console.error(`Multi delete failed! ${util.inspect(files)}`, err);
@@ -568,29 +568,12 @@ class S3OPS {
             });
     }
 
-    delete_folder(ip, bucket, ...list) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-        let params = {
-            Bucket: bucket,
-            Delete: { Objects: list },
-        };
-        return P.ninvoke(s3bucket, 'deleteObjects', params)
-            .catch(err => console.error(`deleting objects ${params} with error ` + err));
-    }
-
-    delete_all_objects_in_bucket(ip, bucket, is_version) {
+    delete_all_objects_in_bucket(ip, bucket, is_versioning) {
         let run_list = true;
         console.log(`cleaning all files from ${bucket} in ${ip}`);
         promise_utils.pwhile(
             () => run_list,
-            () => this.get_list_files(ip, bucket, '', { maxKeys: 1000, version: is_version })
+            () => this.get_list_files(ip, bucket, '', { maxKeys: 1000, version: is_versioning, supress_logs: true })
             .then(list => {
                 console.log(`Partial list_files.length is ${list.length}`);
                 if (list.length < 1000) {
@@ -601,6 +584,7 @@ class S3OPS {
                     if (item.VersionId) {
                         i.versionid = item.VersionId;
                     }
+                    return i;
                 }));
             })
         );

@@ -248,8 +248,7 @@ async function assignNodesToPool(pool) {
 
 async function clean_env() {
     console.log('Running cleaning data from ' + bucket);
-    const list_files = await s3ops.get_list_files(server_ip, bucket, '');
-    await s3ops.delete_folder(server_ip, bucket, ...list_files);
+    await s3ops.delete_all_objects_in_bucket(server_ip, bucket, true);
     await P.delay(10 * 1000);
     await s3ops.delete_bucket(server_ip, bucket);
     await P.delay(10 * 1000);

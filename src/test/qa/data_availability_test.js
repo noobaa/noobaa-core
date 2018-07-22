@@ -178,8 +178,7 @@ async function readFiles() {
 async function clean_up_dataset() {
     console.log('runing clean up files from bucket ' + bucket);
     try {
-        const file_list = await s3ops.get_list_files(server_ip, bucket, '');
-        await s3ops.delete_folder(server_ip, bucket, ...file_list);
+        await s3ops.delete_all_objects_in_bucket(server_ip, bucket, true);
     } catch (err) {
         console.error(`Errors during deleting `, err);
     }

@@ -4,6 +4,7 @@
     name: formName,
     fields: fields,
     onValidate: onValidate,
+    onWarn: values => onWarn(values, regionByResource),
     onSubmit: onSubmit
 ">
     <section class="column push-next">

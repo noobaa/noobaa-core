@@ -5,7 +5,7 @@
     data: rows,
     loading: !dataLoaded(),
     sorting: ko.pc(sorting, onSort, $component),
-    emptyMessage: 'No associated buckets for this pool'
+    emptyMessage: emptyMessage
 ">
     <template name="usage">
         <span class="column">
@@ -33,3 +33,5 @@
         page: ko.pc(page, onPage, $component)
     "></paginator>
 </div>
+
+

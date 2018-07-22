@@ -40,8 +40,6 @@ class CommandBarViewModel extends Observer {
 
         this.isRefreshSpinning(true);
         sleep(1000, false).then(this.isRefreshSpinning);
-
-        return true;
     }
 
     onAudit() {

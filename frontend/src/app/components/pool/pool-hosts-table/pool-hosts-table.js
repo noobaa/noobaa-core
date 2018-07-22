@@ -16,6 +16,7 @@ import {
     fetchHosts,
     openAssignHostsModal,
     openInstallNodesToPoolModal,
+    openAssignRegionModal,
     requestLocation,
     dropHostsView
 } from 'action-creators';
@@ -239,6 +240,10 @@ class PoolHostsTableViewModel extends Observer {
 
     onInstallNewNodes() {
         action$.next(openInstallNodesToPoolModal(this.poolName));
+    }
+
+    onAssignRegion() {
+        action$.next(openAssignRegionModal('HOSTS', this.poolName));
     }
 
     dispose() {

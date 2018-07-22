@@ -29,6 +29,9 @@ const columns = deepFreeze([
         type: 'newLink'
     },
     {
+        name: 'region'
+    },
+    {
         name: 'healthyHosts',
         label: 'Healthy Nodes'
     },

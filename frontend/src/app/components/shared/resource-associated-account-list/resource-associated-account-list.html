@@ -1,0 +1,28 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="column pad alt-bg">
+    <h2 class="heading3 push-next-half">Accounts: {{accountCount}}</h2>
+    <p>The following accounts were associated to this {{subject}}. Each new bucket created by these accounts via an S3 application will have a data placement policy containing this {{subject}}.</p>
+</div>
+
+<loading-indicator class="greedy push-prev" ko.visible="!dataReady()"></loading-indicator>
+
+<section class="column greedy accounts-list push-both-half"
+    ko.visible="dataReady"
+>
+    <ul class="list-no-style column" ko.foreach="accounts">
+        <li class="pad-half hpad">
+            <a class="link" ko.text="name" ko.attr.href="href"></a>
+        </li>
+    </ul>
+    <p class="empty-message hpad"
+        ko.visible="accounts().length === 0"
+    >
+        No associated accounts for this {{subject}}
+    </p>
+</section>
+
+<p class="alt-bg pad-half hpad row content-middle remark">
+    <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+    To edit an account's default policy click on the account name then click "Edit S3 Access"
+</p>

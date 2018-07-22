@@ -525,6 +525,9 @@ module.exports = {
                         },
                         node_name: {
                             type: 'string'
+                        },
+                        host: {
+                            type: 'string'
                         }
                     }
                 },

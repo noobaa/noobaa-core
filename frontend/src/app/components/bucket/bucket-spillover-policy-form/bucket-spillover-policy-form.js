@@ -35,7 +35,11 @@ const columns = deepFreeze([
         type: 'icon'
     },
     {
-        name: 'resourceName'
+        name: 'resourceName',
+        type: 'newLink'
+    },
+    {
+        name: 'region'
     },
     {
         name: 'bucketUsage',
@@ -46,6 +50,7 @@ const columns = deepFreeze([
 
 class BucketSpilloverPolicyFormViewModel extends Observer {
     columns = columns;
+    visibleColumns = ko.observableArray();
     isExpanded = ko.observable();
     toggleUri = '';
     stateIcon = ko.observable();
@@ -94,6 +99,14 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
             Object.values(cloudResources).find(resource => resource.name === spillover.name) ||
             Object.values(hostPools).find(resource => resource.name === spillover.name);
 
+        const visibleColumns = columns
+            .map(col => col.name)
+            .filter(name =>
+                name !== 'region' ||
+                !spillover ||
+                spillover.type !== 'INTERNAL'
+            );
+
         const rows = ensureArray(spilloverResource)
             .map((resource, i) => {
                 let usage = 0;
@@ -103,12 +116,13 @@ class BucketSpilloverPolicyFormViewModel extends Observer {
                 }
 
                 const row = this.rows.get(i) || new SpilloverRowViewModel();
-                row.onResource(spillover.type, resource, usage);
+                row.onResource(spillover.type, resource, usage, system);
                 return row;
             });
 
         this.bucketName = bucket;
         this.toggleUri = toggleUri;
+        this.visibleColumns(visibleColumns);
         this.rows(rows);
 
         if (spillover) {

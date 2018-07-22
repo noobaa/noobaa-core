@@ -9,7 +9,13 @@ import {
     FAIL_DELETE_RESOURCE,
     ASSIGN_HOSTS_TO_POOL,
     COMPLETE_ASSIGN_HOSTS_TO_POOL,
-    FAIL_ASSIGN_HOSTS_TO_POOL
+    FAIL_ASSIGN_HOSTS_TO_POOL,
+    ASSIGN_REGION_TO_RESOURCE,
+    COMPLETE_ASSIGN_REGION_TO_RESOURCE,
+    FAIL_ASSIGN_REGION_TO_RESOURCE,
+    FETCH_CLOUD_RESOURCE_OBJECTS,
+    COMPLETE_FETCH_CLOUD_RESOURCE_OBJECTS,
+    FAIL_FETCH_CLOUD_RESOURCE_OBJECTS
 } from 'action-types';
 
 export function createHostsPool(name, hosts) {
@@ -72,5 +78,53 @@ export function failAssignHostsToPool(pool, error) {
     return {
         type: FAIL_ASSIGN_HOSTS_TO_POOL,
         payload: { pool, error }
+    };
+}
+
+export function assignRegionToResource(resourceType, resourceName, region) {
+    return {
+        type: ASSIGN_REGION_TO_RESOURCE,
+        payload: { resourceType, resourceName, region }
+    };
+}
+
+export function completeAssignRegionToResource(resourceType, resourceName, region) {
+    return {
+        type: COMPLETE_ASSIGN_REGION_TO_RESOURCE,
+        payload: { resourceType, resourceName, region }
+    };
+}
+
+export function failAssignRegionToResource(resourceType, resourceName, region, error) {
+    return {
+        type: FAIL_ASSIGN_REGION_TO_RESOURCE,
+        payload: { resourceType, resourceName, region, error }
+    };
+}
+
+export function fetchCloudResourceObjects(resource, skip, limit) {
+    return {
+        type: FETCH_CLOUD_RESOURCE_OBJECTS,
+        payload: { resource, skip, limit }
+    };
+}
+
+export function completeFetchCloudResourceObjects(resource, skip, limit, response) {
+    return {
+        type: COMPLETE_FETCH_CLOUD_RESOURCE_OBJECTS,
+        payload: {
+            query: { resource, skip, limit },
+            response
+        }
+    };
+}
+
+export function failFetchCloudResourceObjects(resource, skip, limit, error) {
+    return {
+        type: FAIL_FETCH_CLOUD_RESOURCE_OBJECTS,
+        payload: {
+            query: { resource, skip, limit },
+            error
+        }
     };
 }

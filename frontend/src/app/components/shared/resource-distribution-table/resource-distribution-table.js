@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './pool-connected-buckets-table.html';
+import template from './resource-distribution-table.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, memoize, createCompareFunc, decimalRound } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { formatSize } from 'utils/size-utils';
-import { getUsageDistribution } from 'utils/resource-utils';
+import { getUsageDistribution, getResourceTypeDisplayName } from 'utils/resource-utils';
 import { paginationPageSize } from 'config';
 import { requestLocation } from 'action-creators';
 import numeral from 'numeral';
@@ -24,7 +24,6 @@ const columns = deepFreeze([
     },
     {
         name: 'usage',
-        label: 'Usage Type',
         sortable: true,
         type: 'usage',
         compareKey: item => item.reason
@@ -48,7 +47,7 @@ class BucketRowViewModel {
     distribution = ko.observable();
 }
 
-class PoolConnectedBucketsTableViewModel extends ConnectableViewModel {
+class ResourceDistributionTableViewModel extends ConnectableViewModel {
     columns = columns;
     pageSize = paginationPageSize;
     pathname = '';
@@ -56,38 +55,44 @@ class PoolConnectedBucketsTableViewModel extends ConnectableViewModel {
     bucketCount = ko.observable();
     page = ko.observable();
     sorting = ko.observable();
+    emptyMessage = ko.observable();
     rows = ko.observableArray()
         .ofType(BucketRowViewModel)
 
-    selectUsageDistribution = memoize((pool, buckets) => {
-        return pool ? getUsageDistribution('HOSTS', pool.name, buckets) : [];
+    selectUsageDistribution = memoize((resourceType, resourceName, buckets) => {
+        return buckets && getUsageDistribution(resourceType, resourceName, buckets);
     });
 
     selectState(state, params) {
-        const { hostPools = {}, buckets = {}, location } = state;
-        const pool = hostPools[params.poolName];
-        const usageDistribution = this.selectUsageDistribution(pool, buckets);
+        const usageDistribution = this.selectUsageDistribution(
+            params.resourceType,
+            params.resourceName,
+            state.buckets
+        );
 
         return [
-            pool,
+            params.resourceType,
             usageDistribution,
-            location
+            state.location
         ];
     }
 
-    mapStateToProps(pool, usageDistribution, location) {
+    mapStateToProps(resourceType, usageDistribution, location) {
         const { params, query, pathname } = location;
 
         const { system, tab } = params;
-        if (tab && tab !== 'connected-buckets' || !pool) {
+        if (tab && tab !== 'connected-buckets' || !usageDistribution) {
             ko.assignToProps(this, { dataLoaded: false });
 
         } else {
+            const subject = getResourceTypeDisplayName(resourceType);
             const sortBy = query.sortBy || 'name';
             const order = Number(query.order || 1);
             const page = Number(query.page || 0);
             const pageStart = page * paginationPageSize;
             const { compareKey } = columns.find(column => column.name === sortBy);
+
+            // Clone the array on order to prevent inline sort.
             const usageList = Array.from(usageDistribution)
                 .sort(createCompareFunc(compareKey, order))
                 .slice(pageStart, pageStart + paginationPageSize);
@@ -98,6 +103,7 @@ class PoolConnectedBucketsTableViewModel extends ConnectableViewModel {
                 page: page,
                 sorting: { sortBy, order },
                 bucketCount: usageDistribution.length,
+                emptyMessage: `No associated buckets for this ${subject}`,
                 rows: usageList.map(record => {
                     const { bucket, size, ratio, reason } = record;
                     const href = realizeUri(routes.bucket, { system, bucket});
@@ -137,6 +143,6 @@ class PoolConnectedBucketsTableViewModel extends ConnectableViewModel {
 }
 
 export default {
-    viewModel: PoolConnectedBucketsTableViewModel,
+    viewModel: ResourceDistributionTableViewModel,
     template: template
 };

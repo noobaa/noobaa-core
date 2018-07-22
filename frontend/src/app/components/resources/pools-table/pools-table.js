@@ -1,16 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pools-table.html';
-import Observer from 'observer';
-import PoolRowViewModel from './pool-row';
-import { state$, action$ } from 'state';
+import deleteBtnTooltipTemplate  from './delete-button-tooltip.html';
+import ConnectableViewModel from 'components/connectable';
 import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
-import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap, sumBy } from 'utils/core-utils';
+import { stringifyAmount } from 'utils/string-utils';
+import { getHostsPoolStateIcon } from 'utils/resource-utils';
+import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
-import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import { inputThrottle, paginationPageSize } from 'config';
+import numeral from 'numeral';
 
 const columns = deepFreeze([
     {
@@ -27,39 +29,26 @@ const columns = deepFreeze([
         compareKey: pool => pool.name
     },
     {
+        name: 'region',
+        sortable: true,
+        compareKey: pool => pool.region || ''
+    },
+    {
         name: 'buckets',
-        label: 'buckets using resource',
+        label: 'connected buckets',
         sortable: true,
         compareKey: (pool, bucketsByPool) =>
             (bucketsByPool[pool.name] || []).length
     },
     {
-        name: 'hostCount',
-        label: 'nodes',
-        sortable: true,
-        compareKey: pool => pool.hostCount
+        name: 'hosts',
+        label: 'Total Nodes'
     },
     {
-        name: 'healthyCount',
-        label: 'healthy',
+        name: 'endpoints',
+        label: 'S3 endpoints',
         sortable: true,
-        compareKey: pool => pool.hostsByMode.OPTIMAL || 0
-    },
-    {
-        name: 'issuesCount',
-        label: 'issues',
-        sortable: true,
-        compareKey: pool => {
-            const { hostCount, hostsByMode } = pool;
-            const { OPTIMAL = 0, OFFLINE = 0 } = hostsByMode;
-            return hostCount - (OPTIMAL + OFFLINE);
-        }
-    },
-    {
-        name: 'offlineCount',
-        label: 'offline',
-        sortable: true,
-        compareKey: pool => pool.hostsByMode.OFFLINE || 0
+        compareKey: pool => pool.endpointNodeCount
     },
     {
         name: 'capacity',
@@ -103,158 +92,295 @@ function _getBucketsByPool(buckets) {
     }, {});
 }
 
-class PoolsTableViewModel extends Observer {
-    constructor() {
-        super();
+function _matchFilter(filter, pool) {
+    const lc = filter && filter.toLowerCase();
+    return !lc ||
+        pool.name.includes(lc) ||
+        (pool.region || '').toLowerCase().includes(lc);
+}
 
-        this.baseRoute = '';
-        this.columns = columns;
-        this.poolsLoaded = ko.observable();
-        this.isCreatePoolDisabled = ko.observable();
-        this.createPoolTooltip = ko.observable();
-        this.filter = ko.observable();
-        this.sorting = ko.observable();
-        this.pageSize = paginationPageSize;
-        this.page = ko.observable();
-        this.poolCount = ko.observable();
-        this.rows = ko.observableArray();
-        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+function _mapPoolToRow(
+    pool,
+    connectedBuckets,
+    selectedForDelete,
+    system,
+    lockingAccounts,
+) {
+    const {
+        name,
+        region = '(Unassigned)',
+        storage,
+        undeletable = '',
+        storageNodeCount,
+        endpointNodeCount,
+        hostsByMode
+    } = pool;
 
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'hostPools',
-                    'accounts',
-                    'buckets',
-                    'location'
-                )
-            ),
-            this.onState
-        );
+    const stateIcon = getHostsPoolStateIcon(pool);
+    const { all, healthy, hasIssues, offline } = summrizeHostModeCounters(hostsByMode);
+
+    return {
+        state: {
+            ...stateIcon,
+            tooltip: {
+                text: stateIcon.tooltip,
+                align: 'start'
+            }
+        },
+        name: {
+            text: name,
+            href: realizeUri(routes.pool, { system, pool: name })
+        },
+        region: {
+            text: region,
+            tooltip: region
+        },
+        buckets: {
+            text: connectedBuckets.length ? stringifyAmount('bucket',  connectedBuckets.length) : 'None',
+            tooltip: connectedBuckets.length > 0 ? {
+                template: 'linkList',
+                text: connectedBuckets.map(bucket => {
+                    const { name } = bucket;
+                    return {
+                        text: name,
+                        href: realizeUri(routes.bucket, { system, bucket: name })
+                    };
+                })
+            } : ''
+        },
+        hosts: {
+            text: `${
+                numeral(all).format(',')
+            } nodes / ${
+                numeral(storageNodeCount).format(',')
+            } drives`,
+            tooltip: {
+                template: 'propertySheet',
+                text: [
+                    {
+                        label: 'Healthy Nodes',
+                        value: numeral(healthy).format(',')
+                    },
+                    {
+                        label: 'Nodes with issues',
+                        value: numeral(hasIssues).format(',')
+                    },
+                    {
+                        label: 'Offline nodes',
+                        value: numeral(offline).format(',')
+                    }
+                ]
+            }
+        },
+        endpoints: numeral(endpointNodeCount).format(','),
+        capacity: {
+            total: storage.total,
+            used: [
+                { value: storage.used },
+                { value: storage.usedOther },
+                { value: storage.reserved }
+            ]
+        },
+        deleteButton: {
+            id: name,
+            disabled: Boolean(undeletable),
+            active: selectedForDelete === name,
+            tooltip: {
+                text: {
+                    reason: undeletable,
+                    accounts: lockingAccounts
+                }
+            }
+        }
+    };
+}
+
+class RowViewModel {
+    table = null;
+    state = ko.observable();
+    name = ko.observable();
+    region = ko.observable();
+    buckets = ko.observable();
+    hosts = ko.observable();
+    endpoints = ko.observable();
+    capacity = {
+        total: ko.observable(),
+        used: [
+            {
+                label: 'Used (Noobaa)',
+                value: ko.observable()
+            },
+            {
+                label: 'Used (other)',
+                value: ko.observable()
+            },
+            {
+                label: 'Reserved',
+                value: ko.observable()
+            }
+        ]
+    };
+    deleteButton = {
+        text: 'Delete pool',
+        id: ko.observable(),
+        active: ko.observable(),
+        disabled: ko.observable(),
+        tooltip: {
+            template: deleteBtnTooltipTemplate,
+            text: ko.observable()
+        },
+        onToggle: this.onToggle.bind(this),
+        onDelete: this.onDelete.bind(this)
+    };
+
+    constructor({ table }) {
+        this.table = table;
     }
 
-    onState([ pools, accounts, buckets, location ]) {
-        if (!pools || !accounts || !buckets) {
-            this.poolsLoaded(false);
-            this.isCreatePoolDisabled(true);
-            return;
-        }
+    onToggle(poolName) {
+        this.table.onSelectForDelete(poolName);
+    }
 
+    onDelete(poolName) {
+        this.table.onDeletePool(poolName);
+    }
+}
+
+class PoolsTableViewModel extends ConnectableViewModel {
+    columns = columns;
+    pageSize = paginationPageSize;
+    pathname = '';
+    dataReady = ko.observable();
+    isCreatePoolDisabled = ko.observable();
+    createPoolTooltip = ko.observable();
+    filter = ko.observable();
+    sorting = ko.observable();
+    page = ko.observable();
+    poolCount = ko.observable();
+    rows = ko.observableArray()
+        .ofType(RowViewModel, { table: this })
+
+    selectState(state) {
+        return [
+            state.hostPools,
+            state.accounts,
+            state.buckets,
+            state.location
+        ];
+    }
+
+    mapStateToProps(pools, accounts, buckets, location) {
         const { system, tab } = location.params;
         if (tab && tab !== 'pools') return;
 
-        const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = location.query;
-        const { compareKey } = columns.find(column => column.name === sortBy);
-        const bucketsByPool = _getBucketsByPool(buckets);
-        const compareOp = createCompareFunc(compareKey, order, bucketsByPool);
-        const poolList = Object.values(pools);
-        const hostCount = poolList.reduce((sum, pool) => sum + pool.hostCount, 0);
-        const pageStart = Number(page) * this.pageSize;
-        const rowParams = {
-            baseRoute: realizeUri(routes.pool, { system }, {}, true),
-            onSelectForDelete: this.onSelectForDelete.bind(this),
-            onDelete: this.onDeletePool.bind(this)
-        };
-
-        const filteredRows = poolList
-            .filter(pool => !filter || pool.name.includes(filter.toLowerCase()));
-
-        const accountsByUsingResource = groupBy(
-            Object.values(accounts),
-            account => account.defaultResource,
-            account => {
-                const name = account.name;
-                const href = realizeUri(routes.account, { system, account: name });
-                return { name, href };
-            }
-        );
-
-        const rows = filteredRows
-            .sort(compareOp)
-            .slice(pageStart, pageStart + this.pageSize)
-            .map((pool, i) => {
-                const usingAccounts = accountsByUsingResource[pool.name] || [];
-                const row = this.rows.get(i) || new PoolRowViewModel(rowParams);
-                row.onState(pool, bucketsByPool[pool.name] || [], usingAccounts, system, selectedForDelete);
-                return row;
+        if (!pools || !accounts || !buckets) {
+            ko.assignToProps(this, {
+                dataReady: false,
+                isCreatePoolDisabled: true
             });
 
-        this.baseRoute = realizeUri(location.route, { system, tab }, {}, true);
-        this.isCreatePoolDisabled(hostCount == 0);
-        this.createPoolTooltip(hostCount > 0 ? '' : notEnoughHostsTooltip);
-        this.filter(filter);
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
-        this.poolCount(filteredRows.length);
-        this.rows(rows);
-        this.poolsLoaded(true);
+        } else {
+            const { filter = '', sortBy = 'name', selectedForDelete } = location.query;
+            const order = Number(location.query.order || 1);
+            const page = Number(location.query.page || 0);
+            const poolList = Object.values(pools);
+            const hostCount = sumBy(poolList, pool => pool.hostCount);
+            const pageStart = page * paginationPageSize;
+            const filteredPools = poolList.filter(pool => _matchFilter(filter, pool));
+            const bucketsByPool = _getBucketsByPool(buckets);
+            const accountsByUsingResource = groupBy(
+                Object.values(accounts),
+                account => account.defaultResource,
+                account => {
+                    const name = account.name;
+                    const href = realizeUri(routes.account, { system, account: name });
+                    return { name, href };
+                }
+            );
+            const compareOp = createCompareFunc(
+                columns.find(column => column.name === sortBy).compareKey,
+                order,
+                bucketsByPool
+            );
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                pathname: location.pathname,
+                isCreatePoolDisabled: hostCount == 0,
+                createPoolTooltip: hostCount === 0 ? notEnoughHostsTooltip : '',
+                filter: filter,
+                sorting: { sortBy, order },
+                page: page,
+                poolCount: filteredPools.length,
+                rows: filteredPools
+                    .sort(compareOp)
+                    .slice(pageStart, pageStart + paginationPageSize)
+                    .map(pool => _mapPoolToRow(
+                        pool,
+                        bucketsByPool[pool.name] || [],
+                        selectedForDelete,
+                        system,
+                        accountsByUsingResource[pool.name]
+                    ))
+            });
+        }
     }
 
-    onFilter(filter) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            filter: filter || undefined,
-            sortBy: sortBy,
-            order: order,
+    onFilter = throttle(filter => {
+        this._query({
+            filter,
             page: 0,
-            selectedForDelete: undefined
-        };
+            selectedForDelete: null
+        });
+    }, inputThrottle)
 
-        action$.next(requestLocation(
-            realizeUri(this.baseRoute, {}, query)
-        ));
-    }
-
-    onSort({ sortBy, order }) {
-        const query = {
-            filter: this.filter() || undefined,
-            sortBy: sortBy,
-            order: order,
+    onSort(sorting) {
+        this._query({
+            sortBy: sorting.sortBy,
+            order: sorting.order,
             page: 0,
-            selectedForDelete: undefined
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.baseRoute, {}, query)
-        ));
+            selectedForDelete: null
+        });
     }
 
     onPage(page) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            filter: this.filter() || undefined,
-            sortBy: sortBy,
-            order: order,
-            page: page,
-            selectedForDelete: undefined
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.baseRoute, {}, query)
-        ));
+        this._query({
+            page,
+            selectedForDelete: null
+        });
     }
 
-    onSelectForDelete(pool) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            filter: this.filter() || undefined,
-            sortBy: sortBy,
-            order: order,
-            page: this.page(),
-            selectedForDelete: pool || undefined
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.baseRoute, {}, query)
-        ));
+    onSelectForDelete(poolName) {
+        const selectedForDelete = poolName || '';
+        this._query({ selectedForDelete });
     }
 
     onCreatePool() {
-        action$.next(openCreatePoolModal());
+        this.dispatch(openCreatePoolModal());
     }
 
     onDeletePool(poolName) {
-        action$.next(deleteResource(poolName));
+        this.dispatch(deleteResource(poolName));
+    }
+
+    _query(query) {
+        const {
+            filter = this.filter(),
+            sortBy = this.sorting().sortBy,
+            order = this.sorting().order,
+            page = this.page(),
+            selectedForDelete = this.selectedForDelete()
+        } = query;
+
+        const queryUrl = realizeUri(this.pathname, null, {
+            filter: filter || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: page,
+            selectedForDelete: selectedForDelete || undefined
+        });
+
+        this.dispatch(requestLocation(queryUrl));
     }
 }
 

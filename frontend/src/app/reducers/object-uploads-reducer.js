@@ -98,7 +98,7 @@ function _completeUpload(uploads, { id, extras, error }) {
 
             return {
                 ...obj,
-                versionId: extras.verisonId,
+                versionId: error ? undefined : extras.verisonId,
                 completed: true,
                 error: error && {
                     code: error.code,

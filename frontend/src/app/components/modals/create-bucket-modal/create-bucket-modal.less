@@ -53,16 +53,23 @@
             .no-wrap();
 
             text-align: left;
-            width: 100%;
-            max-width: 92px;
+
+            /* locking the size of the name column to
+            prevent column alignment problem because of
+            wizard step resizes */
+            width: 168px;
+        }
+
+        .region-col {
+            min-width: 100px;
         }
 
         .healthy-hosts-col {
-            min-width: 110px;
+            min-width: 100px;
         }
 
         .healthy-nodes-col {
-            min-width: 110px;
+            min-width: 100px;
         }
 
         .usage-col {

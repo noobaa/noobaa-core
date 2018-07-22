@@ -16,6 +16,7 @@ export default class CloudResourceRowViewModel {
     state = ko.observable();
     type = ko.observable();
     name = ko.observable();
+    region = ko.observable();
     buckets = ko.observable();
     usage = ko.observable();
     cloudBucket = ko.observable();
@@ -35,9 +36,10 @@ export default class CloudResourceRowViewModel {
     }
 
     onState(resource, system, selectedForDelete) {
-        const { name, usedBy, target, undeletable } = resource;
+        const { name, region = '(Unassigned)', usedBy, target, undeletable } = resource;
         const bucketCount = usedBy.length;
 
+        const uri = realizeUri(routes.cloudResource, { system, resource: name });
         const buckets = {
             text: stringifyAmount('bucket', bucketCount),
             tooltip: bucketCount > 0 ? {
@@ -52,7 +54,8 @@ export default class CloudResourceRowViewModel {
 
         this.state(getCloudResourceStateIcon(resource));
         this.type(getCloudResourceTypeIcon(resource));
-        this.name(name);
+        this.name({ text: name, href: uri });
+        this.region({ text: region, tooltip: region });
         this.buckets(buckets);
         this.usage(formatSize(resource.storage.used));
         this.cloudBucket(target);

@@ -201,7 +201,7 @@ function _getResourceInfo(resource, cloudTypeMapping, system) {
         return {
             icon: getCloudResourceTypeIcon({ type: cloudType }).name,
             text: name,
-            href: ''
+            href: realizeUri(routes.cloudResource, { system, resource: name })
         };
     }
 }
@@ -273,15 +273,13 @@ function _getBlockResource(block, system) {
         }
 
         case 'CLOUD': {
-            return {
-                text: resource
-            };
+            const text = resource;
+            const href = realizeUri(routes.cloudResource, { system, resource });
+            return { text, href };
         }
 
         case 'INTERNAL': {
-            return {
-                text: 'Internal Storage'
-            };
+            return { text: 'Internal Storage' };
         }
     }
 }

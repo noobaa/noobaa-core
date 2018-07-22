@@ -1,0 +1,50 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<cloud-resource-summary class="push-next" params="resourceName: resource"></cloud-resource-summary>
+
+<div class="tabs greedy" ko.if="route">
+    <nav>
+        <a ko.css.selected="selectedTab.eq('properties')"
+            ko.attr.href="tabHref('properties')"
+        >
+            Properties
+        </a>
+        <a ko.css.selected="selectedTab.eq('connected-buckets')"
+            ko.attr.href="tabHref('connected-buckets')"
+        >
+            Connected Buckets
+        </a>
+        <a ko.css.selected="selectedTab.eq('associated-accounts')"
+            ko.attr.href="tabHref('associated-accounts')"
+        >
+            Associated Accounts
+        </a>
+        <a ko.css.selected="selectedTab.eq('parts')"
+            ko.attr.href="tabHref('parts')"
+        >
+            Stored Parts
+        </a>
+    </nav>
+
+    <div class="tabs-row">
+        <cloud-resource-properties-form class="tab column"
+            ko.css.selected="selectedTab.eq('properties')"
+            params="resourceName: resource"
+        ></cloud-resource-properties-form>
+
+        <resource-connected-buckets-form class="tab column"
+            ko.css.selected="selectedTab.eq('connected-buckets')"
+            params="resourceType: 'CLOUD', resourceName: resource"
+        ></resource-connected-buckets-form>
+
+        <resource-associated-account-list class="tab column"
+            ko.css.selected="selectedTab.eq('associated-accounts')"
+            params="resourceType: 'CLOUD', resourceName: resource"
+        ></resource-associated-account-list>
+
+        <host-parts-table class="tab column"
+            ko.css.selected="selectedTab.eq('parts')"
+            params="hostName: hostName"
+        ></host-parts-table>
+    </div>
+</div>

@@ -1,17 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './assign-hosts-modal.html';
-import Observer from 'observer';
-import HostRowViewModel from './host-row';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { state$, action$ } from 'state';
-import { deepFreeze, union, equalItems, sumBy, throttle } from 'utils/core-utils';
+import numeral from 'numeral';
+import { deepFreeze, memoize, union, sumBy, throttle } from 'utils/core-utils';
 import { formatSize, sumSize } from 'utils/size-utils';
-import { getHostModeListForState} from 'utils/host-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { getFormValues } from 'utils/form-utils';
-import { getMany } from 'rx-extensions';
+import { getFormValues, getFieldValue } from 'utils/form-utils';
 import { inputThrottle, paginationPageSize } from 'config';
+import {
+    getHostModeListForStates,
+    getHostDisplayName,
+    getHostStateIcon,
+    getNodeOrHostCapacityBarValues
+} from 'utils/host-utils';
 import {
     fetchHosts,
     updateForm,
@@ -57,12 +60,22 @@ const columns = deepFreeze([
     }
 ]);
 
-const allPoolsOption = deepFreeze({
-    label: 'All Node Pools',
-    value: 'ALL'
-});
+const stateOptions = deepFreeze([
+    {
+        label: 'Healthy Nodes',
+        value: 'HEALTHY'
+    },
+    {
+        label: 'Nodes with issues',
+        value: 'HAS_ISSUES'
+    },
+    {
+        label: 'Offline Nodes',
+        value: 'OFFLINE'
+    }
+]);
 
-function _getPoolOption({ name, hostCount, storage }) {
+function _mapPoolToOption({ name, hostCount, storage }) {
     const { total, free: availableFree, unavailableFree } = storage;
     const free = sumSize(availableFree, unavailableFree);
     const remark = `${formatSize(free)} of ${formatSize(total)} Available`;
@@ -71,10 +84,7 @@ function _getPoolOption({ name, hostCount, storage }) {
         'Pool is empty';
 
     return {
-        tooltip: {
-            text: tooltip,
-            position: 'after'
-        },
+        tooltip: tooltip,
         label: name,
         value: name,
         icon: 'nodes-pool',
@@ -82,198 +92,233 @@ function _getPoolOption({ name, hostCount, storage }) {
     };
 }
 
-function _getModesFromStateFlags(healthy, issues, offline) {
-    return [
-        ...(healthy ? getHostModeListForState('HEALTHY') : []),
-        ...(issues ? getHostModeListForState('HAS_ISSUES') : []),
-        ...(offline ? getHostModeListForState('OFFLINE') : [])
-    ];
-}
-
-function _getTableEmptyMessage(hostCount, releventHostsCount) {
+function _getTableEmptyMessage(hostCount, otherPoolsHostsCount) {
     if (hostCount === 0) {
         return 'The system contains no nodes';
-    } else if (releventHostsCount === 0) {
+    } else if (otherPoolsHostsCount === 0) {
         return 'All nodes are already in this pool';
     } else {
         return 'Current filter does not match any node';
     }
 }
 
-function _fetchHosts(formName, queryFields, poolList, targetPool) {
-    const {
-        nameFilter,
-        selectedPools,
-        showHealthy,
-        showIssues,
-        showOffline,
-        sorting,
-        page
-    } = queryFields;
-
-    const { sortBy, order } = sorting;
-    const name = nameFilter || undefined;
-    const pools = selectedPools === 'ALL' ? poolList : [ selectedPools ];
-    const modes = _getModesFromStateFlags(showHealthy, showIssues, showOffline);
-    const skip = page * paginationPageSize;
-    const limit = paginationPageSize;
-    const recommendedHint = sortBy === 'recommended' ? targetPool : undefined;
-    const query = { pools, name, modes, sortBy, order, skip, limit, recommendedHint };
-
-    action$.next(fetchHosts(formName, query));
+function _mapHostToRow(host, pools, selectedHosts, targetPoolName) {
+    const pool = pools[host.pool];
+    return {
+        name: host.name,
+        isSelected: selectedHosts.includes(host.name),
+        displayName: getHostDisplayName(host.name),
+        state: getHostStateIcon(host),
+        ip: host.ip,
+        capacity: getNodeOrHostCapacityBarValues(host),
+        pool: {
+            text: host.pool,
+            tooltip: {
+                template: 'propertySheet',
+                text: [
+                    {
+                        label: 'Healthy Nodes',
+                        value: `${
+                            numeral(pool.hostsByMode.OPTIMAL).format(',')
+                        } / ${
+                            numeral(pool.hostCount).format(',')
+                        }`
+                    },
+                    {
+                        label: 'Region',
+                        value: pool.region || '(Unassigned)'
+                    },
+                    {
+                        label: 'Free capacity',
+                        value: formatSize(sumSize(
+                            pool.storage.free,
+                            pool.storage.unavailableFree
+                        ))
+                    }
+                ]
+            }
+        },
+        recommended: host.suggestedPool === targetPoolName ? 'yes' : '---'
+    };
 }
 
-class AssignHostsModalViewModel extends Observer {
+class RowViewModel {
+    table = null;
+    name = '';
+    displayName = ko.observable();
+    state = ko.observable();
+    ip = ko.observable();
+    capacity = ko.observable();
+    pool = ko.observable();
+    recommended = ko.observable();
+    isSelected = ko.observable();
+
+    // This pure computed is used to bound the checkbox column.
+    selected = ko.pureComputed({
+        read: this.isSelected,
+        write: this.onToggle,
+        owner: this
+    });
+
+    constructor({ table }) {
+        this.table = table;
+    }
+
+    onToggle(selected) {
+        this.table.onToggleHost(this.name, selected);
+    }
+}
+
+class AssignHostsModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
+    fields = ko.observable();
+    stateOptions = stateOptions;
     columns = columns;
+    poolName = '';
+    lastQuery = '';
     pageSize = paginationPageSize;
-    targetPool = '';
+    selectedHosts = [];
     visibleHosts = [];
-    query = [];
-    fetching = ko.observable();
     poolOptions = ko.observableArray();
-    rows = ko.observableArray();
-    selectedMessage = ko.observable();
-    filteredHostCount = ko.observable();
     emptyMessage = ko.observable();
-    onNameFilterThrottled = throttle(this.onNameFilter, inputThrottle, this);
-    rowParams = { onToggle: this.onToggleHost.bind(this) };
-    fields = {
-        nameFilter: '',
-        selectedPools: 'ALL',
-        showHealthy: true,
-        showIssues: false,
-        showOffline: false,
-        sorting: {
-            sortBy: 'name',
-            order: 1
-        },
-        page: 0,
-        selectedHosts: []
-    };
+    selectedMessage = ko.observable();
+    fetching = ko.observable();
+    filteredHostCount = ko.observableArray();
+    rows = ko.observableArray()
+        .ofType(RowViewModel, { table: this });
 
-    constructor({ targetPool }) {
-        super();
-
-        this.targetPool = ko.unwrap(targetPool);
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'hostPools',
-                    'hosts',
-                    ['forms', this.formName ]
-                )
-            ),
-            this.onState
-        );
+    onState(state, params) {
+        super.onState(state, params);
+        this.fetchHosts(state.forms[this.formName], params.targetPool);
     }
 
-    onState([ pools, hosts, form ]) {
-        if (!pools || !hosts || !form) return;
+    fetchHosts(form, pool) {
+        if (!form) return;
 
-        // Extract the form values.
-        const formValues = getFormValues(form);
-        const { selectedHosts } = formValues;
+        const {
+            selectedHosts: _,
+            ...filters
+        } = getFormValues(form);
 
-        // Update pools related information.
-        const allPools = Object.values(pools);
-        const releventPools = allPools
-            .filter(pool => pool.name !== this.targetPool);
+        const query = JSON.stringify(filters);
+        if (this.lastQuery !== query) {
+            this.lastQuery = query;
+            this.dispatch(fetchHosts(this.formName, {
+                pools: filters.selectedPools,
+                name: filters.nameFilter || undefined,
+                modes: getHostModeListForStates(...filters.selectedStates),
+                sortBy: filters.sorting.sortBy,
+                order: filters.sorting.order,
+                skip: filters.page * paginationPageSize,
+                limit: paginationPageSize,
+                recommendedHint: pool
+            }));
+        }
+    }
 
-        // Get the pool options.
-        const poolOptions = [
-            allPoolsOption,
-            ...releventPools.map(_getPoolOption)
-        ];
-
-        // Get updated host table rows.
-        const { items, queries, views } = hosts;
+    selectHosts = memoize(hostsState => {
+        const { items, queries, views } = hostsState;
         const queryKey = views[this.formName];
-        const result = queryKey && queries[queryKey].result;
-        const hostList = result ? result.items.map(name => items[name]) : [];
-        const rows = hostList.map((host, i) => {
-            const row = this.rows()[i] || new HostRowViewModel(this.rowParams);
-            row.onHost(host, selectedHosts, ko.unwrap(this.targetPool));
-            return row;
-        });
+        const { result } = queryKey ? queries[queryKey] : {};
 
-        // Calculate extra information.
-        const hostCount = sumBy(allPools, pool => pool.hostCount);
-        const releventHostsCount = sumBy(releventPools, pool => pool.hostCount);
-        const selectedMessage = `${selectedHosts.length} selected of all nodes (${releventHostsCount})`;
-        const emptyMessage = _getTableEmptyMessage(hostCount, releventHostsCount);
-        const filteredHostCount = result ? result.counters.nonPaginated : 0;
+        return {
+            list: result ? result.items.map(name => items[name]) : [],
+            fetching: !result,
+            nonPaginatedCount: result ? result.counters.nonPaginated : 0
+        };
+    });
 
-        // Start a new fetch if needded.
-        const { sortBy, order } = formValues.sorting;
-        const query = [formValues.nameFilter, formValues.selectedPools, formValues.showHealthy,
-            formValues.showIssues, formValues.showOffline, sortBy, order, formValues.page];
-
-        if (!equalItems(this.query, query)) {
-            this.query = query;
-            _fetchHosts(
-                this.formName,
-                formValues,
-                releventPools.map(pool => pool.name),
-                this.targetPool
-            );
-        }
-
-        // Update the view's observables.
-        this.selectedHosts = selectedHosts;
-        this.visibleHosts = hostList.map(host => host.name);
-        this.poolOptions(poolOptions);
-        this.emptyMessage(emptyMessage);
-        this.selectedMessage(selectedMessage);
-        this.fetching(!result);
-        this.filteredHostCount(filteredHostCount);
-        this.rows(rows);
+    selectState(state, params) {
+        return [
+            params.targetPool,
+            state.hostPools,
+            this.selectHosts(state.hosts),
+            state.forms[this.formName]
+        ];
     }
 
-    onNameFilter(nameFilter) {
-        action$.next(updateForm(this.formName, { nameFilter }));
+    mapStateToProps(poolName, pools, hosts, form) {
+        if (!pools || !hosts) {
+            ko.assignToProps(this, {
+                fetching: true
+            });
+
+        } else {
+            const { [poolName]: pool, ...other } = pools;
+            const otherPools = Object.values(other);
+            const selectedHosts = form ? getFieldValue(form, 'selectedHosts') : [];
+            const hostCount = sumBy(Object.values(pools), pool => pool.hostCount);
+            const otherPoolsHostsCount = hostCount - pool.hostCount;
+
+            ko.assignToProps(this, {
+                poolName: poolName,
+                fetching: hosts.fetching,
+                selectedHosts: selectedHosts,
+                visibleHosts: hosts.list.map(host => host.name),
+                poolOptions: otherPools.map(_mapPoolToOption),
+                emptyMessage: _getTableEmptyMessage(hostCount, otherPoolsHostsCount),
+                selectedMessage: `${selectedHosts.length} selected of all nodes (${otherPoolsHostsCount})`,
+                filteredHostCount: hosts.nonPaginatedCount,
+                rows: hosts.list.map(host => _mapHostToRow(
+                    host,
+                    pools,
+                    selectedHosts,
+                    poolName
+                )),
+                fields: !form ? {
+                    nameFilter: '',
+                    selectedPools: otherPools.map(pool => pool.name),
+                    selectedStates: stateOptions.map(option => option.value),
+                    sorting: { sortBy: 'name', order: 1 },
+                    page: 0,
+                    selectedHosts: []
+                } : undefined
+            });
+        }
     }
 
-    onToggleHost(host, select) {
-        const { selectedHosts } = this;
-        if (!select) {
-            const filtered = selectedHosts.filter(name => name !== host);
-            action$.next(updateForm(this.formName, { selectedHosts: filtered }));
+    onNameFilter = throttle(
+        nameFilter => this.dispatch(updateForm(this.formName, { nameFilter })),
+        inputThrottle
+    );
 
-        } else if (!this.selectedHosts.includes(host)) {
-            const updated = [ ...selectedHosts, host ];
-            action$.next(updateForm(this.formName, { selectedHosts: updated }));
-        }
+    onToggleHost(host, isSelected) {
+        const selectedHosts = isSelected ?
+            [...this.selectedHosts, host] :
+            this.selectedHosts.filter(name => name !== host);
+
+        this.dispatch(updateForm(this.formName, { selectedHosts }));
     }
 
     onSelectAll() {
         const merged = union(this.selectedHosts, this.visibleHosts);
-        action$.next(updateForm(this.formName, { selectedHosts: merged }));
+        this.dispatch(updateForm(this.formName, { selectedHosts: merged }));
     }
 
     onClearAll() {
         const filtered = this.selectedHosts
             .filter(host => !this.visibleHosts.includes(host));
 
-        action$.next(updateForm(this.formName, { selectedHosts: filtered }));
+        this.dispatch(updateForm(this.formName, { selectedHosts: filtered }));
     }
 
     onClearSelection() {
-        action$.next(updateForm(this.formName, { selectedHosts: [] }));
+        this.dispatch(updateForm(this.formName, { selectedHosts: [] }));
     }
 
     onSubmit({ selectedHosts }) {
-        action$.next(assignHostsToPool(this.targetPool, selectedHosts));
-        action$.next(closeModal());
+        this.dispatch(
+            assignHostsToPool(this.poolName, selectedHosts),
+            closeModal()
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     dispose() {
-        action$.next(dropHostsView(this.formName));
+        this.dispatch(dropHostsView(this.formName));
         super.dispose();
     }
 }

@@ -7,12 +7,12 @@
 <data-table class="parts-table greedy" params="
     columns: columns,
     data: rows,
-    loading: fetching,
+    loading: !dataReady(),
     emptyMessage: 'No object parts are stored on the node'
 "></data-table>
 
 <paginator params="
     pageSize: pageSize,
     itemCount: partCount,
-    page: ko.pc(page, p => onPage(p))
+    page: ko.pc(page, onPage, $component)
 "></paginator>

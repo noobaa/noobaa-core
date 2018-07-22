@@ -50,6 +50,7 @@ export default function routing(page) {
     registerRouteHandler(page, routes.object);
     registerRouteHandler(page, routes.resources);
     registerRouteHandler(page, routes.pool);
+    registerRouteHandler(page, routes.cloudResource);
     registerRouteHandler(page, routes.host);
     registerRouteHandler(page, routes.account);
     registerRouteHandler(page, routes.management);

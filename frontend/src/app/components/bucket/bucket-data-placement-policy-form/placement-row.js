@@ -29,6 +29,7 @@ export default class PlacementRowViewModel {
     state = ko.observable();
     type = ko.observable();
     resourceName = ko.observable();
+    region = ko.observable();
     healthyHosts = ko.observable();
     healthyNodes = ko.observable();
     bucketUsage = ko.observable();
@@ -49,7 +50,6 @@ export default class PlacementRowViewModel {
 
     _onHostPool(pool, bucketUsage, system) {
         const { hostCount, hostsByMode, storageNodeCount, storageNodesByMode } = pool;
-        const poolUri = realizeUri(routes.pool, { system, pool: pool.name });
         const healthyHosts = sumBy(
             hostWritableModes,
             mode => hostsByMode[mode] || 0
@@ -61,12 +61,13 @@ export default class PlacementRowViewModel {
         const resourceName = {
             text: pool.name,
             tooltip: { text: pool.name, breakWords: true },
-            href: poolUri
+            href: realizeUri(routes.pool, { system, pool: pool.name })
         };
 
         this.resourceName(resourceName);
         this.state(getHostsPoolStateIcon(pool));
         this.type(nodesPoolType);
+        this.region(pool.region || '(Unassigned)');
         this.healthyHosts(_formatCounts(healthyHosts, hostCount));
         this.healthyNodes(_formatCounts(healthyNodes, storageNodeCount));
         this.bucketUsage({
@@ -75,15 +76,17 @@ export default class PlacementRowViewModel {
         });
     }
 
-    _onCloudResource(resource, bucketUsage) {
+    _onCloudResource(resource, bucketUsage, system) {
         const resourceName = {
             text: resource.name,
-            tooltip: { text: resource.name, breakWords: true }
+            tooltip: { text: resource.name, breakWords: true },
+            href: realizeUri(routes.cloudResource, { system, resource: resource.name })
         };
 
         this.resourceName(resourceName);
         this.state(getCloudResourceStateIcon(resource));
         this.type(getCloudResourceTypeIcon(resource));
+        this.region(resource.region || '(Unassigned)');
         this.healthyHosts('---');
         this.healthyNodes('---');
         this.bucketUsage({

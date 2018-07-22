@@ -74,6 +74,8 @@ import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
 import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
+import fetchCloudResourceObjects from './fetch-cloud-resource-objects';
+import assignRegionToResource from './assign-region-to-resource';
 
 const generalEpics = [
     handleLocationRequests,
@@ -160,7 +162,9 @@ const resourceRelatedEpics = [
     createHostsPool,
     deleteResource,
     assignHostsToPool,
-    createCloudResource
+    createCloudResource,
+    fetchCloudResourceObjects,
+    assignRegionToResource
 ];
 
 const hostRelatedEpics = [

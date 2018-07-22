@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { deepClone } from 'utils/core-utils';
 import {
     CHANGE_LOCATION,
     REFRESH_LOCATION
@@ -16,11 +15,18 @@ const initialState = undefined;
 // Action Handlers
 // ------------------------------
 function onChangeLocation(location, { payload }) {
-    return payload;
+    return {
+        ...payload,
+        refreshCount: 0
+
+    };
 }
 
 function onRefreshLocation(location) {
-    return deepClone(location);
+    return {
+        ...location,
+        refreshCount: location.refreshCount + 1
+    };
 }
 
 // ------------------------------

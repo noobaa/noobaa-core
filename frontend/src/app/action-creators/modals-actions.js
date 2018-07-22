@@ -844,3 +844,19 @@ export function openRegenerateAccountCredentialsModal(accountName) {
         }
     };
 }
+
+export function openAssignRegionModal(resourceType, resourceName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'assign-region-modal',
+                params: { resourceType, resourceName }
+            },
+            options: {
+                title: 'Assign Region',
+                size: 'xsmall'
+            }
+        }
+    };
+}

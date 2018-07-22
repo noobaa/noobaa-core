@@ -263,6 +263,38 @@ module.exports = {
             }
         },
 
+        get_objects_size_histogram: {
+            method: 'GET',
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        name: {
+                            type: 'string'
+                        },
+                        bins: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    count: {
+                                        type: 'integer'
+                                    },
+                                    sum: {
+                                        type: 'integer'
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: ['admin']
+            }
+        },
+
         get_cloud_buckets: {
             method: 'GET',
             params: {

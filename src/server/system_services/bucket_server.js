@@ -790,6 +790,17 @@ async function get_bucket_throughput_usage(req) {
 }
 
 
+function get_objects_size_histogram(req) {
+    return _.map(req.system.buckets_by_name, bucket => ({
+        name: bucket.name,
+        bins: _.get(bucket, 'storage_stats.objects_hist', []).map(bin => ({
+            count: bin.count,
+            sum: bin.aggregated_sum
+        }))
+    }));
+}
+
+
 /**
  *
  * SET_BUCKET_LIFECYCLE_CONFIGURATION_RULES
@@ -1516,6 +1527,7 @@ exports.update_bucket_s3_access = update_bucket_s3_access;
 exports.get_cloud_buckets = get_cloud_buckets;
 exports.export_bucket_bandwidth_usage = export_bucket_bandwidth_usage;
 exports.get_bucket_throughput_usage = get_bucket_throughput_usage;
+exports.get_objects_size_histogram = get_objects_size_histogram;
 //Triggers
 exports.add_bucket_lambda_trigger = add_bucket_lambda_trigger;
 exports.update_bucket_lambda_trigger = update_bucket_lambda_trigger;

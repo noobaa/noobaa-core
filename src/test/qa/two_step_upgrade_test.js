@@ -7,6 +7,7 @@ const util = require('util');
 const api = require('../../api');
 const crypto = require('crypto');
 const P = require('../../util/promise');
+const Report = require('../framework/report');
 const ssh_functions = require('../utils/ssh_functions');
 const promise_utils = require('../../util/promise_utils');
 const agent_functions = require('../utils/agent_functions');
@@ -29,6 +30,7 @@ let TEST_CFG = {};
 let azure_functions;
 let rpc;
 let rpc_client;
+let report;
 
 
 /*
@@ -50,6 +52,8 @@ function usage() {
 //Init Clients
 function init_clients() {
     //Init ssh client and rpc client
+    report = new Report();
+    report.init_reporter({ suite: 'upgrade', conf: TEST_CFG, mongo_report: true });
     return ssh_functions.ssh_connect({
             host: TEST_CFG.ip,
             username: 'noobaaroot',
@@ -136,7 +140,7 @@ function check_arguments_and_update() {
  * Recieve expected upgrade status and failed condition, read_system until either one is met and fail/success 
  * according to which one was reached
  */
-function _verify_upgrade_status(expected, failed, message) {
+function _verify_upgrade_status(expected, failed, message, topic) {
     let reachedEndState = false;
     let success = true;
     let upgrade_status;
@@ -155,8 +159,10 @@ function _verify_upgrade_status(expected, failed, message) {
         .then(() => {
             console.log(`Verify Upgrade Status: Case "${message}", expected state ${expected} failure condition ${failed} recieved status ${util.inspect(upgrade_status)}`);
             if (success) {
+                report.success(topic);
                 return upgrade_status;
             } else {
+                report.fail(topic);
                 throw new Error(`Verify Upgrade Status ${message}`);
             }
         });
@@ -223,7 +229,7 @@ function _verify_downgrade_fails() {
                 fs.writeFileSync(TEST_CFG_DEFAULTS.dummyPackageJsonPath, JSON.stringify({ version: test_version }));
                 return promise_utils.exec(`tar -zcvf ${TEST_CFG_DEFAULTS.dummyPackagePath} ${TEST_CFG_DEFAULTS.dummyPackageJsonPath}`)
                     .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG_DEFAULTS.dummyPackagePath))
-                    .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', `Verifying blocked downgrade to ${test_version} (patch change)`));
+                    .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', `Verifying blocked downgrade to ${test_version} (patch change)`, `blocked downgrade patch`));
             }
         })
         .then(() => {
@@ -233,7 +239,7 @@ function _verify_downgrade_fails() {
                 fs.writeFileSync(TEST_CFG_DEFAULTS.dummyPackageJsonPath, JSON.stringify({ version: test_version }));
                 return promise_utils.exec(`tar -zcvf ${TEST_CFG_DEFAULTS.dummyPackagePath} ${TEST_CFG_DEFAULTS.dummyPackageJsonPath}`)
                     .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG_DEFAULTS.dummyPackagePath))
-                    .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', `Verifying blocked downgrade to ${test_version} (minor change)`));
+                    .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', `Verifying blocked downgrade to ${test_version} (minor change)`, `blocked downgrade minor`));
             }
         })
         .then(() => {
@@ -243,7 +249,8 @@ function _verify_downgrade_fails() {
                 fs.writeFileSync(TEST_CFG_DEFAULTS.dummyPackageJsonPath, JSON.stringify({ version: test_version }));
                 return promise_utils.exec(`tar -zcvf ${TEST_CFG_DEFAULTS.dummyPackagePath} ${TEST_CFG_DEFAULTS.dummyPackageJsonPath}`)
                     .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG_DEFAULTS.dummyPackagePath))
-                    .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', `Verifying blocked downgrade to ${test_version} (major change)`));
+                    .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', `Verifying blocked downgrade to ${test_version} (major change)`,
+                        `blocked downgrade major`));
             }
         })
         .catch(err => {
@@ -305,17 +312,17 @@ function test_first_step() {
             fs.writeFileSync(TEST_CFG_DEFAULTS.dummyPackagePath, data);
             return server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG_DEFAULTS.dummyPackagePath);
         })
-        .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on random bytes package'))
+        .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on random bytes package', `non-package`))
         .then(() => _verify_downgrade_fails()) //Test Failure on a downgrade noobaa package
         .then(() => _fill_local_disk() //Full local disk & verify failure
             .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
-            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on not enough disk space'))
+            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on not enough disk space', `disk space`))
             .then(() => agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
             .delay(10000)) //clean local disk
         //No phone home connectivity test
         //.then(() => {
         //NBNB block phone home connectivity and test
-        //_verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on blocked phone home connectivity))
+        //_verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on blocked phone home connectivity', `ph connectivity`))
         //        })
         //Create a time skew and verify failure
         .then(() => rpc_client.cluster_server.update_time_config({
@@ -323,7 +330,7 @@ function test_first_step() {
                 timezone: "Asia/Jerusalem",
                 epoch: 1514798132
             })
-            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on time skew'))
+            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on time skew', `time skew`))
             //Reset time back to normal
             .then(() => rpc_client.cluster_server.update_time_config({
                 target_secret: TEST_CFG.secret,
@@ -336,7 +343,7 @@ function test_first_step() {
             return server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
         })
         //All well, verify can upgrade
-        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'All preconditions met, verify success'))
+        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'All preconditions met, verify success', `preconditions met`))
         .then(() => rpc.enable_validation());
 }
 
@@ -345,15 +352,15 @@ function test_second_step() {
     //TODO:: missing phone home connectivity test
     return P.resolve()
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
-        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before local disk'))
+        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before local disk', `stage package`))
         .then(() => _fill_local_disk() //Full local disk & verify failure
             .delay(25000)
             .then(() => _call_upgrade())
-            .then(() => _verify_upgrade_status('FAILED', 'SUCCESS', '2nd step of upgrade, verify failure on not enough local disk'))
+            .then(() => _verify_upgrade_status('FAILED', 'SUCCESS', '2nd step of upgrade, verify failure on not enough local disk', `disk space 2nd step`))
             .then(() => agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
             .delay(10000)) //clean local disk
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
-        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before time skew'))
+        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before time skew', `stage package`))
         //verify fail on time skew
         .then(() => rpc_client.cluster_server.update_time_config({
                 target_secret: TEST_CFG.secret,
@@ -361,7 +368,7 @@ function test_second_step() {
                 epoch: 1514798132
             })
             .then(() => _call_upgrade())
-            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew'))
+            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew', `time skew 2nd step`))
             //Reset time back to normal
             .then(() => rpc_client.cluster_server.update_time_config({
                 target_secret: TEST_CFG.secret,
@@ -370,7 +377,7 @@ function test_second_step() {
             }))
             .delay(65000)) //time update restarts the services
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
-        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time'))
+        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time', `preconditions met 2nd step`))
         .then(() => _call_upgrade())
         .then(() => rpc.enable_validation());
     //NBNB need to wait for server and verify upgrade was successfull

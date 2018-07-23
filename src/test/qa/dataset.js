@@ -77,7 +77,7 @@ let TEST_STATE = Object.assign({}, TEST_STATE_INITIAL);
 update_dataset_sizes();
 
 let report = new Report();
-report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true});
+report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true });
 
 /*
 ActionTypes defines the operations which will be used in the test
@@ -713,7 +713,7 @@ function init_parameters(params) {
     TEST_CFG = _.defaults(_.pick(params, _.keys(TEST_CFG)), TEST_CFG);
     update_dataset_sizes();
 
-    report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true});
+    report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true });
 }
 
 function run_test() {
@@ -735,7 +735,7 @@ function run_test() {
                         if (TEST_STATE.current_size > TEST_CFG.dataset_size) {
                             console.log(`${Yellow}the current dataset size is ${
                                 TEST_STATE.current_size}${TEST_CFG.size_units} and the reqested dataset size is ${
-                                    TEST_CFG.dataset_size}${TEST_CFG.size_units}, going to delete${NC}`);
+                                TEST_CFG.dataset_size}${TEST_CFG.size_units}, going to delete${NC}`);
                             action_type = Math.round(Math.random()) ? 'DELETE' : 'MULTI_DELETE';
                         } else {
                             action_type = 'RANDOM';
@@ -744,17 +744,18 @@ function run_test() {
                             .then(() => act_and_log(action_type));
                     });
             })
-            .then(() => report.report())
+            .then(async () => {
+                await report.report();
+            })
             .then(() => {
                 console.log(`Everything finished with success!`);
                 process.exit(0);
             })
-            .catch(err => report.report()
-                .then(() => {
-                    console.error(`Errors during test`, err);
-                    process.exit(4);
-                }))
-        );
+            .catch(async err => {
+                await report.report();
+                console.error(`Errors during test`, err);
+                process.exit(4);
+            }));
 }
 
 function run_replay() {
@@ -812,7 +813,9 @@ function run_replay() {
                 })
             );
         })
-        .catch(err => {
+        .then(async () => report.report())
+        .catch(async err => {
+            await report.report();
             console.error('Failed replaying journal file ', err);
             process.exit(5);
         });

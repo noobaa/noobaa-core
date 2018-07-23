@@ -397,11 +397,13 @@ function run_test() {
         .then(() => init_clients())
         .then(() => test_first_step()) //Upload package, package validation & preconditions
         .then(() => test_second_step()) //preconditions changed & upgrade itself
-        .then(() => {
+        .then(async () => {
+            await report.report();
             console.log('two_step_upgrade_test passed');
             process.exit(0);
         })
-        .catch(function(err) {
+        .catch(async function(err) {
+            await report.report();
             console.error('error while running two_step_upgrade_test ', err);
             process.exit(2);
         });

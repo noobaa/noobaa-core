@@ -42,6 +42,7 @@ function get_signed_url(params) {
         'getObject', {
             Bucket: params.bucket,
             Key: params.key,
+            VersionId: params.version_id,
             Expires: 604800
         }
     );

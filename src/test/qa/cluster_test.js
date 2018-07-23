@@ -627,6 +627,9 @@ return azf.authenticate()
         console.error(`something went wrong ${err} ${errors}`);
         failures_in_test = true;
     })
+    .then(async () => {
+        await report.report();
+    })
     .then(() => {
         if (failures_in_test) {
             console.error(`Errors during cluster test ${errors}`);

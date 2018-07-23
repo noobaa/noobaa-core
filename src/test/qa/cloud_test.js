@@ -14,7 +14,7 @@ const AzureFunctions = require('../../deploy/azureFunctions');
 const { CloudFunction } = require('../utils/cloud_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
 const test_name = 'cloud_test';
-dbg.set_process_name('test_name');
+dbg.set_process_name(test_name);
 
 let bf_compatible;
 let cf_compatible;
@@ -277,11 +277,11 @@ async function main() {
         await run_dataset();
         await clean_env();
         console.log('cloud tests were successful!');
-        await report.print_report();
+        await report.report();
         process.exit(0);
     } catch (err) {
         console.error('something went wrong', err);
-        await report.print_report();
+        await report.report();
         process.exit(1);
     }
 }

@@ -69,9 +69,9 @@ class AttachServerModalViewModel extends Observer {
             }
 
             if (!secret) {
-                errors.secret = 'Please enter the server unique id';
+                errors.secret = 'Please enter the server secret key';
             } else if (secret.length !== secretLength) {
-                errors.secret = `Unique id is exactly ${secretLength} characters long`;
+                errors.secret = `Server secret key should be ${secretLength} characters long`;
             }
         }
 
@@ -88,7 +88,7 @@ class AttachServerModalViewModel extends Observer {
 
         switch (result) {
             case 'SECRET_MISMATCH': {
-                errors.secret = `This unique id does not match the server at ${address}`;
+                errors.secret = `Secret key does not match the server secret key at ${address}`;
                 break;
             }
             case 'ADDING_SELF': {
@@ -116,8 +116,13 @@ class AttachServerModalViewModel extends Observer {
                 break;
             }
 
-            case 'CONNECTION_TIMEOUT': {
-                errors.address = 'Could not reach server, might be due to firewall blocking';
+            case 'CONNECTION_TIMEOUT_ORIGIN': {
+                errors.address = 'Firewall might be blocking master connectivity to new server';
+                break;
+            }
+
+            case 'CONNECTION_TIMEOUT_NEW': {
+                errors.address = 'Firewall might be blocking new server connectivity to master';
                 break;
             }
         }

@@ -945,7 +945,7 @@ function get_syslog_server_configuration() {
         });
 }
 
-function restart_services() {
+function noobaa_() {
     if (os.type() !== 'Linux') {
         return;
     }
@@ -958,7 +958,7 @@ function restart_services() {
     spawn('nohup', [
         '/usr/bin/supervisorctl',
         'restart',
-        'all'
+        'webserver bg_workers hosted_agents s3rver'
     ], {
         detached: true,
         stdio: ['ignore', stdout, stderr],
@@ -1263,7 +1263,7 @@ exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
 exports.set_dns_and_search_domains = set_dns_and_search_domains;
 exports.get_dns_and_search_domains = get_dns_and_search_domains;
-exports.restart_services = restart_services;
+exports.restart_noobaa_services = restart_noobaa_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
 exports.get_disk_mount_points = get_disk_mount_points;

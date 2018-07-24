@@ -125,7 +125,7 @@ export function openEditBucketPlacementModal(bucketName) {
             },
             options: {
                 title: 'Edit Data Placement',
-                size: 'large'
+                size: 'xlarge'
             }
         }
     };

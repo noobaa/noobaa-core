@@ -14,7 +14,7 @@ const AzureFunctions = require('../../deploy/azureFunctions');
 const { CloudFunction } = require('../utils/cloud_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
 const test_name = 'cloud_test';
-dbg.set_process_name('test_name');
+dbg.set_process_name(test_name);
 
 let bf_compatible;
 let cf_compatible;
@@ -29,7 +29,7 @@ const {
     storage,
     vnet,
     id = 0,
-    upgrade_pack,
+    upgrade,
     name = 'compatible',
     compatible_ip,
     compatible_password,
@@ -57,7 +57,7 @@ function usage() {
     --vnet                  -   azure vnet on the resource group
     --id                    -   an id that is attached to the agents name
     --name                  -   compatible s3 server name (default: ${name})
-    --upgrade_pack          -   location of the file for upgrade
+    --upgrade               -   location of the file for upgrade
     --compatible_ip         -   use an allready installed compatible s3 (by ip)
     --compatible_password   -   the compatible s3 password
     --help                  -   show this help.
@@ -154,8 +154,8 @@ async function create_noobaa_for_compatible() {
             console.log(`${YELLOW}${server.name} and ip is: ${ip}${NC}`);
             server.ip = ip;
         }
-        if (!_.isUndefined(upgrade_pack)) {
-            await ops.upload_and_upgrade(server.ip, upgrade_pack);
+        if (!_.isUndefined(upgrade)) {
+            await ops.upload_and_upgrade(server.ip, upgrade);
         }
         server.internal_ip = await azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
         connections_mapping.COMPATIBLE.endpoint = 'https://' + server.internal_ip;
@@ -277,11 +277,11 @@ async function main() {
         await run_dataset();
         await clean_env();
         console.log('cloud tests were successful!');
-        await report.print_report();
+        await report.report();
         process.exit(0);
     } catch (err) {
         console.error('something went wrong', err);
-        await report.print_report();
+        await report.report();
         process.exit(1);
     }
 }

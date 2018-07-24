@@ -62,7 +62,7 @@ function usage() {
     `);
 }
 
-report.init_reporter({ suite: test_name, conf: TEST_CFG });
+report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true});
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -425,7 +425,7 @@ async function main() {
             failures_in_test = true;
         }
     }
-    await report.print_report();
+    await report.report();
     if (failures_in_test) {
         console.error('Errors during account test ' + errors);
         process.exit(1);

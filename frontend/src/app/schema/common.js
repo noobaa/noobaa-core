@@ -38,6 +38,9 @@ export const storage = {
         used: {
             $ref: '#/def/common/size'
         },
+        unavailableUsed: {
+            $ref: '#/def/common/size'
+        },
         usedOther: {
             $ref: '#/def/common/size'
         },

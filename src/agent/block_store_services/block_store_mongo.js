@@ -73,7 +73,7 @@ class BlockStoreMongo extends BlockStoreBase {
             }))
             // You will always see errors on initialization when there was no GridFS collection prior
             .catch(err => {
-                console.error('read_usage_gridfs had error: ', err);
+                dbg.error('read_usage_gridfs had error: ', err);
                 return {
                     size: 0,
                     count: 0
@@ -150,7 +150,9 @@ class BlockStoreMongo extends BlockStoreBase {
         // check to see if the object already exists
         return this.head_block(block_name)
             .then(head => {
-                console.warn('block already found in mongo, will overwrite. id =', block_md.id);
+                if (block_md.id !== '_test_store_perf') {
+                    dbg.warn('block already found in mongo, will overwrite. id =', block_md.id);
+                }
                 return this._blocks_fs.gridfs().delete(head._id);
             }, err => {
                 if (err.code === 'NOT_FOUND') {
@@ -196,7 +198,7 @@ class BlockStoreMongo extends BlockStoreBase {
                 .then(blocks => P.map(blocks, block => this._blocks_fs.gridfs().delete(block._id)
                     .catch(err => {
                         dbg.error('_delete_blocks: could not delete', block, err);
-                        failed_to_delete_block_ids.push(this._key_block(block.filename));
+                        failed_to_delete_block_ids.push(this._block_id_from_key(block.filename));
                         throw err;
                     }), {
                         concurrency: 10
@@ -210,23 +212,6 @@ class BlockStoreMongo extends BlockStoreBase {
                 failed_block_ids: failed_to_delete_block_ids,
                 succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
             }));
-    }
-
-    _block_key(block_id) {
-        const block_dir = this._get_block_internal_dir(block_id);
-        return `${this.blocks_path}/${block_dir}/${block_id}`;
-    }
-
-    _key_block(key) {
-        return key.split('/')[2];
-    }
-
-    _encode_block_md(block_md) {
-        return Buffer.from(JSON.stringify(block_md)).toString('base64');
-    }
-
-    _decode_block_md(noobaablockmd) {
-        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
     }
 
     head_block(block_name) {

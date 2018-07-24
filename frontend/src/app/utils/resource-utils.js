@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isFunction } from 'utils/core-utils';
+import { deepFreeze, isFunction, isDefined, flatMap, sumBy } from 'utils/core-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
 import numeral from 'numeral';
 
@@ -197,6 +197,10 @@ const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
     }
 });
 
+export function getResourceId(type, name) {
+    return `${type}:${name}`;
+}
+
 export function getHostsPoolStateIcon(pool) {
     const { mode } = pool;
     const state = hostsPoolModeToStateIcon[mode];
@@ -240,4 +244,68 @@ export function getResourceStateIcon(resourceType, resource) {
         resourceType === 'HOSTS' && getHostsPoolStateIcon(resource) ||
         resourceType === 'CLOUD' && getCloudResourceStateIcon(resource) ||
         resourceType === 'INTERNAL' && getInternalResourceStateIcon(resource);
+}
+
+export function getConnectedBuckets(resourceType, resourceName, buckets) {
+    return Object.values(buckets)
+        .filter(bucket => {
+            const resources = [
+                ...flatMap(
+                    bucket.placement.mirrorSets,
+                    ms => ms.resources
+                ),
+                bucket.spillover
+            ];
+
+            return resources.some(res =>
+                res.type === resourceType &&
+                res.name === resourceName
+            );
+        });
+}
+
+export function getUsageDistribution(resourceType, resourceName, buckets) {
+    const resId = getResourceId(resourceType, resourceName);
+    const usageList = Object.values(buckets)
+        .map(bucket => {
+            const { name, placement, spillover, usageDistribution } = bucket;
+            const usage = usageDistribution.resources[resId];
+            const lastUpdate = usageDistribution.lastUpdate;
+            const placementRes = flatMap(placement.mirrorSets, ms => ms.resources);
+
+            if (placementRes.some(res => getResourceId(res.type, res.name) === resId)) {
+                return {
+                    bucket: name,
+                    lastUpdate: lastUpdate,
+                    reason: 'PLACEMENT_TARGET',
+                    size: toBytes(usage || 0)
+                };
+
+            } else if (spillover && getResourceId(spillover.type, spillover.name) === resId) {
+                return {
+                    bucket: name,
+                    lastUpdate: lastUpdate,
+                    reason: 'SPILLOVER_TARGET',
+                    size: toBytes(usage || 0)
+                };
+
+            } else if (isDefined(usage)) {
+                return {
+                    bucket: name,
+                    lastUpdate: lastUpdate,
+                    reason: 'WAITING_TO_BE_WIPED',
+                    size: toBytes(usage)
+                };
+
+            } else {
+                return null;
+            }
+        })
+        .filter(Boolean);
+
+    const totalUsage = sumBy(usageList, record => record.size);
+    return usageList.map(record => {
+        const ratio = totalUsage > 0 ? record.size / totalUsage : 0;
+        return { ...record, ratio };
+    });
 }

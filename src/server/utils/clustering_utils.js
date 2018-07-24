@@ -190,7 +190,7 @@ function get_cluster_info(rs_status) {
             storage: storage,
             cpus: cpus,
             location: location,
-            upgrade: cinfo.upgrade,
+            upgrade: _.omit(cinfo.upgrade, 'stage_changed_date'),
             debug: _.omitBy({
                 level: cinfo.debug_level,
                 time_left: debug_time

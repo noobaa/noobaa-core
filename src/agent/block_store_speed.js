@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
+// const _ = require('lodash');
 const argv = require('minimist')(process.argv);
-const crypto = require('crypto');
+const cluster = require('cluster');
+const mongodb = require('mongodb');
 
-const P = require('../util/promise');
 const api = require('../api');
+const config = require('../../config');
 const dotenv = require('../util/dotenv');
+const Speedometer = require('../util/speedometer');
 const { RPC_BUFFERS } = require('../rpc');
 
 dotenv.load();
@@ -16,59 +18,58 @@ argv.email = argv.email || 'demo@noobaa.com';
 argv.password = argv.password || 'DeMo1';
 argv.system = argv.system || 'demo';
 argv.address = argv.address || '';
-argv.concur = argv.concur || 10;
-argv.count = argv.count || 100;
-argv.size = argv.size || 1024 * 1024;
+argv.forks = argv.forks || 1;
+argv.concur = argv.concur || 32;
+argv.count = argv.count || 256;
+argv.size = argv.size || config.CHUNK_SPLIT_AVG_CHUNK;
 argv.timeout = argv.timeout || 60000;
 
-const rpc = api.new_rpc();
-const client = rpc.new_client();
+let block_index = 0;
 
-function main() {
+const master_speedometer = new Speedometer('Total Speed');
+const speedometer = new Speedometer('Block Store Speed');
+
+if (argv.forks > 1 && cluster.isMaster) {
+    master_speedometer.fork(argv.forks);
+} else {
+    main();
+}
+
+async function main() {
     console.log('ARGS', argv);
-    let signal_client = rpc.new_client();
-    let n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
+    const rpc = api.new_rpc();
+    const client = rpc.new_client();
+    const signal_client = rpc.new_client();
+    const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
     n2n_agent.set_any_rpc_address();
-    return client.create_auth_token({
-            email: argv.email,
-            password: argv.password,
-            system: argv.system,
-        })
-        .then(() => write_blocks())
-        .then(() => process.exit(0))
-        .catch(() => process.exit(1));
+    await client.create_auth_token({
+        email: argv.email,
+        password: argv.password,
+        system: argv.system,
+    });
+    await Promise.all(Array(argv.concur).fill(0).map(() => worker(client)));
+    process.exit();
 }
 
-function write_blocks() {
-    let index = 0;
-
-    function write_next() {
-        if (index >= argv.count) return;
-        index += 1;
-        return write_block(index).then(write_next);
+async function worker(client) {
+    while (block_index < argv.count) {
+        block_index += 1;
+        await write_block(client);
+        speedometer.update(argv.size);
     }
-    return P.all(_.times(argv.concur, write_next));
-
 }
 
-function write_block(index) {
-    const block_id = `agent_speed_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
-    console.log('write_block: START', block_id);
-    return P.resolve()
-        .then(() => client.block_store.write_block({
-            [RPC_BUFFERS]: { data: Buffer.allocUnsafe(argv.size) },
-            block_md: {
-                id: block_id,
-                address: argv.address,
-                // node: '',
-                size: argv.size,
-            },
-        }, {
+async function write_block(client) {
+    const block_id = new mongodb.ObjectId();
+    return client.block_store.write_block({
+        [RPC_BUFFERS]: { data: Buffer.allocUnsafe(argv.size) },
+        block_md: {
+            id: block_id,
+            size: argv.size,
             address: argv.address,
-            timeout: argv.timeout,
-        }))
-        .then(() => console.log('write_block: DONE'))
-        .catch(err => console.error('write_block: ERROR', err.stack || err));
+        },
+    }, {
+        address: argv.address,
+        timeout: argv.timeout,
+    });
 }
-
-if (require.main === module) main();

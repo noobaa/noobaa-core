@@ -8,10 +8,10 @@
     />
 
     <div class="column content-start greedy push-next">
-        <toggle-filter class="state-filter" params="
+        <toggle-group class="state-filter" params="
             options: stateFilterOptions,
             selected: ko.pc(stateFilter, onFilterByState, $component)
-        "></toggle-filter>
+        "></toggle-group>
     </div>
 
     <button-group>

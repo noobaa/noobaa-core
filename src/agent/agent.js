@@ -7,7 +7,6 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const assert = require('assert');
-const crypto = require('crypto');
 const ip_module = require('ip');
 const child_process = require('child_process');
 const os = require('os');
@@ -342,64 +341,70 @@ class Agent {
     }
 
 
-    _do_heartbeat() {
+    async _do_heartbeat() {
         const dbg = this.dbg;
-        if (!this.is_started) return;
+        let done = false;
+        while (!done) {
+            try {
+                if (!this.is_started) return;
+                const hb_info = {
+                    version: pkg.version
+                };
+                if (this.cloud_info) {
+                    hb_info.pool_name = this.cloud_info.pool_name;
+                } else if (this.mongo_info) {
+                    hb_info.pool_name = this.mongo_info.pool_name;
+                }
 
-        let hb_info = {
-            version: pkg.version
-        };
-        if (this.cloud_info) {
-            hb_info.pool_name = this.cloud_info.pool_name;
-        }
-        if (this.mongo_info) {
-            hb_info.pool_name = this.mongo_info.pool_name;
-        }
+                dbg.log0(`_do_heartbeat called. sending HB to ${this.base_address}`);
 
-        dbg.log0(`_do_heartbeat called. sending HB to ${this.base_address}`);
-
-        return P.resolve()
-            .then(() => {
                 if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
                     dbg.error('too many failure to connect, switching servers');
-                    return this._handle_server_change()
-                        .then(() => {
-                            throw new Error('server change after too many attempts');
-                        });
+                    await this._handle_server_change();
+                    throw new Error('server change after too many attempts');
                 }
-            })
-            .then(() => this.client.node.heartbeat(hb_info, {
-                return_rpc_req: true
-            }))
-            .timeout(MASTER_RESPONSE_TIMEOUT)
-            .then(req => {
-                this.connect_attempts = 0;
+
+                const req = await this.client.node.heartbeat(hb_info, {
+                    return_rpc_req: true,
+                    timeout: MASTER_RESPONSE_TIMEOUT,
+                });
+
                 const res = req.reply;
                 const conn = req.connection;
+                const is_new_conn = (conn !== this._server_connection);
                 this._server_connection = conn;
+                this.connect_attempts = 0;
+
                 if (res.redirect) {
                     dbg.log0('got redirect response:', res.redirect);
-                    return this._handle_server_change(res.redirect)
-                        .then(() => {
-                            throw new Error('redirect to ' + res.redirect);
-                        });
+                    await this._handle_server_change(res.redirect);
+                    throw new Error('redirect to ' + res.redirect);
                 }
+
                 if (res.version !== pkg.version) {
                     dbg.warn('exit on version change:',
                         'res.version', res.version,
                         'pkg.version', pkg.version);
                     process.exit(0);
                 }
-                conn.on('close', () => {
-                    if (this._server_connection === conn) {
-                        this._server_connection = null;
-                    }
-                    if (!this.is_started) return;
-                    P.delay(1000).then(() => this._do_heartbeat());
-                });
-            })
-            .catch(err => {
+
+                if (is_new_conn) {
+                    conn.on('close', async () => {
+                        if (this._server_connection === conn) {
+                            this._server_connection = null;
+                        }
+                        if (!this.is_started) return;
+                        await P.delay(1000);
+                        await this._do_heartbeat();
+                    });
+                }
+
+                done = true;
+
+            } catch (err) {
+
                 dbg.error('heartbeat failed', err.stack || err.message);
+
                 if (err.rpc_code === 'DUPLICATE') {
                     dbg.error('This agent appears to be duplicated.',
                         'exiting and starting new agent', err);
@@ -410,6 +415,7 @@ class Agent {
                         process.exit(68); // 68 is 'D' in ascii
                     }
                 }
+
                 if (err.rpc_code === 'NODE_NOT_FOUND') {
                     dbg.error('This agent appears to be using an old token.',
                         'cleaning this agent noobaa_storage directory', this.storage_path);
@@ -420,13 +426,11 @@ class Agent {
                         process.exit(69); // 69 is 'E' in ascii
                     }
                 }
-                return P.delay(3000)
-                    .then(() => {
-                        this.connect_attempts += 1;
-                        return this._do_heartbeat();
-                    });
 
-            });
+                this.connect_attempts += 1;
+                await P.delay(3000);
+            }
+        }
     }
 
     _start_stop_server() {
@@ -646,9 +650,9 @@ class Agent {
 
     _enable_service() {
         const dbg = this.dbg;
-        dbg.log0(`got _enable_service`);
         this.enabled = true;
         if (this.endpoint_info) {
+            dbg.log0(`got _enable_service`, this.endpoint_info);
             try {
                 if (this.endpoint_info.s3rver_process) {
                     dbg.warn('S3 server already started. process:', this.endpoint_info.s3rver_process);
@@ -683,7 +687,7 @@ class Agent {
                 dbg.error('got error when spawning s3rver:', err);
             }
         } else {
-            dbg.warn('got _enable_service on storage agent');
+            dbg.log0('got _enable_service on storage agent');
         }
     }
 
@@ -927,31 +931,9 @@ class Agent {
         return this.rpc.accept_n2n_signal(req.rpc_params);
     }
 
-    test_store_perf(req) {
-        if (!this.block_store) {
-            return {};
-        }
-        const reply = {};
-        const count = req.rpc_params.count || 5;
-        const delay_ms = 200;
-        const data = crypto.randomBytes(1024);
-        const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE;
-        const block_md = {
-            id: '_test_store_perf',
-            digest_type,
-            digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
-        };
-        return test_average_latency(count, delay_ms, () =>
-                this.block_store._write_block(block_md, data, { ignore_usage: true }))
-            .then(write_latencies => {
-                reply.write = write_latencies;
-            })
-            .then(() => test_average_latency(count, delay_ms, () =>
-                this.block_store._read_block(block_md)))
-            .then(read_latencies => {
-                reply.read = read_latencies;
-            })
-            .return(reply);
+    async test_store_perf(req) {
+        if (!this.block_store) return {};
+        return this.block_store.test_store_perf(req.rpc_params);
     }
 
     test_network_perf(req) {
@@ -1108,22 +1090,5 @@ class Agent {
     }
 
 }
-
-
-function test_average_latency(count, delay_ms, func) {
-    const results = [];
-    return promise_utils.loop(count + 1, () => {
-            const start = time_utils.millistamp();
-            return P.fcall(func).then(() => {
-                results.push(time_utils.millistamp() - start);
-                // use some jitter delay to avoid serializing on cpu when
-                // multiple tests are run together.
-                const jitter = 0.5 + Math.random(); // 0.5 - 1.5
-                return P.delay(delay_ms * jitter);
-            });
-        })
-        .then(() => results.slice(1)); // throw the first result which is sometimes skewed
-}
-
 
 module.exports = Agent;

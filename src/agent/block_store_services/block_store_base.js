@@ -6,11 +6,12 @@ const crypto = require('crypto');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const LRUCache = require('../../util/lru_cache');
+const KeysLock = require('../../util/keys_lock');
 const time_utils = require('../../util/time_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
-const KeysLock = require('../../util/keys_lock');
 
 function _new_stats() {
     return {
@@ -38,11 +39,7 @@ class BlockStoreBase {
             max_usage: 200 * 1024 * 1024, // 200 MB
             item_usage: block => block.data.length,
             make_key: block_md => block_md.id,
-            load: block_md => P.resolve(this._read_block(block_md))
-                .then(block => {
-                    this._verify_block(block_md, block.data, block.block_md);
-                    return block;
-                })
+            load: async block_md => this._read_block_and_verify(block_md),
         });
 
         this.stats = _new_stats();
@@ -88,35 +85,42 @@ class BlockStoreBase {
         throw new Error('this block store does not delegate');
     }
 
-    read_block(req) {
+    async read_block(req) {
         const block_md = req.rpc_params.block_md;
         dbg.log1('read_block', block_md.id, 'node', this.node_name);
         // must clone before returning to rpc encoding
         // since it mutates the object for encoding buffers
         this.stats.inflight_reads += 1;
         this.stats.max_inflight_reads = Math.max(this.stats.inflight_reads, this.stats.max_inflight_reads);
-        const start = time_utils.millistamp();
-        return this.block_cache.get_with_cache(block_md)
-            .then(block => ({
+        try {
+            const start = time_utils.millistamp();
+            const block = await this.block_cache.get_with_cache(block_md);
+            this.stats.read_count += 1;
+            this.stats.total_read_latency += time_utils.millistamp() - start;
+            return {
                 block_md,
                 [RPC_BUFFERS]: { data: block.data }
-            }))
-            .finally(() => {
-                this.stats.read_count += 1;
-                this.stats.total_read_latency += time_utils.millistamp() - start;
-                this.stats.inflight_reads -= 1;
-            });
+            };
+        } finally {
+            this.stats.inflight_reads -= 1;
+        }
+    }
+
+    async _read_block_and_verify(block_md) {
+        const block = await this._read_block(block_md);
+        this._verify_block(block_md, block.data, block.block_md);
+        return block;
     }
 
     async verify_blocks(req) {
         const { verify_blocks } = req.rpc_params;
-        await P.map(verify_blocks, block_md => this._read_and_verify_block(block_md), { concurrency: 10 });
+        await P.map(verify_blocks, block_md => this.verify_block(block_md), { concurrency: 10 });
     }
 
-    async _read_and_verify_block(block_md) {
+    async verify_block(block_md) {
         try {
-            const [block_from_store, block_from_cache] = await P.all([
-                this._read_block_for_verification(block_md),
+            const [block_from_store, block_from_cache] = await Promise.all([
+                this._read_block_md(block_md),
                 this.block_cache.peek_cache(block_md)
             ]);
             if (block_from_store) {
@@ -135,14 +139,13 @@ class BlockStoreBase {
             // TODO: Should trigger further action in order to resolve the issue
             dbg.error('verify_blocks HAD ERROR on block:', block_md, err);
         }
-
     }
 
-    _read_block_for_verification(block_md) {
+    async _read_block_md(block_md) {
         return this._read_block(block_md);
     }
 
-    write_block(req) {
+    async write_block(req) {
         const block_md = req.rpc_params.block_md;
         const data = req.rpc_params[RPC_BUFFERS].data || Buffer.alloc(0);
         dbg.log1('write_block', block_md.id, data.length, 'node', this.node_name);
@@ -158,17 +161,17 @@ class BlockStoreBase {
         this.block_cache.invalidate(block_md);
         this.stats.inflight_writes += 1;
         this.stats.max_inflight_writes = Math.max(this.stats.inflight_writes, this.stats.max_inflight_writes);
-        const start = time_utils.millistamp();
-        return this.block_modify_lock.surround_keys([String(block_md.id)], () => P.resolve(this._write_block(block_md, data))
-            .then(() => {
+        try {
+            const start = time_utils.millistamp();
+            await this.block_modify_lock.surround_keys([String(block_md.id)], async () => {
+                await this._write_block(block_md, data);
                 this.block_cache.put_in_cache(block_md, { block_md, data });
-            })
-            .finally(() => {
-                this.stats.write_count += 1;
-                this.stats.total_write_latency += time_utils.millistamp() - start;
-                this.stats.inflight_writes -= 1;
-            })
-        );
+            });
+            this.stats.write_count += 1;
+            this.stats.total_write_latency += time_utils.millistamp() - start;
+        } finally {
+            this.stats.inflight_writes -= 1;
+        }
     }
 
     sample_stats() {
@@ -180,27 +183,28 @@ class BlockStoreBase {
         return old_stats;
     }
 
-    replicate_block(req) {
+    async replicate_block(req) {
         const target_md = req.rpc_params.target;
         const source_md = req.rpc_params.source;
         dbg.log1('replicate_block', target_md.id, 'node', this.node_name);
 
         // read from source agent
-        return this.client.block_store.read_block({
-                block_md: source_md
-            }, {
-                address: source_md.address,
-            })
-            .then(res => this._write_block(target_md, res[RPC_BUFFERS].data))
-            .return();
+        const res = await this.client.block_store.read_block({
+            block_md: source_md
+        }, {
+            address: source_md.address,
+        });
+        await this._write_block(target_md, res[RPC_BUFFERS].data);
     }
 
-    delete_blocks(req) {
+    async delete_blocks(req) {
         const block_ids = req.rpc_params.block_ids;
         dbg.log0('delete_blocks', block_ids, 'node', this.node_name);
         this.block_cache.multi_invalidate_keys(block_ids);
-        return this.block_modify_lock.surround_keys(block_ids.map(block_id => String(block_id)),
-            () => P.resolve(this._delete_blocks(block_ids)));
+        return this.block_modify_lock.surround_keys(
+            block_ids.map(block_id => String(block_id)),
+            async () => this._delete_blocks(block_ids)
+        );
     }
 
     _verify_block(block_md, data, block_md_from_store) {
@@ -240,7 +244,6 @@ class BlockStoreBase {
         throw new Error('this block store does not delegate');
     }
 
-
     handle_delegator_error(req) {
         return this._handle_delegator_error(req.rpc_params.error, req.rpc_params.usage);
     }
@@ -258,29 +261,85 @@ class BlockStoreBase {
         }
     }
 
-    _write_usage() {
+    async _write_usage() {
         // reset the needed value at the time we took the usage value
         // which will allow to know if new updates are added while we write
         this.update_usage_needed = false;
 
-        return P.resolve()
-            .then(() => this._write_usage_internal())
-            .catch(err => {
-                console.error('write_usage ERROR', err);
-                this.update_usage_needed = true;
-            })
-            .finally(() => {
-                if (this.update_usage_needed) {
-                    // trigger a new update
-                    this.update_usage_work_item = setTimeout(() => this._write_usage(), 3000);
-                } else {
-                    // write is successful, allow new writes
-                    this.update_usage_work_item = null;
-                }
-            });
+        try {
+            await this._write_usage_internal();
+        } catch (err) {
+            console.error('write_usage ERROR', err);
+            this.update_usage_needed = true;
+        } finally {
+            if (this.update_usage_needed) {
+                // trigger a new update
+                this.update_usage_work_item = setTimeout(() => this._write_usage(), 3000);
+            } else {
+                // write is successful, allow new writes
+                this.update_usage_work_item = null;
+            }
+        }
     }
 
+    async test_store_perf({ count }) {
+        const reply = {};
+        const delay_ms = 200;
+        const data = crypto.randomBytes(1024);
+        const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE;
+        const block_md = {
+            id: '_test_store_perf',
+            digest_type,
+            digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
+        };
+        reply.write = await test_average_latency(count, delay_ms, async () => {
+            await this._write_block(block_md, data, { ignore_usage: true });
+        });
+        reply.read = await test_average_latency(count, delay_ms, async () => {
+            const block = await this._read_block(block_md);
+            this._verify_block(block_md, block.data, block.block_md);
+            if (!data.equals(block.data)) throw new Error('test_store_perf: unexpected data on read');
+        });
+        // cleanup old versions for block stores that have versioning enabled
+        if (this._delete_block_past_versions) await this._delete_block_past_versions(block_md);
+        return reply;
+    }
 
+    _encode_block_md(block_md) {
+        return Buffer.from(JSON.stringify(block_md)).toString('base64');
+    }
+
+    _decode_block_md(noobaablockmd) {
+        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
+    }
+
+    _block_key(block_id) {
+        const block_dir = this._get_block_internal_dir(block_id);
+        return `${this.blocks_path}/${block_dir}/${block_id}`;
+    }
+
+    _block_id_from_key(block_key) {
+        return block_key.split('/').pop();
+    }
+
+}
+
+async function test_average_latency(count, delay_ms, async_func) {
+    // throw the first result which is sometimes skewed
+    await async_func();
+    await P.delay(delay_ms);
+    const results = [];
+    for (let i = 0; i < count; ++i) {
+        const start = time_utils.millistamp();
+        await async_func();
+        const took = time_utils.millistamp() - start;
+        results.push(took);
+        // use some jitter delay to avoid serializing on cpu when
+        // multiple tests are run together.
+        const jitter = 0.5 + Math.random(); // 0.5 - 1.5
+        await P.delay(delay_ms * jitter);
+    }
+    return results;
 }
 
 // EXPORTS

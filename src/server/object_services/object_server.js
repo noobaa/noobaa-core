@@ -464,6 +464,7 @@ async function read_object_md(req) {
             secret_key: account_keys.secret_key,
             bucket,
             key,
+            version_id: info.version_id
         });
 
         // count object capacity
@@ -845,6 +846,7 @@ async function list_objects_admin(req) {
             secret_key: account_keys.secret_key,
             bucket: req.rpc_params.bucket,
             key: obj.key,
+            version_id: obj.version_id
         });
         return obj;
     });

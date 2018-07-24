@@ -1,17 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const argv = require('minimist')(process.argv);
-const AzureFunctions = require('../../deploy/azureFunctions');
-const P = require('../../util/promise');
-const api = require('../../api');
-const promise_utils = require('../../util/promise_utils');
-const ops = require('../utils/basic_server_ops');
-const { S3OPS } = require('../utils/s3ops');
-const af = require('../utils/agent_functions');
 const _ = require('lodash');
-
+const P = require('../../util/promise');
+const af = require('../utils/agent_functions');
+const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
+const argv = require('minimist')(process.argv);
+const Report = require('../framework/report');
+const srv_ops = require('../utils/basic_server_ops');
+const { S3OPS } = require('../utils/s3ops');
+const promise_utils = require('../../util/promise_utils');
+const AzureFunctions = require('../../deploy/azureFunctions');
+
+
 const testName = 'cluster_test';
 let suffix = testName.replace(/_test/g, '');
 dbg.set_process_name(testName);
@@ -84,6 +86,8 @@ if (argv.help) {
 }
 
 const osesSet = af.supported_oses();
+const report = new Report();
+report.init_reporter({ suite: testName, conf: { agents_number: agents_number }, mongo_report: true });
 
 
 function saveErrorAndResume(message) {
@@ -370,7 +374,7 @@ function prepareServers(requestedServers) {
             console.log(`${YELLOW}${server.name} and ip is: ${ip}${NC}`);
             server.ip = ip;
             if (!_.isUndefined(upgrade_pack)) {
-                return ops.upload_and_upgrade(ip, upgrade_pack);
+                return srv_ops.upload_and_upgrade(ip, upgrade_pack);
             }
         })
         .catch(err => {
@@ -397,21 +401,25 @@ function createCluster(requestedServes, masterIndex, clusterIndex) {
         .then(() => delayInSec(90));
 }
 
-function verifyS3Server() {
+function verifyS3Server(topic) {
     console.log(`starting the verify s3 server on `, master_ip);
     let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
     return s3ops.create_bucket(master_ip, bucket)
         .then(() => s3ops.get_list_buckets(master_ip))
         .then(res => {
             if (res.includes(bucket)) {
+                report.success(`create bucket ${topic ? '- ' + topic : ''}`);
                 console.log('Bucket is successfully added');
             } else {
+                report.fail(`create bucket ${topic ? '- ' + topic : ''}`);
                 saveErrorAndResume(`Created bucket ${master_ip} bucket is not returns on list`, res);
             }
         })
         .then(() => s3ops.put_file_with_md5(master_ip, bucket, '100MB_File', 100, 1048576)
             .then(() => s3ops.get_file_check_md5(master_ip, bucket, '100MB_File')))
+        .then(() => report.success(`ul and verify obj ${topic ? '- ' + topic : ''}`))
         .catch(err => {
+            report.fail(`ul and verify obj ${topic ? '- ' + topic : ''}`);
             saveErrorAndResume(`${master_ip} FAILED verification s3 server`, err);
             failures_in_test = true;
             throw err;
@@ -427,8 +435,10 @@ function checkAddClusterRules() {
     return createCluster(servers, masterIndex, 1)
         .catch(err => {
             if (err.message.includes('Could not add members when NTP is not set')) {
+                report.success('Add member no NTP master');
                 console.log(err.message, ' - as should');
             } else {
+                report.fail('Add member no NTP master');
                 saveErrorAndResume('Error is not returned when add cluster without set ntp in master');
             }
         })
@@ -436,8 +446,10 @@ function checkAddClusterRules() {
         .then(() => createCluster(servers, masterIndex, 1)
             .catch(err => {
                 if (err.message.includes('Verify join conditions check returned NO_NTP_SET')) {
+                    report.success('Add member no NTP 2nd');
                     console.log(err.message, ' - as should');
                 } else {
+                    report.fail('Add member no NTP 2nd');
                     console.warn('Error is not returned when add cluster without set ntp in in cluster server');
                 }
             }));
@@ -452,28 +464,42 @@ function cleanEnv() {
 function runFirstFlow() {
     console.log(`${RED}<======= Starting first flow =======>${NC}`);
     return stopVirtualMachineWithStatus(1, 90)
-        .then(verifyS3Server)
+        .then(verifyS3Server('one srv down'))
         .then(() => startVirtualMachineWithStatus(1, 180))
-        .then(verifyS3Server)
-        .then(() => checkClusterStatus(servers, masterIndex));
+        .then(verifyS3Server('all up after one down'))
+        .then(() => checkClusterStatus(servers, masterIndex))
+        .then(() => report.success('Stop/start same member'))
+        .catch(err => {
+            report.fail('Stop/start same member');
+            throw err;
+        });
 }
 
 function runSecondFlow() {
     console.log(`${RED}<==== Starting second flow ====>${NC}`);
     return stopVirtualMachineWithStatus(1, 90)
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(verifyS3Server)
+        .then(verifyS3Server('one srv down'))
         .then(() => stopVirtualMachineWithStatus(2, 180))
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
             return s3ops.create_bucket(master_ip, bucket)
-                .catch(err => console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`));
+                .then(() => report.fail('succeeded config 2/3 down'))
+                .catch(err => {
+                    console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`);
+                    report.success('fail config 2/3 down');
+                });
         })
         .then(() => startVirtualMachineWithStatus(1, 180))
-        .then(verifyS3Server)
+        .then(verifyS3Server('one srv down after 2 down'))
         .then(() => startVirtualMachineWithStatus(2, 180))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(verifyS3Server);
+        .then(verifyS3Server('all up after 2 down'))
+        .then(() => report.success('Stop/start 2/3 of cluster'))
+        .catch(err => {
+            report.fail('Stop/start 2/3 of cluster');
+            throw err;
+        });
 }
 
 function runThirdFlow() {
@@ -488,7 +514,11 @@ function runThirdFlow() {
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
             return s3ops.create_bucket(master_ip, bucket)
-                .catch(err => console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`));
+                .then(() => report.fail('succeeded config 2/3 down'))
+                .catch(err => {
+                    console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`);
+                    report.success('fail config 2/3 down');
+                });
         })
         .then(() => {
             azf.stopVirtualMachine(servers[0].name);
@@ -502,20 +532,40 @@ function runThirdFlow() {
             return delayInSec(180);
         })
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(verifyS3Server)
+        .then(() => report.success('stop all start two'))
+        .catch(err => {
+            report.fail('stop all start two');
+            throw err;
+        })
+        .then(verifyS3Server('one down after all down'))
         .then(() => startVirtualMachineWithStatus(0, 180))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(verifyS3Server);
+        .then(() => report.success('stop all start all'))
+        .catch(err => {
+            report.fail('stop all start all');
+            throw err;
+        })
+        .then(verifyS3Server('all up after all down'));
 }
 
 function runForthFlow() {
     console.log(`${RED}<==== Starting forth flow ====>${NC}`);
     return stopVirtualMachineWithStatus(masterIndex, 90)
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(verifyS3Server)
+        .then(() => report.success('stop master'))
+        .catch(err => {
+            report.fail('stop master');
+            throw err;
+        })
+        .then(verifyS3Server('stop master'))
         .then(() => startVirtualMachineWithStatus(masterIndex, 180))
         .then(() => checkClusterStatus(servers, masterIndex))
-        .then(verifyS3Server);
+        .then(() => report.success('stop/start master'))
+        .catch(err => {
+            report.fail('stop/start master');
+            throw err;
+        })
+        .then(verifyS3Server('stop/start master'));
 }
 
 return azf.authenticate()

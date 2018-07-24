@@ -1,0 +1,31 @@
+<!-- Copyright (C) 2016 NooBaa -->
+<div class="pad alt-bg row content-middle">
+    <div class="column greedy push-next-half">
+        <div class="row content-middle">
+            <h2 class="heading3 push-next">Buckets using this pool: {{bucketCount}}</h2>
+            <p class="remark content-middle" ko.visible="dataLoaded">
+                <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
+                Updated: {{lastUpdateTime}}
+            </p>
+        </div>
+        <p>The following buckets are using this pool as part of their placement policy</p>
+    </div>
+    <toggle-group params="
+        options: viewOptions,
+        selected: ko.pc(selectedView, onView, $component)
+    "></toggle-group>
+</div>
+
+<!-- ko if: selectedView.eq('TABLE') -->
+<pool-connected-buckets-table class="column greedy"
+    params="poolName: poolName"
+></pool-connected-buckets-table>
+<!-- /ko -->
+
+<!-- ko if: selectedView.eq('CHART') -->
+<pool-connected-buckets-chart class="column greedy"
+    params="poolName: poolName"
+></pool-connected-buckets-chart>
+<!-- /ko -->
+
+

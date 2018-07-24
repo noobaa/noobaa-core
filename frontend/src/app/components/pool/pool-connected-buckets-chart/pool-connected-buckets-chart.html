@@ -1,0 +1,19 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<loading-indicator class="align-start pad"
+    ko.visible="!dataLoaded()"
+></loading-indicator>
+
+<div class="row pad" ko.if="dataLoaded">
+    <chart-legend class="push-next" params="
+        caption: 'Usage Distribution',
+        items: chartValues,
+        format: formatRatio
+    "></chart-legend>
+
+    <pie-chart class="push-prev" params="
+        values: chartValues,
+        sumLabel: 'Total Usage',
+        format: formatRatio
+    "></pie-chart>
+</div>

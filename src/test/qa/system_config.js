@@ -59,7 +59,7 @@ if (help) {
 
 let report = new Report();
 
-report.init_reporter({ suite: test_name });
+report.init_reporter({ suite: test_name, conf: {}, mongo_report: true});
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -626,7 +626,7 @@ async function main() {
         await set_debug_level_and_check();
         await set_diagnose_system_and_check();
         rpc.disconnect_all();
-        await report.print_report();
+        await report.report();
         if (failures_in_test) {
             throw new Error(`Got error/s during test - exiting...`);
         } else {
@@ -634,7 +634,7 @@ async function main() {
             process.exit(0);
         }
     } catch (err) {
-        await report.print_report();
+        await report.report();
         console.error(`${err}`);
         console.error(`${JSON.stringify(_.countBy(errors), null, 4)}`);
         process.exit(1);

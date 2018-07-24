@@ -5,10 +5,10 @@ import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze, flatMap, createCompareFunc, throttle, groupBy } from 'utils/core-utils';
-import { toBytes } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getBucketStateIcon, getPlacementTypeDisplayName, getVersioningStateText } from 'utils/bucket-utils';
-import { formatSize } from 'utils/size-utils';
+import { getResourceId } from 'utils/resource-utils';
+import { toBytes, formatSize } from 'utils/size-utils';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
 import {
@@ -57,10 +57,7 @@ const columns = deepFreeze([
     {
         name: 'spilloverUsage',
         sortable: true,
-        compareKey: bucket => {
-            const { usage } = bucket.spillover || { usage: 0 };
-            return toBytes(usage);
-        }
+        compareKey: bucket => toBytes(_getSpilloverUsage(bucket))
     },
     {
         name: 'versioning',
@@ -131,6 +128,16 @@ function _getResourceGroupTooltip(type, group, system) {
     }
 }
 
+function _getSpilloverUsage(bucket) {
+    const { spillover, usageDistribution } = bucket;
+    if (spillover) {
+        const resId = getResourceId(spillover.type, spillover.name);
+        return usageDistribution.resources[resId] || 0;
+    } else {
+        return 0;
+    }
+}
+
 function _mapResourceGroups(placement, system) {
     const groups = groupBy(
         flatMap(placement.mirrorSets, ms => ms.resources),
@@ -162,7 +169,7 @@ function _mapBucket(bucket, system, selectedForDelete) {
         objectCount: numeral(bucket.objectCount).format('0,0'),
         placementPolicy: getPlacementTypeDisplayName(bucket.placement.policyType),
         resources: _mapResourceGroups(bucket.placement, system),
-        spilloverUsage: formatSize(bucket.spillover ? bucket.spillover.usage : 0),
+        spilloverUsage: formatSize(_getSpilloverUsage(bucket)),
         versioning: getVersioningStateText(bucket.versioning.mode),
         capacity: {
             total: bucket.storage.total,

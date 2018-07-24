@@ -168,8 +168,8 @@ async function readFiles() {
 
 function clean_up_dataset() {
     console.log('runing clean up files from bucket ' + bucket);
-    return s3ops.get_list_files(server_ip, bucket, '')
-        .then(res => s3ops.delete_folder(server_ip, bucket, ...res))
+
+    return s3ops.delete_all_objects_in_bucket(server_ip, bucket, true)
         .catch(err => console.error(`Errors during deleting `, err));
 }
 

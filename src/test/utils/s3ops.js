@@ -1,7 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
 const AWS = require('aws-sdk');
+const util = require('util');
 const crypto = require('crypto');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
@@ -78,7 +80,8 @@ class S3OPS {
             Key: destination,
             MetadataDirective: 'COPY'
         };
-        console.log('>>> SS COPY - About to copy object... from: ' + source + ' to: ' + destination);
+        const psource = source + (versionid ? ' v' + versionid : '');
+        console.log('>>> SS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
         let start_ts = Date.now();
         return P.ninvoke(s3bucket, 'copyObject', params)
             .then(res => {
@@ -91,7 +94,8 @@ class S3OPS {
     }
 
     client_side_copy_file_with_md5(ip, bucket, source, destination, versionid) {
-        console.log('>>> CS COPY - About to copy object... from: ' + source + ' to: ' + destination);
+        const psource = source + (versionid ? ' v' + versionid : '');
+        console.log('>>> CS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
 
         return this.get_file_check_md5(ip, bucket, source, {
                 return_data: true,
@@ -144,8 +148,7 @@ class S3OPS {
                     .digest('hex');
                 let file_md5 = res.Metadata.md5;
                 if (md5 === file_md5) {
-                    console.log(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5: ${
-                    md5} - they are same, size: ${res.ContentLength}`);
+                    console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${res.ContentLength}`);
                 } else {
                     console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5: ${
                     md5} - they are different, size: ${res.ContentLength}`);
@@ -205,8 +208,7 @@ class S3OPS {
                     .then(() => {
                         const md5_digest = md5.digest('hex');
                         if (md5_digest === file_md5) {
-                            console.log(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5:
-                        ${md5_digest} - they are same, size: ${file_size}`);
+                            console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${file_size}`);
                         } else {
                             console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5:
                         ${md5_digest} - they are different, size: ${file_size}`);
@@ -337,6 +339,7 @@ class S3OPS {
             .then(res => {
                 if (param.version) {
                     list = res.Versions;
+                    list = list.concat(res.DeleteMarkers);
                 } else {
                     list = res.Contents;
                 }
@@ -345,8 +348,8 @@ class S3OPS {
                         console.warn('No files with prefix in bucket');
                     }
                 } else {
-                    list.forEach(function(file) {
-                        listFiles.push({ Key: file.Key, VersionId: file.VersionId });
+                    list.forEach(file => {
+                        listFiles.push(_.omitBy(_.pick(file, ['Key', 'VersionId']), !_.isUndefined));
                         if (!supress_logs) {
                             console.log('files key is: ' + file.Key);
                         }
@@ -512,7 +515,8 @@ class S3OPS {
         }
 
         let start_ts = Date.now();
-        console.log('>>> DELETE - About to delete object...' + file_name);
+        const psource = file_name + (versionid ? 'v' + versionid : '');
+        console.log('>>> DELETE - About to delete object...' + psource);
         return P.ninvoke(s3bucket, 'deleteObject', params)
             .then(() => {
                 console.log('Delete object took', (Date.now() - start_ts) / 1000, 'seconds');
@@ -524,7 +528,7 @@ class S3OPS {
             });
     }
 
-    delete_folder(ip, bucket, ...list) {
+    delete_multiple_files(ip, bucket, files) {
         const rest_endpoint = 'http://' + ip + ':' + port;
         const s3bucket = new AWS.S3({
             endpoint: rest_endpoint,
@@ -533,12 +537,57 @@ class S3OPS {
             s3ForcePathStyle: true,
             sslEnabled: false,
         });
+
         let params = {
             Bucket: bucket,
-            Delete: { Objects: list },
+            Delete: {
+                Objects: []
+            }
         };
+
+        for (const f of files) {
+            let item = {
+                Key: f.filename,
+            };
+            if (f.versionid) {
+                item.VersionId = f.versionid;
+            }
+            params.Delete.Objects.push(item);
+        }
+
+        let start_ts = Date.now();
+        console.log(`>>> MULTI DELETE - About to delete multiple objects... ${files.length}`);
         return P.ninvoke(s3bucket, 'deleteObjects', params)
-            .catch(err => console.error(`deleting objects ${params} with error ` + err));
+            .then(() => {
+                console.log('Multi delete took', (Date.now() - start_ts) / 1000, 'seconds');
+                console.log(`${files.length} files successfully deleted`);
+            })
+            .catch(err => {
+                console.error(`Multi delete failed! ${util.inspect(files)}`, err);
+                throw err;
+            });
+    }
+
+    delete_all_objects_in_bucket(ip, bucket, is_versioning) {
+        let run_list = true;
+        console.log(`cleaning all files from ${bucket} in ${ip}`);
+        promise_utils.pwhile(
+            () => run_list,
+            () => this.get_list_files(ip, bucket, '', { maxKeys: 1000, version: is_versioning, supress_logs: true })
+            .then(list => {
+                console.log(`Partial list_files.length is ${list.length}`);
+                if (list.length < 1000) {
+                    run_list = false;
+                }
+                return this.delete_multiple_files(ip, bucket, _.map(list, item => {
+                    let i = { filename: item.Key };
+                    if (item.VersionId) {
+                        i.versionid = item.VersionId;
+                    }
+                    return i;
+                }));
+            })
+        );
     }
 
     get_file_size(ip, bucket, file_name) {
@@ -589,6 +638,9 @@ class S3OPS {
             params.VersionId = versionid;
         }
 
+        const psource = file_name + (versionid ? ' v' + versionid : '');
+        console.log('>>> SS SET FILE ATTR - on' + psource);
+
         return P.ninvoke(s3bucket, 'putObjectTagging', params)
             .catch(err => {
                 console.error(`set file attribute failed! ${file_name}`, err);
@@ -596,7 +648,7 @@ class S3OPS {
             });
     }
 
-    set_file_attribute_with_copy(ip, bucket, file_name) {
+    set_file_attribute_with_copy(ip, bucket, file_name, versionid) {
         const rest_endpoint = 'http://' + ip + ':' + port;
         const s3bucket = new AWS.S3({
             endpoint: rest_endpoint,
@@ -611,11 +663,18 @@ class S3OPS {
             Key: file_name,
         };
 
+        if (versionid) {
+            params.VersionId = versionid;
+        }
+
+        const psource = file_name + (versionid ? ' v' + versionid : '');
+        console.log(`>>> SS SET FILE ATTR WITH COPY - on ${psource}`);
+
         return P.ninvoke(s3bucket, 'getObject', params)
             .then(res => {
                 params = {
                     Bucket: bucket,
-                    CopySource: bucket + '/' + file_name,
+                    CopySource: bucket + '/' + file_name + (versionid ? `?versionId=${versionid}` : ''),
                     Key: file_name,
                     MetadataDirective: 'REPLACE',
                     Metadata: {
@@ -730,7 +789,7 @@ class S3OPS {
                     //TODO:: What happends if find does not find anything
                     dataObject = list.find(content => content.Key === object_name);
                     if (!dataObject) throw new Error('Object key wasn\'t found');
-                    console.log('Object has data: ', JSON.stringify(dataObject));
+                    console.log(`Object ${dataObject.Key} UploadId is: ${dataObject.UploadId}`);
                     uploadObjectId = dataObject.UploadId;
                 }
                 return uploadObjectId;
@@ -824,15 +883,18 @@ class S3OPS {
             s3ForcePathStyle: true,
             sslEnabled: false,
         });
+
         let params = {
             Bucket: bucket,
             Key: key,
             Range: `bytes=${start_byte}-${finish_byte}`
         };
+
         if (versionid) {
             params.VersionId = versionid;
         }
-        console.log(`Reading object ${key} from ${start_byte} to ${finish_byte}`, params);
+
+        console.log(`Reading object ${key} ${versionid ? versionid : ''} from ${start_byte} to ${finish_byte}`);
         return P.ninvoke(s3bucket, 'getObject', params)
             .then(res => res.Body)
             .catch(err => {

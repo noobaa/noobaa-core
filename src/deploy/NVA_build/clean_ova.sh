@@ -124,7 +124,7 @@ rm -f /etc/noobaa_network
 
 #Clean platform changes
 unlink /etc/localtime
-ln -sf /usr/share/zoneinfo/Pacific/Kiritimati /etc/localtime
+ln -sf /usr/share/zoneinfo/GMT /etc/localtime
 date -s "21 Aug 2017 00:00:00"
 
 #Configure 127.0.0.1 as the dns server - we will use named as a dns cache server

@@ -5,12 +5,12 @@ const _ = require('lodash');
 const config = require('../../../config');
 
 function new_chunk_code_config_defaults(chunk_coder_config) {
-    const ccc = Object.assign({
+    const ccc = _.omitBy(Object.assign({
         digest_type: config.CHUNK_CODER_DIGEST_TYPE,
         frag_digest_type: config.CHUNK_CODER_FRAG_DIGEST_TYPE,
         compress_type: config.CHUNK_CODER_COMPRESS_TYPE,
         cipher_type: config.CHUNK_CODER_CIPHER_TYPE,
-    }, chunk_coder_config);
+    }, chunk_coder_config), _.isUndefined);
 
     if (ccc.parity_frags) {
         // Erasure Codes

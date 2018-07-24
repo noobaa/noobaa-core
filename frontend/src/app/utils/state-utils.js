@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { omitUndefined, pick, equalItems } from 'utils/core-utils';
+import { toBigInteger, fromBigInteger } from 'utils/size-utils';
 
 const expFieldsToCopy = [
     'message',
@@ -8,6 +9,10 @@ const expFieldsToCopy = [
     'code',
     'rpc_code'
 ];
+
+function _subSize(size1 = 0, size2 = 0) {
+    return fromBigInteger(toBigInteger(size1).subtract(toBigInteger(size2)));
+}
 
 export function mapErrorObject(exp) {
     return omitUndefined(pick(exp, expFieldsToCopy));
@@ -20,7 +25,8 @@ export function mapApiStorage(storage, lastUpdate) {
         free: storage.free,
         spilloverFree: storage.spillover_free,
         unavailableFree: storage.unavailable_free,
-        used: storage.used,
+        used: _subSize(storage.used, storage.unavailable_used),
+        unavailableUsed: storage.unavailable_used,
         usedOther: storage.used_other,
         reserved: storage.reserved
     });

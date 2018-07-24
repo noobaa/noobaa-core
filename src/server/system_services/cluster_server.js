@@ -86,7 +86,7 @@ function new_cluster_info(params) {
 }
 
 function init_cluster() {
-    return cluster_hb.do_heartbeat();
+    return cluster_hb.do_heartbeat({ skip_server_monitor: true });
 }
 
 //Initiate process of adding a server to the cluster
@@ -253,7 +253,7 @@ function add_member_to_cluster_invoke(req, my_address) {
             return system_store.load();
         })
         // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
-        .then(() => cluster_hb.do_heartbeat())
+        .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
         .then(() => {
             if (first_server) {
                 return MongoCtrl.add_mongo_monitor_program();
@@ -479,7 +479,7 @@ function join_to_cluster(req) {
             });
         })
         // ugly but works. perform first heartbeat after server is joined, so UI will present updated data
-        .then(() => cluster_hb.do_heartbeat())
+        .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
         // send update to all services with the master address
         .then(() => cutil.send_master_update(false, req.rpc_params.master_ip))
         // restart bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
@@ -611,7 +611,7 @@ function update_member_of_cluster(req) {
             return system_store.load();
         })
         // ugly but works. perform first heartbeat after server was edited, so UI will present updated data
-        .then(() => cluster_hb.do_heartbeat())
+        .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
         .catch(function(err) {
             console.error('Failed edit of member to cluster', req.rpc_params, 'with', err);
             throw new Error('Failed edit of member to cluster');
@@ -1251,7 +1251,7 @@ function update_server_conf(req) {
                         address: server_rpc.get_base_address(cluster_server.owner_address),
                         timeout: 60000 //60s
                     })
-                    .then(() => cluster_hb.do_heartbeat()) //We call for HB since the hostname changed
+                    .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true })) //We call for HB since the hostname changed
                     .then(() => cluster_server);
             }
             return cluster_server;

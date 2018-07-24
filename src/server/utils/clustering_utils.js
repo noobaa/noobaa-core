@@ -216,6 +216,14 @@ function get_cluster_info(rs_status) {
                     results: status.cluster_status === 'UNKNOWN' ? undefined : status.cluster_status
                 }
             }, _.isUndefined);
+        } else {
+            server_info.services_status = {
+                phonehome_server: {
+                    status: 'UNKNOWN',
+                    test_time: Date.now()
+                },
+                cluster_communication: {}
+            };
         }
         shard.servers.push(server_info);
     });

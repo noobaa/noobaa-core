@@ -398,6 +398,7 @@ async function upgrade_mongodb_version(params) {
                 dbg.error(`UPGRADE: failed to step down master. stopping mongo and continuing with upgrade`);
             }
         }
+        mongo_client.instance().ignore_connect_timeout();
         dbg.log0('UPGRADE: stopping mongo_wrapper service before upgrading mongodb');
         await supervisor.stop(['mongo_wrapper']);
         dbg.log0('UPGRADE: mongo_wrapper stopped');

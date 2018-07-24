@@ -42,7 +42,8 @@ const VERIFY_RESPONSE = [
     'UNREACHABLE',
     'ADDING_SELF',
     'NO_NTP_SET',
-    'CONNECTION_TIMEOUT'
+    'CONNECTION_TIMEOUT_ORIGIN',
+    'CONNECTION_TIMEOUT_NEW'
 ];
 
 function _init() {
@@ -294,6 +295,7 @@ function verify_join_conditions(req) {
                 .catch(err => {
                     dbg.error('verify_join_conditions: HAD ERROR', err, err.message);
                     if (_.includes(VERIFY_RESPONSE, err.message)) return err.message;
+                    if (err.message === 'CONNECTION_TIMEOUT') return 'CONNECTION_TIMEOUT_NEW';
                     throw err;
                 })
                 .then(result => ({
@@ -351,7 +353,7 @@ function verify_candidate_join_conditions(req) {
                     if (response.includes('Connection timed out')) {
                         dbg.warn(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT}, might be due to a FW blocking`);
                         return {
-                            result: 'CONNECTION_TIMEOUT'
+                            result: 'CONNECTION_TIMEOUT_ORIGIN'
                         };
                     } else {
                         return P.resolve()

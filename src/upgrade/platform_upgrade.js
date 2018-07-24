@@ -135,6 +135,14 @@ async function run_platform_upgrade_steps() {
     await platform_upgrade_common();
     await platform_upgrade_2_4_0();
     await platform_upgrade_2_7_0();
+    await platform_upgrade_2_8_0();
+}
+
+async function platform_upgrade_2_8_0() {
+    // exclude cleaning of supervisor and upgrade files
+    await fs.appendFileAsync('/usr/lib/tmpfiles.d/tmp.conf', 'x /tmp/supervisor*\n');
+    await fs.appendFileAsync('/usr/lib/tmpfiles.d/tmp.conf', 'x /tmp/test\n');
+    await exec('systemctl restart systemd-tmpfiles-clean.service');
 }
 
 async function platform_upgrade_2_7_0() {

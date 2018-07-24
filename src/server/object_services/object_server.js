@@ -763,7 +763,7 @@ function _list_add_results(state, results) {
     }
 
     let has_common_prefixes = false;
-    for (const res of results) {
+    for (const obj of results) {
         // We always fetch user_limit+1 results which allows us to detect truncated reply
         if (count >= state.user_limit) {
             state.is_truncated = true;
@@ -772,17 +772,13 @@ function _list_add_results(state, results) {
         }
         state.limit -= 1;
         count += 1;
-        const common_prefix = state.delimiter && res._id[1] === 'common_prefix';
-        if (common_prefix) {
-            const suffix = res._id[0];
-            const key = state.prefix + suffix;
-            state.key_marker = key;
+        if (obj.common_prefix) {
+            state.key_marker = obj.key;
             state.upload_started_marker = undefined;
             state.version_seq_marker = undefined;
-            state.common_prefixes.push(key);
+            state.common_prefixes.push(obj.key);
             has_common_prefixes = true;
         } else {
-            const obj = state.delimiter ? res.value : res;
             state.key_marker = obj.key;
             state.upload_started_marker = obj.upload_started;
             state.version_seq_marker = obj.version_seq;
@@ -797,7 +793,6 @@ function _list_add_results(state, results) {
         state.done = true;
     }
 }
-
 
 async function list_objects_admin(req) {
     dbg.log0('list_objects_admin', req.rpc_params);

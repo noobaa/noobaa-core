@@ -461,11 +461,7 @@ class MDStore {
                     out: { inline: 1 }
                 }
             );
-            const results = mr_results.map(r => (
-                r._id[1] === 'common_prefix' ?
-                ({ common_prefix: r.value || 1, key: prefix + r._id[0] }) :
-                r.value
-            ));
+            const results = normalize_list_mr_results(mr_results, prefix);
             results.sort(sort_list_objects_with_delimiter);
             return results;
         } else {
@@ -515,11 +511,7 @@ class MDStore {
                     out: { inline: 1 }
                 }
             );
-            const results = mr_results.map(r => (
-                r._id[1] === 'common_prefix' ?
-                ({ common_prefix: r.value || 1, key: prefix + r._id[0] }) :
-                r.value
-            ));
+            const results = normalize_list_mr_results(mr_results, prefix);
             results.sort(sort_list_versions_with_delimiter);
             return results;
         } else {
@@ -570,11 +562,7 @@ class MDStore {
                     out: { inline: 1 }
                 }
             );
-            const results = mr_results.map(r => (
-                r._id[1] === 'common_prefix' ?
-                ({ common_prefix: r.value || 1, key: prefix + r._id[0] }) :
-                r.value
-            ));
+            const results = normalize_list_mr_results(mr_results, prefix);
             results.sort(sort_list_uploads_with_delimiter);
             return results;
         } else {
@@ -1612,6 +1600,14 @@ function unordered_insert_options() {
     return {
         ordered: false
     };
+}
+
+function normalize_list_mr_results(mr_results, prefix) {
+    return mr_results.map(r => (
+        r._id[1] === 'common_prefix' ?
+        ({ common_prefix: r.value || 1, key: prefix + r._id[0] }) :
+        r.value
+    ));
 }
 
 function sort_list_objects_with_delimiter(a, b) {

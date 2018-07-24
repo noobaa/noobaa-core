@@ -572,7 +572,8 @@ function delete_bucket_content(bucket_name) {
         })
         .then(object_list => P.map(object_list.objects, obj => client.object.delete_object({
             bucket: bucket_name,
-            key: obj.key
+            key: obj.key,
+            version_id: obj.version_id,
         }), {
             concurrency: 10
         }));

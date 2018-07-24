@@ -129,6 +129,9 @@ module.exports = {
         force_hide: {
             idate: true
         },
+        debug_mode: {
+            idate: true
+        },
         enabled: {
             type: 'boolean',
         },

@@ -11,7 +11,8 @@ const envDir = '/tmp/.env';
 const {
     lg_name,
     lg_ip,
-    script_to_run
+    script_to_run,
+    version = 'latest',
 } = argv;
 
 _.each(process.env, envKey => {
@@ -26,14 +27,21 @@ echo CLIENT_ID=${process.env.CLIENT_ID} >> ${envDir}
 echo APPLICATION_SECRET=${process.env.APPLICATION_SECRET} >> ${envDir}
 echo DOMAIN=${process.env.DOMAIN} >> ${envDir}
 echo AZURE_STORAGE_CONNECTION_STRING='${process.env.AZURE_STORAGE_CONNECTION_STRING}' >> ${envDir}
+sorceKey=$(grep "AZURE_STORAGE_CONNECTION_STRING" ${envDir} | awk -F ';AccountKey=' '{print $2}' | awk -F ';EndpointSuffix' '{print $1}')
 JENKINS_URL=${process.env.JENKINS_URL}
 WORKSPACE=noobaa-core
 rm -rf /tmp/noobaa-core/ &> /dev/null
 rm -rf /tmp/noobaa-NVA-latest.tar.gz
 rm -rf $WORKSPACE/
-curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
-buildPath=$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<relativePath>" '{print $2}' | awk -F "</relativePath>" '{print $1}' | xargs)
-curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/artifact/$buildPath >/tmp/noobaa-NVA-latest.tar.gz
+if [ ${version} == 'latest' ]
+then
+    curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
+    buildPath=$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<relativePath>" '{print $2}' | awk -F "</relativePath>" '{print $1}' | xargs)
+    curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/artifact/$buildPath >/tmp/noobaa-NVA-latest.tar.gz
+else 
+    yes | azcopy --source http://jenkinspipeline7.blob.core.windows.net/staging-vhds/ --include noobaa-NVA-${version}.tar.gz --destination /tmp/ --source-key $sorceKey
+    mv /tmp/noobaa-NVA-${version}.tar.gz /tmp/noobaa-NVA-latest.tar.gz
+fi
 tar -zxvf /tmp/noobaa-NVA-latest.tar.gz &> /dev/null
 cd $WORKSPACE/
 npm install 1> /dev/null

@@ -38,7 +38,7 @@ let errors = [];
 //defining the required parameters
 const {
     location = 'westus2',
-        configured_ntp = 'pool.ntp.org',
+        configured_ntp = 'time.windows.com',
         configured_timezone = 'Asia/Jerusalem',
         timeout = 10,
         breakonerror = false,

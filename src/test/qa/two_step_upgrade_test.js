@@ -335,7 +335,7 @@ function test_first_step() {
             .then(() => rpc_client.cluster_server.update_time_config({
                 target_secret: TEST_CFG.secret,
                 timezone: "Asia/Jerusalem",
-                ntp_server: "pool.ntp.org"
+                ntp_server: "time.windows.com"
             }))
             .delay(25000)) //time update restarts the services
         .then(() => {
@@ -373,7 +373,7 @@ function test_second_step() {
             .then(() => rpc_client.cluster_server.update_time_config({
                 target_secret: TEST_CFG.secret,
                 timezone: "Asia/Jerusalem",
-                ntp_server: "pool.ntp.org"
+                ntp_server: "time.windows.com"
             }))
             .delay(65000)) //time update restarts the services
         .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))

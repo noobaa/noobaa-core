@@ -23,6 +23,7 @@ class MongoClient extends EventEmitter {
         this.db = null; // will be set once connected
         this.cfg_db = null; // will be set once a part of a cluster & connected
         this.admin_db = null;
+        this.should_ignore_connect_timeout = false;
         this.collections = [];
         this.gridfs_buckets = [];
         this.gridfs_instances = {};
@@ -535,13 +536,18 @@ class MongoClient extends EventEmitter {
     }
 
     _set_connect_timeout() {
-        if (!this.connect_timeout) {
+        if (!this.connect_timeout && !this.should_ignore_connect_timeout) {
             this.connect_timeout = setTimeout(() => {
                 dbg.error('Connection closed for more ', config.MONGO_DEFAULTS.CONNECT_MAX_WAIT,
                     ', quitting');
                 process.exit(1);
             }, config.MONGO_DEFAULTS.CONNECT_MAX_WAIT).unref();
         }
+    }
+
+    ignore_connect_timeout() {
+        this._reset_connect_timeout();
+        this.should_ignore_connect_timeout = true;
     }
 
     _reset_connect_timeout() {

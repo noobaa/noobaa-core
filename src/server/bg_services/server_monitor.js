@@ -161,7 +161,7 @@ function _verify_server_certificate() {
                         certificate && certificate.data && fs.writeFileAsync(ssl_utils.SERVER_SSL_CERT_PATH, certificate.data),
                         key && key.data && fs.writeFileAsync(ssl_utils.SERVER_SSL_KEY_PATH, key.data)
                     ))
-                    .then(() => os_utils.restart_services());
+                    .then(() => os_utils.restart_noobaa_services());
             }
         });
 }

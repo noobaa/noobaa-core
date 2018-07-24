@@ -25,7 +25,7 @@ exports.do_heartbeat = do_heartbeat;
  * @this worker instance
  *
  */
-function do_heartbeat() {
+function do_heartbeat({ skip_server_monitor } = {}) {
     let current_clustering = system_store.get_local_cluster_info();
     let server_below_min_req = false;
     let server_name;
@@ -91,9 +91,16 @@ function do_heartbeat() {
                     server_name = heartbeat.health.os_info.hostname;
                 }
                 dbg.log0('writing cluster server heartbeat to DB. heartbeat:', heartbeat);
-                return server_monitor.run()
+                return P.resolve()
+                    .then(() => {
+                        if (!skip_server_monitor) {
+                            return server_monitor.run();
+                        }
+                    })
                     .then(status => {
-                        update.services_status = status;
+                        if (status) {
+                            update.services_status = status;
+                        }
                         return system_store.make_changes({
                             update: {
                                 clusters: [update]

@@ -449,8 +449,8 @@ class MDStore {
             delete_marker: null
         });
 
-        return delimiter ?
-            this._objects.col().mapReduce(
+        if (delimiter) {
+            const mr_results = await this._objects.col().mapReduce(
                 mongo_functions.map_common_prefixes,
                 mongo_functions.reduce_common_prefixes, {
                     query,
@@ -460,12 +460,22 @@ class MDStore {
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
-            ) :
-            this._objects.col().find(query, {
+            );
+            const results = mr_results.map(r => (
+                r._id[1] === 'common_prefix' ?
+                ({ common_prefix: r.value || 1, key: prefix + r._id[0] }) :
+                r.value
+            ));
+            results.sort(sort_list_objects_with_delimiter);
+            return results;
+        } else {
+            const results = await this._objects.col().find(query, {
                 limit,
                 sort,
                 hint,
             }).toArray();
+            return results;
+        }
     }
 
     async list_object_versions({
@@ -493,8 +503,8 @@ class MDStore {
             upload_started: null,
         });
 
-        return delimiter ?
-            this._objects.col().mapReduce(
+        if (delimiter) {
+            const mr_results = await this._objects.col().mapReduce(
                 mongo_functions.map_common_prefixes,
                 mongo_functions.reduce_common_prefixes, {
                     query,
@@ -504,12 +514,22 @@ class MDStore {
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
-            ) :
-            this._objects.col().find(query, {
+            );
+            const results = mr_results.map(r => (
+                r._id[1] === 'common_prefix' ?
+                ({ common_prefix: r.value || 1, key: prefix + r._id[0] }) :
+                r.value
+            ));
+            results.sort(sort_list_versions_with_delimiter);
+            return results;
+        } else {
+            const results = await this._objects.col().find(query, {
                 limit,
                 sort,
                 hint,
             }).toArray();
+            return results;
+        }
     }
 
     async list_uploads({
@@ -538,8 +558,8 @@ class MDStore {
             upload_started: { $exists: true }
         });
 
-        return delimiter ?
-            this._objects.col().mapReduce(
+        if (delimiter) {
+            const mr_results = await this._objects.col().mapReduce(
                 mongo_functions.map_common_prefixes,
                 mongo_functions.reduce_common_prefixes, {
                     query,
@@ -549,12 +569,22 @@ class MDStore {
                     scope: { prefix, delimiter },
                     out: { inline: 1 }
                 }
-            ) :
-            this._objects.col().find(query, {
+            );
+            const results = mr_results.map(r => (
+                r._id[1] === 'common_prefix' ?
+                ({ common_prefix: r.value || 1, key: prefix + r._id[0] }) :
+                r.value
+            ));
+            results.sort(sort_list_uploads_with_delimiter);
+            return results;
+        } else {
+            const results = await this._objects.col().find(query, {
                 limit,
                 sort,
                 hint,
             }).toArray();
+            return results;
+        }
     }
 
     _build_list_key_query_from_prefix(prefix) {
@@ -1582,6 +1612,37 @@ function unordered_insert_options() {
     return {
         ordered: false
     };
+}
+
+function sort_list_objects_with_delimiter(a, b) {
+    // key is sorted in ascending order
+    if (a.key < b.key) return -1;
+    if (a.key > b.key) return 1;
+    return 0;
+}
+
+function sort_list_versions_with_delimiter(a, b) {
+    // key is sorted in ascending order
+    if (a.key < b.key) return -1;
+    if (a.key > b.key) return 1;
+    // version_seq is sorted in *** descending *** order
+    const a_version = a.version_seq || 0;
+    const b_version = b.version_seq || 0;
+    if (a_version < b_version) return 1;
+    if (a_version > b_version) return -1;
+    return 0;
+}
+
+function sort_list_uploads_with_delimiter(a, b) {
+    // key is sorted in ascending order
+    if (a.key < b.key) return -1;
+    if (a.key > b.key) return 1;
+    // upload_started is sorted in ascending order
+    const a_upload = a.upload_started ? a.upload_started.getTimestamp().getTime() : 0;
+    const b_upload = b.upload_started ? b.upload_started.getTimestamp().getTime() : 0;
+    if (a_upload < b_upload) return -1;
+    if (a_upload > b_upload) return 1;
+    return 0;
 }
 
 // EXPORTS

@@ -945,7 +945,7 @@ function get_syslog_server_configuration() {
         });
 }
 
-function noobaa_() {
+function restart_noobaa_services() {
     if (os.type() !== 'Linux') {
         return;
     }

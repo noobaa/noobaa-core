@@ -655,7 +655,7 @@ async function list_objects(req) {
 }
 
 async function list_object_versions(req) {
-    dbg.log0('list_objects', req.rpc_params);
+    dbg.log0('list_object_versions', req.rpc_params);
     load_bucket(req);
 
     const limit = _list_limit(req.rpc_params.limit);
@@ -710,7 +710,7 @@ async function list_object_versions(req) {
 }
 
 async function list_uploads(req) {
-    dbg.log0('list_objects', req.rpc_params);
+    dbg.log0('list_uploads', req.rpc_params);
     load_bucket(req);
 
     const limit = _list_limit(req.rpc_params.limit);

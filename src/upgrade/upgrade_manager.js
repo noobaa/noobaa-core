@@ -119,7 +119,7 @@ class UpgradeManager {
     async update_db(updates) {
 
         let server = system_store.get_local_cluster_info(); //Update path in DB
-        updates.stage_changed_date = Date.now();
+        updates['upgrade.stage_changed_date'] = Date.now();
         const update = {
             clusters: [{
                 _id: server._id,

@@ -19,6 +19,22 @@ let {
     id
 } = argv;
 
+function usage() {
+    console.log(`
+    --resource  -   The azure resource group to use
+    --storage   -   The azure storage account to use
+    --vnet      -   The azure virtual network to use
+    --location  -   The VM's location (default ${location})
+    --id        -   The VM's id
+    --help      -   show this help.
+    `);
+}
+
+if (argv.help) {
+    usage();
+    process.exit(1);
+}
+
 function _validateEnvironmentVariablesAndBaseParams() {
     const clientId = process.env.CLIENT_ID;
     const domain = process.env.DOMAIN;
@@ -46,7 +62,7 @@ function _validateEnvironmentVariablesAndBaseParams() {
     if (argv.id) {
         id = '-' + id;
     } else {
-        id = '-';
+        id = '';
     }
 
     azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
@@ -54,7 +70,7 @@ function _validateEnvironmentVariablesAndBaseParams() {
 
 async function delete_vm(status) {
     const current_vms = await azf.listVirtualMachines('', status);
-    console.log(`Found ${current_vms.length} machines`);
+    console.log(`Found ${current_vms.length} machines with status ${status}`);
     await P.map(current_vms, vmName => {
         if (vmName.includes(id) && !vmName.toLowerCase().includes('lg') && !vmName.toLowerCase().includes('jenkins')) {
             console.log('Cleaning machine: ' + vmName);
@@ -75,7 +91,7 @@ async function main() {
         const MAX_RETRY = 3;
         while (keep_run) {
             try {
-                const status_list = ['VM running', 'VM stopped', 'VM Failure'];
+                const status_list = ['VM running', 'VM stopped', 'VM Failure', 'VM generalized'];
                 for (const status of status_list) {
                     await delete_vm(status);
                 }

@@ -36,7 +36,16 @@ function add_create_time_to_multiparts() {
     }
 }
 
+function fix_upgrade_stage_changed_date() {
+    db.clusters.updateMany({}, {
+        $unset: {
+            "stage_changed_date": 1
+        }
+    });
+}
+
 update_buckets_set_versioning();
 update_buckets_unset_cloud_sync();
 drop_old_md_indexes();
 add_create_time_to_multiparts();
+fix_upgrade_stage_changed_date();

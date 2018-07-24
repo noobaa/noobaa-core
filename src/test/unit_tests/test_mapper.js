@@ -388,7 +388,7 @@ coretest.describe_mapper_test_case({
             }
         });
 
-        mocha.it.only('should replicate to pool with the same region', function() {
+        mocha.it('should replicate to pool with the same region', function() {
             const location_info = {
                 region: 'REGION-X'
             };
@@ -413,7 +413,7 @@ coretest.describe_mapper_test_case({
             }
         });
 
-        mocha.it.only('should not replicate to pool with the different region', function() {
+        mocha.it('should not replicate to pool with the different region', function() {
             const location_info = {
                 region: 'REGION-Y'
             };

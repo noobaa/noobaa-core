@@ -27,7 +27,8 @@ let errors = [];
 
 const {
     server_ip,
-    ntp_server = 'pool.ntp.org',
+    skip_create_system = false,
+    ntp_server = 'time.windows.com',
     primary_dns = '8.8.8.8',
     secondery_dns = '8.8.4.4',
     udp_rsyslog_port = 5001,
@@ -41,6 +42,7 @@ let configured_dns = [primary_dns, secondery_dns];
 function usage() {
     console.log(`
     --server_ip             -   noobaa server ip.
+    --skip_create_system    -   will skip create system
     --ntp_server            -   ntp server (default: ${ntp_server})
     --primary_dns           -   primary dns ip (default: ${primary_dns})
     --secondery_dns         -   secondery dns ip (default: ${secondery_dns})
@@ -59,7 +61,7 @@ if (help) {
 
 let report = new Report();
 
-report.init_reporter({ suite: test_name, conf: {}, mongo_report: true});
+report.init_reporter({ suite: test_name, conf: {}, mongo_report: true });
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -601,19 +603,8 @@ async function main() {
         const secret = system_info.cluster.shards[0].servers[0].secret;
         console.log('Secret is ' + secret);
         rpc.disconnect_all();
-        await server_ops.clean_ova(server_ip, secret);
-        await server_ops.wait_server_recoonect(server_ip);
-        try {
-            await server_ops.validate_activation_code(server_ip);
-        } catch (err) {
-            saveErrorAndResume(err.message);
-            failures_in_test = true;
-        }
-        try {
-            await server_ops.create_system_and_check(server_ip);
-        } catch (err) {
-            saveErrorAndResume(err.message);
-            failures_in_test = true;
+        if (!skip_create_system) {
+            await server_ops.clean_ova_and_create_system(server_ip, secret);
         }
         await set_rpc_and_create_auth_token();
         await set_DNS_And_check();
@@ -641,5 +632,4 @@ async function main() {
     }
 }
 
-P.resolve()
-    .then(main);
+main();

@@ -308,7 +308,7 @@ async function _create_configuration() {
     console.info('Creating various configuration');
     //NTP
     await TEST_CTX.client.cluster_server.update_time_config({
-        ntp_server: 'pool.ntp.org',
+        ntp_server: 'time.windows.com',
         timezone: 'Asia/Jerusalem'
     });
 

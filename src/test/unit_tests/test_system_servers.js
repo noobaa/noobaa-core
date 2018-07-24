@@ -153,7 +153,7 @@ mocha.describe('system_servers', function() {
             .then(() => rpc_client.cluster_server.update_time_config({
                 timezone: "Asia/Jerusalem",
                 target_secret: server_secret,
-                ntp_server: 'pool.ntp.org'
+                ntp_server: 'time.windows.com'
             }))
             .then(() => rpc_client.cluster_server.update_dns_servers({
                 target_secret: server_secret,

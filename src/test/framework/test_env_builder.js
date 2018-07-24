@@ -1,17 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-
-
 const argv = require('minimist')(process.argv);
-
 const dbg = require('../../util/debug_module')(__filename);
 
-const AzureFunctions = require('../../deploy/azureFunctions');
-const agent_functions = require('../utils/agent_functions');
-const sanity_build_test = require('../system_tests/sanity_build_test');
+const fs = require('fs');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
+const agent_functions = require('../utils/agent_functions');
+const AzureFunctions = require('../../deploy/azureFunctions');
+const sanity_build_test = require('../system_tests/sanity_build_test');
+
+const version_map = 'src/deploy/version_map.json';
 
 // Environment Setup
 var clientId = process.env.CLIENT_ID;
@@ -19,7 +19,7 @@ var domain = process.env.DOMAIN;
 var secret = process.env.APPLICATION_SECRET;
 var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 
-const oses = ['ubuntu14', 'ubuntu16', 'ubuntu12', 'centos6', 'centos7', 'redhat6', 'redhat7', 'win2008', 'win2012', 'win2016'];
+const oses = agent_functions.supported_oses();
 
 const {
     resource,
@@ -39,14 +39,15 @@ const {
     shell_script,
     skip_agent_creation = false,
     skip_server_creation = false,
+    skip_configuration = false,
     create_lg = false,
     lg_ip,
     server_external_ip = false,
     num_agents = oses.length,
-    help,
     min_required_agents = 7,
     vm_size = 'B',
-    skip_configuration = false,
+    random_base_version = false,
+    min_version = '2.1',
 } = argv;
 
 dbg.set_process_name('test_env_builder');
@@ -59,10 +60,9 @@ let vmSize;
 
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-
 function main() {
     let exit_code = 0;
-    if (help) {
+    if (argv.help) {
         print_usage();
         process.exit();
     }
@@ -96,43 +96,59 @@ function main() {
         .then(() => process.exit(exit_code));
 }
 
+async function get_random_base_version() {
+    let will_retry = true;
+    let version;
+    const buf = await fs.readFileAsync(version_map);
+    const ver_map = JSON.parse(buf.toString());
+    while (will_retry) {
+        version = ver_map.versions[Math.floor((Math.random() * ver_map.versions.length))];
+        if (version.ver.split('.')[0] >= String(min_version).split('.')[0]) {
+            if (version.ver.split('.')[1] >= String(min_version).split('.')[1]) {
+                will_retry = false;
+            }
+        }
+    }
+    return version.vhd;
+}
 
 //this function is getting servers array creating and upgrading them.
-function prepare_server() {
+async function prepare_server() {
     if (skip_server_creation) {
         console.log('skipping server creation');
         if (!server_ip || !server_secret) {
             console.error('Cannot skip server creation without ip and secret supplied, please use --server_ip and --server_secret');
             throw new Error('Failed using existing server');
         }
-        return P.resolve();
+        return;
     }
     console.log(`prepare_server: creating server ${server.name}`);
     console.log(`NooBaa server vmSize is: ${vmSize}`);
-    return azf.createServer({
-            serverName: server.name,
-            vnet,
-            storage,
-            vmSize,
-            latestRelease: true,
-            createSystem: true
-        })
-        .then(new_secret => {
-            server.secret = new_secret;
-            if (server_external_ip) {
-                return azf.getIpAddress(server.name + '_pip');
-            } else {
-                return azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
-            }
-        })
-        .then(ip => {
-            server.ip = ip;
-            console.log(`server_info is`, server);
-        })
-        .catch(err => {
-            console.error(`prepare_server failed. server name: ${server.name}`, err);
-            throw err;
-        });
+    server.version = 'latest';
+    let createServerParams = {
+        serverName: server.name,
+        vnet,
+        storage,
+        vmSize,
+        latestRelease: true,
+        createSystem: true
+    };
+    if (random_base_version) {
+        createServerParams.imagename = await get_random_base_version();
+        server.version = createServerParams.imagename.replace('.vhd', '');
+    }
+    try {
+        server.secret = await azf.createServer(createServerParams);
+        if (server_external_ip) {
+            server.ip = await azf.getIpAddress(server.name + '_pip');
+        } else {
+            server.ip = await azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
+        }
+        console.log(`server_info is`, server);
+    } catch (err) {
+        console.error(`prepare_server failed. server name: ${server.name}`, err);
+        throw err;
+    }
 }
 
 function prepare_agents() {
@@ -240,56 +256,50 @@ function install_agents() {
             }));
 }
 
-function prepare_lg() {
+async function prepare_lg() {
     if (create_lg) {
-        return azf.authenticate()
-            .then(() => azf.createLGFromImage({
+        try {
+            await azf.authenticate();
+            await azf.createLGFromImage({
                 vmName: lg.name,
                 vnet: argv.vnet,
                 storage: argv.storage,
-            }))
-            .then(() => {
-                if (server_external_ip) {
-                    return azf.getIpAddress(lg.name + '_pip');
-                } else {
-                    return azf.getPrivateIpAddress(`${lg.name}_nic`, `${lg.name}_ip`);
-                }
-            })
-            .then(ip => {
-                lg.ip = ip;
-                console.log(`lg_info is`, lg);
-            })
-            .catch(err => {
-                console.error(`prepare_lg failed. lg name: ${lg.name}`, err);
-                throw err;
             });
-    } else {
-        return P.resolve();
+            if (server_external_ip) {
+                lg.ip = await azf.getIpAddress(lg.name + '_pip');
+            } else {
+                lg.ip = await azf.getPrivateIpAddress(`${lg.name}_nic`, `${lg.name}_ip`);
+            }
+            console.log(`lg_info is: `, lg);
+        } catch (err) {
+            console.error(`prepare_lg failed. lg name: ${lg.name}`, err);
+            throw err;
+        }
     }
 }
 
 // upgrade server to the required version.
 // currently using sanity_build_test.js script
-function upgrade_test_env() {
-    if (!upgrade) {
+async function upgrade_test_env() {
+    if (!upgrade || random_base_version) {
         return;
     }
     console.log(`upgrading server with package ${upgrade}`);
-    return sanity_build_test.run_test(server.ip, upgrade, false, skip_configuration)
-        .catch(err => {
-            console.error('upgrade_test_env failed', err);
+    try {
+        await sanity_build_test.run_test(server.ip, upgrade, false, skip_configuration);
+    } catch (err) {
+        console.error('upgrade_test_env failed', err);
+        throw err;
+    }
+    if (rerun_upgrade) {
+        console.log(`Got rerun_upgrade flag. running upgrade again from the new version to the same version (${upgrade})`);
+        try {
+            await sanity_build_test.run_test(server.ip, upgrade, true, true); /*skip configuration*/
+        } catch (err) {
+            console.error(`Failed upgrading from the new version ${upgrade}`, err);
             throw err;
-        })
-        .then(() => {
-            if (rerun_upgrade) {
-                console.log(`Got rerun_upgrade flag. running upgrade again from the new version to the same version (${upgrade})`);
-                return sanity_build_test.run_test(server.ip, upgrade, true, true /*skip configuration*/)
-                    .catch(err => {
-                        console.error(`Failed upgrading from the new version ${upgrade}`, err);
-                        throw err;
-                    });
-            }
-        });
+        }
+    }
 }
 
 function run_tests() {
@@ -302,7 +312,7 @@ function run_tests() {
                 console.log(`running js script ${js_script} on ${server.name}`);
                 return promise_utils.fork(js_script, [
                         '--server_name', server.name, '--server_ip', server.ip, '--server_secret', server.secret,
-                        '--lg_name', lg.name, '--lg_ip', lg.ip
+                        '--lg_name', lg.name, '--lg_ip', lg.ip, '--version', server.version
                     ].concat(process.argv))
                     .catch(err => {
                         console.log('Failed running script', err);
@@ -379,31 +389,32 @@ function verify_args() {
 function print_usage() {
     console.log(`
 Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storage <storage-account> --name <server-name> --id <run id>
-  --help               show this usage
-  --resource <resource-group> the azure resource group to use
-  --storage <storage-account> the azure storage account to use
-  --vnet <vnet>               the azure virtual network to use
-  --name                      the vm name
-  --id                        run id - will be added to server name and agents
-  --clean_only                only delete resources from previous runs
-  --clean_by_id               delete all the machines with the specifyed id
-  --cleanup                   delete all resources from azure env after the run
-  --upgrade                   path to an upgrade package
-  --rerun_upgrade             reruning the upgrade after the first upgrade
-  --server_ip                 existing server ip
-  --server_secret             existing server secret
-  --js_script                 js script to run after env is ready (receives server_name, server_ip server_secret arguments)
-  --shell_script              shell script to run after env is ready
-  --skip_agent_creation       do not create new agents
-  --skip_server_creation      do not create a new server, --server_ip and --server_secret must be supplied
-  --skip_configuration        do not create configuration 
-  --create_lg                 create lg
-  --lg_ip                     existing lg ip
-  --server_external_ip        running with the server external ip (default: internal)
-  --num_agents                number of agents to create, default is (default: ${num_agents})
-  --min_required_agents       min number of agents required to run the desired tests, will fail if could not create this number of agents
-  --min_required_agents       the minimum number of required agents (default: ${min_required_agents})
-  --vm_size                   vm size can be A (A2) or B (B2) (default: ${vm_size})
+  --help                        -   show this usage
+  --resource <resource-group>   -   the azure resource group to use
+  --storage <storage-account>   -   the azure storage account to use
+  --vnet <vnet>                 -   the azure virtual network to use
+  --name                        -   the vm name
+  --id                          -   run id - will be added to server name and agents
+  --clean_only                  -   only delete resources from previous runs
+  --clean_by_id                 -   delete all the machines with the specifyed id
+  --cleanup                     -   delete all resources from azure env after the run
+  --upgrade                     -   path to an upgrade package
+  --rerun_upgrade               -   reruning the upgrade after the first upgrade
+  --server_ip                   -   existing server ip
+  --server_secret               -   existing server secret
+  --js_script                   -   js script to run after env is ready (receives server_name, server_ip server_secret arguments)
+  --shell_script                -   shell script to run after env is ready
+  --skip_agent_creation         -   do not create new agents
+  --skip_server_creation        -   do not create a new server, --server_ip and --server_secret must be supplied
+  --skip_configuration          -   do not create configuration 
+  --create_lg                   -   create lg
+  --lg_ip                       -   existing lg ip
+  --server_external_ip          -   running with the server external ip (default: internal)
+  --num_agents                  -   number of agents to create, default is (default: ${num_agents})
+  --min_required_agents         -   min number of agents required to run the desired tests (default: ${
+      min_required_agents}), will fail if could not create this number of agents
+  --vm_size                     -   vm size can be A (A2) or B (B2) (default: ${vm_size})
+  --random_base_version         -   will create a randome version of base noobaa server
 `);
 }
 

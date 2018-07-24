@@ -35,7 +35,7 @@ const system = {
     activation_code: DEV_ACTIVATION_KEY
 };
 
-const NTP = 'pool.ntp.org';
+const NTP = 'time.windows.com';
 const TZ = 'Asia/Jerusalem';
 
 const blobSvc = azure_storage.createBlobService();
@@ -78,84 +78,56 @@ class AzureFunctions {
     }
 
     getImagesfromOSname(osname) {
-        var os = {
-            // Ubuntu 14 config - default
-            publisher: 'Canonical',
-            offer: 'UbuntuServer',
-            sku: '14.04.5-LTS',
-            version: 'latest',
-            osType: 'Linux',
-            hasImage: true
-        };
-        if (osname === 'ubuntu16') {
-            // Ubuntu 16 config
+        var os = {};
+        const ver = osname.replace(/[a-zA-Z]/g, '');
+        if (osname.includes('ubuntu')) {
             os.publisher = 'Canonical';
             os.offer = 'UbuntuServer';
-            os.sku = '16.04.0-LTS';
+            os.sku = ver + '.04.0-LTS';
             os.version = 'latest';
             os.osType = 'Linux';
             os.hasImage = true;
-        } else if (osname === 'ubuntu12') {
-            // Ubuntu 12 config
-            os.publisher = 'Canonical';
-            os.offer = 'UbuntuServer';
-            os.sku = '12.04.5-LTS';
-            os.version = 'latest';
-            os.osType = 'Linux';
-            os.hasImage = true;
-        } else if (osname === 'centos6') {
+            if (ver === '18') { //TODO: remove this statment when we build ubuntu18 image
+                os.hasImage = false;
+            }
+        } else if (osname.includes('centos')) {
             // Centos 6.8 config
             os.publisher = 'OpenLogic';
             os.offer = 'CentOS';
-            os.sku = '6.8';
+            if (ver === '6') {
+                os.sku = '6.8';
+            } else if (ver === '7') {
+                os.sku = '7.2';
+            }
             os.version = 'latest';
             os.osType = 'Linux';
             os.hasImage = true;
-        } else if (osname === 'centos7') {
-            // Centos 6.8 config
-            os.publisher = 'OpenLogic';
-            os.offer = 'CentOS';
-            os.sku = '7.2';
-            os.version = 'latest';
-            os.osType = 'Linux';
-            os.hasImage = true;
-        } else if (osname === 'redhat6') {
+        } else if (osname.includes('redhat')) {
             // RHEL 6.8 config
             os.publisher = 'RedHat';
             os.offer = 'RHEL';
-            os.sku = '6.8';
+            if (ver === '6') {
+                os.sku = '6.8';
+            } else if (ver === '7') {
+                os.sku = '7.2';
+            }
             os.version = 'latest';
             os.osType = 'Linux';
             os.hasImage = true;
-        } else if (osname === 'redhat7') {
-            // RHEL 7.2 config
-            os.publisher = 'RedHat';
-            os.offer = 'RHEL';
-            os.sku = '7.2';
-            os.version = 'latest';
-            os.osType = 'Linux';
-            os.hasImage = false;
-        } else if (osname === 'win2012') {
+            if (ver === '7') { //TODO: remove this statment when we build redhat7 image
+                os.hasImage = false;
+            }
+        } else if (osname.includes('win')) {
             // Windows 2012R2 config
             os.publisher = 'MicrosoftWindowsServer';
             os.offer = 'WindowsServer';
-            os.sku = '2012-R2-Datacenter';
-            os.version = 'latest';
-            os.osType = 'Windows';
-            os.hasImage = false;
-        } else if (osname === 'win2008') {
-            // Windows 2008R2 config
-            os.publisher = 'MicrosoftWindowsServer';
-            os.offer = 'WindowsServer';
-            os.sku = '2008-R2-SP1';
-            os.version = 'latest';
-            os.osType = 'Windows';
-            os.hasImage = false;
-        } else if (osname === 'win2016') {
-            // Windows 2016 config
-            os.publisher = 'MicrosoftWindowsServer';
-            os.offer = 'WindowsServer';
-            os.sku = '2016-Datacenter';
+            if (ver === '2012') {
+                os.sku = '2012-R2-Datacenter';
+            } else if (ver === '2008') {
+                os.sku = '2008-R2-SP1';
+            } else if (ver === '2016') {
+                os.sku = '2016-Datacenter';
+            }
             os.version = 'latest';
             os.osType = 'Windows';
             os.hasImage = false;

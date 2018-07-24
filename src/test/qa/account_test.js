@@ -24,10 +24,10 @@ const TEST_CFG_DEFAULTS = {
     bucket: 'first.bucket',
     emailSuffix: '@email.email',
     password: 'Password',
-    s3_access: true,
+    s3_access: true, //TODO: this is a bug, we will not ve able to change it (argv changes from false to true only)
     cycles: 15,
     accounts_number: 2,
-    to_delete: true,
+    skip_delete: false,
     skip_create: false
 };
 
@@ -56,13 +56,13 @@ function usage() {
     --s3_access         -   should we have s3 access (default: ${TEST_CFG_DEFAULTS.s3_access})
     --cycles            -   number of cycles (default: ${TEST_CFG_DEFAULTS.cycles})
     --accounts_number   -   number of accounts to create per cycle (default: ${TEST_CFG_DEFAULTS.accounts_number})
-    --to_delete         -   should we delete the accounts (default: ${TEST_CFG_DEFAULTS.to_delete})
+    --skip_delete       -   should we delete the accounts (default: ${TEST_CFG_DEFAULTS.skip_delete})
     --skip_create       -   Skip creating accounts (default: ${TEST_CFG_DEFAULTS.skip_create})
     --help              -   show this help
     `);
 }
 
-report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true});
+report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true });
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -146,7 +146,7 @@ async function create_account(has_login, account_name) {
         return accountData.email;
     } catch (err) {
         report.fail('create_account');
-        console.error('Deleting account with error: ', err);
+        console.error('Creating account Failed with error: ', err);
         throw err;
     }
 }
@@ -160,7 +160,7 @@ async function delete_account(email) {
         await report.success('delete_account');
     } catch (err) {
         report.fail('delete_account');
-        console.error('Deleting account with error: ', err);
+        console.error('Deleting account Failed with error: ', err);
         throw err;
     }
 }
@@ -175,7 +175,7 @@ async function regenerate_s3Access(email) {
         await report.success('regenerate_s3Access');
     } catch (err) {
         report.fail('regenerate_s3Access');
-        console.error('Regenerating account keys with error: ', err);
+        console.error('Regenerating account keys Failed with error: ', err);
         throw err;
     }
 }
@@ -193,7 +193,7 @@ async function edit_s3Access(email, s3_access) {
         await report.success('edit_s3Access');
     } catch (err) {
         report.fail('edit_s3Access');
-        console.error('Editing access with error: ', err);
+        console.error('Editing access Failed with error: ', err);
         throw err;
     }
 }
@@ -217,7 +217,7 @@ async function edit_bucket_creation(email, allow_bucket_creation) {
         await report.success('edit_bucket_creation');
     } catch (err) {
         report.fail('edit_bucket_creation');
-        console.error('Editing access with error: ', err);
+        console.error('Editing access Failed with error: ', err);
         throw err;
     }
 }
@@ -236,7 +236,7 @@ async function check_bucket_creation_premissions(email) {
             await s3ops.create_bucket(TEST_CFG.server_ip, 'shouldfail');
             throw new Error(`Create bucket should have failed`);
         } catch (e) {
-            console.log(`creating bucket failed, as should`);
+            console.log(`Creating bucket failed, as should`);
         }
     }
     await edit_bucket_creation(email, true);
@@ -312,7 +312,7 @@ async function reset_password(email) {
         await report.success('reset_password');
     } catch (err) {
         report.fail('reset_password');
-        console.error('Resetting password with error: ', err);
+        console.error('Resetting password Failed with error: ', err);
         throw err;
     }
     await rpc.disconnect_all();
@@ -376,13 +376,13 @@ async function checkAccountFeatures() {
     await reset_password(newAccount);
     await login_user(newAccount);
     await P.delay(10 * 1000);
-    if (TEST_CFG.to_delete === true) {
+    if (TEST_CFG.skip_delete) {
+        console.log('Deleting skipped');
+    } else {
         await login_user('demo@noobaa.com');
         await delete_account(newAccount);
         await P.delay(10 * 1000);
         await verify_account_in_system(newAccount, false);
-    } else {
-        console.log('Deleting skipped');
     }
 }
 
@@ -399,12 +399,14 @@ async function create_delete_accounts(cycle_num, count) {
         console.log(`Created account is ${newAccount} with access s3 ${TEST_CFG.s3_access}`);
         await verify_account_in_system(newAccount, true);
         await P.delay(10 * 1000);
-        if (TEST_CFG.to_delete === true) {
+        if (TEST_CFG.skip_delete) {
+            if (account_num === 1) {
+                console.log('Deleting skipped');
+            }
+        } else {
             await delete_account(newAccount);
             await P.delay(10 * 1000);
             await verify_account_in_system(newAccount, false);
-        } else {
-            console.log('Deleting skipped');
         }
     }
 }
@@ -419,12 +421,12 @@ async function main() {
             await login_user('demo@noobaa.com');
             await create_delete_accounts(cycle, TEST_CFG.accounts_number);
             await P.delay(10 * 1000);
-            await rpc.disconnect_all();
         } catch (err) {
             console.error('something went wrong ' + err + errors);
             failures_in_test = true;
         }
     }
+    await rpc.disconnect_all();
     await report.report();
     if (failures_in_test) {
         console.error('Errors during account test ' + errors);

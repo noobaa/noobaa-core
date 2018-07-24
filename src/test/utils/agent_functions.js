@@ -24,7 +24,7 @@ const NC = "\x1b[0m";
 
 function supported_oses(flavor) {
     const LINUX_FLAVORS = [
-        'ubuntu12', 'ubuntu14', 'ubuntu16',
+        'ubuntu12', 'ubuntu14', 'ubuntu16', 'ubuntu18',
         'centos6', 'centos7',
         'redhat6', 'redhat7'
     ];

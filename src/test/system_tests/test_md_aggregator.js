@@ -110,7 +110,7 @@ function init_system_to_ntp() {
     return P.resolve()
         .then(() => client.cluster_server.update_time_config({
                 timezone: "Asia/Jerusalem",
-                ntp_server: 'pool.ntp.org'
+                ntp_server: 'time.windows.com'
             })
             .then(() => {
                 console.log('update_time_config updated to ntp');

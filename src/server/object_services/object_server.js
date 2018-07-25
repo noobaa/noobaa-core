@@ -27,6 +27,7 @@ const cloud_utils = require('../../util/cloud_utils');
 const system_utils = require('../utils/system_utils');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
+const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
 const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
 const events_dispatcher = require('./events_dispatcher');
 
@@ -182,28 +183,25 @@ async function complete_object_upload(req) {
 function update_bucket_write_counters(req) {
     const bucket = req.system.buckets_by_name[req.rpc_params.bucket];
     if (!bucket) return;
-    system_store.make_changes_in_background({
-        update: {
-            buckets: [{
-                _id: bucket._id,
-                $inc: { 'stats.writes': 1 },
-                $set: { 'stats.last_write': new Date() },
-            }]
-        }
+    const content_type = req.rpc_params.content_type;
+
+    BucketStatsStore.instance().update_bucket_counters({
+        system: req.system._id,
+        bucket: bucket._id,
+        write_count: 1,
+        content_type
     });
 }
 
 function update_bucket_read_counters(req) {
     const bucket = req.system.buckets_by_name[req.rpc_params.bucket];
+    const content_type = req.rpc_params.content_type;
     if (!bucket) return;
-    system_store.make_changes_in_background({
-        update: {
-            buckets: [{
-                _id: bucket._id,
-                $inc: { 'stats.reads': 1 },
-                $set: { 'stats.last_read': new Date() },
-            }]
-        }
+    BucketStatsStore.instance().update_bucket_counters({
+        system: req.system._id,
+        bucket: bucket._id,
+        read_count: 1,
+        content_type
     });
 }
 

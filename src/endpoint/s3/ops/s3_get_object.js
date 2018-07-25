@@ -18,6 +18,7 @@ async function get_object(req, res) {
         md_conditions: http_utils.get_md_conditions(req),
     });
 
+
     s3_utils.set_response_object_md(res, object_md);
     const obj_size = object_md.size;
     const params = {
@@ -25,6 +26,7 @@ async function get_object(req, res) {
         obj_id: object_md.obj_id,
         bucket: req.params.bucket,
         key: req.params.key,
+        content_type: object_md.content_type
     };
 
     try {

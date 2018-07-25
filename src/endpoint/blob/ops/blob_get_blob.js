@@ -35,6 +35,7 @@ async function get_blob(req, res) {
         obj_id: object_md.obj_id,
         bucket: req.params.bucket,
         key: req.params.key,
+        content_type: object_md.content_type
     };
 
     try {

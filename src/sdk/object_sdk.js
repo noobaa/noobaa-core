@@ -282,7 +282,7 @@ class ObjectSDK {
         const ns = await this._get_bucket_namespace(params.bucket);
         const reply = await ns.read_object_stream(params, this);
         // update counters in background
-        this.rpc_client.object.update_bucket_read_counters({ bucket: params.bucket });
+        this.rpc_client.object.update_bucket_read_counters({ bucket: params.bucket, content_type: params.content_type });
         return reply;
     }
 
@@ -331,7 +331,7 @@ class ObjectSDK {
         if (params.copy_source) await this.fix_copy_source_params(params, ns);
         const reply = await ns.upload_object(params, this);
         // update counters in background
-        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket });
+        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket, content_type: params.content_type });
         return reply;
     }
 
@@ -359,7 +359,7 @@ class ObjectSDK {
         const ns = await this._get_bucket_namespace(params.bucket);
         const reply = await ns.complete_object_upload(params, this);
         // update counters in background
-        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket });
+        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket, content_type: params.content_type });
         return reply;
     }
 

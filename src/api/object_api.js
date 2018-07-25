@@ -1168,6 +1168,9 @@ module.exports = {
                 properties: {
                     bucket: {
                         type: 'string'
+                    },
+                    content_type: {
+                        type: 'string'
                     }
                 }
             },
@@ -1183,6 +1186,9 @@ module.exports = {
                 required: ['bucket'],
                 properties: {
                     bucket: {
+                        type: 'string'
+                    },
+                    content_type: {
                         type: 'string'
                     }
                 }

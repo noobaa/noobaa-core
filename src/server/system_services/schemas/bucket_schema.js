@@ -236,24 +236,5 @@ module.exports = {
                 }
             }
         },
-        stats: {
-            type: 'object',
-            // required: [],
-            properties: {
-                reads: {
-                    type: 'integer',
-                },
-                writes: {
-                    type: 'integer',
-                },
-                last_read: {
-                    idate: true
-                },
-                last_write: {
-                    idate: true
-                }
-            }
-        },
-
     }
 };

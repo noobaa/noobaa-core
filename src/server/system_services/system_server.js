@@ -22,6 +22,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
+const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const ph_utils = require('../../util/phone_home');
@@ -441,7 +442,9 @@ function read_system(req) {
                 auth_token: req.auth_token,
                 domain: 'default'
             }))
-            .then(res => res.functions)
+            .then(res => res.functions),
+
+        buckets_stats: BucketStatsStore.instance().get_all_buckets_stats({ system: system._id })
 
     }).then(({
         nodes_aggregate_pool_no_cloud_and_mongo,
@@ -454,7 +457,8 @@ function read_system(req) {
         aggregate_data_free_by_tier,
         deletable_buckets,
         rs_status,
-        funcs
+        funcs,
+        buckets_stats
     }) => {
         const cluster_info = cutil.get_cluster_info(rs_status);
         const objects_sys = {
@@ -511,6 +515,8 @@ function read_system(req) {
             last_initiator_email: system.last_upgrade.initiator
         };
 
+        const stats_by_bucket = _.keyBy(buckets_stats, stats => _.get(system_store.data.get_by_id(stats._id), 'name'));
+
         const response = {
             name: system.name,
             objects: objects_sys.count.toJSNumber(),
@@ -532,6 +538,13 @@ function read_system(req) {
                         num_of_objects: obj_count_per_bucket[bucket._id] || 0,
                         func_configs
                     });
+                    const bucket_stats = stats_by_bucket[bucket.name] || {};
+                    b.stats = {
+                        reads: bucket_stats.total_reads || 0,
+                        writes: bucket_stats.total_writes || 0,
+                        last_read: bucket_stats.last_read || 0,
+                        last_write: bucket_stats.last_write || 0,
+                    };
                     if (deletable_buckets[bucket.name]) {
                         b.undeletable = deletable_buckets[bucket.name];
                     }

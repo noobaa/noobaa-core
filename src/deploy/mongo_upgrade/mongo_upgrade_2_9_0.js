@@ -14,5 +14,14 @@ function update_usage_report_fields() {
     });
 }
 
+function unset_bucket_stats() {
+    db.buckets.updateMany({}, {
+        $unset: {
+            stats: 1
+        }
+    });
+}
+
 
 update_usage_report_fields();
+unset_bucket_stats();

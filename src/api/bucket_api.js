@@ -263,6 +263,47 @@ module.exports = {
             }
         },
 
+        get_buckets_stats_by_content_type: {
+            method: 'GET',
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        name: {
+                            type: 'string'
+                        },
+                        stats: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    content_type: {
+                                        type: 'string'
+                                    },
+                                    reads: {
+                                        type: 'integer',
+                                    },
+                                    writes: {
+                                        type: 'integer',
+                                    },
+                                    last_read: {
+                                        idate: true
+                                    },
+                                    last_write: {
+                                        idate: true
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_objects_size_histogram: {
             method: 'GET',
             reply: {

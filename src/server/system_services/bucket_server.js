@@ -13,6 +13,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
+const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
 const fs_utils = require('../../util/fs_utils');
 const js_utils = require('../../util/js_utils');
 const { RpcError } = require('../../rpc');
@@ -79,10 +80,6 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
             objects_count: 0,
             objects_hist: [],
             last_update: now - (2 * config.MD_GRACE_IN_MILLISECONDS)
-        },
-        stats: {
-            reads: 0,
-            writes: 0,
         },
         lambda_triggers: [],
         versioning: 'DISABLED'
@@ -800,6 +797,14 @@ function get_objects_size_histogram(req) {
     }));
 }
 
+async function get_buckets_stats_by_content_type(req) {
+    const stats = await BucketStatsStore.instance().get_all_buckets_stats({ system: req.system._id });
+    return stats.map(bucket_stats => ({
+        name: system_store.data.get_by_id(bucket_stats._id).name,
+        stats: bucket_stats.stats
+    }));
+}
+
 
 /**
  *
@@ -1137,23 +1142,6 @@ function get_bucket_info({
             });
         }
     });
-
-    const stats = bucket.stats;
-    const last_read = (stats && stats.last_read) ?
-        new Date(bucket.stats.last_read).getTime() :
-        undefined;
-    const last_write = (stats && stats.last_write) ?
-        new Date(bucket.stats.last_write).getTime() :
-        undefined;
-    const reads = (stats && stats.reads) ? stats.reads : undefined;
-    const writes = (stats && stats.writes) ? stats.writes : undefined;
-
-    info.stats = {
-        reads: reads,
-        writes: writes,
-        last_read: last_read,
-        last_write: last_write
-    };
 
     if (!bucket.namespace) {
         info.policy_modes = {
@@ -1528,6 +1516,7 @@ exports.get_cloud_buckets = get_cloud_buckets;
 exports.export_bucket_bandwidth_usage = export_bucket_bandwidth_usage;
 exports.get_bucket_throughput_usage = get_bucket_throughput_usage;
 exports.get_objects_size_histogram = get_objects_size_histogram;
+exports.get_buckets_stats_by_content_type = get_buckets_stats_by_content_type;
 //Triggers
 exports.add_bucket_lambda_trigger = add_bucket_lambda_trigger;
 exports.update_bucket_lambda_trigger = update_bucket_lambda_trigger;

@@ -4,10 +4,10 @@
 const api = require('../../api');
 const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
-const Report = require('../framework/report');
 const af = require('../utils/agent_functions');
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
+const Report = require('../framework/report');
 const AzureFunctions = require('../../deploy/azureFunctions');
 const { BucketFunctions } = require('../utils/bucket_functions');
 const { CloudFunction } = require('../utils/cloud_functions');
@@ -75,6 +75,11 @@ let report = new Report();
 let bf = new BucketFunctions(client, report);
 const cf = new CloudFunction(client, report);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
+report.init_reporter({
+    suite: 'spillover_test',
+    conf: { agents_number: agents_number, failed_agents_number: failed_agents_number },
+    mongo_report: true
+});
 
 let osesSet = af.supported_oses();
 
@@ -156,10 +161,12 @@ async function test_failed_upload(dataset_size) {
     const file_name = `file_over_${file_size}_${timeStemp}`;
     try {
         await s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier);
+        report.success('fail ul over quota');
     } catch (error) { //When we get to the quota the writes should start failing
         console.log('Tring to upload pass the quota failed - as should');
         return;
     }
+    report.fail('fail ul over quota');
     throw new Error(`We should have failed uploading pass the quota`);
 }
 
@@ -272,10 +279,18 @@ async function check_internal_spillover_without_agents() {
        enable spillover and see that the files are written into the internal storage */
     try {
         await createBucketWithEnabledSpillover();
+        report.success('create bucket with spillover');
         await bf.checkIsSpilloverHasStatus(bucket, true);
+    } catch (e) {
+        report.fail('create bucket with spillover');
+        throw new Error(`Failed to write on internal spillover: ${e}`);
+    }
+    try {
         await s3ops.put_file_with_md5(server_ip, bucket, 'spillover_file', 10, data_multiplier);
         await checkFileInPool('spillover_file', 'system-internal-storage-pool');
+        report.success('write to spillover no agents');
     } catch (e) {
+        report.fail('write to spillover no agents');
         throw new Error(`Failed to write on internal spillover: ${e}`);
     }
 }
@@ -301,10 +316,18 @@ async function add_agents_and_check_evacuation() {
     try {
         //Add pool with resources to the bucket and see that all the files are moving from the internal storage to the pool (pullback)
         await af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet);
+        report.success('creating agents');
+    } catch (e) {
+        report.fail('creating agents');
+        throw new Error(`Evacuation from the spillover failed: ${e}`);
+    }
+    try {
         await createHealthyPool();
         await bf.editBucketDataPlacement(healthy_pool, bucket, 'SPREAD');
         await check_file_evacuation('spillover_file', healthy_pool);
+        report.success('spillback');
     } catch (e) {
+        report.fail('spillback');
         throw new Error(`Evacuation from the spillover failed: ${e}`);
     }
 }
@@ -389,8 +412,14 @@ async function upload_and_check_evacuation() {
         await uploadFiles(1024, spillover_files);
         await checkFileInPool(spillover_files[0], 'system-internal-storage-pool');
         await clean_files_from_bucket(false, healthy_pool, 1024);
-        for (const file of spillover_files) {
-            await check_file_evacuation(file, healthy_pool);
+        try {
+            for (const file of spillover_files) {
+                await check_file_evacuation(file, healthy_pool);
+                report.success('spillback on free space');
+            }
+        } catch (e) {
+            report.fail('spillback on free space');
+            throw e;
         }
     }
 }
@@ -445,6 +474,7 @@ async function check_quota_on_spillover() {
 
 async function disable_spillover_and_check() {
     for (let count = 0; count < 5; count++) {
+        //Fill bucket 
         const free_space = await bf.checkFreeSpace(bucket);
         if (free_space !== 0) {
             const uploadSizeMB = Math.floor(free_space / 1024 / 1024);
@@ -452,17 +482,30 @@ async function disable_spillover_and_check() {
         }
         const keys = await get_files_in_array();
         let spillover_files = await list_files_in_a_pool(keys, 'system-internal-storage-pool');
+        //upload files into spillover if none exists
         if (spillover_files.length === 0) {
             await uploadFiles(1024, over_files);
         }
-        //TODO: write some files into the spillover
+        //Disable spillover
         await bf.setSpillover(bucket, null);
-        await test_failed_upload(1024);
+        try {
+            await test_failed_upload(1024);
+            report.success('fail on no space and no spillover');
+        } catch (e) {
+            report.fail('fail on no space and no spillover');
+            throw e;
+        }
         spillover_files = await list_files_in_a_pool(keys, 'system-internal-storage-pool');
         const size = await aggregated_file_size(spillover_files, 10 * 1024 * 1024 * 1024, true); //making sure we get all files.
         await clean_files_from_bucket(true, healthy_pool, size);
-        for (const file of spillover_files) {
-            await checkFileInPool(file, healthy_pool);
+        try {
+            for (const file of spillover_files) {
+                await checkFileInPool(file, healthy_pool);
+            }
+            report.success('spillback of files');
+        } catch (err) {
+            report.fail('spillback of files');
+            throw err;
         }
     }
 }
@@ -472,8 +515,14 @@ async function disable_quota_and_check() {
     await P.delay(10 * 1000); //delay to get pool cool down
     //Continue to write and see that the writes pass
     await uploadFiles(500, over_files);
-    for (const file of over_files) {
-        await checkFileInPool(file, 'system-internal-storage-pool');
+    try {
+        for (const file of over_files) {
+            await checkFileInPool(file, 'system-internal-storage-pool');
+            report.success('ul over pool capacity');
+        }
+    } catch (e) {
+        report.fail('ul over pool capacity');
+        throw e;
     }
 }
 
@@ -501,6 +550,7 @@ async function main() {
         /* TODO: 1. change the spillover to cloud
                  2. repeate the steps above
          */
+        await report.report();
         if (failures_in_test) {
             console.error('Errors during spillover test ' + errors);
             process.exit(1);

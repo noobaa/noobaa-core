@@ -271,6 +271,9 @@ module.exports = {
                 },
             }
         },
+        ip_collision: {
+            type: 'boolean'
+        },
         services_status: {
             type: 'object',
             required: ['ph_status'],

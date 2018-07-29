@@ -858,6 +858,9 @@ module.exports = {
                 vmtools_installed: {
                     type: 'boolean'
                 },
+                ip_collision: {
+                    type: 'boolean'
+                },
                 services_status: {
                     $ref: '#/definitions/services_status'
                 },

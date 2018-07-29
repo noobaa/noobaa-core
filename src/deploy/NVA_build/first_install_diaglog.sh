@@ -27,6 +27,12 @@ function validate_mask() {
   grep -E -q '^(254|252|248|240|224|192|128)\.0\.0\.0|255\.(254|252|248|240|224|192|128|0)\.0\.0|255\.255\.(254|252|248|240|224|192|128|0)\.0|255\.255\.255\.(254|252|248|240|224|192|128|0)' <<< "$1" && return 0 || return 1
 }
 
+function check_not_dup() {
+  local interface=${1}
+  local ip=${2}
+  arping -D -I ${interface} -c 2 ${ip} &> /dev/null
+}
+
 function configure_interface_ip() {
     local interface=$1
     local current_ip=$(ifconfig ${interface} | grep -w 'inet' | awk '{print $2}')
@@ -55,8 +61,16 @@ function configure_interface_ip() {
       local ok_mask=$?
       ipcalc -cs ${gw}
       local ok_gw=$?
+      check_not_dup ${interface} ${ip} 
+      local no_dup=$?
+      if [ "${no_dup}" -ne "0" ]; then
+        dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --defaultno --yesno "The address is a duplicate address, are you sure you want to continue?" 6 40
+        if [ $? -eq 0 ]; then
+          no_dup=0
+        fi
+      fi
 
-      while [ "${ok_ip}" -ne "0" ] || [ "${ok_mask}" -ne "0" ] || [ "${ok_gw}" -ne "0" ]; do
+      while [ "${ok_ip}" -ne "0" ] || [ "${ok_mask}" -ne "0" ] || [ "${ok_gw}" -ne "0" ] || [ "${no_dup}" -ne "0" ]; do
         dialog --colors --nocancel --backtitle "NooBaa First Install" --title "IP Configuration" --form "\Z1The Provided IP, Netmask or GW are not valid\Zn\n\nPlease enter the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis IP address should be associated with noobaa.local in the DNS (Use \Z4\ZbUp/Down\Zn to navigate)." 12 70 4 "IP Address:" 1 1 "${ip}" 1 25 25 30 "Netmask:" 2 1 "${mask}" 2 25 25 30 "Default Gateway:" 3 1 "${gw}" 3 25 25 30 2> answer_ip
 
         ip=$(head -1 answer_ip)
@@ -68,6 +82,14 @@ function configure_interface_ip() {
         ok_mask=$?
         ipcalc -cs ${gw}
         ok_gw=$?
+        check_not_dup ${interface} ${ip} 
+        no_dup=$?
+        if [ "${no_dup}" -ne "0" ]; then
+          dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --defaultno --yesno "The address is a duplicate address, are you sure you want to continue?" 6 40
+          if [ $? -eq 0 ]; then
+           no_dup=0
+         fi
+        fi
       done
 
       dialog --colors --backtitle "NooBaa First Install" --infobox "Configuring \Z5\ZbNooBaa\Zn IP..." 4 28 ; sleep 2

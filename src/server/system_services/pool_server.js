@@ -555,6 +555,7 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         // and does not consider number of replicas like in tier
         storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS),
         region: pool.region,
+        create_time: pool._id.getTimestamp().getTime()
     };
     info.data_activities = {
         activities: p_nodes.data_activities || [],
@@ -565,7 +566,9 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
             endpoint: pool.cloud_pool_info.endpoint,
             endpoint_type: pool.cloud_pool_info.endpoint_type || 'AWS',
             target_bucket: pool.cloud_pool_info.target_bucket,
-            auth_method: pool.cloud_pool_info.auth_method
+            auth_method: pool.cloud_pool_info.auth_method,
+            created_by: pool.cloud_pool_info.access_keys.account_id.email,
+            node_name: 'noobaa-internal-agent-' + String(pool._id),
         }, _.isUndefined);
         info.undeletable = check_resrouce_pool_deletion(pool);
         info.mode = calc_cloud_pool_mode(p_nodes);

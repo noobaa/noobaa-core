@@ -502,6 +502,12 @@ module.exports = {
                         },
                         auth_method: {
                             $ref: 'common_api#/definitions/cloud_auth_method'
+                        },
+                        created_by: {
+                            type: 'string'
+                        },
+                        node_name: {
+                            type: 'string'
                         }
                     }
                 },
@@ -528,6 +534,9 @@ module.exports = {
                 region: {
                     type: 'string'
                 },
+                create_time: {
+                    idate: true
+                }
             },
         },
 

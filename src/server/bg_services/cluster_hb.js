@@ -35,7 +35,7 @@ function do_heartbeat({ skip_server_monitor } = {}) {
             time: Date.now(),
             health: {
                 usage: 0
-            }
+            },
         };
         return P.resolve()
             .then(() => os_utils.os_info(true)
@@ -99,7 +99,8 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                     })
                     .then(status => {
                         if (status) {
-                            update.services_status = status;
+                            update.services_status = status.services;
+                            update.ip_collision = status.ip_collision;
                         }
                         return system_store.make_changes({
                             update: {

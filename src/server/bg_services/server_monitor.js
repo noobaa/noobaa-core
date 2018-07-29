@@ -26,6 +26,7 @@ const dotenv = require('../../util/dotenv');
 
 let server_conf = {};
 let monitoring_status = {};
+let ip_collision = false;
 
 if (!process.env.PLATFORM) {
     console.log('loading .env file...');
@@ -62,9 +63,13 @@ function run() {
         .then(() => _check_internal_ips())
         .then(() => _check_network_configuration())
         .then(() => _check_disk_space())
+        .then(() => _check_for_duplicate_ips())
         .then(() => {
             dbg.log0('SERVER_MONITOR: END. status:', monitoring_status);
-            return monitoring_status;
+            return {
+                services: monitoring_status,
+                ip_collision
+            };
         });
 }
 
@@ -287,7 +292,7 @@ function _check_dns_and_phonehome() {
                     break;
                 case "CANNOT_REACH_DNS_SERVER":
                     monitoring_status.dns_status = "UNREACHABLE";
-                    Dispatcher.instance().alert('MAJOR',
+                    Dispatcher.instance().alert('CRIT',
                         system_store.data.systems[0]._id,
                         `DNS server/s could not be reached, check DNS server configuration or connectivity`,
                         Dispatcher.rules.once_daily);
@@ -336,6 +341,33 @@ function _check_network_configuration() {
         })
         .then(() => fs_utils.replace_file('/etc/noobaa_network', data))
         .catch(err => dbg.error(`_check_network_configuration caught ${err}`));
+}
+
+function _check_for_duplicate_ips() {
+    dbg.log2('check_for_duplicate_ips');
+    if (os.type() !== 'Linux') return;
+    const nics = _.toPairs(_.omit(os.networkInterfaces(), 'lo'));
+    return P.map(nics, nic => {
+        const inter_name = nic[0];
+        const nic_info = nic[1];
+        return P.map(nic_info, ip => {
+            if (ip.family === 'IPv4') {
+                return promise_utils.exec(`arping -D -I ${inter_name} -c 2 ${ip.address}`, {
+                        ignore_rc: false,
+                        return_stdout: true
+                    })
+                    .then(result => dbg.log2(`No duplicate address was found for ip ${ip.address} of interface ${inter_name}`, 'result:', result))
+                    .catch(() => {
+                        ip_collision = true;
+                        Dispatcher.instance().alert('CRIT',
+                            system_store.data.systems[0]._id,
+                            `Duplicate address was found! IP: ${ip.address} ,Interface: ${inter_name}, Server: ${server_conf.heartbeat.health.os_info.hostname}
+                            ,please fix this issue as soon as possible`, Dispatcher.rules.once_daily);
+                        dbg.error(`Duplicate address was found for ip ${ip.address} of interface ${inter_name}`);
+                    });
+            }
+        });
+    });
 }
 
 function _check_proxy_configuration() {
@@ -394,7 +426,7 @@ function _check_is_self_in_dns_table() {
                 monitoring_status.dns_name = "OPERATIONAL";
             } else {
                 monitoring_status.dns_name = "FAULTY";
-                Dispatcher.instance().alert('MAJOR',
+                Dispatcher.instance().alert('CRIT',
                     system_store.data.systems[0]._id,
                     `Server DNS name ${system_dns} does not point to this server's IP`,
                     Dispatcher.rules.once_daily);
@@ -402,7 +434,7 @@ function _check_is_self_in_dns_table() {
         })
         .catch(err => {
             monitoring_status.dns_name = "UNKNOWN";
-            Dispatcher.instance().alert('MAJOR',
+            Dispatcher.instance().alert('CRIT',
                 system_store.data.systems[0]._id,
                 `Server DNS name ${system_dns} could not be resolved`,
                 Dispatcher.rules.once_daily);

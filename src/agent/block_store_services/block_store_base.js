@@ -13,7 +13,7 @@ const KeysLock = require('../../util/keys_lock');
 const time_utils = require('../../util/time_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 
-function _new_stats() {
+function _new_monitring_stats() {
     return {
         inflight_reads: 0,
         max_inflight_reads: 0,
@@ -42,7 +42,9 @@ class BlockStoreBase {
             load: async block_md => this._read_block_and_verify(block_md),
         });
 
-        this.stats = _new_stats();
+        this.monitoring_stats = _new_monitring_stats();
+
+        this.io_stats = this._new_io_stats();
 
         // BLOCK STORE API methods - bind to self
         // (rpc registration requires bound functions)
@@ -56,6 +58,15 @@ class BlockStoreBase {
             'handle_delegator_error',
             'verify_blocks'
         ]);
+    }
+
+    _new_io_stats() {
+        return {
+            read_count: 0,
+            write_count: 0,
+            read_bytes: 0,
+            write_bytes: 0
+        };
     }
 
     delegate_read_block(req) {
@@ -85,29 +96,56 @@ class BlockStoreBase {
         throw new Error('this block store does not delegate');
     }
 
+
+
+    _update_read_stats(size, is_err) {
+        if (is_err) {
+            this.io_stats.read_count -= 1;
+            this.io_stats.read_bytes -= size;
+            this.io_stats.error_read_count += 1;
+            this.io_stats.error_read_bytes += size;
+        } else {
+            this.io_stats.read_count += 1;
+            this.io_stats.read_bytes += size;
+        }
+    }
+
+    _update_write_stats(size, is_err) {
+        if (is_err) {
+            this.io_stats.write_count -= 1;
+            this.io_stats.write_bytes -= size;
+            this.io_stats.error_write_count += 1;
+            this.io_stats.error_write_bytes += size;
+        } else {
+            this.io_stats.write_count += 1;
+            this.io_stats.write_bytes += size;
+        }
+    }
+
     async read_block(req) {
         const block_md = req.rpc_params.block_md;
         dbg.log1('read_block', block_md.id, 'node', this.node_name);
         // must clone before returning to rpc encoding
         // since it mutates the object for encoding buffers
-        this.stats.inflight_reads += 1;
-        this.stats.max_inflight_reads = Math.max(this.stats.inflight_reads, this.stats.max_inflight_reads);
+        this.monitoring_stats.inflight_reads += 1;
+        this.monitoring_stats.max_inflight_reads = Math.max(this.monitoring_stats.inflight_reads, this.monitoring_stats.max_inflight_reads);
         try {
             const start = time_utils.millistamp();
             const block = await this.block_cache.get_with_cache(block_md);
-            this.stats.read_count += 1;
-            this.stats.total_read_latency += time_utils.millistamp() - start;
+            this.monitoring_stats.read_count += 1;
+            this.monitoring_stats.total_read_latency += time_utils.millistamp() - start;
             return {
                 block_md,
                 [RPC_BUFFERS]: { data: block.data }
             };
         } finally {
-            this.stats.inflight_reads -= 1;
+            this.monitoring_stats.inflight_reads -= 1;
         }
     }
 
     async _read_block_and_verify(block_md) {
         const block = await this._read_block(block_md);
+        this._update_read_stats(block.data.length);
         this._verify_block(block_md, block.data, block.block_md);
         return block;
     }
@@ -142,7 +180,9 @@ class BlockStoreBase {
     }
 
     async _read_block_md(block_md) {
-        return this._read_block(block_md);
+        const block = this._read_block(block_md);
+        if (block.data) this._update_read_stats(block.data.length);
+        return block;
     }
 
     async write_block(req) {
@@ -159,27 +199,37 @@ class BlockStoreBase {
         }
         this._verify_block(block_md, data);
         this.block_cache.invalidate(block_md);
-        this.stats.inflight_writes += 1;
-        this.stats.max_inflight_writes = Math.max(this.stats.inflight_writes, this.stats.max_inflight_writes);
+        this.monitoring_stats.inflight_writes += 1;
+        this.monitoring_stats.max_inflight_writes = Math.max(
+            this.monitoring_stats.inflight_writes,
+            this.monitoring_stats.max_inflight_writes
+        );
         try {
             const start = time_utils.millistamp();
             await this.block_modify_lock.surround_keys([String(block_md.id)], async () => {
                 await this._write_block(block_md, data);
                 this.block_cache.put_in_cache(block_md, { block_md, data });
             });
-            this.stats.write_count += 1;
-            this.stats.total_write_latency += time_utils.millistamp() - start;
+            this.monitoring_stats.write_count += 1;
+            this._update_write_stats(data.length);
+            this.monitoring_stats.total_write_latency += time_utils.millistamp() - start;
         } finally {
-            this.stats.inflight_writes -= 1;
+            this.monitoring_stats.inflight_writes -= 1;
         }
     }
 
     sample_stats() {
-        const old_stats = this.stats;
+        const old_stats = this.monitoring_stats;
         // zero all but the inflight
-        this.stats = _.defaults(_.pick(old_stats, ['inflight_reads', 'inflight_writes']), _new_stats());
+        this.monitoring_stats = _.defaults(_.pick(old_stats, ['inflight_reads', 'inflight_writes']), _new_monitring_stats());
         old_stats.avg_read_latency = old_stats.total_read_latency / old_stats.read_count;
         old_stats.avg_write_latency = old_stats.total_write_latency / old_stats.write_count;
+        return old_stats;
+    }
+
+    get_and_reset_io_stats() {
+        const old_stats = this.io_stats;
+        this.io_stats = this._new_io_stats();
         return old_stats;
     }
 
@@ -195,6 +245,7 @@ class BlockStoreBase {
             address: source_md.address,
         });
         await this._write_block(target_md, res[RPC_BUFFERS].data);
+        this._update_write_stats(res[RPC_BUFFERS].data.length);
     }
 
     async delete_blocks(req) {
@@ -245,7 +296,7 @@ class BlockStoreBase {
     }
 
     handle_delegator_error(req) {
-        return this._handle_delegator_error(req.rpc_params.error, req.rpc_params.usage);
+        return this._handle_delegator_error(req.rpc_params.error, req.rpc_params.usage, req.rpc_params.op_type);
     }
 
     _update_usage(usage) {
@@ -294,9 +345,11 @@ class BlockStoreBase {
         };
         reply.write = await test_average_latency(count, delay_ms, async () => {
             await this._write_block(block_md, data, { ignore_usage: true });
+            this._update_write_stats(data.length);
         });
         reply.read = await test_average_latency(count, delay_ms, async () => {
             const block = await this._read_block(block_md);
+            if (block.data) this._update_read_stats(block.data.length);
             this._verify_block(block_md, block.data, block.block_md);
             if (!data.equals(block.data)) throw new Error('test_store_perf: unexpected data on read');
         });

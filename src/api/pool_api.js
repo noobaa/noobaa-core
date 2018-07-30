@@ -473,6 +473,23 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
+                io_stats: {
+                    type: 'object',
+                    properties: {
+                        read_count: {
+                            type: 'integer'
+                        },
+                        write_count: {
+                            type: 'integer'
+                        },
+                        read_bytes: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        write_bytes: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                    }
+                },
                 undeletable: {
                     $ref: 'common_api#/definitions/undeletable_enum'
                 },

@@ -59,6 +59,8 @@ class BlockStoreAzure extends BlockStoreBase {
     _delegate_read_block(block_md) {
         const block_key = this._block_key(block_md.id);
 
+        this._update_read_stats(block_md.size);
+
         return {
             host: this.blob.host,
             container: this.container_name,
@@ -122,6 +124,8 @@ class BlockStoreAzure extends BlockStoreBase {
         if (data_length) {
             this._update_usage(usage);
         }
+        this._update_write_stats(usage.size);
+
         return {
             host: this.blob.host,
             container: this.container_name,
@@ -222,9 +226,14 @@ class BlockStoreAzure extends BlockStoreBase {
             }));
     }
 
-    _handle_delegator_error(err, usage) {
+    _handle_delegator_error(err, usage, op_type) {
         if (usage) {
-            this._update_usage({ size: -usage.size, count: -usage.count });
+            if (op_type === 'WRITE') {
+                this._update_usage({ size: -usage.size, count: -usage.count });
+                this._update_write_stats(usage.size, /*is_err =*/ true);
+            } else if (op_type === 'READ') {
+                this._update_read_stats(usage.size, /*is_err =*/ true);
+            }
         }
         dbg.error('BlockStoreAzure operation failed:',
             this.container_name, err.code, err);

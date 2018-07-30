@@ -6,6 +6,9 @@ module.exports = {
     type: 'object',
     required: ['system', 's3_usage_info', 's3_errors_info'],
     properties: {
+        _id: {
+            objectid: true
+        },
         system: {
             objectid: true
         },

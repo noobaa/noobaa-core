@@ -67,20 +67,11 @@ function list_nodes(req) {
     return monitor.list_nodes(query, options);
 }
 
-function aggregate_nodes(req) {
+async function aggregate_nodes(req) {
     const query = _prepare_nodes_query(req);
     const res = req.rpc_params.aggregate_hosts ?
         monitor.aggregate_hosts(query, req.rpc_params.group_by) :
-        monitor.aggregate_nodes(query, req.rpc_params.group_by);
-    // if (res.groups) {
-    //     res.groups = _.map(res.groups, (group, group_key) => {
-    //         if (req.rpc_params.group_by === 'pool') {
-    //             const pool = system_store.data.get_by_id(group_key);
-    //             group.name = pool.name;
-    //         }
-    //         return group;
-    //     });
-    // }
+        monitor.aggregate_nodes(query, req.rpc_params.group_by, await monitor.get_nodes_stats(req.system._id));
     return res;
 }
 

@@ -21,6 +21,7 @@ const js_utils = require('../../util/js_utils');
 const MDStore = require('../object_services/md_store').MDStore;
 const Semaphore = require('../../util/semaphore');
 const NodesStore = require('./nodes_store').NodesStore;
+const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
 const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
 const Dispatcher = require('../notifications/dispatcher');
@@ -1161,6 +1162,17 @@ class NodesMonitor extends EventEmitter {
             .then(info => {
                 if (!info) return;
                 item.agent_info = info;
+
+                // store io stats if any of the values is non zero
+                if (info.io_stats && _.values(info.io_stats).reduce(_.add)) {
+                    // update io stats in background
+                    IoStatsStore.instance().update_node_io_stats({
+                        system: item.node.system,
+                        stats: info.io_stats,
+                        node_id: item.node._id
+                    });
+                }
+
                 const updates = _.pick(info, AGENT_INFO_FIELDS);
                 updates.heartbeat = Date.now();
                 if (info.endpoint_info) {
@@ -2944,7 +2956,12 @@ class NodesMonitor extends EventEmitter {
         };
     }
 
-    _aggregate_nodes_list(list) {
+    async get_nodes_stats(system) {
+        const nodes_stats = await IoStatsStore.instance().get_all_nodes_stats({ system });
+        return _.keyBy(nodes_stats, stat => String(stat._id));
+    }
+
+    _aggregate_nodes_list(list, nodes_stats) {
         let count = 0;
         let storage_count = 0;
         let s3_count = 0;
@@ -2954,6 +2971,17 @@ class NodesMonitor extends EventEmitter {
         const by_mode = {};
         const storage_by_mode = {};
         const s3_by_mode = {};
+
+        const io_stats = {
+            read_count: 0,
+            write_count: 0,
+            read_bytes: 0,
+            write_bytes: 0,
+            error_read_count: 0,
+            error_write_count: 0,
+            error_read_bytes: 0,
+            error_write_bytes: 0,
+        };
         let storage = {
             total: 0,
             free: 0,
@@ -3000,6 +3028,12 @@ class NodesMonitor extends EventEmitter {
             _.forIn(storage, (value, key) => {
                 storage[key] = size_utils.reduce_sum(key, [node_storage[key], value]);
             });
+
+            if (nodes_stats) {
+                const node_io_stats = nodes_stats[String(item.node._id)];
+                if (node_io_stats) _.mergeWith(io_stats, node_io_stats, _.add);
+            }
+
         });
 
         const now = Date.now();
@@ -3021,12 +3055,13 @@ class NodesMonitor extends EventEmitter {
                 online: s3_online,
                 by_mode: s3_by_mode,
             },
-            storage: storage,
+            storage,
             data_activities: _.map(data_activities, a => {
                 if (!Number.isFinite(a.time.end)) delete a.time.end;
                 a.progress = progress_by_time(a.time, now);
                 return a;
-            })
+            }),
+            io_stats: nodes_stats ? io_stats : undefined
         };
     }
 
@@ -3124,7 +3159,7 @@ class NodesMonitor extends EventEmitter {
         return res;
     }
 
-    aggregate_nodes(query, group_by) {
+    aggregate_nodes(query, group_by, nodes_stats) {
         this._throw_if_not_started_and_loaded();
         const list = this._filter_nodes(query).list;
         const res = this._aggregate_nodes_list(list);
@@ -3133,7 +3168,7 @@ class NodesMonitor extends EventEmitter {
                 const pool_groups = _.groupBy(list,
                     item => String(item.node.pool));
                 res.groups = _.mapValues(pool_groups,
-                    items => this._aggregate_nodes_list(items));
+                    items => this._aggregate_nodes_list(items, nodes_stats));
             } else {
                 throw new Error('aggregate_nodes: Invalid group_by ' + group_by);
             }

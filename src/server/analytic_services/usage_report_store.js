@@ -77,7 +77,7 @@ class UsageReportStore {
                 selector,
                 update, {
                     upsert: true,
-                    returnNewDocument: true
+                    returnOriginal: false
                 }
             );
             this._usage_reports.validate(res.value, 'warn');
@@ -124,7 +124,7 @@ class UsageReportStore {
         });
         if (_.isEmpty(update.$inc)) return;
         const res = await this._s3_usage.col().findOneAndUpdate({ system: system._id },
-            update, { upsert: true, returnNewDocument: true });
+            update, { upsert: true, returnOriginal: false });
         this._s3_usage.validate(res.value, 'warn');
     }
 

@@ -444,7 +444,7 @@ function read_system(req) {
             }))
             .then(res => res.functions),
 
-        buckets_stats: BucketStatsStore.instance().get_all_buckets_stats({ system: system._id })
+        buckets_stats: BucketStatsStore.instance().get_all_buckets_stats({ system: system._id }),
 
     }).then(({
         nodes_aggregate_pool_no_cloud_and_mongo,

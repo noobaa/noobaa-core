@@ -38,15 +38,15 @@ class BucketStatsStore {
                 last_write: write_count ? Date.now() : undefined,
                 last_read: read_count ? Date.now() : undefined,
             }, selector), _.isUndefined),
-            $inc: {
+            $inc: _.omitBy({
                 writes: write_count,
                 reads: read_count
-            }
+            }, _.isUndefined)
         };
 
-        const res = await this._bucket_stats.col().updateOne(selector, update, {
+        const res = await this._bucket_stats.col().findOneAndUpdate(selector, update, {
             upsert: true,
-            returnNewDocument: true
+            returnOriginal: false
         });
 
         this._bucket_stats.validate(res.value, 'warn');

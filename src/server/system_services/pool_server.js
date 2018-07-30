@@ -555,7 +555,12 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         // and does not consider number of replicas like in tier
         storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS),
         region: pool.region,
-        create_time: pool._id.getTimestamp().getTime()
+        create_time: pool._id.getTimestamp().getTime(),
+        io_stats: _.pick(p_nodes.io_stats,
+            'read_count',
+            'write_count',
+            'read_bytes',
+            'write_bytes') || { read_count: 0, write_count: 0, read_bytes: 0, write_bytes: 0 }
     };
     info.data_activities = {
         activities: p_nodes.data_activities || [],

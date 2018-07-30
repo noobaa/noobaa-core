@@ -761,6 +761,7 @@ class Agent {
             mem_usage: process.memoryUsage().rss,
             cpu_usage: cpu_percent,
             location_info: this.location_info,
+            io_stats: this.block_store && this.block_store.get_and_reset_io_stats()
         };
         if (this.cloud_info && this.cloud_info.pool_name) {
             reply.pool_name = this.cloud_info.pool_name;

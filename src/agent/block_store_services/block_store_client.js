@@ -71,7 +71,7 @@ class BlockStoreClient {
                     .catch(err => {
                         dbg.error('encountered error on _delegate_write_block_azure:', err);
                         const error = _.pick(err, 'message', 'code');
-                        return rpc_client.block_store.handle_delegator_error({ error, usage }, options);
+                        return rpc_client.block_store.handle_delegator_error({ error, usage, op_type: 'WRITE' }, options);
                     });
             })
             .timeout(timeout);
@@ -98,7 +98,14 @@ class BlockStoreClient {
                     .catch(err => {
                         dbg.error('encountered error on _delegate_read_block_azure:', err);
                         const error = _.pick(err, 'message', 'code');
-                        return rpc_client.block_store.handle_delegator_error({ error }, options);
+                        return rpc_client.block_store.handle_delegator_error({
+                            error,
+                            usage: {
+                                count: 1,
+                                size: params.block_md.size,
+                            },
+                            op_type: 'READ'
+                        }, options);
                     })
                     .then(info => {
                         const noobaablockmd = info.metadata.noobaablockmd || info.metadata.noobaa_block_md;
@@ -163,7 +170,7 @@ class BlockStoreClient {
                 } catch (err) {
                     dbg.error('encountered error on _delegate_write_block_s3:', err);
                     const error = _.pick(err, 'message', 'code');
-                    return rpc_client.block_store.handle_delegator_error({ error, usage }, options);
+                    return rpc_client.block_store.handle_delegator_error({ error, usage, op_type: 'WRITE' }, options);
                 }
 
             })
@@ -249,7 +256,14 @@ class BlockStoreClient {
                 } catch (err) {
                     dbg.error('encountered error on _delegate_read_block_s3:', err);
                     const error = _.pick(err, 'message', 'code');
-                    return rpc_client.block_store.handle_delegator_error({ error }, options);
+                    return rpc_client.block_store.handle_delegator_error({
+                        error,
+                        usage: {
+                            count: 1,
+                            size: params.block_md.size,
+                        },
+                        op_type: 'READ'
+                    }, options);
                 }
             })
             .timeout(timeout);

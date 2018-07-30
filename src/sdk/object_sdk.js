@@ -357,7 +357,7 @@ class ObjectSDK {
 
     async complete_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        const reply = await ns.complete_object_upload(params, this);
+        const reply = await ns.complete_object_upload(_.omit(params, 'content_type'), this);
         // update counters in background
         this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket, content_type: params.content_type });
         return reply;

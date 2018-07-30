@@ -4,7 +4,7 @@
 module.exports = {
     id: 'bucket_stats_schema',
     type: 'object',
-    required: ['_id', 'system', 'bucket', 'content_type', 'stats'],
+    required: ['_id', 'system', 'bucket', 'content_type'],
     properties: {
         _id: {
             objectid: true

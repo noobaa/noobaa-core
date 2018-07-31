@@ -42,7 +42,8 @@ export default {
                     'AWS',
                     'AZURE',
                     'S3_COMPATIBLE',
-                    'GOOGLE'
+                    'GOOGLE',
+                    'FLASHBLADE'
                 ]
             },
             region: {

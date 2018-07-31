@@ -81,7 +81,8 @@ export default {
                                 'S3_V2_COMPATIBLE',
                                 'S3_V4_COMPATIBLE',
                                 'NET_STORAGE',
-                                'GOOGLE'
+                                'GOOGLE',
+                                'FLASHBLADE'
                             ]
                         },
                         endpoint: {

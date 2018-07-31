@@ -1,0 +1,41 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<editor params="label: 'Endpoint'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter endpoint"
+            ko.value="$form.s3v2Endpoint"
+            ko.validationCss="$form.s3v2Endpoint"
+        />
+        <validation-indicator params="field: $form.s3v2Endpoint"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.s3v2Endpoint"></validation-message>
+</editor>
+
+<editor params="label: 'Access Key'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter Key"
+            ko.value="$form.s3v2AccessKey"
+            ko.validationCss="$form.s3v2AccessKey"
+        />
+        <validation-indicator params="field: $form.s3v2AccessKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.s3v2AccessKey"></validation-message>
+</editor>
+
+<editor params="label: 'Secret Key'">
+    <div class="row">
+        <input type="password"
+            class="push-next-half"
+            placeholder="Enter Secret"
+            autocomplete="off"
+            ko.value="$form.s3v2SecretKey"
+            ko.validationCss="$form.s3v2SecretKey"
+        />
+        <validation-indicator params="field: $form.s3v2SecretKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.s3v2SecretKey"></validation-message>
+</editor>

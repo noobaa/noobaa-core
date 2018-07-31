@@ -24,7 +24,8 @@ const allowedServices = deepFreeze([
     'S3_V2_COMPATIBLE',
     'S3_V4_COMPATIBLE',
     'AZURE',
-    'GOOGLE'
+    'GOOGLE',
+    'FLASHBLADE'
 ]);
 
 class AddCloudResourceModalViewModel extends Observer {

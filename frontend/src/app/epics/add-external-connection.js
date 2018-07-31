@@ -20,17 +20,25 @@ function _getApiRequestParams(payload) {
             };
         }
 
-        case 'S3_V2_COMPATIBLE':
-        case 'S3_V4_COMPATIBLE': {
-            const auth_method = service === 'S3_V2_COMPATIBLE' ? 'AWS_V2' : 'AWS_V4';
-
+        case 'S3_V2_COMPATIBLE':{
             return {
                 name,
                 endpoint_type: 'S3_COMPATIBLE',
-                endpoint: params.s3Endpoint,
-                identity: params.s3AccessKey,
-                secret: params.s3SecretKey,
-                auth_method
+                endpoint: params.s3v2Endpoint,
+                identity: params.s3v2AccessKey,
+                secret: params.s3v2SecretKey,
+                auth_method: 'AWS_V2'
+            };
+        }
+
+        case 'S3_V4_COMPATIBLE': {
+            return {
+                name,
+                endpoint_type: 'S3_COMPATIBLE',
+                endpoint: params.s3v4Endpoint,
+                identity: params.s3v4AccessKey,
+                secret: params.s3v4SecretKey,
+                auth_method: 'AWS_V4'
             };
         }
 
@@ -62,6 +70,16 @@ function _getApiRequestParams(payload) {
                 endpoint: params.gcEndpoint,
                 identity: private_key_id,
                 secret: params.gcKeysJson
+            };
+        }
+            
+        case 'FLASHBLADE': {
+            return {
+                name,
+                endpoint_type: 'FLASHBLADE',
+                endpoint: params.fbEndpoint,
+                identity: params.fbAccessKey,
+                secret: params.fbSecretKey
             };
         }
 

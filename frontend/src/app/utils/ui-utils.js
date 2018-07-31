@@ -90,6 +90,11 @@ const resourceTypeIconMapping = deepFreeze({
         tooltip: 'Generic S3 compatible resource'
     },
 
+    FLASHBLADE: {
+        name: 'pure-flashblade',
+        tooltip: 'Pure FlashBlade resource'
+    },
+
     NODES_POOL: {
         name: 'nodes-pool',
         tooltip: 'Nodes Pool'

@@ -1,0 +1,41 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<editor params="label: 'Endpoint'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter endpoint"
+            ko.value="$form.fbEndpoint"
+            ko.validationCss="$form.fbEndpoint"
+        />
+        <validation-indicator params="field: $form.fbEndpoint"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.fbEndpoint"></validation-message>
+</editor>
+
+<editor params="label: 'Access Key'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter Key"
+            ko.value="$form.fbAccessKey"
+            ko.validationCss="$form.fbAccessKey"
+        />
+        <validation-indicator params="field: $form.fbAccessKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.fbAccessKey"></validation-message>
+</editor>
+
+<editor params="label: 'Secret Key'">
+    <div class="row">
+        <input type="password"
+            class="push-next-half"
+            placeholder="Enter Secret"
+            autocomplete="off"
+            ko.value="$form.fbSecretKey"
+            ko.validationCss="$form.fbSecretKey"
+        />
+        <validation-indicator params="field: $form.fbSecretKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.fbSecretKey"></validation-message>
+</editor>

@@ -34,6 +34,11 @@ const columns = deepFreeze([
     },
     {
         name: 'externalEntity',
+        label: 'S3 Buckets Under Connection',
+        visibleFor: 'FLASHBLADE'
+    },
+    {
+        name: 'externalEntity',
         label: 'NetStorage Folders Under Connection',
         visibleFor: 'NET_STORAGE'
     },

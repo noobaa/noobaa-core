@@ -3,9 +3,11 @@
 import template from './add-cloud-connection-modal.html';
 import awsFieldsTemplate from './aws-fields.html';
 import azureFieldsTemplate from './azure-fields.html';
-import s3CompatibleFieldsTemplate from './s3-compatible-fields.html';
+import s3v2CompatibleFieldsTemplate from './s3-v2-compatible-fields.html';
+import s3v4CompatibleFieldsTemplate from './s3-v4-compatible-fields.html';
 import netStorageTemplate from './net-storage-fields.html';
 import googleCloudTemplate from './google-cloud-fields.html';
+import flashbladeFieldsTemplate from './flashblade-fields.html';
 import Observer from 'observer';
 import ko from 'knockout';
 import { deepFreeze, pick, isUndefined } from 'utils/core-utils';
@@ -35,10 +37,11 @@ const serviceOptions = cloudServices
 const templates = deepFreeze({
     AWS: awsFieldsTemplate,
     AZURE: azureFieldsTemplate,
-    S3_V2_COMPATIBLE: s3CompatibleFieldsTemplate,
-    S3_V4_COMPATIBLE: s3CompatibleFieldsTemplate,
+    S3_V2_COMPATIBLE: s3v2CompatibleFieldsTemplate,
+    S3_V4_COMPATIBLE: s3v4CompatibleFieldsTemplate,
     NET_STORAGE: netStorageTemplate,
-    GOOGLE: googleCloudTemplate
+    GOOGLE: googleCloudTemplate,
+    FLASHBLADE: flashbladeFieldsTemplate
 });
 
 const asyncTriggers = deepFreeze([
@@ -49,16 +52,22 @@ const asyncTriggers = deepFreeze([
     'azureEndpoint',
     'azureAccountName',
     'azureAccountKey',
-    's3Endpoint',
-    's3AccessKey',
-    's3SecretKey',
+    's3v2Endpoint', //S3 Compatible V2
+    's3v2AccessKey',
+    's3v2SecretKey',
+    's3v4Endpoint', //S3 Compatible V4
+    's3v4AccessKey',
+    's3v4SecretKey',
     'nsHostname',
     'nsStorageGroup',
     'nsKeyName',
     'nsCPCode',
     'nsAuthKey',
     'gcKeysFileName',
-    'gcKeysJson'
+    'gcKeysJson',
+    'fbEndpoint', //FlashBlade
+    'fbAccessKey',
+    'fbSecretKey'
 ]);
 
 function _suggestConnectionName(existing) {
@@ -146,10 +155,15 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 azureAccountName: '',
                 azureAccountKey: '',
 
-                // S3 compatible fileds.
-                s3Endpoint: '',
-                s3AccessKey: '',
-                s3SecretKey: '',
+                // S3 V2 compatible fileds.
+                s3v2Endpoint: '',
+                s3v2AccessKey: '',
+                s3v2SecretKey: '',
+
+                // S3 V4 compatible fileds.
+                s3v4Endpoint: '',
+                s3v4AccessKey: '',
+                s3v4SecretKey: '',
 
                 // Net Storage fileds.
                 nsHostname: 'nsu.akamaihd.net',
@@ -160,7 +174,12 @@ class AddCloudConnectionModalViewModel extends Observer  {
 
                 // Google Cloud field.
                 gcKeysFileName: '',
-                gcKeysJson: ''
+                gcKeysJson: '',
+
+                // Pure FlashBlade fields.
+                fbEndpoint: '',
+                fbAccessKey: '',
+                fbSecretKey: ''
             });
         }
     }
@@ -183,10 +202,11 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const serviceValidate =
             (service === 'AWS' && this.awsOnValidate) ||
             (service === 'AZURE' && this.azureOnValidate) ||
-            (service === 'S3_V2_COMPATIBLE' && this.s3OnValidate) ||
-            (service === 'S3_V4_COMPATIBLE' && this.s3OnValidate) ||
+            (service === 'S3_V2_COMPATIBLE' && this.genericS3OnValidate) ||
+            (service === 'S3_V4_COMPATIBLE' && this.genericS3OnValidate) ||
             (service === 'NET_STORAGE' && this.nsOnValidate) ||
             (service === 'GOOGLE' && this.gcOnValidate) ||
+            (service === 'FLASHBLADE' && this.genericS3OnValidate) ||
             _getEmptyObj;
 
         return Object.assign(
@@ -200,10 +220,11 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const serviceValidateAsync =
             (service === 'AWS' && this.awsOnValidateAsync) ||
             (service === 'AZURE' && this.azureOnValidateAsync) ||
-            (service === 'S3_V2_COMPATIBLE' && this.s3OnValidateAsync) ||
-            (service === 'S3_V4_COMPATIBLE' && this.s3OnValidateAsync) ||
+            (service === 'S3_V2_COMPATIBLE' && this.genericS3OnValidateAsync) ||
+            (service === 'S3_V4_COMPATIBLE' && this.genericS3OnValidateAsync) ||
             (service === 'NET_STORAGE' && this.nsOnValidateAsync) ||
             (service === 'GOOGLE' && this.gcOnValidateAsync) ||
+            (service === 'FLASHBLADE' && this.genericS3OnValidateAsync) ||
             _getEmptyObj;
 
 
@@ -215,10 +236,11 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const fields =
             (service === 'AWS' && ['awsEndpoint', 'awsAccessKey', 'awsSecretKey']) ||
             (service === 'AZURE' && ['azureEndpoint', 'azureAccountName', 'azureAccountKey']) ||
-            (service === 'S3_V2_COMPATIBLE' && ['s3Endpoint', 's3AccessKey', 's3SecretKey']) ||
-            (service === 'S3_V4_COMPATIBLE' && ['s3Endpoint', 's3AccessKey', 's3SecretKey']) ||
+            (service === 'S3_V2_COMPATIBLE' && ['s3v2Endpoint', 's3v2AccessKey', 's3v2SecretKey']) ||
+            (service === 'S3_V4_COMPATIBLE' && ['s3v4Endpoint', 's3v4AccessKey', 's3v4SecretKey']) ||
             (service === 'NET_STORAGE' && ['nsHostname', 'nsStorageGroup', 'nsKeyName', 'nsCPCode', 'nsAuthKey']) ||
-            (service === 'GOOGLE' && ['gcKeysJson']);
+            (service === 'GOOGLE' && ['gcKeysJson']) ||
+            (service === 'FLASHBLADE' && ['fbEndpoint', 'fbAccessKey', 'fbSecretKey']);
 
         const params = pick(values, fields);
         if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
@@ -384,9 +406,83 @@ class AddCloudConnectionModalViewModel extends Observer  {
     }
 
     // --------------------------------------
-    // S3 Compatible related methods:
+    // S3 Compatible & flashblade related methods:
     // --------------------------------------
-    s3OnValidate(values, existingConnections) {
+    genericS3OnValidate(values, existingConnections) {
+        const { service } = values;
+        switch (service) {
+            case 'S3_V2_COMPATIBLE': {
+                const { s3v2Endpoint, s3v2AccessKey, s3v2SecretKey } = values;
+                return this._genericS3OnValidate(
+                    {
+                        s3Endpoint: s3v2Endpoint,
+                        s3AccessKey: s3v2AccessKey,
+                        s3SecretKey: s3v2SecretKey
+                    }, existingConnections
+                );
+                
+            }
+            case 'S3_V4_COMPATIBLE': {
+                const { s3v4Endpoint, s3v4AccessKey, s3v4SecretKey } = values;
+                return this._genericS3OnValidate(
+                    {
+                        s3Endpoint: s3v4Endpoint,
+                        s3AccessKey: s3v4AccessKey,
+                        s3SecretKey: s3v4SecretKey
+                    }, existingConnections
+                );
+            }
+            case 'FLASHBLADE': {
+                const { fbEndpoint, fbAccessKey, fbSecretKey } = values;
+                return this._genericS3OnValidate(
+                    {
+                        s3Endpoint: fbEndpoint,
+                        s3AccessKey: fbAccessKey,
+                        s3SecretKey: fbSecretKey
+                    }, existingConnections
+                );
+            }
+        }
+    }
+
+    async genericS3OnValidateAsync(values) {
+        const { service } = values;
+        switch (service) {
+            case 'S3_V2_COMPATIBLE': {
+                const { s3v2Endpoint, s3v2AccessKey, s3v2SecretKey } = values;
+                return await this._genericS3OnValidateAsync(
+                    {
+                        s3Endpoint: s3v2Endpoint,
+                        s3AccessKey: s3v2AccessKey,
+                        s3SecretKey: s3v2SecretKey
+                    }
+                );
+                
+            }
+            case 'S3_V4_COMPATIBLE': {
+                const { s3v4Endpoint, s3v4AccessKey, s3v4SecretKey } = values;
+                return await this._genericS3OnValidateAsync(
+                    {
+                        s3Endpoint: s3v4Endpoint,
+                        s3AccessKey: s3v4AccessKey,
+                        s3SecretKey: s3v4SecretKey
+                    }
+                );
+            }
+            case 'FLASHBLADE': {
+                const { fbEndpoint, fbAccessKey, fbSecretKey } = values;
+                return await this._genericS3OnValidateAsync(
+                    {
+                        s3Endpoint: fbEndpoint,
+                        s3AccessKey: fbAccessKey,
+                        s3SecretKey: fbSecretKey
+                    }
+                );
+            }
+        }
+    }
+
+    _genericS3OnValidate(values, existingConnections) {
         const errors = {};
         const { s3Endpoint, s3AccessKey, s3SecretKey } = values;
 
@@ -400,7 +496,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
         } else {
             const alreadyExists = existingConnections
                 .some(connection =>
-                    (['S3_V2_COMPATIBLE', 'S3_V4_COMPATIBLE'].includes(connection.service)) &&
+                    (['S3_V2_COMPATIBLE', 'S3_V4_COMPATIBLE', 'FLASHBLADE'].includes(connection.service)) &&
                     connection.endpoint === s3Endpoint &&
                     connection.identity === s3AccessKey
                 );
@@ -417,7 +513,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
         return errors;
     }
 
-    async s3OnValidateAsync(values) {
+    async _genericS3OnValidateAsync(values) {
         const errors = {};
         const { s3Endpoint, s3AccessKey, s3SecretKey } = values;
         const { status, error } = await api.account.check_external_connection({

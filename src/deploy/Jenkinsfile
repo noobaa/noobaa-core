@@ -21,6 +21,11 @@ node('pipeline') {
 		    sh script: """
                 yes | cp /usr/local/noobaa/.env $WORKSPACE/
             """
+            echo 'updating the ubuntu LG'
+            sh script: """
+                apt update | echo \$? #the echo is for "swallowing" the exit status.
+                yes | apt full-upgrade
+            """
 			echo 'Installing all needed npm packages!'
 			sh script: """
 			export NVM_DIR=/opt/nvm
@@ -47,10 +52,13 @@ node('pipeline') {
             """
             echo 'Getting last successful package build'
             sh script: """
-            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
+            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L \
+                $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
             buildPath=\$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<relativePath>" '{print \$2}' | awk -F "</relativePath>" '{print \$1}' | xargs)
-            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Test/job/Test-Pipeline/api/xml >/tmp/pipeline.xml
-            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/artifact/\${buildPath} >/tmp/noobaa-NVA-latest.tar.gz
+            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L \
+                $JENKINS_URL/job/Test/job/Test-Pipeline/api/xml >/tmp/pipeline.xml
+            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L \
+                $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/artifact/\${buildPath} >/tmp/noobaa-NVA-latest.tar.gz
             tar -zxvf /tmp/noobaa-NVA-latest.tar.gz -C /tmp/
             cp -r /tmp/noobaa-core/src $WORKSPACE/
             """
@@ -61,6 +69,18 @@ node('pipeline') {
             cp /noobaaFiles/.env .env
             id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)
             echo "pipeline build number: \${id}"
+            """
+            echo 'Verifying old versions.'
+            sh script: """
+            version_map_list=(\$(cat $WORKSPACE/src/deploy/version_map.json | grep vhd | awk -F ': "' '{print \$2}' | awk -F '.v' '{print \$1}'))
+            for version in \${version_map_list}
+            do
+                if [ ! -d /noobaaversions/\${version} ]
+                then 
+                    echo "/noobaaversions/\${version} is missing. please install it manually."
+                    #exit 1
+                fi
+            done
             """
         }
 		stage('Tests') {

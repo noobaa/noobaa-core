@@ -84,6 +84,12 @@ const resourceTypeOptions = [
         label: 'S3 Compatible',
         icon: 'cloud-dark',
         selectedIcon: 'cloud-colored'
+    },
+    {
+        value: 'FLASHBLADE',
+        label: 'Pure FlashBlade',
+        icon: 'google-cloud-dark', //NBNB
+        selectedIcon: 'google-cloud-colored' //NBNB
     }
 ];
 

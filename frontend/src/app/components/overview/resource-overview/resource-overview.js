@@ -109,6 +109,12 @@ class ResourceOverviewViewModel extends Observer {
                 tooltip: 'Google cloud resources that were created in this system'
             },
             {
+                label: 'Pure FlashBlade',
+                color: style['color19'],
+                value: ko.observable(),
+                tooltip: 'Pure FlashBlade resources that were created in this system'
+            },
+            {
                 label: 'S3 compatible',
                 color: style['color6'],
                 value: ko.observable(),
@@ -196,11 +202,11 @@ class ResourceOverviewViewModel extends Observer {
         // Cloud resources
         if (selectedResourceType === 'CLOUD_RESOURCES') {
             const resourceList = Object.values(cloudResources);
-            const { AWS = 0, AZURE = 0, GOOGLE = 0, S3_COMPATIBLE = 0 } = mapValues(
+            const { AWS = 0, AZURE = 0, GOOGLE = 0, S3_COMPATIBLE = 0 , FLASHBLADE = 0} = mapValues(
                 groupBy(resourceList, resource => resource.type),
                 resources => resources.length
             );
-            const serviceCount = sumBy([AWS, AZURE, GOOGLE, S3_COMPATIBLE], Boolean);
+            const serviceCount = sumBy([AWS, AZURE, GOOGLE, S3_COMPATIBLE, FLASHBLADE], Boolean);
             const cloudCapacity = sumSize(
                 ...resourceList.map(resource => resource.storage.total)
             );
@@ -211,6 +217,7 @@ class ResourceOverviewViewModel extends Observer {
             this.cloudCounters[1].value(AZURE);
             this.cloudCounters[2].value(GOOGLE);
             this.cloudCounters[3].value(S3_COMPATIBLE);
+            this.cloudCounters[4].value(FLASHBLADE);
             this.cloudCapacity(formatSize(cloudCapacity));
         }
 

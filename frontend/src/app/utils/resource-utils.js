@@ -194,6 +194,10 @@ const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
     NET_STORAGE: {
         name: 'net-storage',
         tooltip: 'NetStorage resource'
+    },
+    FLASHBLADE: {
+        name: 'pure-flashblade',
+        tooltip: 'Pure FlashBlade'
     }
 });
 

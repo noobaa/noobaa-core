@@ -33,7 +33,7 @@ module.exports = {
             properties: {
                 endpoint_type: {
                     type: 'string',
-                    enum: ['NOOBAA', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE']
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE']
                 },
                 auth_method: {
                     type: 'string',

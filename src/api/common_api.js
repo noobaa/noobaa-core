@@ -244,6 +244,11 @@ module.exports = {
             type: 'string',
         },
 
+        endpoint_type: {
+            type: 'string',
+            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE']
+        },
+
         block_md: {
             type: 'object',
             required: ['id'],

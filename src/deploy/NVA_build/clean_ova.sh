@@ -52,17 +52,18 @@ function alyun_specific() {
     shred -u ~/.*history
 }
 
-OPTIONS=$( getopt -o 'h,e,a,l,w,d' --long "help,esx,azure,alyun,aws,dev" -- "$@" )
+OPTIONS=$( getopt -o 'h,e,a,l,w,g,d' --long "help,esx,azure,alyun,aws,google,dev" -- "$@" )
 eval set -- "${OPTIONS}"
 
 function usage(){
     echo "$0 [options]"
-    echo "-e --esx   run this script on esx"
-    echo "-a --azure run this script on azure"
-    echo "-l --alyun run this script on alyun"
-    echo "-w --aws   run this script on aws"
-    echo "-d --dev   will skip md5sum on all platform and dd in esx"
-    echo "-h --help  will show this help"
+    echo "-e --esx      run this script on esx"
+    echo "-a --azure    run this script on azure"
+    echo "-l --alyun    run this script on alyun"
+    echo "-w --aws      run this script on aws"
+    echo "-g --google   run this script on google"
+    echo "-d --dev      will skip md5sum on all platform and dd in esx"
+    echo "-h --help     will show this help"
     exit 0
 }
 

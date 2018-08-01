@@ -46,8 +46,10 @@ class BlockStoreS3 extends BlockStoreBase {
                 region: DEFAULT_REGION
             });
         } else {
-            this.disable_delegation = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION;
-            this.disable_metadata = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA;
+            this.disable_delegation = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION[this.cloud_info.endpoint_type] ||
+                config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION.DEFAULT;
+            this.disable_metadata = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA[this.cloud_info.endpoint_type] ||
+                config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA.DEFAULT;
             this.s3cloud = new AWS.S3({
                 endpoint: endpoint,
                 s3ForcePathStyle: true,

@@ -15,6 +15,7 @@ const GoogleStorage = require('../../util/google_storage_wrap');
 const bcrypt = require('bcrypt');
 const { StorageError } = require('azure-storage/lib/common/errors/errors');
 
+const config = require('../../../config');
 const dbg = require('../../util/debug_module')(__filename);
 const { RpcError } = require('../../rpc');
 const Dispatcher = require('../notifications/dispatcher');
@@ -616,7 +617,7 @@ async function add_external_connection(req) {
     info.access_key = req.rpc_params.identity;
     info.secret_key = req.rpc_params.secret;
     info.cp_code = req.rpc_params.cp_code || undefined;
-    info.auth_method = req.rpc_params.auth_method || undefined;
+    info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
 
     // TODO: Maybe we should check differently regarding NET_STORAGE connections
@@ -679,6 +680,7 @@ function check_external_connection(req) {
 
                 case 'AWS':
                 case 'S3_COMPATIBLE':
+                case 'FLASHBLADE':
                     {
                         return check_aws_connection(params);
                     }

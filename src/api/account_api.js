@@ -315,8 +315,7 @@ module.exports = {
                         type: 'string'
                     },
                     endpoint_type: {
-                        type: 'string',
-                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE', 'GOOGLE']
+                        $ref: 'common_api#/definitions/endpoint_type'
                     }
 
                 }
@@ -352,8 +351,7 @@ module.exports = {
                         type: 'string'
                     },
                     endpoint_type: {
-                        type: 'string',
-                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE', 'GOOGLE']
+                        $ref: 'common_api#/definitions/endpoint_type'
                     }
                 }
             },
@@ -494,8 +492,7 @@ module.exports = {
                                         $ref: 'common_api#/definitions/cloud_auth_method'
                                     },
                                     endpoint_type: {
-                                        type: 'string',
-                                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NET_STORAGE', 'GOOGLE']
+                                        $ref: 'common_api#/definitions/endpoint_type'
                                     },
                                     usage: {
                                         type: 'array',

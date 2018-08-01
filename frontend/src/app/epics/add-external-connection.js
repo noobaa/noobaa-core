@@ -16,7 +16,8 @@ function _getApiRequestParams(payload) {
                 endpoint_type: service,
                 endpoint: params.awsEndpoint,
                 identity: params.awsAccessKey,
-                secret: params.awsSecretKey
+                secret: params.awsSecretKey,
+                auth_method: 'AWS_V4'
             };
         }
 
@@ -79,7 +80,8 @@ function _getApiRequestParams(payload) {
                 endpoint_type: 'FLASHBLADE',
                 endpoint: params.fbEndpoint,
                 identity: params.fbAccessKey,
-                secret: params.fbSecretKey
+                secret: params.fbSecretKey,
+                auth_method: 'AWS_V4'
             };
         }
 

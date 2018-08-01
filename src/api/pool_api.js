@@ -370,8 +370,7 @@ module.exports = {
                     type: 'string'
                 },
                 endpoint_type: {
-                    type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA', 'NET_STORAGE']
+                    $ref: 'common_api#/definitions/endpoint_type'
                 },
                 auth_method: {
                     $ref: 'common_api#/definitions/cloud_auth_method'
@@ -407,8 +406,7 @@ module.exports = {
                     type: 'string'
                 },
                 endpoint_type: {
-                    type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'NOOBAA', 'NET_STORAGE']
+                    $ref: 'common_api#/definitions/endpoint_type'
                 },
                 auth_method: {
                     $ref: 'common_api#/definitions/cloud_auth_method'
@@ -494,8 +492,7 @@ module.exports = {
                             type: 'string'
                         },
                         endpoint_type: {
-                            type: 'string',
-                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE']
+                            $ref: 'common_api#/definitions/endpoint_type'
                         },
                         target_bucket: {
                             type: 'string'

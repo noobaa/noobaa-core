@@ -151,14 +151,16 @@ async function _onS3LikeValidateAsync(
     keys,
     values,
     service,
-    displayName
+    displayName,
+    authMethod
 ) {
     const errors = {};
     const { status, error } = await api.account.check_external_connection({
         endpoint_type: service,
         endpoint: values[keys.endpoint],
         identity: values[keys.accessKey],
-        secret: values[keys.secretKey]
+        secret: values[keys.secretKey],
+        auth_method: authMethod
     });
 
     switch (status) {
@@ -452,7 +454,8 @@ class AddCloudConnectionModalViewModel extends Observer  {
             s3LikeConnKeyMappings['AWS'],
             values,
             'AWS',
-            'AWS'
+            'AWS',
+            'AWS_V4'
         );
     }
 
@@ -479,6 +482,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
             values,
             'S3_COMPATIBLE',
             'S3 compatible',
+            'AWS_V2'
         );
     }
 
@@ -505,7 +509,8 @@ class AddCloudConnectionModalViewModel extends Observer  {
             s3LikeConnKeyMappings['S3_V4_COMPATIBLE'],
             values,
             'S3_COMPATIBLE',
-            'S3 compatible'
+            'S3 compatible',
+            'AWS_V4'
         );
     }
 
@@ -530,6 +535,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
             values,
             'FLASHBLADE',
             'FlashBlade',
+            'AWS_V4'
         );
     }
 

@@ -112,7 +112,9 @@ class Agent {
                 this.cloud_info = params.cloud_info;
                 block_store_options.cloud_info = params.cloud_info;
                 block_store_options.cloud_path = params.cloud_path;
-                if (params.cloud_info.endpoint_type === 'AWS' || params.cloud_info.endpoint_type === 'S3_COMPATIBLE') {
+                if (params.cloud_info.endpoint_type === 'AWS' ||
+                    params.cloud_info.endpoint_type === 'S3_COMPATIBLE' ||
+                    params.cloud_info.endpoint_type === 'FLASHBLADE') {
                     this.node_type = 'BLOCK_STORE_S3';
                     this.block_store = new BlockStoreS3(block_store_options);
                 } else if (params.cloud_info.endpoint_type === 'AZURE') {

@@ -146,7 +146,8 @@ class ObjectSDK {
             }
         }
         if (ns_info.endpoint_type === 'AWS' ||
-            ns_info.endpoint_type === 'S3_COMPATIBLE') {
+            ns_info.endpoint_type === 'S3_COMPATIBLE' ||
+            ns_info.endpoint_type === 'FLASHBLADE') {
             const httpOptions = (ns_info.endpoint_type === 'AWS' && !ns_info.proxy) ? undefined : {
                 agent: http_utils.get_unsecured_http_agent(ns_info.endpoint, ns_info.proxy)
             };

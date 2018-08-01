@@ -190,6 +190,7 @@ function create_cloud_pool(req) {
     const map_pool_type = {
         AWS: 'BLOCK_STORE_S3',
         S3_COMPATIBLE: 'BLOCK_STORE_S3',
+        FLASHBLADE: 'BLOCK_STORE_S3',
         AZURE: 'BLOCK_STORE_AZURE',
         GOOGLE: 'BLOCK_STORE_GOOGLE'
     };

@@ -69,8 +69,7 @@ module.exports = {
                                 }
                             },
                             endpoint_type: {
-                                type: 'string',
-                                enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE']
+                                $ref: 'common_api#/definitions/endpoint_type'
                             }
                         },
                     },

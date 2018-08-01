@@ -221,10 +221,19 @@ config.DB_CLEANER = {
 // EXPERIMENTAL!! switch to turn off the use of signed urls to delegate cloud read\writes to object_io (s3 compatible only)
 // when this is set to true, block_store_s3 will return s3 credentials to the block_store_client so it can 
 // connect directly to the cloud target (and not via a signed url)
-config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION = false;
-config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA = false;
+config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION = {
+    DEFAULT: false,
+    FLASHBLADE: true
+};
+config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA = {
+    DEFAULT: false,
+    FLASHBLADE: true
+};
 
-
+config.DEFAULT_S3_AUTH_METHOD = {
+    AWS: 'AWS_V4',
+    FLASHBLADE: 'AWS_V4'
+};
 
 //////////////////////
 // LIFECYCLE CONFIG //

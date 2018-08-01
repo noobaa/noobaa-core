@@ -52,10 +52,10 @@ const asyncTriggers = deepFreeze([
     'azureEndpoint',
     'azureAccountName',
     'azureAccountKey',
-    's3v2Endpoint', //S3 Compatible V2
+    's3v2Endpoint',
     's3v2AccessKey',
     's3v2SecretKey',
-    's3v4Endpoint', //S3 Compatible V4
+    's3v4Endpoint',
     's3v4AccessKey',
     's3v4SecretKey',
     'nsHostname',
@@ -65,10 +65,33 @@ const asyncTriggers = deepFreeze([
     'nsAuthKey',
     'gcKeysFileName',
     'gcKeysJson',
-    'fbEndpoint', //FlashBlade
+    'fbEndpoint',
     'fbAccessKey',
     'fbSecretKey'
 ]);
+
+const s3LikeConnKeyMappings = deepFreeze({
+    AWS: {
+        endpoint: 'awsEndpoint',
+        accessKey: 'awsAccessKey',
+        secretKey: 'awsSecretKey'
+    },
+    S3_V2_COMPATIBLE: {
+        endpoint: 's3v2Endpoint',
+        accessKey: 's3v2AccessKey',
+        secretKey: 's3v2SecretKey'
+    },
+    S3_V4_COMPATIBLE: {
+        endpoint: 's3v4Endpoint',
+        accessKey: 's3v4AccessKey',
+        secretKey: 's3v4SecretKey'
+    },
+    FLASHBLADE: {
+        endpoint: 'fbEndpoint',
+        accessKey: 'fbAccessKey',
+        secretKey: 'fbSecretKey'
+    }
+});
 
 function _suggestConnectionName(existing) {
     const suffix = existing
@@ -88,6 +111,86 @@ function _suggestConnectionName(existing) {
 
 function _getEmptyObj() {
     return {};
+}
+
+function _onS3LikeValidate(
+    keys,
+    values,
+    existingConnections,
+    displayName
+) {
+    const errors = {};
+
+    if (!isUri(values[keys.endpoint])) {
+        errors[keys.endpoint] = `Please enter valid ${displayName} endpoint URI`;
+    }
+
+    if (!values[keys.accessKey]) {
+        errors[keys.accessKey] = 'Please enter an access key';
+
+    } else {
+        const alreadyExists = existingConnections
+            .some(connection =>
+                connection.endpoint === values[keys.endpoint] &&
+                connection.identity === values[keys.accessKey]
+            );
+
+        if (alreadyExists) {
+            errors[keys.accessKey] = 'A similar connection already exists';
+        }
+    }
+
+    if (!values[keys.secretKey]) {
+        errors[keys.secretKey] = 'Please enter a secret key';
+    }
+
+    return errors;
+}
+
+async function _onS3LikeValidateAsync(
+    keys,
+    values,
+    service,
+    displayName
+) {
+    const errors = {};
+    const { status, error } = await api.account.check_external_connection({
+        endpoint_type: service,
+        endpoint: values[keys.endpoint],
+        identity: values[keys.accessKey],
+        secret: values[keys.secretKey]
+    });
+
+    switch (status) {
+        case 'TIMEOUT': {
+            errors[keys.endpoint] = `${displayName} connection timed out`;
+            break;
+        }
+        case 'INVALID_ENDPOINT': {
+            errors[keys.endpoint] = `Please enter a valid ${displayName} endpoint`;
+            break;
+        }
+        case 'INVALID_CREDENTIALS': {
+            errors[keys.accessKey] = errors[keys.secretKey] = 'Credentials do not match';
+            break;
+        }
+        case 'NOT_SUPPORTED': {
+            errors[keys.accessKey] = 'Account type is not supported';
+            break;
+        }
+        case 'TIME_SKEW': {
+            errors[keys.accessKey] = 'Time difference with the server is too large';
+            break;
+        }
+        case 'UNKNOWN_FAILURE': {
+            // Using empty message to mark the fields as invalid.
+            errors[keys.endpoint] = errors[keys.accessKey] = errors[keys.secretKey] = '';
+            errors.global = error.message;
+            break;
+        }
+    }
+
+    return errors;
 }
 
 class AddCloudConnectionModalViewModel extends Observer  {
@@ -202,11 +305,11 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const serviceValidate =
             (service === 'AWS' && this.awsOnValidate) ||
             (service === 'AZURE' && this.azureOnValidate) ||
-            (service === 'S3_V2_COMPATIBLE' && this.genericS3OnValidate) ||
-            (service === 'S3_V4_COMPATIBLE' && this.genericS3OnValidate) ||
+            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidate) ||
+            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidate) ||
             (service === 'NET_STORAGE' && this.nsOnValidate) ||
             (service === 'GOOGLE' && this.gcOnValidate) ||
-            (service === 'FLASHBLADE' && this.genericS3OnValidate) ||
+            (service === 'FLASHBLADE' && this.flashBladeOnValidate) ||
             _getEmptyObj;
 
         return Object.assign(
@@ -220,11 +323,11 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const serviceValidateAsync =
             (service === 'AWS' && this.awsOnValidateAsync) ||
             (service === 'AZURE' && this.azureOnValidateAsync) ||
-            (service === 'S3_V2_COMPATIBLE' && this.genericS3OnValidateAsync) ||
-            (service === 'S3_V4_COMPATIBLE' && this.genericS3OnValidateAsync) ||
+            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidateAsync) ||
+            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidateAsync) ||
             (service === 'NET_STORAGE' && this.nsOnValidateAsync) ||
             (service === 'GOOGLE' && this.gcOnValidateAsync) ||
-            (service === 'FLASHBLADE' && this.genericS3OnValidateAsync) ||
+            (service === 'FLASHBLADE' && this.flashBladeOnValidateAsync) ||
             _getEmptyObj;
 
 
@@ -234,13 +337,13 @@ class AddCloudConnectionModalViewModel extends Observer  {
     onSubmit(values) {
         const { connectionName, service } = values;
         const fields =
-            (service === 'AWS' && ['awsEndpoint', 'awsAccessKey', 'awsSecretKey']) ||
+            (service === 'AWS' && Object.values(s3LikeConnKeyMappings['AWS'])) ||
             (service === 'AZURE' && ['azureEndpoint', 'azureAccountName', 'azureAccountKey']) ||
-            (service === 'S3_V2_COMPATIBLE' && ['s3v2Endpoint', 's3v2AccessKey', 's3v2SecretKey']) ||
-            (service === 'S3_V4_COMPATIBLE' && ['s3v4Endpoint', 's3v4AccessKey', 's3v4SecretKey']) ||
+            (service === 'S3_V2_COMPATIBLE' && Object.values(s3LikeConnKeyMappings['S3_V2_COMPATIBLE'])) ||
+            (service === 'S3_V4_COMPATIBLE' && Object.values(s3LikeConnKeyMappings['S3_V4_COMPATIBLE'])) ||
             (service === 'NET_STORAGE' && ['nsHostname', 'nsStorageGroup', 'nsKeyName', 'nsCPCode', 'nsAuthKey']) ||
             (service === 'GOOGLE' && ['gcKeysJson']) ||
-            (service === 'FLASHBLADE' && ['fbEndpoint', 'fbAccessKey', 'fbSecretKey']);
+            (service === 'FLASHBLADE' && Object.values(s3LikeConnKeyMappings['FLASHBLADE']));
 
         const params = pick(values, fields);
         if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
@@ -251,82 +354,6 @@ class AddCloudConnectionModalViewModel extends Observer  {
 
     onCancel() {
         action$.next(closeModal());
-    }
-
-    // --------------------------------------
-    // AWS related methods:
-    // --------------------------------------
-    awsOnValidate(values, existingConnections) {
-        const errors = {};
-        const { awsEndpoint, awsAccessKey, awsSecretKey } = values;
-
-        if (!isUri(awsEndpoint)) {
-            errors.awsEndpoint = 'Please enter valid AWS endpoint URI';
-        }
-
-        if (!awsAccessKey) {
-            errors.awsAccessKey = 'Please enter an AWS access key';
-
-        } else {
-            const alreadyExists = existingConnections
-                .some(connection =>
-                    connection.service === 'AWS' &&
-                    connection.endpoint === awsEndpoint &&
-                    connection.identity === awsAccessKey
-                );
-
-            if (alreadyExists) {
-                errors.awsAccessKey = 'A similar connection already exists';
-            }
-        }
-
-        if (!awsSecretKey) {
-            errors.awsSecretKey = 'Please enter an AWS secret key';
-        }
-
-        return errors;
-    }
-
-    async awsOnValidateAsync(values) {
-        const errors = {};
-        const { awsEndpoint, awsAccessKey, awsSecretKey } = values;
-        const { status, error } = await api.account.check_external_connection({
-            endpoint_type: 'AWS',
-            endpoint: awsEndpoint,
-            identity: awsAccessKey,
-            secret: awsSecretKey
-        });
-
-        switch (status) {
-            case 'TIMEOUT': {
-                errors.awsEndpoint = 'AWS connection timed out';
-                break;
-            }
-            case 'INVALID_ENDPOINT': {
-                errors.awsEndpoint = 'Please enter a valid AWS endpoint';
-                break;
-            }
-            case 'INVALID_CREDENTIALS': {
-                errors.awsSecretKey = errors.awsAccessKey = 'Credentials do not match';
-                break;
-            }
-            case 'NOT_SUPPORTED': {
-                errors.awsAccessKey = 'Account type is not supported';
-                break;
-            }
-            case 'TIME_SKEW': {
-                errors.awsAccessKey = 'Time difference with the server is too large';
-                break;
-            }
-            case 'UNKNOWN_FAILURE': {
-                // Using empty message to mark the fields as invalid.
-                errors.awsEndpoint = errors.awsAccessKey = errors.awsSecretKey = '';
-                errors.global = error.message;
-                break;
-            }
-        }
-
-        return errors;
     }
 
     // --------------------------------------
@@ -406,153 +433,104 @@ class AddCloudConnectionModalViewModel extends Observer  {
     }
 
     // --------------------------------------
-    // S3 Compatible & flashblade related methods:
+    // AWS related methods:
     // --------------------------------------
-    genericS3OnValidate(values, existingConnections) {
-        const { service } = values;
-        switch (service) {
-            case 'S3_V2_COMPATIBLE': {
-                const { s3v2Endpoint, s3v2AccessKey, s3v2SecretKey } = values;
-                return this._genericS3OnValidate(
-                    {
-                        s3Endpoint: s3v2Endpoint,
-                        s3AccessKey: s3v2AccessKey,
-                        s3SecretKey: s3v2SecretKey
-                    }, existingConnections
-                );
-                
-            }
-            case 'S3_V4_COMPATIBLE': {
-                const { s3v4Endpoint, s3v4AccessKey, s3v4SecretKey } = values;
-                return this._genericS3OnValidate(
-                    {
-                        s3Endpoint: s3v4Endpoint,
-                        s3AccessKey: s3v4AccessKey,
-                        s3SecretKey: s3v4SecretKey
-                    }, existingConnections
-                );
-            }
-            case 'FLASHBLADE': {
-                const { fbEndpoint, fbAccessKey, fbSecretKey } = values;
-                return this._genericS3OnValidate(
-                    {
-                        s3Endpoint: fbEndpoint,
-                        s3AccessKey: fbAccessKey,
-                        s3SecretKey: fbSecretKey
-                    }, existingConnections
-                );
-            }
-        }
+    awsOnValidate(values, existingConnections) {
+        const awsConnections = existingConnections
+            .filter(connection => connection.service === 'AWS');
+
+        return _onS3LikeValidate(
+            s3LikeConnKeyMappings['AWS'],
+            values,
+            awsConnections,
+            'AWS'
+        );
     }
 
-    async genericS3OnValidateAsync(values) {
-        const { service } = values;
-        switch (service) {
-            case 'S3_V2_COMPATIBLE': {
-                const { s3v2Endpoint, s3v2AccessKey, s3v2SecretKey } = values;
-                return await this._genericS3OnValidateAsync(
-                    {
-                        s3Endpoint: s3v2Endpoint,
-                        s3AccessKey: s3v2AccessKey,
-                        s3SecretKey: s3v2SecretKey
-                    }
-                );
-                
-            }
-            case 'S3_V4_COMPATIBLE': {
-                const { s3v4Endpoint, s3v4AccessKey, s3v4SecretKey } = values;
-                return await this._genericS3OnValidateAsync(
-                    {
-                        s3Endpoint: s3v4Endpoint,
-                        s3AccessKey: s3v4AccessKey,
-                        s3SecretKey: s3v4SecretKey
-                    }
-                );
-            }
-            case 'FLASHBLADE': {
-                const { fbEndpoint, fbAccessKey, fbSecretKey } = values;
-                return await this._genericS3OnValidateAsync(
-                    {
-                        s3Endpoint: fbEndpoint,
-                        s3AccessKey: fbAccessKey,
-                        s3SecretKey: fbSecretKey
-                    }
-                );
-            }
-        }
+    async awsOnValidateAsync(values) {
+        return _onS3LikeValidateAsync(
+            s3LikeConnKeyMappings['AWS'],
+            values,
+            'AWS',
+            'AWS'
+        );
     }
 
-    _genericS3OnValidate(values, existingConnections) {
-        const errors = {};
-        const { s3Endpoint, s3AccessKey, s3SecretKey } = values;
+    // --------------------------------------
+    // S3 Compatible (v2) methods:
+    // --------------------------------------
+    s3v2OnValidate(values, existingConnections) {
+        const s3CompatibleConnections = existingConnections.filter(connection =>
+            connection.service === 'S3_V2_COMPATIBLE' ||
+            connection.service === 'S3_V4_COMPATIBLE'
+        );
 
-        if (!isUri(s3Endpoint)) {
-            errors.s3Endpoint = 'Please enter valid S3 compatible endpoint URI';
-        }
-
-        if (!s3AccessKey) {
-            errors.s3AccessKey = 'Please enter an access key';
-
-        } else {
-            const alreadyExists = existingConnections
-                .some(connection =>
-                    (['S3_V2_COMPATIBLE', 'S3_V4_COMPATIBLE', 'FLASHBLADE'].includes(connection.service)) &&
-                    connection.endpoint === s3Endpoint &&
-                    connection.identity === s3AccessKey
-                );
-
-            if (alreadyExists) {
-                errors.s3AccessKey = 'A similar connection already exists';
-            }
-        }
-
-        if (!s3SecretKey) {
-            errors.s3SecretKey = 'Please enter a secret key';
-        }
-
-        return errors;
+        return _onS3LikeValidate(
+            s3LikeConnKeyMappings['S3_V2_COMPATIBLE'],
+            values,
+            s3CompatibleConnections,
+            'S3 compatible'
+        );
     }
 
-    async _genericS3OnValidateAsync(values) {
-        const errors = {};
-        const { s3Endpoint, s3AccessKey, s3SecretKey } = values;
-        const { status, error } = await api.account.check_external_connection({
-            endpoint_type: 'AWS',
-            endpoint: s3Endpoint,
-            identity: s3AccessKey,
-            secret: s3SecretKey
-        });
+    async s3v2OnValidateAsync(values) {
+        return _onS3LikeValidateAsync(
+            s3LikeConnKeyMappings['S3_V2_COMPATIBLE'],
+            values,
+            'S3_COMPATIBLE',
+            'S3 compatible',
+        );
+    }
 
-        switch (status) {
-            case 'TIMEOUT': {
-                errors.s3Endpoint = 'S3 connection timed out';
-                break;
-            }
-            case 'INVALID_ENDPOINT': {
-                errors.s3Endpoint = 'Please enter a valid S3 compatible endpoint';
-                break;
-            }
-            case 'INVALID_CREDENTIALS': {
-                errors.s3AccessKey = errors.s3SecretKey = 'Credentials do not match';
-                break;
-            }
-            case 'NOT_SUPPORTED': {
-                errors.s3AccessKey = 'Account type is not supported';
-                break;
-            }
-            case 'TIME_SKEW': {
-                errors.s3AccessKey = 'Time difference with the server is too large';
-                break;
-            }
-            case 'UNKNOWN_FAILURE': {
-                // Using empty message to mark the fields as invalid.
-                errors.s3Endpoint = errors.s3AccessKey = errors.s3SecretKey = '';
-                errors.global = error.message;
-                break;
-            }
-        }
+    // --------------------------------------
+    // S3 Compatible (v4) methods:
+    // --------------------------------------
+    s3v4OnValidate(values, existingConnections) {
+        const s3CompatibleConnections = existingConnections
+            .filter(connection =>
+                connection.service === 'S3_V2_COMPATIBLE' ||
+                connection.service === 'S3_V4_COMPATIBLE'
+            );
 
-        return errors;
+        return _onS3LikeValidate(
+            s3LikeConnKeyMappings['S3_V4_COMPATIBLE'],
+            values,
+            s3CompatibleConnections,
+            'S3 compatible'
+        );
+    }
+
+    async s3v4OnValidateAsync(values) {
+        return _onS3LikeValidateAsync(
+            s3LikeConnKeyMappings['S3_V4_COMPATIBLE'],
+            values,
+            'S3_COMPATIBLE',
+            'S3 compatible'
+        );
+    }
+
+    // --------------------------------------
+    // Pure FlashBlade related methods:
+    // --------------------------------------
+    flashBladeOnValidate(values, existingConnections) {
+        const flashBladeConnections = existingConnections
+            .filter(connection => connection.service === 'FLASHBLADE');
+
+        return _onS3LikeValidate(
+            s3LikeConnKeyMappings['FLASHBLADE'],
+            values,
+            flashBladeConnections,
+            'FlashBlade'
+        );
+    }
+
+    async flashBladeOnValidateAsync(values) {
+        return _onS3LikeValidateAsync(
+            s3LikeConnKeyMappings['FLASHBLADE'],
+            values,
+            'FLASHBLADE',
+            'FlashBlade',
+        );
     }
 
     // --------------------------------------

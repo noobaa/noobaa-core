@@ -51,8 +51,7 @@ export const cloudServices = deepFreeze([
         value: 'FLASHBLADE',
         displayName: 'Pure FlashBlade service',
         subject: 'Bucket',
-        icon: 'google-cloud-dark', //NBNB
-        selectedIcon: 'google-cloud-colored' //NBNB
+        icon: 'pure'
     }
 ]);
 

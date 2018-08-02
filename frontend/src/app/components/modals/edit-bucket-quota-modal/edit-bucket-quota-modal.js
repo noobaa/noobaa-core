@@ -8,7 +8,7 @@ import style from 'style';
 import ko from 'knockout';
 import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
-import { updateBucketQuota, closeModal } from 'action-creators';
+import { updateBucketQuotaPolicy, closeModal } from 'action-creators';
 import { formatSize, toBytes, toBigInteger, fromBigInteger,
     unitsInBytes, isSizeZero, sumSize } from 'utils/size-utils';
 
@@ -182,7 +182,7 @@ class EditBucketQuotaModalViewModel extends Observer {
             { unit: values.unit, size: Number(values.size) } :
             null;
 
-        action$.next(updateBucketQuota(this.bucketName, quota));
+        action$.next(updateBucketQuotaPolicy(this.bucketName, quota));
         action$.next(closeModal());
     }
 

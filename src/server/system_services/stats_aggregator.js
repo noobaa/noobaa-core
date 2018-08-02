@@ -72,6 +72,33 @@ const SINGLE_SYS_DEFAULTS = {
     }
 };
 
+//Aggregate bucket configuration and policies
+function _aggregate_buckets_config(system) {
+    let bucket_config = [];
+    for (const cbucket of system.buckets) {
+        let current_config = {};
+        current_config.num_objects = cbucket.num_objects;
+        current_config.versioning = cbucket.versioning;
+        current_config.quota = Boolean(cbucket.quota);
+        current_config.tiers = [];
+        for (const ctier of cbucket.tiering.tiers) {
+            let current_tier = _.find(system.tiers, t => ctier.tier === t.name);
+            if (current_tier) {
+                current_config.tiers.push({
+                    placement_type: current_tier.data_placement,
+                    mirrors: current_tier.mirror_groups.length,
+                    spillover_enabled: Boolean(ctier.spillover && !ctier.disabled),
+                    replicas: current_tier.chunk_coder_config.replicas,
+                    data_frags: current_tier.chunk_coder_config.data_frags,
+                    parity_frags: current_tier.chunk_coder_config.parity_frags,
+                });
+            }
+        }
+        bucket_config.push(current_config);
+    }
+    return bucket_config;
+}
+
 //Collect systems related stats and usage
 function get_systems_stats(req) {
     var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
@@ -90,10 +117,12 @@ function get_systems_stats(req) {
                 .then(res => {
                     // Means that if we do not have any systems, the version number won't be sent
                     sys_stats.version = res.version || process.env.CURRENT_VERSION;
+                    const buckets_config = _aggregate_buckets_config(res);
                     return _.defaults({
                         roles: res.roles.length,
                         tiers: res.tiers.length,
                         buckets: res.buckets.length,
+                        buckets_config: buckets_config,
                         objects: res.objects,
                         allocated_space: res.storage.alloc,
                         used_space: res.storage.used,
@@ -116,32 +145,6 @@ function get_systems_stats(req) {
                         }
                     }, SINGLE_SYS_DEFAULTS);
                 });
-            // TODO: Need to handle it differently
-            // .then(function(res) {
-            //     let last_stats_report = system.last_stats_report || 0;
-            //     var query = {
-            //         system: system._id,
-            //         // Notice that we only count the chunks that finished their rebuild
-            //         last_build: {
-            //             $gt: new Date(last_stats_report)
-            //         },
-            //         // Ignore old chunks without buckets
-            //         bucket: {
-            //             $exists: true
-            //         },
-            //         deleted: null
-            //     };
-            //
-            //     return DataChunk.collection.count(query)
-            //         .then(count => {
-            //             res.chunks_rebuilt_since_last = count;
-            //             return res;
-            //         })
-            //         .catch(err => {
-            //             dbg.log0('Could not fetch chunks_rebuilt_since_last', err);
-            //             return res;
-            //         });
-            // });
         }))
         .then(systems => {
             sys_stats.systems = systems;
@@ -160,12 +163,7 @@ function get_systems_stats(req) {
 
 var NODES_STATS_DEFAULTS = {
     count: 0,
-    os: {
-        win: 0,
-        osx: 0,
-        linux: 0,
-        other: 0,
-    },
+    os: {},
     nodes_with_issue: 0
 };
 
@@ -202,14 +200,10 @@ function get_nodes_stats(req) {
                         node.storage.unavailable_free / SCALE_BYTES_TO_GB);
                     nodes_histo.histo_uptime.add_value(
                         node.os_info.uptime / SCALE_SEC_TO_DAYS);
-                    if (node.os_info.ostype === 'Darwin') {
-                        nodes_stats.os.osx += 1;
-                    } else if (node.os_info.ostype.startsWith('Windows_NT')) {
-                        nodes_stats.os.win += 1;
-                    } else if (node.os_info.ostype === 'Linux') {
-                        nodes_stats.os.linux += 1;
+                    if (nodes_stats.os[node.os_info.ostype]) {
+                        nodes_stats.os[node.os_info.ostype] += 1;
                     } else {
-                        nodes_stats.os.other += 1;
+                        nodes_stats.os[node.os_info.ostype] = 1;
                     }
                 }
             }

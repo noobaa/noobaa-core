@@ -216,8 +216,8 @@ class ResourceOverviewViewModel extends Observer {
             this.cloudCounters[0].value(AWS);
             this.cloudCounters[1].value(AZURE);
             this.cloudCounters[2].value(GOOGLE);
-            this.cloudCounters[3].value(S3_COMPATIBLE);
-            this.cloudCounters[4].value(FLASHBLADE);
+            this.cloudCounters[3].value(FLASHBLADE);
+            this.cloudCounters[4].value(S3_COMPATIBLE);
             this.cloudCapacity(formatSize(cloudCapacity));
         }
 

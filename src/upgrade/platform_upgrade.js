@@ -472,6 +472,16 @@ async function upgrade_mongodb_schemas(params) {
     const MONGO_SHELL = await get_mongo_shell_command(params.is_cluster);
     const ver = pkg.version;
 
+    let is_pure_version = false;
+    try {
+        // eslint-disable-next-line global-require
+        const old_config = require('/backup/noobaa-core/config');
+        is_pure_version = old_config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION === true ||
+            old_config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA === true;
+    } catch (err) {
+        if (err.code !== 'MODULE_NOT_FOUND') throw err;
+        console.log('did not find old config /backup/noobaa-core/config');
+    }
     async function set_mongo_debug_level(level) {
         await promise_utils.exec(`${MONGO_SHELL} --quiet --eval 'db.setLogLevel(${level})'`, {
             ignore_rc: false,
@@ -490,6 +500,7 @@ async function upgrade_mongodb_schemas(params) {
             'mongo_upgrade_2_6_0.js',
             'mongo_upgrade_2_7_3.js',
             'mongo_upgrade_2_8_0.js',
+            'mongo_upgrade_2_8_2.js',
             'mongo_upgrade_2_9_0.js',
             'mongo_upgrade_mark_completed.js'
         ];
@@ -505,7 +516,7 @@ async function upgrade_mongodb_schemas(params) {
     for (const script of UPGRADE_SCRIPTS) {
         dbg.log0(`UPGRADE: Running Mongo Upgrade Script ${script}`);
         try {
-            await promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${secret}', version='${ver}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
+            await promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${secret}', version='${ver}', is_pure_version='${is_pure_version}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
                 ignore_rc: false,
                 return_stdout: true,
                 trim_stdout: true

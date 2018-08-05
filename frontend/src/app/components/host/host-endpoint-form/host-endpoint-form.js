@@ -5,6 +5,7 @@ import ConnectableViewModel from 'components/connectable';
 import { deepFreeze } from 'utils/core-utils';
 import { getEndpointServiceStateIcon } from 'utils/host-utils';
 import { formatSize } from 'utils/size-utils';
+import { unassignedRegionText } from 'utils/resource-utils';
 import { timeShortFormat } from 'config';
 import ko from 'knockout';
 import moment from 'moment';
@@ -122,7 +123,7 @@ class HostEndpointFormViewModel extends ConnectableViewModel {
                         disabled: isDisabled
                     },
                     {
-                        value: pool.region || '(Unassigned)',
+                        value: pool.region || unassignedRegionText,
                         disabled: isDisabled
                     },
                     {

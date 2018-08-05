@@ -1,14 +1,14 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <h3 class="heading3 pad alt-bg">
-    Object parts stored on this node: {{partCountFormatted}}
+    Object parts stored on this {{subject}}: {{partCountFormatted}}
 </h3>
 
 <data-table class="parts-table greedy" params="
     columns: columns,
     data: rows,
     loading: !dataReady(),
-    emptyMessage: 'No object parts are stored on the node'
+    emptyMessage: emptyMessage
 "></data-table>
 
 <paginator params="

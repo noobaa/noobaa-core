@@ -124,8 +124,8 @@ function _generateBucketsCrumbs(params) {
 function _generateDataBucketCrumbs(params) {
     return [
         ..._generateBucketsCrumbs({
-            ...params, tab:
-            'data-buckets'
+            ...params,
+            tab: 'data-buckets'
         }),
         {
             url: realizeUri(
@@ -140,7 +140,7 @@ function _generateDataBucketCrumbs(params) {
 function _generateNamespaceBucketCrumbs(params) {
     return [
         ..._generateBucketsCrumbs({
-            params,
+            ...params,
             tab: 'namespace-buckets'
         }),
         {

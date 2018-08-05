@@ -6,6 +6,7 @@ import { deepFreeze, union, sumBy, throttle, memoize, pick } from 'utils/core-ut
 import { formatSize, sumSize } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getFormValues, isFormValid, getFieldValue, isFieldTouched } from 'utils/form-utils';
+import { unassignedRegionText } from 'utils/resource-utils';
 import { paginationPageSize, inputThrottle } from 'config';
 import ko from 'knockout';
 import numeral from 'numeral';
@@ -14,8 +15,6 @@ import {
     getHostDisplayName,
     getHostStateIcon,
     getNodeOrHostCapacityBarValues
-
-
 } from 'utils/host-utils';
 import {
     fetchHosts,
@@ -170,7 +169,7 @@ function _mapHostToRow(host, pools, selectedHosts) {
                     },
                     {
                         label: 'Region',
-                        value: pool.region || '(Unassigned)'
+                        value: pool.region || unassignedRegionText
                     },
                     {
                         label: 'Free capacity',

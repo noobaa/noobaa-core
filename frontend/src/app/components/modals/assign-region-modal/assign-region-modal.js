@@ -2,6 +2,8 @@
 
 import template from './assign-region-modal.html';
 import ConnectableViewModel from 'components/connectable';
+import { equalIgnoreCase } from 'utils/string-utils';
+import { unassignedRegionText } from 'utils/resource-utils';
 import { closeModal, assignRegionToResource } from 'action-creators';
 import ko from 'knockout';
 
@@ -39,8 +41,14 @@ class AssignRegionModalViewModel extends ConnectableViewModel {
         const { region } = values;
         const errors = {};
 
-        if (region && (region.length < 3 || region.length > 32)) {
-            errors.region = 'Region tag must be between 3-32 characters';
+        if (region) {
+            if (region.length < 3 || region.length > 32) {
+                errors.region = 'Region tag must be between 3-32 characters';
+            }
+
+            if (equalIgnoreCase(region.trim(), unassignedRegionText)) {
+                errors.region = `"${unassignedRegionText}" is reserved and cannot be used as a region name`;
+            }
         }
 
         return errors;

@@ -3,6 +3,7 @@
 import template from './cloud-resource-properties-form.html';
 import ConnectableViewModel from 'components/connectable';
 import { formatSize } from 'utils/size-utils';
+import { unassignedRegionText } from 'utils/resource-utils';
 import { openAssignRegionModal } from 'action-creators';
 import ko from 'knockout';
 import { timeShortFormat } from 'config';
@@ -58,7 +59,7 @@ class CloudResourcePropertiesFormViewModel extends ConnectableViewModel {
                 properties: [
                     { value: resource.name },
                     { value: resource.target },
-                    { value: resource.region || '(Unassigned)' },
+                    { value: resource.region || unassignedRegionText },
                     { value: formatSize(resource.storage.used) },
                     { value: resource.createdBy },
                     { value: moment(resource.creationTime).format(timeShortFormat) }

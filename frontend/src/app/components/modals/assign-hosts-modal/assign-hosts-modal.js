@@ -9,6 +9,7 @@ import { formatSize, sumSize } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getFormValues, getFieldValue } from 'utils/form-utils';
 import { inputThrottle, paginationPageSize } from 'config';
+import { unassignedRegionText } from 'utils/resource-utils';
 import {
     getHostModeListForStates,
     getHostDisplayName,
@@ -126,7 +127,7 @@ function _mapHostToRow(host, pools, selectedHosts, targetPoolName) {
                     },
                     {
                         label: 'Region',
-                        value: pool.region || '(Unassigned)'
+                        value: pool.region || unassignedRegionText
                     },
                     {
                         label: 'Free capacity',

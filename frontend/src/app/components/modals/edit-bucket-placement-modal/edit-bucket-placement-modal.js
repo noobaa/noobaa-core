@@ -5,7 +5,7 @@ import Observer from 'observer';
 import ResourceRow from './resource-row';
 import { state$, action$ } from 'state';
 import { deepFreeze, pick, flatMap, createCompareFunc, keyBy } from 'utils/core-utils';
-import { getResourceId} from 'utils/resource-utils';
+import { unassignedRegionText, getResourceId } from 'utils/resource-utils';
 import { getFieldValue } from 'utils/form-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getMany } from 'rx-extensions';
@@ -264,7 +264,7 @@ class EditBucketPlacementModalViewModel extends Observer {
 
         if (policyType === 'SPREAD') {
             const [first, ...rest] = selectedResources
-                .map(({ type, name }) => regionByResource[getResourceId(type, name)] || '(Unassigned)');
+                .map(({ type, name }) => regionByResource[getResourceId(type, name)] || unassignedRegionText);
 
             if (first && rest.some(region => region !== first)) {
                 warnings.selectedResources = 'Combining resources with different assigned regions is not recommended and might raise costs';

@@ -8,7 +8,7 @@ import numeral from 'numeral';
 import { isNumber } from 'utils/core-utils';
 import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { getHostsPoolStateIcon } from 'utils/resource-utils';
+import { unassignedRegionText, getHostsPoolStateIcon } from 'utils/resource-utils';
 import { getActivityName, getActivityListTooltip } from 'utils/host-utils';
 import { get } from 'rx-extensions';
 import style from 'style';
@@ -108,7 +108,7 @@ class PoolSummaryViewModel extends Observer {
             this.state(getHostsPoolStateIcon(pool));
             this.hostCount(numeral(hostCount).format('0,0'));
             this.driveCount(numeral(storageNodeCount).format('0,0'));
-            this.region(region || '(Unassigned)');
+            this.region(region || unassignedRegionText);
         }
 
         { // Update pool storage and usage

@@ -156,6 +156,12 @@ module.exports = {
                             buckets: {
                                 type: 'integer'
                             },
+                            buckets_config: {
+                                type: 'array',
+                                items: {
+                                    $ref: '#/definitions/bucket_config'
+                                }
+                            },
                             chunks: {
                                 type: 'integer'
                             },
@@ -228,6 +234,47 @@ module.exports = {
             }
         },
 
+        bucket_config: {
+            type: 'object',
+            properties: {
+                num_objects: {
+                    type: 'integer'
+                },
+                versioning: {
+                    type: 'string'
+                },
+                quota: {
+                    type: 'boolean'
+                },
+                tiers: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            placement_type: {
+                                type: 'string'
+                            },
+                            mirrors: {
+                                type: 'integer'
+                            },
+                            spillover_enabled: {
+                                type: 'boolean'
+                            },
+                            replicas: {
+                                type: 'integer'
+                            },
+                            data_frags: {
+                                type: 'integer'
+                            },
+                            parity_frags: {
+                                type: 'integer'
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
         nodes_stats: {
             type: 'object',
             required: ['count', 'os', 'nodes_with_issue'],
@@ -240,20 +287,8 @@ module.exports = {
                 },
                 os: {
                     type: 'object',
-                    properties: {
-                        win: {
-                            type: 'integer'
-                        },
-                        osx: {
-                            type: 'integer'
-                        },
-                        linux: {
-                            type: 'integer'
-                        },
-                        other: {
-                            type: 'integer'
-                        }
-                    }
+                    additionalProperties: true,
+                    properties: {}
                 },
                 histograms: {
                     type: 'object',

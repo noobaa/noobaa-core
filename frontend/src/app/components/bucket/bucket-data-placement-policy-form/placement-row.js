@@ -7,6 +7,7 @@ import { deepFreeze, sumBy } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { hostWritableModes, storageNodeWritableModes } from 'utils/host-utils';
 import {
+    unassignedRegionText,
     getHostsPoolStateIcon,
     getCloudResourceStateIcon,
     getCloudResourceTypeIcon
@@ -67,7 +68,7 @@ export default class PlacementRowViewModel {
         this.resourceName(resourceName);
         this.state(getHostsPoolStateIcon(pool));
         this.type(nodesPoolType);
-        this.region(pool.region || '(Unassigned)');
+        this.region(pool.region || unassignedRegionText);
         this.healthyHosts(_formatCounts(healthyHosts, hostCount));
         this.healthyNodes(_formatCounts(healthyNodes, storageNodeCount));
         this.bucketUsage({
@@ -86,7 +87,7 @@ export default class PlacementRowViewModel {
         this.resourceName(resourceName);
         this.state(getCloudResourceStateIcon(resource));
         this.type(getCloudResourceTypeIcon(resource));
-        this.region(resource.region || '(Unassigned)');
+        this.region(resource.region || unassignedRegionText);
         this.healthyHosts('---');
         this.healthyNodes('---');
         this.bucketUsage({

@@ -7,7 +7,7 @@ import { requestLocation, openCreatePoolModal, deleteResource } from 'action-cre
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap, sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { getHostsPoolStateIcon } from 'utils/resource-utils';
+import { unassignedRegionText, getHostsPoolStateIcon } from 'utils/resource-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
 import * as routes from 'routes';
@@ -108,7 +108,7 @@ function _mapPoolToRow(
 ) {
     const {
         name,
-        region = '(Unassigned)',
+        region = unassignedRegionText,
         storage,
         undeletable = '',
         storageNodeCount,

@@ -66,6 +66,8 @@ class HostPartsTableViewModel extends ConnectableViewModel {
     pageSize = paginationPageSize;
     pathname = '';
     dataReady = ko.observable();
+    subject = ko.observable();
+    emptyMessage = ko.observable();
     partCount = ko.observable();
     partCountFormatted = ko.observable();
     page = ko.observable();
@@ -78,15 +80,21 @@ class HostPartsTableViewModel extends ConnectableViewModel {
             null;
 
         return [
+            params.resourceType,
             hostParts,
             state.location
         ];
     }
 
-    mapStateToProps(hostParts, location) {
+    mapStateToProps(resourceType, hostParts, location) {
+        const subject =
+            (resourceType === 'HOST' && 'node') ||
+            (resourceType === 'CLOUD_RESOURCE' && 'cloud resoruce');
+
         if (!hostParts || hostParts.fetching || !hostParts.parts) {
             ko.assignToProps(this, {
                 dataReady: false,
+                subject: subject,
                 rows: []
             });
         } else {
@@ -96,6 +104,8 @@ class HostPartsTableViewModel extends ConnectableViewModel {
 
             ko.assignToProps(this, {
                 dataReady: true,
+                subject: subject,
+                emptyMessage: `No object parts are stored on the ${subject}`,
                 pathname: location.pathname,
                 page: page,
                 partCount: partCount,

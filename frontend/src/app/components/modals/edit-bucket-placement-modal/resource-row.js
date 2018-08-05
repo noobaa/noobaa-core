@@ -5,6 +5,7 @@ import numeral from 'numeral';
 import { sumBy } from 'utils/core-utils';
 import { hostWritableModes, storageNodeWritableModes } from 'utils/host-utils';
 import {
+    unassignedRegionText,
     getHostsPoolStateIcon,
     getCloudResourceStateIcon,
     getCloudResourceTypeIcon
@@ -66,7 +67,7 @@ export default class ResourceRowViewModel {
     _onHostPool(pool, selected) {
         const {
             name,
-            region = '(Unassigned)',
+            region = unassignedRegionText,
             storage,
             hostCount,
             hostsByMode,
@@ -97,7 +98,7 @@ export default class ResourceRowViewModel {
     }
 
     _onCloudResource(resource, selected) {
-        const { name, region = '(Unassigned)', storage } = resource;
+        const { name, region = unassignedRegionText, storage } = resource;
         const isSelected = selected.some(record => record.type === 'CLOUD' && record.name === name);
         const state = getCloudResourceStateIcon(resource);
 

@@ -5,7 +5,11 @@ import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { getCloudResourceStateIcon, getCloudResourceTypeIcon } from 'utils/resource-utils';
+import {
+    unassignedRegionText,
+    getCloudResourceStateIcon,
+    getCloudResourceTypeIcon
+} from 'utils/resource-utils';
 import * as routes from 'routes';
 
 const undeletableReasons = deepFreeze({
@@ -36,7 +40,7 @@ export default class CloudResourceRowViewModel {
     }
 
     onState(resource, system, selectedForDelete) {
-        const { name, region = '(Unassigned)', usedBy, target, undeletable } = resource;
+        const { name, region = unassignedRegionText, usedBy, target, undeletable } = resource;
         const bucketCount = usedBy.length;
 
         const uri = realizeUri(routes.cloudResource, { system, resource: name });

@@ -9,7 +9,7 @@ import { flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { getCloudResourceTypeIcon } from 'utils/resource-utils';
 import { getMany } from 'rx-extensions';
-import { getInternalResourceDisplayName } from 'utils/resource-utils';
+import { unassignedRegionText, getInternalResourceDisplayName } from 'utils/resource-utils';
 import { closeModal, updateBucketSpilloverPolicy } from 'action-creators';
 import { editBucketSpillover as learnMoreHref } from 'knowledge-base-articles';
 
@@ -70,7 +70,7 @@ function _getOptionTooltip(type, resource, isOptionDisabled) {
             },
             {
                 label: 'Region',
-                value: resource.region || '(Unassigned)',
+                value: resource.region || unassignedRegionText,
                 visible: type !== 'INTERNAL'
             },
             {

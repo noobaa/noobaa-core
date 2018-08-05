@@ -206,6 +206,8 @@ const resourceTypeToDisplayName = deepFreeze({
     CLOUD: 'cloud resource'
 });
 
+export const unassignedRegionText = 'Not set';
+
 export function getResourceId(type, name) {
     return `${type}:${name}`;
 }

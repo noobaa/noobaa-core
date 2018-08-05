@@ -4,6 +4,7 @@ import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
 import * as routes from 'routes';
 import {
+    unassignedRegionText,
     getResourceStateIcon,
     getInternalResourceDisplayName,
     getCloudResourceTypeIcon
@@ -69,7 +70,7 @@ export default class SpilloverRowViewModel {
 
     onResource(type, resource, bucketUsage, system) {
         this.resourceName(_getResourceName(type, resource, system));
-        this.region(resource.region || '(Unassigned)');
+        this.region(resource.region || unassignedRegionText);
         this.state(getResourceStateIcon(type, resource));
         this.type(_getResourceTypeIcon(type, resource));
         this.bucketUsage({

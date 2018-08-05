@@ -9,7 +9,7 @@ import ko from 'knockout';
 import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
 import { deepFreeze, keyBy } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { getResourceId } from 'utils/resource-utils';
+import { unassignedRegionText, getResourceId } from 'utils/resource-utils';
 import * as routes from 'routes';
 import { createBucketMirrorTooltip, createBucketSpreadTooltip } from 'knowledge-base-articles';
 import {
@@ -277,7 +277,7 @@ class CreateBucketModalViewModel extends Observer {
 
         if (policyType === 'SPREAD') {
             const [first, ...rest] = selectedResources
-                .map(({ type, name }) => regionByResource[getResourceId(type, name)] || '(Unassigned)');
+                .map(({ type, name }) => regionByResource[getResourceId(type, name)] || unassignedRegionText);
 
             if (first && rest.some(region => region !== first)) {
                 warnings.selectedResources = 'Combining resources with different assigned regions is not recommended and might raise costs';

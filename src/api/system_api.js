@@ -688,7 +688,18 @@ module.exports = {
                         }
                     }
                 },
+                platform_restrictions: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/restriction_enum'
+                    }
+                }
             },
+        },
+
+        restriction_enum: {
+            type: 'string',
+            enum: ['vmtools'],
         },
 
         role_info: {

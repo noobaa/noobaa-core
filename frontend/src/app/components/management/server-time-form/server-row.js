@@ -45,7 +45,7 @@ export default class ServerRowViewModel {
         this.timezone = server.timezone;
         this.state(getServerStateIcon(server));
         this.serverName(serverName);
-        this.address(server.addresses[0]);
+        this.address(server.addresses[0].ip);
         this.timeSettings(timeSettings);
         this.ntpServer(ntpServer);
         this.formattedTime(formattedTime);

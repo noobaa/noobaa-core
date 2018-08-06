@@ -76,6 +76,7 @@ import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
 import fetchCloudResourceObjects from './fetch-cloud-resource-objects';
 import assignRegionToResource from './assign-region-to-resource';
+import installVMTools from './install-vm-tools';
 
 const generalEpics = [
     handleLocationRequests,
@@ -105,7 +106,8 @@ const systemRelatedEpics = [
     upgradeSystem,
     updateRemoteSyslog,
     enterMaintenanceMode,
-    leaveMaintenanceMode
+    leaveMaintenanceMode,
+    installVMTools
 ];
 
 const topologyRelatedEpics = [

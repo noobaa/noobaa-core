@@ -56,7 +56,9 @@
 
             <hr />
 
-            <server-ssl-form class="pad" params="isCollapsed: sectionToggle('server-ssl')"></server-ssl-form>
+            <server-ssl-form class="pad" params="
+                isCollapsed: sectionToggle('server-ssl')
+            "></server-ssl-form>
         </section>
 
         <diagnostics-form class="tab"
@@ -79,6 +81,12 @@
             <p2p-form class="pad" params="
                 isCollapsed: sectionToggle('p2p')
             "></p2p-form>
+
+            <hr />
+
+            <vm-tools-form class="pad" params="
+                isCollapsed: sectionToggle('vmtools')
+            "></vm-tools-form>
         </section>
     </div>
 </div>

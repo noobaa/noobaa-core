@@ -94,7 +94,7 @@ export default class ServerRowViewModel extends BaseViewModel {
 
     onState(server, systemVersion, serverMinRequirements) {
         const { version, locationTag } = server;
-        const [ address = '' ] = server.addresses;
+        const [ address ] = server.addresses;
         const state = _getStatus(server, systemVersion, serverMinRequirements);
         const uri = realizeUri(this.baseRoute, { server: getServerDisplayName(server) });
         const diskUsage = _getDiskUsage(server);
@@ -108,7 +108,7 @@ export default class ServerRowViewModel extends BaseViewModel {
 
         this.state(state);
         this.name(serverName);
-        this.address(address);
+        this.address(address.ip);
         this.diskUsage(diskUsage);
         this.memoryUsage(memoryUsage);
         this.cpuUsage(cpuUsage);

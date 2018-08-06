@@ -1,0 +1,23 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="sticky" ko.css.active="isActive">
+    <div class="sticky-content row content-middle">
+        <svg-icon class="icon-small highlight push-next-half"
+            params="name: 'problem'"
+        ></svg-icon>
+        <p class="greedy push-next highlight">
+            IP Conflict detected!
+            <!-- ko if: addresses().length === 1 -->
+            IP {{addresses.get(0)}} is assigned to another device,
+            <!-- /ko -->
+            <!-- ko if: addresses().length > 1 -->
+            <span class="ips" ko.tooltip="tooltip">{{addresses().length}} IP addresses</span>
+            are assigned to other devices,
+            <!-- /ko -->
+            the system will not work properly before the problem is fixed.
+        </p>
+        <a class="link alt-colors" target="_blank" ko.attr.href="articleUrl">
+            How can I fix it ?
+        </a>
+    </div>
+</section>

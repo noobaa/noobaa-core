@@ -870,7 +870,10 @@ module.exports = {
                     type: 'boolean'
                 },
                 ip_collision: {
-                    type: 'boolean'
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
                 },
                 services_status: {
                     $ref: '#/definitions/services_status'

@@ -32,7 +32,7 @@ const columns = deepFreeze([
         name: 'address',
         label: 'IP Address',
         sortable: true,
-        compareKey: server => (server.addresses || [])[0]
+        compareKey: server => server.addresses[0].ip
     },
     {
         name: 'diskUsage',
@@ -70,7 +70,7 @@ const noNtpTooltip = deepFreeze({
 
 function _matchFilter(server, filter = '') {
     const { addresses, locationTag } = server;
-    return [`${getServerDisplayName(server)}`, addresses[0], locationTag].some(
+    return [`${getServerDisplayName(server)}`, addresses[0].ip, locationTag].some(
         key => key.toLowerCase().includes(filter.toLowerCase())
     );
 }

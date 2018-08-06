@@ -272,7 +272,10 @@ module.exports = {
             }
         },
         ip_collision: {
-            type: 'boolean'
+            type: 'array',
+            items: {
+                type: 'string'
+            }
         },
         services_status: {
             type: 'object',

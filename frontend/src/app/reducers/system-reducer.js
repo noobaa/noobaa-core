@@ -21,11 +21,13 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
     const {
         version,
         upgrade,
+        dns_name,
+        ip_address,
         has_ssl_cert,
         remote_syslog_config,
-        dns_name, ip_address,
         maintenance_mode
     } = payload;
+
     const { releaseNotes } = state || {};
 
     return {
@@ -36,6 +38,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         upgrade: _mapUpgrade(upgrade),
         remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
         releaseNotes,
+        vmTools: _mapVMTools(payload),
         maintenanceMode: {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
         }
@@ -108,6 +111,27 @@ function _mapRemoteSyslog(config) {
     if (!config) return;
 
     return pick(config, ['protocol', 'address', 'port']);
+}
+
+function _mapVMTools(payload) {
+    const { platform_restrictions, cluster } = payload;
+    if (platform_restrictions.includes('vmtools')) {
+        return 'NOT_SUPPORTED';
+    }
+
+    const { vmtools_installed } = cluster.shards
+        .find(shard =>
+            shard.servers.find(server =>
+                server.secret === cluster.master_secret
+            )
+        );
+
+    if (vmtools_installed) {
+        return 'INSTALLED';
+    }
+
+
+    return 'NOT_INSTALLED';
 }
 
 // ------------------------------

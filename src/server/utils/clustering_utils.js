@@ -201,7 +201,7 @@ function get_cluster_info(rs_status) {
             search_domains: cinfo.search_domains || [],
             time_epoch: time_epoch,
             vmtools_installed: Boolean(cinfo.vmtools_installed),
-            ip_collision: Boolean(cinfo.ip_collision)
+            ip_collision: cinfo.ip_collision
         };
 
         const status = cinfo.services_status;

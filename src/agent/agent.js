@@ -384,10 +384,10 @@ class Agent {
                 }
 
                 if (res.version !== pkg.version) {
-                    dbg.warn('exit on version change:',
+                    dbg.warn('identified version change:',
                         'res.version', res.version,
                         'pkg.version', pkg.version);
-                    process.exit(0);
+                    this.send_message_and_exit('UPGRADE', 0);
                 }
 
                 if (is_new_conn) {
@@ -414,7 +414,7 @@ class Agent {
                         dbg.error(`shouldnt be here. found duplicated node for cloud pool or mongo pool!!`);
                         throw new Error('found duplicated cloud or mongo node');
                     } else {
-                        process.exit(68); // 68 is 'D' in ascii
+                        this.send_message_and_exit('DUPLICATE', 68); // 68 is 'D' in ascii
                     }
                 }
 
@@ -425,7 +425,7 @@ class Agent {
                         dbg.error(`shouldnt be here. node not found for cloud pool or mongo pool!!`);
                         throw new Error('node not found cloud or mongo node');
                     } else {
-                        process.exit(69); // 69 is 'E' in ascii
+                        this.send_message_and_exit('NOTFOUND', 69); // 69 is 'E' in ascii
                     }
                 }
 
@@ -1065,7 +1065,7 @@ class Agent {
                 if (os.type() === 'Darwin') return;
                 P.delay(30 * 1000) // this._disable_service()
                     .then(() => {
-                        process.exit(85); // 85 is 'U' in ascii
+                        this.send_message_and_exit('UNINSTALL', 85); // 85 is 'U' in ascii
                     });
             });
     }
@@ -1090,6 +1090,24 @@ class Agent {
                 dbg.error('fix_storage_permissions configuration failed with:', err);
                 throw new Error('fix_storage_permissions configuration failed!');
             });
+    }
+
+    async send_message_and_exit(message_code, exit_code) {
+        const dbg = this.dbg;
+        // if we have an open ipc channel than send the message. otherwise exit
+        if (process.send) {
+            dbg.log0(`sending message ${message_code} to parent process (agent_wrapper)`);
+            process.send({ code: message_code });
+            // set timeout for 2 minutes to exit agent if not killed already
+            const timeout = 2 * 60000;
+            setTimeout(() => {
+                dbg.log0(`expected this process to get killed by now but still alive. exiting with code ${exit_code}`);
+                process.exit(exit_code);
+            }, timeout);
+        } else {
+            dbg.log0(`no messages channel to parent process. exit with code ${exit_code}`);
+            process.exit(exit_code);
+        }
     }
 
 }

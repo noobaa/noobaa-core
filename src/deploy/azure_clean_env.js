@@ -91,7 +91,7 @@ async function main() {
         const MAX_RETRY = 3;
         while (keep_run) {
             try {
-                const status_list = ['VM running', 'VM stopped', 'VM Failure', 'VM generalized'];
+                const status_list = ['VM running', 'VM stopped', 'VM Failure', 'VM generalized', 'VM deallocated'];
                 for (const status of status_list) {
                     await delete_vm(status);
                 }

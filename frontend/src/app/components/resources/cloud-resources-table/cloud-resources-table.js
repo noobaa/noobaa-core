@@ -38,7 +38,7 @@ const columns = deepFreeze([
     },
     {
         name: 'buckets',
-        label: 'bucket using resource',
+        label: 'connected buckets',
         sortable: true,
         compareKey: resource => resource.usedBy.length
     },

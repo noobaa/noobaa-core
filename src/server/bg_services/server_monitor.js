@@ -26,7 +26,7 @@ const dotenv = require('../../util/dotenv');
 
 let server_conf = {};
 let monitoring_status = {};
-let ip_collision = false;
+let ip_collision = [];
 
 if (!process.env.PLATFORM) {
     console.log('loading .env file...');
@@ -216,7 +216,7 @@ function _check_ntp() {
         .then(ntpstat_res => {
             if (ntpstat_res.startsWith('unsynchronised')) {
                 //Due to an issue with ntpstat not showing the correct ntpd status after ntf.conf change and ntpd restart
-                //Double verify unsynched with ntpq                
+                //Double verify unsynched with ntpq
                 return promise_utils.exec(`ntpq -np | tail -1`, {
                         ignore_rc: true,
                         return_stdout: true
@@ -316,7 +316,7 @@ function _check_network_configuration() {
     if (server_conf.is_clusterized && !_.find(ips, ip => ip === server_conf.owner_address)) {
         Dispatcher.instance().alert('MAJOR',
             system_store.data.systems[0]._id,
-            `IP address change was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
+            `IP address change was detected in server ${server_conf.heartbeat.health.os_info.hostname},
             please update the server IP in Cluster->${server_conf.heartbeat.health.os_info.hostname}->Change IP`,
             Dispatcher.rules.once_daily);
         dbg.log0('server ip was changed, IP:', server_conf.owner_address, 'not in the ip list:', ips);
@@ -332,7 +332,7 @@ function _check_network_configuration() {
                         if (!line) { // if didn't found the interface in the file
                             Dispatcher.instance().alert('MAJOR',
                                 system_store.data.systems[0]._id,
-                                `New network interface ${inter} was detected in server ${server_conf.heartbeat.health.os_info.hostname}, 
+                                `New network interface ${inter} was detected in server ${server_conf.heartbeat.health.os_info.hostname},
                             please configure it using the server console`);
                             dbg.log0('found new interface', inter);
                         }
@@ -347,6 +347,7 @@ function _check_for_duplicate_ips() {
     dbg.log2('check_for_duplicate_ips');
     if (os.type() !== 'Linux') return;
     const nics = _.toPairs(_.omit(os.networkInterfaces(), 'lo'));
+    const collisions = [];
     return P.map(nics, nic => {
         const inter_name = nic[0];
         const nic_info = nic[1];
@@ -358,7 +359,7 @@ function _check_for_duplicate_ips() {
                     })
                     .then(result => dbg.log2(`No duplicate address was found for ip ${ip.address} of interface ${inter_name}`, 'result:', result))
                     .catch(() => {
-                        ip_collision = true;
+                        collisions.push(ip.address);
                         Dispatcher.instance().alert('CRIT',
                             system_store.data.systems[0]._id,
                             `Duplicate address was found! IP: ${ip.address} ,Interface: ${inter_name}, Server: ${server_conf.heartbeat.health.os_info.hostname}
@@ -367,6 +368,9 @@ function _check_for_duplicate_ips() {
                     });
             }
         });
+    })
+    .then(() => {
+        ip_collision = collisions;
     });
 }
 
@@ -465,7 +469,7 @@ function _check_disk_space() {
         server_conf.heartbeat.health.storage.free < 10 * 1024 * 1024 * 1024) { // Free is lower than 10GB
         Dispatcher.instance().alert('MAJOR',
             system_store.data.systems[0]._id,
-            `Server ${server_conf.heartbeat.health.os_info.hostname} is running low on disk space, it is recommended 
+            `Server ${server_conf.heartbeat.health.os_info.hostname} is running low on disk space, it is recommended
             to increase the disk size of the VM and then perform the increase option from the linux installer by logging into the machine with the noobaa user`,
             Dispatcher.rules.once_weekly);
     }

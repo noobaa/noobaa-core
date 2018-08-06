@@ -32,7 +32,7 @@ export default class ServerRowViewModel {
         this.edit.id(server.secret);
         this.state(getServerStateIcon(server));
         this.serverName(serverName);
-        this.address(server.addresses[0]);
+        this.address(server.addresses[0].ip);
         this.primaryDNS(primaryDNS);
         this.secondaryDNS(secondaryDNS);
     }

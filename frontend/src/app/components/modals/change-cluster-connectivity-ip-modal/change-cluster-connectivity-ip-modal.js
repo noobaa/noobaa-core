@@ -34,7 +34,7 @@ class ChangeClusterConnectivityIpModalViewModel extends Observer {
             this.isServerLoaded(false);
             return;
         }
-        const address = server.addresses[0];
+        const address = server.addresses[0].ip;
 
         this.hostname = server.hostname;
         this.oldAddress(address);

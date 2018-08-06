@@ -824,7 +824,9 @@ function install_vmtools(req) {
     var params = req.rpc_params;
     var target_servers = [];
     let audit_hostname;
-    return P.resolve()
+
+    // Check condition and mark the vmtools installation flag.
+    const mark_install_flag = P.resolve()
         .then(() => {
             if (params.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[params.target_secret];
@@ -854,7 +856,10 @@ function install_vmtools(req) {
                     clusters: updates,
                 }
             });
-        })
+        });
+
+    // try to install and dispatch an activity after installation is complete.
+    mark_install_flag
         .then(() => {
             dbg.log0('calling install_vmtools for', _.map(target_servers, srv => srv.owner_address));
             return P.each(target_servers, function(server) {
@@ -876,6 +881,10 @@ function install_vmtools(req) {
                 desc: `VMware tools was succesfully installed`,
             });
         })
+        .return();
+
+    // return the success or failure of setting the installation flag.
+    return mark_install_flag
         .return();
 }
 

@@ -132,7 +132,7 @@ function _mapServer(serverState, update, masterSecret) {
         secret: update.secret,
         mode: update.status,
         version: update.version,
-        addresses: update.addresses,
+        addresses: _mapAddresss(update),
         timezone: update.timezone,
         locationTag: update.location,
         storage: mapApiStorage(update.storage),
@@ -149,6 +149,14 @@ function _mapServer(serverState, update, masterSecret) {
         isMaster: update.secret === masterSecret,
         upgrade: _mapUpgradeState(serverState.upgrade, update.upgrade)
     };
+}
+
+function _mapAddresss(update) {
+    const { addresses, ip_collision } = update;
+    return addresses.map(addr => ({
+        ip: addr,
+        collision: ip_collision.includes(addr)
+    }));
 }
 
 function _mapMinRequirements(requirements) {

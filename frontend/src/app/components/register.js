@@ -43,6 +43,7 @@ import licenseSticky from './stickies/license-sticky/license-sticky';
 import phoneHomeConnectivitySticky from './stickies/phone-home-connectivity-sticky/phone-home-connectivity-sticky';
 import clusterAvailabilitySticky from './stickies/cluster-availability-sticky/cluster-availability-sticky';
 import preferedBrowsersSticky from './stickies/prefered-browsers-sticky/prefered-browsers-sticky';
+import ipCollisionSticky from './stickies/ip-collision-sticky/ip-collision-sticky';
 /** INJECT:stickies.import **/
 
 // -------------------------------
@@ -204,6 +205,7 @@ import remoteSyslogForm from './management/remote-syslog-form/remote-syslog-form
 import serverSslForm from './management/server-ssl-form/server-ssl-form';
 import serverTimeForm from './management/server-time-form/server-time-form';
 import serverDnsSettingsForm from './management/server-dns-settings-form/server-dns-settings-form';
+import vmToolsForm from './management/vm-tools-form/vm-tools-form';
 /** INJECT:management.import **/
 
 // -------------------------------
@@ -375,6 +377,7 @@ export default function register(ko, services) {
         phoneHomeConnectivitySticky,
         clusterAvailabilitySticky,
         preferedBrowsersSticky,
+        ipCollisionSticky,
         /** INJECT:stickies.list **/
 
         installNodesModal,
@@ -504,6 +507,7 @@ export default function register(ko, services) {
         serverSslForm,
         serverTimeForm,
         serverDnsSettingsForm,
+        vmToolsForm,
         /** INJECT:management.list **/
 
         accountsPanel,

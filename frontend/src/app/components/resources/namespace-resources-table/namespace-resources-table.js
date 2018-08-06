@@ -36,7 +36,7 @@ const columns = deepFreeze([
     },
     {
         name: 'connectedBuckets',
-        label: 'Namespace Buckets Using Resource',
+        label: 'connected namespace buckets',
         sortable: true,
         compareKey: (resource, connectedBucketsMap) => {
             const { name } = resource;

@@ -24,7 +24,6 @@ const columns = deepFreeze([
     },
     {
         name: 'connectedBuckets',
-        label: 'Buckets Using Resource',
         sortable: true
     },
     {

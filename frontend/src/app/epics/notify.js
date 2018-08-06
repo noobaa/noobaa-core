@@ -486,6 +486,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_ASSIGN_REGION_TO_RESOURCE]: ({ resourceName, region }) => ({
         message: `Failed to ${region ? 'assign a region to' : 'remove a region from'} ${resourceName}`,
         severity: 'error'
+    }),
+
+    [types.COMPLETE_INSTALL_VM_TOOLS]: () => ({
+        message: 'VMWare tools installation started successfully',
+        severity: 'success'
+    }),
+
+    [types.FAIL_INSTALL_VM_TOOLS]: () => ({
+        message: 'VMWare tools installation has failed',
+        severity: 'error'
     })
 });
 

@@ -65,9 +65,15 @@ class P2PFormViewModel extends BaseViewModel {
         );
 
         this.summaryValue = ko.pureComputed(
-            () => this.portType() === 'single' ?
-                this.rangeMin() :
-                `${this.rangeMin()}-${this.rangeMax()}`
+            () => {
+                if (!systemInfo()) {
+                    return '';
+                } else if (this.portType() === 'single') {
+                    return this.rangeMin();
+                } else {
+                    return `${this.rangeMin()}-${this.rangeMax()}`;
+                }
+            }
         );
 
         this.errors = ko.validation.group([

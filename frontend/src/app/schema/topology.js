@@ -39,7 +39,19 @@ const server = {
         addresses: {
             type: 'array',
             items: {
-                type: 'string'
+                type: 'object',
+                required: [
+                    'ip',
+                    'collision'
+                ],
+                properties: {
+                    ip: {
+                        type: 'string'
+                    },
+                    collision: {
+                        type: 'boolean'
+                    }
+                }
             }
         },
         timezone: {

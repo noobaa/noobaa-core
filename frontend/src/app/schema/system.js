@@ -3,16 +3,17 @@ export default {
     required: [
         'ipAddress',
         'version',
-        'maintenanceMode'
+        'maintenanceMode',
+        'vmTools'
     ],
     properties: {
-        dnsName: {
+        version: {
             type: 'string'
         },
         ipAddress: {
             type: 'string'
         },
-        version: {
+        dnsName: {
             type: 'string'
         },
         sslCert: {
@@ -95,6 +96,15 @@ export default {
                     type: 'integer'
                 }
             }
+        },
+        vmTools: {
+            type: 'string',
+            enum: [
+                'NOT_SUPPORTED',
+                'NOT_INSTALLED',
+                'INSTALLING',
+                'INSTALLED'
+            ]
         }
     }
 };

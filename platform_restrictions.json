@@ -1,0 +1,20 @@
+{
+    "azure": [
+        "vmtools"
+    ],
+    "alyun": [
+        "vmtools"
+    ],
+    "aws": [
+        "vmtools"
+    ],
+    "esx": [
+
+    ],
+    "google": [
+        "vmtools"
+    ],
+    "dev": [
+        "vmtools"
+    ]
+}

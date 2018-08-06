@@ -18,6 +18,7 @@ const moment = require('moment');
 const P = require('../../util/promise');
 const api = require('../../api/api');
 const pkg = require('../../../package.json');
+const restrict = require('../../../platform_restrictions.json');
 const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
@@ -595,7 +596,8 @@ function read_system(req) {
                     replicas: config.CHUNK_CODER_REPLICAS,
                     failure_tolerance_threshold: config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD
                 }
-            }
+            },
+            platform_restrictions: restrict[process.env.PLATFORM || 'dev'] // dev will be default for now
         };
 
         const res = _get_ip_and_dns(system);

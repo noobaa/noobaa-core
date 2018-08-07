@@ -152,15 +152,31 @@ function createAgents(isInclude, excludeList) {
             }
 
             if (isInclude) {
-                return P.map(osesToCreate, osname => azf.createAgent({
-                        vmName: osname + suffix,
-                        storage,
-                        vnet,
-                        os: osname,
-                        agentConf,
-                        serverIP: server_ip
-                    }))
-                    .catch(saveErrorAndResume);
+                return P.map(osesToCreate, osname => {
+                    if (osname === 'ubuntu12') {
+                        return azf.createAgentFromImage({
+                                vmName: osname + suffix,
+                                vmSize: argv.vmsize,
+                                storage: argv.storage,
+                                vnet: argv.vnet,
+                                os: osname,
+                                server_ip: server_ip,
+                                shouldInstall: true,
+                            })
+                            .catch(saveErrorAndResume);
+                    } else {
+                        return azf.createAgent({
+                                vmName: osname + suffix,
+                                storage,
+                                vnet,
+                                os: osname,
+                                agentConf,
+                                serverIP: server_ip
+
+                            })
+                            .catch(saveErrorAndResume);
+                    }
+                });
             } else {
                 return runExtensions('init_agent', `${server_ip} ${agentConf}`)
                     .catch(saveErrorAndResume);

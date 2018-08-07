@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const argv = require('minimist')(process.argv);
+const argv = require('minimist')(process.argv, { string: ['server_secret'] });
 const dbg = require('../../util/debug_module')(__filename);
 
 const fs = require('fs');

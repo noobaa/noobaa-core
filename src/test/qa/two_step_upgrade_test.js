@@ -15,7 +15,7 @@ const server_function = require('../utils/server_functions');
 const AzureFunctions = require('../../deploy/azureFunctions');
 
 require('../../util/dotenv').load();
-const argv = require('minimist')(process.argv);
+const argv = require('minimist')(process.argv, { string: ['secret'] });
 
 
 const TEST_CFG_DEFAULTS = {

@@ -149,11 +149,23 @@ async function create_system_and_check(server_ip) {
 async function clean_ova_and_create_system(server_ip, secret) {
     try {
         await clean_ova(server_ip, secret);
+    } catch (e) {
+        throw new Error('clean_ova::' + e);
+    }
+    try {
         await wait_server_recoonect(server_ip);
+    } catch (e) {
+        throw new Error('wait_server_recoonect::' + e);
+    }
+    try {
         await validate_activation_code(server_ip);
+    } catch (e) {
+        throw new Error('validate_activation_code::' + e);
+    }
+    try {
         await create_system_and_check(server_ip);
     } catch (e) {
-        throw new Error(e);
+        throw new Error('create_system_and_check::' + e);
     }
 }
 

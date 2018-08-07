@@ -55,6 +55,8 @@ function mongo_sanity_check {
 function run_mongo {
   local proc
   deploy_log "run_mongo: Starting mongo process"
+  # running MONGO_EXEC & makes mongod son of init (ppid=1). this is ok (probably?) and it is still killed 
+  # when mongo_wrapper is killed by supervisord
   proc=$($MONGO_EXEC &)
   deploy_log "run_mongo: Mongo process pid: ${proc}"
   wait_for_mongo

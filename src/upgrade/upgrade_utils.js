@@ -44,6 +44,7 @@ const ERROR_MAPPING = {
     COULD_NOT_INSTALL_PACKAGES: 'Failed on pre-upgrade packages.',
     NTP_TIMESKEW_FAILED: 'The difference between the server time and a web NTP server time is too large.',
     NTP_COMMUNICATION_ERROR: 'Failed to check time skew, please configure NTP server or verify internet connectivity.',
+    MISSING_SUPERVISOR_SOCK: 'We have encountered a known issue with the upgrade process which requires a manual intervention. Please contact support regarding internal issue #4849',
     UNKNOWN: 'Failed with an internal error.'
 };
 
@@ -159,7 +160,10 @@ function test_ntp_timeskew(ntp_server, proxy_address) {
         return;
     }
     let timeout = 5000;
-    return promise_utils.retry(4, 1000, () => net_utils.get_ntp_time({ server: ntp_server, timeout })
+    return promise_utils.retry(4, 1000, () => net_utils.get_ntp_time({
+                server: ntp_server,
+                timeout
+            })
             .catch(err => {
                 // if failed retry with double the timeout. total time is ~75 seconds
                 timeout *= 2;
@@ -253,6 +257,21 @@ function test_local_harddrive_memory() {
 
 }
 
+
+async function test_supervisor_sock() {
+    try {
+        await fs_utils.file_must_exist('/tmp/supervisor.sock');
+    } catch (err) {
+        if (err.code) {
+            dbg.error('could not find /tmp/supervisor.sock');
+            throw new Error('MISSING_SUPERVISOR_SOCK');
+        }
+        dbg.error('encountered unknown error in test_supervisor_sock. continuing with upgrade', err);
+    }
+}
+
+
+
 function test_package_extraction() {
     return P.resolve()
         .then(() => extract_package())
@@ -329,7 +348,8 @@ function new_pre_upgrade_checkups(params) {
         test_internet_connectivity(params.phone_home_proxy_address),
         // TODO: Check the NTP with consideration to the proxy
         test_ntp_timeskew(params.ntp_server, params.phone_home_proxy_address),
-        test_local_harddrive_memory()
+        test_local_harddrive_memory(),
+        test_supervisor_sock()
     );
 }
 

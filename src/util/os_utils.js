@@ -884,6 +884,12 @@ function is_supervised_env() {
     return false;
 }
 
+// returns the ppid of the first process that matches the command
+async function get_process_parent_pid(proc) {
+    const ps_info = await P.fromCallback(callback => ps.lookup({ command: proc }, callback)) || [];
+    return ps_info[0] && ps_info[0].ppid;
+}
+
 async function get_services_ps_info(services) {
     try {
         // look for the service name in "arguments" and not "command". 
@@ -1294,3 +1300,4 @@ exports.ensure_dns_and_search_domains = ensure_dns_and_search_domains;
 exports.get_services_ps_info = get_services_ps_info;
 exports.install_vmtools = install_vmtools;
 exports.is_vmtools_installed = is_vmtools_installed;
+exports.get_process_parent_pid = get_process_parent_pid;

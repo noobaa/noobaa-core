@@ -115,6 +115,20 @@ class UpgradeManager {
         await this.end_upgrade({ aborted: true });
     }
 
+    async get_mongo_db_version() {
+        try {
+            const res = await promise_utils.exec(`mongod --version | head -n 1`, {
+                return_stdout: true
+            });
+            if (!res.startsWith('db version v')) {
+                throw new Error(`unexpected version output. got ${res}`);
+            }
+            return res.replace('db version v', '');
+        } catch (err) {
+            dbg.error(`got error when trying to get mongodb version`, err);
+            throw err;
+        }
+    }
 
     async update_db(updates) {
 
@@ -153,7 +167,7 @@ class UpgradeManager {
     }
 
     async upgrade_mongodb_version_stage() {
-        const mongo_version = await mongo_client.instance().get_mongo_db_version();
+        const mongo_version = await this.get_mongo_db_version();
         this.upgrade_mongodb = platform_upgrade.version_compare(mongo_version, REQUIRED_MONGODB_VERSION) < 0;
         dbg.log0(`UPGRADE: current mongodb version is ${mongo_version}, requiered mongodb version is ${REQUIRED_MONGODB_VERSION}`,
             this.upgrade_mongodb ? 'upgrading to requiered version' : 'upgrade is not required');

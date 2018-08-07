@@ -2,9 +2,11 @@
 'use strict';
 
 const _ = require('lodash');
-const argv = require('minimist')(process.argv);
 const server_ops = require('../utils/server_functions');
 const promise_utils = require('../../util/promise_utils');
+const dbg = require('../../util/debug_module')(__filename);
+const argv = require('minimist')(process.argv, { string: ['server_secret'] });
+dbg.set_process_name('account_pipeline');
 
 const js_script = 'account_test.js';
 
@@ -14,7 +16,6 @@ const TEST_CFG_DEFAULTS = {
     upgrade: '',
     version: 'latest'
 };
-
 
 let TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
 Object.freeze(TEST_CFG);

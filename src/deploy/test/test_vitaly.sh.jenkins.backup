@@ -28,11 +28,14 @@ fi
 pwd
 
 #TODO: add those variable form jenkins.
+
+TEST_RUN_NAME="${branch}_${BUILD_NUMBER}_${GIT_COMMIT:0:7}"
 echo "AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}" > .env
 echo "CLIENT_ID=${CLIENT_ID}" >> .env 
 echo "APPLICATION_SECRET=${APPLICATION_SECRET}" >> .env
 echo "DOMAIN=noobaa.com " >> .env
 echo "AZURE_STORAGE_CONNECTION_STRING=\'${AZURE_STORAGE_CONNECTION_STRING}\'" >> .env
+echo "TEST_RUN_NAME=${TEST_RUN_NAME}" >> .env
 
 npm install
 npm install azure

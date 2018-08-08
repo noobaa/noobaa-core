@@ -60,40 +60,57 @@ let vmSize;
 
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-function main() {
+function exit_on_error(msg, err) {
+    console.error(msg, err);
+    process.exit(1);
+}
+
+async function main() {
     let exit_code = 0;
     if (argv.help) {
         print_usage();
         process.exit();
     }
-    return azf.authenticate()
-        .then(() => {
-            if (clean_only) {
-                return clean_test_env()
-                    .then(() => process.exit(0))
-                    .catch(err => {
-                        console.error('got error on cleanup (clean only):', err);
-                        process.exit(1);
-                    });
-            }
-        })
-        // create server and agents vms
-        .then(() => P.join(prepare_server(), prepare_agents(), prepare_lg()))
-        .spread((dummy, agents_ips) => install_agents())
-        .then(upgrade_test_env)
-        .then(run_tests)
-        .catch(err => {
-            console.error('got error:', err);
-            exit_code = 1;
-        })
-        .then(() => {
-            if (cleanup) return clean_test_env();
-        })
-        .catch(err => {
-            console.error('got error on cleanup:', err);
-            exit_code = 1;
-        })
-        .then(() => process.exit(exit_code));
+    await azf.authenticate();
+
+    if (clean_only) {
+        try {
+            await clean_test_env();
+            process.exit(0);
+        } catch (err) {
+            exit_on_error('got error on cleanup (clean only):', err);
+        }
+    }
+
+    try {
+        await P.all([
+            prepare_server(),
+            prepare_agents(),
+            prepare_lg()
+        ]);
+
+        await install_agents();
+    } catch (err) {
+        exit_on_error('failed to prepare system for tests:', err);
+    }
+
+    try {
+        await upgrade_test_env();
+        await run_tests();
+    } catch (err) {
+        console.error('failed running tests:', err);
+        exit_code = 1;
+    }
+
+    if (cleanup) {
+        try {
+            await clean_test_env();
+        } catch (err) {
+            console.error('failed cleaning environment');
+        }
+    }
+
+    process.exit(exit_code);
 }
 
 async function get_random_base_version() {

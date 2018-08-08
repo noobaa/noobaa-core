@@ -63,6 +63,8 @@ function member_pre_upgrade(req) {
                 dbg.error('UPGRADE HAD ERROR: ', res.error);
                 // TODO: Change that shit to more suitable error handler
                 upgrade.error = res.error;
+                upgrade.report_info = res.report_info;
+
                 if (req.rpc_params.stage === 'UPGRADE_STAGE') {
                     upgrade_in_process = false;
                 }

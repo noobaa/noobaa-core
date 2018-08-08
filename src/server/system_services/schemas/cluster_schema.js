@@ -153,6 +153,9 @@ module.exports = {
                 error: {
                     type: 'string'
                 },
+                report_info: {
+                    type: 'string'
+                },
                 initiator_email: {
                     type: 'string'
                 },

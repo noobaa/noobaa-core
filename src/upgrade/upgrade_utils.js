@@ -48,6 +48,10 @@ const ERROR_MAPPING = {
     UNKNOWN: 'Failed with an internal error.'
 };
 
+const ERROR_REPORT_MAPPING = {
+    MISSING_SUPERVISOR_SOCK: 'Encountered internal issue #4849'
+};
+
 let staged_package = 'UNKNOWN';
 
 class ExtractionError extends Error {}
@@ -85,7 +89,10 @@ function pre_upgrade(params) {
                         })
                         .then(errors => {
                             dbg.log0('found errors in spawn: ', String(errors));
-                            throw new NewTestsError(JSON.parse(errors).message);
+                            const stored_error = JSON.parse(errors);
+                            const new_test_error = new NewTestsError(stored_error.message);
+                            new_test_error.report_info = stored_error.report_info;
+                            throw new_test_error;
                         });
                 });
         })
@@ -96,16 +103,19 @@ function pre_upgrade(params) {
         }, _.isUndefined))
         .catch(error => {
             let err_message = ERROR_MAPPING[error.message] || ERROR_MAPPING.UNKNOWN;
+            let report_info = ERROR_REPORT_MAPPING[error.message];
             dbg.error('pre_upgrade: HAD ERRORS', error);
             if (error instanceof ExtractionError) { //Failed in extracting, no staged package
                 staged_package = 'UNKNOWN';
             }
             if (error instanceof NewTestsError) {
                 err_message = error.message;
+                report_info = error.report_info;
             }
             return _.omitBy({
                 result: false,
                 error: err_message,
+                report_info,
                 tested_date: Date.now(),
                 staged_package: staged_package || 'UNKNOWN'
             }, _.isUndefined);
@@ -536,7 +546,8 @@ if (require.main === module) {
                 dbg.error('new_pre_upgrade: FAILED:', err);
                 // This is done because the new spawn only knowns the new errors
                 return fs.writeFileAsync(ERRORS_PATH, JSON.stringify({
-                        message: (ERROR_MAPPING[err.message] || ERROR_MAPPING.UNKNOWN)
+                        message: (ERROR_MAPPING[err.message] || ERROR_MAPPING.UNKNOWN),
+                        report_info: ERROR_REPORT_MAPPING[err.message]
                     }))
                     .catch(error => {
                         dbg.error('new_pre_upgrade: failed to write error file', error);

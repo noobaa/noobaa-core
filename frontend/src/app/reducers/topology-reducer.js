@@ -251,7 +251,7 @@ function _mapUpgradeState(state, upgrade) {
             return {
                 package: {
                     ...testedPkg,
-                    error
+                    error: error.message
                 }
             };
         }
@@ -280,7 +280,7 @@ function _mapUpgradeState(state, upgrade) {
         }
         case 'UPGRADE_FAILED': {
             return {
-                error,
+                error: error.message,
                 package: testedPkg
             };
         }

@@ -915,7 +915,15 @@ module.exports = {
                             ]
                         },
                         error: {
-                            type: 'string'
+                            type: 'object',
+                            properties: {
+                                message: {
+                                    type: 'string'
+                                },
+                                report_info: {
+                                    type: 'string'
+                                }
+                            }
                         },
                         initiator_email: {
                             type: 'string'

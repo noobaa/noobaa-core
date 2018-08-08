@@ -2,34 +2,50 @@
 
 autocomplete {
     position: relative;
-    display: inline-block;
-    margin-right: .1em;
-    margin-bottom: .5em;
 
-    .suggestions {
+    .suggestion-list {
         display: block;
         position: absolute;
         width: 100%;
-        background-color: @color7;
-        margin-top: -1px;
-        padding: 2px;
+        top: auto;
+        bottom: auto;
+        background-color: @color6;
+        margin-top: 2px;
+        padding: 2px 0;
         z-index: 1;
-        box-shadow: 1px 1px 1px @color1;
+        min-height: 24px;
+        max-height: 170px;
+        overflow-y: auto;
 
-        > li {
-            color: @color4;
-            padding: 0 .5em;
-            height: 2em;
-            line-height: 2;
-
-            &:hover {
-                background-color: @color15;
-            }
+        &::-webkit-scrollbar-thumb  {
+            border-color: @color6;
         }
     }
 
-    input[type="text"] {
-        margin: 0;
-    }
+    .suggestion {
+        color: @color1;
+        font-size: @font-size3;
+        cursor: pointer;
+        padding: @gutter/2;
+        border: 1px solid transparent;
+        background: none;
+        margin: 0 2px;
 
+        &.ring {
+            outline: 1px dashed @color8;
+        }
+
+        &:hover {
+            background: @color7;
+
+            .remark {
+                color: @color1;
+            }
+        }
+
+        .match {
+            display: inline;
+            font-weight: @font-medium;
+        }
+    }
 }

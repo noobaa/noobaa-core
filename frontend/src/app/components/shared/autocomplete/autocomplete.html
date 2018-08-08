@@ -1,19 +1,27 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="autocomplete-wrapper">
-    <input type="text" data-bind="
-        textInput: value,
-        disable: disabled,
-        hasFocus: focused,
-        attr: { placeholder: placeholder }
-    "/>
-
-    <!-- ko if: hasSuggestions -->
-    <ul class="suggestions list-no-style" data-bind="foreach: suggestions, visible: focused">
-        <li class="suggestion" data-bind="
-            text: $data,
-            event: { mousedown: val => $component.value(val) && true }
-        "></li>
-    </ul>
-    <!-- /ko -->
-</div>
+<input type="text"
+    ko.textInput="ko.pc(text, onInput, $component)"
+    ko.hasFocus="hasFocus"
+    ko.attr.placeholder="placeholder"
+    ko.event.blur="onBlur"
+    ko.event.keydown="onKeyDown"
+    ko.validationCss="$form.region"
+/>
+<ul class="list-no-style suggestion-list"
+    ko.visible="isListVisible"
+    ko.foreach="suggestions"
+    ko.scrollTo="$component.keyboardFocus"
+>
+    <li class="suggestion"
+        ko.css.ring="$index.eq($component.keyboardFocus)"
+        ko.event.mousedown=" () => $component.onSuggetionMouseDown(value)"
+    >
+        <div class="no-wrap">
+            {{prefix}}<span class="match">{{match}}</span>{{suffix}}
+        </div>
+        <div class="no-wrap remark">
+            {{remark}}
+        </div>
+    </li>
+</ul>

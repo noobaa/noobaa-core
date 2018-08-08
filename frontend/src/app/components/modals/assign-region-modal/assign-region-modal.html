@@ -10,12 +10,13 @@
         Regions are a way to mark proximity of resources. Assigning a region can improve performance if working from the endpoints within the region. It may also help with cost savings such as egress in the case of cloud regions.
     </p>
     <editor class="greedy" params="label: 'region'">
-        <input type="text"
-            placeholder="Enter region"
-            ko.value="$form.region"
-            ko.validationCss="$form.region"
-            ko.hasFocus="true"
-        />
+        <autocomplete params="
+            suggestions: regionSuggestions,
+            value: $form.region,
+            placeholder: 'Enter region',
+            hasFocus: true
+        "></autocomplete>
+
         <validation-message params="field: $form.region"></validation-message>
         <p class="remark" ko.visible="$form.region.isValid">
             Optional. Value length 3-32 characters
@@ -35,5 +36,4 @@
             Save
         </button>
     </div>
-
 </managed-form>

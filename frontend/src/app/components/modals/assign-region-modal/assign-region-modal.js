@@ -2,7 +2,8 @@
 
 import template from './assign-region-modal.html';
 import ConnectableViewModel from 'components/connectable';
-import { equalIgnoreCase } from 'utils/string-utils';
+import { memoize, keyByProperty } from 'utils/core-utils';
+import { equalIgnoreCase, stringifyAmount } from 'utils/string-utils';
 import { unassignedRegionText } from 'utils/resource-utils';
 import { closeModal, assignRegionToResource } from 'action-creators';
 import ko from 'knockout';
@@ -12,6 +13,25 @@ class AssignRegionModalViewModel extends ConnectableViewModel {
     resourceType = '';
     resourceName = '';
     fields = ko.observable();
+    regionSuggestions = ko.observableArray();
+
+    selectRegionList = memoize((hostPools, cloudResources, resourceName) => {
+        const resources = [
+            ...Object.values(hostPools),
+            ...Object.values(cloudResources)
+        ];
+
+        const usageMap = keyByProperty(
+            resources.filter(res =>
+                res.name !== resourceName && Boolean(res.region)
+            ),
+            'region',
+            (_0, _1, usage) => usage ? usage + 1 : 1
+        );
+
+        return Object.entries(usageMap)
+            .map(([name, usage]) => ({ name, usage }));
+    });
 
     selectState(state, params) {
         const { resourceType, resourceName } = params;
@@ -24,17 +44,23 @@ class AssignRegionModalViewModel extends ConnectableViewModel {
         return [
             resourceType,
             resourceName,
-            resource ? resource.region : ''
+            resource ? resource.region : '',
+            this.selectRegionList(hostPools, cloudResources, resourceName)
         ];
     }
 
-    mapStateToProps(resourceType, resourceName, region) {
-        this.resourceType = resourceType;
-        this.resourceName = resourceName;
-
-        if (!this.fields()) {
-            this.fields({ region });
-        }
+    mapStateToProps(resourceType, resourceName, region, regionList) {
+        ko.assignToProps(this, {
+            resourceType: resourceType,
+            resourceName: resourceName,
+            regionSuggestions: regionList.map(region => ({
+                value: region.name,
+                remark: `Used by ${stringifyAmount('resource', region.usage)}`
+            })),
+            fields: !this.fields() ?
+                { region } :
+                undefined
+        });
     }
 
     onValidate(values) {

@@ -272,7 +272,7 @@ ko.subscribable.fn.debug = function(prefix) {
 };
 
 ko.subscribable.fn.eq = function(value) {
-    return ko.pureComputed(() => this() === value);
+    return ko.pureComputed(() => this() === ko.unwrap(value));
 };
 
 ko.subscribable.fn.in = function(values) {

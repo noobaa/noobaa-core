@@ -30,8 +30,8 @@ const pkgIssuesColumns = deepFreeze([
         label: 'Server Name'
     },
     {
-        name: 'message',
-        label: 'Details'
+        name: 'details',
+        type: 'issueDetails'
     }
 ]);
 
@@ -255,7 +255,7 @@ class VersionFormViewModel extends Observer {
         const pkgIssuesRows = issues
             .map((issue, i) => {
                 const row = this.pkgIssuesRows.get(i) || new IssueRowViewModel();
-                row.onState(issue.message, servers[issue.server]);
+                row.onState(issue, servers[issue.server]);
                 return row;
             });
 

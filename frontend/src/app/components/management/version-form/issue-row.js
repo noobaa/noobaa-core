@@ -3,6 +3,8 @@
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { getServerDisplayName } from 'utils/cluster-utils';
+import { formatEmailUri } from 'utils/browser-utils';
+import { support } from 'config';
 
 const issueIcon = deepFreeze({
     name: 'problem',
@@ -14,12 +16,15 @@ export default class IssueRowViewModel {
     constructor() {
         this.icon = issueIcon;
         this.server = ko.observable();
-        this.message = ko.observable();
+        this.details = ko.observable();
     }
 
-    onState(message, server) {
+    onState(issue, server) {
+        const { message, reportInfo }= issue;
         this.server(getServerDisplayName(server));
-        this.message(message);
-
+        this.details({
+            message : message,
+            reportHref: reportInfo && formatEmailUri(support.email, reportInfo)
+        });
     }
 }

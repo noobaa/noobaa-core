@@ -20,8 +20,8 @@ const columns = deepFreeze([
         label: 'Server Name'
     },
     {
-        name: 'message',
-        label: 'Details'
+        name: 'details',
+        type: 'issueDetails'
     }
 ]);
 
@@ -50,14 +50,14 @@ class PreUpgradeSystemFailedModalViewModel extends Observer {
                 if (error) {
                     issues.push({
                         server: server.secret,
-                        message: error
+                        ...error
                     });
                 }
                 return issues;
             },[])
             .map((issue, i) => {
                 const row = this.rows.get(i) || new IssueRowViewModel();
-                row.onState(issue.message, servers[issue.server]);
+                row.onState(issue, servers[issue.server]);
                 return row;
             });
 

@@ -81,7 +81,7 @@ function member_pre_upgrade(req) {
                 update: {
                     clusters: [{
                         _id: server._id,
-                        upgrade: upgrade
+                        upgrade: _.omitBy(upgrade, _.isUndefined)
                     }]
                 }
             });

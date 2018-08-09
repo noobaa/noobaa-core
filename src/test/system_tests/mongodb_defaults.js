@@ -12,8 +12,11 @@ db.datablocks.remove({});
 db.datachunks.remove({});
 db.objectparts.remove({});
 db.objectmds.remove({});
+db.namespace_resources.remove({});
 db.func_code_gridfs.chunks.remove({});
 db.func_code_gridfs.files.remove({});
+db.mongo_internal_agent.chunks.remove({});
+db.mongo_internal_agent.files.remove({});
 db.funcs.remove({});
 db.tiers.update({
     name: {
@@ -80,7 +83,8 @@ db.buckets.updateMany({}, {
             last_update: Date.now() - 600000
         },
         stats: {
-            reads: 0, writes: 0
+            reads: 0,
+            writes: 0
         },
         lambda_triggers: [],
         versioning: 'DISABLED'

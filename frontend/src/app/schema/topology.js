@@ -233,7 +233,18 @@ const server = {
                             type: 'string'
                         },
                         error: {
-                            type: 'string'
+                            type: 'object',
+                            require: [
+                                'message'
+                            ],
+                            properties: {
+                                message: {
+                                    type: 'string'
+                                },
+                                reportInfo: {
+                                    type: 'string'
+                                }
+                            }
                         }
                     }
                 }

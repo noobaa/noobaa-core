@@ -113,7 +113,19 @@
                 columns: pkgIssuesColumns,
                 data: pkgIssuesRows
             "
-        ></data-table>
+        >
+            <template name="issueDetails">
+                <p>
+                    {{$data().message}}
+                    <a class="link no-outline"
+                        ko.visible="$data().reportHref"
+                        ko.attr.href="$data().reportHref"
+                    >
+                        Send report
+                    </a>
+                </p>
+            </template>
+        </data-table>
 
         <button class="btn align-start" ko.click="onRerunTest" ko.visible="isPkgTestResultsVisible">
             Rerun Test

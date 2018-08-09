@@ -10,7 +10,19 @@
     <data-table class="alt-bg greedy issues-table" params="
         columns: columns,
         data: rows
-    "></data-table>
+    ">
+        <template name="issueDetails">
+            <p>
+                {{$data().message}}
+                <a class="link no-outline"
+                    ko.visible="$data().reportHref"
+                    ko.attr.href="$data().reportHref"
+                >
+                    Send report
+                </a>
+            </p>
+        </template>
+    </data-table>
 </section>
 
 <div class="row">

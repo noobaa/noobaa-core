@@ -152,7 +152,7 @@ function _mapServer(serverState, update, masterSecret) {
 }
 
 function _mapAddresss(update) {
-    const { addresses, ip_collision } = update;
+    const { addresses, ip_collision = [] } = update;
     return addresses.map(addr => ({
         ip: addr,
         collision: ip_collision.includes(addr)
@@ -251,7 +251,10 @@ function _mapUpgradeState(state, upgrade) {
             return {
                 package: {
                     ...testedPkg,
-                    error: error.message
+                    error: {
+                        message: error.message,
+                        reportInfo: error.report_info
+                    }
                 }
             };
         }
@@ -280,8 +283,8 @@ function _mapUpgradeState(state, upgrade) {
         }
         case 'UPGRADE_FAILED': {
             return {
-                error: error.message,
-                package: testedPkg
+                package: testedPkg,
+                error: error.message
             };
         }
         default: {

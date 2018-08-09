@@ -291,7 +291,7 @@ export function aggregateUpgradePackageInfo(serverList) {
                         aggr.testedAt = Math.max(aggr.testedAt, pkg.testedAt);
                         if (pkg.error) aggr.errors.push({
                             server: pkg.server,
-                            message: pkg.error
+                            ...pkg.error
                         });
                         return aggr;
                     },

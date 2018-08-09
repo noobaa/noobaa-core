@@ -44,7 +44,7 @@ const ERROR_MAPPING = {
     COULD_NOT_INSTALL_PACKAGES: 'Failed on pre-upgrade packages.',
     NTP_TIMESKEW_FAILED: 'The difference between the server time and a web NTP server time is too large.',
     NTP_COMMUNICATION_ERROR: 'Failed to check time skew, please configure NTP server or verify internet connectivity.',
-    MISSING_SUPERVISOR_SOCK: 'We have encountered a known issue with the upgrade process which requires a manual intervention. Please contact support regarding internal issue #4849',
+    MISSING_SUPERVISOR_SOCK: 'We have encountered a known issue with the upgrade process which requires a manual intervention. Please contact support regarding internal issue #4849.',
     UNKNOWN: 'Failed with an internal error.'
 };
 

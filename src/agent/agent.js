@@ -558,22 +558,22 @@ class Agent {
                 }))
                 .timeout(MASTER_RESPONSE_TIMEOUT)
                 .then(() => {
-                    if (params.store_base_address) {
-                        // store base_address to send in get_agent_info_and_update_masters
-                        this.base_address = params.base_address.toLowerCase();
-                        return this.agent_conf.update({
-                            address: params.base_address
-                        });
-                    }
+                    // This was a code that was implemented to solve Issue #2173
+                    // Was removed in order to support the change of base_address for agent endpoints
+                    // if (params.store_base_address) {
+                    // store base_address to send in get_agent_info_and_update_masters
+                    this.base_address = params.base_address.toLowerCase();
+                    return this.agent_conf.update({
+                        address: params.base_address
+                    });
+                    // }
                 })
                 .then(() => {
                     dbg.log0('update_base_address: done -', params.base_address);
                     this.rpc.router = api.new_router(params.base_address);
                     if (this.endpoint_info && this.endpoint_info.s3rver_process) {
-                        this.endpoint_info.s3rver_process.send({
-                            message: 'update_base_address',
-                            base_address: params.base_address
-                        });
+                        this._disable_service();
+                        this._enable_service();
                     }
                     // on close the agent should call do_heartbeat again when getting the close event
                     this._server_connection.close();

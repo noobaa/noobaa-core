@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { keyBy, keyByProperty, groupBy, compare } from 'utils/core-utils';
+import { keyBy, keyByProperty, groupBy, compare, pick } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { getResourceId } from 'utils/resource-utils';
 import { mapApiStorage } from 'utils/state-utils';
@@ -41,7 +41,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         record => tiersByName[record.tier]
     );
 
-    const { storage, data, quota, stats, triggers, policy_modes } = bucket;
+    const { storage, data, quota, stats, triggers, policy_modes, stats_by_type } = bucket;
     const { placement_status, resiliency_status, spillover_status, quota_status } = policy_modes;
     return {
         name: bucket.name,
@@ -57,9 +57,14 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         spillover: _mapSpillover(spillover_status, spilloverTiers[0], resTypeByName),
         failureTolerance: _mapFailureTolerance(bucket),
         versioning: _mapVersioning(bucket),
-        io: _mapIO(stats),
+        io: _mapIO(stats, stats_by_type),
         triggers: _mapTriggers(triggers),
-        usageDistribution: _mapUsageDistribution(bucket, resTypeByName)
+        usageDistribution: _mapUsageDistribution(bucket, resTypeByName),
+        statsByDataType: keyByProperty(
+            stats_by_type,
+            'data_type',
+            record => pick(record, ['reads', 'writes', 'count', 'size'])
+        )
     };
 }
 

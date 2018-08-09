@@ -1,0 +1,25 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="alt-bg hpad pad-top column push-next">
+    <h2 class="heading3">Objects size per bucket</h2>
+    <p>Object size distibution by bucket</p>
+    <editor params="label: 'Choose Bucket'">
+        <dropdown params="
+            options: bucketOptions,
+            selected: ko.pc(selectedBucket, bucket => onSelectBucket(bucket)),
+            disabled: !dataReady(),
+            subject: 'bucket'
+        "></dropdown>
+    </editor>
+</div>
+
+<div class="pad" ko.with="chart">
+    <chartjs params="
+        type: type,
+        options: options,
+        data: data
+    "></chartjs>
+</div>
+
+
+

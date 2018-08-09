@@ -29,13 +29,9 @@
         <chartjs class="fill" params="
             type: 'line',
             options: chartParams().options,
-            data: chartParams().data
+            data: chartParams().data,
+            emptyMessage: emptyChartMessage
         "></chartjs>
-        <div class="fill column content-middle" ko.visible="emptyChartMessage">
-            <p class="row greedy content-middle">
-                {{emptyChartMessage}}
-            </p>
-        </div>
     </div>
 
     <button class="btn overview-btn" ko.click="onConnectApplication">

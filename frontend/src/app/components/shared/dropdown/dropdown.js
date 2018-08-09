@@ -267,7 +267,7 @@ class DropdownViewModel extends Observer {
             optionRows
         );
 
-        this.isListVisible(active);
+        this.isListVisible(!disabled && active);
         this.selectableValues = selectableValues;
         this.isFilterVisible(isFilterVisible);
         this.filterPlaceholder(filterPlaceholder);

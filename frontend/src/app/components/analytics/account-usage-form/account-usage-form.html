@@ -1,0 +1,55 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form params="
+    name: formName,
+    fields: formFields
+">
+    <div class="alt-bg hpad pad-top column">
+        <div class="column">
+            <h2 class="heading3">NooBaa S3 Accounts R/W</h2>
+            <p>States how connected applications utilizes the system resources</p>
+        </div>
+        <div class="row vpad content-middle">
+            <dropdown class="push-next" params="
+                options: accountOptions,
+                multiselect: true,
+                filter: true,
+                selected: $form.selectedAccounts,
+                disabled: !dataReady(),
+                placeholder: 'Select Accounts',
+                subject: 'account'
+            "></dropdown>
+            <dropdown class="push-next" params="
+                options: durationOptions,
+                selected: $form.selectedDuration,
+                disabled: !dataReady(),
+            "></dropdown>
+            <svg-icon class="spin"
+                params="name: 'in-progress'"
+                ko.visible="!dataReady()"
+            ></svg-icon>
+        </div>
+    </div>
+
+    <div class="row pad">
+        <counter class="push-next" params="
+            label: 'Total Data Reads',
+            value: totalReads,
+            color: '@color14',
+            format: 'size'
+        "></counter>
+        <counter class="push-prev" params="
+            label: 'Total Data Writes',
+            value: totalWrites,
+            color: '@color16',
+            format: 'size'
+        "></counter>
+    </div>
+
+    <chartjs class="pad push-next" params="
+        type: chart.type,
+        options: chart.options,
+        data: chart.data,
+        emptyMessage: chart.emptyMessage
+    "></chartjs>
+</managed-form>

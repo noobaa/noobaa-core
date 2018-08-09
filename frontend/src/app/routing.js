@@ -36,8 +36,6 @@ function registerRouteHandler(page, route, extra = noop) {
             }
         }
     );
-
-
 }
 
 export default function routing(page) {
@@ -59,6 +57,7 @@ export default function routing(page) {
     registerRouteHandler(page, routes.server);
     registerRouteHandler(page, routes.funcs);
     registerRouteHandler(page, routes.func, actions.showFunc);
+    registerRouteHandler(page, routes.analytics);
 
     // Catch unknown routes handler
     registerRouteHandler(page, '*');

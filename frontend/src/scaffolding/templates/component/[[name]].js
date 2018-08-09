@@ -8,7 +8,7 @@ class [[nameCammelCased]]ViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
 
     selectState(state, params) {
-
+        return [];
     }
 
     mapStateToProps() {

@@ -6,7 +6,7 @@ import Observer from 'observer';
 import { state$, action$ } from 'state';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze, throttle } from 'utils/core-utils';
+import { deepFreeze, throttle, flatMap } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { summrizeHostModeCounters, getHostModeListForState } from 'utils/host-utils';
 import { get } from 'rx-extensions';
@@ -59,22 +59,28 @@ const columns = deepFreeze([
     }
 ]);
 
+const states = deepFreeze([
+    'HEALTHY',
+    'HAS_ISSUES',
+    'OFFLINE'
+]);
+
 function _getStateFilterOptions(all, healthy, issues, offline) {
     return [
+        // {
+        //     value: 'ALL',
+        //     label: `All Nodes (${numeral(all).format('0,0')})`
+        // },
         {
-            value: 'ALL',
-            label: `All Nodes (${numeral(all).format('0,0')})`
-        },
-        {
-            value: 'HEALTHY',
+            value: states[0],
             label: `Healthy (${numeral(healthy).format('0,0')})`
         },
         {
-            value: 'HAS_ISSUES',
+            value: states[1],
             label: `Issues (${numeral(issues).format('0,0')})`
         },
         {
-            value: 'OFFLINE',
+            value: states[2],
             label: `Offline (${numeral(offline).format('0,0')})`
         }
     ];
@@ -92,7 +98,7 @@ class PoolHostsTableViewModel extends Observer {
         this.columns = columns;
         this.stateFilterOptions = ko.observableArray();
         this.nameFilter = ko.observable();
-        this.stateFilter = ko.observable();
+        this.stateFilter = ko.observableArray();
         this.page = ko.observable();
         this.sorting = ko.observable();
         this.rows = ko.observableArray();
@@ -116,7 +122,12 @@ class PoolHostsTableViewModel extends Observer {
         const { system, pool, tab = 'nodes' } = params;
         if (!pool || tab !== 'nodes') return;
 
-        const { name, state = 'ALL', page = 0, sortBy = 'name', order = 1 } = query;
+        const { name, page = 0, sortBy = 'name', order = 1 } = query;
+        const state =
+            (query.state === true &&  []) ||
+            (query.state && query.state.split('|')) ||
+            states;
+
         this.poolName = pool;
         this.baseRoute = realizeUri(route, { system, pool, tab }, {}, true);
         this.baseHostRoute = realizeUri(routes.host, { system, pool }, {}, true);
@@ -130,7 +141,7 @@ class PoolHostsTableViewModel extends Observer {
             {
                 pools: [ pool ],
                 name: name,
-                modes: getHostModeListForState(state),
+                modes: flatMap(state, state => getHostModeListForState(state)),
                 sortBy: sortBy,
                 order: Number(order),
                 skip: paginationPageSize * Number(page),
@@ -176,62 +187,38 @@ class PoolHostsTableViewModel extends Observer {
     }
 
     onFilterByName(name) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            name: name || undefined,
-            state: this.stateFilter(),
-            sortBy: sortBy,
-            order: order,
-            page: 0
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.baseRoute, {}, query)
-        ));
+        const page = 0;
+        this.onQuery({ name, page });
     }
 
     onFilterByState(state) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            name: this.nameFilter() || undefined,
-            state: state,
-            sortBy: sortBy,
-            order: order,
-            page: 0
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.baseRoute, {}, query)
-        ));
+        const page = 0;
+        this.onQuery({ state, page });
     }
 
     onSort({ sortBy, order }) {
-        const query = {
-            name: this.nameFilter() || undefined,
-            state: this.stateFilter(),
-            sortBy: sortBy,
-            order: order,
-            page: 0
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.baseRoute, {}, query)
-        ));
+        const page = 0;
+        this.onQuery({ sortBy, order, page });
     }
 
     onPage(page) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            name: this.nameFilter() || undefined,
-            state: this.stateFilter(),
-            sortBy: sortBy,
-            order: order,
-            page: page
-        };
+        this.onQuery({ page });
+    }
 
-        action$.next(requestLocation(
-            realizeUri(this.baseRoute, {}, query)
-        ));
+    onQuery(query) {
+        const {
+            name: _name = this.nameFilter(),
+            state: _state = this.stateFilter(),
+            sortBy = this.sorting().sortBy,
+            order = this.sorting().order,
+            page = this.page()
+        } = query;
+
+        const name = _name || undefined;
+        const state = _state.join('|');
+
+        const url = realizeUri(this.baseRoute, {}, { name, state, sortBy, order, page });
+        action$.next(requestLocation(url));
     }
 
     onAssignNodes() {

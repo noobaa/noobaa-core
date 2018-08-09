@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 export default {
     type: 'object',
     properties: {
@@ -75,6 +77,18 @@ export default {
         },
         functions: {
             $ref: '#/def/functions'
+        },
+        bucketUsageHistory: {
+            $ref: '#/def/bucketUsageHistory'
+        },
+        accountUsageHistory: {
+            $ref: '#/def/accountUsageHistory'
+        },
+        objectsDistribution: {
+            ref: '#/def/objectsDistribution'
+        },
+        cloudUsageStats: {
+            ref: '#/def/cloudUsageStats'
         }
     }
 };

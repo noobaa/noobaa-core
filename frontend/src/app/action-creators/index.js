@@ -19,3 +19,4 @@ export * from './object-actions';
 export * from './topology-actions';
 export * from './func-actions';
 export * from './support-actions';
+export * from './analytics-actions';

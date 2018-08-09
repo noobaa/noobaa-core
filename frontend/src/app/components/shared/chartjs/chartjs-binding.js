@@ -2,31 +2,120 @@
 
 import ko from 'knockout';
 import Chart from 'chartjs';
+import { deepAssign, deepClone } from 'utils/core-utils';
+import defaultSettings from './chartjs-defaults';
 
-const { domData, domNodeDisposal } = ko.utils;
-const dataKey = 'chartjs';
+// Metrge NooBaa default chartjs global default settings.
+Chart.defaults = deepAssign(
+    Chart.defaults,
+    defaultSettings
+);
+
+function createChart(canvas, type, options, data) {
+    return new Chart(canvas, {
+        type: type,
+        options: deepClone(options),
+        data: deepClone(data)
+    });
+}
 
 ko.bindingHandlers.chartjs = {
-    init: function(canvas) {
-        domNodeDisposal.addDisposeCallback(
-            canvas,
-            () => {
-                const chart = domData.get(canvas, dataKey);
-                if (chart) chart.destroy();
-            }
-        );
-    },
+    init: function(canvas, valueAccessor) {
+        const config = ko.unwrap(valueAccessor());
+        const type = ko.pureComputed(() => ko.unwrap(config.type));
+        const options = ko.pureComputed(() => ko.deepUnwrap(config.options));
+        const data = ko.pureComputed(() => ko.deepUnwrap(config.data));
 
-    // This update is not optimal if the only change is in the data.
-    // Changes in the type or options must create a new chart from statch.
-    // TODO: Update the code to update the  chart without destorying the it
-    // on data changes.
-    update: function(canvas, valueAccessor) {
-        const config = ko.deepUnwrap(valueAccessor());
+        let lastType = type.peek();
+        let lastOptions = options.peek();
+        let lastData = data.peek();
+        let chart = createChart(canvas, lastType, lastOptions, lastData);
 
-        const chart = domData.get(canvas, dataKey);
-        if (chart) chart.destroy();
+        const sub = ko.pureComputed(() => [type(), options(), data()])
+            .extend({
+                rateLimit: {
+                    method: 'notifyWhenChangesStop',
+                    timeout: 1
+                }
+            }).subscribe(([type, options, data]) => {
+                if (type !== lastType) {
+                    if (chart) chart.destroy();
+                    chart = createChart(canvas, type, options, data);
 
-        domData.set(canvas, dataKey, new Chart(canvas, config));
+                } else if (chart) {
+                    if (options !== lastOptions) {
+                        chart.options = deepClone(options);
+                    }
+
+                    if (data !== lastData) {
+                        const { datasets, labels } = chart.data;
+
+                        if (Array.isArray(labels) && Array.isArray(data.labels)) {
+                            labels.length = data.labels.length;
+                            chart.data.labels = Object.assign(labels, data.labels);
+
+                        } else {
+                            chart.data.labels = data.labels;
+                        }
+
+                        datasets.length = data.datasets.length;
+                        for (let i = 0; i < datasets.length; ++i) {
+                            datasets[i] = Object.assign(datasets[i] || {}, data.datasets[i]);
+                        }
+                    }
+
+                    chart.update();
+                }
+
+                lastType = type;
+                lastOptions = options;
+                lastData = data;
+            });
+
+        // const typeSub = type.subscribe(type => {
+        //     if (chart) chart.destroy();
+        //     chart = createChart(
+        //         canvas,
+        //         type,
+        //         options.peek(),
+        //         data.peek()
+        //     );
+        // });
+
+        // const optionsSub = options.subscribe(options => {
+        //     if (chart) {
+        //         chart.options = deepClone(options);
+        //         chart.update();
+        //     }
+        // });
+
+        // const dataSub = data.subscribe(data => {
+        //     if (chart) {
+        //         const { datasets, labels } = chart.data;
+
+        //         if (Array.isArray(labels) && Array.isArray(data.labels)) {
+        //             labels.length = data.labels.length;
+        //             chart.data.labels = Object.assign(labels, data.labels);
+
+        //         } else {
+        //             chart.data.labels = data.labels;
+        //         }
+
+        //         datasets.length = data.datasets.length;
+        //         for (let i = 0; i < datasets.length; ++i) {
+        //             datasets[i] = Object.assign(datasets[i] || {}, data.datasets[i]);
+        //         }
+
+        //         chart.update();
+        //     }
+        // });
+
+        ko.utils.domNodeDisposal.addDisposeCallback(canvas, () => {
+            chart.destroy();
+            sub.dispose();
+            // typeSub.dispose();
+            // optionsSub.dispose();
+            // dataSub.dispose();
+        });
     }
 };

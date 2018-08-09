@@ -60,7 +60,7 @@ export function shortString(str, maxLength = 25, suffixLength = 5) {
     return `${
         str.slice(0, maxLength - (suffixLength + 3))
     }...${
-        str.slice(-suffixLength)
+        suffixLength ? str.slice(-suffixLength) : ''
     }`;
 }
 

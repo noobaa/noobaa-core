@@ -1,3 +1,9 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<canvas class="no-select" data-bind="chartjs: config"></canvas>
+<canvas class="no-select" ko.chartjs="config"></canvas>
+<div class="fill chartjs-overlay"
+    ko.visible="emptyMessage"
+    ko.if="emptyMessage"
+>
+    <p class="empty-message fade-in" ko.text="emptyMessage"></p>
+</div>

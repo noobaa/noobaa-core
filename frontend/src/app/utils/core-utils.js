@@ -19,7 +19,33 @@ export function deepFreeze(val) {
 }
 
 export function deepClone(val) {
-    return JSON.parse(JSON.stringify(val));
+    if (Array.isArray(val)) {
+        return val.map(deepClone);
+
+    } else if (isObject(val)) {
+        return mapValues(val, deepClone);
+
+    } else {
+        return val;
+    }
+}
+
+export function deepAssign(target, other) {
+    if (Array.isArray(target) && Array.isArray(other)) {
+        for (let i = 0; i < other.length; ++i) {
+            target[i] = deepAssign(target[i], other[i]);
+        }
+        return target;
+
+    } else if (isObject(target) && isObject(other)) {
+        for (const [key, value] of Object.entries(other)) {
+            target[key] = deepAssign(target[key], value);
+        }
+        return target;
+
+    } else {
+        return other;
+    }
 }
 
 export function isNumber(value) {

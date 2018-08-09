@@ -5,28 +5,13 @@
             "released": true
         },
         {
-            "ver": "2.3.1",
-            "vhd": "2.3.1-73a7583.vhd",
+            "ver": "2.6.3",
+            "vhd": "2.6.3-c63dc65.vhd",
             "released": true
         },
         {
-            "ver": "2.4.0",
-            "vhd": "2.4.0-9a4fa1a.vhd",
-            "released": true
-        },
-        {
-            "ver": "2.5.1",
-            "vhd": "2.5.1-b5b7236.vhd",
-            "released": true
-        },
-        {
-            "ver": "2.6.2",
-            "vhd": "2.6.2-a848376.vhd",
-            "released": true
-        },
-        {
-            "ver": "2.7.0",
-            "vhd": "2.7.0-3cff484.vhd",
+            "ver": "2.7.3",
+            "vhd": "2.7.3-b1880ec.vhd",
             "released": true
         },
         {

@@ -87,9 +87,6 @@ class AzureFunctions {
             os.version = 'latest';
             os.osType = 'Linux';
             os.hasImage = true;
-            if (ver === '18') { //TODO: remove this statment when we build ubuntu18 image
-                os.hasImage = false;
-            }
         } else if (osname.includes('centos')) {
             // Centos 6.8 config
             os.publisher = 'OpenLogic';

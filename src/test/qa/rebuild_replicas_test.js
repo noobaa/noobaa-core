@@ -272,7 +272,7 @@ async function main() {
         for (let cycle = 0; cycle < iterations_number; ++cycle) {
             console.log(`starting cycle number: ${cycle}`);
             await stopAgentAndCheckRebuildReplicas();
-            await af.startOfflineAgents(azf, server_ip, suffix, stopped_oses);
+            await af.startOfflineAgents(azf, server_ip, stopped_oses);
         }
     } catch (err) {
         console.error('something went wrong :(' + err + errors);

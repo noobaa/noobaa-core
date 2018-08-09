@@ -7,8 +7,6 @@ const api = require('../../api');
 const pool = 'first.pool';
 const crypto = require('crypto');
 const ssh_functions = require('./ssh_functions');
-const promise_utils = require('../../util/promise_utils');
-
 
 // Environment Setup
 const shasum = crypto.createHash('sha1');
@@ -452,41 +450,39 @@ function stopRandomAgents(azf, server_ip, amount, suffix, agentlist) {
         });
 }
 
-function waitForAgentsAmount(server_ip, numberAgents) {
+async function waitForAgentsAmount(server_ip, numberAgents) {
     let agents;
-    let retries = 0;
     console.log('Waiting for server getting up all agents ' + numberAgents);
-    return promise_utils.pwhile(
-        () => agents !== numberAgents && retries !== 36,
-        () => P.resolve(list_nodes(server_ip))
-        .then(res => {
-            if (res) {
-                agents = res.length;
-            } else {
-                retries += 1;
-                console.log('Current agents : ' + agents + ' waiting for: ' + numberAgents + ' - will wait for extra 5 seconds');
+    for (let retries = 1; retries <= 36; ++retries) {
+        try {
+            const list = await list_nodes(server_ip);
+            agents = list.length;
+            if (agents === numberAgents) {
+                return true;
             }
-        })
-        .delay(5000));
+        } catch (e) {
+            console.log(`Current agents number is: ${agents}, waiting 5 extra seconds for: ${numberAgents}`);
+            await P.delay(5 * 1000);
+        }
+    }
+    console.warn(`We excpected ${agents}, and got ${numberAgents}`);
+    return false;
 }
 
-function startOfflineAgents(azf, server_ip, suffix, oses) {
-    let agentsExpected;
-    return list_nodes(server_ip)
-        .then(res => {
-            agentsExpected = res.length + oses.length;
-            return P.each(oses, agent => start_agent(azf, agent));
-        })
-        .then(() => waitForAgentsAmount(server_ip, agentsExpected))
-        .then(() => list_nodes(server_ip))
-        .then(res => {
-            let onlineAgentsOn = res.length;
-            if (onlineAgentsOn === agentsExpected) {
-                console.log('Number of online agents is ', onlineAgentsOn, ' - as should');
-            } else {
-                console.error('After switching on agents number online is ' + onlineAgentsOn + ' instead ', agentsExpected);
-            }
-        });
+async function startOfflineAgents(azf, server_ip, oses) {
+    let listNodes = await list_nodes(server_ip);
+    const agentsExpected = listNodes.length + oses.length;
+    for (const agent of oses) {
+        await start_agent(azf, agent);
+    }
+    await waitForAgentsAmount(server_ip, agentsExpected);
+    listNodes = await list_nodes(server_ip);
+    const onlineAgentsOn = listNodes.length;
+    if (onlineAgentsOn === agentsExpected) {
+        console.log(`Number of online agents is ${onlineAgentsOn} - as expected`);
+    } else {
+        console.error(`We expected ${agentsExpected} online agents and got ${onlineAgentsOn}`);
+    }
 }
 
 function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suffix, oses) {

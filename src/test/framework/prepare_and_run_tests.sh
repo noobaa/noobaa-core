@@ -19,5 +19,8 @@ npm install \
 
 /usr/local/bin/node src/test/framework/runner.js --GIT_VERSION 1
 rc=$?
-/usr/local/bin/node src/test/framework/send_logs.js
-exit $rc
+if [ ${rc} -ne 0 ]
+then
+    /usr/local/bin/node src/test/framework/send_logs.js
+    exit $rc
+fi

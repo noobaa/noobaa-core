@@ -63,6 +63,16 @@ async function main() {
     process.exit(0);
 }
 
+async function run_configuration_test(target_ip, mng_port) {
+    try {
+        await init_test(target_ip, mng_port);
+        await create_configuration();
+    } catch (err) {
+        dbg.error('failed configuration test', err);
+        throw err;
+    }
+}
+
 async function run_test(target_ip, upgrade_pack, dont_verify_version, skip_configuration) {
     await init_test(target_ip);
 
@@ -79,7 +89,7 @@ async function run_test(target_ip, upgrade_pack, dont_verify_version, skip_confi
     await TEST_CTX.client.system.read_system();
 }
 
-async function init_test(target_ip) {
+async function init_test(target_ip, mng_port = '8080') {
     const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
@@ -87,7 +97,7 @@ async function init_test(target_ip) {
     };
     TEST_CTX._rpc = api.new_rpc();
     TEST_CTX.client = TEST_CTX._rpc.new_client({
-        address: 'ws://' + target_ip + ':8080'
+        address: 'ws://' + target_ip + ':' + mng_port
     });
     await TEST_CTX.client.create_auth_token(auth_params);
 
@@ -367,3 +377,4 @@ if (require.main === module) {
 }
 
 exports.run_test = run_test;
+exports.run_configuration_test = run_configuration_test;

@@ -7,6 +7,7 @@ import numeral from 'numeral';
 const namedFormatter = deepFreeze({
     none: echo,
     size: formatSize,
+    number: value => numeral(value).format(','),
     percentage: value => numeral(value).format('%')
 });
 

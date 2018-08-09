@@ -1,0 +1,54 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="column greedy tabs">
+    <nav>
+        <a ko.attr.href="tabHref('utilization')"
+            ko.css.selected="selectedTab.eq('utilization')"
+        >
+            Utilization
+        </a>
+        <a ko.attr.href="tabHref('traffic')"
+            ko.css.selected="selectedTab.eq('traffic')"
+        >
+            Traffic
+        </a>
+        <a ko.attr.href="tabHref('cloud-consumption')"
+            ko.css.selected="selectedTab.eq('cloud-consumption')"
+        >
+            Cloud Services Consumption
+        </a>
+        <a ko.attr.href="tabHref('relations')"
+            ko.css.selected="selectedTab.eq('relations')"
+        >
+            Data Insights
+        </a>
+    </nav>
+    <div class="tabs-row">
+        <!-- ko if: selectedTab.eq('utilization') -->
+        <div class="tab column selected fade-in">
+            <analytics-resource-distribution-form></analytics-resource-distribution-form>
+            <objects-distribution-form></objects-distribution-form>
+        </div>
+        <!-- /ko -->
+
+        <!-- ko if: selectedTab.eq('traffic') -->
+        <div class="tab column selected fade-in">
+            <bucket-usage-form></bucket-usage-form>
+            <account-usage-form></account-usage-form>
+        </div>
+        <!-- /ko -->
+
+        <!-- ko if: selectedTab.eq('cloud-consumption') -->
+        <div class="tab column selected fade-in">
+            <cloud-usage-stats-form></cloud-usage-stats-form>
+        </div>
+        <!-- /ko -->
+
+        <!-- ko if: selectedTab.eq('relations') -->
+        <div class="tab column selected fade-in">
+            <data-breakdown-form></data-breakdown-form>
+        </div>
+        <!-- /ko -->
+    </div>
+</section>
+

@@ -264,6 +264,18 @@ import funcMonitoring from './func/func-monitoring/func-monitoring';
 /** INJECT:func.import **/
 
 // -------------------------------
+// Analytics page components
+// -------------------------------
+import analyticsPanel from './analytics/analytics-panel/analytics-panel';
+import analyticsResourceDistributionForm from './analytics/analytics-resource-distribution-form/analytics-resource-distribution-form';
+import bucketUsageForm from './analytics/bucket-usage-form/bucket-usage-form';
+import accountUsageForm from './analytics/account-usage-form/account-usage-form';
+import objectsDistributionForm from './analytics/objects-distribution-form/objects-distribution-form';
+import cloudUsageStatsForm from './analytics/cloud-usage-stats-form/cloud-usage-stats-form';
+import dataBreakdownForm from './analytics/data-breakdown-form/data-breakdown-form';
+/** INJECT:analytics.import **/
+
+// -------------------------------
 // Admin components
 // -------------------------------
 import auditPane from './admin/audit-pane/audit-pane';
@@ -323,6 +335,7 @@ import resourceConnectedBucketsForm from './shared/resource-connected-buckets-fo
 import resourceDistributionTable from './shared/resource-distribution-table/resource-distribution-table';
 import resourceDistributionChart from './shared/resource-distribution-chart/resource-distribution-chart';
 import hostPartsTable from './shared/host-parts-table/host-parts-table';
+import counter from './shared/counter/counter';
 /** INJECT:shared.import **/
 
 // Register the components with knockout component container.
@@ -547,6 +560,15 @@ export default function register(ko, services) {
         funcMonitoring,
         /** INJECT:func.list **/
 
+        analyticsPanel,
+        analyticsResourceDistributionForm,
+        bucketUsageForm,
+        accountUsageForm,
+        objectsDistributionForm,
+        cloudUsageStatsForm,
+        dataBreakdownForm,
+        /** INJECT:analytics.list **/
+
         auditPane,
         alertsPane,
         /** INJECT:admin.list **/
@@ -601,6 +623,7 @@ export default function register(ko, services) {
         resourceDistributionTable,
         resourceDistributionChart,
         hostPartsTable,
+        counter,
         /** INJECT:shared.list **/
 
         // An empty component used for app/data loading periods

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 const storageNode = {
     type: 'object',
     required: [

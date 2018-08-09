@@ -19,3 +19,4 @@ export const cluster            = `${root}/systems/:system/cluster/:tab?`;
 export const server             = `${root}/systems/:system/cluster/servers/:server/:tab?`;
 export const funcs              = `${root}/systems/:system/functions`;
 export const func               = `${root}/systems/:system/functions/:func/:tab?`;
+export const analytics          = `${root}/systems/:system/analytics/:tab?`;

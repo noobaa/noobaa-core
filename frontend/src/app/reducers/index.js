@@ -23,9 +23,13 @@ import hostPartsReducer from './host-parts-reducer';
 import cloudTargetsReducer from './cloud-targets-reducer';
 import objectsReducer from './objects-reducer';
 import objectPartsReducer from './object-parts-reducer';
-import storageHistoryReducer from './storage-history-reducer';
 import systemReducer from './system-reducer';
 import functionsReducer from './functions-reducer';
+import storageHistoryReducer from './storage-history-reducer';
+import bucketUsageHistoryReducer from './bucket-usage-history-reducer';
+import accountUsageHistoryReducer from './account-usage-history-reducer';
+import objectsDistributionReducer from './objects-distribution-reducer';
+import cloudUsageStatsReducer  from './cloud-usage-stats-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -50,7 +54,11 @@ export default combineReducers({
     objects: objectsReducer,
     objectUploads: objectUploadsReducer,
     objectParts: objectPartsReducer,
-    storageHistory: storageHistoryReducer,
     system: systemReducer,
-    functions: functionsReducer
+    functions: functionsReducer,
+    storageHistory: storageHistoryReducer,
+    bucketUsageHistory: bucketUsageHistoryReducer,
+    accountUsageHistory: accountUsageHistoryReducer,
+    objectsDistribution: objectsDistributionReducer,
+    cloudUsageStats: cloudUsageStatsReducer
 });

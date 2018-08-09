@@ -77,6 +77,10 @@ import leaveMaintenanceMode from './leave-maintenance-mode';
 import fetchCloudResourceObjects from './fetch-cloud-resource-objects';
 import assignRegionToResource from './assign-region-to-resource';
 import installVMTools from './install-vm-tools';
+import fetchBucketUsageHistory from './fetch-bucket-usage-history';
+import fetchAccountUsageHistory from './fetch-account-usage-history';
+import fetchObjectsDistribution from './fetch-objects-distribution';
+import fetchCloudUsageStats from './fetch-cloud-usage-stats';
 
 const generalEpics = [
     handleLocationRequests,
@@ -189,6 +193,13 @@ const lambdaRelatedEpics = [
     createLambdaFunc
 ];
 
+const analyticsRelatedEpics = [
+    fetchBucketUsageHistory,
+    fetchAccountUsageHistory,
+    fetchObjectsDistribution,
+    fetchCloudUsageStats
+];
+
 // A utility that combine multiple epics into one epic.
 function _combineEpics(epics) {
     return (action$, injected) => {
@@ -210,5 +221,6 @@ export default _combineEpics([
     ...resourceRelatedEpics,
     ...hostRelatedEpics,
     ...namespaceRelatedEpics,
-    ...lambdaRelatedEpics
+    ...lambdaRelatedEpics,
+    ...analyticsRelatedEpics
 ]);

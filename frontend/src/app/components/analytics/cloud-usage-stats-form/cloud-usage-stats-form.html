@@ -1,0 +1,67 @@
+<!-- Copyright (C) 2016 NooBaa -->
+<div class="alt-bg hpad pad row content-middle">
+     <dropdown class="push-next" params="
+        multiselect: true,
+        options: serviceOptions,
+        selected: ko.pc(selectedServices, onSelectServices, $component),
+        disabled: !dataReady(),
+        subject: 'service'
+    "></dropdown>
+     <dropdown class="push-next" params="
+        options: durationOptions,
+        selected: ko.pc(selectedDuration, onSelectDuration, $component),
+        disabled: !dataReady(),
+    "></dropdown>
+    <svg-icon class="spin"
+        params="name: 'in-progress'"
+        ko.visible="!dataReady()"
+    ></svg-icon>
+</div>
+<div class="row pad-top">
+    <section class="c6 column hpad">
+        <h2 class="heading3">I/O Operations Per Cloud Service</h2>
+        <p>Input/Output operations sent to and from NooBaa to connected cloud services</p>
+    </section>
+    <section class="c6 column hpad">
+        <h2 class="heading3">Egress Per Cloud Service</h2>
+        <p>Data traffic between NooBaa buckets and the cloud</p>
+    </section>
+</div>
+<div class="row">
+    <section class="c6 column pad border-right">
+        <div class="row push-next">
+            <counter class="push-next" params="
+                label: 'Total Reads',
+                value: totalReads,
+                color: '@color14',
+                format: 'number'
+            "></counter>
+            <counter class="push-prev" params="
+                label: 'Total Writes',
+                value: totalWrites,
+                color: '@color16',
+                format: 'number'
+            "></counter>
+        </div>
+        <chartjs class="push-prev" params="
+            type: ioChart.type,
+            options: ioChart.options,
+            data: ioChart.data
+        "></chartjs>
+    </section>
+    <section class="c6 pad column">
+        <counter class="push-next" params="
+            label: 'Total Egress',
+            value: totalEgress,
+            color: '@color14',
+            format: 'size'
+        "></counter>
+        <chartjs class="push-prev"  params="
+            type: egressChart.type,
+            options: egressChart.options,
+            data: egressChart.data
+        "></chartjs>
+    </section>
+</div>
+
+

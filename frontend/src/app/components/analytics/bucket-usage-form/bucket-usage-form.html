@@ -1,0 +1,63 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form params="
+    name: formName,
+    fields: formFields
+">
+    <div class="alt-bg hpad pad-top column">
+        <div class="row">
+            <div class="column greedy push-next">
+                <h2 class="heading3">System Throughput</h2>
+                <p>Measures how many units of information the system can process in a period of time.</p>
+            </div>
+            <toggle-group params="
+                options: chartTypes,
+                selected: ko.pc(chart.type, type => onChartType(type)),
+                disabled: !dataReady()
+            "></toggle-group>
+        </div>
+        <div class="row vpad content-middle">
+            <dropdown class="push-next" params="
+                options: bucketOptions,
+                multiselect: true,
+                filter: true,
+                selected: $form.selectedBuckets,
+                disabled: !dataReady(),
+                placeholder: 'Select Buckets',
+                subject: 'bucket'
+            "></dropdown>
+            <dropdown class="push-next" params="
+                options: durationOptions,
+                selected: $form.selectedDuration,
+                disabled: !dataReady(),
+            "></dropdown>
+            <svg-icon class="spin"
+                params="name: 'in-progress'"
+                ko.visible="!dataReady()"
+            ></svg-icon>
+        </div>
+
+    </div>
+    <div class="row pad">
+        <counter class="push-next" params="
+            label: 'Total Data Reads',
+            value: totalReads,
+            color: '@color14',
+            format: 'size'
+        "></counter>
+
+        <counter class="push-prev" params="
+            label: 'Total Data Writes',
+            value: totalWrites,
+            color: '@color16',
+            format: 'size'
+        "></counter>
+    </div>
+
+    <chartjs class="pad push-next" params="
+        type: chart.type,
+        options: chart.options,
+        data: chart.data,
+        emptyMessage: chart.emptyMessage
+    "></chartjs>
+</managed-form>

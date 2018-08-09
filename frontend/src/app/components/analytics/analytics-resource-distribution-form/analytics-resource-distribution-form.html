@@ -1,0 +1,32 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="alt-bg hpad pad-top column push-next">
+    <div class="row content-middle">
+        <h2 class="heading3 push-next">
+            Buckets Distribution on Resource
+        </h2>
+        <p class="remark content-middle" ko.visible="dataReady">
+            <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
+            Updated: {{lastUpdateTime}}
+        </p>
+    </div>
+    <p>The top storage consumer buckets per resource of the total usage of the selected resource</p>
+    <editor params="label: 'Choose Resource'">
+        <dropdown params="
+            options: resourceOptions,
+            selected: ko.pc(selectedResource, val => onSelectResource(val)),
+            disabled: !dataReady(),
+            placeholder: 'Select Resource',
+        "></dropdown>
+    </editor>
+</div>
+
+<div class="pad">
+    <chartjs params="
+        type: 'bar',
+        options: barsOptions,
+        data: barsData,
+        emptyMessage: 'This resource is not connected to any bucket',
+        forceEmptyMessage: barsIsEmpty
+    "></chartjs>
+</div>

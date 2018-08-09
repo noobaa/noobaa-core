@@ -139,75 +139,39 @@ function _filterSamples(samples, start, end) {
 }
 
 function _getChartOptions(selectedDatasets, samples, durationSettings, start, end, timezone) {
-    const gutter = parseInt(style['gutter']);
     const { stepSize, stepUnit, tickFormat } = durationSettings;
     const datasetKeys = Object.values(selectedDatasets).map(set => set.key);
     const useFixedMax = samples.every(sample => datasetKeys.every(key => sample[key] === 0));
 
     return {
-        responsive: true,
-        padding: 0,
         maintainAspectRatio: false,
-        legend: {
-            display: false
-        },
         scales: {
             xAxes: [
                 {
                     type: 'linear',
-                    position: 'bottom',
-                    gridLines: {
-                        color: style['color15']
-                    },
                     ticks: {
-                        callback: t => moment.tz(t, timezone).format(tickFormat),
-                        maxTicksLimit: 10000,
+                        fontSize: 8,
                         min: start,
                         max: end,
                         stepSize: moment.duration(stepSize, stepUnit).asMilliseconds(),
-                        fontColor: style['color7'],
-                        fontFamily: style['font-family1'],
-                        fontSize: 8,
-                        maxRotation: 0
+                        maxTicksLimit: 10000,
+                        callback: t => moment.tz(t, timezone).format(tickFormat)
                     }
                 }
             ],
             yAxes: [
                 {
-                    gridLines: {
-                        color: style['color15']
-                    },
                     ticks: {
-                        callback: size => size > 0 ? formatSize(Math.floor(size)) : '0',
-                        fontColor: style['color7'],
-                        fontFamily: style['font-family1'],
                         fontSize: 8,
-                        maxRotation: 0,
-                        min: 0,
                         max: useFixedMax ? Math.pow(1024, 2) : undefined,
-                        stepSize: useFixedMax ? Math.pow(1024, 2) / 10 : undefined
+                        stepSize: useFixedMax ? Math.pow(1024, 2) / 10 : undefined,
+                        callback: size => size > 0 ? formatSize(Math.floor(size)) : '0'
                     }
                 }
             ]
         },
         tooltips: {
-            mode: 'index',
-            position: 'nearest',
             backgroundColor: hexToRgb(style['color4'], .85),
-            multiKeyBackground: 'transparent',
-            caretSize: 7,
-            cornerRadius: gutter / 4,
-            xPadding: gutter / 2,
-            yPadding: gutter / 2,
-            titleFontFamily: style['font-family1'],
-            titleFonrStyle: 'normal',
-            titleFontColor: style['color6'],
-            titleFontSize: parseInt(style['font-size2']),
-            titleMarginBottom: gutter / 2,
-            bodyFontFamily: style['font-family1'],
-            bodyFontColor: style['color7'],
-            bodyFontSize: parseInt(style['font-size1']),
-            bodySpacing: gutter / 2,
             callbacks: {
                 title: items => moment.tz(items[0].xLabel, timezone).format('D MMM HH:mm'),
                 label: item => `  ${
@@ -249,25 +213,22 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
     const options = _getChartOptions(selectedDatasets, filteredSamples, durationSettings, start, end, timezone);
     let datasets = [];
     if (!emptyChartMessage) {
-        datasets = selectedDatasets
-            .map(({ key, color }) => ({
-                lineTension: 0,
-                borderWidth: 2,
-                borderColor: color,
-                backgroundColor: 'transparent',
-                pointRadius: points ? 2 : 0,
-                pointBorderWidth: 4,
-                pointHitRadius: 10,
-                pointBackgroundColor: style['color6'],
-                pointBorderColor: hexToRgb(style['color6'], 0.2),
-                pointHoverBorderColor: 'transparent',
-                data: filteredSamples
-                    .map(sample => ({
-                        x: sample.timestamp,
-                        y: toBytes(sample[key])
-                    }))
-            })
-            );
+        datasets = selectedDatasets.map(({ key, color }) => ({
+            lineTension: 0,
+            borderWidth: 2,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            pointRadius: points ? 2 : 0,
+            pointBorderWidth: 4,
+            pointHitRadius: 10,
+            pointBackgroundColor: style['color6'],
+            pointBorderColor: hexToRgb(style['color6'], 0.2),
+            pointHoverBorderColor: 'transparent',
+            data: filteredSamples.map(sample => ({
+                x: sample.timestamp,
+                y: toBytes(sample[key])
+            }))
+        }));
     }
 
     return {

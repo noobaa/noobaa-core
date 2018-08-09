@@ -1,0 +1,26 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="alt-bg hpad pad-top column push-next">
+    <h2 class="heading3">
+        Used Data vs R/W
+    </h2>
+    <p class="push-next">
+        Control storage efficiency and allocate appropriate resources according to usage charactisities
+    </p>
+</div>
+
+<radio-group class="pad" params="
+    options: viewOptions,
+    selected: ko.pc(selectedView, onSelectView, $component)
+"></radio-group>
+
+<chartjs class="pad" params="
+    type: chart.type,
+    data: chart.data,
+    options: chart.options
+"></chartjs>
+
+<chart-legend class="hpad legend-row"
+    params="items: legend, format: 'size'"
+></chart-legend>
+

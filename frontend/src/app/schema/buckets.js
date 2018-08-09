@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 const resiliencyMode = {
     type: 'string',
     enum: [
@@ -25,7 +27,8 @@ export default {
             'io',
             'usageDistribution',
             'failureTolerance',
-            'usageDistribution'
+            'usageDistribution',
+            'statsByDataType'
         ],
         properties: {
             name: {
@@ -383,6 +386,32 @@ export default {
                     resources: {
                         type: 'object',
                         additionalProperties: {
+                            type: 'integer'
+                        }
+                    }
+                }
+            },
+            statsByDataType: {
+                type: 'object',
+                additionalProperties: {
+                    type: 'object',
+                    required: [
+                        'reads',
+                        'writes',
+                        'size',
+                        'count'
+                    ],
+                    properties: {
+                        reads: {
+                            type: 'integer'
+                        },
+                        writes: {
+                            type: 'integer'
+                        },
+                        size: {
+                            $ref: '#/def/common/size'
+                        },
+                        count: {
                             type: 'integer'
                         }
                     }

@@ -14,11 +14,13 @@ const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('azureJs');
 
 const _ = require('lodash');
+const fs = require('fs');
 const net = require('net');
 const util = require('util');
 const argv = require('minimist')(process.argv.slice(2));
 const crypto = require('crypto');
 
+const version_map = 'src/deploy/version_map.json';
 
 const locationDefault = 'westus2';
 
@@ -65,6 +67,7 @@ Usage:
       --vnet <vnet>               The azure virtual network to use
       --vmsize <vmsize>           The azure VM size to use (default: ${AzureFunctions.DEFAULT_VMSIZE})
       --servers                   How many servers to create, default is 1
+      --server_version            The server base (default: latest)
       --clusterize                If the number of servers > 1, this flag will clusterize all the servers together, default is false
       --nosystem                  Skip system creation, defaults is to create one. If clusterize is turned on, a system will be created
       --setNTP                    If supplied will set NTP to local IL time and TZ. Default is off
@@ -94,7 +97,7 @@ Usage:
     --delete <agents-number>    Number of agents to delete
     --add <agents-number>       The number of agents to add
     --os <name>                 The desired os for the agent (default is centos7). Supported OS types:
-                                ubuntu12/ubuntu14/ubuntu16/centos6/centos7/redhat6/redhat7/win2008/win2012/win2016
+                                ubuntu12/ubuntu14/ubuntu16/ubuntu18/centos6/centos7/redhat6/redhat7/win2008/win2012/win2016
     --allimages                 Creates 1 agent per each supported OSs. If the number of agents requested exceeds the number of OSs
                                 duplicates would be created.
     --usemarket                 Use OS Images from the market and not prepared VHDs
@@ -126,9 +129,10 @@ function print_usage_lg() {
 }
 
 const OSNAMES = [
+    { type: 'ubuntu12', shortname: 'u12' },
     { type: 'ubuntu14', shortname: 'u14' },
     { type: 'ubuntu16', shortname: 'u16' },
-    { type: 'ubuntu12', shortname: 'u12' },
+    { type: 'ubuntu18', shortname: 'u18' },
     { type: 'centos6', shortname: 'c6' },
     { type: 'centos7', shortname: 'c7' },
     { type: 'redhat6', shortname: 'r6' },
@@ -249,7 +253,18 @@ function _run() {
         .then(() => process.exit(0));
 }
 
-function _runServer() {
+async function get_version(server_version) {
+    const buf = await fs.readFileAsync(version_map);
+    const ver_map = JSON.parse(buf.toString());
+    for (let list = 0; list < ver_map.versions.length; ++list) {
+        if (ver_map.versions[list].ver === server_version) {
+            return ver_map.versions[list].vhd;
+        }
+    }
+    throw new Error(`failed to get the ${server_version} version vhd name.`);
+}
+
+async function _runServer() {
     const serverName = argv.name;
     const numServers = argv.servers || 1;
     const setNTP = Boolean(argv.clusterize || argv.setNTP);
@@ -261,48 +276,41 @@ function _runServer() {
     } else {
         createSystem = true;
     }
-    return azf.authenticate()
-        .then(() => {
-            let servers = [];
-            for (let i = 0; i < numServers; ++i) {
-                servers.push({
-                    name: `${serverName}0${i + 1}`,
-                    secret: '',
-                    ip: ''
-                });
-            }
-            console.log('createSystem', createSystem);
-            return P.map(servers, server => azf.createServer({
-                        serverName: server.name,
-                        vmSize: argv.vmsize,
-                        vnet: argv.vnet,
-                        storage: argv.storage,
-                        createSystem: createSystem,
-                        updateNTP: setNTP
-                    })
-                    .then(new_secret => {
-                        server.secret = new_secret;
-                        return azf.getIpAddress(server.name + '_pip');
-                    })
-                    .then(ip => {
-                        server.ip = ip;
-                        return ip;
-                    })
-                )
-                .then(() => {
-                    if (argv.servers > 1 && argv.clusterize) {
-                        console.log('Clusterizing servers');
-                        const slaves = Array.from(servers);
-                        const master = slaves.pop();
-                        return P.each(slaves, slave => azf.addServerToCluster(master.ip, slave.ip, slave.secret));
-                    }
-                })
-                .then(() => {
-                    const server = servers[servers.length - 1];
-                    console.log(`Cluster/Server: ${serverName} was successfuly created, ip is: ${server.ip}` + (server.secret ? ` secret is: ${server.secret}` : ''));
-                });
-        })
-        .then(() => console.log('Finished Server Actions Successfully'));
+    await azf.authenticate();
+    let servers = [];
+    for (let i = 0; i < numServers; ++i) {
+        servers.push({
+            name: `${serverName}0${i + 1}`,
+            secret: '',
+            ip: ''
+        });
+    }
+    console.log('createSystem', createSystem);
+    await P.map(servers, async server => {
+        let createServerParams = {
+            serverName: server.name,
+            vmSize: argv.vmsize,
+            vnet: argv.vnet,
+            storage: argv.storage,
+            createSystem: createSystem,
+            updateNTP: setNTP
+        };
+        if (argv.server_version) {
+            createServerParams.imagename = await get_version(argv.server_version);
+        }
+        server.secret = await azf.createServer(createServerParams);
+        server.ip = await azf.getIpAddress(server.name + '_pip');
+        console.log(`Cluster/Server: ${serverName} was successfuly created, ip is: ${server.ip}` + (server.secret ? ` secret is: ${server.secret}` : ''));
+    });
+    if (argv.servers > 1 && argv.clusterize) {
+        console.log('Clusterizing servers');
+        const slaves = Array.from(servers);
+        const master = slaves.pop();
+        for (const slave of slaves) {
+            await azf.addServerToCluster(master.ip, slave.ip, slave.secret);
+        }
+    }
+    console.log('Finished Server Actions Successfully');
 }
 
 function _runAgent() {
@@ -387,15 +395,15 @@ function _runAgent() {
         .then(() => console.log('Finished Agent Actions Successfully'));
 }
 
-function _runLG() {
+async function _runLG() {
     const lg_suffix = argv.lg_suffix || '';
-    return azf.authenticate()
-        .then(() => azf.createLGFromImage({
-            vmName: 'LG' + lg_suffix,
-            vmSize: argv.vmsize,
-            vnet: argv.vnet,
-            storage: argv.storage,
-        }));
+    await azf.authenticate();
+    await azf.createLGFromImage({
+        vmName: 'LG' + lg_suffix,
+        vmSize: argv.vmsize,
+        vnet: argv.vnet,
+        storage: argv.storage,
+    });
 }
 
 /* 

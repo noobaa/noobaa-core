@@ -212,7 +212,7 @@ async function run_main() {
             for (let cycle = 0; cycle < iterationsNumber; cycle++) {
                 console.log(`starting cycle number: ${cycle}`);
                 await stopAgentsAndCheckFiles();
-                await af.startOfflineAgents(azf, server_ip, '', stopped_oses);
+                await af.startOfflineAgents(azf, server_ip, stopped_oses);
             }
         })
         .catch(err => {

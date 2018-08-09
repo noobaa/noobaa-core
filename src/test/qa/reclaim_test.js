@@ -178,7 +178,7 @@ async function reclaimCycle(oses, prefix) {
         await uploadAndVerifyFiles(bucket);
         const stoppedAgent = await af.stopRandomAgents(azf, server_ip, 1, agentSuffix, agentList);
         await cleanupBucket(bucket);
-        await af.startOfflineAgents(azf, server_ip, agentSuffix, stoppedAgent);
+        await af.startOfflineAgents(azf, server_ip, stoppedAgent);
         await s3ops.get_list_files(server_ip, bucket, '');
     } catch (err) {
         throw new Error(`reclaimCycle failed: ${err}`);

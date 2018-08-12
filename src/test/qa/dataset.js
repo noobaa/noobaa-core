@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const _ = require('lodash');
 const util = require('util');
@@ -11,7 +12,7 @@ const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
-
+require('seedrandom');
 const s3ops = new S3OPS();
 const test_name = 'dataset';
 dbg.set_process_name(test_name);
@@ -34,6 +35,7 @@ const TEST_CFG_DEFAULTS = {
     file_size_high: 200, // maximum 200Mb
     dataset_size: 10, // DS of 10GB
     versioning: false,
+    seed: crypto.randomBytes(10).toString('hex')
 };
 
 const TEST_STATE_INITIAL = {
@@ -199,6 +201,8 @@ function usage() {
     --versioning        -   run dataset in versioning mode (assumption: bucket versioning is ENABLED)
     --replay            -   replays a given scenario, requires a path to the journal file. 
                             server and bucket are the only applicable parameters when running in replay mode  
+    --seed              -   seed for random generator. testing with the same seed generates the same sequence of operations.
+    --no_aging          -   skip aging stage
     --help              -   show this help
     `);
 }
@@ -716,12 +720,24 @@ function init_parameters(params) {
     report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true });
 }
 
+async function upload_new_files() {
+    console.time('dataset upload');
+    while (TEST_STATE.current_size < TEST_CFG.dataset_size) {
+        await act_and_log('UPLOAD_NEW');
+    }
+    console.timeEnd('dataset upload');
+}
+
 function run_test() {
     return P.resolve()
         .then(() => log_journal_file(`${CFG_MARKER}${DATASET_NAME}-${JSON.stringify(TEST_CFG)}`))
-        .then(() => promise_utils.pwhile(() => TEST_STATE.current_size < TEST_CFG.dataset_size, () => act_and_log('UPLOAD_NEW'))
+        .then(() => upload_new_files()
             // aging
             .then(() => {
+                if (argv.no_aging) {
+                    console.log('skipping aging stage');
+                    return;
+                }
                 TEST_STATE.aging = true;
                 const start = Date.now();
                 if (TEST_CFG.aging_timeout !== 0) {
@@ -822,6 +838,8 @@ function run_replay() {
 }
 
 function main() {
+    console.log(`Starting dataset. seeding randomness with seed ${TEST_CFG.seed}`);
+    Math.seedrandom(TEST_CFG.seed);
     return P.resolve()
         .then(() => {
             if (argv.replay) {

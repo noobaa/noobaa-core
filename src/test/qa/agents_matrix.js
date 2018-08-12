@@ -42,26 +42,29 @@ const {
     location = 'westus2',
         bucket = 'first.bucket',
         server_ip,
-        id = 0
+        id = 0,
+        min_required_agents = 3
 } = argv;
 
 const upgrade_pack = argv.upgrade_pack === true ? undefined : argv.upgrade_pack;
 
 function usage() {
     console.log(`
-    --location      -   azure location (default: ${location})
-    --bucket        -   bucket to run on (default: ${bucket})
-    --server_ip     -   noobaa server ip
-    --resource      -   azure resource group
-    --storage       -   azure storage on the resource group
-    --vnet          -   azure vnet on the resource group
-    --id            -   an id that is attached to the agents name
-    --upgrade_pack  -   location of the file for upgrade
-    --skipsetup     -   skipping creation and deletion of agents.
-    --keepenv       -   skipping deletion of agents at the of the test
-    --updateenv     -   checking for existing agents and adding missing ones
-    --clean         -   will only delete the env and exit.
-    --help          -   show this help
+    --location              -   azure location (default: ${location})
+    --bucket                -   bucket to run on (default: ${bucket})
+    --server_ip             -   noobaa server ip
+    --resource              -   azure resource group
+    --storage               -   azure storage on the resource group
+    --vnet                  -   azure vnet on the resource group
+    --id                    -   an id that is attached to the agents name
+    --min_required_agents   -   min number of agents required to run the desired tests (default: ${
+        min_required_agents}), will fail if could not create this number of agents
+    --upgrade_pack          -   location of the file for upgrade
+    --skipsetup             -   skipping creation and deletion of agents.
+    --keepenv               -   skipping deletion of agents at the of the test
+    --updateenv             -   checking for existing agents and adding missing ones
+    --clean                 -   will only delete the env and exit.
+    --help                  -   show this help
     `);
 }
 
@@ -90,10 +93,15 @@ let initial_node_number;
 
 var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
-function saveErrorAndResume(message) {
+function saveErrorAndExit(message) {
     console.error(message);
     errors.push(message);
     process.exit(1);
+}
+
+function saveErrorAndResume(message) {
+    console.error(message);
+    errors.push(message);
 }
 
 function runClean() {
@@ -102,7 +110,7 @@ function runClean() {
             .catch(() => console.log(`VM ${osname}-${id} not found - skipping...`)))
         //running all all the VM machines and deleating all the disks.
         .then(() => P.map(oses, osname => azf.deleteBlobDisks(osname + suffix)
-            .catch(saveErrorAndResume)))
+            .catch(saveErrorAndExit)))
         // when clean is called, exiting after delete all agents machine.
         .then(() => clean && process.exit(0));
 }
@@ -152,34 +160,45 @@ function createAgents(isInclude, excludeList) {
             }
 
             if (isInclude) {
+                const agents_ip = [];
                 return P.map(osesToCreate, osname => {
-                    if (osname === 'ubuntu12') {
-                        return azf.createAgentFromImage({
-                                vmName: osname + suffix,
-                                vmSize: argv.vmsize,
-                                storage: argv.storage,
-                                vnet: argv.vnet,
-                                os: osname,
-                                server_ip: server_ip,
-                                shouldInstall: true,
-                            })
-                            .catch(saveErrorAndResume);
-                    } else {
-                        return azf.createAgent({
-                                vmName: osname + suffix,
-                                storage,
-                                vnet,
-                                os: osname,
-                                agentConf,
-                                serverIP: server_ip
+                        if (osname === 'ubuntu12' || osname === 'ubuntu18') {
+                            return azf.createAgentFromImage({
+                                    vmName: osname + suffix,
+                                    vmSize: argv.vmsize,
+                                    storage: argv.storage,
+                                    vnet: argv.vnet,
+                                    os: osname,
+                                    server_ip: server_ip,
+                                    shouldInstall: true,
+                                })
+                                .then(ip => agents_ip.push(ip))
+                                .catch(saveErrorAndResume);
+                        } else {
+                            return azf.createAgent({
+                                    vmName: osname + suffix,
+                                    storage,
+                                    vnet,
+                                    os: osname,
+                                    agentConf,
+                                    serverIP: server_ip
 
-                            })
-                            .catch(saveErrorAndResume);
-                    }
-                });
+                                })
+                                .then(ip => agents_ip.push(ip))
+                                .catch(saveErrorAndResume);
+                        }
+                    })
+                    .then(() => {
+                        if (agents_ip.length < min_required_agents) {
+                            console.error(`could not create the minimum number of required agents (${min_required_agents})`);
+                            saveErrorAndResume();
+                        } else {
+                            console.log(`Created ${agents_ip.length} agents`);
+                        }
+                    });
             } else {
                 return runExtensions('init_agent', `${server_ip} ${agentConf}`)
-                    .catch(saveErrorAndResume);
+                    .catch(saveErrorAndExit);
             }
         })
         .tap(() => console.warn(`Will now wait for a 3 min for agents to come up...`))
@@ -207,7 +226,7 @@ function runCreateAgents(isInclude, excludeList) {
 function runAgentDiagnostics() {
     console.warn(`Will take diagnostics from all the agents`);
     return P.map(nodes, name => client.node.collect_agent_diagnostics({ name })
-        .catch(saveErrorAndResume));
+        .catch(saveErrorAndExit));
 }
 
 function runAgentDebug() {
@@ -217,7 +236,7 @@ function runAgentDebug() {
             name
         },
         level: 5,
-    }).catch(saveErrorAndResume));
+    }).catch(saveErrorAndExit));
 }
 
 function verifyAgent() {
@@ -259,7 +278,7 @@ function runExtensions(script_name, flags = '') {
                 };
             }
             return azf.createVirtualMachineExtension(osname + suffix, extension)
-                .catch(saveErrorAndResume);
+                .catch(saveErrorAndExit);
         }));
 }
 
@@ -507,7 +526,7 @@ function main() {
         .then(() => includeExcludeCycle(true))
         // checking the exclude disk cycle.
         .then(() => includeExcludeCycle(false))
-        .catch(saveErrorAndResume)
+        .catch(saveErrorAndExit)
         .then(() => rpc.disconnect_all())
         .then(() => {
             console.warn('End of Test, cleaning.');

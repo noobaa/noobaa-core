@@ -197,7 +197,7 @@ function prepare_agents() {
                             vnet,
                             os: agent.os,
                             vmSize,
-                            serverIP: server_ip
+                            server_ip
                         });
                     }
                 })

@@ -39,191 +39,187 @@ function supported_oses(flavor) {
     }
 }
 
-function list_nodes(server_ip) {
-    let online_agents;
+async function list_nodes(server_ip) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => client.host.list_hosts({})
-            .then(res => {
-                online_agents = _.flatMap(res.hosts, host => host.storage_nodes_info.nodes).filter(node => node.online);
-            }))
-        .then(() => online_agents);
+    await client.create_auth_token(auth_params);
+    const listHosts = await client.host.list_hosts({});
+    const online_agents = _.flatMap(listHosts.hosts, host => host.storage_nodes_info.nodes).filter(node => node.online);
+    return online_agents;
 }
 
-function number_offline_nodes(server_ip) {
-    let offline_agents;
+async function number_offline_nodes(server_ip) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => client.host.list_hosts({})
-            .then(res => {
-                offline_agents = res.counters.by_mode.OFFLINE;
-                offline_agents = offline_agents ? offline_agents : 0;
-            }))
-        .then(() => offline_agents);
+    await client.create_auth_token(auth_params);
+    const listHosts = await client.host.list_hosts({});
+    let offline_agents = listHosts.counters.by_mode.OFFLINE;
+    offline_agents = offline_agents ? offline_agents : 0;
+    return offline_agents;
 }
 
-function getTestNodes(server_ip, suffix = '') {
-    let test_nodes_names = [];
-    return list_nodes(server_ip)
-        .then(res => _.map(res, node => {
+async function getTestNodes(server_ip, suffix = '') {
+    const test_nodes_names = [];
+    const listNods = await list_nodes(server_ip);
+    for (const node of listNods) {
+        if (node.name.includes(suffix)) {
+            let name = node.name.split('-noobaa_storage-')[0];
+            if (!name.startsWith('s3-agent')) {
+                test_nodes_names.push(name);
+            }
+        }
+    }
+    if (test_nodes_names.length === 0) {
+        console.log(`There are no relevant nodes.`);
+    } else {
+        console.log(`Relevant nodes: ${test_nodes_names}`);
+    }
+    return test_nodes_names;
+}
+
+async function list_optimal_agents(server_ip, suffix = '') {
+    const test_optimal_nodes_names = [];
+    const listNods = await list_nodes(server_ip);
+    for (const node of listNods) {
+        if (node.mode === 'OPTIMAL') {
             if (node.name.includes(suffix)) {
-                let name = node.name.split('-noobaa_storage-')[0];
-                if (!name.startsWith('s3-agent')) {
-                    test_nodes_names.push(name);
-                }
+                test_optimal_nodes_names.push(node.name);
             }
-        }))
-        .then(() => {
-            if (test_nodes_names.length === 0) {
-                console.log(`There are no relevant nodes.`);
-            } else {
-                console.log(`Relevant nodes: ${test_nodes_names}`);
-            }
-            return test_nodes_names;
-        });
+        }
+    }
+    if (test_optimal_nodes_names.length === 0) {
+        console.log(`There are no relevant nodes.`);
+    } else {
+        console.log(`Relevant nodes: ${test_optimal_nodes_names}`);
+    }
+    return test_optimal_nodes_names;
 }
 
-function list_optimal_agents(server_ip, suffix = '') {
-    let test_optimal_nodes_names = [];
-    return list_nodes(server_ip)
-        .then(res => _.map(res, node => {
-            if (node.mode === 'OPTIMAL') {
-                if (node.name.includes(suffix)) {
-                    test_optimal_nodes_names.push(node.name);
-                }
-            }
-        }))
-        .then(() => {
-            if (test_optimal_nodes_names.length === 0) {
-                console.log(`There are no relevant nodes.`);
-            } else {
-                console.log(`Relevant nodes: ${test_optimal_nodes_names}`);
-            }
-            return test_optimal_nodes_names;
-        });
-}
 // Creates agent using map [agentname,agentOs]
-function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives = [], agentmap) {
+async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives = [], agentmap) {
+    const created_agents = [];
     const agents_to_create = Array.from(agentmap.keys());
-    return getAgentConf(server_ip, exclude_drives)
-        .then(res => {
-            const agentConf = res;
-            return P.map(agents_to_create, name => azf.createAgent({
+    const agentConf = await getAgentConf(server_ip, exclude_drives);
+    await P.map(agents_to_create, async name => {
+        try {
+            const os = await azf.getImagesfromOSname(agentmap.get(name));
+            if (os.hasImage) {
+                await azf.createAgentFromImage({
+                    vmName: name,
+                    vmSize: 'Standard_B2s',
+                    storage,
+                    vnet,
+                    os,
+                    server_ip,
+                    shouldInstall: true,
+                });
+                created_agents.push(name);
+            } else {
+                await azf.createAgent({
                     vmName: name,
                     storage,
                     vnet,
-                    os: azf.getImagesfromOSname(agentmap.get(name)),
+                    os,
                     vmsize: 'Standard_B2s',
                     agentConf,
-                    serverIP: server_ip
-                }))
-                .tap(() => console.warn(`Waiting for a 2 min for agents to come up...`))
-                .delay(120000)
-                .catch(err => {
-                    console.error(`Creating vm extension is FAILED `, err);
+                    server_ip
                 });
-        });
-
+                created_agents.push(name);
+            }
+        } catch (e) {
+            console.error(`Creating agent ${name} FAILED `, e);
+        }
+    });
+    console.warn(`Waiting for a 2 min for agents to come up...`);
+    await P.delay(120 * 1000);
+    return created_agents;
 }
 
 
 //TODO: the if inside this function and the isInclude is for the use of agent_metrix test, need to make it work.
 // function createAgents(azf, server_ip, storage, resource_vnet, isInclude, exclude_drives = [], ...oses) {
-function createAgents(azf, server_ip, storage, vnet, exclude_drives = [], suffix = '', oses) {
-    let test_nodes_names = [];
-    let agentConf;
+async function createAgents(azf, server_ip, storage, vnet, exclude_drives = [], suffix = '', oses) {
     console.log(`starting the create agents stage`);
-    return list_nodes(server_ip)
-        .then(res => {
-            const decommissioned_nodes = res.filter(node => node.mode === 'DECOMMISSIONED');
-            console.log(`${Yellow}Number of deactivated agents: ${decommissioned_nodes.length}${NC}`);
-            const Online_node_number = res.length - decommissioned_nodes.length;
-            console.warn(`${Yellow}Num nodes before the test is: ${
-                res.length}, ${Online_node_number} Online and ${
+    const listNods = await list_nodes(server_ip);
+    const decommissioned_nodes = listNods.filter(node => node.mode === 'DECOMMISSIONED');
+    console.log(`${Yellow}Number of deactivated agents: ${decommissioned_nodes.length}${NC}`);
+    const Online_node_number = listNods.length - decommissioned_nodes.length;
+    console.warn(`${Yellow}Num nodes before the test is: ${
+                listNods.length}, ${Online_node_number} Online and ${
                 decommissioned_nodes.length} deactivated.${NC}`);
-            if (decommissioned_nodes.length !== 0) {
-                const deactivated_nodes = decommissioned_nodes.map(node => node.name);
-                console.log(`${Yellow}activating all the deactivated agents:${NC} ${deactivated_nodes}`);
-                activeAgents(server_ip, deactivated_nodes);
-            }
-        })
-        .then(() => getAgentConf(server_ip, exclude_drives))
-        .then(res => {
-            agentConf = res;
-            return getTestNodes(server_ip, oses, suffix);
-        })
-        .then(res => {
-            test_nodes_names = res;
-            // if (isInclude) {
-            return P.map(oses, osname => azf.createAgent({
-                    vmName: osname + suffix,
-                    storage,
-                    vnet,
-                    os: osname,
-                    agentConf,
-                    serverIP: server_ip
-                }))
-                .catch(err => {
-                    console.error(`Creating vm extension is FAILED `, err);
-                });
-            // });
-            //     } else {
-            //         return runExtensions('init_agent', `${server_ip} ${agentConf}`)
-            //             .catch(err => {
-            //                 console.error(`Creating vm extension is FAILED `, err);
-            //             });
-            //     }
-        })
-        .tap(() => console.warn(`Waiting for a 2 min for agents to come up...`))
-        .delay(120000)
-        .then(() => isIncluded({
-            server_ip,
-            previous_agent_number: test_nodes_names.length,
-            additional_agents: oses.length,
-            print: 'create agent',
-            oses,
-            suffix
-        }));
+    if (decommissioned_nodes.length !== 0) {
+        const deactivated_nodes = decommissioned_nodes.map(node => node.name);
+        console.log(`${Yellow}activating all the deactivated agents:${NC} ${deactivated_nodes}`);
+        await activeAgents(server_ip, deactivated_nodes);
+    }
+    const agentConf = await getAgentConf(server_ip, exclude_drives);
+
+    const test_nodes_names = await getTestNodes(server_ip, oses, suffix);
+    // if (isInclude) {
+    await P.map(oses, async osname => {
+        try {
+            await azf.createAgent({
+                vmName: osname + suffix,
+                storage,
+                vnet,
+                os: osname,
+                agentConf,
+                server_ip
+            });
+        } catch (err) {
+            console.error(`Creating vm extension is FAILED `, err);
+        }
+    });
+    // });
+    //     } else {
+    //         return runExtensions('init_agent', `${server_ip} ${agentConf}`)
+    //             .catch(err => {
+    //                 console.error(`Creating vm extension is FAILED `, err);
+    //             });
+    //     }
+
+    console.warn(`Waiting for a 2 min for agents to come up...`);
+    await P.delay(120 * 1000);
+    await isIncluded({
+        server_ip,
+        previous_agent_number: test_nodes_names.length,
+        additional_agents: oses.length,
+        print: 'create agent',
+        oses,
+        suffix
+    });
 }
 
-function createAgentsWithList(params) {
+async function createAgentsWithList(params) {
     const { azf, server_ip, storage, vnet, exclude_drives, suffix, oses } = params;
-    return createAgents(azf, server_ip, storage, vnet, exclude_drives, suffix, oses)
-        .then(() => list_nodes(server_ip)
-            .then(res => {
-                let node_number_after_create = res.length;
-                console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
-                console.warn(`Node names are ${res.map(node => node.name)}`);
-            }));
+    await createAgents(azf, server_ip, storage, vnet, exclude_drives, suffix, oses);
+    const listNodes = await list_nodes(server_ip);
+    let node_number_after_create = listNodes.length;
+    console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
+    console.warn(`Node names are ${listNodes.map(node => node.name)}`);
 }
 
-function getAgentConfInstallString(server_ip, osType, exclude_drives = []) {
+async function getAgentConfInstallString(server_ip, osType, exclude_drives = []) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => client.system.get_node_installation_string({
-            pool: pool,
-            exclude_drives
-        }))
-        .then(installationString => {
-            if (osType === 'Linux') {
-                return installationString.LINUX;
-            } else if (osType === 'Windows') {
-                return installationString.WINDOWS;
-            } else {
-                throw new Error(`osType is ${osType}`);
-            }
-        });
+    await client.create_auth_token(auth_params);
+    const installationString = await client.system.get_node_installation_string({
+        pool: pool,
+        exclude_drives
+    });
+    if (osType === 'Linux') {
+        return installationString.LINUX;
+    } else if (osType === 'Windows') {
+        return installationString.WINDOWS;
+    } else {
+        throw new Error(`osType is ${osType}`);
+    }
 }
 
-function getAgentConf(server_ip, exclude_drives = []) {
-    return getAgentConfInstallString(server_ip, 'Linux', exclude_drives)
-        .then(installationString => {
-            const agentConfArr = installationString.split(" ");
-            return agentConfArr[agentConfArr.length - 1];
-        });
+async function getAgentConf(server_ip, exclude_drives = []) {
+    const installationString = await getAgentConfInstallString(server_ip, 'Linux', exclude_drives);
+    const agentConfArr = installationString.split(" ");
+    return agentConfArr[agentConfArr.length - 1];
 }
 
 const agentCommandGeneratorForOS = {
@@ -235,162 +231,153 @@ const agentCommandGeneratorForOS = {
     `
 };
 
-function runAgentCommandViaSsh(agent_server_ip, username, password, agentCommand, osType) {
-    let client;
-    return ssh_functions.ssh_connect({
-            host: agent_server_ip,
-            username: username,
-            password: password,
-            keepaliveInterval: 5000,
-        })
-        //becoming root and running the agent command
-        .then(res => {
-            client = res;
-            console.log(`running agent command om ${agent_server_ip}`);
-            const generateOSCommand = agentCommandGeneratorForOS[osType.toUpperCase()];
-            if (!generateOSCommand) throw new Error('Unknown os type: ', osType);
-            return ssh_functions.ssh_exec(client, generateOSCommand(agentCommand));
-        });
+async function runAgentCommandViaSsh(agent_server_ip, username, password, agentCommand, osType) {
+    const client = await ssh_functions.ssh_connect({
+        host: agent_server_ip,
+        username: username,
+        password: password,
+        keepaliveInterval: 5000,
+    });
+    //becoming root and running the agent command
+    console.log(`running agent command on ${agent_server_ip}`);
+    const generateOSCommand = agentCommandGeneratorForOS[osType.toUpperCase()];
+    if (!generateOSCommand) throw new Error('Unknown os type: ', osType);
+    await ssh_functions.ssh_exec(client, generateOSCommand(agentCommand));
 }
 
-function activeAgents(server_ip, deactivated_nodes_list) {
+async function activeAgents(server_ip, deactivated_nodes_list) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => P.each(deactivated_nodes_list, name => {
-            console.log('calling recommission_node on', name);
-            return client.node.recommission_node({ name });
-        }));
+    await client.create_auth_token(auth_params);
+    for (const name of deactivated_nodes_list) {
+        console.log('calling recommission_node on', name);
+        return client.node.recommission_node({ name });
+    }
 }
 
-function deactiveAgents(server_ip, activated_nodes_list) {
+async function deactiveAgents(server_ip, activated_nodes_list) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => P.each(activated_nodes_list, name => {
-            console.log('calling decommission_node on', name);
-            return client.node.decommission_node({ name });
-        }));
+    await client.create_auth_token(auth_params);
+    for (const name of activated_nodes_list) {
+        console.log('calling decommission_node on', name);
+        await client.node.decommission_node({ name });
+    }
 }
 
-function activeAllHosts(server_ip) {
+async function activeAllHosts(server_ip) {
     console.log(`Active All Hosts`);
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => client.host.list_hosts({}))
-        .then(res => P.each(res.hosts.filter(node => node.mode === 'DECOMMISSIONED'), names => {
-            let params = {
-                name: names.name,
-                services: {
-                    s3: undefined,
-                    storage: true
-                },
-            };
-            return client.host.update_host_services(params);
-        }));
+    await client.create_auth_token(auth_params);
+    const list_hosts = await client.host.list_hosts({});
+    for (const names of list_hosts.filter(node => node.mode === 'DECOMMISSIONED')) {
+        let params = {
+            name: names.name,
+            services: {
+                s3: undefined,
+                storage: true
+            },
+        };
+        await client.host.update_host_services(params);
+    }
 }
 
-function deactiveAllHosts(server_ip) {
+async function deactiveAllHosts(server_ip) {
     console.log(`Deactiveing All Hosts`);
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => client.host.list_hosts({}))
-        .then(res => P.each(res.hosts.filter(node => node.mode === 'OPTIMAL'), names => {
-            let params = {
-                name: names.name,
-                services: {
-                    s3: undefined,
-                    storage: false
-                },
-            };
-            return client.host.update_host_services(params);
-        }));
+    await client.create_auth_token(auth_params);
+    const list_hosts = await client.host.list_hosts({});
+    for (const names of list_hosts.hosts.filter(node => node.mode === 'OPTIMAL')) {
+        let params = {
+            name: names.name,
+            services: {
+                s3: undefined,
+                storage: false
+            },
+        };
+        await client.host.update_host_services(params);
+    }
 }
 
 //check how many agents there are now, expecting agent to be included.
-function isIncluded(params) {
+async function isIncluded(params) {
     console.log(params);
     const { server_ip, previous_agent_number, additional_agents, print = 'include', suffix = '' } = params;
-    let expected_count;
-    return list_nodes(server_ip)
-        .then(res => {
-            const decommisioned_nodes = res.filter(node => node.mode === 'DECOMMISSIONED');
-            console.warn(`${Yellow}Number of Excluded agents: ${decommisioned_nodes.length}${NC}`);
-            console.warn(`Node names are ${res.map(node => node.name)}`);
-            expected_count = previous_agent_number + additional_agents;
-            return list_optimal_agents(server_ip, suffix);
-        })
-        .then(test_nodes => {
-            const actual_count = test_nodes.length;
-            if (actual_count === expected_count) {
-                console.warn(`${Yellow}Num nodes after ${print} are ${actual_count}${NC}`);
-            } else {
-                const error = `Num nodes after ${print} are ${
-                    actual_count
-                    } - something went wrong... expected ${
-                    expected_count
-                    }`;
-                console.error(`${Yellow}${error}${NC}`);
-                throw new Error(error);
-            }
-        })
-        .catch(err => {
-            console.log('isIncluded Caught ERR', err);
-            throw err;
-        });
+    try {
+        const listNodes = await list_nodes(server_ip);
+        const decommisioned_nodes = listNodes.filter(node => node.mode === 'DECOMMISSIONED');
+        console.warn(`${Yellow}Number of Excluded agents: ${decommisioned_nodes.length}${NC}`);
+        console.warn(`Node names are ${listNodes.map(node => node.name)}`);
+        const expected_count = previous_agent_number + additional_agents;
+        const test_nodes = await list_optimal_agents(server_ip, suffix);
+        const actual_count = test_nodes.length;
+        if (actual_count === expected_count) {
+            console.warn(`${Yellow}Number of nodes after ${print} are ${actual_count}${NC}`);
+        } else {
+            const error = `Number of nodes after ${print} are ${
+                    actual_count} - something went wrong... expected ${expected_count}`;
+            console.error(`${Yellow}${error}${NC}`);
+            throw new Error(error);
+        }
+    } catch (err) {
+        console.log('isIncluded Caught ERR', err);
+        throw err;
+    }
 }
 
-function stop_agent(azf, agent) {
-    console.log('Stopping agents VM ', agent);
-    return azf.stopVirtualMachine(agent)
-        .then(() => azf.waitMachineState(agent, 'VM stopped'))
-        .catch(err => {
-            console.error(`FAILED stopping agent`, agent, err);
-        });
+async function stop_agent(azf, agent) {
+    try {
+        console.log('Stopping agents VM ', agent);
+        await azf.stopVirtualMachine(agent);
+        await azf.waitMachineState(agent, 'VM stopped');
+    } catch (err) {
+        console.error(`FAILED stopping agent`, agent, err);
+    }
 }
 
-function start_agent(azf, agent) {
+async function start_agent(azf, agent) {
     console.log('Starting agents VM ', agent);
-    return azf.startVirtualMachine(agent)
-        .then(() => azf.waitMachineState(agent, 'VM running'))
-        .catch(err => {
-            console.error(`FAILED running agent`, agent, err);
-        });
+    try {
+        await azf.startVirtualMachine(agent);
+        await azf.waitMachineState(agent, 'VM running');
+    } catch (err) {
+        console.error(`FAILED running agent`, agent, err);
+    }
 }
 
 //removes agents with names that include suffix from Noobaa server
-function deleteAgents(server_ip, suffix = '') {
+async function deleteAgents(server_ip, suffix = '') {
     console.log(`Starting the delete agents stage`);
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
-    return client.create_auth_token(auth_params)
-        .then(() => client.host.list_hosts({}))
-        .then(res => P.map(res.hosts, host => {
-            if (host.name.includes(suffix)) {
-                console.log('deleting', host.name);
-                return client.host.delete_host({ name: host.name });
-            } else {
-                console.log('skipping', host.name);
-            }
-        }))
-        .delay(120 * 1000)
-        .then(() => list_nodes(server_ip))
-        .then(res => {
-            console.warn(`${Yellow}Num nodes after the delete agent are ${
-                    res.length}${NC}`);
-        });
+    await client.create_auth_token(auth_params);
+    const list_hosts = await client.host.list_hosts({});
+    await P.map(list_hosts.hosts, async host => {
+        if (host.name.includes(suffix)) {
+            console.log('deleting', host.name);
+            await client.host.delete_host({ name: host.name });
+        } else {
+            console.log('skipping', host.name);
+        }
+    });
+    await P.delay(120 * 1000);
+    const listNods = await list_nodes(server_ip);
+    console.warn(`${Yellow}Num nodes after the delete agent are ${listNods.length}${NC}`);
 }
 
 //get a list of agents that names are inculude suffix, deletes corresponding VM and agents from NooBaa server
-function clean_agents(azf, server_ip, suffix = '') {
-    return getTestNodes(server_ip, suffix)
-        .then(res => P.map(res, agentname => azf.deleteVirtualMachine(agentname)
-            .catch(err => {
-                console.log(`Blob ${agentname} not found - skipping. Error: `, err.message.split('\n')[0]);
-            })))
-        .then(() => deleteAgents(server_ip, suffix));
+async function clean_agents(azf, server_ip, suffix = '') {
+    const testNodes = await getTestNodes(server_ip, suffix);
+    await P.map(testNodes, async agentname => {
+        try {
+            await azf.deleteVirtualMachine(agentname);
+        } catch (err) {
+            console.log(`Blob ${agentname} not found - skipping. Error: `, err.message.split('\n')[0]);
+        }
+    });
+    await deleteAgents(server_ip, suffix);
 }
 
 function getRandomOsesFromList(amount, oses) {
@@ -417,37 +404,29 @@ function getRandomOsesFromList(amount, oses) {
     return listOses;
 }
 
-function stopRandomAgents(azf, server_ip, amount, suffix, agentlist) {
-    let offlineAgents;
-    let stopped_agents = [];
-    return number_offline_nodes(server_ip)
-        .then(res => {
-            offlineAgents = res;
-            stopped_agents = getRandomOsesFromList(amount, agentlist);
-            return P.each(stopped_agents, agent => stop_agent(azf, agent));
-        })
-        .delay(100 * 1000)
-        .then(() => number_offline_nodes(server_ip))
-        .then(res => {
-            const offlineAgentsAfter = res;
-            const offlineExpected = offlineAgents + amount;
-            if (offlineAgentsAfter === offlineExpected) {
-                console.log(`Number of offline agents is: ${offlineAgentsAfter} - as should`);
-            } else {
-                console.error(`Number of offline agents after stop is: ${offlineAgentsAfter}, expected: ${offlineExpected}`);
-            }
-        })
-        .then(() => list_optimal_agents(server_ip, suffix))
-        .then(res => {
-            const onlineAgents = res.length;
-            const expectedOnlineAgents = agentlist.length - amount;
-            if (onlineAgents === expectedOnlineAgents) {
-                console.log(`Number of online agents is: ${onlineAgents} - as should`);
-            } else {
-                console.error(`Number of online agents after stop is: ${onlineAgents}, expected: ${expectedOnlineAgents}`);
-            }
-            return stopped_agents;
-        });
+async function stopRandomAgents(azf, server_ip, amount, suffix, agentlist) {
+    const offlineAgents = await number_offline_nodes(server_ip);
+    const stopped_agents = getRandomOsesFromList(amount, agentlist);
+    for (const agent of stopped_agents) {
+        await stop_agent(azf, agent);
+    }
+    await P.delay(100 * 1000);
+    const offlineAgentsAfter = await number_offline_nodes(server_ip);
+    const offlineExpected = offlineAgents + amount;
+    if (offlineAgentsAfter === offlineExpected) {
+        console.log(`Number of offline agents is: ${offlineAgentsAfter} - as should`);
+    } else {
+        console.error(`Number of offline agents after stop is: ${offlineAgentsAfter}, expected: ${offlineExpected}`);
+    }
+    const optimal_agents = await list_optimal_agents(server_ip, suffix);
+    const onlineAgents = optimal_agents.length;
+    const expectedOnlineAgents = agentlist.length - amount;
+    if (onlineAgents === expectedOnlineAgents) {
+        console.log(`Number of online agents is: ${onlineAgents} - as should`);
+    } else {
+        console.error(`Number of online agents after stop is: ${onlineAgents}, expected: ${expectedOnlineAgents}`);
+    }
+    return stopped_agents;
 }
 
 async function waitForAgentsAmount(server_ip, numberAgents) {
@@ -485,21 +464,18 @@ async function startOfflineAgents(azf, server_ip, oses) {
     }
 }
 
-function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suffix, oses) {
-    let exclude_drives = [];
+async function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suffix, oses) {
     let agentmap = new Map();
-    let createdAgents = getRandomOsesFromList(amount, oses);
+    const createdAgents = getRandomOsesFromList(amount, oses);
     for (let i = 0; i < createdAgents.length; i++) {
         agentmap.set(suffix + i, createdAgents[i]);
     }
-    return createAgentsFromMap(azf, server_ip, storage, resource_vnet, exclude_drives, agentmap)
-        .then(() => list_nodes(server_ip)
-            .then(res => {
-                let node_number_after_create = res.length;
-                console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
-                console.warn(`Node names are ${res.map(node => node.name)}`);
-                return agentmap;
-            }));
+    await createAgentsFromMap(azf, server_ip, storage, resource_vnet, [], agentmap);
+    const listNodes = await list_nodes(server_ip);
+    let node_number_after_create = listNodes.length;
+    console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
+    console.warn(`Node names are ${listNodes.map(node => node.name)}`);
+    return agentmap;
 }
 
 /*
@@ -507,21 +483,19 @@ function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suff
  * if sizeMB is supplied, will allocate a local file equal to that size
  * Otherwise will delete the previously allocated local file
  */
-function manipulateLocalDisk(params) {
-    return ssh_functions.ssh_connect({
-            host: params.ip,
-            username: 'noobaaroot',
-            password: params.secret,
-            keepaliveInterval: 5000,
-        })
-        .tap(ssh_client => {
-            if (params.sizeMB) {
-                return ssh_functions.ssh_exec(ssh_client, `sudo bash -c "fallocate -l ${params.sizeMB}M /tmp/manipulateLocalDisk.dat"`);
-            } else {
-                return ssh_functions.ssh_exec(ssh_client, `sudo bash -c "rm -f /tmp/manipulateLocalDisk.dat"`);
-            }
-        })
-        .then(ssh_client => ssh_functions.ssh_exec(ssh_client, `sudo bash -c "sync"`));
+async function manipulateLocalDisk(params) {
+    const ssh_client = await ssh_functions.ssh_connect({
+        host: params.ip,
+        username: 'noobaaroot',
+        password: params.secret,
+        keepaliveInterval: 5000,
+    });
+    if (params.sizeMB) {
+        await ssh_functions.ssh_exec(ssh_client, `sudo bash -c "fallocate -l ${params.sizeMB}M /tmp/manipulateLocalDisk.dat"`);
+    } else {
+        await ssh_functions.ssh_exec(ssh_client, `sudo bash -c "rm -f /tmp/manipulateLocalDisk.dat"`);
+    }
+    await ssh_functions.ssh_exec(ssh_client, `sudo bash -c "sync"`);
 }
 
 exports.supported_oses = supported_oses;

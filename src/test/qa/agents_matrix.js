@@ -1,20 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var P = require('../../util/promise');
+const P = require('../../util/promise');
 const _ = require('lodash');
-var AzureFunctions = require('../../deploy/azureFunctions');
-var crypto = require('crypto');
+const AzureFunctions = require('../../deploy/azureFunctions');
+const crypto = require('crypto');
 const { S3OPS } = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 const ops = require('../utils/basic_server_ops');
 
 // Environment Setup
-var clientId = process.env.CLIENT_ID;
-var domain = process.env.DOMAIN;
-var secret = process.env.APPLICATION_SECRET;
-var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-var shasum = crypto.createHash('sha1');
+const clientId = process.env.CLIENT_ID;
+const domain = process.env.DOMAIN;
+const secret = process.env.APPLICATION_SECRET;
+const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
+const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 
 const s3ops = new S3OPS();
@@ -24,7 +24,7 @@ const suffixName = 'am';
 dbg.set_process_name(testName);
 
 // Sample Config
-var argv = require('minimist')(process.argv);
+const argv = require('minimist')(process.argv);
 console.log(JSON.stringify(argv));
 
 let {
@@ -43,7 +43,7 @@ const {
         bucket = 'first.bucket',
         server_ip,
         id = 0,
-        min_required_agents = 3
+        min_required_agents = 3,
 } = argv;
 
 const upgrade_pack = argv.upgrade_pack === true ? undefined : argv.upgrade_pack;
@@ -81,17 +81,18 @@ const Red = "\x1b[31m";
 const NC = "\x1b[0m";
 
 //noobaa rpc
-var api = require('../../api');
-var rpc = api.new_rpc('wss://' + server_ip + ':8443');
-var client = rpc.new_client({});
+const api = require('../../api');
+const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const client = rpc.new_client({});
 const oses = af.supported_oses();
 
 const size = 16; //size in GB
 let nodes = [];
 let errors = [];
 let initial_node_number;
+const created_agents = [];
 
-var azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
+const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
 function saveErrorAndExit(message) {
     console.error(message);
@@ -104,373 +105,377 @@ function saveErrorAndResume(message) {
     errors.push(message);
 }
 
-function runClean() {
+async function runClean() {
     //deleting the VM machines with the same name as the OS we want to install.
-    return P.map(oses, osname => azf.deleteVirtualMachine(osname + suffix)
-            .catch(() => console.log(`VM ${osname}-${id} not found - skipping...`)))
-        //running all all the VM machines and deleating all the disks.
-        .then(() => P.map(oses, osname => azf.deleteBlobDisks(osname + suffix)
-            .catch(saveErrorAndExit)))
-        // when clean is called, exiting after delete all agents machine.
-        .then(() => clean && process.exit(0));
+    await P.map(oses, async osname => {
+        try {
+            await azf.deleteVirtualMachine(osname + suffix);
+        } catch (e) {
+            console.log(`VM ${osname}-${id} not found - skipping...`);
+        }
+    });
+    //running all all the VM machines and deleating all the disks.
+    await P.map(oses, async osname => {
+        try {
+            await azf.deleteBlobDisks(osname + suffix);
+        } catch (e) {
+            saveErrorAndExit(e);
+        }
+    });
+    // when clean is called, exiting after delete all agents machine.
+    if (clean) {
+        process.exit(0);
+    }
 }
 
-function createAgents(isInclude, excludeList) {
-    let agentConf;
-    let test_nodes_names = [];
+async function createAgentMachins(osname, exclude_drives) {
+    if (osname === 'ubuntu12' || osname === 'ubuntu14' || osname === 'ubuntu18') {
+        console.log(`skipping creation of ${osname}`);
+        // try {
+        //     await azf.createAgentFromImage({
+        //         vmName: osname + suffix,
+        //         vnet: argv.vnet,
+        //         storage: argv.storage,
+        //         server_ip,
+        //         os: osname,
+        //         vmSize: 'Standard_B2s',
+        //         exclude_drives,
+        //         shouldInstall: true,
+        //     });
+        //     created_agents.push(osname + suffix);
+        // } catch (e) {
+        //     // saveErrorAndResume(e);
+        //     saveErrorAndExit(e);
+        // }
+    } else {
+        try {
+            await azf.createAgent({
+                vmName: osname + suffix,
+                storage,
+                vnet,
+                os: osname,
+                agentConf: await af.getAgentConf(server_ip, exclude_drives),
+                server_ip
+            });
+            created_agents.push(osname + suffix);
+        } catch (e) {
+            saveErrorAndResume(e);
+        }
+    }
+}
+
+async function createAgents(isInclude, excludeList) {
     console.log(`starting the create agents stage`);
-    return af.list_nodes(server_ip)
-        .then(res => {
-            initial_node_number = res.length;
-            const decommissioned_nodes = res.filter(node => node.mode === 'DECOMMISSIONED');
-            console.log(`${Yellow}Number of deactivated agents: ${decommissioned_nodes.length}${NC}`);
-            const Online_node_number = res.length - decommissioned_nodes.length;
-            console.warn(`${Yellow}Num nodes before the test is: ${
-                res.length}, ${Online_node_number} Online and ${
+    const list_nodes = await af.list_nodes(server_ip);
+    const decommissioned_nodes = list_nodes.filter(node => node.mode === 'DECOMMISSIONED');
+    console.log(`${Yellow}Number of deactivated agents: ${decommissioned_nodes.length}${NC}`);
+    const Online_node_number = list_nodes.length - decommissioned_nodes.length;
+    console.warn(`${Yellow}Num nodes before the test is: ${
+                list_nodes.length}, ${Online_node_number} Online and ${
                 decommissioned_nodes.length} deactivated.${NC}`);
-            if (decommissioned_nodes.length !== 0) {
-                const deactivated_nodes = decommissioned_nodes.map(node => node.name);
-                console.log(`${Yellow}activating all the deactivated agents:${NC} ${deactivated_nodes}`);
-                af.activeAgents(server_ip, deactivated_nodes);
-            }
-        })
-        .then(() => af.getAgentConf(server_ip, excludeList))
-        .then(res => {
-            agentConf = res;
-        })
-        .then(() => af.getTestNodes(server_ip, suffix))
-        .then(res => {
-            test_nodes_names = res;
-        })
-        .then(() => {
-            let osesToCreate = oses.slice();
-            //setting the agent list to empty in case of skipsetup
-            if (skipsetup) {
-                osesToCreate = [];
-            }
-            //getting the list of missing agents in case of updating environment
-            if (updateenv) {
-                for (let i = 0; i < test_nodes_names.length; i++) {
-                    for (let j = 0; j < oses.length; j++) {
-                        if (test_nodes_names[i].startsWith(oses[j])) {
-                            osesToCreate.splice(j, 1);
-                        }
-                    }
+    if (decommissioned_nodes.length !== 0) {
+        const deactivated_nodes = decommissioned_nodes.map(node => node.name);
+        console.log(`${Yellow}activating all the deactivated agents:${NC} ${deactivated_nodes}`);
+        af.activeAgents(server_ip, deactivated_nodes);
+    }
+    const test_nodes_names = await af.getTestNodes(server_ip, suffix);
+    let osesToCreate = oses.slice();
+    //setting the agent list to empty in case of skipsetup
+    if (skipsetup) {
+        osesToCreate = [];
+    }
+    //getting the list of missing agents in case of updating environment
+    if (updateenv) {
+        for (let i = 0; i < test_nodes_names.length; i++) {
+            for (let j = 0; j < oses.length; j++) {
+                if (test_nodes_names[i].startsWith(oses[j])) {
+                    osesToCreate.splice(j, 1);
                 }
             }
-
-            if (isInclude) {
-                const agents_ip = [];
-                return P.map(osesToCreate, osname => {
-                        if (osname === 'ubuntu12' || osname === 'ubuntu18') {
-                            return azf.createAgentFromImage({
-                                    vmName: osname + suffix,
-                                    vmSize: argv.vmsize,
-                                    storage: argv.storage,
-                                    vnet: argv.vnet,
-                                    os: osname,
-                                    server_ip: server_ip,
-                                    shouldInstall: true,
-                                })
-                                .then(ip => agents_ip.push(ip))
-                                .catch(saveErrorAndResume);
-                        } else {
-                            return azf.createAgent({
-                                    vmName: osname + suffix,
-                                    storage,
-                                    vnet,
-                                    os: osname,
-                                    agentConf,
-                                    serverIP: server_ip
-
-                                })
-                                .then(ip => agents_ip.push(ip))
-                                .catch(saveErrorAndResume);
-                        }
-                    })
-                    .then(() => {
-                        if (agents_ip.length < min_required_agents) {
-                            console.error(`could not create the minimum number of required agents (${min_required_agents})`);
-                            saveErrorAndResume();
-                        } else {
-                            console.log(`Created ${agents_ip.length} agents`);
-                        }
-                    });
-            } else {
-                return runExtensions('init_agent', `${server_ip} ${agentConf}`)
-                    .catch(saveErrorAndExit);
-            }
-        })
-        .tap(() => console.warn(`Will now wait for a 3 min for agents to come up...`))
-        .delay(180000)
-        .then(() => af.isIncluded({
-            server_ip,
-            previous_agent_number: test_nodes_names.length,
-            additional_agents: oses.length,
-            print: 'create agent',
-            suffix
-        }));
-}
-
-function runCreateAgents(isInclude, excludeList) {
-    return createAgents(isInclude, excludeList)
-        .then(() => af.list_nodes(server_ip))
-        .then(res => {
-            let node_number_after_create = res.length;
-            console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
-            nodes = [];
-            console.warn(`Node names are ${res.map(node => node.name)}`);
+        }
+    }
+    if (isInclude) {
+        await P.map(osesToCreate, async osname => {
+            await createAgentMachins(osname, excludeList);
         });
+        if (created_agents.length < min_required_agents) {
+            saveErrorAndExit(`Could not create the minimum number of required agents (${min_required_agents})`);
+        } else {
+            console.log(`Created ${created_agents.length} agents`);
+        }
+    } else {
+        try {
+            const agentConf = await af.getAgentConf(server_ip, excludeList);
+            await runExtensions(created_agents, 'init_agent', `${server_ip} ${agentConf}`);
+        } catch (e) {
+            saveErrorAndExit(e);
+        }
+    }
+    console.warn(`Will now wait for a 3 min for agents to come up...`);
+    await P.delay(180 * 1000);
+    await af.isIncluded({
+        server_ip,
+        previous_agent_number: test_nodes_names.length,
+        additional_agents: created_agents.length,
+        print: 'create agent',
+        suffix
+    });
 }
 
-function runAgentDiagnostics() {
+async function runCreateAgents(isInclude, excludeList) {
+    await createAgents(isInclude, excludeList);
+    const list_nodes = await af.list_nodes(server_ip);
+    let node_number_after_create = list_nodes.length;
+    console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
+    console.warn(`Node names are ${list_nodes.map(node => node.name)}`);
+}
+
+async function runAgentDiagnostics() {
     console.warn(`Will take diagnostics from all the agents`);
-    return P.map(nodes, name => client.node.collect_agent_diagnostics({ name })
-        .catch(saveErrorAndExit));
+    await P.map(nodes, async name => {
+        try {
+            await client.node.collect_agent_diagnostics({ name });
+        } catch (e) {
+            saveErrorAndExit(e);
+        }
+    });
 }
 
-function runAgentDebug() {
+async function runAgentDebug() {
     console.warn(`Will put all agents in debug mode`);
-    return P.map(nodes, name => client.node.set_debug_node({
-        node: {
-            name
-        },
-        level: 5,
-    }).catch(saveErrorAndExit));
+    await P.map(nodes, async name => {
+        try {
+            await client.node.set_debug_node({
+                node: {
+                    name
+                },
+                level: 5,
+            });
+        } catch (e) {
+            saveErrorAndExit(e);
+        }
+    });
 }
 
-function verifyAgent() {
+async function verifyAgent() {
     console.log(`Starting the verify agents stage`);
-    return s3ops.put_file_with_md5(server_ip, bucket, '100MB_File', 100, 1048576)
-        .then(() => s3ops.get_file_check_md5(server_ip, bucket, '100MB_File'))
-        .then(runAgentDiagnostics)
-        .then(runAgentDebug);
+    await s3ops.put_file_with_md5(server_ip, bucket, '100MB_File', 100, 1048576);
+    await s3ops.get_file_check_md5(server_ip, bucket, '100MB_File');
+    await runAgentDiagnostics();
+    await runAgentDebug();
 }
 
-function runExtensions(script_name, flags = '') {
-    return P.map(oses, osname => azf.deleteVirtualMachineExtension(osname + suffix)
-            .catch(err => console.log(err.message)))
-        .then(() => P.map(oses, osname => {
-            console.log(`running extention: ${script_name}`);
-            var extension = {
-                publisher: 'Microsoft.OSTCExtensions',
-                virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
-                typeHandlerVersion: '1.5',
-                autoUpgradeMinorVersion: true,
-                settings: {
-                    fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/" + script_name + ".sh"],
-                    commandToExecute: 'bash ' + script_name + '.sh ' + flags
-                },
-                protectedSettings: {
-                    storageAccountName: "pluginsstorage",
-                    storageAccountKey: "bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=="
-                },
-                location: location,
+async function runExtensions(vms, script_name, flags = '') {
+    await P.map(vms, async osname => {
+        try {
+            await azf.deleteVirtualMachineExtension(osname);
+        } catch (err) {
+            console.log(err.message);
+        }
+    });
+    await P.map(vms, async osname => {
+        console.log(`running extention: ${script_name}`);
+        const extension = {
+            publisher: 'Microsoft.OSTCExtensions',
+            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
+            typeHandlerVersion: '1.5',
+            autoUpgradeMinorVersion: true,
+            settings: {
+                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/" + script_name + ".sh"],
+                commandToExecute: 'bash ' + script_name + '.sh ' + flags
+            },
+            protectedSettings: {
+                storageAccountName: "pluginsstorage",
+                storageAccountKey: "bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=="
+            },
+            location: location,
+        };
+        const os = azf.getImagesfromOSname(osname.replace(suffix, ''));
+        if (os.osType === 'Windows') {
+            extension.publisher = 'Microsoft.Compute';
+            extension.virtualMachineExtensionType = 'CustomScriptExtension';
+            extension.typeHandlerVersion = '1.7';
+            extension.settings = {
+                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/" + script_name + ".ps1"],
+                commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ' + script_name + '.ps1 ' + flags
             };
-            var os = azf.getImagesfromOSname(osname);
-            if (os.osType === 'Windows') {
-                extension.publisher = 'Microsoft.Compute';
-                extension.virtualMachineExtensionType = 'CustomScriptExtension';
-                extension.typeHandlerVersion = '1.7';
-                extension.settings = {
-                    fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/" + script_name + ".ps1"],
-                    commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ' + script_name + '.ps1 ' + flags
-                };
-            }
-            return azf.createVirtualMachineExtension(osname + suffix, extension)
-                .catch(saveErrorAndExit);
-        }));
+        }
+        try {
+            await azf.createVirtualMachineExtension(osname, extension);
+        } catch (e) {
+            saveErrorAndExit(e);
+        }
+    });
 }
 
-function upgradeAgent() {
+async function upgradeAgent() {
     // if upgrade pack is not specifyed then skipping this stage.
     console.log(`Upgrade_pack: ${upgrade_pack}`);
     if (!_.isUndefined(upgrade_pack)) {
         console.log('Starting the upgrade agents stage');
-        return runExtensions('replace_version_on_agent')
-            .then(() => client.system.read_system({})
-                .then(result => ops.upload_and_upgrade(server_ip, upgrade_pack))
-                .then(() => {
-                    console.log(`Upgrade successful, waiting on agents to upgrade`);
-                    return ops.wait_on_agents_upgrade(server_ip);
-                }));
+        await runExtensions(created_agents, 'replace_version_on_agent');
+        await ops.upload_and_upgrade(server_ip, upgrade_pack);
+        console.log(`Upgrade successful, waiting on agents to upgrade`);
+        await ops.wait_on_agents_upgrade(server_ip);
     }
 }
 
-function deleteAgent() {
+async function deleteAgent() {
     console.log(`Starting the delete agents stage`);
-    return client.host.list_hosts({})
-        .then(res => P.map(res.hosts, host => {
-            console.log('deleting', host.name);
-            return client.host.delete_host({ name: host.name });
-        }))
-        .delay(120 * 1000)
-        .then(() => af.list_nodes(server_ip))
-        .then(res => {
-            nodes = [];
-            console.warn(`Node names are ${res.map(node => node.name)}`);
-            if (res.length === initial_node_number) {
-                console.warn(`${Yellow}Num nodes after the delete agent are ${
-                    res.length
+    const listHost = await client.host.list_hosts({});
+    await P.map(listHost.hosts, async host => {
+        console.log('deleting', host.name);
+        await client.host.delete_host({ name: host.name });
+    });
+    await P.delay(120 * 1000);
+    const listNods = af.list_nodes(server_ip);
+    console.warn(`Node names are ${listNods.map(node => node.name)}`);
+    if (listNods.length === initial_node_number) {
+        console.warn(`${Yellow}Num nodes after the delete agent are ${
+                    listNods.length
                     } - the same as before - good${NC}`);
-            } else {
-                const error = `Num nodes after the delete agent are ${
-                    res.length
+    } else {
+        const error = `Num nodes after the delete agent are ${
+                    listNods.length
                     } - something went wrong... suppose to go back to initial size ${
                     initial_node_number
                     }`;
-                console.error(`${Yellow}${error}${NC}`);
-                throw new Error(error);
-            }
-        });
+        console.error(`${Yellow}${error}${NC}`);
+        throw new Error(error);
+    }
 }
 
-function addDisksToMachine(diskSize) {
+async function addDisksToMachine(vms, diskSize) {
     console.log(`adding disks to the agents machine`);
-    return P.map(oses, osname => {
-        console.log(`adding data disk to vm ${osname}${suffix} of size ${diskSize}`);
-        return azf.addDataDiskToVM({
-            vm: osname + suffix,
+    await P.map(vms, async vm => {
+        console.log(`adding data disk to vm ${vm} of size ${diskSize}`);
+        await azf.addDataDiskToVM({
+            vm,
             size: diskSize,
             storage,
         });
     });
 }
 
-function checkIncludeDisk() {
-    return af.getTestNodes(server_ip, suffix)
-        .then(number_befor_adding_disks => {
-            console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`);
-            return addDisksToMachine(size)
-                //map the disks
-                .then(() => runExtensions('map_new_disk'))
-                .delay(120000)
-                .then(() => af.isIncluded({
-                    server_ip,
-                    previous_agent_number: number_befor_adding_disks.length,
-                    additional_agents: oses.length,
-                    suffix
-                }));
-        });
+async function checkIncludeDisk() {
+    const number_befor_adding_disks = await af.getTestNodes(server_ip, suffix);
+    console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`);
+    await addDisksToMachine(created_agents, size);
+    //map the disks
+    await runExtensions(created_agents, 'map_new_disk');
+    await P.delay(120 * 1000);
+    await af.isIncluded({
+        server_ip,
+        previous_agent_number: number_befor_adding_disks.length,
+        additional_agents: created_agents.length,
+        suffix
+    });
 }
 
-function addExcludeDisks(excludeList, number_befor_adding_disks) {
-    return P.resolve()
-        //adding disk to exclude them
-        .tap(() => console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`))
-        .then(() => addDisksToMachine(size))
-        .then(() => runExtensions('map_new_disk', '-e'))
-        .delay(120000)
-        .then(() => isExcluded(excludeList))
-        //adding a small disk
-        .then(() => addDisksToMachine(15))
-        .then(() => runExtensions('map_new_disk'))
-        .delay(120000)
-        .then(() => af.isIncluded({
-            server_ip,
-            previous_agent_number: number_befor_adding_disks,
-            additional_agents: 0,
-            print: 'exluding small disks',
-            suffix
-        }))
-        //adding disk to check that it is not getting exclude
-        .then(() => addDisksToMachine(size))
-        .then(() => runExtensions('map_new_disk'))
-        .delay(120000)
-        .then(() => {
-            af.isIncluded({
-                server_ip,
-                previous_agent_number: number_befor_adding_disks,
-                additional_agents: oses.length,
-                print: 'exlude',
-                suffix
-            });
-            const number_of_disks = number_befor_adding_disks + oses.length;
-            return number_of_disks;
-        });
+async function addExcludeDisks(excludeList, number_befor_adding_disks) {
+    //adding disk to exclude them
+    console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`);
+    await addDisksToMachine(created_agents, size);
+    await runExtensions(created_agents, 'map_new_disk', '-e');
+    await P.delay(120 * 1000);
+    await isExcluded(excludeList);
+    //adding a small disk
+    await addDisksToMachine(created_agents, 15);
+    await runExtensions(created_agents, 'map_new_disk');
+    await P.delay(120 * 1000);
+    await af.isIncluded({
+        server_ip,
+        previous_agent_number: number_befor_adding_disks,
+        additional_agents: 0,
+        print: 'exluding small disks',
+        suffix
+    });
+    //adding disk to check that it is not getting exclude
+    await addDisksToMachine(created_agents, size);
+    await runExtensions(created_agents, 'map_new_disk');
+    await P.delay(120 * 1000);
+    await af.isIncluded({
+        server_ip,
+        previous_agent_number: number_befor_adding_disks,
+        additional_agents: created_agents.length,
+        print: 'exlude',
+        suffix
+    });
+    return number_befor_adding_disks + created_agents.length;
 }
 
-function checkExcludeDisk(excludeList) {
-    let number_befor_adding_disks;
-    return af.list_optimal_agents(server_ip, suffix)
-        .then(nodes_befor_adding_disks => {
-            const includesE = nodes_befor_adding_disks.filter(node => node.includes('-E-'));
-            const includesF = nodes_befor_adding_disks.filter(node => node.includes('-F-'));
-            const includes_exclude1 = nodes_befor_adding_disks.filter(node => node.includes('exclude1'));
-            const prevNum = nodes_befor_adding_disks.length - includesE.concat(includesF.concat(includes_exclude1)).length;
-            return addExcludeDisks(excludeList, prevNum);
-        })
-        .then(res => number_befor_adding_disks)
-        //verifying write, read, diag and debug level.
-        .then(verifyAgent)
-        //activate a deactivated node
-        .then(() => af.list_optimal_agents(server_ip, suffix)
-            .then(test_nodes_names => {
-                const includesE = test_nodes_names.filter(node => node.includes('-E-'));
-                const includes_exclude1 = test_nodes_names.filter(node => node.includes('exclude1'));
-                // return includesE.concat(includes_exclude1);
-                return af.activeAgents(server_ip, includesE.concat(includes_exclude1));
-            }))
-        // .then(res => af.activeAgents(server_ip, res)))
-        //currently we are using a machine with max 4 disks. skiiping the below.
-        /*
-        //verifying write, read, diag and debug level.
-        .then(verifyAgent)
-        //adding disk after disable and enable entire host
-        .then(() => addDisksToMachine(size))
-        .then(() => runExtensions('map_new_disk'))
-        .delay(120000)
-        .then(() => af.isIncluded({
-            server_ip,
-            previous_agent_number: number_befor_adding_disks,
-            additional_agents: oses.length,
-            print: 'disable and enable entire host',
-            suffix
-        }))
-        //verifying write, read, diag and debug level.
-        .then(verifyAgent)
-        */
-        //deactivate agents (mounts)
-        .then(() => af.list_optimal_agents(server_ip, suffix)
-            .then(test_nodes_names => {
-                const excludeE = test_nodes_names.filter(node => node.includes('-E-'));
-                const excludeF = test_nodes_names.filter(node => node.includes('-F-'));
-                const excludes_exclude = test_nodes_names.filter(node => node.includes('exclude'));
-                return excludeE.concat(excludeF).concat(excludes_exclude);
-            })
-            .then(activated_nodes_list => af.deactiveAgents(server_ip, activated_nodes_list)));
+async function checkExcludeDisk(excludeList) {
+    const nodes_befor_adding_disks = await af.list_optimal_agents(server_ip, suffix);
+    let includesE = nodes_befor_adding_disks.filter(node => node.includes('-E-'));
+    const includesF = nodes_befor_adding_disks.filter(node => node.includes('-F-'));
+    let includes_exclude1 = nodes_befor_adding_disks.filter(node => node.includes('exclude1'));
+    const prevNum = nodes_befor_adding_disks.length - includesE.concat(includesF.concat(includes_exclude1)).length;
+    const number_befor_adding_disks = await addExcludeDisks(excludeList, prevNum);
+    console.log(`The numberof agents befor adding disks is: ${number_befor_adding_disks}`);
+    //verifying write, read, diag and debug level.
+    await verifyAgent();
+    //activate a deactivated node
+    let test_nodes_names = await af.list_optimal_agents(server_ip, suffix);
+    includesE = test_nodes_names.filter(node => node.includes('-E-'));
+    includes_exclude1 = test_nodes_names.filter(node => node.includes('exclude1'));
+    // return includesE.concat(includes_exclude1);
+    await af.activeAgents(server_ip, includesE.concat(includes_exclude1));
+    // .then(res => af.activeAgents(server_ip, res)))
+    //currently we are using a machine with max 4 disks. skiiping the below.
+    /*
+    //verifying write, read, diag and debug level.
+    .then(verifyAgent)
+    //adding disk after disable and enable entire host
+    .then(() => addDisksToMachine(created_agents, size))
+    .then(() => runExtensions(created_agents, 'map_new_disk'))
+    .delay(120000)
+    .then(() => af.isIncluded({
+        server_ip,
+        previous_agent_number: number_befor_adding_disks,
+        additional_agents: created_agents.length,
+        print: 'disable and enable entire host',
+        suffix
+    }))
+    //verifying write, read, diag and debug level.
+    .then(verifyAgent)
+    */
+    //deactivate agents (mounts)
+    test_nodes_names = await af.list_optimal_agents(server_ip, suffix);
+    const excludeE = test_nodes_names.filter(node => node.includes('-E-'));
+    const excludeF = test_nodes_names.filter(node => node.includes('-F-'));
+    const excludes_exclude = test_nodes_names.filter(node => node.includes('exclude'));
+    const activated_nodes_list = await excludeE.concat(excludeF).concat(excludes_exclude);
+    await af.deactiveAgents(server_ip, activated_nodes_list);
 }
 
 //check how many agents there are now, expecting agent not to be included.
-function isExcluded(excludeList) {
-    return af.list_nodes(server_ip)
-        .then(countExclude => {
-            console.warn(`Node names are ${countExclude.map(node => node.name)}`);
-            const excludedCount = countExclude.map(node => node.drive.mount)
-                .map(mount => {
-                    if (mount.length === 2 && mount.indexOf(':') === 1) {
-                        return mount + '\\';
-                    }
-                    return mount;
-                })
-                .filter(mount => excludeList.includes(mount)).length;
-            // excludeListPerOSType assums that excludeList contain 2 pathes per os.
-            const excludeListPerOSType = 2;
-            const expectedExcludedCount = (excludeList.length / excludeListPerOSType * oses.length);
-            if (excludedCount === expectedExcludedCount) {
-                console.warn(`${Yellow}Num of exclude live nodes are ${
-                    excludedCount} as expected${NC}`);
-            } else {
-                const error = `Num of exclude live nodes are ${
-                    excludedCount
-                    } - something went wrong... expected ${expectedExcludedCount}`;
-                console.error(`${Yellow}${error}${NC}`);
-                throw new Error(error);
+async function isExcluded(excludeList) {
+    const countExclude = await af.list_nodes(server_ip);
+    console.warn(`Node names are ${countExclude.map(node => node.name)}`);
+    const excludedCount = countExclude.map(node => node.drive.mount)
+        .map(mount => {
+            if (mount.length === 2 && mount.indexOf(':') === 1) {
+                return mount + '\\';
             }
-        });
+            return mount;
+        })
+        .filter(mount => excludeList.includes(mount)).length;
+    // excludeListPerOSType assums that excludeList contain 2 pathes per os.
+    const excludeListPerOSType = 2;
+    const expectedExcludedCount = (excludeList.length / excludeListPerOSType * created_agents.length);
+    if (excludedCount === expectedExcludedCount) {
+        console.warn(`${Yellow}Num of exclude live nodes are ${
+                    excludedCount} as expected${NC}`);
+    } else {
+        const error = `Num of exclude live nodes are ${
+                    excludedCount} - something went wrong... expected ${expectedExcludedCount}`;
+        console.error(`${Yellow}${error}${NC}`);
+        throw new Error(error);
+    }
+
 }
 
-function includeExcludeCycle(isInclude) {
+async function includeExcludeCycle(isInclude) {
     let excludeList;
     if (isInclude) {
         excludeList = [];
@@ -479,77 +484,94 @@ function includeExcludeCycle(isInclude) {
         excludeList = ['E:\\', 'F:\\', '/exclude1', '/exclude2'];
         console.warn(`${Red}starting exclude cycle${NC}`);
     }
-    return (isInclude ? af.getAgentConf(server_ip) : af.getAgentConf(server_ip, excludeList))
-        .then(() => isInclude || runExtensions('map_new_disk', '-r'))
-        // creating agents on the VM - diffrent oses.
-        .then(() => runCreateAgents(isInclude, excludeList))
-        // verifying write, read, diag and debug level.
-        .tap()
-        // .then(verifyAgent)
-        // Deploy on an already deployed agent //need to find a way to run quit on win.
-        // .then(() => {
-        //     console.log(`Deploy on an already deployed agent`);
-        //     return runExtensions('init_agent', `${server_ip} ${agentConf}`)
-        //         .catch(saveErrorAndResume);
-        // })
-        // verifying write, read, diag and debug level.
-        .then(verifyAgent)
-        // adding phisical disks to the machines.
-        .then(() => (isInclude ? checkIncludeDisk() : checkExcludeDisk(excludeList)))
-        //verifying write, read, diag and debug level.
-        .then(verifyAgent)
-        //enableing the entire host or enabling with random number of agents enabled
-        .then(() => af.deactiveAllHosts(server_ip))
-        //verifying write, read, diag and debug level.
-        .then(verifyAgent)
-        //disabling the entire host
-        .then(() => af.activeAllHosts(server_ip))
-        // Upgrade to same version before uninstalling
-        .then(upgradeAgent)
-        //verifying write, read, diag and debug level after the upgrade.
-        .then(verifyAgent)
-        // Cleaning the machine Extention and installing new one that remove nodes.
-        .then(() => skipsetup || deleteAgent());
+    if (isInclude) {
+        await af.getAgentConf(server_ip);
+    } else {
+        await af.getAgentConf(server_ip, excludeList);
+        await runExtensions(created_agents, 'map_new_disk', '-r');
+    }
+    // creating agents on the VM - diffrent oses.
+    await runCreateAgents(isInclude, excludeList);
+    // verifying write, read, diag and debug level.
+    console.log(``);
+    // .then(verifyAgent)
+    // Deploy on an already deployed agent //need to find a way to run quit on win.
+    // .then(() => {
+    //     console.log(`Deploy on an already deployed agent`);
+    //     return runExtensions(created_agents, 'init_agent', `${server_ip} ${agentConf}`)
+    //         .catch(saveErrorAndResume);
+    // })
+    // verifying write, read, diag and debug level.
+    await verifyAgent();
+    // adding phisical disks to the machines.
+    if (isInclude) {
+        await checkIncludeDisk();
+    } else {
+        await checkExcludeDisk(excludeList);
+    }
+    //verifying write, read, diag and debug level.
+    await verifyAgent();
+    //enableing the entire host or enabling with random number of agents enabled
+    await af.deactiveAllHosts(server_ip);
+    //verifying write, read, diag and debug level.
+    await verifyAgent();
+    //disabling the entire host
+    await af.activeAllHosts(server_ip);
+    // Upgrade to same version before uninstalling
+    await upgradeAgent();
+    //verifying write, read, diag and debug level after the upgrade.
+    await verifyAgent();
+    // Cleaning the machine Extention and installing new one that remove nodes.
+    if (!skipsetup) {
+        await deleteAgent();
+    }
 }
 
-function main() {
+async function main() {
     //running the main cycle:
-    return azf.authenticate()
-        .then(() => P.fcall(() => client.create_auth_token({
+    try {
+        await azf.authenticate();
+        await client.create_auth_token({
             email: 'demo@noobaa.com',
             password: 'DeMo1',
             system: 'demo'
-        })))
-        //deleteing the previous test agents machins.
-        .then(() => (skipsetup || updateenv) || runClean())
-        // checking the include disk cycle (happy path).
-        .then(() => includeExcludeCycle(true))
-        // checking the exclude disk cycle.
-        .then(() => includeExcludeCycle(false))
-        .catch(saveErrorAndExit)
-        .then(() => rpc.disconnect_all())
-        .then(() => {
-            console.warn('End of Test, cleaning.');
-            if (errors.length === 0) {
-                if (!skipsetup && !keepenv) {
-                    console.log('deleing the virtual machines.');
-                    return runClean()
-                        .then(() => {
-                            console.log('All is good - exiting...');
-                            process.exit(0);
-                        });
-                }
-                console.log('All is good - exiting...');
-                process.exit(0);
-            } else {
-                console.log('Got the following errors in test:');
-                _.each(errors, error => {
-                    console.error('Error:: ', error);
-                });
-                console.log('Failures in test - exiting...');
-                process.exit(1);
-            }
         });
+    } catch (e) {
+        console.error(`Could not connect to Azure`, e);
+        process.exit(1);
+    }
+    //deleteing the previous test agents machins.
+    if (!(skipsetup || updateenv)) {
+        await runClean();
+    }
+    // checking the include disk cycle (happy path).
+    try {
+        await includeExcludeCycle(true);
+        // checking the exclude disk cycle.
+        await includeExcludeCycle(false);
+    } catch (e) {
+        saveErrorAndExit(e);
+    }
+    await rpc.disconnect_all();
+    console.warn('End of Test, cleaning.');
+    if (errors.length === 0) {
+        if (!skipsetup && !keepenv) {
+            console.log('deleing the virtual machines.');
+            await runClean();
+            console.log('All is good - exiting...');
+            process.exit(0);
+        }
+        console.log('All is good - exiting...');
+        process.exit(0);
+    } else {
+        console.log('Got the following errors in test:');
+        for (const error of errors) {
+            console.error('Error:: ', error);
+        }
+        console.log('Failures in test - exiting...');
+        process.exit(1);
+    }
+
 }
 
 main();

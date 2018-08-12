@@ -360,7 +360,7 @@ function _runAgent() {
                                         vnet: argv.vnet,
                                         os: machine.os,
                                         agentConf: agentConf,
-                                        serverIP: serverIP,
+                                        server_ip: serverIP,
                                         allocate_pip: true
                                     }));
                             } else {

@@ -158,7 +158,7 @@ class AzureFunctions {
         os,
         vmSize = DEFAULT_VMSIZE,
         agentConf,
-        serverIP,
+        server_ip,
         allocate_pip = false,
     }) {
         const osDetails = this.getImagesfromOSname(os);
@@ -194,7 +194,7 @@ class AzureFunctions {
             })
             .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
             .then(ip => {
-                if (agentConf && serverIP) {
+                if (agentConf && server_ip) {
                     return this.createAgentExtension({
                         ip,
                         vmName,
@@ -202,10 +202,10 @@ class AzureFunctions {
                         vnet,
                         os: osDetails,
                         agentConf,
-                        serverIP
+                        serverIP: server_ip
                     });
                 } else {
-                    console.log(`Skipping creation of extension (agent installation), both ip ${serverIP} and 
+                    console.log(`Skipping creation of extension (agent installation), both ip ${server_ip} and 
                     agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
                     return ip;
                 }

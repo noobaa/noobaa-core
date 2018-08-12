@@ -217,7 +217,10 @@ async function run_main() {
                     agents.delete(test_nodes[i]);
                 }
             }
-            await af.createAgentsFromMap(azf, server_ip, storage, vnet, [], agents);
+            const created_agents = await af.createAgentsFromMap(azf, server_ip, storage, vnet, [], agents);
+            if (created_agents.length !== agents_number) {
+                throw new Error(`created ${created_agents.length} insted of ${agents_number}, Exiting.`);
+            }
         } else {
             await af.clean_agents(azf, server_ip, suffix);
             await af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet);

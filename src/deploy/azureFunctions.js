@@ -497,7 +497,8 @@ class AzureFunctions {
             diagnosticsProfile: {
                 bootDiagnostics: {
                     enabled: true,
-                    storageUri: 'https://wusdiagnostics.blob.core.windows.net/'
+                    storageUri: this.location === 'westus2' ?
+                        'https://wusdiagnostics.blob.core.windows.net/' : 'https://' + storageAccountName + '.blob.core.windows.net/',
                 }
             }
         };
@@ -558,7 +559,8 @@ class AzureFunctions {
             diagnosticsProfile: {
                 bootDiagnostics: {
                     enabled: true,
-                    storageUri: 'https://wusdiagnostics.blob.core.windows.net/'
+                    storageUri: this.location === 'westus2' ?
+                        'https://wusdiagnostics.blob.core.windows.net/' : 'https://' + storageAccountName + '.blob.core.windows.net/',
                 }
             }
         };

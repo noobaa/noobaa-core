@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 1520] */
+/* eslint max-lines: ['error', 1550] */
 'use strict';
 
 module.exports = Ice;
@@ -141,6 +141,17 @@ function Ice(connid, config, signal_target) {
             if (self.config.offer_ipv6 === false && n.family === 'IPv6') return;
             n.ifcname = name;
             self.networks.push(n);
+            // for the nodes internal ip - add public_ips as another network interface. take same parameters as internal ip
+            if (n.address === ip_module.address() &&
+                config.public_ips.length) {
+                config.public_ips.forEach(ip => {
+                    if (ip === n.address) return;
+                    const public_n = _.clone(n);
+                    public_n.address = ip;
+                    public_n.ifcname = 'public_' + name;
+                    self.networks.push(public_n);
+                });
+            }
         });
     });
 

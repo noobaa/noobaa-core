@@ -206,6 +206,12 @@ module.exports = {
                     items: {
                         type: 'string'
                     }
+                },
+                public_ips: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
                 }
             }
         },

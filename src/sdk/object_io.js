@@ -155,13 +155,13 @@ class ObjectIO {
                 if (!params.obj_id) throw err;
                 return params.client.object.abort_object_upload(_.pick(params, 'bucket', 'key', 'obj_id'))
                     .then(() => {
-                        dbg.log0('upload_object: aborted object upload', complete_params);
-                        throw err; // still throw to the calling request
-                    })
-                    .catch(err2 => {
-                        dbg.warn('upload_object: Failed to abort object upload', complete_params, err2);
-                        throw err; // throw the original error
-                    });
+                            dbg.log0('upload_object: aborted object upload', complete_params);
+                            throw err; // still throw to the calling request
+                        },
+                        err2 => {
+                            dbg.warn('upload_object: Failed to abort object upload', complete_params, err2);
+                            throw err; // throw the original error
+                        });
             });
     }
 

@@ -1461,9 +1461,10 @@ class NodesMonitor extends EventEmitter {
             rpc_config.base_address = system.base_address;
         }
         // make sure we don't modify the system's n2n_config
+        const public_ips = item.node.public_ip ? [item.node.public_ip] : [];
         const n2n_config = _.extend(null,
             item.agent_info.n2n_config,
-            _.cloneDeep(system.n2n_config));
+            _.cloneDeep(system.n2n_config), { public_ips });
         if (item.node.is_cloud_node) {
             n2n_config.tcp_permanent_passive = {
                 port: config.CLOUD_AGENTS_N2N_PORT
@@ -3432,6 +3433,7 @@ class NodesMonitor extends EventEmitter {
             connection: item.connection,
         });
     }
+
 
     /**
      * n2n_proxy sends an rpc call to the target node like a proxy.

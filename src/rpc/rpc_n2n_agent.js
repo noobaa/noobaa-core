@@ -31,6 +31,7 @@ const N2N_CONFIG_FIELDS_PICK = [
     'udp_port',
     'udp_dtls',
     'stun_servers',
+    'public_ips'
 ];
 
 let global_tcp_permanent_passive;
@@ -92,6 +93,8 @@ class RpcN2NAgent extends EventEmitter {
                 // read_on_premise_stun_server()
                 // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
             ],
+
+            public_ips: [],
 
             // ssl options - apply for both tcp-tls and udp-dtls
             ssl_options: {

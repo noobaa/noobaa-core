@@ -18,12 +18,16 @@ export default function(action$, { fetch }) {
             const { version } = action.payload;
             const [ versionWithNoBuildNumber ] = version.split('-');
             const url = `${baseUrl}/${versionWithNoBuildNumber}.${suffix}`;
+            const alpha_url = `${baseUrl}/${versionWithNoBuildNumber}-alpha.${suffix}`;
 
             try {
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`Got HTTP: ${res.status}`);
-
-                const notes = await(res).text();
+                let res1 = await fetch(url);
+                if (!res1.ok) { 
+                    const res2 = await fetch(alpha_url);
+                    if (!res2.ok) throw new Error(`Got HTTP: ${res1.status}`);
+                    res1 = res2;
+                }
+                const notes = await(res1).text();
                 return completeFetchVersionReleaseNotes(version, notes);
 
             } catch (error) {

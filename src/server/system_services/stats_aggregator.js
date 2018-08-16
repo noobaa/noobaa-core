@@ -640,10 +640,10 @@ async function _notify_latest_version() {
         const items = results.items;
         const [current_major, current_minor, current_patch] = pkg.version.split('-')[0].split('.').map(str => Number(str));
         const current_val = (current_major * 10000) + (current_minor * 100) + current_patch;
-        const files = _.compact(items.map(fl => fl.name
+        const un_sorted_files = _.compact(items.map(fl => fl.name
             .replace('release-notes/', '')
-            .replace('.txt', '')
-        ).sort((a, b) => {
+            .replace('.txt', '')));
+        const files = un_sorted_files.sort((a, b) => {
             const [a_major, a_minor, a_patch] = a.split('-')[0].split('.').map(str => Number(str));
             const [b_major, b_minor, b_patch] = b.split('-')[0].split('.').map(str => Number(str));
             const a_val = (a_major * 10000) + (a_minor * 100) + a_patch;
@@ -651,7 +651,7 @@ async function _notify_latest_version() {
             if (a_val < b_val) return -1;
             if (a_val > b_val) return 1;
             return 0;
-        }));
+        });
 
         dbg.log0('_notify_latest_version gcloud response:', files);
 
@@ -676,16 +676,20 @@ async function _notify_latest_version() {
             same_major_latest_val = (major * 10000) + (minor * 100) + patch;
         }
 
-        if (same_major_latest && current_val < same_major_latest_val) {
+        const is_same_major_latest_alpha = same_major_latest.split('-').length > 1 && same_major_latest.split('-')[1] === 'alpha';
+        const is_latest_version_alpha = latest_version.split('-').length > 1 && latest_version.split('-')[1] === 'alpha';
+
+        if (!is_same_major_latest_alpha && same_major_latest && current_val < same_major_latest_val) {
             Dispatcher.instance().alert('INFO',
                 system_store.data.systems[0]._id,
                 `A newer version of NooBaa, ${same_major_latest}, is now available, check your inbox for details or send us a download request to support@noobaa.com`,
                 Dispatcher.rules.once_weekly);
         }
-        if ((same_major_latest &&
-                same_major_latest_val < latest_version_val) ||
-            (!same_major_latest &&
-                current_val < latest_version_val)) {
+        if (!is_latest_version_alpha && (
+                (same_major_latest &&
+                    same_major_latest_val < latest_version_val) ||
+                (!same_major_latest &&
+                    current_val < latest_version_val))) {
             Dispatcher.instance().alert('INFO',
                 system_store.data.systems[0]._id,
                 `A new NooBaa platform version is now available, for migrating to the new platform please contact support at support@noobaa.com`,

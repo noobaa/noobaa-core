@@ -26,7 +26,7 @@ const {
     storage,
     vnet,
     name,
-    id,
+    id = 0,
     location = 'westus2',
     clean_only,
     clean_by_id,
@@ -44,10 +44,14 @@ const {
     lg_ip,
     server_external_ip = false,
     num_agents = oses.length,
-    min_required_agents = 7,
     vm_size = 'B',
+    agents_disk_size = 'default',
     random_base_version = false,
     min_version = '2.1',
+} = argv;
+
+let {
+    min_required_agents = 7,
 } = argv;
 
 dbg.set_process_name('test_env_builder');
@@ -168,57 +172,54 @@ async function prepare_server() {
     }
 }
 
-function prepare_agents() {
+
+
+async function prepare_agents() {
     if (skip_agent_creation) {
         console.log('skipping agents creation');
-        return P.resolve();
+        return;
     }
     console.log(`starting the create agents stage`);
-    return P.map(agents, agent => {
+    await P.map(agents, async agent => {
+        try {
             const hasImage = azf.getImagesfromOSname(agent.os).hasImage;
-            return P.resolve()
-                .then(() => {
-                    if (hasImage) {
-                        console.log('Creating new agent from an image');
-                        return azf.createAgentFromImage({
-                            vmName: agent.name,
-                            storage,
-                            vnet,
-                            os: agent.os,
-                            vmSize,
-                            server_ip: server_ip,
-                            shouldInstall: false
-                        });
-                    } else {
-                        console.log('Creating new agent from the marketplace');
-                        return azf.createAgent({
-                            vmName: agent.name,
-                            storage,
-                            vnet,
-                            os: agent.os,
-                            vmSize,
-                            server_ip
-                        });
-                    }
-                })
-                .then(ip => {
-                    console.log(`agent created: ip ${ip} name ${agent.name} of type ${agent.os}`);
-                    agent.prepared = true;
-                    agent.ip = ip;
-                    created_agents.push(agent);
-                })
-                .catch(err => {
-                    console.error(`Creating agent ${agent.name} VM failed`, err);
+            if (hasImage) {
+                console.log('Creating new agent from an image');
+                agent.ip = await azf.createAgentFromImage({
+                    vmName: agent.name,
+                    storage,
+                    vnet,
+                    os: agent.os,
+                    vmSize,
+                    diskSizeGB: agents_disk_size,
+                    server_ip: server_ip,
+                    shouldInstall: false
                 });
-        })
-        .then(() => {
-            if (created_agents.length < min_required_agents) {
-                console.error(`could not create the minimum number of required agents (${min_required_agents})`);
-                throw new Error(`could not create the minimum number of required agents (${min_required_agents})`);
             } else {
-                console.log(`Created ${created_agents.length}`);
+                console.log('Creating new agent from the marketplace');
+                agent.ip = await azf.createAgent({
+                    vmName: agent.name,
+                    storage,
+                    vnet,
+                    diskSizeGB: agents_disk_size,
+                    os: agent.os,
+                    vmSize,
+                    server_ip
+                });
             }
-        });
+            console.log(`agent created: ip ${agent.ip} name ${agent.name} of type ${agent.os}`);
+            agent.prepared = true;
+            created_agents.push(agent);
+        } catch (err) {
+            console.error(`Creating agent ${agent.name} VM failed`, err);
+        }
+    });
+    if (created_agents.length < min_required_agents) {
+        console.error(`could not create the minimum number of required agents (${min_required_agents})`);
+        throw new Error(`could not create the minimum number of required agents (${min_required_agents})`);
+    } else {
+        console.log(`Created ${created_agents.length}`);
+    }
 }
 
 function install_agents() {
@@ -401,6 +402,20 @@ function verify_args() {
         console.error('vm_size can be only A or B');
         process.exit(1);
     }
+    //verifying agents disk size.
+    if (agents_disk_size !== 'default') {
+        if (agents_disk_size > 1023) {
+            console.error(`Max disk size is 1023 GB`);
+            process.exit(1);
+        } else if (agents_disk_size < 40) {
+            console.error(`Min disk size is 40 GB`);
+            process.exit(1);
+        }
+    }
+    //if number of requested agents is less then the min required then changing the min to agent number
+    if (num_agents < min_required_agents) {
+        min_required_agents = num_agents;
+    }
 }
 
 function print_usage() {
@@ -432,6 +447,7 @@ Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storag
       min_required_agents}), will fail if could not create this number of agents
   --vm_size                     -   vm size can be A (A2) or B (B2) (default: ${vm_size})
   --random_base_version         -   will create a randome version of base noobaa server
+  --agents_disk_size            -   created agents with diffrent disk size in GB (min: 40, max 1023)
 `);
 }
 

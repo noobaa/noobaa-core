@@ -179,9 +179,9 @@ node('pipeline') {
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh &> /dev/null
             id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)6
-            flags="${azureEnv} --name dataset --id \${id} "
+            flags="${azureEnv} --name dataset --id \${id} --agents_disk_size 200"
             ${env_builder} \${flags} \
-                --js_script $WORKSPACE/src/test/qa/dataset.js --aging_timeout 120 --dataset_size \$((30*1024))
+                --js_script $WORKSPACE/src/test/pipeline/dataset_pipeline.js
             """
             echo 'Deleting agent_matrix env'
             sh script: """

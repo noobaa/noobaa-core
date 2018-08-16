@@ -138,78 +138,75 @@ class AzureFunctions {
     }
 
     getIpAddress(pipName) {
-        console.log('Getting IP for: ' + pipName);
+        console.log('Getting IP for:' + pipName);
         return P.fromCallback(callback => this.networkClient.publicIPAddresses.get(this.resourceGroupName, pipName, callback))
             .then(res => res.ipAddress);
     }
 
     getPrivateIpAddress(networkInterfaceName, ipConfigurationName) {
-        console.log('Getting IP for: ', networkInterfaceName, ipConfigurationName);
+        console.log('Getting IP for:', networkInterfaceName, ipConfigurationName);
         return P.fromCallback(callback => this.networkClient.networkInterfaceIPConfigurations.get(
                 this.resourceGroupName, networkInterfaceName, ipConfigurationName, callback
             ))
             .then(res => res.privateIPAddress);
     }
 
-    createAgent({
+    async createAgent({
         vmName,
         storage,
         vnet,
         os,
         vmSize = DEFAULT_VMSIZE,
         agentConf,
+        diskSizeGB = 'default',
         server_ip,
         allocate_pip = false,
     }) {
+        let ip;
         const osDetails = this.getImagesfromOSname(os);
-        return this.getSubnetInfo(vnet)
-            .then(subnetInfo => this.allocate_nic(subnetInfo, `${vmName}_pip`, `${vmName}_nic`, `${vmName}_ip`, allocate_pip))
-            .then(nic => {
-                console.log(`Network Interface ${vmName}_nic was created`);
-                var image = {
-                    publisher: osDetails.publisher,
-                    offer: osDetails.offer,
-                    sku: osDetails.sku,
-                    version: 'latest'
-                };
-                let diskSizeGB = 40;
-                if (osDetails.osType === 'Windows') {
-                    diskSizeGB = 140;
-                }
-                return this.createVirtualMachine({
-                    vmName,
-                    nicId: nic.id,
-                    imageReference: image,
-                    storageAccountName: storage,
-                    diskSizeGB,
-                    vmSize
-                });
-            })
-            .then(() => {
-                if (allocate_pip) {
-                    return this.getIpAddress(`${vmName}_pip`);
-                } else {
-                    return this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
-                }
-            })
-            .tap(ip => console.log(`${vmName} agent ip is: ${ip}`))
-            .then(ip => {
-                if (agentConf && server_ip) {
-                    return this.createAgentExtension({
-                        ip,
-                        vmName,
-                        storage,
-                        vnet,
-                        os: osDetails,
-                        agentConf,
-                        serverIP: server_ip
-                    });
-                } else {
-                    console.log(`Skipping creation of extension (agent installation), both ip ${server_ip} and 
-                    agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
-                    return ip;
-                }
+        const subnetInfo = await this.getSubnetInfo(vnet);
+        const nic = await this.allocate_nic(subnetInfo, `${vmName}_pip`, `${vmName}_nic`, `${vmName}_ip`, allocate_pip);
+        console.log(`Network Interface ${vmName}_nic was created`);
+        const image = {
+            publisher: osDetails.publisher,
+            offer: osDetails.offer,
+            sku: osDetails.sku,
+            version: 'latest'
+        };
+        if (diskSizeGB === 'default' && osDetails.osType !== 'Windows') {
+            diskSizeGB = 40;
+        } else if (diskSizeGB === 'default' && osDetails.osType === 'Windows') {
+            diskSizeGB = 140;
+        }
+        await this.createVirtualMachine({
+            vmName,
+            nicId: nic.id,
+            imageReference: image,
+            storageAccountName: storage,
+            diskSizeGB,
+            vmSize
+        });
+        if (allocate_pip) {
+            ip = await this.getIpAddress(`${vmName}_pip`);
+        } else {
+            ip = await this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
+        }
+        console.log(`${vmName} agent ip is: ${ip}`);
+        if (agentConf && server_ip) {
+            await this.createAgentExtension({
+                ip,
+                vmName,
+                storage,
+                vnet,
+                os: osDetails,
+                agentConf,
+                serverIP: server_ip
             });
+        } else {
+            console.log(`Skipping creation of extension (agent installation), both ip ${server_ip} and 
+                    agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
+        }
+        return ip;
     }
 
     // runAgentCommand(agent_server_ip, agentCommand) {
@@ -231,7 +228,7 @@ class AzureFunctions {
     //         .then(() => ssh.ssh_stick(client));
     // }
 
-    createLGFromImage(params) {
+    async createLGFromImage(params) {
         const {
             vmName,
             vnet,
@@ -242,99 +239,83 @@ class AzureFunctions {
             location = IMAGE_LOCATION,
             allocate_pip = true
         } = params;
-        return P.resolve()
-            .then(() => this.copyVHD({
-                image: 'LG.vhd',
-                location
-            }))
-            .then(() => this.createVirtualMachineFromImage({
-                vmName,
-                image: 'https://' + storage + '.blob.core.windows.net/' + CONTAINER_NAME + '/LG.vhd',
-                vnet,
-                storageAccountName: storage,
-                osType: 'Linux',
-                ipType,
-                diskSizeGB: 40,
-                vmSize,
-                allocate_pip
-            }))
-            .then(() => {
-                if (allocate_pip) {
-                    return this.getIpAddress(`${vmName}_pip`);
-                } else {
-                    return this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
-                }
-            })
-            .tap(ip => console.log(`${vmName} ip is: ${ip}`));
+        let ip;
+        await this.copyVHD({
+            image: 'LG.vhd',
+            location
+        });
+        await this.createVirtualMachineFromImage({
+            vmName,
+            image: 'https://' + storage + '.blob.core.windows.net/' + CONTAINER_NAME + '/LG.vhd',
+            vnet,
+            storageAccountName: storage,
+            osType: 'Linux',
+            ipType,
+            diskSizeGB: 40,
+            vmSize,
+            allocate_pip
+        });
+        if (allocate_pip) {
+            ip = await this.getIpAddress(`${vmName}_pip`);
+        } else {
+            ip = await this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
+        }
+        console.log(`${vmName} ip is: ${ip}`);
     }
 
-    createAgentFromImage(params) {
-        const {
-            vmName,
-            vnet,
-            storage,
-            server_ip,
-            os,
-            ipType = 'Dynamic',
-            vmSize = DEFAULT_VMSIZE,
-            CONTAINER_NAME = 'staging-vhds',
-            location = IMAGE_LOCATION,
-            exclude_drives = [],
-            shouldInstall = false,
-            allocate_pip = false
-        } = params;
-        let agentCommand;
+    async createAgentFromImage({
+        vmName,
+        vnet,
+        storage,
+        server_ip,
+        os,
+        ipType = 'Dynamic',
+        vmSize = DEFAULT_VMSIZE,
+        diskSizeGB = 'default',
+        CONTAINER_NAME = 'staging-vhds',
+        location = IMAGE_LOCATION,
+        exclude_drives = [],
+        shouldInstall = false,
+        allocate_pip = false
+    }) {
         let agent_ip;
         const osType = this.getImagesfromOSname(os).osType;
-        return P.resolve()
-            .then(() => this.copyVHD({
-                image: os + '.vhd',
-                location
-            }))
-            .then(() => {
-                let diskSizeGB;
-                if (osType === 'Windows') {
-                    diskSizeGB = 140;
-                } else if (osType === 'Linux') {
-                    diskSizeGB = 40;
-                }
-                return this.createVirtualMachineFromImage({
-                    vmName,
-                    image: 'https://' + storage + '.blob.core.windows.net/' + CONTAINER_NAME + '/' + os + '.vhd',
-                    vnet,
-                    storageAccountName: storage,
-                    osType,
-                    ipType,
-                    diskSizeGB,
-                    vmSize,
-                    allocate_pip
-                });
-            })
-            .delay(20 * 1000)
-            .then(() => {
-                if (allocate_pip) {
-                    return this.getIpAddress(`${vmName}_pip`);
-                } else {
-                    return this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
-                }
-            })
-            .then(ip => {
-                console.log(`${vmName} agent ip is: ${ip}`);
-                agent_ip = ip;
-                if (shouldInstall) {
-                    return af.getAgentConfInstallString(server_ip, osType, exclude_drives)
-                        .then(res => {
-                            agentCommand = res;
-                            console.log(agentCommand);
-                            return af.runAgentCommandViaSsh(agent_ip, QA_USER_NAME, ADMIN_PASSWORD, agentCommand, osType);
-                        });
-                } else {
-                    return agent_ip;
-                }
-            });
+        await this.copyVHD({
+            image: os + '.vhd',
+            location
+        });
+        if (diskSizeGB === 'default' && osType !== 'Windows') {
+            diskSizeGB = 40;
+        } else if (diskSizeGB === 'default' && osType === 'Windows') {
+            diskSizeGB = 140;
+        }
+        await this.createVirtualMachineFromImage({
+            vmName,
+            image: 'https://' + storage + '.blob.core.windows.net/' + CONTAINER_NAME + '/' + os + '.vhd',
+            vnet,
+            storageAccountName: storage,
+            osType,
+            ipType,
+            diskSizeGB,
+            vmSize,
+            allocate_pip
+        });
+        await P.delay(20 * 1000);
+        if (allocate_pip) {
+            agent_ip = await this.getIpAddress(`${vmName}_pip`);
+        } else {
+            agent_ip = await this.getPrivateIpAddress(`${vmName}_nic`, `${vmName}_ip`);
+        }
+        console.log(`${vmName} agent ip is: ${agent_ip}`);
+        if (shouldInstall) {
+            const agentCommand = await af.getAgentConfInstallString(server_ip, osType, exclude_drives);
+            console.log(agentCommand);
+            await af.runAgentCommandViaSsh(agent_ip, QA_USER_NAME, ADMIN_PASSWORD, agentCommand, osType);
+        }
+        return agent_ip;
     }
 
-    createAgentExtension(params) {
+    async createAgentExtension(params) {
         const { vmName, os, serverIP, agentConf, ip } = params;
         let extension = {
             publisher: 'Microsoft.OSTCExtensions',
@@ -361,11 +342,11 @@ class AzureFunctions {
                     ' ' + agentConf
             };
         }
-        return this.createVirtualMachineExtension(vmName, extension)
-            .then(() => ip);
+        await this.createVirtualMachineExtension(vmName, extension);
+        return ip; //LMLM: why do we return the ip that we get? 
     }
 
-    createWinSecurityExtension(vmName) {
+    async createWinSecurityExtension(vmName) {
         console.log('Createing IaaSAntimalware extantion');
         const extension = {
             publisher: "Microsoft.Azure.Security",
@@ -388,17 +369,15 @@ class AzureFunctions {
         return this.createVirtualMachineExtension(vmName, extension, 'WinSecurityExtension');
     }
 
-    cloneVM(originalVM, newVmName, networkInterfaceName, ipConfigName, vnet, allocate_pip = true) {
-        return this.getSubnetInfo(vnet)
-            .then(subnetInfo => this.allocate_nic(subnetInfo, `${newVmName}_pip`, networkInterfaceName, ipConfigName, allocate_pip))
-            .then(nicInfo => this.cloneVirtualMachine(originalVM, newVmName, nicInfo.id))
-            .then(result => {
-                console.log(result);
-            });
+    async cloneVM(originalVM, newVmName, networkInterfaceName, ipConfigName, vnet, allocate_pip = true) {
+        const subnetInfo = await this.getSubnetInfo(vnet);
+        const nicInfo = await this.allocate_nic(subnetInfo, `${newVmName}_pip`, networkInterfaceName, ipConfigName, allocate_pip);
+        const result = await this.cloneVirtualMachine(originalVM, newVmName, nicInfo.id);
+        console.log(result);
     }
 
-    createNIC(subnetInfo, networkInterfaceName, ipConfigName, publicIPInfo) {
-        var nicParameters = {
+    async createNIC(subnetInfo, networkInterfaceName, ipConfigName, publicIPInfo) {
+        const nicParameters = {
             location: this.location,
             ipConfigurations: [{
                 name: ipConfigName,
@@ -417,27 +396,23 @@ class AzureFunctions {
             nicParameters, callback));
     }
 
-    allocate_nic(subnetInfo, pipName, networkInterfaceName, ipConfigName, allocate_pip, ipType) {
-        return P.resolve()
-            .then(() => {
-                if (allocate_pip) {
-                    return this.createPublicIp(pipName, ipType)
-                        .then(ipInfo => this.createNIC(subnetInfo, networkInterfaceName, ipConfigName, ipInfo));
-                } else {
-                    return this.createNIC(subnetInfo, networkInterfaceName, ipConfigName);
-                }
-            });
+    async allocate_nic(subnetInfo, pipName, networkInterfaceName, ipConfigName, allocate_pip, ipType) {
+        if (allocate_pip) {
+            const ipInfo = await this.createPublicIp(pipName, ipType);
+            return this.createNIC(subnetInfo, networkInterfaceName, ipConfigName, ipInfo);
+        } else {
+            return this.createNIC(subnetInfo, networkInterfaceName, ipConfigName);
+        }
     }
 
-    createPublicIp(publicIPName, ipType = 'Dynamic') {
-        var publicIPParameters = {
+    async createPublicIp(publicIPName, ipType = 'Dynamic') {
+        const publicIPParameters = {
             location: this.location,
             publicIPAllocationMethod: ipType,
             // dnsSettings: {
             //     domainNameLabel: domainNameLabel
             // }
         };
-
         console.log(`Creating ${ipType} public IP: ${publicIPName}`);
         return P.fromCallback(callback => this.networkClient.publicIPAddresses.createOrUpdate(this.resourceGroupName, publicIPName,
             publicIPParameters, callback));
@@ -512,7 +487,7 @@ class AzureFunctions {
             });
     }
 
-    createVirtualMachineFromImage({
+    async createVirtualMachineFromImage({
         vmName,
         image,
         vnet,
@@ -525,7 +500,7 @@ class AzureFunctions {
         allocate_pip = false,
     }) {
         console.log(arguments[0]);
-        var vmParameters = {
+        const vmParameters = {
             location: this.location,
             plan: plan,
             osProfile: {
@@ -564,18 +539,14 @@ class AzureFunctions {
                 }
             }
         };
-        return this.getSubnetInfo(vnet)
-            .then(subnetInfo => this.allocate_nic(subnetInfo, `${vmName}_pip`, `${vmName}_nic`, `${vmName}_ip`, allocate_pip, ipType))
-            .then(nic => {
-                vmParameters.networkProfile.networkInterfaces[0].id = nic.id;
-                return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
-                    vmName, vmParameters, callback));
-            })
-            .then(() => {
-                if (osType === 'Windows') {
-                    return this.createWinSecurityExtension(vmName);
-                }
-            });
+        const subnetInfo = await this.getSubnetInfo(vnet);
+        const nic = await this.allocate_nic(subnetInfo, `${vmName}_pip`, `${vmName}_nic`, `${vmName}_ip`, allocate_pip, ipType);
+        vmParameters.networkProfile.networkInterfaces[0].id = nic.id;
+        await P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
+            vmName, vmParameters, callback));
+        if (osType === 'Windows') {
+            await this.createWinSecurityExtension(vmName);
+        }
     }
 
     cloneVirtualMachine(origMachine, newMachine, nicId) {
@@ -645,42 +616,40 @@ class AzureFunctions {
             });
     }
 
-    rescanDataDisksExtension(vm) {
+    async rescanDataDisksExtension(vm) {
         console.log('removing old extension (if exist)');
-        return this.deleteVirtualMachineExtension(vm)
-            .then(() => {
-                var extension = {
-                    publisher: 'Microsoft.OSTCExtensions',
-                    virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
-                    typeHandlerVersion: '1.5',
-                    autoUpgradeMinorVersion: true,
-                    settings: {
-                        fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.sh'],
-                        commandToExecute: 'bash -x ddisk.sh '
-                    },
-                    protectedSettings: {
-                        storageAccountName: 'pluginsstorage',
-                        storageAccountKey: 'bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=='
-                    },
-                    location: this.location,
-                };
-                if (vm.includes('Linux')) {
-                    console.log('running new extension to mount disk to file system for Linux');
-                } else {
-                    extension.publisher = 'Microsoft.Compute';
-                    extension.virtualMachineExtensionType = 'CustomScriptExtension';
-                    extension.typeHandlerVersion = '1.7';
-                    extension.settings = {
-                        fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.ps1"],
-                        commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ddisk.ps1 '
-                    };
-                    console.log('running new extension to mount disk to file system for Windows');
-                }
-                return this.createVirtualMachineExtension(vm, extension);
-            });
+        await this.deleteVirtualMachineExtension(vm);
+        const extension = {
+            publisher: 'Microsoft.OSTCExtensions',
+            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
+            typeHandlerVersion: '1.5',
+            autoUpgradeMinorVersion: true,
+            settings: {
+                fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.sh'],
+                commandToExecute: 'bash -x ddisk.sh '
+            },
+            protectedSettings: {
+                storageAccountName: 'pluginsstorage',
+                storageAccountKey: 'bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=='
+            },
+            location: this.location,
+        };
+        if (vm.includes('Linux')) {
+            console.log('running new extension to mount disk to file system for Linux');
+        } else {
+            extension.publisher = 'Microsoft.Compute';
+            extension.virtualMachineExtensionType = 'CustomScriptExtension';
+            extension.typeHandlerVersion = '1.7';
+            extension.settings = {
+                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.ps1"],
+                commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ddisk.ps1 '
+            };
+            console.log('running new extension to mount disk to file system for Windows');
+        }
+        return this.createVirtualMachineExtension(vm, extension);
     }
 
-    startVirtualMachine(vmName) {
+    async startVirtualMachine(vmName) {
         console.log('Starting Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.start(this.resourceGroupName, vmName, callback));
     }
@@ -1014,6 +983,7 @@ class AzureFunctions {
                 allocate_pip
             }))
             .delay(20000)
+            .tap(() => console.log(`${serverName}_pip`))
             .then(() => this.getIpAddress(`${serverName}_pip`))
             .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
             .tap(ip => ops.wait_for_server(ip).timeout(10 * 60 * 1000 * 1000))

@@ -29,7 +29,7 @@ const TEST_CFG_DEFAULTS = {
     part_num_high: 10, // maximum 10 parts - down to 5MB - s3 minimum
     aging_timeout: 0, // time running in minutes
     max_depth: 1, // the maximum depth
-    min_depth: 1, // the minimum depth
+    min_depth: 10, // the minimum depth
     size_units: 'MB', // the default units of the size is MB
     file_size_low: 50, // minimum 50MB
     file_size_high: 200, // maximum 200Mb

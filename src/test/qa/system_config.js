@@ -603,7 +603,9 @@ async function main() {
         const secret = system_info.cluster.shards[0].servers[0].secret;
         console.log('Secret is ' + secret);
         rpc.disconnect_all();
-        if (!skip_create_system) {
+        if (skip_create_system) {
+            console.log(`Skipping clean ova and create system`);
+        } else {
             await server_ops.clean_ova_and_create_system(server_ip, secret);
         }
         await set_rpc_and_create_auth_token();

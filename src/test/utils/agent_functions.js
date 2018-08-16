@@ -270,8 +270,8 @@ async function activeAllHosts(server_ip) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
-    const list_hosts = await client.host.list_hosts({});
-    for (const names of list_hosts.filter(node => node.mode === 'DECOMMISSIONED')) {
+    const listHosts = await client.host.list_hosts({});
+    for (const names of listHosts.hosts.filter(node => node.mode === 'DECOMMISSIONED')) {
         let params = {
             name: names.name,
             services: {

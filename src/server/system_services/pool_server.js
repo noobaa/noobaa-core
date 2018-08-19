@@ -428,6 +428,11 @@ function get_associated_buckets(req) {
     return get_associated_buckets_int(pool);
 }
 
+async function get_cloud_services_stats(req) {
+    const { start_date, end_date } = req.rpc_params;
+    return nodes_client.instance().get_nodes_stats_by_cloud_service(req.system._id, start_date, end_date);
+}
+
 function get_pool_history(req) {
     let pool_list = req.rpc_params.pool_list;
     return HistoryDataStore.instance().get_pool_history()
@@ -557,9 +562,8 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS),
         region: pool.region,
         create_time: pool._id.getTimestamp().getTime(),
-        io_stats: Object.assign(
-             { read_count: 0, write_count: 0, read_bytes: 0, write_bytes: 0 },
-             _.pick(p_nodes.io_stats, 'read_count', 'write_count', 'read_bytes', 'write_bytes')
+        io_stats: Object.assign({ read_count: 0, write_count: 0, read_bytes: 0, write_bytes: 0 },
+            _.pick(p_nodes.io_stats, 'read_count', 'write_count', 'read_bytes', 'write_bytes')
         )
     };
     info.data_activities = {
@@ -774,5 +778,6 @@ exports.assign_hosts_to_pool = assign_hosts_to_pool;
 exports.assign_nodes_to_pool = assign_nodes_to_pool;
 exports.get_associated_buckets = get_associated_buckets;
 exports.get_pool_history = get_pool_history;
+exports.get_cloud_services_stats = get_cloud_services_stats;
 exports.get_namespace_resource_extended_info = get_namespace_resource_extended_info;
 exports.assign_pool_to_region = assign_pool_to_region;

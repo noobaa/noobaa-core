@@ -57,6 +57,15 @@ class NodesClient {
             .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
+    get_nodes_stats_by_cloud_service(system_id, start_date, end_date) {
+        return server_rpc.client.node.get_nodes_stats_by_cloud_service({ start_date, end_date }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            })
+        });
+    }
+
     aggregate_nodes_by_pool(pool_names, system_id, skip_cloud_nodes, skip_mongo_nodes) {
         const nodes_aggregate_pool = server_rpc.client.node.aggregate_nodes({
             query: {

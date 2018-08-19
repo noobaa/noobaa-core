@@ -119,6 +119,7 @@ exports.list_nodes = list_nodes;
 exports.aggregate_nodes = aggregate_nodes;
 exports.get_test_nodes = req => monitor.get_test_nodes(req);
 exports.allocate_nodes = allocate_nodes;
+exports.get_nodes_stats_by_cloud_service = req => monitor.get_nodes_stats_by_cloud_service(req);
 exports.get_node_ids = req => monitor.get_node_ids(req);
 exports.aggregate_data_free_by_tier = req => nodes_aggregator.aggregate_data_free_by_tier(req);
 exports.migrate_nodes_to_pool = req => monitor.migrate_nodes_to_pool(req);

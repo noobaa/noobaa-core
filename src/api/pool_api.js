@@ -277,6 +277,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
+                required: ['start_date', 'end_date'],
                 properties: {
                     start_date: { idate: true },
                     end_date: { idate: true },

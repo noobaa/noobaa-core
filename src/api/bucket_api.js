@@ -224,12 +224,10 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['period'],
+                required: ['start_date', 'end_date'],
                 properties: {
-                    period: {
-                        type: 'string',
-                        enum: ['DAY', 'WEEK', 'MONTH']
-                    },
+                    start_date: { idate: true },
+                    end_date: { idate: true },
                 }
             },
             reply: {

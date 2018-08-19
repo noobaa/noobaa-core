@@ -767,15 +767,14 @@ function export_bucket_bandwidth_usage(req) {
 }
 
 async function get_bucket_throughput_usage(req) {
-    const DAY = 1000 * 60 * 60 * 24;
-    const WEEK = DAY * 7;
-    const MONTH = DAY * 30;
-    const period_to_ms = { MONTH, WEEK, DAY };
-    const { period } = req.rpc_params;
-    // for a period of month we return a resolution of days. for weeks and days we reutrn hours
-    const resolution = period === 'MONTH' ? 'day' : 'hour';
-    const till = Date.now();
-    const since = till - period_to_ms[period];
+    const { start_date: since, end_date: till } = req.rpc_params;
+    const MONTH = 1000 * 60 * 60 * 24 * 30;
+    const range = till - since;
+    if (range <= 0) {
+        throw new Error('start_day must be before end_date');
+    }
+    // for a period of month we return a resolution of days. below that we reutrn hours
+    const resolution = range > MONTH ? 'day' : 'hour';
     const report = await usage_aggregator.get_bandwidth_report({ resolution, since, till });
     return report.map(entry => _.pick(entry,
         'bucket',

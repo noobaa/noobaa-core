@@ -32,6 +32,30 @@ async function get_bandwidth_report(params) {
     return sorted_entries;
 }
 
+async function get_accounts_report(params) {
+    const { since, till, resolution } = params;
+    if (resolution !== 'day' && resolution !== 'hour') {
+        throw new Error(`wrong report resolution. should be day or hour. got ${resolution}`);
+    }
+    const start = moment(since).startOf(resolution).valueOf();
+    const end = moment(till).endOf(resolution).valueOf();
+    const reports = await UsageReportStore.instance().get_usage_reports({ since: start, till: end });
+
+    const entries = aggregate_reports(reports, { resolution, aggergate_by: ['account'] }).map(report => ({
+        date: moment(report.start_time).startOf(resolution).valueOf,
+        timestamp: report.start_time,
+        account: (system_store.data.get_by_id(report.account)).name,
+        read_bytes: report.read_bytes,
+        read_count: report.read_count,
+        write_bytes: report.write_bytes,
+        write_count: report.write_count,
+    }));
+    const sorted_entries = _.sortBy(entries, 'date');
+    return sorted_entries;
+}
+
+
+
 function aggregate_reports(reports, { resolution, aggergate_by } = {}) {
     const entries = [];
     const grouped_reports = _.groupBy(reports, report => aggergate_by.map(p => `${report[p]}`).join('#'));
@@ -79,3 +103,4 @@ async function background_worker() {
 // EXPORTS
 exports.background_worker = background_worker;
 exports.get_bandwidth_report = get_bandwidth_report;
+exports.get_accounts_report = get_accounts_report;

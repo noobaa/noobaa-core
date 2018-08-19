@@ -405,8 +405,51 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
-        }
+        },
+
+        get_account_usage: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['start_date', 'end_date'],
+                properties: {
+                    start_date: { idate: true },
+                    end_date: { idate: true },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        account: {
+                            type: 'string'
+                        },
+                        timestamp: {
+                            idate: true
+                        },
+                        read_count: {
+                            type: 'integer'
+                        },
+                        write_count: {
+                            type: 'integer'
+                        },
+                        read_bytes: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        write_bytes: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
     },
+
 
 
     definitions: {

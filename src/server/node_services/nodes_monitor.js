@@ -2956,9 +2956,41 @@ class NodesMonitor extends EventEmitter {
         };
     }
 
-    async get_nodes_stats(system) {
-        const nodes_stats = await IoStatsStore.instance().get_all_nodes_stats({ system });
+    async get_nodes_stats(system, start_date, end_date) {
+        const nodes_stats = await IoStatsStore.instance().get_all_nodes_stats({ system, start_date, end_date });
         return _.keyBy(nodes_stats, stat => String(stat._id));
+    }
+
+    async get_nodes_stats_by_cloud_service(req) {
+        const system = req.system._id;
+        const { start_date, end_date } = req.rpc_params;
+        const all_nodes_stats = await this.get_nodes_stats(system, start_date, end_date);
+        const grouped_stats = _.omit(_.groupBy(all_nodes_stats, stat => {
+            const item = this._map_node_id.get(String(stat._id));
+            const pool = system_store.data.get_by_id(item.node.pool);
+            const endpoint_type = _.get(pool, 'cloud_pool_info.endpoint_type');
+            return endpoint_type || 'OTHER';
+        }), 'OTHER');
+
+
+        const ret = _.map(grouped_stats, (stats, service) => {
+            const reduced_stats = stats.reduce((prev, current) => ({
+                read_count: prev.read_count + (current.read_count || 0),
+                write_count: prev.write_count + (current.write_count || 0),
+                read_bytes: prev.read_bytes + (current.read_bytes || 0),
+                write_bytes: prev.write_bytes + (current.write_bytes || 0),
+            }), {
+                read_count: 0,
+                write_count: 0,
+                read_bytes: 0,
+                write_bytes: 0,
+            });
+            reduced_stats.service = service;
+            return reduced_stats;
+        });
+        return ret;
+
+
     }
 
     _aggregate_nodes_list(list, nodes_stats) {

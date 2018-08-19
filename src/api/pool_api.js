@@ -272,6 +272,46 @@ module.exports = {
             }
         },
 
+        get_cloud_services_stats: {
+            doc: 'Return cloud services usage',
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    start_date: { idate: true },
+                    end_date: { idate: true },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        service: {
+                            type: 'string',
+                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE']
+                        },
+                        read_count: {
+                            type: 'integer'
+                        },
+                        write_count: {
+                            type: 'integer'
+                        },
+                        read_bytes: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        write_bytes: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                    },
+
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_pool_history: {
             doc: 'Return usage history for the specified pools',
             method: 'GET',

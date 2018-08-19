@@ -58,12 +58,15 @@ class IoStatsStore {
         this._io_stats.validate(res.value, 'warn');
     }
 
-    async get_all_nodes_stats({ system }) {
+    async get_all_nodes_stats({ system, start_date, end_date }) {
+        let start_time;
+        if (start_date || end_date) start_time = _.omitBy({ $gte: start_date, $lte: end_date }, _.isUndefined);
         return this._io_stats.col().aggregate([{
-            $match: {
+            $match: _.omitBy({
                 system,
-                resource_type: 'NODE'
-            }
+                resource_type: 'NODE',
+                start_time
+            }, _.isUndefined)
         }, {
             $group: {
                 _id: '$resource_id',

@@ -28,6 +28,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const bucket_server = require('../system_services/bucket_server');
 const azure_storage = require('../../util/azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
+const usage_aggregator = require('../bg_services/usage_aggregator');
 
 
 const demo_access_keys = Object.freeze({
@@ -480,6 +481,25 @@ function reset_password(req) {
 
 }
 
+
+async function get_account_usage(req) {
+    const { start_date: since, end_date: till } = req.rpc_params;
+    const MONTH = 1000 * 60 * 60 * 24 * 30;
+    const range = till - since;
+    if (range <= 0) {
+        throw new Error('start_day must be before end_date');
+    }
+    // for a period of month we return a resolution of days. below that we reutrn hours
+    const resolution = range > MONTH ? 'day' : 'hour';
+    const report = await usage_aggregator.get_accounts_report({ resolution, since, till });
+    return report.map(entry => _.pick(entry,
+        'account',
+        'timestamp',
+        'read_count',
+        'write_count',
+        'write_bytes',
+        'read_bytes'));
+}
 
 /**
  *
@@ -1125,24 +1145,6 @@ function _list_connection_usage(account, credentials) {
     return _.concat(cloud_pool_usage, namespace_resource_usage);
 }
 
-// // TODO: Shall implement that for everyone and call it
-// // Currently have a problem regarding the mapper function that needs outside parameters
-// function _allowed_buckets_setter(allowed_buckets, ) {
-//     const allow_all = Boolean(req.rpc_params.allowed_buckets.full_permission);
-//     const permission_list = req.rpc_params.allowed_buckets.permission_list;
-//     const allowed_buckets = {
-//         allow_all: allow_all
-//     };
-//     if (!allow_all) {
-//         if (!permission_list) {
-//             throw new RpcError('Cannot configure without permission_list when explicit permissions');
-//         }
-//         allowed_buckets.permission_list = _.map(permission_list, bucket =>
-//             system.buckets_by_name[bucket]._id);
-//     }
-//     return allowed_buckets;
-// }
-
 
 // EXPORTS
 exports.create_account = create_account;
@@ -1162,3 +1164,4 @@ exports.get_account_info = get_account_info;
 // utility to create the support account from bg_workers
 exports.ensure_support_account = ensure_support_account;
 exports.verify_authorized_account = verify_authorized_account;
+exports.get_account_usage = get_account_usage;

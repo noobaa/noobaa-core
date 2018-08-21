@@ -9,7 +9,6 @@ const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 
-const s3ops = new S3OPS();
 const test_name = 'accounts';
 dbg.set_process_name(test_name);
 
@@ -233,7 +232,8 @@ async function check_bucket_creation_premissions(email) {
         throw new Error(`Account ${email} did not changed to disabled`);
     } else {
         try {
-            await s3ops.create_bucket(TEST_CFG.server_ip, 'shouldfail');
+            const s3ops = new S3OPS({ ip: TEST_CFG.server_ip });
+            await s3ops.create_bucket('shouldfail');
             throw new Error(`Create bucket should have failed`);
         } catch (e) {
             console.log(`Creating bucket failed, as should`);
@@ -259,7 +259,8 @@ async function restrict_ip_access(email, ips) {
 
 async function verify_s3_access(email, bucket) {
     const keys = await get_s3_account_access(email);
-    const buckets = await s3ops.get_list_buckets(TEST_CFG.server_ip, keys.accessKeyId, keys.secretAccessKey);
+    const s3ops = new S3OPS({ ip: TEST_CFG.server_ip, access_key: keys.accessKeyId, secret_key: keys.secretAccessKey });
+    const buckets = await s3ops.get_list_buckets();
     if (buckets.includes(bucket)) {
         console.log(`Created account has access to s3 bucket ${bucket}`);
     } else {
@@ -271,7 +272,8 @@ async function verify_s3_access(email, bucket) {
 async function verify_s3_no_access(email) {
     try {
         const keys = await get_s3_account_access(email);
-        await s3ops.get_list_buckets(TEST_CFG.server_ip, keys.accessKeyId, keys.secretAccessKey);
+        const s3ops = new S3OPS({ ip: TEST_CFG.server_ip, access_key: keys.accessKeyId, secret_key: keys.secretAccessKey });
+        await s3ops.get_list_buckets();
     } catch (err) {
         if (err.code === 'AccessDenied') {
             console.log(`Account doesn't have access to buckets after switch off access, err ${err.code} - as should`);
@@ -338,7 +340,8 @@ async function disable_s3_Access_and_check(email) {
         saveErrorAndResume(`S3 access wasn't changed to false after edit`);
         failures_in_test = true;
     }
-    const buckets = await s3ops.get_list_buckets(TEST_CFG.server_ip, keys.accessKeyId, keys.secretAccessKey);
+    const s3ops = new S3OPS({ ip: TEST_CFG.server_ip, access_key: keys.accessKeyId, secret_key: keys.secretAccessKey });
+    const buckets = await s3ops.get_list_buckets();
     if (buckets.length === 0) {
         console.log(`Account doesn't have access to buckets after changing access - as should`);
     } else {

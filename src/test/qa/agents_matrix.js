@@ -17,7 +17,6 @@ const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 
-const s3ops = new S3OPS();
 const dbg = require('../../util/debug_module')(__filename);
 const testName = 'agents_matrix';
 const suffixName = 'am';
@@ -45,6 +44,10 @@ const {
         id = 0,
         min_required_agents = 3,
 } = argv;
+
+const s3ops = new S3OPS({
+    ip: server_ip
+});
 
 const upgrade_pack = argv.upgrade_pack === true ? undefined : argv.upgrade_pack;
 
@@ -259,8 +262,8 @@ async function runAgentDebug() {
 
 async function verifyAgent() {
     console.log(`Starting the verify agents stage`);
-    await s3ops.put_file_with_md5(server_ip, bucket, '100MB_File', 100, 1048576);
-    await s3ops.get_file_check_md5(server_ip, bucket, '100MB_File');
+    await s3ops.put_file_with_md5(bucket, '100MB_File', 100, 1048576);
+    await s3ops.get_file_check_md5(bucket, '100MB_File');
     await runAgentDiagnostics();
     await runAgentDebug();
 }

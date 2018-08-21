@@ -17,7 +17,6 @@ const AzureFunctions = require('../../deploy/azureFunctions');
 const testName = 'cluster_test';
 let suffix = testName.replace(/_test/g, '');
 dbg.set_process_name(testName);
-const s3ops = new S3OPS();
 
 //define colors
 const YELLOW = "\x1b[33;1m";
@@ -29,6 +28,7 @@ const domain = process.env.DOMAIN;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 let master_ip;
+let s3ops;
 let rpc;
 let client;
 const serversincluster = argv.servers || 3;
@@ -234,6 +234,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
                 return P.resolve()
                     .then(() => {
                         master_ip = servers[masterIndex].ip.trim();
+                        s3ops = new S3OPS({ ip: master_ip });
                         console.log('Master ip', master_ip);
                         rpc = api.new_rpc('wss://' + master_ip + ':8443');
                         client = rpc.new_client({});
@@ -404,8 +405,8 @@ function createCluster(requestedServes, masterIndex, clusterIndex) {
 function verifyS3Server(topic) {
     console.log(`starting the verify s3 server on `, master_ip);
     let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
-    return s3ops.create_bucket(master_ip, bucket)
-        .then(() => s3ops.get_list_buckets(master_ip))
+    return s3ops.create_bucket(bucket)
+        .then(() => s3ops.get_list_buckets())
         .then(res => {
             if (res.includes(bucket)) {
                 report.success(`create bucket ${topic ? '- ' + topic : ''}`);
@@ -415,8 +416,8 @@ function verifyS3Server(topic) {
                 saveErrorAndResume(`Created bucket ${master_ip} bucket is not returns on list`, res);
             }
         })
-        .then(() => s3ops.put_file_with_md5(master_ip, bucket, '100MB_File', 100, 1048576)
-            .then(() => s3ops.get_file_check_md5(master_ip, bucket, '100MB_File')))
+        .then(() => s3ops.put_file_with_md5(bucket, '100MB_File', 100, 1048576)
+            .then(() => s3ops.get_file_check_md5(bucket, '100MB_File')))
         .then(() => report.success(`ul and verify obj ${topic ? '- ' + topic : ''}`))
         .catch(err => {
             report.fail(`ul and verify obj ${topic ? '- ' + topic : ''}`);
@@ -483,7 +484,7 @@ function runSecondFlow() {
         .then(() => stopVirtualMachineWithStatus(2, 180))
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
-            return s3ops.create_bucket(master_ip, bucket)
+            return s3ops.create_bucket(bucket)
                 .then(() => report.fail('succeeded config 2/3 down'))
                 .catch(err => {
                     console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`);
@@ -513,7 +514,7 @@ function runThirdFlow() {
         })
         .then(() => {
             let bucket = 'new.bucket' + (Math.floor(Date.now() / 1000));
-            return s3ops.create_bucket(master_ip, bucket)
+            return s3ops.create_bucket(bucket)
                 .then(() => report.fail('succeeded config 2/3 down'))
                 .catch(err => {
                     console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`);

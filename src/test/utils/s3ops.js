@@ -4,327 +4,283 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const util = require('util');
+const https = require('https');
+const stream = require('stream');
 const crypto = require('crypto');
 const P = require('../../util/promise');
+const RandStream = require('../../util/rand_stream');
 const promise_utils = require('../../util/promise_utils');
 
-
 require('../../util/dotenv').load();
+
 const port = process.env.ENDPOINT_PORT || 80;
+const ssl_port = process.env.ENDPOINT_SSL_PORT || 443;
+
+const verify_md5_map = new Map();
 
 class S3OPS {
 
-    constructor(accessKeyDefault = '123', secretKeyDefault = 'abc') {
-        this.accessKeyDefault = accessKeyDefault;
-        this.secretKeyDefault = secretKeyDefault;
+    constructor({
+        ip = '127.0.0.1',
+        access_key = '123',
+        secret_key = 'abc',
+        use_https = true,
+        sig_ver = 'v4',
+        system_verify_name = 'default',
+    }) {
+        this.ip = ip;
+        this.access_key = access_key;
+        this.secret_key = secret_key;
+        this.system_verify_name = system_verify_name;
+
+        if (sig_ver === 'v4' && !use_https) {
+            throw new Error('You cannot do this: SigV4 requires https to disable body signing and send streams...');
+        }
+        const rest_endpoint = use_https ? `https://${ip}:${ssl_port}` : `http://${ip}:${port}`;
+        this.s3 = new AWS.S3({
+            endpoint: rest_endpoint,
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+            s3ForcePathStyle: true,
+            sslEnabled: false,
+            // when using sigv4 we need to disable body sigining to allow sending streams as body,
+            // in addition disabling body sigining requires working with https
+            s3DisableBodySigning: true,
+            signatureVersion: sig_ver,
+            httpOptions: use_https ? {
+                agent: new https.Agent({
+                    keepAlive: true,
+                    rejectUnauthorized: false,
+                })
+            } : undefined,
+        });
     }
 
     validate_multiplier(multiplier) {
         if (multiplier % 1024 !== 0) throw new Error(`multiplier must be in multiples of 1024`);
     }
 
-    put_file_with_md5(ip, bucket, file_name, data_size, multiplier) {
-        this.validate_multiplier(multiplier);
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-        bucket = bucket || 'first.bucket';
-        data_size = data_size || 50;
+    async put_file_with_md5(bucket, file_name, data_size, multiplier) {
+        try {
+            this.validate_multiplier(multiplier);
+            bucket = bucket || 'first.bucket';
+            data_size = data_size || 50;
 
-        const actual_size = data_size * multiplier;
-
-        let data = crypto.randomBytes(actual_size);
-        let md5 = crypto.createHash('md5').update(data)
-            .digest('hex');
-
-        let params = {
-            Bucket: bucket,
-            Key: file_name,
-            Body: data,
-            Metadata: {
-                md5: md5
-            },
-        };
-        console.log(`>>> UPLOAD - About to upload object... ${file_name}, md5: ${md5}, size: ${data.length}`);
-        let start_ts = Date.now();
-        return P.ninvoke(s3bucket, 'putObject', params)
-            .then(res => {
-                console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
-                return md5;
-            })
-            .catch(err => {
-                console.error(`Put failed ${file_name}!`, err);
-                throw err;
+            const actual_size = data_size * multiplier;
+            const md5_stream = new_md5_stream();
+            const input_stream = new RandStream(actual_size, {
+                highWaterMark: 1024 * 1024,
             });
+
+            console.log(`>>> UPLOAD - About to upload object... ${file_name}, size: ${actual_size}`);
+            let start_ts = Date.now();
+            await this.s3.putObject({
+                Bucket: bucket,
+                Key: file_name,
+                Body: input_stream.pipe(md5_stream),
+                ContentLength: actual_size, //when doing stream we need to give the size
+            }).promise();
+            console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
+            const md5_hex = md5_stream.md5.digest('hex');
+            console.log(`Uploaded md5: ${md5_hex} size: ${md5_stream.size}`);
+            verify_md5_map.set(`${this.system_verify_name}/${bucket}/${file_name}`, md5_hex);
+            return md5_hex;
+        } catch (err) {
+            console.error(`Put failed ${file_name}!`, err);
+            throw err;
+        }
     }
 
-    server_side_copy_file_with_md5(ip, bucket, source, destination, versionid) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-        bucket = bucket || 'first.bucket';
+    async server_side_copy_file_with_md5(bucket, source, destination, versionid) {
+        try {
+            bucket = bucket || 'first.bucket';
 
-        let params = {
-            Bucket: bucket,
-            CopySource: bucket + '/' + source + (versionid ? `?versionId=${versionid}` : ''),
-            Key: destination,
-            MetadataDirective: 'COPY'
-        };
+            let params = {
+                Bucket: bucket,
+                CopySource: bucket + '/' + source + (versionid ? `?versionId=${versionid}` : ''),
+                Key: destination,
+                MetadataDirective: 'COPY'
+            };
+            const psource = source + (versionid ? ' v' + versionid : '');
+            console.log('>>> SS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
+            let start_ts = Date.now();
+            await this.s3.copyObject(params).promise();
+            const file_md5 = verify_md5_map.get(`${this.system_verify_name}/${bucket}/${source}`);
+            verify_md5_map.set(`${this.system_verify_name}/${bucket}/${destination}`, file_md5);
+            console.log('SS Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
+        } catch (err) {
+            console.error(`SS Copy failed from ${source} to ${destination}!`, err);
+            throw err;
+        }
+    }
+
+    async client_side_copy_file_with_md5(bucket, source, destination, versionid) {
         const psource = source + (versionid ? ' v' + versionid : '');
-        console.log('>>> SS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
-        let start_ts = Date.now();
-        return P.ninvoke(s3bucket, 'copyObject', params)
-            .then(res => {
-                console.log('SS Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
-            })
-            .catch(err => {
-                console.error(`SS Copy failed from ${source} to ${destination}!`, err);
-                throw err;
-            });
+        console.log(`>>> CS COPY - About to copy object... from: ${psource} to: ${destination}`);
+
+        const part_size = 10 * 1024 * 1024;
+        const pass_through = new stream.PassThrough();
+
+        await Promise.all([
+            this.get_file_check_md5(bucket, source, {
+                versionid: versionid ? versionid : undefined,
+                target_stream: pass_through,
+            }),
+            // This will fail if the part size is less then 5MB, then we need to do putObject insted of upload.
+            this._multipart_upload_internal(bucket, destination, pass_through, part_size)
+        ]);
     }
 
-    client_side_copy_file_with_md5(ip, bucket, source, destination, versionid) {
-        const psource = source + (versionid ? ' v' + versionid : '');
-        console.log('>>> CS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
-
-        return this.get_file_check_md5(ip, bucket, source, {
-                return_data: true,
-                versionid: versionid ? versionid : undefined
-            })
-            .then(res => {
-                const TEN_MB = 10 * 1024 * 1024;
-                return this._multipart_upload_internal(ip, bucket, destination, res.data, TEN_MB);
-            });
-    }
-
-    upload_file_with_md5(ip, bucket, file_name, data_size, parts_num, multiplier, overlook_error) {
+    async upload_file_with_md5(bucket, file_name, data_size, parts_num, multiplier, overlook_error) {
         this.validate_multiplier(multiplier);
         data_size = data_size || 50;
         const actual_size = data_size * multiplier;
-        let data = crypto.randomBytes(actual_size);
-        let size = Math.ceil(actual_size / parts_num);
-
-        return P.resolve()
-            .then(() => this._multipart_upload_internal(ip, bucket, file_name, data, size, overlook_error));
+        let part_size = Math.ceil(actual_size / parts_num);
+        //Making sure that the part size is not less then 5MB.
+        if (part_size < 5242880) {
+            part_size = actual_size;
+        }
+        const input_stream = new RandStream(actual_size, {
+            highWaterMark: 1024 * 1024,
+        });
+        return this._multipart_upload_internal(bucket, file_name, input_stream, part_size, overlook_error);
     }
 
-    get_file_check_md5(ip, bucket, file_name, options) {
-        const return_data = options && options.return_data;
-        const versionid = options && options.versionid;
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    async get_file_check_md5(bucket, file_name, options) {
+        try {
+            const versionid = options && options.versionid;
+            const target_stream = (options && options.target_stream) ||
+                new stream.Writable({
+                    write(buf, encoding, next) {
+                        next();
+                    }
+                });
 
-        let params = {
-            Bucket: bucket,
-            Key: file_name,
-        };
-
-        if (versionid) {
-            params.VersionId = versionid;
-        }
-
-        console.log('>>> DOWNLOAD - About to download object...' + file_name);
-        let start_ts = Date.now();
-        return P.ninvoke(s3bucket, 'getObject', params)
-            .then(res => {
-                console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
-                let md5 = crypto.createHash('md5').update(res.Body)
-                    .digest('hex');
-                let file_md5 = res.Metadata.md5;
-                if (md5 === file_md5) {
-                    console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${res.ContentLength}`);
-                } else {
-                    console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5: ${
-                    md5} - they are different, size: ${res.ContentLength}`);
-                    throw new Error('Bad MD5 from download');
-                }
-                if (return_data) {
-                    return {
-                        data: res.Body,
-                        length: res.ContentLength
-                    };
-                }
-            })
-            .catch(err => {
-                console.error(`Download failed for ${file_name}!`, err);
-                throw err;
+            console.log('>>> DOWNLOAD - About to download object...' + file_name);
+            const start_ts = Date.now();
+            const req = this.s3.getObject({
+                Bucket: bucket,
+                Key: file_name,
+                VersionId: versionid ? versionid : undefined,
             });
+            const read_stream = req.createReadStream();
+            const md5_stream = new_md5_stream();
+            read_stream.pipe(md5_stream).pipe(target_stream);
+            await new Promise((resolve, reject) => {
+                read_stream.once('error', reject);
+                read_stream.once('finish', resolve);
+            });
+            const md5_hex = md5_stream.md5.digest('hex');
+            const res = req.response.httpResponse;
+
+            console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
+            const file_md5 = verify_md5_map.get(`${this.system_verify_name}/${bucket}/${file_name}`);
+            const file_size = Number(res.headers['content-length']);
+            if (md5_hex === file_md5) {
+                console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${file_size}`);
+            } else {
+                console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5: ${
+                    md5_hex} - they are different, size: ${file_size}`);
+                throw new Error('Bad MD5 from download');
+            }
+        } catch (err) {
+            console.error(`Download failed for ${file_name}!`, err);
+            throw err;
+        }
     }
 
-    get_file_ranges_check_md5(ip, bucket, file_name, parts, options) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
+    async get_file_ranges_check_md5(bucket, file_name, parts, options) {
         const versionid = options && options.versionid;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-
-        let params = {
+        const res = await this.s3.headObject({
             Bucket: bucket,
             Key: file_name,
-        };
-
-        if (versionid) {
-            params.VersionId = versionid;
-        }
-
-        return P.ninvoke(s3bucket, 'headObject', params)
-            .then(res => {
-                let start_byte = 0;
-                let file_md5;
-                let md5 = crypto.createHash('md5');
-                file_md5 = res.Metadata.md5;
-                const file_size = res.ContentLength;
-                const jump = Math.floor(file_size / parts);
-                let finish_byte = start_byte + jump;
-                console.log(`>>> READ_RANGE - About to read object... ${file_name}, md5: ${file_md5}, parts: ${parts}`);
-                return promise_utils.pwhile(() => start_byte < file_size, () =>
-                        this.get_object_range(ip, bucket, file_name, start_byte, finish_byte, versionid)
-                        .then(data => {
-                            md5.update(data);
-                            start_byte = finish_byte + 1;
-                            finish_byte = (start_byte + jump) > file_size ? file_size : (start_byte + jump);
-                        })
-                    )
-                    .then(() => {
-                        const md5_digest = md5.digest('hex');
-                        if (md5_digest === file_md5) {
-                            console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${file_size}`);
-                        } else {
-                            console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5:
+            VersionId: versionid ? versionid : undefined,
+        }).promise();
+        let start_byte = 0;
+        let file_md5;
+        let md5 = crypto.createHash('md5');
+        // file_md5 = res.Metadata.md5;
+        file_md5 = verify_md5_map.get(`${this.system_verify_name}/${bucket}/${file_name}`);
+        const file_size = res.ContentLength;
+        const jump = Math.floor(file_size / parts);
+        let finish_byte = start_byte + jump;
+        console.log(`>>> READ_RANGE - About to read object... ${file_name}, md5: ${file_md5}, parts: ${parts}`);
+        try {
+            await promise_utils.pwhile(() => start_byte < file_size, () =>
+                this.get_object_range(bucket, file_name, start_byte, finish_byte, versionid)
+                .then(data => {
+                    md5.update(data);
+                    start_byte = finish_byte + 1;
+                    finish_byte = (start_byte + jump) > file_size ? file_size : (start_byte + jump);
+                })
+            );
+            const md5_digest = md5.digest('hex');
+            if (md5_digest === file_md5) {
+                console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${file_size}`);
+            } else {
+                console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5:
                         ${md5_digest} - they are different, size: ${file_size}`);
-                            throw new Error('Bad MD5 from download');
-                        }
-                    })
-                    .catch(err => {
-                        console.error(`Download failed for ${file_name}!`, err);
-                        throw err;
-                    });
-            });
+                throw new Error('Bad MD5 from download');
+            }
+        } catch (err) {
+            console.error(`Download failed for ${file_name}!`, err);
+            throw err;
+        }
     }
 
-    check_MD5_all_objects(ip, bucket, prefix) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    async check_MD5_all_objects(bucket, prefix) {
 
         let params = {
             Bucket: bucket,
             Prefix: prefix,
         };
-
-        let stop = false;
-        promise_utils.pwhile(
-            () => !stop,
-            () => P.ninvoke(s3bucket, 'listObjects', params)
-            .then(res => {
-                let list = res.Contents;
-                if (list.length === 0) {
-                    stop = true;
-                } else {
-                    params.Marker = list[list.length - 1].Key;
-                    stop = true;
-                    return P.each(list, obj => this.get_file_check_md5(ip, bucket, obj.Key));
-                }
-            }));
+        const { Contents: list } = await this.s3.listObjects(params).promise();
+        if (list.length !== 0) {
+            params.Marker = list[list.length - 1].Key;
+            for (const obj of list) {
+                await this.get_file_check_md5(bucket, obj.Key);
+            }
+        }
     }
 
-    get_a_random_file(ip, bucket, prefix) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-
-        let params = {
-            Bucket: bucket,
-            Prefix: prefix,
-        };
-
-        return P.ninvoke(s3bucket, 'listObjects', params)
-            .then(res => {
-                let list = res.Contents;
-                if (list.length === 0) {
-                    throw new Error('No files with prefix in bucket');
-                }
-                let rand = Math.floor(Math.random() * list.length);
-                return list[rand];
-            })
-            .catch(err => {
-                console.error(`get_a_random_file:: listObjects ${params} failed!`, err);
-                throw err;
-            });
+    async get_a_random_file(bucket, prefix) {
+        try {
+            const { Contents: list } = await this.s3.listObjects({
+                Bucket: bucket,
+                Prefix: prefix,
+            }).promise();
+            if (list.length === 0) {
+                throw new Error('No files with prefix in bucket');
+            }
+            let rand = Math.floor(Math.random() * list.length);
+            return list[rand];
+        } catch (err) {
+            console.error(`get_a_random_file:: listObjects - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
+            throw err;
+        }
     }
 
-    get_a_random_version_file(ip, bucket, prefix) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-
-        let params = {
-            Bucket: bucket,
-            Prefix: prefix,
-        };
-
-        return P.ninvoke(s3bucket, 'listObjectVersions', params)
-            .then(res => {
-                let list = res.Versions;
-                if (list.length === 0) {
-                    throw new Error('No files with prefix in bucket');
-                }
-                let rand = Math.floor(Math.random() * list.length); //Take a random version , not delete marker and return key and versionid
-                return list[rand];
-            })
-            .catch(err => {
-                console.error(`get_a_random_file:: listObjectVersions ${params} failed!`, err);
-                throw err;
-            });
+    async get_a_random_version_file(bucket, prefix) {
+        try {
+            const { Versions: list } = await this.s3.listObjectVersions({
+                Bucket: bucket,
+                Prefix: prefix,
+            }).promise();
+            if (list.length === 0) {
+                throw new Error('No files with prefix in bucket');
+            }
+            let rand = Math.floor(Math.random() * list.length); //Take a random version , not delete marker and return key and versionid
+            return list[rand];
+        } catch (err) {
+            console.error(`get_a_random_file:: listObjectVersions - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
+            throw err;
+        }
     }
 
-    get_list_files(ip, bucket, prefix, param = { supress_logs: false, maxKeys: 1000, version: false }) {
+    get_list_files(bucket, prefix, param = { supress_logs: false, maxKeys: 1000, version: false }) {
         const supress_logs = param.supress_logs;
         const MaxKeys = param.maxKeys;
         let ops = 'listObjects';
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
         let params = {
             Bucket: bucket,
             Prefix: prefix,
@@ -335,7 +291,7 @@ class S3OPS {
         if (param.version) {
             ops = 'listObjectVersions';
         }
-        return P.ninvoke(s3bucket, ops, params)
+        return P.ninvoke(this.s3, ops, params)
             .then(res => {
                 if (param.version) {
                     list = res.Versions;
@@ -363,48 +319,26 @@ class S3OPS {
             });
     }
 
-    get_list_multipart_uploads(ip, bucket) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-        let params = {
-            Bucket: bucket,
-        };
-        let list = [];
+    async get_list_multipart_uploads(bucket) {
         let listFiles = [];
-        return P.ninvoke(s3bucket, 'listMultipartUploads', params)
-            .then(res => {
-                list = res.Uploads;
-                if (list.length === 0) {
-                    console.warn('No objects in bucket');
-                } else {
-                    list.forEach(function(file) {
-                        listFiles.push({ Key: file.Key });
-                        console.log('files key is: ' + file.Key);
-                    });
+        try {
+            const { Uploads: list } = await this.s3.listMultipartUploads({ Bucket: bucket }).promise();
+            if (list.length === 0) {
+                console.warn('No objects in bucket');
+            } else {
+                for (const file of list) {
+                    listFiles.push({ Key: file.Key });
+                    console.log('files key is: ' + file.Key);
                 }
-                return listFiles;
-            })
-            .catch(err => {
-                console.error(`get_list_multipart_uploads:: listMultipartUploads ${params} failed!`, err);
-                throw err;
-            });
+            }
+            return listFiles;
+        } catch (err) {
+            console.error(`get_list_multipart_uploads:: listMultipartUploads - Bucket: ${bucket} failed!`, err);
+            throw err;
+        }
     }
 
-    get_list_multipart_uploads_filters(ip, bucket, delimiter, key_marker, max_uploads, prefix, uploadIdMarker) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    get_list_multipart_uploads_filters(bucket, delimiter, key_marker, max_uploads, prefix, uploadIdMarker) {
         let params = {
             Bucket: bucket,
             Delimiter: delimiter,
@@ -415,7 +349,7 @@ class S3OPS {
         };
         let list = [];
         let listFiles = [];
-        return P.ninvoke(s3bucket, 'listMultipartUploads', params)
+        return P.ninvoke(this.s3, 'listMultipartUploads', params)
             .then(res => {
                 console.log(JSON.stringify(res));
                 list = res.Uploads;
@@ -435,108 +369,60 @@ class S3OPS {
             });
     }
 
-    get_list_prefixes(ip, bucket) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-        let params = {
-            Bucket: bucket,
-            Delimiter: "/"
-        };
-        let list = [];
+    async get_list_prefixes(bucket) {
         let listPrefixes = [];
-        return P.ninvoke(s3bucket, 'listObjects', params)
-            .then(res => {
-                list = res.CommonPrefixes;
-                if (list.length === 0) {
-                    console.warn('No folders in bucket');
-                } else {
-                    list.forEach(function(prefix) {
-                        listPrefixes.push(prefix.Prefix);
-                        console.log('prefix is : ' + prefix.Prefix);
-                    });
+        try {
+            const { CommonPrefixes: list } = await this.s3.listObjects({
+                Bucket: bucket,
+                Delimiter: "/"
+            }).promise();
+            if (list.length === 0) {
+                console.warn('No folders in bucket');
+            } else {
+                for (const prefix of list) {
+                    listPrefixes.push(prefix.Prefix);
+                    console.log('prefix is : ' + prefix.Prefix);
                 }
-                return listPrefixes;
-            })
-            .catch(err => {
-                console.error(`get_list_prefixes:: listObjects ${params} failed!`, err);
-                throw err;
-            });
-    }
-
-    get_file_number(ip, bucket, prefix) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-
-        let params = {
-            Bucket: bucket,
-            Prefix: prefix,
-        };
-
-        return P.ninvoke(s3bucket, 'listObjects', params)
-            .then(res => {
-                let list = res.Contents;
-                return list.length;
-            })
-            .catch(err => {
-                console.error(`get_file_number:: listObjects ${params} failed!`, err);
-                throw err;
-            });
-    }
-
-    delete_file(ip, bucket, file_name, versionid) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-
-        let params = {
-            Bucket: bucket,
-            Key: file_name,
-        };
-
-        if (versionid) {
-            params.VersionId = versionid;
+            }
+            return listPrefixes;
+        } catch (err) {
+            console.error(`get_list_prefixes:: listObjects - Bucket: ${bucket},  Delimiter: "/" failed!`, err);
+            throw err;
         }
-
-        let start_ts = Date.now();
-        const psource = file_name + (versionid ? 'v' + versionid : '');
-        console.log('>>> DELETE - About to delete object...' + psource);
-        return P.ninvoke(s3bucket, 'deleteObject', params)
-            .then(() => {
-                console.log('Delete object took', (Date.now() - start_ts) / 1000, 'seconds');
-                console.log('file ' + file_name + ' successfully deleted');
-            })
-            .catch(err => {
-                console.error(`Delete file ${file_name} failed!`, err);
-                throw err;
-            });
     }
 
-    delete_multiple_files(ip, bucket, files) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    async get_file_number(bucket, prefix) {
+        try {
+            const { Contents: list } = await this.s3.listObjects({
+                Bucket: bucket,
+                Prefix: prefix,
+            }).promise();
+            return list.length;
+        } catch (err) {
+            console.error(`get_file_number:: listObjects - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
+            throw err;
+        }
+    }
+
+    async delete_file(bucket, file_name, versionid) {
+        try {
+            let start_ts = Date.now();
+            const psource = file_name + (versionid ? 'v' + versionid : '');
+            console.log('>>> DELETE - About to delete object...' + psource);
+            await this.s3.deleteObject({
+                Bucket: bucket,
+                Key: file_name,
+                VersionId: versionid ? versionid : undefined,
+            }).promise();
+            console.log('Delete object took', (Date.now() - start_ts) / 1000, 'seconds');
+            console.log('file ' + file_name + ' successfully deleted');
+        } catch (err) {
+            console.error(`Delete file ${file_name} failed!`, err);
+            throw err;
+        }
+    }
+
+    delete_multiple_files(bucket, files) {
 
         let params = {
             Bucket: bucket,
@@ -557,7 +443,7 @@ class S3OPS {
 
         let start_ts = Date.now();
         console.log(`>>> MULTI DELETE - About to delete multiple objects... ${files.length}`);
-        return P.ninvoke(s3bucket, 'deleteObjects', params)
+        return P.ninvoke(this.s3, 'deleteObjects', params)
             .then(() => {
                 console.log('Multi delete took', (Date.now() - start_ts) / 1000, 'seconds');
                 console.log(`${files.length} files successfully deleted`);
@@ -568,18 +454,18 @@ class S3OPS {
             });
     }
 
-    delete_all_objects_in_bucket(ip, bucket, is_versioning) {
+    delete_all_objects_in_bucket(bucket, is_versioning) {
         let run_list = true;
-        console.log(`cleaning all files from ${bucket} in ${ip}`);
+        console.log(`cleaning all files from ${bucket} in ${this.ip}`);
         promise_utils.pwhile(
             () => run_list,
-            () => this.get_list_files(ip, bucket, '', { maxKeys: 1000, version: is_versioning, supress_logs: true })
+            () => this.get_list_files(bucket, '', { maxKeys: 1000, version: is_versioning, supress_logs: true })
             .then(list => {
                 console.log(`Partial list_files.length is ${list.length}`);
                 if (list.length < 1000) {
                     run_list = false;
                 }
-                return this.delete_multiple_files(ip, bucket, _.map(list, item => {
+                return this.delete_multiple_files(bucket, _.map(list, item => {
                     let i = { filename: item.Key };
                     if (item.VersionId) {
                         i.versionid = item.VersionId;
@@ -590,22 +476,14 @@ class S3OPS {
         );
     }
 
-    get_file_size(ip, bucket, file_name) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    get_file_size(bucket, file_name) {
 
         let params = {
             Bucket: bucket,
             Key: file_name,
         };
 
-        return P.ninvoke(s3bucket, 'headObject', params)
+        return P.ninvoke(this.s3, 'headObject', params)
             .then(res => res.ContentLength / 1024 / 1024)
             .catch(err => {
                 console.error(`get file size ${file_name} failed!`, err);
@@ -613,15 +491,7 @@ class S3OPS {
             });
     }
 
-    set_file_attribute(ip, bucket, file_name, versionid) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    set_file_attribute(bucket, file_name, versionid) {
 
         let params = {
             Bucket: bucket,
@@ -641,69 +511,42 @@ class S3OPS {
         const psource = file_name + (versionid ? ' v' + versionid : '');
         console.log('>>> SS SET FILE ATTR - on' + psource);
 
-        return P.ninvoke(s3bucket, 'putObjectTagging', params)
+        return P.ninvoke(this.s3, 'putObjectTagging', params)
             .catch(err => {
                 console.error(`set file attribute failed! ${file_name}`, err);
                 throw err;
             });
     }
 
-    set_file_attribute_with_copy(ip, bucket, file_name, versionid) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-
-        let params = {
-            Bucket: bucket,
-            Key: file_name,
-        };
-
-        if (versionid) {
-            params.VersionId = versionid;
+    async set_file_attribute_with_copy(bucket, file_name, versionid) {
+        try {
+            const psource = file_name + (versionid ? ' v' + versionid : '');
+            console.log(`>>> SS SET FILE ATTR WITH COPY - on ${psource}`);
+            const head = await this.s3.headObject({
+                Bucket: bucket,
+                Key: file_name,
+                VersionId: versionid ? versionid : undefined,
+            }).promise();
+            await this.s3.copyObject({
+                Bucket: bucket,
+                CopySource: bucket + '/' + file_name + (versionid ? `?versionId=${versionid}` : ''),
+                Key: file_name,
+                MetadataDirective: 'REPLACE',
+                Metadata: Object.assign(head.Metadata, {
+                    s3ops: 's3ops_set_file_attribute_with_copy'
+                })
+            }).promise();
+        } catch (err) {
+            console.error(`set file attribute failed ${file_name}!`, err);
+            throw err;
         }
-
-        const psource = file_name + (versionid ? ' v' + versionid : '');
-        console.log(`>>> SS SET FILE ATTR WITH COPY - on ${psource}`);
-
-        return P.ninvoke(s3bucket, 'getObject', params)
-            .then(res => {
-                params = {
-                    Bucket: bucket,
-                    CopySource: bucket + '/' + file_name + (versionid ? `?versionId=${versionid}` : ''),
-                    Key: file_name,
-                    MetadataDirective: 'REPLACE',
-                    Metadata: {
-                        md5: crypto.createHash('md5').update(res.Body)
-                            .digest('hex'),
-                        s3ops: 's3ops_set_file_attribute_with_copy'
-                    }
-                };
-            })
-            .then(() => P.ninvoke(s3bucket, 'copyObject', params))
-            .catch(err => {
-                console.error(`set file attribute failed ${file_name}!`, err);
-                throw err;
-            });
     }
 
-    get_list_buckets(ip, accessKeyId = this.accessKeyDefault, secretAccessKey = this.secretKeyDefault) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId,
-            secretAccessKey,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    get_list_buckets() {
         let params = {};
         let list = [];
         let listBuckets = [];
-        return P.ninvoke(s3bucket, 'listBuckets', params)
+        return P.ninvoke(this.s3, 'listBuckets', params)
             .then(res => {
                 list = res.Buckets;
                 if (list.length === 0) {
@@ -722,21 +565,13 @@ class S3OPS {
             });
     }
 
-    create_bucket(ip, bucket_name) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    create_bucket(bucket_name) {
 
         let params = {
             Bucket: bucket_name,
         };
 
-        return P.ninvoke(s3bucket, 'createBucket', params)
+        return P.ninvoke(this.s3, 'createBucket', params)
             .then(res => console.log("Created bucket ", res))
             .catch(err => {
                 console.error(`creating bucket ${bucket_name} is failed!`, err);
@@ -744,19 +579,11 @@ class S3OPS {
             });
     }
 
-    delete_bucket(ip, bucket_name) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    delete_bucket(bucket_name) {
         let params = {
             Bucket: bucket_name,
         };
-        return P.ninvoke(s3bucket, 'deleteBucket', params)
+        return P.ninvoke(this.s3, 'deleteBucket', params)
             .then(res => console.log("Deleted bucket ", res))
             .catch(err => {
                 console.error(`Deleting bucket ${bucket_name} is failed!`, err);
@@ -764,22 +591,14 @@ class S3OPS {
             });
     }
 
-    get_object_uploadId(ip, bucket, object_name) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    get_object_uploadId(bucket, object_name) {
         let params = {
             Bucket: bucket,
         };
         let list = [];
         let dataObject = [];
         let uploadObjectId;
-        return P.ninvoke(s3bucket, 'listMultipartUploads', params)
+        return P.ninvoke(this.s3, 'listMultipartUploads', params)
             .then(res => {
                 list = res.Uploads;
                 if (list.length === 0) {
@@ -800,20 +619,12 @@ class S3OPS {
             });
     }
 
-    get_bucket_uploadId(ip, bucket) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    get_bucket_uploadId(bucket) {
         let params = {};
         let list = [];
         let dataBucket = [];
         let uploadBucketId;
-        return P.ninvoke(s3bucket, 'listBuckets', params)
+        return P.ninvoke(this.s3, 'listBuckets', params)
             .then(res => {
                 list = res.Contents;
                 if (list.length === 0) {
@@ -832,20 +643,12 @@ class S3OPS {
             });
     }
 
-    is_bucket_exist(ip, bucket) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    is_bucket_exist(bucket) {
         let params = {
             Bucket: bucket
         };
         let existBucket = true;
-        return P.ninvoke(s3bucket, 'headBucket', params)
+        return P.ninvoke(this.s3, 'headBucket', params)
             .catch(err => {
                 console.log('Bucket is not exist', err);
                 existBucket = false;
@@ -853,157 +656,133 @@ class S3OPS {
             });
     }
 
-    get_object(ip, bucket, key) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-        let params = {
+    async get_object(bucket, key) {
+        const params = {
             Bucket: bucket,
             Key: key
         };
         console.log('Reading object ', key);
-        return P.ninvoke(s3bucket, 'getObject', params)
-            .catch(err => {
-                console.error(`get_object:: getObject ${JSON.stringify(params)} failed!`, err);
-                throw err;
-            });
+        try {
+            //There can be an issue if the object size (length) is too large
+            await this.s3.getObject(params).promise();
+        } catch (err) {
+            console.error(`get_object:: getObject ${JSON.stringify(params)} failed!`, err);
+            throw err;
+        }
     }
 
-    get_object_range(ip, bucket, key, start_byte, finish_byte, versionid) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-
-        let params = {
+    async get_object_range(bucket, key, start_byte, finish_byte, versionid) {
+        const params = {
             Bucket: bucket,
             Key: key,
-            Range: `bytes=${start_byte}-${finish_byte}`
+            Range: `bytes=${start_byte}-${finish_byte}`,
+            VersionId: versionid ? versionid : undefined,
         };
-
-        if (versionid) {
-            params.VersionId = versionid;
+        try {
+            console.log(`Reading object ${key} ${versionid ? versionid : ''} from ${start_byte} to ${finish_byte}`);
+            const obj = await this.s3.getObject(params).promise();
+            return obj.Body;
+        } catch (err) {
+            console.error(`get_object_range:: getObject ${JSON.stringify(params)} failed!`, err);
+            throw err;
         }
-
-        console.log(`Reading object ${key} ${versionid ? versionid : ''} from ${start_byte} to ${finish_byte}`);
-        return P.ninvoke(s3bucket, 'getObject', params)
-            .then(res => res.Body)
-            .catch(err => {
-                console.error(`get_object_range:: getObject ${JSON.stringify(params)} failed!`, err);
-                throw err;
-            });
     }
 
-    abort_multipart_upload(ip, bucket, file_name, uploadId) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+    async abort_multipart_upload(bucket, file_name, uploadId) {
         bucket = bucket || 'first.bucket';
-
-        const params = {
-            Bucket: bucket,
-            Key: file_name,
-            UploadId: uploadId
-        };
-
-
-        return P.ninvoke(s3bucket, 'abortMultipartUpload', params)
-            .then(res => {
-                console.log(`Upload ${uploadId} of filename: ${file_name} was aborted successfully`);
-            })
-            .catch(err => {
-                console.error(`Abort failed ${file_name}, UploadId: ${uploadId}!`, err);
-                throw err;
-            });
+        try {
+            await this.s3.abortMultipartUpload({
+                Bucket: bucket,
+                Key: file_name,
+                UploadId: uploadId
+            }).promise();
+            console.log(`Upload ${uploadId} of filename: ${file_name} was aborted successfully`);
+        } catch (err) {
+            console.error(`Abort failed ${file_name}, UploadId: ${uploadId}!`, err);
+            throw err;
+        }
     }
 
-    create_multipart_upload(ip, bucket, file_name) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-
-        const params = {
-            Bucket: bucket,
-            Key: file_name,
-        };
-
-        return P.ninvoke(s3bucket, 'createMultipartUpload', params)
-            .then(res => {
-                console.log(`Initiated multipart upload filename: ${file_name} uploadId ${res.UploadId}`);
-                return res.UploadId;
-            })
-            .catch(err => {
-                console.error(`Initiating multipart upload failed ${file_name}`, err);
-                throw err;
-            });
+    async create_multipart_upload(bucket, file_name) {
+        try {
+            const multipartUpload = await this.s3.createMultipartUpload({
+                Bucket: bucket,
+                Key: file_name,
+            }).promise();
+            console.log(`Initiated multipart upload filename: ${file_name} uploadId ${multipartUpload.UploadId}`);
+            return multipartUpload.UploadId;
+        } catch (err) {
+            console.error(`Initiating multipart upload failed ${file_name}`, err);
+            throw err;
+        }
     }
 
     /*
      * Internal Utils
      */
-    _multipart_upload_internal(ip, bucket, file_name, data, size, overlook_error) {
-        const rest_endpoint = 'http://' + ip + ':' + port;
-        const s3bucket = new AWS.S3({
-            endpoint: rest_endpoint,
-            accessKeyId: this.accessKeyDefault,
-            secretAccessKey: this.secretKeyDefault,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
-        bucket = bucket || 'first.bucket';
+    async _multipart_upload_internal(bucket, file_name, data, part_size, overlook_error) {
+        try {
+            bucket = bucket || 'first.bucket';
+            const md5_stream = new_md5_stream();
+            const start_ts = Date.now();
 
-        let md5 = crypto.createHash('md5').update(data).digest('hex');
+            let body;
+            let ContentLength;
+            if (data instanceof stream.Stream) {
+                body = data.pipe(md5_stream);
+            } else {
+                md5_stream.md5.update(data);
+                body = data;
+                ContentLength = data.length;
+            }
+            console.log(`>>> MultiPart UPLOAD - About to multipart upload object... ${
+                file_name}`, ContentLength ? `size: ${ContentLength}` : ``);
 
-        let params = {
-            Bucket: bucket,
-            Key: file_name,
-            Body: data,
-            Metadata: {
-                md5: md5
-            },
-        };
-        let options;
-        if (size) {
-            options = {
-                partSize: size
-            };
+            //Check for min size of parts. if we use stream we assume that it is larger then 5MB.
+            if (data instanceof stream.Stream || ContentLength > 5242880) {
+                await this.s3.upload({
+                    Bucket: bucket,
+                    Key: file_name,
+                    Body: body,
+                }, {
+                    partSize: part_size
+                }).promise();
+            } else {
+                await this.s3.putObject({
+                    Bucket: bucket,
+                    Key: file_name,
+                    Body: body,
+                    ContentLength, //when doing stream we need to give the size
+                }).promise();
+            }
+
+            console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
+            const md5_hex = md5_stream.md5.digest('hex');
+            console.log(`${file_name} md5 is: ${md5_hex}`);
+            verify_md5_map.set(`${this.system_verify_name}/${bucket}/${file_name}`, md5_hex);
+            return md5_hex;
+
+        } catch (err) {
+            if (overlook_error) return;
+            console.error(`Upload failed ${file_name}!`, err);
+            throw err;
         }
-
-        let start_ts = Date.now();
-        console.log(`>>> MultiPart UPLOAD - About to multipart upload object... ${
-        file_name}, md5: ${md5}, size: ${data.length}`);
-
-        return P.ninvoke(s3bucket, 'upload', params, options)
-            .then(res => {
-                console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
-                return md5;
-            })
-            .catch(err => {
-                if (overlook_error) return;
-                console.error(`Upload failed ${file_name}!`, err);
-                throw err;
-            });
     }
 
+}
+
+function new_md5_stream() {
+    const md5_stream = new stream.Transform({
+        transform(buf, encoding, next) {
+            this.md5.update(buf);
+            this.size += buf.length;
+            this.push(buf);
+            next();
+        }
+    });
+    md5_stream.md5 = crypto.createHash('md5');
+    md5_stream.size = 0;
+    return md5_stream;
 }
 
 exports.S3OPS = S3OPS;

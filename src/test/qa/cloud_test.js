@@ -74,7 +74,7 @@ console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}$
 const rpc = api.new_rpc('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
-const s3ops = new S3OPS();
+const server_s3ops = new S3OPS({ ip: server_ip });
 const report = new Report();
 const bf = new BucketFunctions(client, report);
 const cf = new CloudFunction(client, report);
@@ -139,6 +139,7 @@ async function create_noobaa_for_compatible() {
             server.ip = compatible_ip;
             server.name = await azf.getMachinByIp(compatible_ip);
             server.secret = compatible_password;
+            server.s3ops = new S3OPS({ ip: compatible_ip, system_verify_name: server.name });
             console.log(server);
         } else {
             const new_secret = await azf.createServer({
@@ -153,6 +154,7 @@ async function create_noobaa_for_compatible() {
             const ip = await azf.getIpAddress(server.name + '_pip');
             console.log(`${YELLOW}${server.name} and ip is: ${ip}${NC}`);
             server.ip = ip;
+            server.s3ops = new S3OPS({ ip, system_verify_name: server.name });
         }
         if (!_.isUndefined(upgrade)) {
             await ops.upload_and_upgrade(server.ip, upgrade);
@@ -172,16 +174,16 @@ async function create_noobaa_for_compatible() {
     }
 }
 
-async function clean_cloud_bucket(ip, bucket) {
+async function clean_cloud_bucket(s3ops, bucket) {
     let run_list = true;
-    console.log(`cleaning all files from ${bucket} in ${ip}`);
+    console.log(`cleaning all files from ${bucket} in ${s3ops.ip}`);
     while (run_list) {
-        const list_files = await s3ops.get_list_files(ip, bucket, '', { maxKeys: 1000 });
+        const list_files = await s3ops.get_list_files(bucket, '', { maxKeys: 1000 });
         if (list_files.length < 1000) {
             run_list = false;
         }
         for (const file of list_files) {
-            await s3ops.delete_file(ip, bucket, file.Key);
+            await s3ops.delete_file(bucket, file.Key);
         }
     }
 }
@@ -235,7 +237,7 @@ async function createCloudPools(type) {
 
 async function clean_env() {
     for (const bucket_name of bucket_names) {
-        await clean_cloud_bucket(server_ip, bucket_name);
+        await clean_cloud_bucket(server_s3ops, bucket_name);
         await bf.deleteBucket(bucket_name);
     }
     bucket_names = [];
@@ -248,7 +250,7 @@ async function clean_env() {
     }
     connections_names = [];
     for (const bucket_name of remote_bucket_names) {
-        await clean_cloud_bucket(server.ip, bucket_name);
+        await clean_cloud_bucket(server.s3ops, bucket_name);
         await bf_compatible.deleteBucket(bucket_name);
     }
     remote_bucket_names = [];

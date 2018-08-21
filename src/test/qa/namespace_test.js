@@ -60,12 +60,17 @@ let report = new Report();
 let cf = new CloudFunction(client, report);
 let bf = new BucketFunctions(client, report);
 
-report.init_reporter({ suite: test_name, conf: {aws: true, azure: true}, mongo_report: true});
+report.init_reporter({ suite: test_name, conf: { aws: true, azure: true }, mongo_report: true });
 
 const AWSDefaultConnection = cf.getAWSConnection();
 
-const s3ops = new S3OPS();
-const s3opsAWS = new S3OPS(AWSDefaultConnection.identity, AWSDefaultConnection.secret);
+const s3ops = new S3OPS({ ip: server_ip });
+const s3opsAWS = new S3OPS({
+    ip: 's3.amazonaws.com',
+    access_key: AWSDefaultConnection.identity,
+    secret_key: AWSDefaultConnection.secret,
+    system_verify_name: 'AWS',
+});
 
 const connections_mapping = Object.assign({ AZURE: blobops.AzureDefaultConnection }, { AWS: AWSDefaultConnection });
 
@@ -116,9 +121,9 @@ function saveErrorAndResume(message, err) {
     failures_in_test = true;
 }
 
-async function getMD5fromS3Bucket(ops, ip, bucket, file_name) {
+async function getMD5fromS3Bucket(s3ops_arg, bucket, file_name) {
     try {
-        const object_list = await ops.get_object(ip, bucket, file_name);
+        const object_list = await s3ops_arg.get_object(bucket, file_name);
         console.log('Getting md5 data from file ' + file_name);
         return crypto.createHash('md5').update(object_list.Body).digest('base64');
     } catch (err) {
@@ -131,11 +136,11 @@ async function comperMD5betweencloudAndNooBaa(type, bucket, noobaa_bucket, file_
     console.log(`Compering NooBaa bucket to ${type}`);
     let cloudMD5;
     if (type === 'AWS') {
-        cloudMD5 = await getMD5fromS3Bucket(s3opsAWS, 's3.amazonaws.com', bucket, file_name);
+        cloudMD5 = await getMD5fromS3Bucket(s3opsAWS, bucket, file_name);
     } else if (type === 'AZURE') {
         cloudMD5 = await blobops.getMD5Blob(bucket, file_name, saveErrorAndResume);
     }
-    const noobaaMD5 = await getMD5fromS3Bucket(s3ops, server_ip, noobaa_bucket, file_name);
+    const noobaaMD5 = await getMD5fromS3Bucket(s3ops, noobaa_bucket, file_name);
     if (cloudMD5 === noobaaMD5) {
         console.log(`Noobaa bucket contains the md5 ${noobaaMD5} and the cloud md5 is: ${cloudMD5} for file ${file_name}`);
     } else {
@@ -211,7 +216,7 @@ function uploadFileDirectlyToAWS(bucket, file_name, size, multiplier) {
 
 async function isFilesAvailableInNooBaaBucket(gateway, files) {
     console.log('Checking uploaded files ' + files + ' in noobaa s3 server bucket ' + gateway);
-    const list_files = await s3ops.get_list_files(server_ip, gateway);
+    const list_files = await s3ops.get_list_files(gateway);
     const keys = list_files.map(key => key.Key);
     for (const file of files) {
         if (keys.includes(file)) {
@@ -225,7 +230,7 @@ async function isFilesAvailableInNooBaaBucket(gateway, files) {
 async function uploadFileToNoobaaS3(bucket, file_name) {
     let { data_multiplier } = unit_mapping.KB;
     try {
-        await s3ops.put_file_with_md5(server_ip, bucket, file_name, 15, data_multiplier);
+        await s3ops.put_file_with_md5(bucket, file_name, 15, data_multiplier);
     } catch (err) {
         saveErrorAndResume(`Failed upload file ${file_name}`, err);
         throw err;
@@ -388,12 +393,12 @@ async function add_and_remove_resources(clouds) {
 }
 
 async function clean_namespace_bucket(bucket) {
-    const list_files = await s3ops.get_list_files(server_ip, bucket);
+    const list_files = await s3ops.get_list_files(bucket);
     const keys = list_files.map(key => key.Key);
     if (keys) {
         for (const file of keys) {
             try {
-                await s3ops.delete_file(server_ip, bucket, file);
+                await s3ops.delete_file(bucket, file);
             } catch (e) {
                 console.error(`${RED}TODO: REMOVE THIS TRY CATCH, IT IS TEMP OVERRIDE FOR BUG #4832${NC}`);
             }

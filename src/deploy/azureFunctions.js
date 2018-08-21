@@ -138,13 +138,13 @@ class AzureFunctions {
     }
 
     getIpAddress(pipName) {
-        console.log('Getting IP for:' + pipName);
+        console.log(`Getting IP for:  ${pipName}`);
         return P.fromCallback(callback => this.networkClient.publicIPAddresses.get(this.resourceGroupName, pipName, callback))
             .then(res => res.ipAddress);
     }
 
     getPrivateIpAddress(networkInterfaceName, ipConfigurationName) {
-        console.log('Getting IP for:', networkInterfaceName, ipConfigurationName);
+        console.log('Getting IP for: ', networkInterfaceName, ipConfigurationName);
         return P.fromCallback(callback => this.networkClient.networkInterfaceIPConfigurations.get(
                 this.resourceGroupName, networkInterfaceName, ipConfigurationName, callback
             ))
@@ -752,7 +752,7 @@ class AzureFunctions {
                     this.resourceGroupName, vmName + '_nic', callback));
             })
             .then(() => {
-                console.log('Deleting ' + vmName + '_nic');
+                console.log('Deleting ' + vmName + '_pip');
                 return P.fromCallback(callback => this.networkClient.publicIPAddresses.deleteMethod(
                     this.resourceGroupName, vmName + '_pip', callback));
             })

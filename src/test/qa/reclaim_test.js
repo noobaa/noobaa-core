@@ -12,8 +12,6 @@ const AzureFunctions = require('../../deploy/azureFunctions');
 const { BucketFunctions } = require('../utils/bucket_functions');
 //const vm = require('../utils/vmware');
 
-const s3ops = new S3OPS();
-
 const test_name = 'reclaim';
 dbg.set_process_name(test_name);
 
@@ -45,6 +43,7 @@ const {
         // use_existing_env = true
 } = argv;
 
+const s3ops = new S3OPS({ ip: server_ip });
 
 function usage() {
     console.log(`
@@ -112,8 +111,8 @@ async function uploadAndVerifyFiles(bucket) {
             files.push(file_name);
             current_size += file_size;
             console.log('Uploading file with size ' + file_size + ' MB');
-            await s3ops.put_file_with_md5(server_ip, bucket, file_name, file_size, data_multiplier);
-            await s3ops.get_file_check_md5(server_ip, bucket, file_name);
+            await s3ops.put_file_with_md5(bucket, file_name, file_size, data_multiplier);
+            await s3ops.get_file_check_md5(bucket, file_name);
         } catch (err) {
             saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
             throw err;
@@ -156,7 +155,7 @@ async function createReclaimPool(reclaim_pool, agentSuffix) {
 async function cleanupBucket(bucket) {
     try {
         console.log('runing clean up files from bucket ' + bucket);
-        await s3ops.delete_all_objects_in_bucket(server_ip, bucket, true);
+        await s3ops.delete_all_objects_in_bucket(bucket, true);
     } catch (err) {
         console.error(`Errors during deleting `, err);
     }
@@ -179,7 +178,7 @@ async function reclaimCycle(oses, prefix) {
         const stoppedAgent = await af.stopRandomAgents(azf, server_ip, 1, agentSuffix, agentList);
         await cleanupBucket(bucket);
         await af.startOfflineAgents(azf, server_ip, stoppedAgent);
-        await s3ops.get_list_files(server_ip, bucket, '');
+        await s3ops.get_list_files(bucket, '');
     } catch (err) {
         throw new Error(`reclaimCycle failed: ${err}`);
     }

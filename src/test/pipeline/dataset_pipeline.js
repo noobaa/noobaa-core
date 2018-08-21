@@ -5,7 +5,7 @@ const _ = require('lodash');
 const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const argv = require('minimist')(process.argv, { string: ['server_secret'] });
-dbg.set_process_name('account_pipeline');
+dbg.set_process_name('dataset_pipeline');
 
 const js_script = 'dataset.js';
 

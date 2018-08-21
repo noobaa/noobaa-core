@@ -271,10 +271,10 @@ node('pipeline') {
             sh script: """
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh &> /dev/null
-            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)11
-            flags="${azureEnv} --name SystemConfig --id \${id} --skip_agent_creation"
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)11      
+            flags="${azureEnv} --name SystemConfig --id \${id} --skip_agent_creation --random_base_version"
             ${env_builder} \${flags} \
-                --js_script $WORKSPACE/src/test/qa/system_config.js
+                --js_script $WORKSPACE/src/test/pipeline/system_config_pipeline.js
             """
             echo 'Deleting System config env'
             sh script: """

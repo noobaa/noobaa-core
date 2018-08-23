@@ -96,28 +96,38 @@ function read_node_mappings(node_ids, skip, limit) {
  *
  * @params: parts, set_obj, adminfo
  */
-async function read_parts_mappings({ parts, adminfo, set_obj, location_info }) {
+async function read_parts_mappings({ parts, adminfo, set_obj, location_info, same_bucket }) {
     const chunks = _.map(parts, 'chunk');
     const tiering_status_by_bucket_id = {};
 
     await _load_chunk_mappings(chunks, tiering_status_by_bucket_id);
 
-    if (location_info) {
+
+    if (same_bucket && !adminfo) {
         const chunks_to_scrub = [];
         try {
+            const bucket = system_store.data.get_by_id(chunks[0].bucket);
+            const tiering_status = tiering_status_by_bucket_id[bucket._id];
+            const selected_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status);
             for (const chunk of chunks) {
-                const bucket = system_store.data.get_by_id(chunk.bucket);
-                const bucket_tiering_status = tiering_status_by_bucket_id[chunk.bucket];
                 system_utils.prepare_chunk_for_mapping(chunk);
-                const mapping = mapper.map_chunk(chunk, bucket.tiering, bucket_tiering_status, location_info);
-                if (mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info)) {
-                    dbg.log0('Chunk with following mapping will be sent for rebuilding', mapping);
+                if (!_.isEqual(chunk.tier._id, selected_tier._id)) {
+                    dbg.log0('Chunk with low tier will be sent for rebuilding', chunk);
                     chunks_to_scrub.push(chunk);
+                } else if (location_info) {
+                    const mapping = mapper.map_chunk(chunk, chunk.tier, bucket.tiering, tiering_status, location_info);
+                    if (mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info)) {
+                        dbg.log2('Chunk with following mapping will be sent for rebuilding', chunk, mapping);
+                        chunks_to_scrub.push(chunk);
+                    }
                 }
             }
             if (chunks_to_scrub.length) {
                 dbg.log1('Chunks wasn\'t found in local pool - the following will be rebuilt:', util.inspect(chunks_to_scrub));
-                await server_rpc.client.scrubber.build_chunks({ chunk_ids: _.map(chunks_to_scrub, '_id') }, {
+                await server_rpc.client.scrubber.build_chunks({
+                    chunk_ids: _.map(chunks_to_scrub, '_id'),
+                    tier: selected_tier._id,
+                }, {
                     auth_token: auth_server.make_auth_token({
                         system_id: chunks_to_scrub[0].system,
                         role: 'admin'
@@ -143,8 +153,6 @@ async function read_parts_mappings({ parts, adminfo, set_obj, location_info }) {
         return part_info;
     });
 }
-
-
 
 async function _load_chunk_mappings(chunks, tiering_status_by_bucket_id) {
     const chunks_buckets = _.uniq(_.map(chunks, chunk => String(chunk.bucket)));

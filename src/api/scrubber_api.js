@@ -22,6 +22,7 @@ module.exports = {
                         type: 'array',
                         items: { objectid: true }
                     },
+                    tier: { objectid: true },
                 }
             },
             auth: { system: 'admin' }

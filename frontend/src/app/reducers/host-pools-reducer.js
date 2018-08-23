@@ -40,8 +40,8 @@ function _mapPool(pool) {
         hostsByMode: pool.hosts.by_mode,
         storageNodeCount: pool.storage_nodes.count,
         storageNodesByMode: pool.storage_nodes.by_mode,
-        endpointNodeCount: 0, // pool.s3_nodes.count
-        endpointNodesByMode: {}, // pool.s3_nodes.by_mode
+        endpointNodeCount: pool.s3_nodes.count,
+        endpointNodesByMode: pool.s3_nodes.by_mode,
         undeletable: pool.undeletable,
         region: pool.region,
         activities: {

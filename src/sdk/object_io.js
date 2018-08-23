@@ -36,6 +36,7 @@ const PART_ATTRS = [
     'multipart_id',
 ];
 const CHUNK_ATTRS = [
+    'tier',
     'chunk_coder_config',
     'size',
     'compress_size',
@@ -133,6 +134,7 @@ class ObjectIO {
             .then(() => params.client.object.create_object_upload(create_params))
             .then(create_reply => {
                 params.obj_id = create_reply.obj_id;
+                params.tier = create_reply.tier;
                 params.chunk_split_config = create_reply.chunk_split_config;
                 params.chunk_coder_config = create_reply.chunk_coder_config;
                 complete_params.obj_id = create_reply.obj_id;
@@ -185,6 +187,7 @@ class ObjectIO {
             .then(() => params.client.object.create_multipart(create_params))
             .then(multipart_reply => {
                 params.multipart_id = multipart_reply.multipart_id;
+                params.tier = multipart_reply.tier;
                 params.chunk_split_config = multipart_reply.chunk_split_config;
                 params.chunk_coder_config = multipart_reply.chunk_coder_config;
                 complete_params.multipart_id = multipart_reply.multipart_id;
@@ -373,6 +376,7 @@ class ObjectIO {
             // nullify the chunk's data to release the memory buffers
             // since we already coded it into the fragments
             chunk.data = undefined;
+            chunk.tier = params.tier;
             const part = {
                 chunk,
                 millistamp: time_utils.millistamp(),

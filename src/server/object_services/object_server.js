@@ -80,11 +80,13 @@ async function create_object_upload(req) {
     }
 
     const tier = await map_writer.select_tier_for_write(req.bucket, info);
+    dbg.log0('JAJAJA tier', tier);
     await MDStore.instance().insert_object(info);
     object_md_cache.put_in_cache(String(info._id), info);
 
     return {
         obj_id: info._id,
+        tier: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
     };
@@ -268,6 +270,7 @@ async function create_multipart(req) {
     await MDStore.instance().insert_multipart(multipart);
     return {
         multipart_id: multipart._id,
+        tier: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
     };
@@ -382,9 +385,13 @@ async function read_object_mappings(req) {
     // when called from admin console, we do not update the stats
     // so that viewing the mapping in the ui will not increase read count
     if (!adminfo) {
+        const date_now = new Date();
         MDStore.instance().update_object_by_id(
-            obj._id, { 'stats.last_read': new Date() },
+            obj._id, { 'stats.last_read': date_now },
             undefined, { 'stats.reads': 1 }
+        );
+        MDStore.instance().update_chunks_by_ids(
+            _.map(parts, part => part.chunk_id), { tier_lru: date_now }
         );
     }
 

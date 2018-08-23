@@ -39,9 +39,9 @@ const object_io = new ObjectIO();
 class MapBuilder {
 
 
-    async run(chunk_ids, tier) {
-        this.tier = tier;
-        dbg.log0('MapBuilder.run:', 'batch start', chunk_ids, 'tier', tier && tier.name);
+    async run(chunk_ids, move_to_tier) {
+        this.move_to_tier = move_to_tier;
+        dbg.log0('MapBuilder.run:', 'batch start', chunk_ids, 'move_to_tier', move_to_tier && move_to_tier.name);
         if (!chunk_ids.length) return;
 
         await builder_lock.surround_keys(_.map(chunk_ids, String), async () => {
@@ -82,10 +82,18 @@ class MapBuilder {
             MDStore.instance().load_blocks_for_chunks(this.chunks)
         ]);
         await this.prepare_and_fix_chunks(parts_objects_res);
-
-        await this.refresh_alloc();
-        await this.build_chunks();
-        await this.update_db();
+        const map_client = new map_client.MapClient({
+            chunks: this.chunks,
+            rpc_client: server_rpc.rpc.new_client({
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_store.data.systems[0]._id,
+                    role: 'admin',
+                })
+            }),
+        });
+        // await this.refresh_alloc();
+        // await this.build_chunks();
+        // await this.update_db();
     }
 
     // In order to get the most relevant data regarding the chunks
@@ -190,7 +198,7 @@ class MapBuilder {
         const buckets = _.uniqBy(_.map(populated_chunks, chunk => chunk.bucket), '_id');
         await P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
 
-        if (this.tier) {
+        if (this.move_to_tier) {
             // This path is when called from make_room_in_tier 
             // with a specific target tier to move all the chunks to.
             // So we only need to make room in that target tier.
@@ -198,7 +206,7 @@ class MapBuilder {
                 throw new Error(`Not all chunks belong to the same bucket`);
             } else if (buckets.length === 1) {
                 const bucket = buckets[0];
-                await map_writer.ensure_room_in_tier(this.tier, bucket); /* TODO JACKY free_threshold ??? */
+                await map_writer.ensure_room_in_tier(this.move_to_tier, bucket); /* TODO JACKY free_threshold ??? */
             }
         } else {
             // This path is for random chunks found by the scrubber or other workers,
@@ -210,10 +218,10 @@ class MapBuilder {
     }
 
     build_chunks() {
-        return P.map(this.chunks, chunk =>
-            P.resolve()
-            .then(() => this.build_chunk(chunk))
-            .catch(err => {
+        return P.map(this.chunks, async chunk => {
+            try {
+                await this.build_chunk(chunk);
+            } catch (err) {
                 // we make sure to catch and continue here since we process a batch
                 // of chunks concurrently, and if any one of these chunks fails
                 // we still need to call update_db() for all the blocks that succeeded
@@ -221,8 +229,8 @@ class MapBuilder {
                 dbg.error('MapBuilder.build_chunks: FAILED', chunk, err.stack || err);
                 chunk.had_errors = true;
                 this.had_errors = true;
-            })
-        );
+            }
+        });
     }
 
     async build_chunk(chunk) {
@@ -231,7 +239,7 @@ class MapBuilder {
         if (chunk.had_errors || chunk.bucket.deleted) return;
 
         const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
-        const selected_tier = this.tier || chunk.tier;
+        const selected_tier = this.move_to_tier || chunk.tier;
         const mapping = mapper.map_chunk(chunk, selected_tier, chunk.bucket.tiering, tiering_status);
         dbg.log2('MapBuilder.build_chunks: mapping', chunk._id, util.inspect(mapping, { depth: null, colors: true }));
 
@@ -435,7 +443,7 @@ class MapBuilder {
                 .catch(err => dbg.error('Failed to delete object', obj, 'with error', err))
             ),
             map_deleter.delete_chunks(_.map(chunks_to_be_deleted, '_id')),
-            this.tier && MDStore.instance().update_chunks_by_ids(success_chunk_ids, { tier: this.tier._id }),
+            this.move_to_tier && MDStore.instance().update_chunks_by_ids(success_chunk_ids, { tier: this.move_to_tier._id }),
         );
     }
 
@@ -450,7 +458,7 @@ function custom_inspect_chunk() {
     return {
         ..._.omit(this, 'rpc_client', util.inspect.custom),
         bucket: this.bucket._id,
-        tier: this.tier._id,
+        tier: this.move_to_tier._id,
     };
 }
 

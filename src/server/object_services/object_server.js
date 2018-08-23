@@ -20,6 +20,7 @@ const time_utils = require('../../util/time_utils');
 const { RpcError } = require('../../rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const http_utils = require('../../util/http_utils');
+const map_common = require('./map_common');
 const map_writer = require('./map_writer');
 const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
@@ -288,14 +289,12 @@ async function abort_object_upload(req) {
 
 /**
  *
- * ALLOCATE_OBJECT_PARTS
+ * GET_MAPPING_INSTRUCTIONS
  *
  */
-async function allocate_object_parts(req) {
+async function get_mapping_instructions(req) {
     throw_if_maintenance(req);
-    const obj = await find_cached_object_upload(req);
-    const location_info = req.rpc_params.location_info;
-    return map_writer.allocate_object_parts(req.bucket, obj, req.rpc_params.parts, location_info);
+    return map_common.get_mapping_instructions(req.rpc_params.chunks, req.rpc_params.location_info);
 }
 
 
@@ -1488,7 +1487,7 @@ exports.create_multipart = create_multipart;
 exports.complete_multipart = complete_multipart;
 exports.list_multiparts = list_multiparts;
 // allocation of parts chunks and blocks
-exports.allocate_object_parts = allocate_object_parts;
+exports.get_mapping_instructions = get_mapping_instructions;
 exports.finalize_object_parts = finalize_object_parts;
 // read
 exports.read_object_mappings = read_object_mappings;

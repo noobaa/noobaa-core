@@ -137,10 +137,11 @@ class ObjectIO {
             params.chunk_split_config = create_reply.chunk_split_config;
             params.chunk_coder_config = create_reply.chunk_coder_config;
             complete_params.obj_id = create_reply.obj_id;
-            await(params.copy_source ?
-                this._upload_copy(params, complete_params) :
-                this._upload_stream(params, complete_params)
-            );
+            if (params.copy_source) {
+                await this._upload_copy(params, complete_params);
+            } else {
+                await this._upload_stream(params, complete_params);
+            }
             dbg.log0('upload_object: complete upload', complete_params);
             const complete_result = await params.client.object.complete_object_upload(complete_params);
             if (params.copy_source) {
@@ -185,10 +186,11 @@ class ObjectIO {
             params.chunk_split_config = multipart_reply.chunk_split_config;
             params.chunk_coder_config = multipart_reply.chunk_coder_config;
             complete_params.multipart_id = multipart_reply.multipart_id;
-            await(params.copy_source ?
-                this._upload_copy(params, complete_params) :
-                this._upload_stream(params, complete_params)
-            );
+            if (params.copy_source) {
+                await this._upload_copy(params, complete_params);
+            } else {
+                await this._upload_stream(params, complete_params);
+            }
             dbg.log0('upload_multipart: complete upload', complete_params);
             return params.client.object.complete_multipart(complete_params);
         } catch (err) {
@@ -350,9 +352,16 @@ class ObjectIO {
     async _upload_chunks(params, complete_params, chunks, callback) {
         try {
             const parts = this._create_parts(params, complete_params, chunks);
-            await this._allocate_parts(params, parts);
-            await this._write_parts(params, parts);
-            await this._finalize_parts(params, parts);
+            const map_client = new MapClient({
+                chunks,
+                parts,
+                rpc_client: params.client,
+                location_info: params.location_info,
+            });
+            await map_client.run();
+            // await this._allocate_parts(params, parts);
+            // await this._write_parts(params, parts);
+            // await this._finalize_parts(params, parts);
             return callback();
         } catch (err) {
             return callback(err);

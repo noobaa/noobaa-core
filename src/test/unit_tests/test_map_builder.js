@@ -215,7 +215,7 @@ coretest.describe_mapper_test_case({
                 }]
             ));
             chunk.chunk_coder_config = chunk_coder_config;
-            const mapping = mapper.map_chunk(chunk, tiering, tiering_status);
+            const mapping = mapper.map_chunk(chunk, chunk.tier, tiering, tiering_status);
             console.log('Chunk mapping', mapping);
             assert.strictEqual(mapping.allocations, undefined);
             assert.strictEqual(mapping.deletions, undefined);

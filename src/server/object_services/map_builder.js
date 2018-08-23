@@ -20,6 +20,7 @@ const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
+const size_utils = require('../../util/size_utils');
 
 const builder_lock = new KeysLock();
 const object_io = new ObjectIO();
@@ -38,7 +39,8 @@ const object_io = new ObjectIO();
 class MapBuilder {
 
 
-    async run(chunk_ids) {
+    async run(chunk_ids, tier) {
+        this.tier = tier;
         dbg.log1('MapBuilder.run:', 'batch start', chunk_ids);
         if (!chunk_ids.length) return;
 
@@ -178,11 +180,26 @@ class MapBuilder {
         chunk.bucket = bucket;
     }
 
-    refresh_alloc() {
+    async refresh_alloc() {
         const populated_chunks = _.filter(this.chunks, chunk => !chunk.had_errors && !chunk.bucket.deleted);
         // uniq works here since the bucket objects are the same from the system store
         const buckets = _.uniqBy(_.map(populated_chunks, chunk => chunk.bucket), '_id');
-        return P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
+        await P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
+
+        let chunks_moving_tiers = 0;
+        if (this.tier) {
+            if (buckets.length > 1) {
+                throw new Error(`Not all chunks belong to the same bucket`);
+            }
+            const bucket = buckets[0];
+            chunks_moving_tiers = await make_room_in_tier(this.tier, bucket);
+        } else {
+            for (const chunk of populated_chunks) {
+                chunks_moving_tiers += await make_room_in_tier(chunk.tier, chunk.bucket);
+            }
+        }
+        // We always call refresh_tiering_alloc twice, but if make_room_in_tier doesn't do anything we can skip it
+        return await chunks_moving_tiers && P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
     }
 
     build_chunks() {
@@ -207,7 +224,7 @@ class MapBuilder {
         if (chunk.had_errors || chunk.bucket.deleted) return;
 
         const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
-        const mapping = mapper.map_chunk(chunk, chunk.bucket.tiering, tiering_status);
+        const mapping = mapper.map_chunk(chunk, this.tier || chunk.tier, chunk.bucket.tiering, tiering_status);
         dbg.log2('MapBuilder.build_chunks: mapping', chunk._id, util.inspect(mapping, { depth: null, colors: true }));
 
         // only delete blocks if the chunk is in good shape,
@@ -406,9 +423,35 @@ class MapBuilder {
                 .then(() => map_deleter.delete_object_mappings(obj))
                 .catch(err => dbg.error('Failed to delete object', obj, 'with error', err))
             ),
-            map_deleter.delete_chunks(_.map(chunks_to_be_deleted, '_id'))
+            map_deleter.delete_chunks(_.map(chunks_to_be_deleted, '_id')),
+            this.tier && MDStore.instance().update_chunks_by_ids(success_chunk_ids, { tier: this.tier._id }),
         );
     }
+}
+
+async function make_room_in_tier(tier, bucket) {
+    const tiering = bucket.tiering;
+    const tiering_status = node_allocator.get_tiering_status(tiering);
+    const tier_status = tiering_status[tier._id];
+    if (!tier || !tier_status) throw new Error(`Can't find current tier in bucket`);
+    const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
+        'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
+    ));
+    // TODO JACKY make sure available_to_upload holds right result
+    if (available_to_upload && available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD)) return 0;
+    const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT);
+    const next_tier = _.find(tiering.tiers, t => t.order === (tier.order + 1));
+    if (!next_tier) {
+        console.log(`Can't make room in tier - No next tier to move data to`, tier.name);
+        return 0;
+    }
+    await server_rpc.client.scrubber.build_chunks({ chunk_ids, tier: next_tier._id }, {
+        auth_token: auth_server.make_auth_token({
+            system_id: bucket.system._id,
+            role: 'admin'
+        })
+    });
+    return chunk_ids.length;
 }
 
 /**
@@ -421,3 +464,4 @@ function custom_inspect_chunk() {
 }
 
 exports.MapBuilder = MapBuilder;
+exports.make_room_in_tier = make_room_in_tier;

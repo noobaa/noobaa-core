@@ -43,6 +43,9 @@ module.exports = {
 
         // every chunk belongs exclusively to a bucket for data placement and storage accounting
         bucket: { objectid: true },
+        // tiering
+        tier: { objectid: true },
+        tier_lru: { date: true },
 
         // chunk_config defines how to decode the chunk data, and @@@ MUST NOT CHANGE @@@
         chunk_config: { objectid: true },

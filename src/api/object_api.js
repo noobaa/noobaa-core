@@ -141,6 +141,7 @@ module.exports = {
                 required: ['obj_id', 'chunk_split_config', 'chunk_coder_config'],
                 properties: {
                     obj_id: { objectid: true },
+                    tier: { objectid: true },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 }
@@ -274,6 +275,7 @@ module.exports = {
                 required: ['multipart_id', 'chunk_split_config', 'chunk_coder_config'],
                 properties: {
                     multipart_id: { objectid: true },
+                    tier: { objectid: true },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 }
@@ -1360,6 +1362,7 @@ module.exports = {
                 'frags'
             ],
             properties: {
+                tier: { objectid: true },
                 chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 size: { type: 'integer' },
                 frag_size: { type: 'integer' },

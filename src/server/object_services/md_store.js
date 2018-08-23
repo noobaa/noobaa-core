@@ -1106,6 +1106,7 @@ class MDStore {
     }
 
     update_chunks_by_ids(chunk_ids, set_updates, unset_updates) {
+        console.log('update_chunks_by_ids:', chunk_ids, compact_updates(set_updates, unset_updates));
         if (!chunk_ids || !chunk_ids.length) return;
         return this._chunks.col().updateMany({
             _id: {
@@ -1196,6 +1197,21 @@ class MDStore {
                 marker: chunks.length ? chunks[chunks.length - 1]._id : null,
             }));
     }
+
+    find_oldest_tier_chunk_ids(tier, limit) {
+        return this._chunks.col().find({
+                tier,
+                deleted: null,
+            }, {
+                fields: { _id: 1 },
+                hint: 'tiering_index',
+                sort: { tier: -1, tier_lru: 1 },
+                limit,
+            })
+            .toArray()
+            .then(chunks => mongo_utils.uniq_ids(chunks, '_id'));
+    }
+
 
     aggregate_chunks_by_create_dates(from_time, till_time) {
         return this._aggregate_chunks_internal({

@@ -341,7 +341,7 @@ class TierMapper {
             available_to_upload.greater(config.MAX_TIER_FREE_THRESHOLD);
     }
 
-    map_tier(chunk_mapper, best_mapper, best_mapping) {
+    map_tier(chunk_mapper) {
         const { mirror_mappers, write_mapper } = this;
         const { is_write, accessible } = chunk_mapper;
 
@@ -417,52 +417,30 @@ class TierMapper {
      * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
      *
      * @param {TierMapper} mapper1 The first tier to compare
-     * @param {Object} mapping1 The result of mapper1.map_tier(...)
      * @param {TierMapper} mapper2 The second tier to compare
-     * @param {Object} mapping2 The result of mapper2.map_tier(...)
      *
      * @returns >0 if (mapper1,mapping1) is best, <0 if (mapper2,mapping2) is best.
      *
      */
-    static compare_tier(mapper1, mapping1, mapper2, mapping2) {
+    static compare_tier(mapper1, mapper2) {
 
-        const { valid_for_allocation: has_space1, spillover: spillover1, order: order1 } = mapper1;
-        const { valid_for_allocation: has_space2, spillover: spillover2, order: order2 } = mapper2;
-        const allocs1 = mapping1 && mapping1.allocations ? mapping1.allocations.length : 0;
-        const allocs2 = mapping2 && mapping2.allocations ? mapping2.allocations.length : 0;
-        const can_use1 = !allocs1 || has_space1;
-        const can_use2 = !allocs2 || has_space2;
+        const { valid_for_allocation: has_space1, order: order1 } = mapper1;
+        const { valid_for_allocation: has_space2, order: order2 } = mapper2;
 
         // 1st consideration - Space / Spillover
         // =====================================
         // Choose tier which can be used over a tier that can't.
         // This handles spillover, but also non spillover space tiering.
 
-        if (can_use1 && !can_use2) return 1;
-        if (can_use2 && !can_use1) return -1;
-
-        // 2nd consideration - Spillback
-        // =============================
-        // Choose a non-spillover tier over spillover tier,
-        // even if it requires allocations effort.
-
-        if (can_use1 && !spillover1 && spillover2) return 1;
-        if (can_use2 && !spillover2 && spillover1) return -1;
-
-        // 3rd consideration - Effort
-        // ==========================
-        // Number of allocations is used to estimate effort.
-        // TODO improve effort estimation - replica vs erasure coding, etc.
-
-        if (can_use1 && allocs1 < allocs2) return 1;
-        if (can_use2 && allocs2 < allocs1) return -1;
+        if (has_space1 && !has_space2) return 1;
+        if (has_space2 && !has_space1) return -1;
 
         // 4th consideration - Policy Order
         // ================================
         // Prefer lower policy order as defined in the tiering policy.
 
-        if (can_use1 && order1 <= order2) return 1;
-        if (can_use2 && order2 <= order1) return -1;
+        if (has_space1 && order1 <= order2) return 1;
+        if (has_space2 && order2 <= order1) return -1;
         return order2 - order1;
     }
 
@@ -500,21 +478,9 @@ class TieringMapper {
      * Works by picking the tier we want best for the chunk to be stored in,
      * @returns {Object} tier_mapping with mapping info for the chunk (allocations, deletions, ...)
      */
-    map_tiering(chunk_mapper) {
-        const { tier_mappers } = this;
-        let best_mapper;
-        let best_mapping;
-
-        for (let i = 0; i < tier_mappers.length; ++i) {
-            const tier_mapper = tier_mappers[i];
-            const tier_mapping = tier_mapper.map_tier(chunk_mapper, best_mapper, best_mapping);
-            if (!best_mapper || TierMapper.compare_tier(tier_mapper, tier_mapping, best_mapper, best_mapping) > 0) {
-                best_mapper = tier_mapper;
-                best_mapping = tier_mapping;
-            }
-        }
-
-        return best_mapping;
+    map_tiering(chunk_mapper, tier) {
+        const tier_mapper = _.find(this.tier_mappers, mapper => _.isEqual(mapper.tier._id, tier._id));
+        return tier_mapper.map_tier(chunk_mapper);
     }
 
     select_tier_for_write() {
@@ -523,13 +489,17 @@ class TieringMapper {
 
         for (let i = 0; i < tier_mappers.length; ++i) {
             const tier_mapper = tier_mappers[i];
-            if (!best_mapper || TierMapper.compare_tier(tier_mapper, null, best_mapper, null) > 0) {
+            if (!best_mapper || TierMapper.compare_tier(tier_mapper, best_mapper) > 0) {
                 best_mapper = tier_mapper;
             }
         }
-
         return best_mapper;
     }
+
+    // get_tier_mapper(tier, chunk_mapper) {
+    //     const tier_mapper = _.find(this.tier_mappers, mapper => _.isEqual(mapper.tier._id, tier));
+    //     return tier_mapper.map_tier(chunk_mapper);
+    // }
 }
 
 const tiering_mapper_cache = {
@@ -563,14 +533,14 @@ function _get_cached_tiering_mapper(tiering) {
  * @param {Object} tiering_status See node_allocator.get_tiering_status()
  * @returns {Object} mapping
  */
-function map_chunk(chunk, tiering, tiering_status, location_info) {
+function map_chunk(chunk, tier, tiering, tiering_status, location_info) {
 
     // const tiering_mapper = new TieringMapper(tiering);
     const tiering_mapper = _get_cached_tiering_mapper(tiering);
     tiering_mapper.update_status(tiering_status, location_info);
 
     const chunk_mapper = new ChunkMapper(chunk);
-    const mapping = tiering_mapper.map_tiering(chunk_mapper);
+    const mapping = tiering_mapper.map_tiering(chunk_mapper, tier);
 
     if (dbg.should_log(2)) {
         if (dbg.should_log(3)) {
@@ -590,9 +560,8 @@ function select_tier_for_write(tiering, tiering_status) {
     return tier_mapper.tier;
 }
 
-
 function is_chunk_good_for_dedup(chunk, tiering, tiering_status) {
-    const mapping = map_chunk(chunk, tiering, tiering_status);
+    const mapping = map_chunk(chunk, chunk.tier, tiering, tiering_status);
     return mapping.accessible && !mapping.allocations;
 }
 
@@ -635,7 +604,7 @@ function get_part_info(part, adminfo, tiering_status, location_info) {
 function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
     if (adminfo) {
         const bucket = system_store.data.get_by_id(chunk.bucket);
-        const mapping = map_chunk(chunk, bucket.tiering, tiering_status);
+        const mapping = map_chunk(chunk, chunk.tier, bucket.tiering, tiering_status);
         if (!mapping.accessible) {
             adminfo = { health: 'unavailable' };
         } else if (mapping.allocations) {
@@ -646,6 +615,7 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
     }
     const blocks_by_frag_id = _.groupBy(chunk.blocks, 'frag');
     return {
+        tier: chunk.tier._id,
         chunk_coder_config: chunk.chunk_coder_config,
         size: chunk.size,
         frag_size: chunk.frag_size,
@@ -820,8 +790,8 @@ function find_local_pool(pools, location_info) {
 }
 
 // EXPORTS
-exports.ChunkMapper = ChunkMapper;
-exports.TieringMapper = TieringMapper;
+// exports.ChunkMapper = ChunkMapper;
+// exports.TieringMapper = TieringMapper;
 exports.map_chunk = map_chunk;
 exports.select_tier_for_write = select_tier_for_write;
 exports.is_chunk_good_for_dedup = is_chunk_good_for_dedup;

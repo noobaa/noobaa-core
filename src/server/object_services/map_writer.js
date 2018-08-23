@@ -17,7 +17,9 @@ const mongo_utils = require('../../util/mongo_utils');
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const map_deleter = require('./map_deleter');
+const map_builder = require('./map_builder');
 const { RpcError } = require('../../rpc');
+
 
 // dbg.set_level(5);
 
@@ -36,35 +38,36 @@ class MapAllocator {
         this.location_info = location_info;
     }
 
-    run_select_tier() {
-        return P.resolve()
-            .then(() => this.prepare_tiering_for_alloc())
-            .then(() => mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status));
+    async run_select_tier() {
+        dbg.log0('JAJA MapAllocator.run_select_tier()');
+        await this.prepare_tiering_for_alloc();
+        const tier = await mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
+        await map_builder.make_room_in_tier(tier, this.bucket);
+        return tier;
     }
 
-    run_allocate_parts() {
+    async run_allocate_parts() {
         const millistamp = time_utils.millistamp();
         dbg.log1('MapAllocator: start');
-        return P.resolve()
-            .then(() => this.prepare_tiering_for_alloc())
-            .then(() => this.check_parts())
-            .then(() => this.find_dups())
-            .then(() => this.allocate_blocks())
-            .then(() => {
-                dbg.log0('MapAllocator: DONE. parts', this.parts.length,
-                    'took', time_utils.millitook(millistamp));
-                return {
-                    parts: this.parts
-                };
-            })
-            .catch(err => {
-                dbg.error('MapAllocator: ERROR', err.stack || err);
-                throw err;
-            });
+        try {
+            await this.prepare_tiering_for_alloc();
+            await this.check_parts();
+            await this.find_dups();
+            await this.allocate_blocks();
+            dbg.log0('MapAllocator: DONE. parts', this.parts.length,
+                'took', time_utils.millitook(millistamp));
+            return {
+                parts: this.parts
+            };
+        } catch (err) {
+            dbg.error('MapAllocator: ERROR', err.stack || err);
+            throw err;
+        }
     }
 
     prepare_tiering_for_alloc() {
         const tiering = this.bucket.tiering;
+        // const tier = tiering.tiers[0].tier;
         return P.resolve()
             .then(() => node_allocator.refresh_tiering_alloc(tiering))
             .then(() => {
@@ -123,7 +126,10 @@ class MapAllocator {
             const avoid_nodes = [];
             const allocated_hosts = [];
 
-            const mapping = mapper.map_chunk(chunk, this.bucket.tiering, this.tiering_status, this.location_info);
+            const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
+            chunk.tier = tier._id;
+
+            const mapping = mapper.map_chunk(chunk, tier, this.bucket.tiering, this.tiering_status, this.location_info);
 
             _.forEach(mapping.allocations, ({ frag, pools }) => {
                 const node = node_allocator.allocate_node(pools, avoid_nodes, allocated_hosts);
@@ -149,7 +155,6 @@ class MapAllocator {
             });
         }
     }
-
 }
 
 function select_tier_for_write(bucket, obj) {
@@ -194,6 +199,8 @@ function finalize_object_parts(bucket, obj, parts) {
                 _id: chunk_id,
                 system: obj.system,
                 bucket: bucket._id,
+                tier: mongo_utils.make_object_id(chunk.tier),
+                tier_lru: new Date(),
                 chunk_config,
                 size: chunk.size,
                 compress_size: chunk.compress_size,

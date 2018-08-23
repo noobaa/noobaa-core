@@ -73,8 +73,9 @@ function build_chunks(req) {
     return P.resolve()
         .then(() => {
             const chunk_ids = _.map(req.rpc_params.chunk_ids, id => MDStore.instance().make_md_id(id));
+            const tier = req.rpc_params.tier && system_store.data.get_by_id(req.rpc_params.tier);
             const builder = new map_builder.MapBuilder();
-            return builder.run(chunk_ids);
+            return builder.run(chunk_ids, tier);
         })
         .return();
 }

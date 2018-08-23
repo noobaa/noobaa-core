@@ -34,7 +34,12 @@ function get_bucket_quota_usage_percent(bucket, bucket_quota) {
 }
 
 function prepare_chunk_for_mapping(chunk) {
-    chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
+    if (chunk.tier && !chunk.tier.chunk_config) {
+        chunk.tier = system_store.data.get_by_id(chunk.tier);
+    }
+    if (!chunk.chunk_coder_config) {
+        chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
+    }
 }
 
 exports.system_in_maintenance = system_in_maintenance;

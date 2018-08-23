@@ -289,16 +289,18 @@ class MirrorMapper {
 
     // Pick random pool which sets the allocation type between redundant/regular pools
     _pick_pools() {
+        // handle the corner cases of redundant pools not valid and regular are valid (or vice versa).
+        // in that case, return regular pools (or redundant pools in the opposite case).
+        if (this.regular_pools_valid && !this.redundant_pools_valid) return this.regular_pools;
+        if (!this.regular_pools_valid && this.redundant_pools_valid) return this.redundant_pools;
+
+        // otherwise, pick a random pool to select which type to use.
         const { spread_pools } = this;
         const picked_pool = spread_pools[Math.max(_.random(spread_pools.length - 1), 0)];
         if (picked_pool && _pool_has_redundancy(picked_pool)) {
-            return (this.redundant_pools_valid || !this.regular_pools_valid) ?
-                this.redundant_pools :
-                this.regular_pools;
+            return this.redundant_pools;
         } else {
-            return (this.regular_pools_valid && !this.redundant_pools_valid) ?
-                this.regular_pools :
-                this.redundant_pools;
+            return this.regular_pools;
         }
     }
 }
@@ -410,39 +412,23 @@ class TierMapper {
     }
 
     /**
-     * Compare tier based on space, effort, and policy.
-     *
-     * Regular vs Spillover Decision Table:
-     * -----------------------------------
-     * The following table describes how we mix the considerations of space and effort to compare regular vs spillover tiers.
-     * The row/column titles are matching the test_mapper.js cases.
-     *
-     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
-     * |                               | all_tiers_have_chunk | all_tiers_dont_have_chunk | only_regular_tier_has_chunk | only_spillover_tier_has_chunk |
-     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
-     * | all_tiers_have_space          |       Regular        |          Regular          |           Regular           |            Regular            |
-     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
-     * | all_tiers_dont_have_space     |       Regular        |          Regular          |           Regular           |           Spillover           |
-     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
-     * | only_spillover_tier_has_space |       Regular        |         Spillover         |           Regular           |           Spillover           |
-     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
-     * | only_regular_tier_has_space   |       Regular        |          Regular          |           Regular           |            Regular            |
-     * +-------------------------------+----------------------+---------------------------+-----------------------------+-------------------------------+
-     *
+     * Compare tier based on the availability of online resources on that tier, not space.
+     * This will choose a lower order tier even if there is no space but in that case 
+     * space can be pushed out to next tier.
+     * 
      * @param {TierMapper} mapper1 The first tier to compare
      * @param {TierMapper} mapper2 The second tier to compare
-     *
      * @returns >0 if (mapper1,mapping1) is best, <0 if (mapper2,mapping2) is best.
-     *
      */
     static compare_tier(mapper1, mapper2) {
-
         const { online: online1, order: order1 } = mapper1;
         const { online: online2, order: order2 } = mapper2;
 
-        if (online1 && order1 <= order2) return 1;
-        if (online2 && order2 <= order1) return -1;
-        return order2 - order1;
+        if (order1 <= order2) {
+            return online1 ? -1 : 1;
+        } else {
+            return online2 ? 1 : -1;
+        }
     }
 }
 
@@ -483,18 +469,18 @@ class TieringMapper {
         return tier_mapper.map_tier(chunk_mapper);
     }
 
-    select_tier_for_write(tier_id) {
+    select_tier_for_write(prev_tier_id) {
         const { tier_mappers } = this;
         let best_mapper;
         let start_index = 0;
-        if (tier_id) {
-            const index = _.findIndex(tier_mappers, t => String(t.tier._id) === String(tier_id));
-            if (index < 0) return;
+        if (prev_tier_id) {
+            const index = _.findIndex(tier_mappers, t => String(t.tier._id) === String(prev_tier_id));
+            if (index < 0) throw new Error('Could not find tier ' + prev_tier_id + ' in bucket');
             start_index = index + 1;
         }
         for (let i = start_index; i < tier_mappers.length; ++i) {
             const tier_mapper = tier_mappers[i];
-            if (!best_mapper || TierMapper.compare_tier(tier_mapper, best_mapper) > 0) {
+            if (!best_mapper || TierMapper.compare_tier(best_mapper, tier_mapper) > 0) {
                 best_mapper = tier_mapper;
             }
         }
@@ -558,10 +544,10 @@ function map_chunk(chunk, tier, tiering, tiering_status, location_info) {
     return mapping;
 }
 
-function select_tier_for_write(tiering, tiering_status, tier) {
+function select_tier_for_write(tiering, tiering_status, prev_tier_id) {
     const tiering_mapper = _get_cached_tiering_mapper(tiering);
     tiering_mapper.update_status(tiering_status);
-    const tier_mapper = tiering_mapper.select_tier_for_write(tier);
+    const tier_mapper = tiering_mapper.select_tier_for_write(prev_tier_id);
     return tier_mapper && tier_mapper.tier;
 }
 
@@ -713,7 +699,8 @@ function get_block_info(chunk, frag, block, adminfo) {
 
 function get_alloc_info(alloc) {
     return {
-        mirror_group: alloc.mirror_group
+        mirror_group: alloc.mirror_group,
+        block: alloc.block,
     };
 }
 

@@ -418,44 +418,27 @@ module.exports = {
             }
         },
 
-        allocate_object_parts: {
+        get_mapping_instructions: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: [
-                    'obj_id',
-                    'bucket',
-                    'key',
-                    'parts'
-                ],
+                required: ['chunks'],
                 properties: {
-                    obj_id: {
-                        objectid: true
-                    },
-                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    key: {
-                        type: 'string',
-                    },
-                    parts: {
+                    chunks: {
                         type: 'array',
-                        items: {
-                            $ref: '#/definitions/part_info'
-                        }
+                        items: { $ref: '#/definitions/chunks_info' }
                     },
-                    location_info: {
-                        $ref: 'common_api#/definitions/location_info'
-                    },
+                    location_info: { $ref: 'common_api#/definitions/location_info' },
+                    move_to_tier: { type: 'string' },
                 },
             },
             reply: {
                 type: 'object',
-                required: ['parts'],
+                required: ['chunks'],
                 properties: {
-                    parts: {
+                    chunks: {
                         type: 'array',
-                        items: {
-                            $ref: '#/definitions/part_info'
-                        }
+                        items: { $ref: '#/definitions/chunk_info' }
                     }
                 }
             },
@@ -1471,7 +1454,8 @@ module.exports = {
         alloc_info: {
             type: 'object',
             properties: {
-                mirror_group: { type: 'string' }
+                mirror_group: { type: 'string' },
+                block: { $ref: '#/definitions/block_info' },
             }
         },
 

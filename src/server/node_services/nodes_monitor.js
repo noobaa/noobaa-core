@@ -300,6 +300,7 @@ class NodesMonitor extends EventEmitter {
                 .timeout(AGENT_RESPONSE_TIMEOUT);
             if (info.storage) {
                 item.node.storage = info.storage;
+                dbg.log0('JAJA storage_info from', item.node.name, 'info:', info);
                 this._set_need_update.add(item);
                 this._update_status(item);
             }
@@ -3735,6 +3736,8 @@ class NodesMonitor extends EventEmitter {
                     block_report);
                 continue;
             }
+            // when the error is NO SPACE we don't want to push the issue 
+            // because we don't need to put the node in detention
             if (block_report.rpc_code === 'NO_BLOCK_STORE_SPACE') continue; // TODO SYNC STORAGE SPACE WITH THE NODE...
             // mark the issue on the node
             item.node.issues_report = item.node.issues_report || [];

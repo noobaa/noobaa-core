@@ -9,12 +9,11 @@ const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const size_utils = require('../../util/size_utils');
 const SystemStore = require('../system_services/system_store');
-const promise_utils = require('../../util/promise_utils');
 
 // TODO: This method is based on a single system
-function background_worker() {
+async function background_worker() {
     const target_now = Date.now() - config.MD_GRACE_IN_MILLISECONDS;
-
+    dbg.log0('MD aggregator start running');
     return run_md_aggregator(
         MDStore.instance(),
         SystemStore.get_instance(),
@@ -23,7 +22,7 @@ function background_worker() {
     );
 }
 
-function run_md_aggregator(md_store, system_store, target_now, delay) {
+async function run_md_aggregator(md_store, system_store, target_now, delay) {
 
     if (!system_store.is_finished_initial_load) {
         dbg.log0('System did not finish initial load');
@@ -32,20 +31,22 @@ function run_md_aggregator(md_store, system_store, target_now, delay) {
 
     let has_more = true;
 
-    return promise_utils.pwhile(
-        () => has_more,
-        () => P.resolve()
-        .then(() => find_next_range({ target_now, system_store }))
-        .then(range => range && range_md_aggregator({ md_store, system_store, range }))
-        .then(update => {
-            if (update) {
-                return P.resolve(system_store.make_changes({ update }))
-                    .delay(delay);
-            } else {
-                has_more = false;
-            }
-        })
-    );
+    while (has_more) {
+        const range = await find_next_range({ target_now, system_store });
+        const update = range && await range_md_aggregator({ md_store, system_store, range });
+        dbg.log0('JAJA still in loop', update, range, delay);
+        if (update) {
+            await system_store.make_changes({ update });
+            dbg.log0('JAJA still in loop - after make changes');
+            await P.delay(delay);
+            dbg.log0('JAJA still in loop - after delay');
+        } else {
+            has_more = false;
+        }
+    }
+    dbg.log0('MD aggregator done');
+    return config.MD_AGGREGATOR_INTERVAL;
+
 }
 
 function find_minimal_range({
@@ -101,20 +102,20 @@ function find_next_range({
         system_store,
     });
     // printing the range and the buckets/pools relative info
-    dbg.log1('find_next_range:',
+    dbg.log0('find_next_range:',
         'from_time', from_time,
         'till_time*', till_time - from_time,
         'target_now*', target_now - from_time
     );
     _.forEach(system_store.data.buckets, bucket => {
         const last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
-        dbg.log1('find_next_range: bucket', bucket.name,
+        dbg.log0('find_next_range: bucket', bucket.name,
             'last_update*', last_update - from_time
         );
     });
     _.forEach(system_store.data.pools, pool => {
         const last_update = _.get(pool, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
-        dbg.log1('find_next_range: pool', pool.name,
+        dbg.log0('find_next_range: pool', pool.name,
             'last_update*', last_update - from_time
         );
     });

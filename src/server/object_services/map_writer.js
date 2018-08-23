@@ -23,6 +23,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const map_deleter = require('./map_deleter');
+const PeriodicReporter = require('../../util/periodic_reporter');
 const { RpcError } = require('../../rpc');
 
 // dbg.set_level(5);
@@ -34,6 +35,8 @@ const ensure_room_barrier = new Barrier({
     expiry_ms: 100,
     process: ensure_room_barrier_process,
 });
+const map_writer_reporter = new PeriodicReporter('map_writer_reporter');
+map_writer_reporter.set_interval();
 
 /**
  *
@@ -44,9 +47,10 @@ class MapAllocator {
 
     constructor(bucket, obj, parts, location_info) {
         this.bucket = bucket;
-        this.obj = obj;
+        // this.obj = obj;
         this.parts = parts;
         this.location_info = location_info;
+        this.total_part_size = 0;
     }
 
     async run_select_tier() {
@@ -83,10 +87,12 @@ class MapAllocator {
     check_parts() {
         for (let i = 0; i < this.parts.length; ++i) {
             const part = this.parts[i];
+            const part_size = part.end - part.start;
+            this.total_part_size += part_size;
 
             // checking that parts size does not exceed the max
             // which allows the read path to limit range scanning - see map_reader.js
-            if (part.end - part.start > config.MAX_OBJECT_PART_SIZE) {
+            if (part_size > config.MAX_OBJECT_PART_SIZE) {
                 throw new Error('MapAllocator: PART TOO BIG ' + range_utils.human_range(part));
             }
         }
@@ -123,10 +129,13 @@ class MapAllocator {
     async do_allocations() {
         let done = false;
         while (!done) {
+            const start_alloc_time = Date.now();
             if (enough_room_in_tier(this.tier_for_write, this.bucket)) {
                 done = this.allocate_blocks();
+                map_writer_reporter.add_event(`allocate_blocks(${this.tier_for_write.name})`, this.total_part_size, Date.now() - start_alloc_time);
             } else {
                 done = await this.preallocate_blocks();
+                map_writer_reporter.add_event(`preallocate_blocks(${this.tier_for_write.name})`, this.total_part_size, Date.now() - start_alloc_time);
             }
             if (!done) {
                 await ensure_room_in_tier(this.tier_for_write, this.bucket);
@@ -288,7 +297,9 @@ async function make_room_in_tier(tier_id, bucket_id) {
             dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
             return;
         }
+
         const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
+        const start_alloc_time = Date.now();
         await server_rpc.client.scrubber.build_chunks({
             chunk_ids,
             tier: next_tier._id,
@@ -298,6 +309,7 @@ async function make_room_in_tier(tier_id, bucket_id) {
                 role: 'admin'
             })
         });
+        map_writer_reporter.add_event(`scrubber.build_chunks(${tier.name})`, chunk_ids.length, Date.now() - start_alloc_time);
         dbg.log0(`make_room_in_tier: moved ${chunk_ids.length} to next tier`);
 
         // TODO avoid multiple calls, maybe plan how much to move before and refresh after moving enough
@@ -325,7 +337,9 @@ async function ensure_room_barrier_process(tiers_and_buckets) {
 async function ensure_room_in_tier(tier, bucket) {
     await node_allocator.refresh_tiering_alloc(bucket.tiering);
     if (enough_room_in_tier(tier, bucket)) return;
+    const start_time = Date.now();
     await ensure_room_barrier.call({ tier, bucket });
+    map_writer_reporter.add_event(`ensure_room_in_tier(${tier.name})`, 0, Date.now() - start_time);
 }
 
 function enough_room_in_tier(tier, bucket) {
@@ -338,11 +352,13 @@ function enough_room_in_tier(tier, bucket) {
         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
     ));
     if (available_to_upload && available_to_upload.greater(config.ENOUGH_ROOM_IN_TIER_THRESHOLD)) {
-        dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
+        dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload.toJSNumber(), '>', config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
+        map_writer_reporter.add_event(`has_enough_room(${tier.name})`, available_to_upload.toJSNumber(), 0);
         return true;
     } else {
         dbg.log0(`make_room_in_tier: not enough room ${tier.name}:`,
-            `${available_to_upload} < ${config.ENOUGH_ROOM_IN_TIER_THRESHOLD} should move chunks to next tier`);
+            `${available_to_upload.toJSNumber()} < ${config.ENOUGH_ROOM_IN_TIER_THRESHOLD} should move chunks to next tier`);
+        map_writer_reporter.add_event(`not_enough_room(${tier.name})`, available_to_upload.toJSNumber(), 0);
         return false;
     }
 }

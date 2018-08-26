@@ -1113,7 +1113,9 @@ function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
 
-    if (req.rpc_params.hostname !== null) {
+    // Patch in order to make sure that we won't push IP as base_address
+    // This is done since the FE doesn't send null (should be done on FE end and not here)
+    if (req.rpc_params.hostname !== null && !net.isIP(req.rpc_params.hostname)) {
         req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
     }
 

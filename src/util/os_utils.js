@@ -1037,6 +1037,7 @@ function _check_ports_on_windows(dest_ips, start_port, end_port) {
             }
         })
         .then(rules => {
+            if (!rules) return true;
             // filter out non TCP rules
             const filtered_rules = rules.filter(rule => (rule.Protocol && (rule.Protocol === 'TCP' || rule.Protocol === 'Any')));
             // sort the rules so that block rules are first:

@@ -104,14 +104,27 @@ async function generate_entropy(loop_cond) {
             const entropy_avail = parseInt(await async_read_file(ENTROPY_AVAIL_PATH, 'utf8'), 10);
             console.log(`generate_entropy: entropy_avail ${entropy_avail}`);
             if (entropy_avail < 512) {
-                const disk = '/dev/sda';
                 const bs = 1024 * 1024;
                 const count = 32;
-                const { stdout: disk_size } = await async_exec(`blockdev --getsize64 ${disk}`);
-                const disk_size_in_blocks = parseInt(disk_size, 10) / bs;
-                const skip = chance.integer({ min: 0, max: disk_size_in_blocks });
-                console.log(`generate_entropy: adding entropy: dd if=${disk} bs=${bs} count=${count} skip=${skip} | md5sum`);
-                await async_exec(`dd if=${disk} bs=${bs} count=${count} skip=${skip} | md5sum`);
+                let disk;
+                let disk_size;
+                for (disk of ['/dev/sda', '/dev/vda', '/dev/xvda']) {
+                    try {
+                        const res = await async_exec(`blockdev --getsize64 ${disk}`);
+                        disk_size = res.stdout;
+                        break;
+                    } catch (err) {
+                        //continue to next candidate
+                    }
+                }
+                if (disk_size) {
+                    const disk_size_in_blocks = parseInt(disk_size, 10) / bs;
+                    const skip = chance.integer({ min: 0, max: disk_size_in_blocks });
+                    console.log(`generate_entropy: adding entropy: dd if=${disk} bs=${bs} count=${count} skip=${skip} | md5sum`);
+                    await async_exec(`dd if=${disk} bs=${bs} count=${count} skip=${skip} | md5sum`);
+                } else {
+                    throw new Error('No disk candidates found');
+                }
             }
         } catch (err) {
             console.log('generate_entropy: error', err);

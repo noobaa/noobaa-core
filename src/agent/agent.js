@@ -371,9 +371,10 @@ class Agent {
                     timeout: MASTER_RESPONSE_TIMEOUT,
                 });
 
+                dbg.log0('heartbeat successful. connected to server. got reply', req.reply);
+
                 const res = req.reply;
                 const conn = req.connection;
-                const is_new_conn = (conn !== this._server_connection);
                 this._server_connection = conn;
                 this.connect_attempts = 0;
 
@@ -390,16 +391,15 @@ class Agent {
                     this.send_message_and_exit('UPGRADE', 0);
                 }
 
-                if (is_new_conn) {
-                    conn.on('close', async () => {
-                        if (this._server_connection === conn) {
-                            this._server_connection = null;
-                        }
-                        if (!this.is_started) return;
-                        await P.delay(1000);
-                        await this._do_heartbeat();
-                    });
-                }
+
+                conn.once('close', async () => {
+                    if (this._server_connection === conn) {
+                        this._server_connection = null;
+                    }
+                    if (!this.is_started) return;
+                    await P.delay(1000);
+                    await this._do_heartbeat();
+                });
 
                 done = true;
 

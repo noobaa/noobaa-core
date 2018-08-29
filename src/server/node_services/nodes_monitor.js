@@ -293,6 +293,8 @@ class NodesMonitor extends EventEmitter {
             delay_ms: 0 // delay_ms was required in 0.3.X
         };
 
+        dbg.log0(`got heartbeat ${node_id ? 'for node_id ' + node_id : 'for a new node'} `);
+
         // since the heartbeat api is dynamic through new versions
         // if we detect that this is a new version we return immediately
         // with the new version so that the agent will update the code first
@@ -307,6 +309,7 @@ class NodesMonitor extends EventEmitter {
 
         //If this server is not the master, redirect the agent to the master
         if (!this._is_master()) {
+            dbg.log0('this is not the master node - redirecting to master');
             return P.resolve(cluster_server.redirect_to_cluster_master())
                 .then(addr => {
                     reply.redirect = url.format({
@@ -315,6 +318,7 @@ class NodesMonitor extends EventEmitter {
                         hostname: addr,
                         port: process.env.SSL_PORT || 8443
                     });
+                    dbg.log0('return redirect respose to address', reply.redirect);
                     return reply;
                 });
         }
@@ -329,6 +333,7 @@ class NodesMonitor extends EventEmitter {
 
         // existing node heartbeat
         if (node_id && (req.role === 'agent' || req.role === 'admin')) {
+            dbg.log0('connecting exiting node with node_id =', node_id);
             this._connect_node(req.connection, node_id);
             return reply;
         }
@@ -338,6 +343,7 @@ class NodesMonitor extends EventEmitter {
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
             let agent_config = (extra.agent_config_id && system_store.data.get_by_id(extra.agent_config_id)) || {};
             this._add_new_node(req.connection, req.system._id, agent_config, req.rpc_params.pool_name);
+            dbg.log0('connecting new node with agent_config =', agent_config);
             return reply;
         }
 

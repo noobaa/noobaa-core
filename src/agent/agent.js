@@ -581,7 +581,9 @@ class Agent {
                         this._enable_service();
                     }
                     // on close the agent should call do_heartbeat again when getting the close event
-                    this._server_connection.close();
+                    if (this._server_connection) {
+                        this._server_connection.close();
+                    }
                 });
         }
 

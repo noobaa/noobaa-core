@@ -374,10 +374,6 @@ class Agent {
                 dbg.log0('heartbeat successful. connected to server. got reply', req.reply);
 
                 const res = req.reply;
-                const conn = req.connection;
-                this._server_connection = conn;
-                this.connect_attempts = 0;
-
                 if (res.redirect) {
                     dbg.log0('got redirect response:', res.redirect);
                     await this._handle_server_change(res.redirect);
@@ -391,15 +387,24 @@ class Agent {
                     this.send_message_and_exit('UPGRADE', 0);
                 }
 
+                const conn = req.connection;
+                this._server_connection = conn;
+                this.connect_attempts = 0;
 
-                conn.once('close', async () => {
+                if (conn._agent_heartbeat_close_listener) {
+                    conn.off('close', conn._agent_heartbeat_close_listener);
+                    conn._agent_heartbeat_close_listener = null;
+                }
+                const listener = async () => {
                     if (this._server_connection === conn) {
                         this._server_connection = null;
                     }
                     if (!this.is_started) return;
                     await P.delay(1000);
                     await this._do_heartbeat();
-                });
+                };
+                conn._agent_heartbeat_close_listener = listener;
+                conn.on('close', listener);
 
                 done = true;
 

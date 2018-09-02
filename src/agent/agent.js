@@ -65,8 +65,10 @@ class Agent {
         this.cpu_usage.time_stamp = time_utils.microstamp();
 
         this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
+        this.master_address = this.base_address;
         this.proxy = params.proxy;
         dbg.log0(`this.base_address=${this.base_address}`);
+        dbg.log0(`this.master_address=${this.base_address}`);
         this.host_id = params.host_id;
         this.location_info = params.location_info;
         this.test_hostname = params.test_hostname;
@@ -306,8 +308,8 @@ class Agent {
         dbg.log0('new servers list =', util.inspect(this.servers));
         dbg.log0('Chosen new address', new_address);
         return this._update_rpc_config_internal({
-            base_address: new_address,
-            old_base_address: previous_address,
+            master_address: new_address,
+            old_master_address: previous_address,
         });
     }
 
@@ -358,7 +360,7 @@ class Agent {
                     hb_info.pool_name = this.mongo_info.pool_name;
                 }
 
-                dbg.log0(`_do_heartbeat called. sending HB to ${this.base_address}`);
+                dbg.log0(`_do_heartbeat called. sending HB to ${this.master_address}`);
 
                 if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
                     dbg.error('too many failure to connect, switching servers');
@@ -539,7 +541,7 @@ class Agent {
         // otherwise it's good
     }
 
-    _update_rpc_config_internal(params) {
+    async _update_rpc_config_internal(params) {
         const dbg = this.dbg;
 
         if (params.n2n_config) {
@@ -553,41 +555,63 @@ class Agent {
             this._start_stop_server();
         }
 
-        if (params.base_address &&
-            params.base_address.toLowerCase() !== params.old_base_address.toLowerCase()) {
+        if (params.base_address && params.base_address.toLowerCase() !== this.base_address.toLowerCase()) {
             dbg.log0('new base_address', params.base_address,
                 'old', params.old_base_address);
             // test this new address first by pinging it
-            return P.fcall(() => this.client.node.ping(null, {
-                    address: params.base_address
-                }))
-                .timeout(MASTER_RESPONSE_TIMEOUT)
-                .then(() => {
-                    // This was a code that was implemented to solve Issue #2173
-                    // Was removed in order to support the change of base_address for agent endpoints
-                    // if (params.store_base_address) {
-                    // store base_address to send in get_agent_info_and_update_masters
-                    this.base_address = params.base_address.toLowerCase();
-                    return this.agent_conf.update({
+            try {
+                await this.client.node.ping(null, {
                         address: params.base_address
-                    });
-                    // }
-                })
-                .then(() => {
-                    dbg.log0('update_base_address: done -', params.base_address);
-                    this.rpc.router = api.new_router(params.base_address);
-                    if (this.endpoint_info && this.endpoint_info.s3rver_process) {
-                        this._disable_service();
-                        this._enable_service();
-                    }
-                    // on close the agent should call do_heartbeat again when getting the close event
-                    if (this._server_connection) {
-                        this._server_connection.close();
-                    }
-                });
+                    })
+                    .timeout(MASTER_RESPONSE_TIMEOUT);
+            } catch (err) {
+                dbg.error(`failed ping to new base_address ${params.base_address}. leave base_address at ${this.base_address}`);
+                throw new Error(`failed ping to new base_address ${params.base_address}`);
+            }
+            // change both master and base addresses
+            this.master_address = params.base_address.toLowerCase();
+            this.base_address = params.base_address.toLowerCase();
+            await this.agent_conf.update({
+                address: this.base_address
+            });
+            // update rpc_router
+            this.update_rpc_router(this.base_address);
         }
 
-        return P.resolve();
+        if (params.master_address) {
+            const { old_master_address = this.master_address } = params;
+            if (params.master_address !== old_master_address) {
+                try {
+                    await this.client.node.ping(null, {
+                            address: params.master_address
+                        })
+                        .timeout(MASTER_RESPONSE_TIMEOUT);
+                } catch (err) {
+                    dbg.error(`failed ping to new master_address ${params.master_address}.`,
+                        `leave master_address at ${this.master_address}`);
+                    throw new Error(`failed ping to new master_address ${params.master_address}`);
+                }
+                this.master_address = params.master_address;
+            }
+
+            // update rpc_router
+            this.update_rpc_router(params.master_address);
+        }
+    }
+
+    update_rpc_router(address) {
+        const dbg = this.dbg;
+
+        dbg.log0('update_rpc_router: updating address to', address);
+        this.rpc.router = api.new_router(address);
+        if (this.endpoint_info && this.endpoint_info.s3rver_process) {
+            this._disable_service();
+            this._enable_service();
+        }
+        // on close the agent should call do_heartbeat again when getting the close event
+        if (this._server_connection) {
+            this._server_connection.close();
+        }
     }
 
     _fix_storage_limit(storage_info) {
@@ -673,7 +697,9 @@ class Agent {
                 }
 
                 // run node process, inherit stdio and connect ipc channel for communication.
-                this.endpoint_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', ['--s3_agent'], {
+                const s3rver_args = ['--s3_agent', '--address', this.master_address];
+                dbg.log0('starting s3 server with command: node ./src/s3/s3rver_starter', s3rver_args.join(' '));
+                this.endpoint_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', s3rver_args, {
                         stdio: ['inherit', 'inherit', 'inherit', 'ipc']
                     })
                     .on('message', this._handle_s3rver_messages.bind(this))
@@ -707,7 +733,7 @@ class Agent {
             case 'WAITING_FOR_CERTS':
                 this.endpoint_info.s3rver_process.send({
                     message: 'run_server',
-                    base_address: this.base_address,
+                    base_address: this.master_address,
                     certs: this._ssl_certs,
                     location_info: this.location_info,
                 });
@@ -923,7 +949,6 @@ class Agent {
         const rpc_address = req.rpc_params.rpc_address;
         const old_rpc_address = this.rpc_address;
         const base_address = req.rpc_params.base_address;
-        const old_base_address = this.rpc.router.default;
         dbg.log0('update_rpc_config', req.rpc_params);
 
         return this._update_rpc_config_internal({
@@ -931,7 +956,6 @@ class Agent {
             rpc_address: rpc_address,
             old_rpc_address: old_rpc_address,
             base_address: base_address,
-            old_base_address: old_base_address,
             store_base_address: !_.isUndefined(base_address),
         });
     }

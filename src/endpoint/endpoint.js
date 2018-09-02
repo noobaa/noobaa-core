@@ -53,7 +53,7 @@ const location_info = {};
 
 function start_all() {
     dbg.set_process_name('Endpoint');
-    if (cluster.isMaster && config.ENDPOINT_FORKS_ENABLED && argv.address) {
+    if (cluster.isMaster && config.ENDPOINT_FORKS_ENABLED && argv.address && !argv.s3_agent) {
         // Fork workers
         const NUM_OF_FORKS = (os.totalmem() >= (config.SERVER_MIN_REQUIREMENTS.RAM_GB * size_utils.GIGABYTE)) ? numCPUs : 1;
         for (let i = 0; i < NUM_OF_FORKS; i++) {

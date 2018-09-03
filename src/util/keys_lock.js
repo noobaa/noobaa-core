@@ -17,6 +17,8 @@ class KeysLock {
         return this._wait_list.length;
     }
 
+    // TODO: The way that we lock the keys currently means that we will wait on batches
+    // If there is a single key in the batch that is locked
     surround_keys(keys, func) {
         if (!_.isArray(keys)) {
             throw new TypeError('Keys should be an array');

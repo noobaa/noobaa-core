@@ -2312,6 +2312,8 @@ class NodesMonitor extends EventEmitter {
             config.REBUILD_NODE_CONCURRENCY,
             this._set_need_rebuild.size - this._num_running_rebuilds);
         for (let i = 0; i < count; ++i) {
+            // TODO: This can cause multiple workers to wait for each other and work on the same
+            // batches since they all look at const act = item.data_activity
             this._rebuild_worker(i);
         }
     }
@@ -2368,6 +2370,8 @@ class NodesMonitor extends EventEmitter {
             .then(() => {
                 act.running = false;
                 // increase the completed size only if succeeded
+                // TODO: This is the bug that we have a overflow or underflow of the data
+                // If we do the partial deletes then we do not update in catch or update like we succeeded all
                 act.stage.size.completed += blocks_size;
                 if (act.stage.marker) {
                     this._update_data_activity(item);

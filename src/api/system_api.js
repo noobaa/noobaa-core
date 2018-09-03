@@ -699,7 +699,16 @@ module.exports = {
 
         restriction_enum: {
             type: 'string',
-            enum: ['vmtools'],
+            enum: [
+                "vmtools",
+                "dns_name",
+                "dns_server",
+                "time_config",
+                "attach_server",
+                "peer_to_peer_ports",
+                "server_details",
+                "cluster_connectivity_ip"
+            ],
         },
 
         role_info: {

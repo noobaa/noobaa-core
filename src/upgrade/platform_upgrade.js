@@ -164,6 +164,7 @@ async function fix_azure_swap() {
 }
 
 async function platform_upgrade_2_8_0() {
+    if (process.env.PLATFORM === 'docker') return;
     // exclude cleaning of supervisor and upgrade files
     await fs.appendFileAsync('/usr/lib/tmpfiles.d/tmp.conf', 'x /tmp/supervisor*\n');
     await fs.appendFileAsync('/usr/lib/tmpfiles.d/tmp.conf', 'x /tmp/test\n');
@@ -186,6 +187,7 @@ async function platform_upgrade_common(params) {
 }
 
 async function copy_first_install() {
+    if (process.env.PLATFORM === 'docker') return;
     dbg.log0('UPGRADE: copying first_install_diaglog.sh and setting permissions');
     await exec(`cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/`);
     await exec(`chown root:root /etc/profile.d/first_install_diaglog.sh`);
@@ -211,6 +213,7 @@ async function exec(command, options = {}) {
 }
 
 async function ensure_swap() {
+    if (process.env.PLATFORM === 'docker') return;
 
     // skip swap configuration in azure
     if (process.env.PLATFORM === 'azure') return;

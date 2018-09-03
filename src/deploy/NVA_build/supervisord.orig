@@ -2,8 +2,6 @@
 
 # chkconfig: 345 15 15
 
-. /etc/rc.d/init.d/functions
-
 SUPERVISORD="/usr/bin/supervisord_orig"
 PIDFILE="/tmp/supervisord.pid"
 

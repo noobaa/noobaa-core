@@ -124,6 +124,8 @@ function _verify_proxy_cluster_config() {
 
 function _verify_dns_cluster_config() {
     if (os.type() === 'Darwin') return;
+    if (process.env.PLATFORM === 'docker') return;
+
     dbg.log2('Verifying dns configuration in relation to cluster config');
     let cluster_conf = {
         dns_servers: _.compact(server_conf.dns_servers),
@@ -197,6 +199,7 @@ function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
 }
 
 function _check_ntp() {
+    if (process.env.PLATFORM === 'docker') return;
     dbg.log2('_check_ntp');
     if (_.isEmpty(server_conf.ntp) || _.isEmpty(server_conf.ntp.server)) return;
     monitoring_status.ntp_status = "UNKNOWN";
@@ -311,6 +314,7 @@ function _check_network_configuration() {
     dbg.log2('check_network_configuration');
     if (os.type() === 'Darwin') return;
     if (process.env.PLATFORM === 'azure') return; // no first_install_wizard - can't control network configuration
+    if (process.env.PLATFORM === 'docker') return; // no first_install_wizard - can't control network configuration
     if (!server_conf.heartbeat) return;
     let ips = os_utils.get_local_ipv4_ips();
     if (server_conf.is_clusterized && !_.find(ips, ip => ip === server_conf.owner_address)) {
@@ -349,29 +353,29 @@ function _check_for_duplicate_ips() {
     const nics = _.toPairs(_.omit(os.networkInterfaces(), 'lo'));
     const collisions = [];
     return P.map(nics, nic => {
-        const inter_name = nic[0];
-        const nic_info = nic[1];
-        return P.map(nic_info, ip => {
-            if (ip.family === 'IPv4') {
-                return promise_utils.exec(`arping -D -I ${inter_name} -c 2 ${ip.address}`, {
-                        ignore_rc: false,
-                        return_stdout: true
-                    })
-                    .then(result => dbg.log2(`No duplicate address was found for ip ${ip.address} of interface ${inter_name}`, 'result:', result))
-                    .catch(() => {
-                        collisions.push(ip.address);
-                        Dispatcher.instance().alert('CRIT',
-                            system_store.data.systems[0]._id,
-                            `Duplicate address was found! IP: ${ip.address} ,Interface: ${inter_name}, Server: ${server_conf.heartbeat.health.os_info.hostname}
+            const inter_name = nic[0];
+            const nic_info = nic[1];
+            return P.map(nic_info, ip => {
+                if (ip.family === 'IPv4') {
+                    return promise_utils.exec(`arping -D -I ${inter_name} -c 2 ${ip.address}`, {
+                            ignore_rc: false,
+                            return_stdout: true
+                        })
+                        .then(result => dbg.log2(`No duplicate address was found for ip ${ip.address} of interface ${inter_name}`, 'result:', result))
+                        .catch(() => {
+                            collisions.push(ip.address);
+                            Dispatcher.instance().alert('CRIT',
+                                system_store.data.systems[0]._id,
+                                `Duplicate address was found! IP: ${ip.address} ,Interface: ${inter_name}, Server: ${server_conf.heartbeat.health.os_info.hostname}
                             ,please fix this issue as soon as possible`, Dispatcher.rules.once_daily);
-                        dbg.error(`Duplicate address was found for ip ${ip.address} of interface ${inter_name}`);
-                    });
-            }
+                            dbg.error(`Duplicate address was found for ip ${ip.address} of interface ${inter_name}`);
+                        });
+                }
+            });
+        })
+        .then(() => {
+            ip_collision = collisions;
         });
-    })
-    .then(() => {
-        ip_collision = collisions;
-    });
 }
 
 function _check_proxy_configuration() {

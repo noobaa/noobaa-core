@@ -84,6 +84,8 @@ function map_aggregate_objects() {
     }
     emit([this.bucket, 'count_pow2_' + pow], 1);
     emit([this.bucket, 'size_pow2_' + pow], this.size);
+    emit([this.bucket, 'content_type', this.content_type, 'count'], 1);
+    emit([this.bucket, 'content_type', this.content_type, 'size'], this.size);
 }
 
 /**

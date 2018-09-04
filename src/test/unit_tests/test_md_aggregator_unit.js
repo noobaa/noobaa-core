@@ -166,6 +166,7 @@ mocha.describe('md_aggregator', function() {
                 blocks_size: storage_stats.blocks_size + added_block.buckets['123'].size - deleted_block.buckets['123'].size,
                 objects_size: storage_stats.objects_size + added_object['123'].size - deleted_object['123'].size,
                 objects_count: storage_stats.objects_count + added_object['123'].count - deleted_object['123'].count,
+                stats_by_content_type: {},
                 pools: {
                     '890': {
                         blocks_size: storage_stats.pools['890'].blocks_size +

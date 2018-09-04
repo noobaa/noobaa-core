@@ -726,6 +726,7 @@ class MDStore {
         });
     }
 
+
     /**
      * _aggregate_objects_internal - counts the number of objects and sum of sizes,
      * both for the entire query, and per bucket.
@@ -742,9 +743,12 @@ class MDStore {
         );
         const buckets = {};
         _.forEach(res, r => {
-            const b = buckets[r._id[0]] || {};
-            buckets[r._id[0]] = b;
-            b[r._id[1]] = r.value;
+            r._id.reduce((o, s, i, arr) => {
+                o[s] = i < arr.length - 1 ?
+                    o[s] || {} :
+                    o[s] = r.value;
+                return o[s];
+            }, buckets);
         });
         return buckets;
     }

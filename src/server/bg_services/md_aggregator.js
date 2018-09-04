@@ -293,9 +293,11 @@ function calculate_new_bucket({
         chunks_capacity: (bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0,
         objects_size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
         objects_count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0,
+        stats_by_content_type: (bucket.storage_stats && bucket.storage_stats.stats_by_content_type) || {},
         blocks_size: (bucket.storage_stats && bucket.storage_stats.blocks_size) || 0,
         pools: (bucket.storage_stats && bucket.storage_stats.pools) || {},
     };
+
     dbg.log3('Bucket storage stats before deltas:', new_storage_stats);
     const bigint_ex_chunks_agg = size_utils.json_to_bigint((existing_chunks_aggregate[bucket._id] &&
         existing_chunks_aggregate[bucket._id].compress_size) || 0);
@@ -313,6 +315,15 @@ function calculate_new_bucket({
         existing_objects_aggregate[bucket._id].size) || 0);
     const bigint_de_obj_agg = size_utils.json_to_bigint((deleted_objects_aggregate[bucket._id] &&
         deleted_objects_aggregate[bucket._id].size) || 0);
+
+
+
+    aggregate_by_content_type({
+        bucket,
+        new_storage_stats,
+        existing_objects_aggregate,
+        deleted_objects_aggregate
+    });
 
     const delta_chunk_compress_size = bigint_ex_chunks_agg.minus(bigint_de_chunks_agg);
     const delta_block_size = bigint_ex_blocks_agg.minus(bigint_de_blocks_agg);
@@ -350,6 +361,62 @@ function calculate_new_bucket({
 
     dbg.log3('Bucket storage stats after deltas:', new_storage_stats);
     return new_storage_stats;
+}
+
+function aggregate_by_content_type({
+    bucket,
+    new_storage_stats,
+    existing_objects_aggregate,
+    deleted_objects_aggregate
+}) {
+    const ex_by_content_type = existing_objects_aggregate[bucket._id] && existing_objects_aggregate[bucket._id].content_type;
+    const de_by_content_type = deleted_objects_aggregate[bucket._id] && deleted_objects_aggregate[bucket._id].content_type;
+
+    if (ex_by_content_type || de_by_content_type) {
+        // convert current stats to bigint
+        new_storage_stats.stats_by_content_type = _.mapValues(new_storage_stats.stats_by_content_type, val => ({
+            count: size_utils.json_to_bigint(val.count),
+            size: size_utils.json_to_bigint(val.size),
+        }));
+    }
+
+    if (ex_by_content_type) {
+        // add stats of new uploads
+        _.mergeWith(new_storage_stats.stats_by_content_type, ex_by_content_type, (val_bigint, other) => {
+            val_bigint = val_bigint || { size: size_utils.BigInteger.zero, count: size_utils.BigInteger.zero };
+            const other_bigint = {
+                count: size_utils.json_to_bigint(_.get(other, 'count', 0)),
+                size: size_utils.json_to_bigint(_.get(other, 'size', 0))
+            };
+            return {
+                count: val_bigint.count.plus(other_bigint.count),
+                size: val_bigint.size.plus(other_bigint.size),
+            };
+        });
+    }
+    if (de_by_content_type) {
+        // decrement stats of deleted objects
+        _.mergeWith(new_storage_stats.stats_by_content_type, de_by_content_type, (val_bigint, other) => {
+            val_bigint = val_bigint || { size: size_utils.BigInteger.zero, count: size_utils.BigInteger.zero };
+            const other_bigint = {
+                count: size_utils.json_to_bigint(_.get(other, 'count', 0)),
+                size: size_utils.json_to_bigint(_.get(other, 'size', 0))
+            };
+            return {
+                count: val_bigint.count.minus(other_bigint.count),
+                size: val_bigint.size.minus(other_bigint.size),
+            };
+        });
+    }
+
+    // convert back to json
+    if (ex_by_content_type || de_by_content_type) {
+        new_storage_stats.stats_by_content_type = _.mapValues(new_storage_stats.stats_by_content_type, bigint_val => ({
+            count: bigint_val.count.toJSON(),
+            size: bigint_val.size.toJSON(),
+        }));
+    }
+
 }
 
 function get_hist_array_from_aggregate(agg, key) {

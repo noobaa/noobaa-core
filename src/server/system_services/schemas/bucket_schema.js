@@ -92,6 +92,20 @@ module.exports = {
                 chunks_capacity: bigint,
                 blocks_size: bigint,
                 objects_size: bigint,
+                stats_by_content_type: {
+                    type: 'object',
+                    additionalProperties: {
+                        type: 'object',
+                        required: ['size', 'count'],
+                        properties: {
+                            size: bigint,
+                            count: {
+                                type: 'integer'
+                            },
+                        }
+                    },
+                    properties: {}
+                },
                 objects_count: {
                     type: 'integer'
                 },

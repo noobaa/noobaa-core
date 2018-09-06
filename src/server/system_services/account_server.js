@@ -490,8 +490,8 @@ async function get_account_usage(req) {
         throw new Error('start_day must be before end_date');
     }
     // for a period of month we return a resolution of days. below that we reutrn hours
-    const resolution = range > MONTH ? 'day' : 'hour';
-    const report = await usage_aggregator.get_accounts_report({ resolution, since, till });
+    const time_range = range > MONTH ? 'day' : 'hour';
+    const report = await usage_aggregator.get_accounts_report({ time_range, since, till });
     return report.map(entry => _.pick(entry,
         'account',
         'timestamp',

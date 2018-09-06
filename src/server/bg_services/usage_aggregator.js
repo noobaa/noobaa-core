@@ -11,16 +11,15 @@ const system_store = require('../system_services/system_store').get_instance();
 
 
 async function get_bandwidth_report(params) {
-    const { since, till, bucket, resolution } = params;
-    if (resolution !== 'day' && resolution !== 'hour') {
-        throw new Error(`wrong report resolution. should be day or hour. got ${resolution}`);
+    const { since, till, bucket, time_range } = params;
+    if (time_range !== 'day' && time_range !== 'hour') {
+        throw new Error(`wrong report time_range. should be day or hour. got ${time_range}`);
     }
-    const start = moment(since).startOf(resolution).valueOf();
-    const end = moment(till).endOf(resolution).valueOf();
-    const reports = await UsageReportStore.instance().get_usage_reports({ since: start, till: end, bucket });
-
-    const entries = aggregate_reports(reports, { resolution, aggergate_by: ['bucket'] }).map(report => ({
-        date: moment(report.start_time).startOf(resolution).valueOf,
+    const start = moment(since).startOf(time_range).valueOf();
+    const end = moment(till).endOf(time_range).valueOf();
+    const reports = await UsageReportStore.instance().get_usage_reports({ since: start, till: end, buckets: [bucket] });
+    const entries = aggregate_reports(reports, { time_range, aggergate_by: ['bucket'] }).map(report => ({
+        date: moment(report.start_time).startOf(time_range).valueOf,
         timestamp: report.start_time,
         bucket: (system_store.data.get_by_id(report.bucket)).name,
         read_bytes: report.read_bytes,
@@ -32,17 +31,53 @@ async function get_bandwidth_report(params) {
     return sorted_entries;
 }
 
-async function get_accounts_report(params) {
-    const { since, till, resolution } = params;
-    if (resolution !== 'day' && resolution !== 'hour') {
-        throw new Error(`wrong report resolution. should be day or hour. got ${resolution}`);
+async function get_throughput_entries({ buckets, resolution, since, till }) {
+    // first normalize since\till to start\end of hour
+    since = moment(since).startOf('hour').valueOf();
+    till = moment(till).endOf('hour').valueOf();
+    const step = moment.duration(resolution, 'hour').valueOf();
+    const entries_by_start_time = {};
+    // build entries array to return
+    for (let start = since; start < till; start += step) {
+        entries_by_start_time[start] = {
+            start_time: start,
+            end_time: start + step - 1,
+            read_count: 0,
+            write_count: 0,
+            read_bytes: 0,
+            write_bytes: 0,
+        };
     }
-    const start = moment(since).startOf(resolution).valueOf();
-    const end = moment(till).endOf(resolution).valueOf();
+    const reports = await UsageReportStore.instance().get_usage_reports({ since, till, buckets });
+    for (const report of reports) {
+        const { start_time } = report;
+        // align start time of each report to the requested resolution
+        const aligned_start_time = since + (Math.floor((start_time - since) / step) * step);
+        const entry = entries_by_start_time[aligned_start_time];
+        if (entry) {
+            entry.read_count += report.read_count;
+            entry.read_bytes += report.read_bytes;
+            entry.write_count += report.write_count;
+            entry.write_bytes += report.write_bytes;
+        } else {
+            dbg.error('could not find an entry for start_time =', aligned_start_time);
+        }
+    }
+    return _.values(entries_by_start_time);
+}
+
+
+async function get_accounts_report(params) {
+    const { since, till, time_range } = params;
+    if (time_range !== 'day' && time_range !== 'hour') {
+        throw new Error(`wrong report time_range. should be day or hour. got ${time_range}`);
+    }
+    const start = moment(since).startOf(time_range).valueOf();
+    const end = moment(till).endOf(time_range).valueOf();
     const reports = await UsageReportStore.instance().get_usage_reports({ since: start, till: end });
 
-    const entries = aggregate_reports(reports, { resolution, aggergate_by: ['account'] }).map(report => ({
-        date: moment(report.start_time).startOf(resolution).valueOf,
+    const entries = aggregate_reports(reports, { time_range, aggergate_by: ['account'] }).map(report => ({
+        date: moment(report.start_time).startOf(time_range).valueOf,
         timestamp: report.start_time,
         account: (system_store.data.get_by_id(report.account)).name,
         read_bytes: report.read_bytes,
@@ -56,11 +91,12 @@ async function get_accounts_report(params) {
 
 
 
-function aggregate_reports(reports, { resolution, aggergate_by } = {}) {
+
+function aggregate_reports(reports, { time_range, aggergate_by } = {}) {
     const entries = [];
     const grouped_reports = _.groupBy(reports, report => aggergate_by.map(p => `${report[p]}`).join('#'));
     _.each(grouped_reports, bucket_reports => {
-        const reports_groups = _.groupBy(bucket_reports, report => moment(report.start_time).startOf(resolution).valueOf());
+        const reports_groups = _.groupBy(bucket_reports, report => moment(report.start_time).startOf(time_range).valueOf());
         _.each(reports_groups, (day_reports, date) => {
 
             const reduced_report = day_reports.reduce((acc, curr) => ({
@@ -104,3 +140,4 @@ async function background_worker() {
 exports.background_worker = background_worker;
 exports.get_bandwidth_report = get_bandwidth_report;
 exports.get_accounts_report = get_accounts_report;
+exports.get_throughput_entries = get_throughput_entries;

@@ -10,6 +10,7 @@ const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const request = require('request');
 const P = require('../../util/promise');
+const net_utils = require('../../util/net_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const pkg = require('../../../package.json');
@@ -62,6 +63,7 @@ const SINGLE_SYS_DEFAULTS = {
     },
     configuration: {
         dns_servers: 0,
+        dns_name: false,
         dns_search: 0,
         ntp_server: false,
         proxy: false,
@@ -135,6 +137,7 @@ function get_systems_stats(req) {
                         owner: res.owner.email,
                         configuration: {
                             dns_servers: res.cluster.shards[0].servers[0].dns_servers.length,
+                            dns_name: system.base_address && !net_utils.is_ip(system.base_address),
                             dns_search: res.cluster.shards[0].servers[0].search_domains.length,
                             ntp_server: !_.isEmpty(res.cluster.shards[0].servers[0].ntp_server),
                             proxy: !_.isEmpty(res.phone_home_config.proxy_address),

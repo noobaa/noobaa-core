@@ -664,7 +664,8 @@ class S3OPS {
         console.log('Reading object ', key);
         try {
             //There can be an issue if the object size (length) is too large
-            await this.s3.getObject(params).promise();
+            const obj = await this.s3.getObject(params).promise();
+            return obj;
         } catch (err) {
             console.error(`get_object:: getObject ${JSON.stringify(params)} failed!`, err);
             throw err;
@@ -686,6 +687,10 @@ class S3OPS {
             console.error(`get_object_range:: getObject ${JSON.stringify(params)} failed!`, err);
             throw err;
         }
+    }
+
+    get_file_md5(bucket, file_name) {
+        return verify_md5_map.get(`${this.system_verify_name}/${bucket}/${file_name}`);
     }
 
     async abort_multipart_upload(bucket, file_name, uploadId) {

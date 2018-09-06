@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const AWS = require('aws-sdk');
 const api = require('../../api');
 const crypto = require('crypto');
 const P = require('../../util/promise');
@@ -142,9 +141,9 @@ async function comperMD5betweencloudAndNooBaa(type, bucket, noobaa_bucket, file_
     }
     const noobaaMD5 = await getMD5fromS3Bucket(s3ops, noobaa_bucket, file_name);
     if (cloudMD5 === noobaaMD5) {
-        console.log(`Noobaa bucket contains the md5 ${noobaaMD5} and the cloud md5 is: ${cloudMD5} for file ${file_name}`);
+        console.log(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${noobaaMD5} and the cloud md5 is: ${cloudMD5} for file ${file_name}`);
     } else {
-        saveErrorAndResume(`Noobaa bucket contains the md5 ${noobaaMD5} instead of ${cloudMD5} for file ${file_name}`);
+        saveErrorAndResume(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${noobaaMD5} instead of ${cloudMD5} for file ${file_name}`);
     }
 }
 
@@ -155,7 +154,7 @@ async function uploadDataSetTocloud(type, bucket) {
         const actual_size = size.data_size * data_multiplier;
         files_cloud[`files_${type}`].push(file_name);
         if (type === 'AWS') {
-            await uploadFileDirectlyToAWS(bucket, file_name, size.data_size, data_multiplier);
+            await s3opsAWS.put_file_with_md5(bucket, file_name, size.data_size, data_multiplier);
         } else if (type === 'AZURE') {
             await blobops.uploadRandomFileDirectlyToAzure(bucket, file_name, actual_size, saveErrorAndResume);
         }
@@ -169,7 +168,7 @@ async function upload_directly_to_cloud(type) {
     files_cloud[`files_${type}`].push(file_name);
     try {
         if (type === 'AWS') {
-            await uploadFileDirectlyToAWS(namespace_mapping.AWS.bucket2, file_name, 15, data_multiplier);
+            await s3opsAWS.put_file_with_md5(namespace_mapping.AWS.bucket2, file_name, 15, data_multiplier);
         } else if (type === 'AZURE') {
             const actual_size = 15 * data_multiplier;
             await blobops.uploadRandomFileDirectlyToAzure(namespace_mapping.AZURE.bucket2, file_name, actual_size, saveErrorAndResume);
@@ -177,41 +176,6 @@ async function upload_directly_to_cloud(type) {
     } catch (err) {
         throw new Error(`Failed to upload directly into ${type}`);
     }
-}
-
-function uploadFileDirectlyToAWS(bucket, file_name, size, multiplier) {
-    const s3bucket = new AWS.S3({
-        endpoint: connections_mapping.AWS.endpoint,
-        accessKeyId: connections_mapping.AWS.identity,
-        secretAccessKey: connections_mapping.AWS.secret,
-        s3ForcePathStyle: true,
-        sslEnabled: false,
-        region: 'us-east-1',
-    });
-    const actual_size = size * multiplier;
-
-    let data = crypto.randomBytes(actual_size);
-    let md5 = crypto.createHash('md5').update(data).digest('hex');
-
-    let params = {
-        Bucket: bucket,
-        Key: file_name,
-        Body: data,
-        Metadata: {
-            md5: md5
-        },
-    };
-    console.log(`>>> UPLOAD - About to upload object... ${file_name}, md5: ${md5}, size: ${data.length}`);
-    let start_ts = Date.now();
-    return P.ninvoke(s3bucket, 'putObject', params)
-        .then(res => {
-            console.log('Upload object took', (Date.now() - start_ts) / 1000, 'seconds');
-            return md5;
-        })
-        .catch(err => {
-            console.error(`Put failed ${file_name}!`, err);
-            throw err;
-        });
 }
 
 async function isFilesAvailableInNooBaaBucket(gateway, files) {
@@ -309,7 +273,7 @@ async function upload_via_noobaa({ type, file_name, bucket }) {
 async function list_files_in_cloud(type) {
     let list_files = [];
     if (type === 'AWS') {
-        const list_files_obj = await s3opsAWS.get_list_files('s3.amazonaws.com', namespace_mapping[type].bucket2);
+        const list_files_obj = await s3opsAWS.get_list_files(namespace_mapping[type].bucket2);
         list_files = list_files_obj.map(file => file.Key);
     } else if (type === 'AZURE') {
         list_files = await blobops.getListFilesAzure(namespace_mapping[type].bucket2, saveErrorAndResume);

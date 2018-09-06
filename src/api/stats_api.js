@@ -214,6 +214,9 @@ module.exports = {
                                     dns_servers: {
                                         type: 'integer'
                                     },
+                                    dns_name: {
+                                        type: 'boolean'
+                                    },
                                     dns_search: {
                                         type: 'integer'
                                     },

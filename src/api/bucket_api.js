@@ -224,21 +224,31 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['start_date', 'end_date'],
+                required: ['since', 'till', 'resolution'],
                 properties: {
-                    start_date: { idate: true },
-                    end_date: { idate: true },
+                    buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    since: { idate: true },
+                    till: { idate: true },
+                    resolution: {
+                        type: 'integer'
+                    }
                 }
             },
             reply: {
                 type: 'array',
                 items: {
                     type: 'object',
+                    required: ['start_time', 'end_time', 'read_count', 'read_bytes', 'write_count', 'write_bytes'],
                     properties: {
-                        bucket: {
-                            type: 'string'
+                        start_time: {
+                            idate: true
                         },
-                        timestamp: {
+                        end_time: {
                             idate: true
                         },
                         read_count: {

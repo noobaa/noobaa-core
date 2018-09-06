@@ -751,7 +751,7 @@ function export_bucket_bandwidth_usage(req) {
     const inner_path = `${process.cwd()}/build${out_path}`;
     return fs_utils.file_delete(inner_path)
         .then(() => fs_utils.create_path(`${process.cwd()}/build/public`))
-        .then(() => usage_aggregator.get_bandwidth_report({ bucket: bucket._id, since, till, resolution: 'day' }))
+        .then(() => usage_aggregator.get_bandwidth_report({ bucket: bucket._id, since, till, time_range: 'day' }))
         .then(entries => {
             const out_lines = entries.reduce((lines, entry) => {
                 lines.push(`${entry.date}, ${entry.read_count}, ${entry.read_bytes}, ${entry.write_count}, ${entry.write_bytes}`);
@@ -767,23 +767,22 @@ function export_bucket_bandwidth_usage(req) {
 }
 
 async function get_bucket_throughput_usage(req) {
-    const { start_date: since, end_date: till } = req.rpc_params;
-    const MONTH = 1000 * 60 * 60 * 24 * 30;
-    const range = till - since;
-    if (range <= 0) {
-        throw new Error('start_day must be before end_date');
-    }
-    // for a period of month we return a resolution of days. below that we reutrn hours
-    const resolution = range > MONTH ? 'day' : 'hour';
-    const report = await usage_aggregator.get_bandwidth_report({ resolution, since, till });
+    const { buckets, since, till, resolution } = req.rpc_params;
+    const report = await usage_aggregator.get_throughput_entries({
+        buckets: buckets && buckets.map(bucket_name => req.system.buckets_by_name[bucket_name]._id),
+        resolution,
+        since,
+        till
+    });
     return report.map(entry => _.pick(entry,
-        'bucket',
-        'timestamp',
+        'start_time',
+        'end_time',
         'read_count',
         'write_count',
         'write_bytes',
         'read_bytes'));
 }
+
 
 
 function get_objects_size_histogram(req) {

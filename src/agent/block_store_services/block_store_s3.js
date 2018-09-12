@@ -292,6 +292,8 @@ class BlockStoreS3 extends BlockStoreBase {
      * to keep only the latest versions of the test block.
      */
     async _delete_block_past_versions(block_md) {
+        // currently we use disable_metadata only for flashblade. in that case also ignore delete_past_versions 
+        if (this.disable_metadata) return;
         return this._delete_past_versions(this._block_key(block_md.id));
     }
 

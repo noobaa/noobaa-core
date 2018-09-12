@@ -10,6 +10,13 @@ const system_store = require('../system_services/system_store').get_instance();
 
 
 
+const ZERO_STATS = {
+    read_count: 0,
+    write_count: 0,
+    read_bytes: 0,
+    write_bytes: 0,
+};
+
 async function get_bandwidth_report(params) {
     const { since, till, bucket, time_range } = params;
     if (time_range !== 'day' && time_range !== 'hour') {
@@ -39,14 +46,11 @@ async function get_throughput_entries({ buckets, resolution, since, till }) {
     const entries_by_start_time = {};
     // build entries array to return
     for (let start = since; start < till; start += step) {
-        entries_by_start_time[start] = {
-            start_time: start,
-            end_time: start + step - 1,
-            read_count: 0,
-            write_count: 0,
-            read_bytes: 0,
-            write_bytes: 0,
-        };
+        entries_by_start_time[start] = _.extend(null, {
+                start_time: start,
+                end_time: start + step - 1
+            },
+            ZERO_STATS);
     }
     const reports = await UsageReportStore.instance().get_usage_reports({ since, till, buckets });
     for (const report of reports) {
@@ -68,25 +72,16 @@ async function get_throughput_entries({ buckets, resolution, since, till }) {
 
 
 async function get_accounts_report(params) {
-    const { since, till, time_range } = params;
-    if (time_range !== 'day' && time_range !== 'hour') {
-        throw new Error(`wrong report time_range. should be day or hour. got ${time_range}`);
-    }
-    const start = moment(since).startOf(time_range).valueOf();
-    const end = moment(till).endOf(time_range).valueOf();
-    const reports = await UsageReportStore.instance().get_usage_reports({ since: start, till: end });
-
-    const entries = aggregate_reports(reports, { time_range, aggergate_by: ['account'] }).map(report => ({
-        date: moment(report.start_time).startOf(time_range).valueOf,
-        timestamp: report.start_time,
-        account: (system_store.data.get_by_id(report.account)).name,
-        read_bytes: report.read_bytes,
-        read_count: report.read_count,
-        write_bytes: report.write_bytes,
-        write_count: report.write_count,
-    }));
-    const sorted_entries = _.sortBy(entries, 'date');
-    return sorted_entries;
+    const { since, till, accounts } = params;
+    const usage_reports = await UsageReportStore.instance().get_usage_reports({ since, till, accounts });
+    const accounts_reports = _.groupBy(usage_reports, report => system_store.data.get_by_id(report.account).email);
+    return _.map(accounts_reports, (reports, account) => reports.reduce((curr, prev) => ({
+        account,
+        read_count: prev.read_count + (curr.read_count || 0),
+        read_bytes: prev.read_bytes + (curr.read_bytes || 0),
+        write_count: prev.write_count + (curr.write_count || 0),
+        write_bytes: prev.write_bytes + (curr.write_bytes || 0),
+    }), ZERO_STATS));
 }
 
 

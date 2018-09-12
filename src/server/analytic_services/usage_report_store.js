@@ -85,13 +85,14 @@ class UsageReportStore {
     }
 
     async get_usage_reports(params) {
-        const { since, till, buckets } = params;
+        const { since, till, buckets, accounts } = params;
         const start_time = since || till ? _.omitBy({
             $gte: since,
             $lt: till,
         }, _.isUndefined) : undefined;
         const query = { start_time };
         if (buckets) query.bucket = { $in: buckets };
+        if (accounts) query.account = { $in: accounts };
         return this._usage_reports.col().find(_.omitBy(query, _.isUndefined)).toArray();
     }
 

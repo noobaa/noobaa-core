@@ -483,22 +483,12 @@ function reset_password(req) {
 
 
 async function get_account_usage(req) {
-    const { start_date: since, end_date: till } = req.rpc_params;
-    const MONTH = 1000 * 60 * 60 * 24 * 30;
-    const range = till - since;
-    if (range <= 0) {
-        throw new Error('start_day must be before end_date');
-    }
-    // for a period of month we return a resolution of days. below that we reutrn hours
-    const time_range = range > MONTH ? 'day' : 'hour';
-    const report = await usage_aggregator.get_accounts_report({ time_range, since, till });
-    return report.map(entry => _.pick(entry,
-        'account',
-        'timestamp',
-        'read_count',
-        'write_count',
-        'write_bytes',
-        'read_bytes'));
+    const { since, till, accounts } = req.rpc_params;
+    return usage_aggregator.get_accounts_report({
+        accounts: accounts.map(acc => _.get(system_store.data.accounts_by_email[acc], '_id')),
+        since,
+        till
+    });
 }
 
 /**

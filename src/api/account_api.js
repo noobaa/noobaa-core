@@ -411,10 +411,16 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['start_date', 'end_date'],
+                required: ['accounts', 'since', 'till'],
                 properties: {
-                    start_date: { idate: true },
-                    end_date: { idate: true },
+                    since: { idate: true },
+                    till: { idate: true },
+                    accounts: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
                 }
             },
             reply: {
@@ -424,9 +430,6 @@ module.exports = {
                     properties: {
                         account: {
                             type: 'string'
-                        },
-                        timestamp: {
-                            idate: true
                         },
                         read_count: {
                             type: 'integer'

@@ -430,7 +430,26 @@ function get_associated_buckets(req) {
 
 async function get_cloud_services_stats(req) {
     const { start_date, end_date } = req.rpc_params;
-    return nodes_client.instance().get_nodes_stats_by_cloud_service(req.system._id, start_date, end_date);
+    const cloud_stats = await nodes_client.instance().get_nodes_stats_by_cloud_service(req.system._id, start_date, end_date);
+
+    // fill in empty entries for services that has connections but have no stats
+    const configured_services = new Set();
+    for (const acc of system_store.data.accounts) {
+        if (acc.sync_credentials_cache) acc.sync_credentials_cache.forEach(conn => configured_services.add(conn.endpoint_type));
+    }
+    for (const stat of cloud_stats) {
+        configured_services.delete(stat.service);
+    }
+    for (const service of configured_services) {
+        cloud_stats.push({
+            service,
+            read_bytes: 0,
+            read_count: 0,
+            write_bytes: 0,
+            write_count: 0
+        });
+    }
+    return cloud_stats;
 }
 
 function get_pool_history(req) {

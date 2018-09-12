@@ -516,7 +516,7 @@ async function upgrade_mongodb_schemas(params) {
     for (const script of UPGRADE_SCRIPTS) {
         dbg.log0(`UPGRADE: Running Mongo Upgrade Script ${script}`);
         try {
-            await promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${secret}', version='${ver}', is_pure_version='${is_pure_version}'" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
+            await promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${secret}', version='${ver}', is_pure_version=${is_pure_version}" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
                 ignore_rc: false,
                 return_stdout: true,
                 trim_stdout: true

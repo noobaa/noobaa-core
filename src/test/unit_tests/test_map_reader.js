@@ -9,7 +9,7 @@ coretest.setup();
 // const util = require('util');
 const mocha = require('mocha');
 // const assert = require('assert');
-// const mongodb = require('mongodb');
+const mongodb = require('mongodb');
 
 // const P = require('../../util/promise');
 // const MDStore = require('../../server/object_services/md_store').MDStore;
@@ -40,7 +40,7 @@ coretest.describe_mapper_test_case({
     // TODO test_map_reader
 
     mocha.it('read_object_mappings', function() {
-        const obj = { size: 100 };
+        const obj = { size: 100, _id: new mongodb.ObjectId() };
         const start = 0;
         const end = 100;
         const skip = 0;

@@ -100,6 +100,7 @@ coretest.describe_mapper_test_case({
                 end: 100,
                 chunk: {
                     chunk_coder_config: bucket.tiering.tiers[0].tier.chunk_config.chunk_coder_config,
+                    tier: bucket.tiering.tiers[0].tier.name,
                     size: 100,
                     frag_size: 100,
                     frags: _.concat(

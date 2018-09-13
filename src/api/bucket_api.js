@@ -685,9 +685,9 @@ module.exports = {
                         available_for_upload: {
                             $ref: 'common_api#/definitions/bigint'
                         },
-                        spillover_free: {
-                            $ref: 'common_api#/definitions/bigint'
-                        },
+                        // spillover_free: {
+                        //     $ref: 'common_api#/definitions/bigint'
+                        // },
                         last_update: {
                             idate: true
                         }
@@ -899,13 +899,13 @@ module.exports = {
                         }
                     }]
                 },
-                spillover: {
-                    oneOf: [{
-                        type: 'string'
-                    }, {
-                        type: 'null'
-                    }]
-                },
+                // spillover: {
+                //     oneOf: [{
+                //         type: 'string'
+                //     }, {
+                //         type: 'null'
+                //     }]
+                // },
                 namespace: {
                     type: 'object',
                     required: ['write_resource', 'read_resources'],
@@ -926,26 +926,13 @@ module.exports = {
         },
         policy_modes: {
             type: 'object',
-            required: ['placement_status', 'resiliency_status', 'quota_status', 'spillover_status'],
+            required: ['resiliency_status', 'quota_status'],
             properties: {
-                placement_status: {
-                    type: 'string',
-                    enum: [
-                        'NO_RESOURCES',
-                        'NOT_ENOUGH_RESOURCES',
-                        'NOT_ENOUGH_HEALTHY_RESOURCES',
-                        'NO_CAPACITY',
-                        'SPILLING_BACK',
-                        'RISKY_TOLERANCE',
-                        'LOW_CAPACITY',
-                        'DATA_ACTIVITY',
-                        'OPTIMAL'
-                    ]
-                },
                 resiliency_status: {
                     type: 'string',
                     enum: [
                         'NOT_ENOUGH_RESOURCES',
+                        'POLICY_PARTIALLY_APPLIED',
                         'RISKY_TOLERANCE',
                         'DATA_ACTIVITY',
                         'OPTIMAL'
@@ -960,37 +947,24 @@ module.exports = {
                         'OPTIMAL'
                     ]
                 },
-                spillover_status: {
-                    type: 'string',
-                    enum: [
-                        'SPILLOVER_DISABLED',
-                        'SPILLOVER_ERRORS',
-                        'SPILLOVER_ISSUES',
-                        'SPILLING_BACK',
-                        'OPTIMAL'
-                    ]
-                }
             }
         },
         bucket_mode: {
             type: 'string',
             enum: [
                 'OPTIMAL',
-                'SPILLOVER_ISSUES',
                 'DATA_ACTIVITY',
                 'APPROUCHING_QUOTA',
-                'LOW_CAPACITY',
                 'RISKY_TOLERANCE',
-                'SPILLOVER_NO_CAPACITY',
-                'SPILLOVER_NOT_ENOUGH_RESOURCES',
-                'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
-                'SPILLOVER_NO_RESOURCES',
-                'SPILLING_BACK',
-                'NO_CAPACITY_SPILLOVER_UNSERVICEABLE',
-                'NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE',
-                'NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE',
-                'NO_RESOURCES_SPILLOVER_UNSERVICEABLE',
+                'NO_RESOURCES_INTERNAL',
+                'TIER_LOW_CAPACITY',
+                'LOW_CAPACITY',
+                'TIER_NO_CAPACITY',
+                'TIER_NOT_ENOUGH_HEALTHY_RESOURCES',
+                'TIER_NOT_ENOUGH_RESOURCES',
+                'TIER_NO_RESOURCES',
                 'EXCEEDING_QUOTA',
+                'ALL_TIERS_HAVE_ISSUES',
                 'NO_CAPACITY',
                 'NOT_ENOUGH_HEALTHY_RESOURCES',
                 'NOT_ENOUGH_RESOURCES',

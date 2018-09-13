@@ -163,7 +163,7 @@ class BlockStoreClient {
 
                         // if not OK parse the error and throw Error object
                         if (res.statusCode !== 200) {
-                            return this._throw_s3_err(res);
+                            await this._throw_s3_err(res);
                         }
 
                     }
@@ -249,7 +249,7 @@ class BlockStoreClient {
 
                         } else {
                             // parse the error and throw Error object
-                            return this._throw_s3_err(res);
+                            await this._throw_s3_err(res);
                         }
                     }
 
@@ -270,7 +270,7 @@ class BlockStoreClient {
 
     }
 
-    _throw_s3_err(res) {
+    async _throw_s3_err(res) {
         return P.fromCallback(callback => xml2js.parseString(res.body, callback))
             .then(xml_obj => {
                 let err;

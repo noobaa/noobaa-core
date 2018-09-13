@@ -18,6 +18,11 @@
             "ver": "2.8.1",
             "vhd": "2.8.1-9587959.vhd",
             "released": true
+        },
+        {
+            "ver": "2.9.2",
+            "vhd": "2.9.2-a09fff9.vhd",
+            "released": true
         }
     ]
 }

@@ -6,7 +6,7 @@ const server_ops = require('../utils/server_functions');
 const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const argv = require('minimist')(process.argv, { string: ['server_secret'] });
-dbg.set_process_name('account_pipeline');
+dbg.set_process_name('system_config_pipeline');
 
 const js_script = 'system_config.js';
 

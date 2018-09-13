@@ -21,6 +21,8 @@ var cluster_hb = require('./bg_services/cluster_hb');
 var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
 var { MirrorWriter } = require('./bg_services/mirror_writer');
+var { TieringTTFWorker } = require('./bg_services/tier_ttf_worker');
+var { TieringSpillbackWorker } = require('./bg_services/tier_spillback_worker');
 var cluster_master = require('./bg_services/cluster_master');
 var AgentBlocksVerifier = require('./bg_services/agent_blocks_verifier').AgentBlocksVerifier;
 var AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
@@ -36,6 +38,7 @@ var db_cleaner = require('./bg_services/db_cleaner');
 const MASTER_BG_WORKERS = [
     'scrubber',
     'mirror_writer',
+    'tier_mover',
     'system_server_stats_aggregator',
     'md_aggregator',
     'usage_aggregator',
@@ -119,6 +122,24 @@ function run_master_workers() {
         }));
     } else {
         dbg.warn('MIRROR_WRITER NOT ENABLED');
+    }
+
+    if (config.TIER_TTF_WORKER_ENABLED) {
+        register_bg_worker(new TieringTTFWorker({
+            name: 'tier_ttf_worker',
+            client: server_rpc.client
+        }));
+    } else {
+        dbg.warn('TTF_WORKER NOT ENABLED');
+    }
+
+    if (config.TIER_SPILLBACK_WORKER_ENABLED) {
+        register_bg_worker(new TieringSpillbackWorker({
+            name: 'tier_spillover_worker',
+            client: server_rpc.client
+        }));
+    } else {
+        dbg.warn('SPILLBACK_WORKER NOT ENABLED');
     }
 
     if (config.DEDUP_INDEXER_ENABLED) {

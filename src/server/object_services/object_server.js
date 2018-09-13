@@ -81,13 +81,12 @@ async function create_object_upload(req) {
     }
 
     const tier = await map_writer.select_tier_for_write(req.bucket, info);
-    dbg.log0('JAJAJA tier', tier);
     await MDStore.instance().insert_object(info);
     object_md_cache.put_in_cache(String(info._id), info);
 
     return {
         obj_id: info._id,
-        tier: tier._id,
+        tier: tier.name,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
     };
@@ -330,7 +329,7 @@ async function create_multipart(req) {
     await MDStore.instance().insert_multipart(multipart);
     return {
         multipart_id: multipart._id,
-        tier: tier._id,
+        tier: tier.name,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
     };
@@ -538,7 +537,7 @@ async function read_object_md(req) {
         // count object capacity
         const MAX_SIZE_CAP_FOR_OBJECT_RAW_QUERY = 20 * 1024 * 1024 * 1024;
         if (info.size < MAX_SIZE_CAP_FOR_OBJECT_RAW_QUERY) {
-            const parts = await map_reader.read_object_mappings(obj);
+            const parts = await map_reader.read_object_mappings(obj, undefined, undefined, undefined, undefined, adminfo);
             info.capacity_size = 0;
             _.forEach(parts, part => _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
                 info.capacity_size += block.block_md.size;

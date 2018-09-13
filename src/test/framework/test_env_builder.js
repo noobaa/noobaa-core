@@ -52,6 +52,7 @@ const {
     agents_disk_size = 'default',
     random_base_version = false,
     min_version = '2.1',
+    pool_name = 'first.pool',
 } = argv;
 
 let {
@@ -160,7 +161,8 @@ async function prepare_server() {
         storage,
         vmSize,
         latestRelease: true,
-        createSystem: true
+        createSystem: true,
+        createPools: []
     };
     if (random_base_version) {
         createServerParams.imagename = await get_random_base_version();
@@ -260,14 +262,14 @@ function install_agents() {
     }
     let num_installed = 0;
     console.log(`Starting to install ${created_agents.length} Agents`);
-    return agent_functions.getAgentConf(server.ip, [])
+    return agent_functions.getAgentConf(server.ip, [], pool_name)
         .then(agent_conf => P.map(created_agents, agent => {
                 const os = azf.getImagesfromOSname(agent.os);
                 return P.resolve()
                     .then(() => {
                         if (os.hasImage) {
                             console.log(`installing agent ${agent.name} type ${agent.os} using ssh`);
-                            return (agent_functions.getAgentConfInstallString(server.ip, os.osType, []))
+                            return (agent_functions.getAgentConfInstallString(server.ip, os.osType, [], pool_name))
                                 .then(inst_string => agent_functions.runAgentCommandViaSsh(
                                     agent.ip,
                                     AzureFunctions.QA_USER_NAME,
@@ -475,7 +477,7 @@ Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storag
   --shell_script                -   shell script to run after env is ready
   --skip_agent_creation         -   do not create new agents
   --skip_server_creation        -   do not create a new server, --server_ip and --server_secret must be supplied
-  --skip_configuration          -   do not create configuration 
+  --skip_configuration          -   do not create configuration
   --create_lg                   -   create lg
   --lg_ip                       -   existing lg ip
   --server_external_ip          -   running with the server external ip (default: internal)

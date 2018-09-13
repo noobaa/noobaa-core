@@ -111,7 +111,7 @@ async function read_parts_mappings({ parts, adminfo, set_obj, location_info, sam
             const selected_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status);
             for (const chunk of chunks) {
                 system_utils.prepare_chunk_for_mapping(chunk);
-                if (!_.isEqual(chunk.tier._id, selected_tier._id)) {
+                if (!chunk.tier._id || !_.isEqual(chunk.tier._id, selected_tier._id)) {
                     dbg.log0('Chunk with low tier will be sent for rebuilding', chunk);
                     chunks_to_scrub.push(chunk);
                 } else if (location_info) {

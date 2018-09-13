@@ -48,7 +48,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                additionalProperties: true,
+                required: ['op_type'],
                 properties: {
                     error: {
                         type: 'object',
@@ -57,7 +57,7 @@ module.exports = {
                     },
                     usage: { // the usage that was counted for failed operation - need to undo
                         type: 'object',
-                        required: ['size', 'count', 'op_type'],
+                        required: ['size', 'count'],
                         properties: {
                             size: {
                                 type: 'integer'
@@ -65,12 +65,13 @@ module.exports = {
                             count: {
                                 type: 'integer'
                             },
-                            op_type: {
-                                type: 'string',
-                                enum: ['READ', 'WRITE']
-                            }
                         }
+                    },
+                    op_type: {
+                        type: 'string',
+                        enum: ['READ', 'WRITE']
                     }
+
                 }
             }
         },

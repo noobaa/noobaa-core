@@ -151,6 +151,8 @@ class BlockStoreS3 extends BlockStoreBase {
         this._update_read_stats(block_md.size);
 
         return {
+            disable_delegation: this.disable_delegation,
+            disable_metadata: this.disable_metadata,
             signed_url: this.s3cloud.getSignedUrl('getObject', params),
             proxy: this.proxy
         };
@@ -196,6 +198,8 @@ class BlockStoreS3 extends BlockStoreBase {
         const signed_url = this.s3cloud.getSignedUrl('putObject', params);
 
         return {
+            disable_delegation: this.disable_delegation,
+            disable_metadata: this.disable_metadata,
             usage,
             signed_url,
             proxy: this.proxy

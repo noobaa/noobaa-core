@@ -1198,14 +1198,18 @@ class MDStore {
             }));
     }
 
-    find_oldest_tier_chunk_ids(tier, limit) {
+    find_oldest_tier_chunk_ids(tier, limit, sort_direction) {
+        const sort = {
+            tier: sort_direction * -1,
+            tier_lru: sort_direction
+        };
         return this._chunks.col().find({
                 tier,
                 deleted: null,
             }, {
                 fields: { _id: 1 },
                 hint: 'tiering_index',
-                sort: { tier: -1, tier_lru: 1 },
+                sort,
                 limit,
             })
             .toArray()

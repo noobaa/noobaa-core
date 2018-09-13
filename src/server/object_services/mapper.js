@@ -83,7 +83,8 @@ class ChunkMapper {
 class MirrorMapper {
 
     constructor(mirror, chunk_coder_config, mirror_index) {
-        const { spread_pools } = mirror;
+        const { _id: mirror_id, spread_pools } = mirror;
+        this.mirror_group = String(mirror_id);
         this.spread_pools = spread_pools;
         this.chunk_coder_config = chunk_coder_config;
         this.pools_by_id = _.keyBy(spread_pools, '_id');
@@ -264,7 +265,7 @@ class MirrorMapper {
             if (num_missing > 0) {
                 tier_mapping.allocations = tier_mapping.allocations || [];
                 for (let i = 0; i < num_missing; ++i) {
-                    tier_mapping.allocations.push({ frag, pools, sources });
+                    tier_mapping.allocations.push({ frag, pools, sources, mirror_group: this.mirror_group });
                 }
             }
 
@@ -483,11 +484,16 @@ class TieringMapper {
         return tier_mapper.map_tier(chunk_mapper);
     }
 
-    select_tier_for_write() {
+    select_tier_for_write(tier_id) {
         const { tier_mappers } = this;
         let best_mapper;
-
-        for (let i = 0; i < tier_mappers.length; ++i) {
+        let start_index = 0;
+        if (tier_id) {
+            const index = _.findIndex(tier_mappers, t => String(t.tier._id) === String(tier_id));
+            if (index < 0) return;
+            start_index = index + 1;
+        }
+        for (let i = start_index; i < tier_mappers.length; ++i) {
             const tier_mapper = tier_mappers[i];
             if (!best_mapper || TierMapper.compare_tier(tier_mapper, best_mapper) > 0) {
                 best_mapper = tier_mapper;
@@ -553,14 +559,15 @@ function map_chunk(chunk, tier, tiering, tiering_status, location_info) {
     return mapping;
 }
 
-function select_tier_for_write(tiering, tiering_status) {
+function select_tier_for_write(tiering, tiering_status, tier) {
     const tiering_mapper = _get_cached_tiering_mapper(tiering);
     tiering_mapper.update_status(tiering_status);
-    const tier_mapper = tiering_mapper.select_tier_for_write();
-    return tier_mapper.tier;
+    const tier_mapper = tiering_mapper.select_tier_for_write(tier);
+    return tier_mapper && tier_mapper.tier;
 }
 
 function is_chunk_good_for_dedup(chunk, tiering, tiering_status) {
+    if (!chunk.tier._id) return false; // chunk tier was deleted so will need to be reallocated
     const mapping = map_chunk(chunk, chunk.tier, tiering, tiering_status);
     return mapping.accessible && !mapping.allocations;
 }
@@ -590,21 +597,26 @@ function get_num_blocks_per_chunk(tier) {
 }
 
 function get_part_info(part, adminfo, tiering_status, location_info) {
+    const chunk_info = get_chunk_info(part.chunk, adminfo, tiering_status, location_info);
+    dbg.log0('JAJA chunk_info', tiering_status, util.inspect(chunk_info, { depth: 4, colors: true }));
     return {
         start: part.start,
         end: part.end,
         seq: part.seq,
         multipart_id: part.multipart,
         chunk_id: part.chunk._id,
-        chunk: get_chunk_info(part.chunk, adminfo, tiering_status, location_info),
+        chunk: chunk_info,
         chunk_offset: part.chunk_offset, // currently undefined
     };
 }
 
 function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
+    let allocations_by_frag_id;
+    let deletions_by_frag_id;
     if (adminfo) {
         const bucket = system_store.data.get_by_id(chunk.bucket);
         const mapping = map_chunk(chunk, chunk.tier, bucket.tiering, tiering_status);
+        dbg.log0('JAJA mapping', util.inspect(mapping, { depth: 4, colors: true }));
         if (!mapping.accessible) {
             adminfo = { health: 'unavailable' };
         } else if (mapping.allocations) {
@@ -612,6 +624,8 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
         } else {
             adminfo = { health: 'available' };
         }
+        allocations_by_frag_id = _.groupBy(mapping.allocations, allocation => String(allocation.frag._id));
+        deletions_by_frag_id = _.groupBy(mapping.deletions, deletion => String(deletion.frag));
     }
     const blocks_by_frag_id = _.groupBy(chunk.blocks, 'frag');
     return {
@@ -625,13 +639,18 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
         cipher_iv_b64: chunk.cipher_iv && chunk.cipher_iv.toString('base64'),
         cipher_auth_tag_b64: chunk.cipher_auth_tag && chunk.cipher_auth_tag.toString('base64'),
         frags: chunk.frags && _.map(chunk.frags, frag =>
-            get_frag_info(chunk, frag, blocks_by_frag_id[frag._id], adminfo, location_info)),
+            get_frag_info(chunk, frag, blocks_by_frag_id[frag._id],
+                allocations_by_frag_id && allocations_by_frag_id[frag._id],
+                deletions_by_frag_id && deletions_by_frag_id[frag._id],
+                adminfo,
+                location_info)
+        ),
         adminfo: adminfo || undefined,
     };
 }
 
 
-function get_frag_info(chunk, frag, blocks, adminfo, location_info) {
+function get_frag_info(chunk, frag, blocks, allocations, deletions, adminfo, location_info) {
     // sorting the blocks to have most available node on front
     // TODO GUY OPTIMIZE what about load balancing - maybe random the order of good blocks
     if (blocks) blocks.sort(location_info ? _block_sorter_local(location_info) : _block_sorter_basic);
@@ -641,6 +660,8 @@ function get_frag_info(chunk, frag, blocks, adminfo, location_info) {
         lrc_index: frag.lrc_index,
         digest_b64: frag.digest && frag.digest.toString('base64'),
         blocks: blocks ? _.map(blocks, block => get_block_info(chunk, frag, block, adminfo)) : [],
+        deletions: deletions ? _.map(deletions, block => get_block_info(chunk, frag, block, adminfo)) : [],
+        allocations: allocations ? _.map(allocations, alloc => get_alloc_info(alloc)) : [],
     };
 }
 
@@ -681,6 +702,12 @@ function get_block_info(chunk, frag, block, adminfo) {
         block_md: get_block_md(chunk, frag, block),
         accessible: _is_block_accessible(block),
         adminfo: adminfo || undefined,
+    };
+}
+
+function get_alloc_info(alloc) {
+    return {
+        mirror_group: alloc.mirror_group
     };
 }
 

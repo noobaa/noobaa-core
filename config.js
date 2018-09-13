@@ -223,11 +223,12 @@ config.DB_CLEANER = {
 // connect directly to the cloud target (and not via a signed url)
 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION = {
     DEFAULT: false,
-    FLASHBLADE: true
+    FLASHBLADE: true,
 };
 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA = {
     DEFAULT: false,
-    FLASHBLADE: true
+    FLASHBLADE: true,
+    S3_COMPATIBLE: true,
 };
 
 config.DEFAULT_S3_AUTH_METHOD = {

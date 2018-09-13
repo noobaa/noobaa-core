@@ -1379,6 +1379,14 @@ module.exports = {
                     type: 'array',
                     items: { $ref: '#/definitions/block_info' }
                 },
+                deletions: {
+                    type: 'array',
+                    items: { $ref: '#/definitions/block_info' }
+                },
+                allocations: {
+                    type: 'array',
+                    items: { $ref: '#/definitions/alloc_info' }
+                },
             }
         },
 
@@ -1423,6 +1431,13 @@ module.exports = {
                         mirror_group: { type: 'string' }
                     }
                 }
+            }
+        },
+
+        alloc_info: {
+            type: 'object',
+            properties: {
+                mirror_group: { type: 'string' }
             }
         },
 

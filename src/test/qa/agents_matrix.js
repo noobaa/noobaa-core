@@ -170,6 +170,7 @@ async function createAgentMachins(osname, exclude_drives) {
 async function createAgents(isInclude, excludeList) {
     console.log(`starting the create agents stage`);
     const list_nodes = await af.list_nodes(server_ip);
+    initial_node_number = list_nodes.length;
     const decommissioned_nodes = list_nodes.filter(node => node.mode === 'DECOMMISSIONED');
     console.log(`${Yellow}Number of deactivated agents: ${decommissioned_nodes.length}${NC}`);
     const Online_node_number = list_nodes.length - decommissioned_nodes.length;
@@ -331,7 +332,7 @@ async function deleteAgent() {
         await client.host.delete_host({ name: host.name });
     });
     await P.delay(120 * 1000);
-    const listNods = af.list_nodes(server_ip);
+    const listNods = await af.list_nodes(server_ip);
     console.warn(`Node names are ${listNods.map(node => node.name)}`);
     if (listNods.length === initial_node_number) {
         console.warn(`${Yellow}Num nodes after the delete agent are ${

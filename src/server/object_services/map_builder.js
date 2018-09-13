@@ -41,7 +41,7 @@ class MapBuilder {
 
     async run(chunk_ids, tier) {
         this.tier = tier;
-        dbg.log1('MapBuilder.run:', 'batch start', chunk_ids);
+        dbg.log0('MapBuilder.run:', 'batch start', chunk_ids);
         if (!chunk_ids.length) return;
 
         await builder_lock.surround_keys(_.map(chunk_ids, String), async () => {
@@ -130,6 +130,10 @@ class MapBuilder {
                 if (!chunk.objects || !chunk.objects.length) throw new Error('No valid objects are pointing to chunk', chunk._id);
 
                 await this.populate_chunk_bucket(chunk);
+                if (!chunk.tier._id) { // tier was deleted?
+                    const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
+                    chunk.tier = mapper.select_tier_for_write(chunk.bucket.tiering, tiering_status);
+                }
             } catch (err) {
                 dbg.error(`failed to prepare chunk ${chunk._id} for builder`, err);
                 chunk.had_errors = true;
@@ -192,10 +196,10 @@ class MapBuilder {
                 throw new Error(`Not all chunks belong to the same bucket`);
             }
             const bucket = buckets[0];
-            chunks_moving_tiers = await make_room_in_tier(this.tier, bucket);
+            chunks_moving_tiers = await make_room_in_tier(this.tier, bucket, config.MIN_TIER_FREE_THRESHOLD); /* TODO JACKY free_threshold ??? */
         } else {
             for (const chunk of populated_chunks) {
-                chunks_moving_tiers += await make_room_in_tier(chunk.tier, chunk.bucket);
+                chunks_moving_tiers += await make_room_in_tier(chunk.tier, chunk.bucket, config.MIN_TIER_FREE_THRESHOLD);
             }
         }
         // We always call refresh_tiering_alloc twice, but if make_room_in_tier doesn't do anything we can skip it
@@ -224,7 +228,8 @@ class MapBuilder {
         if (chunk.had_errors || chunk.bucket.deleted) return;
 
         const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
-        const mapping = mapper.map_chunk(chunk, this.tier || chunk.tier, chunk.bucket.tiering, tiering_status);
+        const selected_tier = this.tier || chunk.tier;
+        const mapping = mapper.map_chunk(chunk, selected_tier, chunk.bucket.tiering, tiering_status);
         dbg.log2('MapBuilder.build_chunks: mapping', chunk._id, util.inspect(mapping, { depth: null, colors: true }));
 
         // only delete blocks if the chunk is in good shape,
@@ -429,23 +434,28 @@ class MapBuilder {
     }
 }
 
-async function make_room_in_tier(tier, bucket) {
+async function make_room_in_tier(tier, bucket, free_threshold) {
     const tiering = bucket.tiering;
     const tiering_status = node_allocator.get_tiering_status(tiering);
     const tier_status = tiering_status[tier._id];
-    if (!tier || !tier_status) throw new Error(`Can't find current tier in bucket`);
+    const tier_in_tiering = _.find(tiering.tiers, t => String(t.tier._id) === String(tier._id));
+    if (!tier_in_tiering || !tier_status) throw new Error(`Can't find current tier in bucket`);
     const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
     ));
-    // TODO JACKY make sure available_to_upload holds right result
-    if (available_to_upload && available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD)) return 0;
-    const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT);
-    const next_tier = _.find(tiering.tiers, t => t.order === (tier.order + 1));
+    if (available_to_upload && available_to_upload.greater(free_threshold)) return 0;
+    const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
+    // const next_tier = _.find(tiering.tiers, t => t.order === (tier_in_tiering.order + 1));
+    const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
     if (!next_tier) {
         console.log(`Can't make room in tier - No next tier to move data to`, tier.name);
         return 0;
     }
-    await server_rpc.client.scrubber.build_chunks({ chunk_ids, tier: next_tier._id }, {
+    console.log(`Making room in tier ${tier.name} - Moving ${chunk_ids.length} to next tier ${next_tier.name}`);
+    await server_rpc.client.scrubber.build_chunks({
+        chunk_ids,
+        tier: next_tier._id,
+    }, {
         auth_token: auth_server.make_auth_token({
             system_id: bucket.system._id,
             role: 'admin'

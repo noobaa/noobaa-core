@@ -39,10 +39,9 @@ class MapAllocator {
     }
 
     async run_select_tier() {
-        dbg.log0('JAJA MapAllocator.run_select_tier()');
         await this.prepare_tiering_for_alloc();
         const tier = await mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
-        await map_builder.make_room_in_tier(tier, this.bucket);
+        await map_builder.make_room_in_tier(tier, this.bucket, config.MIN_TIER_FREE_THRESHOLD * 10);
         return tier;
     }
 

@@ -547,15 +547,9 @@ function read_system(req) {
                         hosts_aggregate_pool,
                         aggregate_data_free_by_tier,
                         num_of_objects: obj_count_per_bucket[bucket._id] || 0,
-                        func_configs
+                        func_configs,
+                        bucket_stats: stats_by_bucket[bucket.name]
                     });
-                    const bucket_stats = stats_by_bucket[bucket.name] || {};
-                    b.stats = {
-                        reads: bucket_stats.total_reads || 0,
-                        writes: bucket_stats.total_writes || 0,
-                        last_read: bucket_stats.last_read || 0,
-                        last_write: bucket_stats.last_write || 0,
-                    };
                     if (deletable_buckets[bucket.name]) {
                         b.undeletable = deletable_buckets[bucket.name];
                     }

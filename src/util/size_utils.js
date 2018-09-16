@@ -157,6 +157,13 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
         }, {});
 }
 
+// returns the sum of 2 bigints in json format
+function sum_bigint_json(a, b) {
+    const bigint_a = json_to_bigint(a);
+    const bigint_b = json_to_bigint(b);
+    return bigint_a.plus(bigint_b).toJSON();
+}
+
 
 function size_min(values) {
     var n_min = PETABYTE;
@@ -326,6 +333,7 @@ exports.size_unit_to_bigint = size_unit_to_bigint;
 exports.to_bigint_storage = to_bigint_storage;
 exports.to_storage_bigint = to_storage_bigint;
 exports.reduce_storage = reduce_storage;
+exports.sum_bigint_json = sum_bigint_json;
 exports.size_min = size_min;
 exports.size_max = size_max;
 exports.reduce_minimum = reduce_minimum;

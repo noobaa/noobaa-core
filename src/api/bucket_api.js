@@ -733,6 +733,29 @@ module.exports = {
                         },
                     },
                 },
+                stats_by_type: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            data_type: {
+                                type: 'string'
+                            },
+                            reads: {
+                                type: 'integer'
+                            },
+                            writes: {
+                                type: 'integer'
+                            },
+                            size: {
+                                $ref: 'common_api#/definitions/bigint'
+                            },
+                            count: {
+                                type: 'integer'
+                            },
+                        },
+                    }
+                },
                 policy_modes: {
                     $ref: '#/definitions/policy_modes'
                 },

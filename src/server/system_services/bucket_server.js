@@ -1097,7 +1097,8 @@ function get_bucket_info({
     hosts_aggregate_pool,
     aggregate_data_free_by_tier,
     num_of_objects,
-    func_configs
+    func_configs,
+    bucket_stats
 }) {
     const info = {
         name: bucket.name,
@@ -1116,13 +1117,13 @@ function get_bucket_info({
         usage_by_pool: undefined,
         quota: undefined,
         stats: undefined,
+        stats_by_type: undefined,
         mode: undefined,
         host_tolerance: undefined,
         node_tolerance: undefined,
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
         versioning: bucket.versioning
     };
-
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, info });
 
     info.usage_by_pool = {
@@ -1165,6 +1166,31 @@ function get_bucket_info({
         ret_trigger.permission_problem = !auth_server.has_bucket_permission(bucket, exec_account);
         return ret_trigger;
     });
+
+    if (bucket_stats) {
+        info.stats = {
+            reads: bucket_stats.total_reads || 0,
+            writes: bucket_stats.total_writes || 0,
+            last_read: bucket_stats.last_read || 0,
+            last_write: bucket_stats.last_write || 0,
+        };
+        // group stats by the first part of the content type and reduce
+        const size_by_content_type = _.get(bucket, 'storage_stats.stats_by_content_type', {});
+        const full_stats = bucket_stats.stats.map(stat => ({
+            data_type: stat.content_type.split('/')[0],
+            reads: stat.reads || 0,
+            writes: stat.writes || 0,
+            size: _.get(size_by_content_type[stat.content_type], 'size', 0),
+            count: _.get(size_by_content_type[stat.content_type], 'count', 0),
+        }));
+        info.stats_by_type = _.map(_.groupBy(full_stats, 'data_type'), stats => stats.reduce((prev, curr) => ({
+            data_type: prev.data_type,
+            reads: prev.reads + curr.reads,
+            writes: prev.writes + curr.writes,
+            size: size_utils.sum_bigint_json(prev.size, curr.size),
+            count: prev.count + curr.count,
+        })));
+    }
 
     return info;
 }

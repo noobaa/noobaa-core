@@ -129,7 +129,7 @@ async function background_worker() {
     const till = Date.now() - YEAR;
     // delete all reports older than one year
     dbg.log0('Deleting reports older than', new Date(till));
-    return UsageReportStore.instance().clean_usage_reports({ till });
+    await UsageReportStore.instance().clean_usage_reports({ till });
 }
 
 

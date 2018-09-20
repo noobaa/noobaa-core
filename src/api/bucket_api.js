@@ -224,7 +224,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['since', 'till', 'resolution'],
+                required: ['since', 'till', 'resolution', 'buckets'],
                 properties: {
                     buckets: {
                         type: 'array',

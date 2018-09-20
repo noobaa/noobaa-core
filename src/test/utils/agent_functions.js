@@ -102,8 +102,9 @@ async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives
     const agentConf = await getAgentConf(server_ip, exclude_drives);
     await P.map(agents_to_create, async name => {
         try {
-            const os = await azf.getImagesfromOSname(agentmap.get(name));
-            if (os.hasImage) {
+            const os = agentmap.get(name);
+            const { hasImage } = await azf.getImagesfromOSname(os);
+            if (hasImage) {
                 await azf.createAgentFromImage({
                     vmName: name,
                     vmSize: 'Standard_B2s',
@@ -304,15 +305,24 @@ async function deactiveAllHosts(server_ip) {
 //check how many agents there are now, expecting agent to be included.
 async function isIncluded(params) {
     console.log(params);
-    const { server_ip, previous_agent_number, additional_agents, print = 'include', suffix = '' } = params;
+    const { server_ip, previous_agent_number = 0, additional_agents = 0, print = 'include', suffix = '' } = params;
     try {
-        const listNodes = await list_nodes(server_ip);
-        const decommisioned_nodes = listNodes.filter(node => node.mode === 'DECOMMISSIONED');
-        console.warn(`${Yellow}Number of Excluded agents: ${decommisioned_nodes.length}${NC}`);
-        console.warn(`Node names are ${listNodes.map(node => node.name)}`);
+        let retry = 0;
+        let actual_count;
         const expected_count = previous_agent_number + additional_agents;
-        const test_nodes = await list_optimal_agents(server_ip, suffix);
-        const actual_count = test_nodes.length;
+        do {
+            retry += 1;
+            if (retry !== 1) {
+                console.log(`sleeping for 1 min`);
+                await P.delay(60 * 1000);
+            }
+            const listNodes = await list_nodes(server_ip);
+            const decommissioned_nodes = listNodes.filter(node => node.mode === 'DECOMMISSIONED');
+            console.warn(`${Yellow}Number of Excluded agents: ${decommissioned_nodes.length}${NC}`);
+            console.warn(`Node names are ${listNodes.map(node => node.name)}`);
+            const test_nodes = await list_optimal_agents(server_ip, suffix);
+            actual_count = test_nodes.length;
+        } while ((actual_count !== expected_count) && (retry < 5));
         if (actual_count === expected_count) {
             console.warn(`${Yellow}Number of nodes after ${print} are ${actual_count}${NC}`);
         } else {
@@ -322,7 +332,7 @@ async function isIncluded(params) {
             throw new Error(error);
         }
     } catch (err) {
-        console.log('isIncluded Caught ERR', err);
+        console.log('isIncluded Caught ERR: ', err);
         throw err;
     }
 }

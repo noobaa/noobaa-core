@@ -7,6 +7,7 @@ const moment = require('moment');
 const dbg = require('../../util/debug_module')(__filename);
 const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
 const system_store = require('../system_services/system_store').get_instance();
+const size_utils = require('../../util/size_utils');
 
 
 
@@ -60,9 +61,9 @@ async function get_throughput_entries({ buckets, resolution, since, till }) {
         const entry = entries_by_start_time[aligned_start_time];
         if (entry) {
             entry.read_count += report.read_count;
-            entry.read_bytes += report.read_bytes;
+            entry.read_bytes = size_utils.sum_bigint_json(entry.read_bytes, report.read_bytes);
             entry.write_count += report.write_count;
-            entry.write_bytes += report.write_bytes;
+            entry.write_bytes = size_utils.sum_bigint_json(entry.write_bytes, report.write_bytes);
         } else {
             dbg.error('could not find an entry for start_time =', aligned_start_time);
         }
@@ -73,14 +74,18 @@ async function get_throughput_entries({ buckets, resolution, since, till }) {
 
 async function get_accounts_report(params) {
     const { since, till, accounts } = params;
-    const usage_reports = await UsageReportStore.instance().get_usage_reports({ since, till, accounts });
+    const usage_reports = await UsageReportStore.instance().get_usage_reports({
+        since: moment(since).startOf('hour').valueOf(),
+        till: moment(till).endOf('hour').valueOf(),
+        accounts
+    });
     const accounts_reports = _.groupBy(usage_reports, report => system_store.data.get_by_id(report.account).email);
     return _.map(accounts_reports, (reports, account) => reports.reduce((curr, prev) => ({
         account,
         read_count: prev.read_count + (curr.read_count || 0),
-        read_bytes: prev.read_bytes + (curr.read_bytes || 0),
+        read_bytes: size_utils.sum_bigint_json(prev.read_bytes, (curr.read_bytes || 0)),
         write_count: prev.write_count + (curr.write_count || 0),
-        write_bytes: prev.write_bytes + (curr.write_bytes || 0),
+        write_bytes: size_utils.sum_bigint_json(prev.write_bytes, (curr.write_bytes || 0)),
     }), ZERO_STATS));
 }
 
@@ -98,8 +103,8 @@ function aggregate_reports(reports, { time_range, aggergate_by } = {}) {
                 system: curr.system,
                 bucket: curr.bucket,
                 account: curr.account,
-                read_bytes: acc.read_bytes + curr.read_bytes,
-                write_bytes: acc.write_bytes + curr.write_bytes,
+                read_bytes: size_utils.sum_bigint_json(acc.read_bytes, curr.read_bytes),
+                write_bytes: size_utils.sum_bigint_json(acc.write_bytes, curr.write_bytes),
                 read_count: acc.read_count + curr.read_count,
                 write_count: acc.write_count + curr.write_count,
                 start_time: Math.min(acc.start_time, curr.start_time),

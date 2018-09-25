@@ -1175,7 +1175,8 @@ function get_bucket_info({
             last_write: bucket_stats.last_write || 0,
         };
         // group stats by the first part of the content type and reduce
-        const size_by_content_type = _.get(bucket, 'storage_stats.stats_by_content_type', {});
+        const content_type_stats = _.get(bucket, 'storage_stats.stats_by_content_type', []);
+        const size_by_content_type = _.keyBy(content_type_stats, 'content_type');
         const full_stats = bucket_stats.stats.map(stat => ({
             data_type: stat.content_type.split('/')[0],
             reads: stat.reads || 0,

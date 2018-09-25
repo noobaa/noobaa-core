@@ -293,7 +293,7 @@ function calculate_new_bucket({
         chunks_capacity: (bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0,
         objects_size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
         objects_count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0,
-        stats_by_content_type: (bucket.storage_stats && bucket.storage_stats.stats_by_content_type) || {},
+        stats_by_content_type: (bucket.storage_stats && bucket.storage_stats.stats_by_content_type) || [],
         blocks_size: (bucket.storage_stats && bucket.storage_stats.blocks_size) || 0,
         pools: (bucket.storage_stats && bucket.storage_stats.pools) || {},
     };
@@ -372,9 +372,11 @@ function aggregate_by_content_type({
     const ex_by_content_type = existing_objects_aggregate[bucket._id] && existing_objects_aggregate[bucket._id].content_type;
     const de_by_content_type = deleted_objects_aggregate[bucket._id] && deleted_objects_aggregate[bucket._id].content_type;
 
+    let stats_by_content_type_obj = _.keyBy(new_storage_stats.stats_by_content_type, 'content_type');
+
     if (ex_by_content_type || de_by_content_type) {
         // convert current stats to bigint
-        new_storage_stats.stats_by_content_type = _.mapValues(new_storage_stats.stats_by_content_type, val => ({
+        stats_by_content_type_obj = _.mapValues(stats_by_content_type_obj, val => ({
             count: size_utils.json_to_bigint(val.count),
             size: size_utils.json_to_bigint(val.size),
         }));
@@ -382,7 +384,7 @@ function aggregate_by_content_type({
 
     if (ex_by_content_type) {
         // add stats of new uploads
-        _.mergeWith(new_storage_stats.stats_by_content_type, ex_by_content_type, (val_bigint, other) => {
+        _.mergeWith(stats_by_content_type_obj, ex_by_content_type, (val_bigint, other) => {
             val_bigint = val_bigint || { size: size_utils.BigInteger.zero, count: size_utils.BigInteger.zero };
             const other_bigint = {
                 count: size_utils.json_to_bigint(_.get(other, 'count', 0)),
@@ -396,7 +398,7 @@ function aggregate_by_content_type({
     }
     if (de_by_content_type) {
         // decrement stats of deleted objects
-        _.mergeWith(new_storage_stats.stats_by_content_type, de_by_content_type, (val_bigint, other) => {
+        _.mergeWith(stats_by_content_type_obj, de_by_content_type, (val_bigint, other) => {
             val_bigint = val_bigint || { size: size_utils.BigInteger.zero, count: size_utils.BigInteger.zero };
             const other_bigint = {
                 count: size_utils.json_to_bigint(_.get(other, 'count', 0)),
@@ -411,7 +413,8 @@ function aggregate_by_content_type({
 
     // convert back to json
     if (ex_by_content_type || de_by_content_type) {
-        new_storage_stats.stats_by_content_type = _.mapValues(new_storage_stats.stats_by_content_type, bigint_val => ({
+        new_storage_stats.stats_by_content_type = _.map(stats_by_content_type_obj, (bigint_val, content_type) => ({
+            content_type,
             count: bigint_val.count.toJSON(),
             size: bigint_val.size.toJSON(),
         }));

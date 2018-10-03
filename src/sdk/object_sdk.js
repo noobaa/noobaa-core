@@ -304,9 +304,9 @@ class ObjectSDK {
 
 
     // if upload is using a copy source fix the params according to source and target real location
-    async fix_copy_source_params(params, target_ns) {
+    async fix_copy_source_params(params, target_ns, is_multipart_flow) {
         const { bucket, key, version_id, ranges } = params.copy_source;
-        const source_params = { bucket, key, version_id };
+        const source_params = { bucket, key, version_id, md_conditions: params.source_md_conditions };
         // get the namespace for source bucket
         const source_ns = await this._get_bucket_namespace(bucket);
         const source_md = await source_ns.read_object_md(source_params, this);
@@ -317,6 +317,20 @@ class ObjectSDK {
         if (actual_target_ns.is_same_namespace(actual_source_ns)) {
             // fix copy_source in params to point to the correct cloud bucket
             params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
+            params.copy_source.obj_id = source_md.obj_id;
+            params.copy_source.version_id = source_md.version_id;
+            params.copy_source.ranges = http_utils.normalize_http_ranges(
+                params.copy_source.ranges, source_md.size);
+            if (!is_multipart_flow) {
+                params.md5_b64 = source_md.md5_b64;
+                params.sha256_b64 = source_md.sha256_b64;
+                if (!params.content_type && source_md.content_type) {
+                    params.content_type = source_md.content_type;
+                }
+            }
+            if (params.xattr_copy) {
+                params.xattr = source_md.xattr;
+            }
         } else {
             // source cannot be copied directly (different plaforms, accounts, etc.)
             // set the source_stream to read from the copy source
@@ -340,7 +354,7 @@ class ObjectSDK {
 
     async upload_object(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        if (params.copy_source) await this.fix_copy_source_params(params, ns);
+        if (params.copy_source) await this.fix_copy_source_params(params, ns, /*is_multipart_flow =*/ false);
         const reply = await ns.upload_object(params, this);
         // update bucket counters
         stats_collector.instance(this.rpc_client).update_bucket_write_counters({
@@ -369,7 +383,7 @@ class ObjectSDK {
 
     async upload_multipart(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        if (params.copy_source) await this.fix_copy_source_params(params, ns);
+        if (params.copy_source) await this.fix_copy_source_params(params, ns, /*is_multipart_flow =*/ true);
         return ns.upload_multipart(params, this);
     }
 

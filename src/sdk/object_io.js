@@ -18,7 +18,6 @@ const Semaphore = require('../util/semaphore');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
 const ChunkCoder = require('../util/chunk_coder');
-const http_utils = require('../util/http_utils');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
 const promise_utils = require('../util/promise_utils');
@@ -131,7 +130,6 @@ class ObjectIO {
             util.inspect(create_params, { colors: true, depth: null, breakLength: Infinity }));
 
         return P.resolve()
-            .then(() => this._load_copy_source_md(params, create_params))
             .then(() => params.client.object.create_object_upload(create_params))
             .then(create_reply => {
                 params.obj_id = create_reply.obj_id;
@@ -201,29 +199,6 @@ class ObjectIO {
                 // we leave the cleanup of failed multiparts to complete_object_upload or abort_object_upload
                 throw err;
             });
-    }
-
-    async _load_copy_source_md(params, create_params) {
-        if (!params.copy_source) return;
-        const { bucket, key, version_id } = params.copy_source;
-        const object_md = await params.client.object.read_object_md({
-            bucket,
-            key,
-            version_id,
-            md_conditions: params.source_md_conditions,
-        });
-        params.copy_source.obj_id = object_md.obj_id;
-        params.copy_source.version_id = object_md.version_id;
-        params.copy_source.ranges = http_utils.normalize_http_ranges(
-            params.copy_source.ranges, object_md.size);
-        create_params.md5_b64 = object_md.md5_b64;
-        create_params.sha256_b64 = object_md.sha256_b64;
-        if (!create_params.content_type && object_md.content_type) {
-            create_params.content_type = object_md.content_type;
-        }
-        if (params.xattr_copy) {
-            create_params.xattr = object_md.xattr;
-        }
     }
 
     async _upload_copy(params, complete_params) {
@@ -669,7 +644,7 @@ class ObjectIO {
      * for testing.
      *
      */
-    read_entire_object(params) {
+    async read_entire_object(params) {
         return buffer_utils.read_stream_join(this.read_object_stream(params));
     }
 
@@ -798,6 +773,7 @@ class ObjectIO {
      */
     read_object_with_cache(params) {
         dbg.log1('READ read_object_with_cache: range', range_utils.human_range(params));
+        if (!params.obj_id) throw new Error(util.format('read_object_with_cache: no obj_id provided', params));
 
         if (params.end <= params.start) {
             // empty read range

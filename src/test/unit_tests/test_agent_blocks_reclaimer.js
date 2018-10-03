@@ -128,6 +128,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(40000);
         const obj_key = 'sloth_obj';
+        let obj_id;
         let blocks_uploaded = [];
         const agent_blocks_reclaimer =
             new AgentBlocksReclaimer(self.test.title);
@@ -137,7 +138,10 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
                 nodes_list = res.nodes;
             })
             .then(() => upload_object(obj_key, obj_data, obj_size))
-            .then(obj_id => MDStore.instance().find_parts_chunk_ids({ _id: mongo_utils.make_object_id(obj_id) }))
+            .then(id => {
+                obj_id = id;
+                return MDStore.instance().find_parts_chunk_ids({ _id: mongo_utils.make_object_id(id) });
+            })
             .then(chunk_ids => MDStore.instance().find_blocks_of_chunks(chunk_ids))
             .then(blocks => {
                 blocks_uploaded = blocks;
@@ -160,7 +164,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
                 const all_reclaimed = _.every(blocks, block => block.reclaimed);
                 if (!all_reclaimed) throw new Error('NOT ALL BLOCKS WERE RECLAIMED');
             })
-            .then(() => verify_read_data(obj_key, obj_data)
+            .then(() => verify_read_data(obj_key, obj_data, obj_id)
                 .then(
                     () => {
                         throw new Error('verify_read_data BLOCKS WERE NOT DELETED');
@@ -195,7 +199,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
         };
         return P.resolve()
             .then(() => object_io.upload_object(params))
-            .then(() => verify_read_data(key, data))
+            .then(() => verify_read_data(key, data, params.obj_id))
             .then(() => verify_read_mappings(key, size))
             .then(() => verify_nodes_mappings())
             .then(() => params.obj_id);
@@ -222,8 +226,8 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             });
     }
 
-    function verify_read_data(key, data) {
-        return object_io.read_entire_object({ client: rpc_client, bucket, key })
+    function verify_read_data(key, data, obj_id) {
+        return object_io.read_entire_object({ client: rpc_client, bucket, key, obj_id })
             .then(read_buf => {
                 // verify the read buffer equals the written buffer
                 assert.strictEqual(data.length, read_buf.length);

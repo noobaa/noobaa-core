@@ -3039,7 +3039,7 @@ class NodesMonitor extends EventEmitter {
         _.each(list, item => {
             count += 1;
             if (item.node.node_type === 'ENDPOINT_S3') {
-                s3_count += 1;
+                if (item.node.enabled) s3_count += 1;
                 s3_by_mode[item.mode] = (s3_by_mode[item.mode] || 0) + 1;
                 if (item.online) s3_online += 1;
             } else {

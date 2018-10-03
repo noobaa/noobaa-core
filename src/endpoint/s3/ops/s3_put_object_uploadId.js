@@ -31,6 +31,7 @@ function put_object_uploadId(req, res) {
             source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
         })
         .then(reply => {
+            // TODO: We do not return the VersionId of the object that was copied
             res.setHeader('ETag', `"${reply.etag}"`);
             if (copy_source) {
                 return {

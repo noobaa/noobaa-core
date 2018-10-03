@@ -111,16 +111,17 @@ coretest.describe_mapper_test_case({
         const data = generator.update(Buffer.alloc(size));
         const key = `${KEY}-${key_counter}`;
         key_counter += 1;
+        const params = {
+            client: rpc_client,
+            bucket,
+            key,
+            size,
+            content_type: 'application/octet-stream',
+            source_stream: new SliceReader(data),
+        };
         return P.resolve()
-            .then(() => object_io.upload_object({
-                client: rpc_client,
-                bucket,
-                key,
-                size,
-                content_type: 'application/octet-stream',
-                source_stream: new SliceReader(data),
-            }))
-            .then(() => verify_read_data(key, data))
+            .then(() => object_io.upload_object(params))
+            .then(() => verify_read_data(key, data, params.obj_id))
             .then(() => verify_read_mappings(key, size))
             .then(() => verify_nodes_mappings(nodes_list))
             .then(() => rpc_client.object.delete_object({ bucket, key }))
@@ -163,7 +164,7 @@ coretest.describe_mapper_test_case({
                 key,
                 multiparts: _.map(list.multiparts, p => _.pick(p, 'num', 'etag'))
             }))
-            .then(() => verify_read_data(key, data))
+            .then(() => verify_read_data(key, data, obj_id))
             .then(() => verify_read_mappings(key, size))
             .then(() => verify_nodes_mappings())
             .then(() => rpc_client.object.delete_object({ bucket, key }))
@@ -189,8 +190,8 @@ coretest.describe_mapper_test_case({
             });
     }
 
-    function verify_read_data(key, data) {
-        return object_io.read_entire_object({ client: rpc_client, bucket, key })
+    function verify_read_data(key, data, obj_id) {
+        return object_io.read_entire_object({ client: rpc_client, bucket, key, obj_id })
             .then(read_buf => {
                 // verify the read buffer equals the written buffer
                 assert.strictEqual(data.length, read_buf.length);

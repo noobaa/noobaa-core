@@ -198,7 +198,7 @@ coretest.describe_mapper_test_case({
     }
 
     async function assert_fully_built(obj) {
-        const { key, data, chunks } = obj;
+        const { key, data, chunks, obj_id } = obj;
         _.forEach(chunks, chunk => {
             console.log('Checking chunk fully built', chunk);
             const tiering = system_store.data.systems[0].buckets_by_name[bucket].tiering;
@@ -222,7 +222,7 @@ coretest.describe_mapper_test_case({
             assert.strictEqual(mapping.missing_frags, undefined);
         });
 
-        const read_data = await object_io.read_entire_object({ client: rpc_client, bucket, key });
+        const read_data = await object_io.read_entire_object({ client: rpc_client, bucket, key, obj_id });
 
         assert.deepStrictEqual(read_data, data);
     }

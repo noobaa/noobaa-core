@@ -41,7 +41,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         record => tiersByName[record.tier]
     );
 
-    const { storage, data, quota, stats, triggers, policy_modes, stats_by_type } = bucket;
+    const { storage, data, quota, stats, triggers, policy_modes, stats_by_type = [] } = bucket;
     const { placement_status, resiliency_status, spillover_status, quota_status } = policy_modes;
     return {
         name: bucket.name,
@@ -57,7 +57,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         spillover: _mapSpillover(spillover_status, spilloverTiers[0], resTypeByName),
         failureTolerance: _mapFailureTolerance(bucket),
         versioning: _mapVersioning(bucket),
-        io: _mapIO(stats, stats_by_type),
+        io: _mapIO(stats),
         triggers: _mapTriggers(triggers),
         usageDistribution: _mapUsageDistribution(bucket, resTypeByName),
         statsByDataType: keyByProperty(

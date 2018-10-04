@@ -1113,6 +1113,34 @@ module.exports = {
             }
         },
 
+        update_endpoint_stats: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                properties: {
+                    namespace_stats: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                namespace_resource_id: {
+                                    objectid: true
+                                },
+                                io_stats: {
+                                    $ref: 'common_api#/definitions/io_stats'
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: ['admin']
+            }
+        },
+
+
+
         remove_endpoint_usage_reports: {
             method: 'DELETE',
             auth: {

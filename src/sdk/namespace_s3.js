@@ -7,17 +7,21 @@ const util = require('util');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const stream_utils = require('../util/stream_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const blob_translator = require('./blob_translator');
+const stats_collector = require('./endpoint_stats_collector');
 
 class NamespaceS3 {
 
-    constructor(options) {
-        this.access_key = options.accessKeyId;
-        this.proxy = options.proxy;
-        this.endpoint = options.endpoint;
-        this.s3 = new AWS.S3(options);
+    constructor({ namespace_resource_id, rpc_client, s3_params }) {
+        this.namespace_resource_id = namespace_resource_id;
+        this.access_key = s3_params.accessKeyId;
+        this.proxy = s3_params.proxy;
+        this.endpoint = s3_params.endpoint;
+        this.s3 = new AWS.S3(s3_params);
         this.bucket = this.s3.config.params.Bucket;
+        this.rpc_client = rpc_client;
     }
 
     // check if copy can be done server side on AWS. 
@@ -150,8 +154,18 @@ class NamespaceS3 {
                     if (statusCode >= 300) return; // will be handled by error event
                     req.removeListener('httpData', AWS.EventListeners.Core.HTTP_DATA);
                     req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
+                    let count = 1;
+                    const count_stream = stream_utils.get_tap_stream(data => {
+                        stats_collector.instance(this.rpc_client).update_namespace_read_stats({
+                            namespace_resource_id: this.namespace_resource_id,
+                            size: data.length,
+                            count
+                        });
+                        // clear count for next updates
+                        count = 0;
+                    });
                     const read_stream = res.httpResponse.createUnbufferedStream();
-                    return resolve(read_stream);
+                    return resolve(read_stream.pipe(count_stream));
                 });
             req.send();
         });
@@ -178,9 +192,19 @@ class NamespaceS3 {
                 MetadataDirective: params.xattr_copy ? 'COPY' : 'REPLACE',
             }).promise();
         } else {
+            let count = 1;
+            const count_stream = stream_utils.get_tap_stream(data => {
+                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    size: data.length,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
+            });
             res = await this.s3.putObject({
                 Key: params.key,
-                Body: params.source_stream,
+                Body: params.source_stream.pipe(count_stream),
                 ContentLength: params.size,
                 ContentType: params.content_type,
                 ContentMD5: params.md5_b64,
@@ -237,11 +261,21 @@ class NamespaceS3 {
                 CopySourceRange: copy_source_range,
             }).promise();
         } else {
+            let count = 1;
+            const count_stream = stream_utils.get_tap_stream(data => {
+                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    size: data.length,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
+            });
             res = await this.s3.uploadPart({
                 Key: params.key,
                 UploadId: params.obj_id,
                 PartNumber: params.num,
-                Body: params.source_stream,
+                Body: params.source_stream.pipe(count_stream),
                 ContentLength: params.size
             }).promise();
         }

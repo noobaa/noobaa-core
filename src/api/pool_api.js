@@ -440,6 +440,9 @@ module.exports = {
             type: 'object',
             required: ['name', 'endpoint_type', 'endpoint', 'target_bucket'],
             properties: {
+                id: {
+                    objectid: true
+                },
                 name: {
                     type: 'string'
                 },

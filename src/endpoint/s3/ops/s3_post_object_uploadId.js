@@ -29,8 +29,7 @@ async function post_object_uploadId(req, res) {
         bucket: req.params.bucket,
         key: req.params.key,
         md_conditions: http_utils.get_md_conditions(req),
-        multiparts,
-        content_type: req.headers['content-type']
+        multiparts
     });
 
     if (reply.version_id && reply.version_id !== 'null') {

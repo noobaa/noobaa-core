@@ -348,7 +348,10 @@ class ObjectSDK {
 
     async create_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        return ns.create_object_upload(params, this);
+        // update counters in background
+        const reply = await ns.create_object_upload(params, this);
+        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket, content_type: params.content_type });
+        return reply;
     }
 
     async upload_multipart(params) {
@@ -364,10 +367,7 @@ class ObjectSDK {
 
     async complete_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        const reply = await ns.complete_object_upload(_.omit(params, 'content_type'), this);
-        // update counters in background
-        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket, content_type: params.content_type });
-        return reply;
+        return ns.complete_object_upload(params, this);
     }
 
     async abort_object_upload(params) {

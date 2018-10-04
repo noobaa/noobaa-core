@@ -11,6 +11,8 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const blob_utils = require('../endpoint/blob/blob_utils');
 const azure_storage = require('../util/azure_storage_wrap');
+const stream_utils = require('../util/stream_utils');
+const stats_collector = require('./endpoint_stats_collector');
 
 
 const MAP_BLOCK_LIST_TYPE = Object.freeze({
@@ -21,11 +23,13 @@ const MAP_BLOCK_LIST_TYPE = Object.freeze({
 
 class NamespaceBlob {
 
-    constructor({ connection_string, container, proxy }) {
+    constructor({ namespace_resource_id, rpc_client, connection_string, container, proxy }) {
+        this.namespace_resource_id = namespace_resource_id;
         this.connection_string = connection_string;
         this.container = container;
         this.blob = azure_storage.createBlobService(connection_string);
         this.blob.setProxy(this.proxy ? url.parse(this.proxy) : null);
+        this.rpc_client = rpc_client;
     }
 
     is_same_namespace(other) {
@@ -160,6 +164,16 @@ class NamespaceBlob {
             inspect(_.omit(params, 'object_md.ns'))
         );
         return new P((resolve, reject) => {
+            let count = 1;
+            const count_stream = stream_utils.get_tap_stream(data => {
+                stats_collector.instance(this.rpc_client).update_namespace_read_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    size: data.length,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
+            });
             const read_stream = new stream.PassThrough();
             // we prefer not to resolve the promise until we know the stream really starts
             // so that NotFound errors or any error that is not related to streaming
@@ -180,7 +194,7 @@ class NamespaceBlob {
                     inspect(_.omit(params, 'object_md.ns')),
                     'read_stream is readable'
                 );
-                resolve(read_stream);
+                resolve(read_stream.pipe(count_stream));
             };
             read_stream.on('readable', on_readable);
             const options = {
@@ -215,7 +229,7 @@ class NamespaceBlob {
                         inspect(_.omit(params, 'object_md.ns')),
                         'callback res', inspect(res)
                     );
-                    return resolve(read_stream);
+                    return resolve(read_stream.pipe(count_stream));
                 }
             );
         });
@@ -244,11 +258,21 @@ class NamespaceBlob {
                 )
             );
         } else {
+            let count = 1;
+            const count_stream = stream_utils.get_tap_stream(data => {
+                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    size: data.length,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
+            });
             obj = await P.fromCallback(callback =>
                 this.blob.createBlockBlobFromStream(
                     this.container,
                     params.key,
-                    params.source_stream,
+                    params.source_stream.pipe(count_stream),
                     params.size, // streamLength really required ???
                     {
                         // TODO setting metadata fails with error on illegal characters when sending just letters and hyphens
@@ -282,12 +306,22 @@ class NamespaceBlob {
             throw new Error('NamespaceBlob.upload_blob_block: copy source not yet supported');
         }
 
+        let count = 1;
+        const count_stream = stream_utils.get_tap_stream(data => {
+            stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                namespace_resource_id: this.namespace_resource_id,
+                size: data.length,
+                count
+            });
+            // clear count for next updates
+            count = 0;
+        });
         await P.fromCallback(callback =>
             this.blob.createBlockFromStream(
                 params.block_id,
                 this.container,
                 params.key,
-                params.source_stream,
+                params.source_stream.pipe(count_stream),
                 params.size, // streamLength really required ???
                 callback)
         );
@@ -353,12 +387,23 @@ class NamespaceBlob {
         if (params.copy_source) {
             throw new Error('NamespaceBlob.upload_multipart: copy part not yet supported');
         }
+
+        let count = 1;
+        const count_stream = stream_utils.get_tap_stream(data => {
+            stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                namespace_resource_id: this.namespace_resource_id,
+                size: data.length,
+                count
+            });
+            // clear count for next updates
+            count = 0;
+        });
         const res = await P.fromCallback(callback =>
             this.blob.createBlockFromStream(
                 block_id,
                 this.container,
                 params.key,
-                params.source_stream,
+                params.source_stream.pipe(count_stream),
                 params.size, // streamLength really required ???
                 callback)
         );

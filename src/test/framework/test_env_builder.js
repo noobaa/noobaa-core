@@ -152,7 +152,7 @@ async function prepare_server() {
         storage,
         vmSize,
         latestRelease: true,
-        createSystem: true
+        createSystem: true,
     };
     if (random_base_version) {
         createServerParams.imagename = await get_random_base_version();

@@ -18,6 +18,7 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../../util/cloud_utils');
 const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
+const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
 
 const POOL_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -428,28 +429,66 @@ function get_associated_buckets(req) {
     return get_associated_buckets_int(pool);
 }
 
+async function get_namespace_stats_by_cloud_service(system, start_date, end_date) {
+    const ns_stats = _.keyBy(await IoStatsStore.instance().get_all_namespace_resources_stats({ system, start_date, end_date }),
+        stat => String(stat._id));
+    const grouped_stats = _.omit(_.groupBy(ns_stats, stat => {
+        const ns_resource = system_store.data.get_by_id(stat._id);
+        const endpoint_type = _.get(ns_resource, 'connection.endpoint_type');
+        return endpoint_type || 'OTHER';
+    }), 'OTHER');
+
+    return _.map(grouped_stats, (stats, service) => {
+        const reduced_stats = stats.reduce((prev, current) => ({
+            read_count: prev.read_count + (current.read_count || 0),
+            write_count: prev.write_count + (current.write_count || 0),
+            read_bytes: prev.read_bytes + (current.read_bytes || 0),
+            write_bytes: prev.write_bytes + (current.write_bytes || 0),
+        }), {
+            read_count: 0,
+            write_count: 0,
+            read_bytes: 0,
+            write_bytes: 0,
+        });
+        reduced_stats.service = service;
+        return reduced_stats;
+    });
+}
+
 async function get_cloud_services_stats(req) {
     const { start_date, end_date } = req.rpc_params;
-    const cloud_stats = await nodes_client.instance().get_nodes_stats_by_cloud_service(req.system._id, start_date, end_date);
+    const [cloud_stats, namespace_stats] = await P.all([
+        nodes_client.instance().get_nodes_stats_by_cloud_service(req.system._id, start_date, end_date),
+        get_namespace_stats_by_cloud_service(req.system._id, start_date, end_date)
+    ]);
 
-    // fill in empty entries for services that has connections but have no stats
-    const configured_services = new Set();
+    const all_services = {};
     for (const acc of system_store.data.accounts) {
-        if (acc.sync_credentials_cache) acc.sync_credentials_cache.forEach(conn => configured_services.add(conn.endpoint_type));
+        if (acc.sync_credentials_cache) {
+            acc.sync_credentials_cache.forEach(conn => {
+                all_services[conn.endpoint_type] = all_services[conn.endpoint_type] || {
+                    service: conn.endpoint_type,
+                    read_bytes: 0,
+                    read_count: 0,
+                    write_bytes: 0,
+                    write_count: 0
+                };
+            });
+        }
     }
-    for (const stat of cloud_stats) {
-        configured_services.delete(stat.service);
-    }
-    for (const service of configured_services) {
-        cloud_stats.push({
-            service,
-            read_bytes: 0,
-            read_count: 0,
-            write_bytes: 0,
-            write_count: 0
-        });
-    }
-    return cloud_stats;
+    const cloud_stats_by_service = _.keyBy(cloud_stats, 'service');
+    const ns_stats_by_service = _.keyBy(namespace_stats, 'service');
+
+
+    _.mergeWith(all_services, cloud_stats_by_service, ns_stats_by_service, (a = {}, b = {}) => ({
+        service: a.service || b.service,
+        read_count: (a.read_count || 0) + (b.read_count || 0),
+        write_count: (a.write_count || 0) + (b.write_count || 0),
+        read_bytes: (a.read_bytes || 0) + (b.read_bytes || 0),
+        write_bytes: (a.write_bytes || 0) + (b.write_bytes || 0),
+    }));
+
+    return _.values(all_services);
 }
 
 function get_pool_history(req) {
@@ -636,6 +675,7 @@ function get_namespace_resource_info(namespace_resource) {
 
 function get_namespace_resource_extended_info(namespace_resource) {
     const info = _.omitBy({
+        id: namespace_resource._id,
         name: namespace_resource.name,
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,

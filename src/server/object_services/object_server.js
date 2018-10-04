@@ -30,6 +30,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
 const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
 const events_dispatcher = require('./events_dispatcher');
+const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
 
 /**
  *
@@ -1403,6 +1404,18 @@ async function _delete_object_only_key(req) {
 }
 
 
+async function update_endpoint_stats(req) {
+    console.log(`update_endpoint_stats. namespace_stats =`, req.rpc_params.namespace_stats);
+    const namespace_stats = req.rpc_params.namespace_stats || [];
+    for (const stats of namespace_stats) {
+        IoStatsStore.instance().update_namespace_resource_io_stats({
+            system: req.system._id,
+            namespace_resource_id: stats.namespace_resource_id,
+            stats: stats.io_stats
+        });
+    }
+}
+
 
 // EXPORTS
 // object upload
@@ -1442,3 +1455,4 @@ exports.remove_endpoint_usage_reports = remove_endpoint_usage_reports;
 exports.check_quota = check_quota;
 exports.update_bucket_read_counters = update_bucket_read_counters;
 exports.update_bucket_write_counters = update_bucket_write_counters;
+exports.update_endpoint_stats = update_endpoint_stats;

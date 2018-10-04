@@ -107,33 +107,7 @@ module.exports = {
                     },
 
                     io_stats: {
-                        type: 'object',
-                        properties: {
-                            read_count: {
-                                type: 'integer'
-                            },
-                            write_count: {
-                                type: 'integer'
-                            },
-                            read_bytes: {
-                                type: 'integer'
-                            },
-                            write_bytes: {
-                                type: 'integer'
-                            },
-                            error_read_count: {
-                                type: 'integer'
-                            },
-                            error_write_count: {
-                                type: 'integer'
-                            },
-                            error_read_bytes: {
-                                type: 'integer'
-                            },
-                            error_write_bytes: {
-                                type: 'integer'
-                            },
-                        }
+                        $ref: 'common_api#/definitions/io_stats'
                     },
 
                     // the agent's "recommendation" of it's roles. nodes_monitor will only use it

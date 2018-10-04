@@ -65,7 +65,11 @@ class BlockStoreBase {
             read_count: 0,
             write_count: 0,
             read_bytes: 0,
-            write_bytes: 0
+            write_bytes: 0,
+            error_write_bytes: 0,
+            error_write_count: 0,
+            error_read_bytes: 0,
+            error_read_count: 0,
         };
     }
 

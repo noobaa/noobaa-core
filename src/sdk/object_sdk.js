@@ -37,7 +37,7 @@ const MULTIPART_NAMESPACES = [
 
 class ObjectSDK {
 
-    constructor(rpc_client, object_io) {
+    constructor(rpc_client, object_io, stats_collector) {
         this.rpc_client = rpc_client;
         this.object_io = object_io;
         this.namespace_nb = new NamespaceNB();
@@ -152,19 +152,25 @@ class ObjectSDK {
                 agent: http_utils.get_unsecured_http_agent(ns_info.endpoint, ns_info.proxy)
             };
             return new NamespaceS3({
-                params: { Bucket: ns_info.target_bucket },
-                endpoint: ns_info.endpoint,
-                accessKeyId: ns_info.access_key,
-                secretAccessKey: ns_info.secret_key,
-                // region: 'us-east-1', // TODO needed?
-                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(ns_info.endpoint, ns_info.auth_method),
-                s3ForcePathStyle: true,
-                // computeChecksums: false, // disabled by default for performance
-                httpOptions
+                namespace_resource_id: ns_info.id,
+                rpc_client: this.rpc_client,
+                s3_params: {
+                    params: { Bucket: ns_info.target_bucket },
+                    endpoint: ns_info.endpoint,
+                    accessKeyId: ns_info.access_key,
+                    secretAccessKey: ns_info.secret_key,
+                    // region: 'us-east-1', // TODO needed?
+                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(ns_info.endpoint, ns_info.auth_method),
+                    s3ForcePathStyle: true,
+                    // computeChecksums: false, // disabled by default for performance
+                    httpOptions
+                }
             });
         }
         if (ns_info.endpoint_type === 'AZURE') {
             return new NamespaceBlob({
+                namespace_resource_id: ns_info.id,
+                rpc_client: this.rpc_client,
                 container: ns_info.target_bucket,
                 connection_string: cloud_utils.get_azure_connection_string(ns_info),
                 proxy: ns_info.proxy

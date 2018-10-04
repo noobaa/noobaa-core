@@ -1117,7 +1117,7 @@ function get_bucket_info({
         usage_by_pool: undefined,
         quota: undefined,
         stats: undefined,
-        stats_by_type: undefined,
+        stats_by_type: [],
         mode: undefined,
         host_tolerance: undefined,
         node_tolerance: undefined,

@@ -10,8 +10,12 @@ module.exports = {
     },
 
     parserOptions: {
-        ecmaVersion: 2017
+        ecmaVersion: 2017,
+        ecmaFeatures: {
+            experimentalObjectRestSpread: true
+        },
     },
+
 
     plugins: [
         // eslint-plugin-header validates copyright header

@@ -181,28 +181,15 @@ async function complete_object_upload(req) {
     };
 }
 
-function update_bucket_write_counters(req) {
-    const bucket = req.system.buckets_by_name[req.rpc_params.bucket];
+async function update_bucket_counters({ system, bucket_name, content_type, read_count, write_count }) {
+    const bucket = system.buckets_by_name[bucket_name];
     if (!bucket) return;
-    const content_type = req.rpc_params.content_type;
-
-    BucketStatsStore.instance().update_bucket_counters({
-        system: req.system._id,
+    await BucketStatsStore.instance().update_bucket_counters({
+        system: system._id,
         bucket: bucket._id,
-        write_count: 1,
-        content_type
-    });
-}
-
-function update_bucket_read_counters(req) {
-    const bucket = req.system.buckets_by_name[req.rpc_params.bucket];
-    const content_type = req.rpc_params.content_type;
-    if (!bucket) return;
-    BucketStatsStore.instance().update_bucket_counters({
-        system: req.system._id,
-        bucket: bucket._id,
-        read_count: 1,
-        content_type
+        content_type,
+        read_count,
+        write_count,
     });
 }
 
@@ -1407,13 +1394,15 @@ async function _delete_object_only_key(req) {
 async function update_endpoint_stats(req) {
     console.log(`update_endpoint_stats. namespace_stats =`, req.rpc_params.namespace_stats);
     const namespace_stats = req.rpc_params.namespace_stats || [];
-    for (const stats of namespace_stats) {
-        IoStatsStore.instance().update_namespace_resource_io_stats({
+    const bucket_counters = req.rpc_params.bucket_counters || [];
+    await P.all([
+        P.map(namespace_stats, stats => IoStatsStore.instance().update_namespace_resource_io_stats({
             system: req.system._id,
             namespace_resource_id: stats.namespace_resource_id,
             stats: stats.io_stats
-        });
-    }
+        }), { concurrency: 10 }),
+        P.map(bucket_counters, counter => update_bucket_counters({ ...counter, system: req.system }), { concurrency: 10 })
+    ]);
 }
 
 
@@ -1453,6 +1442,4 @@ exports.read_endpoint_usage_report = read_endpoint_usage_report;
 exports.add_endpoint_usage_report = add_endpoint_usage_report;
 exports.remove_endpoint_usage_reports = remove_endpoint_usage_reports;
 exports.check_quota = check_quota;
-exports.update_bucket_read_counters = update_bucket_read_counters;
-exports.update_bucket_write_counters = update_bucket_write_counters;
 exports.update_endpoint_stats = update_endpoint_stats;

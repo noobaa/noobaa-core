@@ -1131,6 +1131,22 @@ module.exports = {
                                 }
                             }
                         }
+                    },
+                    bucket_counters: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                bucket_name: {
+                                    type: 'string'
+                                },
+                                content_type: {
+                                    type: 'string'
+                                },
+                                read_count: { type: 'integer' },
+                                write_count: { type: 'integer' },
+                            }
+                        }
                     }
                 }
             },
@@ -1187,44 +1203,6 @@ module.exports = {
                 system: 'admin'
             }
         },
-
-        update_bucket_read_counters: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['bucket'],
-                properties: {
-                    bucket: {
-                        type: 'string'
-                    },
-                    content_type: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        update_bucket_write_counters: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['bucket'],
-                properties: {
-                    bucket: {
-                        type: 'string'
-                    },
-                    content_type: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        }
 
     },
 

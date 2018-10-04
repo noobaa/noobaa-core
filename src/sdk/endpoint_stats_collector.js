@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const mime = require('mime');
+
 const P = require('../util/promise');
 const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
@@ -14,7 +16,7 @@ class EndpointStatsCollector {
 
     constructor(rpc_client) {
         this.rpc_client = rpc_client;
-        this.namespace_stats = {};
+        this.reset_all_stats();
     }
 
     static instance(rpc_client) {
@@ -22,7 +24,26 @@ class EndpointStatsCollector {
         return EndpointStatsCollector._instance;
     }
 
+    reset_all_stats() {
+        this.namespace_stats = {};
+        this.bucket_counters = {};
+    }
 
+    async _send_stats() {
+        await P.delay(SEND_STATS_DELAY);
+        // clear this.send_stats to allow new updates to trigger another _send_stats
+        this.send_stats = null;
+        try {
+            await this.rpc_client.object.update_endpoint_stats(this.get_all_stats(), {
+                timeout: SEND_STATS_TIMEOUT
+            });
+            this.reset_all_stats();
+        } catch (err) {
+            // if update fails trigger _send_stats again
+            dbg.error('failed on update_endpoint_stats. trigger_send_stats again', err);
+            this._trigger_send_stats();
+        }
+    }
 
     _new_namespace_stats() {
         return {
@@ -63,27 +84,39 @@ class EndpointStatsCollector {
         this._trigger_send_stats();
     }
 
-    async _send_stats() {
-        await P.delay(SEND_STATS_DELAY);
+    _update_bucket_counter({ bucket_name, key, content_type, counter_key }) {
+        content_type = content_type || mime.getType(key) || 'application/octet-stream';
+        const accessor = `${bucket_name}#${content_type}`;
+        this.bucket_counters[accessor] = this.bucket_counters[accessor] || {
+            bucket_name,
+            content_type,
+            read_count: 0,
+            write_count: 0
+        };
+        const counter = this.bucket_counters[accessor];
+        counter[counter_key] += 1;
+    }
+
+    update_bucket_read_counters({ bucket_name, key, content_type, }) {
+        this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'read_count' });
+        this._trigger_send_stats();
+    }
+
+    update_bucket_write_counters({ bucket_name, key, content_type, }) {
+        this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'write_count' });
+        this._trigger_send_stats();
+    }
+
+    get_all_stats() {
         const namespace_stats = _.map(this.namespace_stats, (io_stats, namespace_resource_id) => ({
             io_stats,
             namespace_resource_id
         }));
-        // clear this.send_stats to allow new updates to trigger another _send_stats
-        this.send_stats = null;
-        if (!namespace_stats.length) return;
-        try {
-            await this.rpc_client.object.update_endpoint_stats({
-                namespace_stats
-            }, {
-                timeout: SEND_STATS_TIMEOUT
-            });
-            this.namespace_stats = {};
-        } catch (err) {
-            // if update failes trigger _send_stats again
-            dbg.error('failed on update_endpoint_stats. trigger_send_stats again', err);
-            this._trigger_send_stats();
-        }
+
+        return {
+            namespace_stats,
+            bucket_counters: _.values(this.bucket_counters)
+        };
     }
 
     _trigger_send_stats() {

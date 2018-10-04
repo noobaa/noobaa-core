@@ -19,6 +19,7 @@ const NamespaceMultipart = require('./namespace_multipart');
 const NamespaceNetStorage = require('./namespace_net_storage');
 const AccountSpaceNetStorage = require('./accountspace_net_storage');
 const AccountSpaceNB = require('./accountspace_nb');
+const stats_collector = require('./endpoint_stats_collector');
 
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
@@ -37,7 +38,7 @@ const MULTIPART_NAMESPACES = [
 
 class ObjectSDK {
 
-    constructor(rpc_client, object_io, stats_collector) {
+    constructor(rpc_client, object_io) {
         this.rpc_client = rpc_client;
         this.object_io = object_io;
         this.namespace_nb = new NamespaceNB();
@@ -288,8 +289,12 @@ class ObjectSDK {
     async read_object_stream(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
         const reply = await ns.read_object_stream(params, this);
-        // update counters in background
-        this.rpc_client.object.update_bucket_read_counters({ bucket: params.bucket, content_type: params.content_type });
+        // update bucket counters
+        stats_collector.instance(this.rpc_client).update_bucket_read_counters({
+            bucket_name: params.bucket,
+            key: params.key,
+            content_type: params.content_type
+        });
         return reply;
     }
 
@@ -337,8 +342,12 @@ class ObjectSDK {
         const ns = await this._get_bucket_namespace(params.bucket);
         if (params.copy_source) await this.fix_copy_source_params(params, ns);
         const reply = await ns.upload_object(params, this);
-        // update counters in background
-        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket, content_type: params.content_type });
+        // update bucket counters
+        stats_collector.instance(this.rpc_client).update_bucket_write_counters({
+            bucket_name: params.bucket,
+            key: params.key,
+            content_type: params.content_type
+        });
         return reply;
     }
 
@@ -348,9 +357,13 @@ class ObjectSDK {
 
     async create_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        // update counters in background
         const reply = await ns.create_object_upload(params, this);
-        this.rpc_client.object.update_bucket_write_counters({ bucket: params.bucket, content_type: params.content_type });
+        // update bucket counters
+        stats_collector.instance(this.rpc_client).update_bucket_write_counters({
+            bucket_name: params.bucket,
+            key: params.key,
+            content_type: params.content_type
+        });
         return reply;
     }
 

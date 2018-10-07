@@ -24,6 +24,8 @@ const BACKUP_SCRIPT_NEW_PATH = path.join(EXTRACTION_PATH, 'pre_upgrade_backup.sh
 const HOME = '/root';
 const NVM_DIR = `${HOME}/.nvm`;
 
+const SWAP_SIZE_MB = 8 * 1024;
+
 
 
 const DOTENV_VARS_FROM_OLD_VER = Object.freeze([
@@ -136,6 +138,29 @@ async function run_platform_upgrade_steps() {
     await platform_upgrade_2_4_0();
     await platform_upgrade_2_7_0();
     await platform_upgrade_2_8_0();
+    await platform_upgrade_2_10_0();
+}
+
+async function platform_upgrade_2_10_0() {
+    // azure handles swap in a non generic way. fix to the azure way
+    await fix_azure_swap();
+}
+
+async function fix_azure_swap() {
+    if (process.env.PLATFORM !== 'azure') return;
+    // turn off swap
+    await exec('/sbin/swapoff -a');
+    // remove swap partition from fstab
+    await fs_utils.file_delete('/swapfile');
+    // remove swap partition in fstab
+    await exec(`sed -i 's:/swapfile.*::' /etc/fstab`);
+
+    // configure swap using azure's waagent
+    await exec(`sed -i 's:ResourceDisk.EnableSwap=n:ResourceDisk.EnableSwap=y:' /etc/waagent.conf`);
+    await exec(`sed -i 's:ResourceDisk.SwapSizeMB=0:ResourceDisk.SwapSizeMB=${SWAP_SIZE_MB}:' /etc/waagent.conf`);
+    // restart waagent
+    await exec(`service waagent restart`);
+
 }
 
 async function platform_upgrade_2_8_0() {
@@ -187,13 +212,14 @@ async function exec(command, options = {}) {
 
 async function ensure_swap() {
 
+    // skip swap configuration in azure
+    if (process.env.PLATFORM === 'azure') return;
+
     const swap_conf = await fs_utils.find_line_in_file('/etc/fstab', 'swapfile');
     if (swap_conf) {
         dbg.log0('UPGRADE: swap is already configured in /etc/fstab');
         return;
     }
-
-    const SWAP_SIZE_MB = 8 * 1024;
 
     try {
         const swap_summary = await exec(`swapon -s`);

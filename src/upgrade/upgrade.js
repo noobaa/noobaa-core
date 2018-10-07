@@ -13,6 +13,7 @@ const platform_upgrade = require('./platform_upgrade');
 const supervisor = require('../server/utils/supervisor_ctrl');
 dbg.set_process_name('Upgrade');
 
+const OLD_VER = require('/root/node_modules/noobaa-core/package.json').version;
 const EXTRACTION_PATH = '/tmp/test';
 const TMP_PATH = '/tmp';
 const NEW_UPGRADE_SCRIPT = `./src/upgrade/upgrade.js`;
@@ -53,7 +54,8 @@ async function start_upgrade_manager() {
     const args = [
         '--do_upgrade', 'true',
         '--fsuffix', argv.fsuffix,
-        '--cluster_str', argv.cluster_str
+        '--cluster_str', argv.cluster_str,
+        '--old_version', OLD_VER
     ];
     upgrade_prog.name = 'upgrade_manager';
     upgrade_prog.command = `${NEW_NODE_BIN} ${UPGRADE_MANAGER_SCRIPT} ${args.join(' ')}`;

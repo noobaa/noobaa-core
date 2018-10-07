@@ -98,7 +98,7 @@ function _prepareDatasets(view, buckets, colors) {
         data: [{
             x: bubble.x,
             y: bubble.y,
-            r: 2 + ((Math.log2(bubble.r) / 5) ** 2)
+            r: 2 + (Math.log2(Math.max(bubble.r, 1) / 5) ** 2)
         }]
     }));
 }

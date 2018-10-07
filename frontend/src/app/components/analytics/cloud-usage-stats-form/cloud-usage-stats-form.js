@@ -78,7 +78,7 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
                     label: item => `Total ${
                         item.datasetIndex === 0 ? 'Reads' : 'Writes'
                     }: ${
-                        formatSize(item.yLabel)
+                        item.yLabel
                     }`
                 }
             }
@@ -167,8 +167,8 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
 
             const bars = services.map(service => {
                 const { label } = serviceOptions.find(option => option.value === service);
-                const { readCount: reads, writeCount: writes, readSize, writeSize } = cloudUsageStats.usage[service];
-                const egress = toBytes(sumSize(readSize, writeSize));
+                const { readCount: reads, writeCount: writes, readSize } = cloudUsageStats.usage[service];
+                const egress = toBytes(readSize);
                 return { label, reads, writes, egress };
             });
 

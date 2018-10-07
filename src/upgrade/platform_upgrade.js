@@ -130,18 +130,26 @@ async function start_services() {
     await supervisor.start(stopped_services);
 }
 
-async function run_platform_upgrade_steps() {
+async function run_platform_upgrade_steps(old_version) {
     if (!should_upgrade_platform()) return;
 
-    // TODO: run platform upgrades more intelligently (according to previous version)
+    dbg.log0(`UPGRADE: upgrading from version ${old_version}`);
+
     await platform_upgrade_common();
-    await platform_upgrade_2_4_0();
-    await platform_upgrade_2_7_0();
-    await platform_upgrade_2_8_0();
-    await platform_upgrade_2_10_0();
+
+    // perform specific platform upgrades according to old version
+    const [major_ver, minor_ver] = parse_ver(old_version.split('-')[0]);
+    if (major_ver <= 2) {
+        if (minor_ver < 4) await platform_upgrade_2_4_0();
+        if (minor_ver < 7) await platform_upgrade_2_7_0();
+        if (minor_ver < 8) await platform_upgrade_2_8_0();
+        if (minor_ver < 10) await platform_upgrade_2_10_0();
+    }
+
 }
 
 async function platform_upgrade_2_10_0() {
+    dbg.log0('UPGRADE: running platform_upgrade_2_10_0');
     // azure handles swap in a non generic way. fix to the azure way
     await fix_azure_swap();
     await fix_supervisor_alias();
@@ -194,6 +202,7 @@ if [$1 == "status' ]; then
 
 async function platform_upgrade_2_8_0() {
     if (process.env.PLATFORM === 'docker') return;
+    dbg.log0('UPGRADE: running platform_upgrade_2_8_0');
     // exclude cleaning of supervisor and upgrade files
     await fs.appendFileAsync('/usr/lib/tmpfiles.d/tmp.conf', 'x /tmp/supervisor*\n');
     await fs.appendFileAsync('/usr/lib/tmpfiles.d/tmp.conf', 'x /tmp/test\n');
@@ -201,6 +210,7 @@ async function platform_upgrade_2_8_0() {
 }
 
 async function platform_upgrade_2_7_0() {
+    dbg.log0('UPGRADE: running platform_upgrade_2_7_0');
     //verify abrt package is removed
     await exec('yum remove abrt -y');
 }
@@ -208,6 +218,7 @@ async function platform_upgrade_2_7_0() {
 // platform upgrade for version 2.4.0
 // * ensure swap is configured correctly in /etc/fstab
 async function platform_upgrade_2_4_0() {
+    dbg.log0('UPGRADE: running platform_upgrade_2_4_0');
     await ensure_swap();
 }
 
@@ -607,9 +618,13 @@ async function after_upgrade_cleanup() {
     await exec(`rm -rf /backup/build/public/*diagnostics*`, { ignore_err: true });
 }
 
+function parse_ver(ver) {
+    return ver.split('.').map(i => Number.parseInt(i, 10));
+}
+
+
 // compares 2 versions. returns positive if ver1 is larger, negative if ver2, 0 if equal
 function version_compare(ver1, ver2) {
-    const parse_ver = ver => ver.split('.').map(i => Number.parseInt(i, 10));
     const ver1_arr = parse_ver(ver1);
     const ver2_arr = parse_ver(ver2);
     const max_length = Math.max(ver1_arr.length, ver2_arr.length);

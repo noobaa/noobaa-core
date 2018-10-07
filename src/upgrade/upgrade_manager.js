@@ -24,6 +24,7 @@ class UpgradeManager {
 
     constructor(options) {
         this.cluster = options.cluster;
+        this.old_version = options.old_version;
     }
 
     async init() {
@@ -162,7 +163,7 @@ class UpgradeManager {
     }
 
     async upgrade_platform_stage() {
-        await platform_upgrade.run_platform_upgrade_steps();
+        await platform_upgrade.run_platform_upgrade_steps(this.old_version);
     }
 
     async update_services_stage() {
@@ -247,6 +248,7 @@ async function main() {
     dbg.log0('UPGRADE: Started upgrade manager with arguments:', argv);
     const upgrade_manager = new UpgradeManager({
         cluster: argv.cluster_str === 'cluster',
+        old_version: argv.old_version
     });
 
     await upgrade_manager.do_upgrade();

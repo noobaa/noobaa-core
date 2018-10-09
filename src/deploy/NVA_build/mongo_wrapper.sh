@@ -45,7 +45,7 @@ function mongo_sanity_check {
     sleep 10
   done
   deploy_log "mongo_sanity_check: Failed"
-  if [ ${backoff} -lt 512 ]; then
+  if [ ${backoff} -lt 300 ]; then
     echo $((backoff*2)) > ${BACKOFF_FILE}
   fi
   return 1

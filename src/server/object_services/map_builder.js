@@ -88,6 +88,8 @@ class MapBuilder {
 
     // In order to get the most relevant data regarding the chunks
     // Note that there is always a possibility that the chunks will cease to exist
+    // TODO: We can release the unrelevant chunks from the surround_keys
+    // This will allow other batches to run if they wait on non existing chunks
     reload_chunks(chunk_ids) {
         return P.resolve()
             .then(() => MDStore.instance().find_chunks_by_ids(chunk_ids))
@@ -398,8 +400,7 @@ class MapBuilder {
 
         return P.join(
             MDStore.instance().insert_blocks(this.new_blocks),
-            MDStore.instance().update_blocks_by_ids(mongo_utils.uniq_ids(this.delete_blocks, '_id'), { deleted: now }),
-            map_deleter.delete_blocks_from_nodes(this.delete_blocks),
+            map_deleter.builder_delete_blocks(this.delete_blocks),
             // We do not care about the latest flags for objects that do not have a bucket
             P.map(objs_to_be_deleted, obj => MDStore.instance().remove_object_and_unset_latest(obj)
                 .then(() => map_deleter.delete_object_mappings(obj))

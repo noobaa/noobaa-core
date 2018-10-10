@@ -1334,9 +1334,12 @@ module.exports = {
                 block_md: {
                     $ref: 'common_api#/definitions/block_md'
                 },
+                accessible: {
+                    type: 'boolean'
+                },
                 adminfo: {
                     type: 'object',
-                    required: ['pool_name', 'node_name', 'node_ip', 'online', 'accessible'],
+                    required: ['pool_name', 'node_name', 'node_ip', 'online'],
                     properties: {
                         node_name: {
                             type: 'string',
@@ -1354,9 +1357,6 @@ module.exports = {
                             type: 'string',
                         },
                         online: {
-                            type: 'boolean'
-                        },
-                        accessible: {
                             type: 'boolean'
                         },
                         in_cloud_pool: {

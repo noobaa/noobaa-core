@@ -94,7 +94,7 @@ function _mapPartBlocks(part, resiliency) {
         const [kind, seq] = _getBlockKindAndSeq(resiliency, frag);
         return frag.blocks
             .map(block => {
-                const mode = block.adminfo.accessible ? 'HEALTHY' : 'NOT_ACCESSIBLE';
+                const mode = block.accessible ? 'HEALTHY' : 'NOT_ACCESSIBLE';
                 const storage = _mapBlockStorage(block);
                 const mirrorSet = block.adminfo.mirror_group;
                 return { mode, kind, seq, mirrorSet, storage  };

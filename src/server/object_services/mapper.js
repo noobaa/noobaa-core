@@ -242,7 +242,9 @@ class MirrorMapper {
 
             const sources = accessible ? {
                 accessible_blocks,
-                next_source: 0,
+                // We assume that even if we fail we will take a different source in the next cycle
+                // Other option is to try different sources on replication at error
+                next_source: Math.floor(Math.random() * accessible_blocks.length)
             } : undefined;
 
             // We prefer to keep regular pools if possible, otherwise pick at random
@@ -703,11 +705,11 @@ function get_block_info(chunk, frag, block, adminfo) {
             in_cloud_pool: Boolean(node.is_cloud_node),
             in_mongo_pool: Boolean(node.is_mongo_node),
             online: Boolean(node.online),
-            accessible: _is_block_accessible(block)
         };
     }
     return {
         block_md: get_block_md(chunk, frag, block),
+        accessible: _is_block_accessible(block),
         adminfo: adminfo || undefined,
     };
 }

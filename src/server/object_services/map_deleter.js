@@ -52,12 +52,28 @@ async function delete_blocks_from_nodes(blocks) {
         const blocks_by_node = _.values(_.groupBy(blocks, block => String(block.node._id)));
         const succeeded_block_ids = await Promise.all(blocks_by_node.map(delete_blocks_from_node));
         const block_ids = _.flatten(succeeded_block_ids).map(block_id => mongo_utils.make_object_id(block_id));
+        // In case we have a bug which calls delete_blocks_from_nodes several times
+        // We will advance the reclaimed and it will have different values
+        // This is not critical like deleted which alters the md_aggregator calculations
         await MDStore.instance().update_blocks_by_ids(block_ids, { reclaimed: new Date() });
     } catch (err) {
         dbg.warn('delete_blocks_from_nodes: Failed to mark blocks as reclaimed', err);
     }
 }
 
+async function builder_delete_blocks(blocks) {
+    if (!blocks || !blocks.length) return;
+    try {
+        // We should not worry about advancing the delete since there wouldn't be any parallel calls
+        // There is only a single builder which will delete the blocks and they won't be called afterwards
+        await MDStore.instance().update_blocks_by_ids(mongo_utils.uniq_ids(blocks, '_id'), { deleted: new Date() });
+        // Even if we crash here we can assume that the reclaimer will handle the deletions
+        await delete_blocks_from_nodes(blocks);
+    } catch (error) {
+        dbg.error('builder_delete_blocks has error:', error, 'for blocks:', blocks);
+        throw error;
+    }
+}
 
 /*
  * delete_blocks_from_node
@@ -94,3 +110,4 @@ exports.delete_object_mappings = delete_object_mappings;
 exports.delete_chunks_if_unreferenced = delete_chunks_if_unreferenced;
 exports.delete_chunks = delete_chunks;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;
+exports.builder_delete_blocks = builder_delete_blocks;

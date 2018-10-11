@@ -141,7 +141,10 @@ class UpgradeManager {
             }]
         };
         dbg.log0('UPGRADE: updating upgrade in db', updates);
-        await system_store.make_changes({ update });
+        await system_store.make_changes_with_retries({ update }, {
+            max_retries: 10,
+            delay: 5000
+        });
     }
 
     async set_upgrade_stage(stage) {

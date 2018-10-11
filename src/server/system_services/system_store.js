@@ -527,6 +527,30 @@ class SystemStore extends EventEmitter {
             .then(() => dump);
     }
 
+
+    async make_changes_with_retries(changes, { max_retries = 3, delay = 1000 } = {}) {
+        let retries = 0;
+        let changes_updated = false;
+        while (!changes_updated) {
+            try {
+                await this.make_changes(changes);
+                changes_updated = true;
+            } catch (err) {
+                if (retries === max_retries) {
+                    dbg.error(`make_changes_with_retries failed. aborting after ${max_retries} retries. changes=`,
+                        util.inspect(changes, { depth: 5 }),
+                        'error=', err);
+                    throw err;
+                }
+                dbg.warn(`make_changes failed. will retry in ${delay / 1000} seconds. changes=`,
+                    util.inspect(changes, { depth: 5 }),
+                    'error=', err);
+                retries += 1;
+                await P.delay(delay);
+            }
+        }
+    }
+
     /**
      *
      * make_changes

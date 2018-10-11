@@ -23,7 +23,12 @@ const upgrade_utils = require('../../upgrade/upgrade_utils');
 let upgrade_in_process = false;
 
 
-function member_pre_upgrade(req) {
+const DEFAULT_MAKE_CHANGES_RETRIES = {
+    max_retries: 10,
+    delay: 5000
+};
+
+async function member_pre_upgrade(req) {
     dbg.log0('UPGRADE: received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ?
         'this server should preform mongo_upgrade' :
         'this server should not preform mongo_upgrade');
@@ -39,55 +44,63 @@ function member_pre_upgrade(req) {
 
     dbg.log0('UPGRADE:', 'updating cluster for server._id', server._id, 'with upgrade =', upgrade);
 
-    return system_store.make_changes({
-            update: {
-                clusters: [{
-                    _id: server._id,
-                    upgrade: upgrade
-                }]
-            }
-        })
-        .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'))
-        .then(() => upgrade_utils.pre_upgrade({
+
+    await system_store.make_changes_with_retries({
+        update: {
+            clusters: [{
+                _id: server._id,
+                upgrade: upgrade
+            }]
+        }
+    }, DEFAULT_MAKE_CHANGES_RETRIES);
+    await Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status');
+
+    try {
+        const res = await upgrade_utils.pre_upgrade({
             upgrade_path: upgrade.path,
             extract_package: req.rpc_params.stage === 'UPLOAD_STAGE'
-        }))
-        .then(res => {
-            //Update result of pre_upgrade and message in DB
-            if (res.result) {
-                dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to CAN_UPGRADE');
-                upgrade.status = req.rpc_params.stage === 'UPGRADE_STAGE' ? 'PRE_UPGRADE_READY' : 'CAN_UPGRADE';
-            } else {
-                dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to FAILED');
-                upgrade.status = 'FAILED';
-                dbg.error('UPGRADE HAD ERROR: ', res.error);
-                // TODO: Change that shit to more suitable error handler
-                upgrade.error = res.error;
-                upgrade.report_info = res.report_info;
+        });
 
-                if (req.rpc_params.stage === 'UPGRADE_STAGE') {
-                    upgrade_in_process = false;
-                }
+        //Update result of pre_upgrade and message in DB
+        if (res.result) {
+            dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to CAN_UPGRADE');
+            upgrade.status = req.rpc_params.stage === 'UPGRADE_STAGE' ? 'PRE_UPGRADE_READY' : 'CAN_UPGRADE';
+        } else {
+            dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to FAILED');
+            upgrade.status = 'FAILED';
+            dbg.error('UPGRADE HAD ERROR: ', res.error);
+            // TODO: Change that shit to more suitable error handler
+            upgrade.error = res.error;
+            upgrade.report_info = res.report_info;
+
+            if (req.rpc_params.stage === 'UPGRADE_STAGE') {
+                upgrade_in_process = false;
             }
+        }
 
-            if (req.rpc_params.stage === 'UPLOAD_STAGE') {
-                upgrade.staged_package = res.staged_package || 'UNKNOWN';
-            }
-            upgrade.tested_date = res.tested_date;
+        if (req.rpc_params.stage === 'UPLOAD_STAGE') {
+            upgrade.staged_package = res.staged_package || 'UNKNOWN';
+        }
+        upgrade.tested_date = res.tested_date;
 
-            dbg.log0('UPGRADE:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
+    } catch (err) {
+        dbg.error('failed to run pre_upgrade');
+        upgrade.status = 'FAILED';
+        upgrade.error = upgrade_utils.pre_upgrade_failure_error;
+    }
 
-            return system_store.make_changes({
-                update: {
-                    clusters: [{
-                        _id: server._id,
-                        upgrade: _.omitBy(upgrade, _.isUndefined)
-                    }]
-                }
-            });
-        })
-        .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'))
-        .return();
+
+    dbg.log0('UPGRADE:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
+    await system_store.make_changes_with_retries({
+        update: {
+            clusters: [{
+                _id: server._id,
+                upgrade: _.omitBy(upgrade, _.isUndefined)
+            }]
+        }
+    }, DEFAULT_MAKE_CHANGES_RETRIES);
+
+    await Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status');
 }
 
 async function do_upgrade(req) {
@@ -204,11 +217,11 @@ async function upgrade_cluster(req) {
             "upgrade.error": 1
         }
     }));
-    await system_store.make_changes({
+    await system_store.make_changes_with_retries({
         update: {
             clusters: updates
         }
-    });
+    }, DEFAULT_MAKE_CHANGES_RETRIES);
 
     // Notice that we do not await here on purpose so the FE won't wait for the completion of the tests
     _test_and_upgrade_in_background(cinfo, upgrade_path, req);
@@ -228,11 +241,11 @@ function reset_upgrade_package_status(req) {
         actor: req.account && req.account._id,
     });
 
-    return system_store.make_changes({
+    return system_store.make_changes_with_retries({
             update: {
                 clusters: updates
             }
-        })
+        }, DEFAULT_MAKE_CHANGES_RETRIES)
         .then(() => Dispatcher.instance().publish_fe_notifications({ secret: system_store.get_server_secret() }, 'change_upgrade_status'));
 }
 
@@ -315,12 +328,12 @@ async function _test_and_upgrade_in_background(cinfo, upgrade_path, req) {
                 "last_upgrade.initiator": (req.account && req.account.email) || ''
             }
         }];
-        await system_store.make_changes({
+        await system_store.make_changes_with_retries({
             update: {
                 clusters: cluster_updates,
                 systems: system_updates
             }
-        });
+        }, DEFAULT_MAKE_CHANGES_RETRIES);
 
         await Dispatcher.instance().publish_fe_notifications({}, 'change_upgrade_status');
 
@@ -361,11 +374,11 @@ function _handle_cluster_upgrade_failure(err, ip) {
                     $set: change
                 }));
             }
-            return system_store.make_changes({
+            return system_store.make_changes_with_retries({
                     update: {
                         clusters: updates
                     }
-                })
+                }, DEFAULT_MAKE_CHANGES_RETRIES)
                 .then(() => Dispatcher.instance().publish_fe_notifications(fe_notif_params, 'change_upgrade_status'))
                 .finally(() => {
                     throw err;

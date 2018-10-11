@@ -372,7 +372,6 @@ function create_system(req) {
             }
         })
         .then(() => _init_system(system_id))
-        .then(() => system_utils.mongo_wrapper_system_created())
         .then(() => {
             dbg.log0(`sending first stats to phone home`);
             return server_rpc.client.stats.send_stats(null, {

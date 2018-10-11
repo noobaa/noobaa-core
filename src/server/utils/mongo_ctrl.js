@@ -195,14 +195,6 @@ MongoCtrl.prototype.update_dotenv = function(name, IPs) {
 
 };
 
-MongoCtrl.prototype.update_wrapper_sys_check = function() {
-    let new_mongo_wrapper = _.clone(_.find(this._mongo_services, prog => prog.name === 'mongo_wrapper'));
-    new_mongo_wrapper.command = new_mongo_wrapper.command.replace(new RegExp('mongod'), 'mongod --testsystem ');
-    return this._remove_single_mongo_program()
-        .then(() => SupervisorCtl.add_program(new_mongo_wrapper))
-        .then(() => SupervisorCtl.apply_changes());
-};
-
 MongoCtrl.prototype.set_debug_level = function(level) {
     return mongo_client.instance().set_debug_level(level);
 };

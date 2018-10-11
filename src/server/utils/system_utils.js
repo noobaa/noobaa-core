@@ -35,20 +35,10 @@ function get_bucket_quota_usage_percent(bucket, bucket_quota) {
     return used_percent.valueOf();
 }
 
-// Update mongo_wrapper on system created
-// This will cause more tests to be run in mongo_wrapper
-function mongo_wrapper_system_created() {
-    if (os_utils.is_supervised_env()) {
-        return MongoCtrl.init()
-            .then(() => console.log('Skipping mongo_wrapper update')); /*MongoCtrl.update_wrapper_sys_check()*/
-    }
-}
-
 function prepare_chunk_for_mapping(chunk) {
     chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
 }
 
 exports.system_in_maintenance = system_in_maintenance;
 exports.get_bucket_quota_usage_percent = get_bucket_quota_usage_percent;
-exports.mongo_wrapper_system_created = mongo_wrapper_system_created;
 exports.prepare_chunk_for_mapping = prepare_chunk_for_mapping;

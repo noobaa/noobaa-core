@@ -63,15 +63,6 @@ function run_mongo {
   deploy_log "run_mongo: Mongo started"
 }
 
-case $1 in
-  --testsystem)
-    testsys="--testsystem"
-    shift
-    ;;
-  *)
-    ;;
-esac
-
 MONGO_EXEC="$@"
 deploy_log "mongo_wrapper was run with args ${MONGO_EXEC}"
 backoff=$(cat $BACKOFF_FILE)

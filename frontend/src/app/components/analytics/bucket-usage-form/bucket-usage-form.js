@@ -98,7 +98,7 @@ function _prepareBarChartParams(samples, timeMeta, tickFormat) {
         const { readSize, writeSize } = groups[i].reduce(
             (aggr, sample) => ({
                 readSize: sumSize(aggr.readSize, sample.readSize),
-                writeSize: sumSize(aggr.readSize, sample.writeSize)
+                writeSize: sumSize(aggr.writeSize, sample.writeSize)
             }),
             { readSize: 0, writeSize: 0 }
         );

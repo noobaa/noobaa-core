@@ -38,7 +38,7 @@ function getBubblesForBuckets(buckets) {
         label: bucket.name,
         x: bucket.io.readCount,
         y: bucket.io.writeCount,
-        r: toBytes(bucket.storage.used)
+        r: toBytes(bucket.data.size)
     }));
 }
 
@@ -98,7 +98,7 @@ function _prepareDatasets(view, buckets, colors) {
         data: [{
             x: bubble.x,
             y: bubble.y,
-            r: 2 + (Math.log2(Math.max(bubble.r, 1) / 5) ** 2)
+            r: 2 + ((Math.log2(Math.max(bubble.r, 1)) / 5) ** 2)
         }]
     }));
 }

@@ -38,25 +38,28 @@ function check_mongo_status {
       set_mongo_cluster_mode
     fi
     # even if the supervisor reports the service is running try to connect to it
-    local mongo_status
     # beware not to run "local" in the same line changes the exit code
-    mongo_status=$(${MONGO_SHELL} --quiet --eval 'quit(!db.serverStatus().ok)')
-    if [ $? -ne 0 ]
-    then
-        deploy_log "check_mongo_status: Failed to connect to mongod: $mongo_status"
-        return 1
-    fi
-
-    #if test system is checked, verify system exists in our db
-    local sysnumber
-    if [ "$1" == "--testsystem" ]; then
-        sysnumber=$(${MONGO_SHELL} --quiet --eval 'db.systems.count()')
-        if [ $sysnumber -ne 1 ]
+    local mongo_status
+    local res=1
+    local retries=0
+    # don't fail the check on the first try. keep trying for a minute
+    while [ $res -ne 0 ]; do
+        mongo_status=$(${MONGO_SHELL} --quiet --eval 'quit(!db.serverStatus().ok)')
+        res=$?
+        if [ $res -ne 0 ]
         then
-            deploy_log "check_mongo_status: Failed verify system exists"
-            return 1
-        fi 
-    fi
+            # if we keep failing for a minute return failure to the caller
+            if [ $retries -eq 12 ]; then
+                deploy_log "check_mongo_status FAILED!!! could not connect to mongod for over a minute"
+                return 1
+            fi
+            # if failed to get mongo status sleep 5 seconds and retry
+            deploy_log "check_mongo_status: Failed to connect to mongod. sleep 5 seconds and retry: $mongo_status"
+            retries=$((retries+1))
+            sleep 5
+        fi
+    done
+    deploy_log "check_mongo_status: PASSED! connected succesfully to local mongod"
     return 0
 }
 

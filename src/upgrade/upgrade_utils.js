@@ -560,3 +560,4 @@ if (require.main === module) {
 //Exports
 exports.pre_upgrade = pre_upgrade;
 exports.do_upgrade = do_upgrade;
+exports.pre_upgrade_failure_error = ERROR_MAPPING.COULD_NOT_RUN_TESTS;

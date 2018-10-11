@@ -144,6 +144,7 @@ async function run_platform_upgrade_steps() {
 async function platform_upgrade_2_10_0() {
     // azure handles swap in a non generic way. fix to the azure way
     await fix_azure_swap();
+    await fix_supervisor_alias();
 }
 
 async function fix_azure_swap() {
@@ -161,6 +162,34 @@ async function fix_azure_swap() {
     // restart waagent
     await exec(`service waagent restart`);
 
+}
+
+async function fix_supervisor_alias() {
+    const SUPERVISOR_ALIAS = `
+
+supervisorctl() {
+/bin/supervisorctl $@
+if [$1 == "status' ]; then
+    echo ""
+    if [! -f / tmp / mongo_wrapper_backoff]; then
+        echo "There is no mongo backoff in effect"
+    else
+        echo "There is a mongo backoff in effect for $(cat /tmp/mongo_wrapper_backoff) seconds"
+    fi
+    fi
+}
+
+`;
+
+    const supervisor_func = await promise_utils.exec(`grep supervisorctl\\(\\) ~/.bashrc | wc -l`, {
+        ignore_rc: false,
+        return_stdout: true,
+        trim_stdout: true
+    });
+
+    if (supervisor_func === '0') {
+        await fs.appendFileAsync('/root/.bashrc', SUPERVISOR_ALIAS);
+    }
 }
 
 async function platform_upgrade_2_8_0() {

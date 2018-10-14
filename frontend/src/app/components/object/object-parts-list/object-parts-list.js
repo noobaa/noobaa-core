@@ -40,8 +40,6 @@ const groupTooltips = deepFreeze({
     'MIRROR_SET:FRAGMENTS:HOSTS': 'Fragments resides in nodes pool are distributed between the different nodes in the pool according to the configured policy parameters',
     'MIRROR_SET:REPLICAS:CLOUD':  'NooBaa considers cloud resource as resilient and keeps only one replica on this type of resource',
     'MIRROR_SET:FRAGMENTS:CLOUD': 'NooBaa considers cloud resource as resilient and keeps only data fragments on this type of resource',
-    'SPILLOVER_SET:REPLICAS':     'The spillover resource is used since the bucket storage is not enough to store new data. Once possible, data will be spilled-back according to the configured policy',
-    'SPILLOVER_SET:FRAGMENTS':    'Fragments resides in nodes pool are distributed between the different nodes in the pool according to the configured policy parameters',
     'TO_BE_REMOVED':              'In a case of policy changes, data allocation might be changed and some replicas/ fragments will need to be removed'
 });
 
@@ -175,10 +173,6 @@ function _getGroupTooltip(group, storageType, blocksCategory) {
     const parts = [group.type];
     if (group.type !== 'TO_BE_REMOVED') {
         parts.push(blocksCategory);
-
-        if (group.type !== 'SPILLOVER_SET') {
-            parts.push(storageType);
-        }
     }
 
     return {
@@ -297,7 +291,6 @@ function _mapDistributionGroup(group, cloudTypeMapping, system) {
 
     const groupLabel =
         (group.type === 'MIRROR_SET' && `Mirror set ${group.index + 1}`) ||
-        (group.type === 'SPILLOVER_SET' && 'Spillover set') ||
         (group.type === 'TO_BE_REMOVED' && 'To be removed');
 
     return {

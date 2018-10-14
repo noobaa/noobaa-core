@@ -31,9 +31,6 @@ export const storage = {
         free: {
             $ref: '#/def/common/size'
         },
-        spilloverFree: {
-            $ref: '#/def/common/size'
-        },
         unavailableFree: {
             $ref: '#/def/common/size'
         },

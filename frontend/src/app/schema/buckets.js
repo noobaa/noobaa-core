@@ -45,7 +45,8 @@ export default {
                     'APPROUCHING_QUOTA',
                     'LOW_CAPACITY',
                     'RISKY_TOLERANCE',
-                    'SPILLING_BACK',
+                    'NO_RESOURCES_INTERNAL',
+                    'NO_RESOURCES_INTERNAL_ISSUES',
                     'EXCEEDING_QUOTA',
                     'NO_CAPACITY',
                     'NOT_ENOUGH_HEALTHY_RESOURCES',
@@ -183,7 +184,7 @@ export default {
                                         policyType: {
                                             type: 'string',
                                             enum: [
-                                                'INTERNAL_STOREAGE'
+                                                'INTERNAL_STORAGE'
                                             ]
                                         }
                                     }

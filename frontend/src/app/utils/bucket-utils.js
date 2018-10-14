@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isUndefined, mapValues, sumBy, flatMap } from './core-utils';
+import { deepFreeze, isUndefined, sumBy, flatMap } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
 import { stringifyAmount, pluralize } from 'utils/string-utils';
 
@@ -30,11 +30,6 @@ const bucketStateToIcon = deepFreeze({
         css: 'error',
         name: 'problem'
     },
-    SPILLING_BACK: {
-        tooltip: 'Data spilling back to resources',
-        css: 'warning',
-        name: 'working'
-    },
     LOW_CAPACITY: {
         tooltip: 'Storage is low',
         css: 'warning',
@@ -43,6 +38,16 @@ const bucketStateToIcon = deepFreeze({
     RISKY_TOLERANCE: {
         tooltip: 'Risky failure tolerance ',
         css: 'warning',
+        name: 'problem'
+    },
+    'NO_RESOURCES_INTERNAL': {
+        tooltip: 'TODO ',
+        css: 'warning',
+        name: 'problem'
+    },
+    'NO_RESOURCES_INTERNAL_ISSUES': {
+        tooltip: 'TODO',
+        css: 'error',
         name: 'problem'
     },
     APPROUCHING_QUOTA: {
@@ -68,9 +73,10 @@ const placementModeToIcon = deepFreeze({
     NOT_ENOUGH_HEALTHY_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_HEALTHY_RESOURCES, 'start'),
     NO_CAPACITY: _alignIconTooltip(bucketStateToIcon.NO_CAPACITY, 'start'),
     RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
+    NO_RESOURCES_INTERNAL: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES_INTERNAL, 'start'),
+    NO_RESOURCES_INTERNAL_ISSUES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES_INTERNAL_ISSUES, 'start'),
     LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY, 'start'),
     DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
-    SPILLING_BACK: _alignIconTooltip(bucketStateToIcon.SPILLING_BACK, 'start'),
     OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
 });
 

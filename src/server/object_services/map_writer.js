@@ -41,7 +41,7 @@ class MapAllocator {
     async run_select_tier() {
         await this.prepare_tiering_for_alloc();
         const tier = await mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
-        await map_builder.make_room_in_tier(tier, this.bucket, config.MIN_TIER_FREE_THRESHOLD * 10);
+        await map_builder.make_room_in_tier(tier, this.bucket, config.MIN_TIER_FREE_THRESHOLD);
         return tier;
     }
 
@@ -152,6 +152,7 @@ class MapAllocator {
                     allocated_hosts.push(node.host_id);
                 }
             });
+            chunk.tier = tier.name;
         }
     }
 }
@@ -194,11 +195,12 @@ function finalize_object_parts(bucket, obj, parts) {
             const digest = chunk.digest_b64 && Buffer.from(chunk.digest_b64, 'base64');
             const chunk_config = _.find(bucket.system.chunk_configs_by_id,
                 c => _.isEqual(c.chunk_coder_config, chunk.chunk_coder_config))._id;
+            const tier = bucket.system.tiers_by_name[chunk.tier];
             new_chunks.push(_.omitBy({
                 _id: chunk_id,
                 system: obj.system,
                 bucket: bucket._id,
-                tier: mongo_utils.make_object_id(chunk.tier),
+                tier: tier._id,
                 tier_lru: new Date(),
                 chunk_config,
                 size: chunk.size,

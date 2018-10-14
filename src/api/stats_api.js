@@ -260,9 +260,9 @@ module.exports = {
                             mirrors: {
                                 type: 'integer'
                             },
-                            spillover_enabled: {
-                                type: 'boolean'
-                            },
+                            // spillover_enabled: {
+                            //     type: 'boolean'
+                            // },
                             replicas: {
                                 type: 'integer'
                             },

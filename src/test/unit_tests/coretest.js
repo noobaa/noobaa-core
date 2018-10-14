@@ -142,7 +142,10 @@ function setup({ incomplete_rpc_coverage } = {}) {
             .then(res => {
                 rpc_client.options.auth_token = res.token;
             })
-            .then(() => init_internal_storage(SYSTEM))
+            .then(() => rpc_client.pool.create_hosts_pool({
+                name: config.NEW_SYSTEM_POOL_NAME,
+            }))
+            .then(() => attach_pool_to_bucket(SYSTEM, 'first.bucket', config.NEW_SYSTEM_POOL_NAME))
             .then(() => announce('init_test_nodes()'))
             .delay(3000)
             .then(() => init_test_nodes(rpc_client, SYSTEM, 10))
@@ -225,31 +228,49 @@ function get_http_address() {
 // This was coded for tests that create multiple systems (not nessesary parallel, could be creation of system after deletion of system)
 // Webserver's init happens only one time (upon init of process), it is crucial in order to ensure internal storage structures
 // When we create systems without doing the init, we encounter a problem regarding failed internal storage structures
-function init_internal_storage(system_name) {
+// function init_internal_storage(system_name) {
+//     const system = _.find(system_store.data.systems, sys => sys.name === system_name);
+//     const internal_pool = system.pools_by_name[config.INTERNAL_STORAGE_POOL_NAME];
+//     const spillover_tier = system.tiers_by_name[config.SPILLOVER_TIER_NAME];
+//     if (!internal_pool || !spillover_tier) {
+//         console.warn('ASSUME THAT FIRST SYSTEM');
+//         return;
+//     }
+//     const changes = {
+//         update: {
+//             pools: [{
+//                 _id: internal_pool._id,
+//                 name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`,
+//                 system: system._id
+//             }],
+//             tiers: [{
+//                 _id: spillover_tier._id,
+//                 name: `${config.SPILLOVER_TIER_NAME}-${system._id}`,
+//                 system: system._id
+//             }]
+//         }
+//     };
+//     return system_store.make_changes(changes);
+// }
+
+function attach_pool_to_bucket(system_name, bucket_name, pool_name) {
     const system = _.find(system_store.data.systems, sys => sys.name === system_name);
-    const internal_pool = system.pools_by_name[config.INTERNAL_STORAGE_POOL_NAME];
-    const spillover_tier = system.tiers_by_name[config.SPILLOVER_TIER_NAME];
-    if (!internal_pool || !spillover_tier) {
-        console.warn('ASSUME THAT FIRST SYSTEM');
-        return;
-    }
-    const changes = {
+    const pool = system.pools_by_name[pool_name];
+    const bucket = system.buckets_by_name[bucket_name];
+    const tiering = bucket.tiering;
+    const tier0 = tiering.tiers[0].tier;
+    const change = {
         update: {
-            pools: [{
-                _id: internal_pool._id,
-                name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`,
-                system: system._id
-            }],
             tiers: [{
-                _id: spillover_tier._id,
-                name: `${config.SPILLOVER_TIER_NAME}-${system._id}`,
-                system: system._id
+                _id: tier0._id,
+                $set: {
+                    "mirrors.0.spread_pools.0": pool._id
+                }
             }]
         }
     };
-    return system_store.make_changes(changes);
+    return system_store.make_changes(change);
 }
-
 
 function describe_mapper_test_case({ name, bucket_name_prefix }, func) {
     const PLACEMENTS = ['SPREAD', 'MIRROR'];

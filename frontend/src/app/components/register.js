@@ -94,7 +94,6 @@ import managementConsoleErrorModal from './modals/management-console-error-modal
 import addBucketTriggerModal from './modals/add-bucket-trigger-modal/add-bucket-trigger-modal';
 import editBucketTriggerModal from './modals/edit-bucket-trigger-modal/edit-bucket-trigger-modal';
 import attachServerModal from './modals/attach-server-modal/attach-server-modal';
-import editBucketSpilloverModal from './modals/edit-bucket-spillover-modal/edit-bucket-spillover-modal';
 import createFuncModal from './modals/create-func-modal/create-func-modal';
 import afterUpgradeFailureModal from './modals/after-upgrade-failure-modal/after-upgrade-failure-modal';
 import createBucketModal from './modals/create-bucket-modal/create-bucket-modal';
@@ -136,7 +135,6 @@ import bucketDataPoliciesForm from './bucket/bucket-data-policies-form/bucket-da
 import bucketDataPlacementPolicyForm from './bucket/bucket-data-placement-policy-form/bucket-data-placement-policy-form';
 import bucketDataResiliencyPolicyForm from './bucket/bucket-data-resiliency-policy-form/bucket-data-resiliency-policy-form';
 import bucketQuotaPolicyForm from './bucket/bucket-quota-policy-form/bucket-quota-policy-form';
-import bucketSpilloverPolicyForm from './bucket/bucket-spillover-policy-form/bucket-spillover-policy-form';
 import bucketVersioningPolicyForm from './bucket/bucket-versioning-policy-form/bucket-versioning-policy-form';
 import bucketTriggersForm from './bucket/bucket-triggers-form/bucket-triggers-form';
 /** INJECT:bucket.import **/
@@ -166,7 +164,6 @@ import resourcesPanel from './resources/resources-panel/resources-panel';
 import poolsTable from './resources/pools-table/pools-table';
 import cloudResourcesTable from './resources/cloud-resources-table/cloud-resources-table';
 import namespaceResourcesTable from './resources/namespace-resources-table/namespace-resources-table';
-import internalResourcesTable from './resources/internal-resources-table/internal-resources-table';
 /** INJECT:resources.import **/
 
 // -------------------------------
@@ -444,7 +441,6 @@ export default function register(ko, services) {
         addBucketTriggerModal,
         editBucketTriggerModal,
         attachServerModal,
-        editBucketSpilloverModal,
         createFuncModal,
         afterUpgradeFailureModal,
         createBucketModal,
@@ -478,7 +474,6 @@ export default function register(ko, services) {
         bucketDataPlacementPolicyForm,
         bucketDataResiliencyPolicyForm,
         bucketQuotaPolicyForm,
-        bucketSpilloverPolicyForm,
         bucketVersioningPolicyForm,
         bucketTriggersForm,
         /** INJECT:bucket.list **/
@@ -499,7 +494,6 @@ export default function register(ko, services) {
         poolsTable,
         cloudResourcesTable,
         namespaceResourcesTable,
-        internalResourcesTable,
         /** INJECT:resources.list **/
 
         poolPanel,

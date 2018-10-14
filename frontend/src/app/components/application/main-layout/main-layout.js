@@ -62,7 +62,8 @@ const navItems = deepFreeze([
     {
         route: 'analytics',
         icon: 'line-chart',
-        label: 'Analytics'
+        label: 'Analytics',
+        beta: true
 
     }
 ]);

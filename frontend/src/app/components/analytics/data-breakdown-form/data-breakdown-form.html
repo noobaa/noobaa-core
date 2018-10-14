@@ -14,13 +14,15 @@
     selected: ko.pc(selectedView, onSelectView, $component)
 "></radio-group>
 
+<chart-legend class="hpad legend-row"
+    params="items: legend, format: 'size'"
+></chart-legend>
+
 <chartjs class="pad" params="
     type: chart.type,
     data: chart.data,
     options: chart.options
 "></chartjs>
 
-<chart-legend class="hpad legend-row"
-    params="items: legend, format: 'size'"
-></chart-legend>
+
 

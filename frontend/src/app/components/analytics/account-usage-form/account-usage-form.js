@@ -81,7 +81,7 @@ function _perpareChartParams(samples) {
                 yAxes: [{
                     scaleLabel: {
                         display: true,
-                        labelString: 'Aggr. R/W'
+                        labelString: 'Aggregated R/W'
                     },
                     stacked: true,
                     ticks: {

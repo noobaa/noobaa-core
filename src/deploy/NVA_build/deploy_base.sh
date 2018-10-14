@@ -261,7 +261,7 @@ function install_mongo {
     
     if [ "${container}" = "docker" ]; then
         local mongod_pid=$(pgrep -lf mongod | awk '{print $1}')
-        kill -9 ${mongod_pid}
+        kill -2 ${mongod_pid}
     fi
     deploy_log "install_mongo done"
 }

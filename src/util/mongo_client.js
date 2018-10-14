@@ -9,12 +9,14 @@ const mongodb = require('mongodb');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('./promise');
+const promise_utils = require('./promise_utils');
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
 const js_utils = require('./js_utils');
 const common_api = require('../api/common_api');
 const mongo_utils = require('./mongo_utils');
 const schema_utils = require('./schema_utils');
+
 
 class MongoClient extends EventEmitter {
 
@@ -419,6 +421,30 @@ class MongoClient extends EventEmitter {
     async is_master(ip) {
         const is_master_res = await this.db.command({ isMaster: 1 });
         return is_master_res.primary.startsWith(ip);
+    }
+
+
+    // wait until all replica set members are operational
+    async wait_for_all_members(timeout) {
+        timeout = timeout || 2 * 60000; // default timeout 2 minutes
+        return P.resolve().then(async () => {
+                if (process.env.MONGO_RS_URL) {
+                    let all_members_up = false;
+                    while (!all_members_up) {
+                        const rs_status = await this.get_mongo_rs_status();
+                        all_members_up = rs_status.members.every(member =>
+                            (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY'));
+                        if (all_members_up) return;
+                        dbg.warn('waiting for all members to be operational. current status =', util.inspect(rs_status));
+                        // wait 5 seconds before retesting
+                        await P.delay(5000);
+                    }
+                } else if (!this.db) {
+                    dbg.warn('db is not connected. waiting for reconnect signal');
+                    await promise_utils.wait_for_event(this, 'reconnect');
+                }
+            })
+            .timeout(timeout);
     }
 
     async step_down_master({ force, duration }) {

@@ -240,7 +240,8 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
         ' --bind_ip_all'; // in mongodb 3.6 bind_ip is by default 127.0.0.1 - bind to all interfaces
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
-    program_obj.stopsignal = 'KILL';
+    program_obj.stopsignal = 'INT';
+    program_obj.stopwaitsecs = 30;
     program_obj.killasgroup = 'true';
     program_obj.stopasgroup = 'true';
     program_obj.autostart = 'true';

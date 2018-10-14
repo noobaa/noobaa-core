@@ -126,11 +126,25 @@ module.exports = {
                             },
                             disabled: {
                                 type: 'boolean'
-                            }
-                        }
+                            },
+                            mode: { $ref: '#/definitions/tier_placement_status' }
+                        },
                     }
                 }
             }
-        }
+        },
+        tier_placement_status: {
+            type: 'string',
+            enum: [
+                'NO_RESOURCES',
+                'NOT_ENOUGH_RESOURCES',
+                'NOT_ENOUGH_HEALTHY_RESOURCES',
+                'NO_CAPACITY',
+                'RISKY_TOLERANCE',
+                'LOW_CAPACITY',
+                'DATA_ACTIVITY',
+                'OPTIMAL'
+            ]
+        },
     },
 };

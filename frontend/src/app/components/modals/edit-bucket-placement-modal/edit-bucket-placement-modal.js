@@ -132,7 +132,6 @@ class EditBucketPlacementModalViewModel extends Observer {
     allResourceNames = [];
     isMixedPolicy = false;
     isPolicyRisky = false;
-    spilloverResource = '';
     selectableResourceIds = [];
     resourcesHref = ko.observable();
     rowParams = { onToggle: this.onToggleResource.bind(this) };
@@ -161,7 +160,6 @@ class EditBucketPlacementModalViewModel extends Observer {
             return;
         }
 
-        const { name: spilloverResource } = bucket.spillover || {};
         const poolList = Object.values(hostPools)
             .map(resource => ({ type: 'HOSTS', resource }));
 
@@ -178,14 +176,13 @@ class EditBucketPlacementModalViewModel extends Observer {
             [];
 
         const selectableResourceIds = resourceList
-            .filter(pair => pair.resource.name !== spilloverResource)
             .map(pair => ({ type: pair.type, name: pair.resource.name }));
 
         const rows = resourceList
             .sort(resourceCompareFunc)
             .map((pair, i) => {
                 const row = this.rows.get(i) || new ResourceRow(this.rowParams);
-                row.onResource(pair.type,  pair.resource, selectedResources, spilloverResource);
+                row.onResource(pair.type,  pair.resource, selectedResources);
                 return row;
             });
 
@@ -199,7 +196,6 @@ class EditBucketPlacementModalViewModel extends Observer {
 
         this.tierName = bucket.tierName;
         this.selectedResources = selectedResources;
-        this.spilloverResource = spilloverResource;
         this.selectableResourceIds = selectableResourceIds;
         this.regionByResource = regionByResource;
         this.rows(rows);

@@ -127,8 +127,9 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
         if (!bucket) return;
 
         const values = form ? getFormValues(form) : _getFormInitalValues(bucket);
-        const storageNodePerMirrorSet = countStorageNodesByMirrorSet(bucket.placement, hostPools);
-        const minNodeCountInMirrorSets = Math.min(...Object.values(storageNodePerMirrorSet));
+        const minNodeCountInMirrorSets = Math.min(
+            ...countStorageNodesByMirrorSet(bucket.placement2, hostPools)
+        );
 
         this.bucketName = bucket.name;
         this.tierName = bucket.tierName;

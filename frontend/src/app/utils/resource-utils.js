@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isFunction, isDefined, flatMap, sumBy } from 'utils/core-utils';
+import { deepFreeze, isFunction, isDefined, sumBy } from 'utils/core-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
+import { flatPlacementPolicy } from 'utils/bucket-utils';
 import numeral from 'numeral';
 
 const GB = Math.pow(1024, 3);
@@ -257,49 +258,24 @@ export function getResourceStateIcon(resourceType, resource) {
         resourceType === 'INTERNAL' && getInternalResourceStateIcon(resource);
 }
 
-export function getConnectedBuckets(resourceType, resourceName, buckets) {
-    return Object.values(buckets)
-        .filter(bucket => {
-            const resources = [
-                ...flatMap(
-                    bucket.placement.mirrorSets,
-                    ms => ms.resources
-                ),
-                bucket.spillover
-            ];
-
-            return resources.some(res =>
-                res.type === resourceType &&
-                res.name === resourceName
-            );
-        });
-}
-
 export function getUsageDistribution(resourceType, resourceName, buckets) {
     const resId = getResourceId(resourceType, resourceName);
     const usageList = Object.values(buckets)
         .map(bucket => {
-            const { name, placement, spillover, usageDistribution } = bucket;
+            const { name, usageDistribution } = bucket;
             const usage = usageDistribution.resources[resId];
             const lastUpdate = usageDistribution.lastUpdate;
-            const placementRes = flatMap(placement.mirrorSets, ms => ms.resources);
 
-            if (placementRes.some(res => getResourceId(res.type, res.name) === resId)) {
+            const resources = flatPlacementPolicy(bucket)
+                .map(record => record.resource);
+
+            if (resources.some(res => getResourceId(res.type, res.name) === resId)) {
                 return {
                     bucket: name,
                     lastUpdate: lastUpdate,
                     reason: 'PLACEMENT_TARGET',
                     size: toBytes(usage || 0)
                 };
-
-            } else if (spillover && getResourceId(spillover.type, spillover.name) === resId) {
-                return {
-                    bucket: name,
-                    lastUpdate: lastUpdate,
-                    reason: 'SPILLOVER_TARGET',
-                    size: toBytes(usage || 0)
-                };
-
             } else if (isDefined(usage)) {
                 return {
                     bucket: name,

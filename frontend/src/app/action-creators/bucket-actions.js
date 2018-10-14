@@ -5,9 +5,6 @@ import {
     UPDATE_BUCKET_QUOTA_POLICY,
     COMPLETE_UPDATE_BUCKET_QUOTA_POLICY,
     FAIL_UPDATE_BUCKET_QUOTA_POLICY,
-    UPDATE_BUCKET_SPILLOVER_POLICY,
-    COMPLETE_UPDATE_BUCKET_SPILLOVER_POLICY,
-    FAIL_UPDATE_BUCKET_SPILLOVER_POLICY,
     UPDATE_BUCKET_PLACEMENT_POLICY,
     COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
     FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
@@ -81,27 +78,6 @@ export function completeUpdateBucketQuotaPolicy(bucket) {
 export function failUpdateBucketQuotaPolicy(bucket, error) {
     return {
         type: FAIL_UPDATE_BUCKET_QUOTA_POLICY,
-        payload: { bucket, error }
-    };
-}
-
-export function updateBucketSpilloverPolicy(bucket, resource) {
-    return {
-        type: UPDATE_BUCKET_SPILLOVER_POLICY,
-        payload: { bucket, resource }
-    };
-}
-
-export function completeUpdateBucketSpilloverPolicy(bucket) {
-    return {
-        type: COMPLETE_UPDATE_BUCKET_SPILLOVER_POLICY,
-        payload: { bucket }
-    };
-}
-
-export function failUpdateBucketSpilloverPolicy(bucket, error) {
-    return {
-        type: FAIL_UPDATE_BUCKET_SPILLOVER_POLICY,
         payload: { bucket, error }
     };
 }

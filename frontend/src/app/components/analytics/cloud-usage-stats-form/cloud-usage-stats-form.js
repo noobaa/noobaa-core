@@ -33,6 +33,8 @@ const s3CompatibleOption = {
     selectedIcon: 'cloud-colored'
 };
 
+const aspectRatio = 1.7;
+
 class CloudUsageStatsFormViewModel extends ConnectableViewModel {
     pathname = '';
     serviceOptions = ko.observableArray();
@@ -47,7 +49,7 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
         type: 'bar',
         data: ko.observable(),
         options: {
-            aspectRatio:  1.5,
+            aspectRatio,
             scales: {
                 yAxes: [{
                     scaleLabel: {
@@ -88,7 +90,7 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
         type: 'bar',
         data: ko.observable(),
         options: {
-            aspectRatio:  1.5,
+            aspectRatio,
             scales: {
                 yAxes: [{
                     scaleLabel: {

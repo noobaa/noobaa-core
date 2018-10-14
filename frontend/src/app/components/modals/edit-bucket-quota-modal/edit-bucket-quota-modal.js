@@ -93,12 +93,6 @@ class EditBucketQuotaModalViewModel extends Observer {
             value: ko.observable()
         },
         {
-            label: 'Available on spillover',
-            color: style['color18'],
-            value: ko.observable(),
-            visible: ko.observable()
-        },
-        {
             label: 'Potential',
             color: style['color1'],
             value: ko.observable(),
@@ -135,16 +129,14 @@ class EditBucketQuotaModalViewModel extends Observer {
         const enabled = formValues ? formValues.enabled : Boolean(bucket.quota);
         const quota = _getQuota(formValues, bucket);
         const breakdown = getDataBreakdown(bucket.data, enabled ? quota : undefined);
-        const potential = sumSize(breakdown.potentialForUpload, breakdown.potentialForSpillover);
+        const potential = breakdown.potentialForUpload;
         this.barValues[0].value(toBytes(breakdown.used));
         this.barValues[1].value(toBytes(breakdown.overused));
         this.barValues[1].visible(!isSizeZero(breakdown.overused));
         this.barValues[2].value(toBytes(breakdown.availableForUpload));
-        this.barValues[3].value(toBytes(breakdown.availableForSpillover));
-        this.barValues[3].visible(!isSizeZero(breakdown.availableForSpillover));
-        this.barValues[4].value(toBytes(potential));
-        this.barValues[5].value(toBytes(breakdown.overallocated));
-        this.barValues[5].visible(!isSizeZero(breakdown.overallocated));
+        this.barValues[3].value(toBytes(potential));
+        this.barValues[4].value(toBytes(breakdown.overallocated));
+        this.barValues[4].visible(!isSizeZero(breakdown.overallocated));
 
         const markers = [];
         if (enabled) {

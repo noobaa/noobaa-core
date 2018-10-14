@@ -35,14 +35,11 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
     const enabledTiers = bucket.tiering.tiers
         .filter(record => !record.disabled);
 
-    const { placementTiers = [], spilloverTiers = [] } = groupBy(
-        enabledTiers,
-        record => record.spillover ? 'spilloverTiers' : 'placementTiers',
-        record => tiersByName[record.tier]
-    );
+    const placementTiers = enabledTiers
+        .map(record => tiersByName[record.tier]);
 
     const { storage, data, quota, stats, triggers, policy_modes, stats_by_type = [] } = bucket;
-    const { placement_status, resiliency_status, spillover_status, quota_status } = policy_modes;
+    const { placement_status, resiliency_status, quota_status } = policy_modes;
     return {
         name: bucket.name,
         tierName: placementTiers[0].name,
@@ -54,7 +51,6 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         undeletable: bucket.undeletable,
         placement: _mapPlacement(placement_status, placementTiers[0], resTypeByName),
         resiliency: _mapResiliency(resiliency_status, placementTiers[0]),
-        spillover: _mapSpillover(spillover_status, spilloverTiers[0], resTypeByName),
         failureTolerance: _mapFailureTolerance(bucket),
         versioning: _mapVersioning(bucket),
         io: _mapIO(stats),
@@ -73,8 +69,7 @@ function _mapData(data){
         lastUpdate: data.last_update,
         size: data.size,
         sizeReduced: data.size_reduced,
-        availableForUpload: data.free,
-        availableForSpillover: data.spillover_free
+        availableForUpload: data.free
     };
 }
 
@@ -122,14 +117,6 @@ function _mapResiliency(mode, tier) {
             replicas: replicas
         };
     }
-}
-
-function _mapSpillover(mode, tier, typeByName) {
-    if (!tier) return;
-    const { name: mirrorSet, pools } = tier.mirror_groups[0];
-    const [name] = pools;
-    const type = typeByName[name];
-    return { type, name, mode, mirrorSet };
 }
 
 function _mapFailureTolerance(bucket) {

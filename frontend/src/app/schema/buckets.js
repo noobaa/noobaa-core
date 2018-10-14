@@ -41,20 +41,11 @@ export default {
                 type: 'string',
                 enum: [
                     'OPTIMAL',
-                    'SPILLOVER_ISSUES',
                     'DATA_ACTIVITY',
                     'APPROUCHING_QUOTA',
                     'LOW_CAPACITY',
                     'RISKY_TOLERANCE',
-                    'SPILLOVER_NO_CAPACITY',
-                    'SPILLOVER_NO_RESOURCES',
-                    'SPILLOVER_NOT_ENOUGH_RESOURCES',
-                    'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
                     'SPILLING_BACK',
-                    'NO_CAPACITY_SPILLOVER_UNSERVICEABLE',
-                    'NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE',
-                    'NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE',
-                    'NO_RESOURCES_SPILLOVER_UNSERVICEABLE',
                     'EXCEEDING_QUOTA',
                     'NO_CAPACITY',
                     'NOT_ENOUGH_HEALTHY_RESOURCES',
@@ -78,9 +69,6 @@ export default {
                         $ref: '#/def/common/size'
                     },
                     availableForUpload: {
-                        $ref: '#/def/common/size'
-                    },
-                    availableForSpillover: {
                         $ref: '#/def/common/size'
                     }
                 }
@@ -153,6 +141,123 @@ export default {
                                 }
                             }
                         }
+                    }
+                }
+            },
+            placement2: {
+                type: 'object',
+                required: [
+                    'mode',
+                    'tiers'
+                ],
+                properties: {
+                    mode: {
+                        type: 'string',
+                        enum: [
+                            'OPTIMAL'
+                        ]
+                    },
+                    tiers: {
+                        oneOf: [
+                            {
+                                type: 'array',
+                                minItems: 1,
+                                maxItems: 1,
+                                items: {
+                                    type: 'object',
+                                    required: [
+                                        'name',
+                                        'mode',
+                                        'policyType'
+                                    ],
+                                    properties: {
+                                        name: {
+                                            type: 'string'
+                                        },
+                                        mode: {
+                                            type: 'string',
+                                            enum: [
+                                                'OPTIMAL'
+                                            ]
+                                        },
+                                        policyType: {
+                                            type: 'string',
+                                            enum: [
+                                                'INTERNAL_STOREAGE'
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                type: 'array',
+                                minItems: 1,
+                                maxItems: 2,
+                                items: {
+                                    type: 'object',
+                                    required: [
+                                        'name',
+                                        'mode',
+                                        'policyType'
+                                    ],
+                                    properties: {
+                                        name: {
+                                            type: 'string'
+                                        },
+                                        mode: {
+                                            type: 'string',
+                                            enum: [
+                                                'OPTIMAL'
+                                            ]
+                                        },
+                                        policyType: {
+                                            type: 'string',
+                                            enum: [
+                                                'MIRROR',
+                                                'SPREAD'
+                                            ]
+                                        },
+                                        mirrorSets: {
+                                            type: 'array',
+                                            items: {
+                                                type: 'object',
+                                                required: [
+                                                    'name',
+                                                    'resources'
+                                                ],
+                                                properties: {
+                                                    name: {
+                                                        type: 'string'
+                                                    },
+                                                    resources: {
+                                                        type: 'array',
+                                                        items: {
+                                                            type: 'object',
+                                                            required: [
+                                                                'type',
+                                                                'name'
+                                                            ],
+                                                            properties: {
+                                                                type: {
+                                                                    type: 'string',
+                                                                    enum: [
+                                                                        'HOSTS',
+                                                                        'CLOUD'
+                                                                    ]
+                                                                },
+                                                                name: {
+                                                                    type: 'string'
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        ]
                     }
                 }
             },
@@ -234,40 +339,6 @@ export default {
                     },
                     lastWrite: {
                         type: 'integer'
-                    }
-                }
-            },
-            spillover: {
-                type: 'object',
-                required: [
-                    'type',
-                    'mode',
-                    'name',
-                    'mirrorSet'
-                ],
-                properties: {
-                    type: {
-                        type: 'string',
-                        enum: [
-                            'INTERNAL',
-                            'CLOUD',
-                            'HOSTS'
-                        ]
-                    },
-                    mode: {
-                        type: 'string',
-                        enum: [
-                            'SPILLOVER_ERRORS',
-                            'SPILLOVER_ISSUES',
-                            'SPILLING_BACK',
-                            'OPTIMAL'
-                        ]
-                    },
-                    name: {
-                        type: 'string'
-                    },
-                    mirrorSet: {
-                        type: 'string'
                     }
                 }
             },

@@ -39,7 +39,6 @@ import tryDeleteAccount from './try-delete-account';
 import signOutDeletedUser from './sign-out-deleted-user';
 import createBucket from './create-bucket';
 import updateBucketQuotaPolicy from './update-bucket-quota-policy';
-import updateBucketSpilloverPolicy from './update-bucket-spillover-policy';
 import updateBucketPlacementPolicy from './update-bucket-placement-policy';
 import updateBucketResiliencyPolicy from './update-bucket-resiliency-policy';
 import updateBucketVersioningPolicy from './update-bucket-versioning-policy';
@@ -161,7 +160,6 @@ const epics = [
     // Bucket related epics
     createBucket,
     updateBucketQuotaPolicy,
-    updateBucketSpilloverPolicy,
     updateBucketPlacementPolicy,
     updateBucketResiliencyPolicy,
     updateBucketVersioningPolicy,

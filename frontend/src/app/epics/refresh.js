@@ -42,7 +42,6 @@ export default function(action$) {
             types.COMPLETE_UPDATE_BUCKET_TRIGGER,
             types.COMPLETE_REMOVE_BUCKET_TRIGGER,
             types.COMPLETE_ATTACH_SERVER_TO_CLUSTER,
-            types.COMPLETE_UPDATE_BUCKET_SPILLOVER_POLICY,
             types.COMPLETE_CREATE_CLOUD_RESOURCE,
             types.COMPLETE_UPDATE_REMOTE_SYSLOG,
             types.COMPLETE_CREATE_LAMBDA_FUNC,

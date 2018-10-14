@@ -56,11 +56,6 @@ const columns = deepFreeze([
         }
     },
     {
-        name: 'spilloverUsage',
-        sortable: true,
-        compareKey: bucket => toBytes(_getSpilloverUsage(bucket))
-    },
-    {
         name: 'versioning',
         sortable: true,
         compareKey: bucket => bucket.versioning.mode
@@ -128,16 +123,6 @@ function _getResourceGroupTooltip(type, group, system) {
     }
 }
 
-function _getSpilloverUsage(bucket) {
-    const { spillover, usageDistribution } = bucket;
-    if (spillover) {
-        const resId = getResourceId(spillover.type, spillover.name);
-        return usageDistribution.resources[resId] || 0;
-    } else {
-        return 0;
-    }
-}
-
 function _mapResourceGroups(placement, system) {
     const groups = groupBy(
         flatMap(placement.mirrorSets, ms => ms.resources),
@@ -169,7 +154,6 @@ function _mapBucket(bucket, system, selectedForDelete) {
         objectCount: numeral(bucket.objectCount).format('0,0'),
         placementPolicy: getPlacementTypeDisplayName(bucket.placement.policyType),
         resources: _mapResourceGroups(bucket.placement, system),
-        spilloverUsage: formatSize(_getSpilloverUsage(bucket)),
         versioning: getVersioningStateText(bucket.versioning.mode),
         capacity: {
             total: bucket.storage.total,
@@ -191,7 +175,6 @@ class RowViewModel {
     objectCount = ko.observable();
     placementPolicy = ko.observable();
     resources = ko.observable();
-    spilloverUsage = ko.observable();
     versioning = ko.observable();
     capacity = {
         total: ko.observable(),

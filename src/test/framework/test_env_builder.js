@@ -48,6 +48,7 @@ const {
     agents_disk_size = 'default',
     random_base_version = false,
     min_version = '2.1',
+    pool_name = 'first.pool',
 } = argv;
 
 let {
@@ -153,6 +154,7 @@ async function prepare_server() {
         vmSize,
         latestRelease: true,
         createSystem: true,
+        createPools: []
     };
     if (random_base_version) {
         createServerParams.imagename = await get_random_base_version();
@@ -229,14 +231,14 @@ function install_agents() {
     }
     let num_installed = 0;
     console.log(`Starting to install ${created_agents.length} Agents`);
-    return agent_functions.getAgentConf(server.ip, [])
+    return agent_functions.getAgentConf(server.ip, [], pool_name)
         .then(agent_conf => P.map(created_agents, agent => {
                 const os = azf.getImagesfromOSname(agent.os);
                 return P.resolve()
                     .then(() => {
                         if (os.hasImage) {
                             console.log(`installing agent ${agent.name} type ${agent.os} using ssh`);
-                            return (agent_functions.getAgentConfInstallString(server.ip, os.osType, []))
+                            return (agent_functions.getAgentConfInstallString(server.ip, os.osType, [], pool_name))
                                 .then(inst_string => agent_functions.runAgentCommandViaSsh(
                                     agent.ip,
                                     AzureFunctions.QA_USER_NAME,

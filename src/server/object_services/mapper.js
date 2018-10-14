@@ -598,7 +598,6 @@ function get_num_blocks_per_chunk(tier) {
 
 function get_part_info(part, adminfo, tiering_status, location_info) {
     const chunk_info = get_chunk_info(part.chunk, adminfo, tiering_status, location_info);
-    dbg.log0('JAJA chunk_info', tiering_status, util.inspect(chunk_info, { depth: 4, colors: true }));
     return {
         start: part.start,
         end: part.end,
@@ -616,7 +615,6 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
     if (adminfo) {
         const bucket = system_store.data.get_by_id(chunk.bucket);
         const mapping = map_chunk(chunk, chunk.tier, bucket.tiering, tiering_status);
-        dbg.log0('JAJA mapping', util.inspect(mapping, { depth: 4, colors: true }));
         if (!mapping.accessible) {
             adminfo = { health: 'unavailable' };
         } else if (mapping.allocations) {
@@ -629,7 +627,7 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
     }
     const blocks_by_frag_id = _.groupBy(chunk.blocks, 'frag');
     return {
-        tier: chunk.tier._id,
+        tier: chunk.tier.name,
         chunk_coder_config: chunk.chunk_coder_config,
         size: chunk.size,
         frag_size: chunk.frag_size,

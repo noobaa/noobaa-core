@@ -104,10 +104,10 @@ function create_hosts_pool(req) {
     const { rpc_params, auth_token } = req;
     const { name, hosts } = rpc_params;
 
-    if (name !== config.NEW_SYSTEM_POOL_NAME && hosts.length < 1) {
-        throw new RpcError('NOT ENOUGH HOSTS', 'cant create a pool with less than ' +
-            1 + ' node');
-    }
+    // if (name !== config.NEW_SYSTEM_POOL_NAME && hosts.length < 1) {
+    //     throw new RpcError('NOT ENOUGH HOSTS', 'cant create a pool with less than ' +
+    //         1 + ' node');
+    // }
 
     const pool = new_pool_defaults(name, req.system._id, 'HOSTS', 'BLOCK_STORE_FS');
     const pool_id = String(pool._id);
@@ -117,9 +117,29 @@ function create_hosts_pool(req) {
         .then(() => system_store.make_changes({
             insert: {
                 pools: [pool]
-            }
+            },
+            update: updates_if_first_resource(req, pool)
         }))
-        .then(() => server_rpc.client.host.migrate_hosts_to_pool({ pool_id, hosts }, { auth_token }));
+        .then(() => hosts && server_rpc.client.host.migrate_hosts_to_pool({ pool_id, hosts }, { auth_token }));
+}
+
+function updates_if_first_resource(req, pool) {
+    const system = req.system;
+    const updates = [];
+    const pools = _.filter(system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
+    if (pools.length) return;
+    // so this is the first resource to be added to the system
+    _.each(system_store.data.accounts, account => {
+        if (account.default_pool) {
+            updates.push({
+                _id: account._id,
+                $set: {
+                    'default_pool': pool._id
+                }
+            });
+        }
+    });
+    return { accounts: updates };
 }
 
 function create_namespace_resource(req) {
@@ -205,7 +225,8 @@ function create_cloud_pool(req) {
     return system_store.make_changes({
             insert: {
                 pools: [pool]
-            }
+            },
+            update: updates_if_first_resource(req, pool)
         })
         .then(res => server_rpc.client.hosted_agents.create_pool_agent({
             pool_name: req.rpc_params.name,
@@ -785,6 +806,12 @@ function check_resrouce_pool_deletion(pool) {
     var buckets = get_associated_buckets_int(pool);
     if (buckets.length) {
         return 'IN_USE';
+    }
+
+    //Verify pool is not defined as default for any account
+    var accounts = get_associated_accounts(pool);
+    if (accounts.length) {
+        return 'DEFAULT_RESOURCE';
     }
 }
 

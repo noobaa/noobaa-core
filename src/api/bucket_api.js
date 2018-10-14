@@ -663,9 +663,9 @@ module.exports = {
                         available_for_upload: {
                             $ref: 'common_api#/definitions/bigint'
                         },
-                        spillover_free: {
-                            $ref: 'common_api#/definitions/bigint'
-                        },
+                        // spillover_free: {
+                        //     $ref: 'common_api#/definitions/bigint'
+                        // },
                         last_update: {
                             idate: true
                         }
@@ -864,13 +864,13 @@ module.exports = {
                         }
                     }]
                 },
-                spillover: {
-                    oneOf: [{
-                        type: 'string'
-                    }, {
-                        type: 'null'
-                    }]
-                },
+                // spillover: {
+                //     oneOf: [{
+                //         type: 'string'
+                //     }, {
+                //         type: 'null'
+                //     }]
+                // },
                 namespace: {
                     type: 'object',
                     required: ['write_resource', 'read_resources'],
@@ -891,21 +891,10 @@ module.exports = {
         },
         policy_modes: {
             type: 'object',
-            required: ['placement_status', 'resiliency_status', 'quota_status', 'spillover_status'],
+            required: ['placement_status', 'resiliency_status', 'quota_status'],
             properties: {
-                placement_status: {
-                    type: 'string',
-                    enum: [
-                        'NO_RESOURCES',
-                        'NOT_ENOUGH_RESOURCES',
-                        'NOT_ENOUGH_HEALTHY_RESOURCES',
-                        'NO_CAPACITY',
-                        'SPILLING_BACK',
-                        'RISKY_TOLERANCE',
-                        'LOW_CAPACITY',
-                        'DATA_ACTIVITY',
-                        'OPTIMAL'
-                    ]
+                placement_status: { // For now - maybe should be deleted/changed
+                    $ref: 'tiering_policy_api#/definitions/tier_placement_status'
                 },
                 resiliency_status: {
                     type: 'string',
@@ -925,36 +914,18 @@ module.exports = {
                         'OPTIMAL'
                     ]
                 },
-                spillover_status: {
-                    type: 'string',
-                    enum: [
-                        'SPILLOVER_DISABLED',
-                        'SPILLOVER_ERRORS',
-                        'SPILLOVER_ISSUES',
-                        'SPILLING_BACK',
-                        'OPTIMAL'
-                    ]
-                }
             }
         },
         bucket_mode: {
             type: 'string',
             enum: [
                 'OPTIMAL',
-                'SPILLOVER_ISSUES',
                 'DATA_ACTIVITY',
                 'APPROUCHING_QUOTA',
                 'LOW_CAPACITY',
                 'RISKY_TOLERANCE',
-                'SPILLOVER_NO_CAPACITY',
-                'SPILLOVER_NOT_ENOUGH_RESOURCES',
-                'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
-                'SPILLOVER_NO_RESOURCES',
-                'SPILLING_BACK',
-                'NO_CAPACITY_SPILLOVER_UNSERVICEABLE',
-                'NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE',
-                'NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE',
-                'NO_RESOURCES_SPILLOVER_UNSERVICEABLE',
+                'NO_RESOURCES_INTERNAL',
+                'NO_RESOURCES_INTERNAL_ISSUES',
                 'EXCEEDING_QUOTA',
                 'NO_CAPACITY',
                 'NOT_ENOUGH_HEALTHY_RESOURCES',

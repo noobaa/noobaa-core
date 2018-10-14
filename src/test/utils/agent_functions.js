@@ -4,11 +4,12 @@
 const _ = require('lodash');
 const P = require('../../util/promise');
 const api = require('../../api');
-const pool = 'first.pool';
+const config = require('../../../config');
 const crypto = require('crypto');
 const ssh_functions = require('./ssh_functions');
 
 // Environment Setup
+const default_pool = config.NEW_SYSTEM_POOL_NAME;
 const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 const auth_params = {
@@ -215,7 +216,7 @@ async function createAgentsWithList(params) {
     console.warn(`Node names are ${listNodes.map(node => node.name)}`);
 }
 
-async function getAgentConfInstallString(server_ip, osType, exclude_drives = []) {
+async function getAgentConfInstallString(server_ip, osType, exclude_drives = [], pool = default_pool) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
@@ -232,8 +233,8 @@ async function getAgentConfInstallString(server_ip, osType, exclude_drives = [])
     }
 }
 
-async function getAgentConf(server_ip, exclude_drives = []) {
-    const installationString = await getAgentConfInstallString(server_ip, 'Linux', exclude_drives);
+async function getAgentConf(server_ip, exclude_drives = [], pool = default_pool) {
+    const installationString = await getAgentConfInstallString(server_ip, 'Linux', exclude_drives, pool);
     const agentConfArr = installationString.split(" ");
     return agentConfArr[agentConfArr.length - 1];
 }

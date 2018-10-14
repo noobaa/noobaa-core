@@ -43,20 +43,12 @@ const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 const MODE_COMPARE_ORDER = [
     'OPTIMAL',
-    'SPILLOVER_ISSUES',
     'REBUILDING',
     'APPROUCHING_QUOTA',
     'LOW_CAPACITY',
     'RISKY_TOLERANCE',
-    'SPILLOVER_NO_CAPACITY',
-    'SPILLOVER_NOT_ENOUGH_RESOURCES',
-    'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
-    'SPILLOVER_NO_RESOURCES',
-    'SPILLING_BACK',
-    'NO_CAPACITY_SPILLOVER_UNSERVICEABLE',
-    'NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE',
-    'NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE',
-    'NO_RESOURCES_SPILLOVER_UNSERVICEABLE',
+    'NO_RESOURCES_INTERNAL',
+    'NO_RESOURCES_INTERNAL_ISSUES',
     'EXCEEDING_QUOTA',
     'NO_CAPACITY',
     'NOT_ENOUGH_HEALTHY_RESOURCES',
@@ -91,7 +83,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
  * CREATE_BUCKET
  *
  */
-function create_bucket(req) {
+async function create_bucket(req) {
     if (req.rpc_params.name.length < 3 ||
         req.rpc_params.name.length > 63 ||
         net.isIP(req.rpc_params.name) ||
@@ -180,31 +172,6 @@ function create_bucket(req) {
             read_resources: ordered_read_resources,
             write_resource
         };
-    } else {
-        const bucket_spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, mongo_pool._id);
-        if (req.rpc_params.tiering) {
-            changes.update.tieringpolicies = [{
-                _id: tiering_policy._id,
-                $push: {
-                    tiers: {
-                        tier: bucket_spillover_tier._id,
-                        order: 1,
-                        spillover: true,
-                        disabled: true
-                    }
-                }
-            }];
-            changes.insert.tiers = [bucket_spillover_tier];
-        } else {
-            tiering_policy.tiers.push({
-                tier: bucket_spillover_tier._id,
-                order: 1,
-                spillover: true,
-                disabled: !config.SPILLOVER_ENABLED_ON_CREATE_BUCKET,
-            });
-            changes.insert.tieringpolicies = [tiering_policy];
-            changes.insert.tiers.push(bucket_spillover_tier);
-        }
     }
 
     changes.insert.buckets = [bucket];
@@ -227,12 +194,10 @@ function create_bucket(req) {
         }];
     }
 
-    return system_store.make_changes(changes)
-        .then(() => {
-            req.load_auth();
-            let created_bucket = find_bucket(req);
-            return get_bucket_info({ bucket: created_bucket });
-        });
+    await system_store.make_changes(changes);
+    req.load_auth();
+    let created_bucket = find_bucket(req);
+    return get_bucket_info({ bucket: created_bucket });
 }
 
 /**
@@ -307,7 +272,7 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         alerts: []
     };
     let quota = update_request.quota;
-    const spillover_sent = !_.isUndefined(update_request.spillover);
+    // const spillover_sent = !_.isUndefined(update_request.spillover);
 
     let single_bucket_update = {
         _id: bucket._id
@@ -335,9 +300,9 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
     }
 
-    if (spillover_sent) {
-        get_bucket_changes_spillover(req, bucket, update_request, tiering_policy, changes);
-    }
+    // if (spillover_sent) {
+    //     get_bucket_changes_spillover(req, bucket, update_request, tiering_policy, changes);
+    // }
 
     return changes;
 }
@@ -428,70 +393,58 @@ function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, chan
     changes.events.push(quota_event);
 }
 
-function get_bucket_changes_spillover(req, bucket, update_request, tiering_policy, changes) {
-    const spillover_pool = req.system.pools_by_name[update_request.spillover];
-    const tiering = tiering_policy || bucket.tiering;
-    let spillover_tier = tiering.tiers.find(tier_and_order => tier_and_order.spillover);
-    if (!spillover_tier) {
-        if (!spillover_pool) throw new RpcError('POOL NOT FOUND');
-        spillover_tier = req.system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${bucket._id}`];
-        if (!spillover_tier) {
-            spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, spillover_pool._id);
-            changes.inserts.tiers = changes.inserts.tiers || [];
-            changes.inserts.tiers.push(spillover_tier);
-        }
-        tiering.tiers.push({
-            tier: spillover_tier,
-            order: 1,
-            spillover: true,
-            disabled: !update_request.spillover
-        });
-    }
-    if (spillover_pool) {
-        changes.updates.tiers = [{
-            _id: spillover_tier.tier._id,
-            'mirrors.0.spread_pools': [spillover_pool._id]
-        }];
-    }
-    spillover_tier.disabled = !update_request.spillover;
-    changes.updates.tieringpolicies = changes.updates.tieringpolicies || [];
-    changes.updates.tieringpolicies.push({
-        _id: tiering._id,
-        tiers: tiering.tiers.map(tier_and_order => ({
-            tier: tier_and_order.tier._id,
-            order: tier_and_order.order,
-            spillover: tier_and_order.spillover,
-            disabled: tier_and_order.disabled
-        }))
-    });
+// function get_bucket_changes_spillover(req, bucket, update_request, tiering_policy, changes) {
+//     const spillover_pool = req.system.pools_by_name[update_request.spillover];
+//     const tiering = tiering_policy || bucket.tiering;
+//     let spillover_tier = tiering.tiers.find(tier_and_order => tier_and_order.spillover);
+//     if (!spillover_tier) {
+//         if (!spillover_pool) throw new RpcError('POOL NOT FOUND');
+//         spillover_tier = req.system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${bucket._id}`];
+//         if (!spillover_tier) {
+//             spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, spillover_pool._id);
+//             changes.inserts.tiers = changes.inserts.tiers || [];
+//             changes.inserts.tiers.push(spillover_tier);
+//         }
+//         tiering.tiers.push({
+//             tier: spillover_tier,
+//             order: 1,
+//             spillover: true,
+//             disabled: !update_request.spillover
+//         });
+//     }
+//     if (spillover_pool) {
+//         changes.updates.tiers = [{
+//             _id: spillover_tier.tier._id,
+//             'mirrors.0.spread_pools': [spillover_pool._id]
+//         }];
+//     }
+//     spillover_tier.disabled = !update_request.spillover;
+//     changes.updates.tieringpolicies = changes.updates.tieringpolicies || [];
+//     changes.updates.tieringpolicies.push({
+//         _id: tiering._id,
+//         tiers: tiering.tiers.map(tier_and_order => ({
+//             tier: tier_and_order.tier._id,
+//             order: tier_and_order.order,
+//             spillover: tier_and_order.spillover,
+//             disabled: tier_and_order.disabled
+//         }))
+//     });
 
-    let desc;
-    if (update_request.spillover) {
-        desc = `Bucket ${bucket.name} spillover on resource ${update_request.spillover} was set by ${req.account && req.account.email}`;
-    } else {
-        desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
-    }
-    changes.events.push({
-        event: 'bucket.spillover',
-        level: 'info',
-        system: req.system._id,
-        actor: req.account && req.account._id,
-        bucket: bucket._id,
-        desc
-    });
-}
-
-function create_bucket_spillover_tier(system, bucket_id, pool_id) {
-    if (system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${bucket_id}`]) return;
-    return tier_server.new_tier_defaults(
-        `${config.SPILLOVER_TIER_NAME}-${bucket_id}`,
-        system._id,
-        system.default_chunk_config._id, [{
-            _id: system_store.generate_id(),
-            spread_pools: [pool_id]
-        }]
-    );
-}
+//     let desc;
+//     if (update_request.spillover) {
+//         desc = `Bucket ${bucket.name} spillover on resource ${update_request.spillover} was set by ${req.account && req.account.email}`;
+//     } else {
+//         desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
+//     }
+//     changes.events.push({
+//         event: 'bucket.spillover',
+//         level: 'info',
+//         system: req.system._id,
+//         actor: req.account && req.account._id,
+//         bucket: bucket._id,
+//         desc
+//     });
+// }
 
 /**
  *
@@ -1100,6 +1053,7 @@ function get_bucket_info({
     func_configs,
     bucket_stats
 }) {
+    const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
     const info = {
         name: bucket.name,
         namespace: bucket.namespace ? {
@@ -1107,7 +1061,8 @@ function get_bucket_info({
                 bucket.namespace.write_resource).name,
             read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_info(rs).name)
         } : undefined,
-        tiering: tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool, aggregate_data_free_by_tier),
+        tiering: tier_server.get_tiering_policy_info(bucket.tiering, tiering_pools_status,
+            nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier),
         tag: bucket.tag ? bucket.tag : '',
         num_objects: num_of_objects || 0,
         writable: false,
@@ -1124,7 +1079,7 @@ function get_bucket_info({
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
         versioning: bucket.versioning
     };
-    const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, info });
+    const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });
 
     info.usage_by_pool = {
         pools: {},
@@ -1147,13 +1102,12 @@ function get_bucket_info({
             placement_status: calc_data_placement_status(metrics),
             resiliency_status: calc_data_resiliency_status(metrics),
             quota_status: calc_quota_status(metrics),
-            spillover_status: calc_spillover_status(metrics),
         };
     }
     // calc_bucket_aggregated_mode(metrics);
     info.mode = bucket.namespace ?
         calc_namespace_mode() :
-        calc_bucket_mode(info);
+        calc_bucket_mode(info, metrics.is_using_internal);
 
     info.triggers = _.map(bucket.lambda_triggers, trigger => {
         const ret_trigger = _.omit(trigger, '_id');
@@ -1201,147 +1155,15 @@ function _calc_metrics({
     nodes_aggregate_pool,
     hosts_aggregate_pool,
     aggregate_data_free_by_tier,
+    tiering_pools_status,
     info
 }) {
-    const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
     const tiering_pools_used_agg = [0];
-    let spillover_allowed_in_policy = false;
-    let spillover_tier_in_policy;
     let has_any_pool_configured = false;
     let has_enough_healthy_nodes_for_tiering = false;
     let has_enough_total_nodes_for_tiering = false;
     let any_rebuilds = false;
-    let num_of_nodes;
-    let num_of_hosts;
-    _.each(bucket.tiering.tiers, tier_and_order => {
-        if (tier_and_order.spillover) {
-            if (tier_and_order.disabled) {
-                return;
-            } else {
-                spillover_allowed_in_policy = true;
-                spillover_tier_in_policy = tier_and_order.tier;
-            }
-        }
-        const ccc = _.get(tier_and_order, 'tier.chunk_config.chunk_coder_config');
-        const required_valid_nodes = ccc ? (ccc.data_frags + ccc.parity_frags) * ccc.replicas : config.NODES_MIN_COUNT;
-        const failure_tolerance = ccc.parity_frags || ccc.replicas - 1;
-
-        let mirrors_with_valid_pool = 0;
-        let mirrors_with_enough_nodes = 0;
-        tier_and_order.tier.mirrors.forEach(mirror_object => {
-            let num_valid_nodes = 0;
-            let num_valid_hosts = 0;
-            let num_nodes_in_mirror_group = 0;
-            let has_internal_or_cloud_pool = false;
-            let has_valid_pool = false;
-            _.compact((mirror_object.spread_pools || []).map(pool => {
-                    has_any_pool_configured = has_any_pool_configured || !tier_and_order.spillover;
-                    const spread_pool = system_store.data.pools.find(pool_rec => String(pool_rec._id) === String(pool._id));
-                    tiering_pools_used_agg.push(_.get(spread_pool, 'storage_stats.blocks_size') || 0);
-                    return _.extend({ pool_id: pool._id }, tiering_pools_status[tier_and_order.tier._id].pools[pool._id]);
-                }))
-                .forEach(pool_status => {
-                    any_rebuilds = any_rebuilds || _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.data_activities.length`);
-                    const pool_num_nodes = _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.storage_nodes.count`) || 0;
-                    const pool_num_hosts = _.get(hosts_aggregate_pool, `groups.${pool_status.pool_id}.nodes.online`) || 0;
-                    num_nodes_in_mirror_group += pool_num_nodes;
-                    num_valid_nodes += (pool_status.num_nodes || 0);
-                    num_valid_hosts += (pool_num_hosts || 0);
-                    has_valid_pool = has_valid_pool || pool_status.valid_for_allocation;
-                    has_internal_or_cloud_pool = has_internal_or_cloud_pool || (pool_status.resource_type !== 'HOSTS');
-                });
-            // let valid = ;
-            if (has_valid_pool || ((num_valid_nodes || 0) >= required_valid_nodes)) mirrors_with_valid_pool += 1;
-            if (num_nodes_in_mirror_group >= required_valid_nodes || has_internal_or_cloud_pool) mirrors_with_enough_nodes += 1;
-            // return valid;
-            const exitsting_minimum = _.isUndefined(num_of_nodes) ? Number.MAX_SAFE_INTEGER : num_of_nodes;
-            const exitsting_hosts_minimum = _.isUndefined(num_of_hosts) ? Number.MAX_SAFE_INTEGER : num_of_hosts;
-            const num_valid_nodes_for_minimum = _.isUndefined(num_valid_nodes) ? Number.MAX_SAFE_INTEGER : num_valid_nodes;
-            const potential_new_minimum = has_internal_or_cloud_pool || tier_and_order.spillover ?
-                Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
-            num_of_nodes = Math.min(exitsting_minimum, potential_new_minimum);
-            const potential_new_hosts_minimum = has_internal_or_cloud_pool || tier_and_order.spillover ?
-                Number.MAX_SAFE_INTEGER : num_valid_hosts;
-            num_of_hosts = Math.min(exitsting_hosts_minimum, potential_new_hosts_minimum);
-        });
-        num_of_nodes = num_of_nodes || 0;
-        num_of_hosts = num_of_hosts || 0;
-        const calc_node_tolerance = ccc.parity_frags ? Math.max(num_of_nodes - ccc.parity_frags, 0) : Math.max(num_of_nodes - 1, 0);
-        const calc_host_tolerance = ccc.parity_frags ? Math.max(num_of_hosts - ccc.parity_frags, 0) : Math.max(num_of_hosts - 1, 0);
-        info.host_tolerance = tier_and_order.spillover ? info.host_tolerance : Math.min(failure_tolerance, calc_host_tolerance);
-        info.node_tolerance = tier_and_order.spillover ? info.node_tolerance : Math.min(failure_tolerance, calc_node_tolerance);
-        info.writable = mirrors_with_valid_pool > 0;
-        if (!tier_and_order.spillover && tier_and_order.tier.mirrors.length > 0) {
-            if (mirrors_with_valid_pool === tier_and_order.tier.mirrors.length) has_enough_healthy_nodes_for_tiering = true;
-            if (mirrors_with_enough_nodes === tier_and_order.tier.mirrors.length) has_enough_total_nodes_for_tiering = true;
-        }
-    });
-    const low_tolerance = (info.node_tolerance === 0 || info.host_tolerance === 0);
-    const spillover_pool = spillover_tier_in_policy &&
-        pool_server.get_pool_info(spillover_tier_in_policy.mirrors[0].spread_pools[0], nodes_aggregate_pool, hosts_aggregate_pool);
-    const spillover_has_issues = spillover_tier_in_policy && spillover_pool.mode !== 'OPTIMAL';
-    const spillover_has_errors = spillover_tier_in_policy && (spillover_pool.mode !== 'OPTIMAL') && (spillover_pool.mode !== 'INITIALIZING') &&
-        (spillover_pool.mode !== 'LOW_CAPACITY') && (spillover_pool.mode !== 'ALL_HOSTS_IN_PROCESS') &&
-        (spillover_pool.mode !== 'HIGH_DATA_ACTIVITY') && (!spillover_pool.mode.startsWith('MANY'));
-    info.spillover = spillover_tier_in_policy && spillover_tier_in_policy.mirrors[0].spread_pools[0].name;
-
-    const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
-    const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity') || 0);
-    const bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size') || 0);
-    const bucket_used_other = BigInteger.max(used_of_pools_in_policy.minus(bucket_used), BigInteger.zero);
-    const bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free') || 0);
-    const spillover_tier_storage = spillover_tier_in_policy && _.mapValues(_.get(tier_server.get_tier_info(
-            spillover_tier_in_policy,
-            nodes_aggregate_pool,
-            aggregate_data_free_by_tier),
-        'storage'), x => size_utils.json_to_bigint(x));
-
-    const spillover_storage = _.mapValues(spillover_allowed_in_policy ?
-        spillover_tier_storage : {
-            free: 0,
-            unavailable_free: 0
-        }, x => size_utils.json_to_bigint(x));
-
-    let is_storage_low = false;
-    let is_no_storage = false;
-    let is_no_storage_on_spillover = false;
-    const bucket_total_no_spillover = bucket_free.plus(bucket_used)
-        .plus(bucket_used_other);
-    const bucket_total = bucket_total_no_spillover
-        .plus(spillover_storage.free)
-        .plus(spillover_storage.unavailable_free);
-
-    info.storage = {
-        values: size_utils.to_bigint_storage({
-            used: bucket_used,
-            used_other: bucket_used_other,
-            total: bucket_total,
-            free: bucket_free,
-            spillover_free: spillover_storage.free.plus(spillover_storage.unavailable_free),
-        }),
-        last_update: _.get(bucket, 'storage_stats.last_update')
-    };
-
-    const actual_free = size_utils.json_to_bigint(_.get(info, 'tiering.data.free') || 0);
-    let available_for_upload = actual_free.plus(spillover_storage.free);
-
-    if (bucket_free.isZero()) {
-        is_no_storage = true;
-    } else {
-        let free_percent = bucket_free.multiply(100).divide(bucket_total_no_spillover);
-        if (free_percent < 30) {
-            is_storage_low = true;
-        }
-    }
-    if (available_for_upload.isZero()) {
-        is_no_storage_on_spillover = true;
-    }
-    let spillover_used_by_bucket = size_utils.json_to_bigint(0);
-    if (spillover_tier_in_policy) {
-        const spillover_used_storage = bucket.storage_stats.pools[spillover_tier_in_policy.mirrors[0].spread_pools[0]._id];
-        spillover_used_by_bucket = size_utils.json_to_bigint((spillover_used_storage && spillover_used_storage.blocks_size) || 0);
-    }
-    const is_spilling_back = spillover_tier_in_policy && !spillover_used_by_bucket.isZero() && !actual_free.isZero();
+    const internal_pool = pool_server.get_internal_mongo_pool(bucket.system);
 
     const objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
@@ -1361,34 +1183,97 @@ function _calc_metrics({
         if (quota_free.isNegative()) {
             quota_free = BigInteger.zero;
         }
+    }
+    const internal_info = pool_server.get_pool_info(internal_pool, nodes_aggregate_pool, hosts_aggregate_pool);
+    const is_using_internal = String(bucket.tiering.tiers[0].tier.mirrors[0].spread_pools[0]._id) ===
+        String(internal_pool._id);
+
+    _.each(bucket.tiering.tiers, tier_and_order => {
+        const tier = tier_and_order.tier;
+        const tier_extra_info = tier_server.get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, hosts_aggregate_pool);
+        has_any_pool_configured = has_any_pool_configured || tier_extra_info.has_any_pool_configured;
+        tiering_pools_used_agg.push(tier_extra_info.used_of_pools_in_tier || 0);
+
+        const ccc = _.get(tier_and_order, 'tier.chunk_config.chunk_coder_config');
+        const failure_tolerance = ccc.parity_frags || ccc.replicas - 1;
+
+        const mirrors_with_valid_pool = tier_extra_info.mirrors_with_valid_pool;
+        const mirrors_with_enough_nodes = tier_extra_info.mirrors_with_enough_nodes;
+
+        info.host_tolerance = Math.min(failure_tolerance, tier_extra_info.host_tolerance);
+        info.node_tolerance = Math.min(failure_tolerance, tier_extra_info.node_tolerance);
+        info.writable = mirrors_with_valid_pool > 0;
+        if (tier_and_order.tier.mirrors.length > 0) {
+            if (mirrors_with_valid_pool === tier_and_order.tier.mirrors.length) has_enough_healthy_nodes_for_tiering = true;
+            if (mirrors_with_enough_nodes === tier_and_order.tier.mirrors.length) has_enough_total_nodes_for_tiering = true;
+        }
+    });
+    const low_tolerance = (info.node_tolerance === 0 || info.host_tolerance === 0);
+
+    const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
+    const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity') || 0);
+    const bucket_used = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.blocks_size') || 0);
+    const bucket_used_other = BigInteger.max(used_of_pools_in_policy.minus(bucket_used), BigInteger.zero);
+    const bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free') || 0);
+
+    let is_storage_low = false;
+    let is_no_storage = false;
+    // let is_no_storage_on_spillover = false;
+    const bucket_total = bucket_free.plus(bucket_used)
+        .plus(bucket_used_other);
+
+    info.storage = {
+        values: size_utils.to_bigint_storage({
+            used: bucket_used,
+            used_other: bucket_used_other,
+            total: bucket_total,
+            free: bucket_free,
+        }),
+        last_update: _.get(bucket, 'storage_stats.last_update')
+    };
+
+    const actual_free = size_utils.json_to_bigint(_.get(info, 'tiering.data.free') || 0);
+    let available_for_upload = actual_free;
+
+    if (bucket.quota) {
+        let quota_free = size_utils.json_to_bigint(bucket.quota.value).minus(size_utils.json_to_bigint(objects_aggregate.size));
         available_for_upload = size_utils.size_min([
             size_utils.bigint_to_json(quota_free),
             size_utils.bigint_to_json(available_for_upload)
         ]);
     }
 
+    if (bucket_free.isZero()) {
+        is_no_storage = true;
+    } else {
+        let free_percent = bucket_free.multiply(100).divide(bucket_total);
+        if (free_percent < 30) {
+            is_storage_low = true;
+        }
+    }
+    // if (actual_free.isZero()) {
+    //     is_no_storage_on_spillover = true;
+    // }
+
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
         size_reduced: bucket_chunks_capacity,
         free: actual_free,
         available_for_upload,
-        spillover_free: spillover_storage.free,
         last_update: _.get(bucket, 'storage_stats.last_update')
     });
 
     return {
+        is_using_internal,
+        internal_has_issues: (internal_info.mode !== 'OPTIMAL'),
         has_any_pool_configured,
-        spillover_allowed_in_policy,
-        spillover_has_errors,
-        spillover_has_issues,
-        is_spilling_back,
         has_enough_healthy_nodes_for_tiering,
         has_enough_total_nodes_for_tiering,
         low_tolerance,
         any_rebuilds,
         is_storage_low,
         is_no_storage,
-        is_no_storage_on_spillover,
+        // is_no_storage_on_spillover,
         is_quota_enabled: Boolean(bucket.quota),
         is_quota_exceeded,
         is_quota_low
@@ -1411,19 +1296,16 @@ function calc_namespace_mode() {
     return 'OPTIMAL';
 }
 
-function calc_bucket_mode(bucket_info) {
+function calc_bucket_mode(bucket_info, is_using_internal, internal_has_issues) {
     const stats = bucket_info.policy_modes;
-    const mode = (MODE_COMPARE_ORDER.indexOf(stats.placement_status) > MODE_COMPARE_ORDER.indexOf('EXCEEDING_QUOTA') &&
-            (((stats.spillover_status === 'SPILLOVER_ERRORS') && stats.placement_status + '_SPILLOVER_UNSERVICEABLE') ||
-                ((stats.spillover_status === 'SPILLOVER_DISABLED') && stats.placement_status))) ||
+    const mode = (is_using_internal && internal_has_issues && 'NO_RESOURCES_INTERNAL_ISSUES') ||
+        (is_using_internal && 'NO_RESOURCES_INTERNAL') ||
+        (MODE_COMPARE_ORDER.indexOf(stats.placement_status) > MODE_COMPARE_ORDER.indexOf('EXCEEDING_QUOTA') && stats.placement_status) ||
         (stats.quota_status === 'EXCEEDING_QUOTA' && 'EXCEEDING_QUOTA') ||
-        (stats.spillover_status === 'SPILLING_BACK' && 'SPILLING_BACK') ||
-        (MODE_COMPARE_ORDER.indexOf(stats.placement_status) > MODE_COMPARE_ORDER.indexOf('EXCEEDING_QUOTA') &&
-            (stats.spillover_status === 'OPTIMAL' && 'SPILLOVER_' + stats.placement_status)) ||
-        ((stats.placement_status === 'RISKY_TOLERANCE') && 'RISKY_TOLERANCE') ||
-        ((stats.placement_status === 'LOW_CAPACITY') && 'LOW_CAPACITY') ||
-        ((stats.quota_status === 'APPROUCHING_QUOTA') && 'APPROUCHING_QUOTA') ||
-        ((stats.spillover_status === 'SPILLOVER_ISSUES' || stats.spillover_status === 'SPILLOVER_ERRORS') && 'SPILLOVER_ISSUES') ||
+        (stats.placement_status === 'RISKY_TOLERANCE' && 'RISKY_TOLERANCE') ||
+        (stats.placement_status === 'LOW_CAPACITY' && 'LOW_CAPACITY') ||
+        (stats.quota_status === 'APPROUCHING_QUOTA' && 'APPROUCHING_QUOTA') ||
+        // ((stats.spillover_status === 'SPILLOVER_ISSUES' || stats.spillover_status === 'SPILLOVER_ERRORS') && 'SPILLOVER_ISSUES') ||
         'OPTIMAL';
     return mode;
 }
@@ -1440,9 +1322,6 @@ function calc_data_placement_status(metrics) {
     }
     if (metrics.is_no_storage) {
         return 'NO_CAPACITY';
-    }
-    if (metrics.is_spilling_back) {
-        return 'SPILLING_BACK';
     }
     if (metrics.low_tolerance) {
         return 'RISKY_TOLERANCE';
@@ -1476,21 +1355,21 @@ function calc_quota_status(metrics) {
     return 'OPTIMAL';
 }
 
-function calc_spillover_status(metrics) {
-    if (!metrics.spillover_allowed_in_policy) {
-        return 'SPILLOVER_DISABLED';
-    }
-    if (metrics.spillover_has_errors) {
-        return 'SPILLOVER_ERRORS';
-    }
-    if (metrics.spillover_has_issues) {
-        return 'SPILLOVER_ISSUES';
-    }
-    if (metrics.is_spilling_back) {
-        return 'SPILLING_BACK';
-    }
-    return 'OPTIMAL';
-}
+// function calc_spillover_status(metrics) {
+//     if (!metrics.spillover_allowed_in_policy) {
+//         return 'SPILLOVER_DISABLED';
+//     }
+//     if (metrics.spillover_has_errors) {
+//         return 'SPILLOVER_ERRORS';
+//     }
+//     if (metrics.spillover_has_issues) {
+//         return 'SPILLOVER_ISSUES';
+//     }
+//     if (metrics.is_spilling_back) {
+//         return 'SPILLING_BACK';
+//     }
+//     return 'OPTIMAL';
+// }
 
 function resolve_tiering_policy(req, policy_name) {
     var tiering_policy = req.system.tiering_policies_by_name[policy_name];
@@ -1528,7 +1407,6 @@ exports.read_bucket = read_bucket;
 exports.update_bucket = update_bucket;
 exports.delete_bucket = delete_bucket;
 exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
-exports.create_bucket_spillover_tier = create_bucket_spillover_tier;
 exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
 exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;
 exports.get_bucket_namespaces = get_bucket_namespaces;

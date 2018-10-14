@@ -85,7 +85,7 @@ async function create_object_upload(req) {
 
     return {
         obj_id: info._id,
-        tier: tier._id,
+        tier: tier.name,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
     };
@@ -269,7 +269,7 @@ async function create_multipart(req) {
     await MDStore.instance().insert_multipart(multipart);
     return {
         multipart_id: multipart._id,
-        tier: tier._id,
+        tier: tier.name,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
     };

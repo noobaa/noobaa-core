@@ -162,11 +162,15 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account) {
-    const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
+    // const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
     const default_bucket_name = 'first.bucket';
     const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
     const system = new_system_defaults(name, owner_account._id);
-    const pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    // const pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    const internal_pool_name = `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`;
+
+    const mongo_pool = pool_server.new_pool_defaults(internal_pool_name, system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
+    mongo_pool.mongo_pool_info = {};
     const default_chunk_config = {
         _id: system_store.generate_id(),
         system: system._id,
@@ -183,7 +187,7 @@ function new_system_changes(name, owner_account) {
     system.default_chunk_config = default_chunk_config._id;
     const tier_mirrors = [{
         _id: system_store.generate_id(),
-        spread_pools: [pool._id]
+        spread_pools: [mongo_pool._id]
     }];
     const tier = tier_server.new_tier_defaults(
         bucket_with_suffix,
@@ -210,7 +214,7 @@ function new_system_changes(name, owner_account) {
             tieringpolicies: [policy],
             tiers: [tier],
             chunk_configs: [default_chunk_config, ec_chunk_config],
-            pools: [pool],
+            pools: [mongo_pool],
         }
     };
 }
@@ -236,7 +240,6 @@ function create_system(req) {
     const changes = new_system_changes(account.name, account);
     const system_id = changes.insert.systems[0]._id;
     const default_pool = changes.insert.pools[0]._id;
-    const default_bucket = changes.insert.buckets[0]._id;
     const owner_secret = system_store.get_server_secret();
     let reply_token;
     let ntp_configured = false;
@@ -323,9 +326,8 @@ function create_system(req) {
             });
             reply_token = response.token;
 
-            dbg.log0('create_system: ensuring spillover structure');
-            await _ensure_spillover_structure(system_id, default_bucket);
-
+            dbg.log0('create_system: ensuring internal pool structure');
+            await _ensure_internal_structure(system_id);
 
             //Time config, if supplied
             if (req.rpc_params.time_config &&
@@ -1332,51 +1334,25 @@ function _init_system(sysid) {
         ));
 }
 
-function _ensure_spillover_structure(system_id, bucket_id) {
-    return P.resolve()
-        .then(() => {
-            const system = system_store.data.get_by_id(system_id);
-            if (!system) throw new Error('SYSTEM DOES NOT EXIST');
-            const support_account = _.find(system_store.data.accounts, account => account.is_support);
-            if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
-            const mongo_pool = pool_server.get_internal_mongo_pool(system);
-            if (mongo_pool) return;
-            return server_rpc.client.pool.create_mongo_pool({
-                name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`
-            }, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: system_id,
-                    role: 'admin',
-                    account_id: support_account._id
-                })
-            });
-        })
-        .then(() => {
-            const system = system_store.data.get_by_id(system_id);
-            if (!system) throw new Error('SYSTEM DOES NOT EXIST');
-            const mongo_pool = pool_server.get_internal_mongo_pool(system);
-            if (!mongo_pool) throw new Error('MONGO POOL CREATION FAILURE');
-            const internal_tier = bucket_server.create_bucket_spillover_tier(system, bucket_id, mongo_pool._id);
+async function _ensure_internal_structure(system_id) {
+    const system = system_store.data.get_by_id(system_id);
+    if (!system) throw new Error('SYSTEM DOES NOT EXIST');
 
-            return system_store.make_changes({
-                insert: {
-                    tiers: [internal_tier]
-                },
-                update: {
-                    tieringpolicies: _.map(system.tiering_policies_by_name, tiering => ({
-                        _id: tiering._id,
-                        $push: {
-                            tiers: {
-                                tier: internal_tier._id,
-                                order: 1,
-                                spillover: true,
-                                disabled: false
-                            }
-                        }
-                    }))
-                }
-            });
+    const support_account = _.find(system_store.data.accounts, account => account.is_support);
+    if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
+    try {
+        server_rpc.client.hosted_agents.create_pool_agent({
+            pool_name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system}`
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id,
+                role: 'admin',
+                account_id: support_account._id
+            })
         });
+    } catch (err) {
+        throw new Error('MONGO POOL CREATION FAILURE:' + err);
+    }
 }
 
 

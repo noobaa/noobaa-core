@@ -6,7 +6,7 @@ const _ = require('lodash');
 const url = require('url');
 const util = require('util');
 const chance = require('chance')();
-const dclassify = require('dclassify');
+// const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
 const moment = require('moment');
 
@@ -735,7 +735,8 @@ class NodesMonitor extends EventEmitter {
         const pool =
             agent_config.pool ||
             system.pools_by_name[pool_name] ||
-            system_store.get_account_by_email(system.owner.email).default_pool; //This should not happen, but if it does, use owner's default
+            _.filter(system.pools_by_name, p => (!_.get(p, 'mongo_pool_info') && (!_.get(p, 'cloud_pool_info'))))[0]; // default - the 1st host pool in the system
+        // system_store.get_account_by_email(system.owner.email).default_pool; //This should not happen, but if it does, use owner's default
 
         if (pool.system !== system) {
             throw new Error('Node pool must belong to system');
@@ -961,7 +962,7 @@ class NodesMonitor extends EventEmitter {
                     .then(worker);
             };
             return P.all(_.times(concur, worker))
-                .then(() => this._suggest_pool_assign())
+                // .then(() => this._suggest_pool_assign()) // need to be rethinked - out for
                 .then(() => this._update_nodes_store('force'))
                 .catch(err => {
                     dbg.warn('_run: ERROR', err.stack || err);
@@ -2843,87 +2844,87 @@ class NodesMonitor extends EventEmitter {
         return list.slice(skip, skip + limit);
     }
 
-    _suggest_pool_assign() {
-        // prepare nodes data per pool
-        const pools_data_map = new Map();
-        for (const host_nodes of this._map_host_id.values()) {
-            // get the host aggregated item
-            const item = this._consolidate_host(host_nodes);
-            item.suggested_pool = ''; // reset previous suggestion
-            const host_id = String(item.node.host_id);
-            const pool_id = String(item.node.pool);
-            const pool = system_store.data.get_by_id(pool_id);
-            dbg.log3('_suggest_pool_assign: node', item.node.name, 'pool', pool && pool.name);
-            // skip new nodes and cloud\internal nodes
-            if (pool && item.node_from_store && item.node.node_type === 'BLOCK_STORE_FS') {
-                let pool_data = pools_data_map.get(pool_id);
-                if (!pool_data) {
-                    pool_data = {
-                        pool_id: pool_id,
-                        pool_name: pool.name,
-                        docs: []
-                    };
-                    pools_data_map.set(pool_id, pool_data);
-                }
-                const tokens = this._classify_node_tokens(item);
-                pool_data.docs.push(new dclassify.Document(host_id, tokens));
-            }
-        }
+    // _suggest_pool_assign() {
+    //     // prepare nodes data per pool
+    //     const pools_data_map = new Map();
+    //     for (const host_nodes of this._map_host_id.values()) {
+    //         // get the host aggregated item
+    //         const item = this._consolidate_host(host_nodes);
+    //         item.suggested_pool = ''; // reset previous suggestion
+    //         const host_id = String(item.node.host_id);
+    //         const pool_id = String(item.node.pool);
+    //         const pool = system_store.data.get_by_id(pool_id);
+    //         dbg.log3('_suggest_pool_assign: node', item.node.name, 'pool', pool && pool.name);
+    //         // skip new nodes and cloud\internal nodes
+    //         if (pool && item.node_from_store && item.node.node_type === 'BLOCK_STORE_FS') {
+    //             let pool_data = pools_data_map.get(pool_id);
+    //             if (!pool_data) {
+    //                 pool_data = {
+    //                     pool_id: pool_id,
+    //                     pool_name: pool.name,
+    //                     docs: []
+    //                 };
+    //                 pools_data_map.set(pool_id, pool_data);
+    //             }
+    //             const tokens = this._classify_node_tokens(item);
+    //             pool_data.docs.push(new dclassify.Document(host_id, tokens));
+    //         }
+    //     }
 
-        // take the data of all the pools and use it to train a classifier of nodes to pools
-        const data_set = new dclassify.DataSet();
-        const classifier = new dclassify.Classifier({
-            applyInverse: true
-        });
-        const pools_to_classify = ['default_pool', config.NEW_SYSTEM_POOL_NAME];
-        let num_trained_pools = 0;
-        for (const pool_data of pools_data_map.values()) {
-            // don't train by the nodes that we need to classify
-            if (!pools_to_classify.includes(pool_data.pool_name)) {
-                dbg.log3('_suggest_pool_assign: add to data set',
-                    pool_data.pool_name, pool_data.docs);
-                data_set.add(pool_data.pool_name, pool_data.docs);
-                num_trained_pools += 1;
-            }
-        }
-        if (num_trained_pools <= 0) {
-            dbg.log3('_suggest_pool_assign: no pools to suggest');
-            return;
-        } else if (num_trained_pools === 1) {
-            // the classifier requires at least two options to work
-            dbg.log3('_suggest_pool_assign: only one pool to suggest,',
-                'too small for real suggestion');
-            return;
-        }
-        classifier.train(data_set);
-        dbg.log3('_suggest_pool_assign: Trained:', classifier,
-            'probabilities', JSON.stringify(classifier.probabilities));
+    //     // take the data of all the pools and use it to train a classifier of nodes to pools
+    //     const data_set = new dclassify.DataSet();
+    //     const classifier = new dclassify.Classifier({
+    //         applyInverse: true
+    //     });
+    //     const pools_to_classify = ['default_pool', config.NEW_SYSTEM_POOL_NAME];
+    //     let num_trained_pools = 0;
+    //     for (const pool_data of pools_data_map.values()) {
+    //         // don't train by the nodes that we need to classify
+    //         if (!pools_to_classify.includes(pool_data.pool_name)) {
+    //             dbg.log3('_suggest_pool_assign: add to data set',
+    //                 pool_data.pool_name, pool_data.docs);
+    //             data_set.add(pool_data.pool_name, pool_data.docs);
+    //             num_trained_pools += 1;
+    //         }
+    //     }
+    //     if (num_trained_pools <= 0) {
+    //         dbg.log3('_suggest_pool_assign: no pools to suggest');
+    //         return;
+    //     } else if (num_trained_pools === 1) {
+    //         // the classifier requires at least two options to work
+    //         dbg.log3('_suggest_pool_assign: only one pool to suggest,',
+    //             'too small for real suggestion');
+    //         return;
+    //     }
+    //     classifier.train(data_set);
+    //     dbg.log3('_suggest_pool_assign: Trained:', classifier,
+    //         'probabilities', JSON.stringify(classifier.probabilities));
 
-        // for nodes in the default_pool use the classifier to suggest a pool
-        const system = system_store.data.systems[0];
-        const target_pool = system.pools_by_name[config.NEW_SYSTEM_POOL_NAME];
-        const target_pool_data = pools_data_map.get(String(target_pool._id));
-        if (target_pool_data) {
-            for (const doc of target_pool_data.docs) {
-                const host_nodes = this._map_host_id.get(doc.id);
-                const hostname = this._item_hostname(host_nodes[0]);
-                dbg.log0('_suggest_pool_assign: classify start', hostname, doc);
-                const res = classifier.classify(doc);
-                dbg.log0('_suggest_pool_assign: classify result', hostname, res);
-                let suggested_pool;
-                if (res.category !== config.NEW_SYSTEM_POOL_NAME) {
-                    suggested_pool = res.category;
-                } else if (res.secondCategory !== config.NEW_SYSTEM_POOL_NAME) {
-                    suggested_pool = res.secondCategory;
-                }
-                host_nodes.forEach(item => {
-                    item.suggested_pool = suggested_pool;
-                });
+    //     // for nodes in the default_pool use the classifier to suggest a pool
+    //     const system = system_store.data.systems[0];
+    //     const target_pool = system.pools_by_name[config.NEW_SYSTEM_POOL_NAME];
+    //     const target_pool_data = pools_data_map.get(String(target_pool._id));
+    //     if (target_pool_data) {
+    //         for (const doc of target_pool_data.docs) {
+    //             const host_nodes = this._map_host_id.get(doc.id);
+    //             const hostname = this._item_hostname(host_nodes[0]);
+    //             dbg.log0('_suggest_pool_assign: classify start', hostname, doc);
+    //             const res = classifier.classify(doc);
+    //             dbg.log0('_suggest_pool_assign: classify result', hostname, res);
+    //             let suggested_pool;
+    //             if (res.category !== config.NEW_SYSTEM_POOL_NAME) {
+    //                 suggested_pool = res.category;
+    //             } else if (res.secondCategory !== config.NEW_SYSTEM_POOL_NAME) {
+    //                 suggested_pool = res.secondCategory;
+    //             }
+    //             host_nodes.forEach(item => {
+    //                 item.suggested_pool = suggested_pool;
+    //             });
 
-            }
+    //         }
 
-        }
-    }
+    //     }
+    // }
 
     _classify_node_tokens(item) {
         // cannot use numbers as dclassify tokens only discrete strings,

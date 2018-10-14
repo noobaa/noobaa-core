@@ -153,11 +153,6 @@ export default {
                 entityId: ({ bucket }) => bucket && bucket.name
             },
 
-            spillover: {
-                message: 'Bucket Spillover Configuration',
-                entityId: ({ bucket }) => bucket && bucket.name
-            },
-
             delete_lifecycle_configuration_rules: {
                 message: 'Delete Lifecycle Configuration',
                 entityId: ({ bucket }) => bucket && bucket.name
@@ -230,7 +225,7 @@ export default {
                 message: 'Pool Nodes Assigned',
                 entityId: ({ pool }) => pool && pool.name
             },
-            
+
             pool_assign_region: {
                 message: 'Pool Region Assigned',
                 entityId: ({ pool }) => pool && pool.name

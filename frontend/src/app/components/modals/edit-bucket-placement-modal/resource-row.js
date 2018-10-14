@@ -29,8 +29,6 @@ export default class ResourceRowViewModel {
     healthyHosts = ko.observable();
     healthyNodes = ko.observable();
     usage = ko.observable();
-    disabledCss = ko.observable();
-    tooltip = ko.observable();
 
     constructor({ onToggle }) {
 
@@ -44,13 +42,7 @@ export default class ResourceRowViewModel {
         });
     }
 
-    onResource(type, resource, selected, spilloverResource) {
-        const disabled = spilloverResource === resource.name;
-        const tooltip = disabled ? 'Resource is already used for bucket spillover' : '';
-        const disabledCss = disabled ? 'disabled-row' : '';
-
-        this.disabledCss(disabledCss);
-        this.tooltip(tooltip);
+    onResource(type, resource, selected,) {
         switch (type) {
             case 'HOSTS': {
                 this._onHostPool(resource, selected);

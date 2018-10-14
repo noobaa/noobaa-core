@@ -25,7 +25,7 @@ export function splitObjectId(objId) {
 }
 
 export function summerizePartDistribution(bucket, part) {
-    const { resiliency, placement, spillover } = bucket;
+    const { resiliency, placement } = bucket;
 
     const placementMirroSets = placement.mirrorSets
         .map(mirrorSet => mirrorSet.name);
@@ -35,7 +35,6 @@ export function summerizePartDistribution(bucket, part) {
         block => _getBlockGroupID(
             block,
             placementMirroSets,
-            spillover && spillover.mirrorSet,
             resiliency.kind
         ),
     );
@@ -49,17 +48,6 @@ export function summerizePartDistribution(bucket, part) {
             const blocks = _fillInMissingBlocks(realBlocks, storagePolicy);
             return { type, index, storagePolicy, resources, blocks };
         });
-
-    const spilloverBlocks = blocksByGorupId['SPILLOVER'];
-    if (spilloverBlocks) {
-        groups.push({
-            type: 'SPILLOVER_SET',
-            index: groups.length,
-            storagePolicy: _countBlocksByType(spilloverBlocks),
-            blocks: spilloverBlocks,
-            resources: []
-        });
-    }
 
     const removedBlocks = blocksByGorupId['REMOVED'];
     if (removedBlocks) {
@@ -205,7 +193,7 @@ function _fillInMissingBlocks(blocks, storagePolicy) {
     ];
 }
 
-function _getBlockGroupID(block, placementMirroSets, spilloverMirrorSet, resiliencyType) {
+function _getBlockGroupID(block, placementMirroSets, resiliencyType) {
     const allowedBlockType = resiliencyTypeToBlockTypes[resiliencyType];
     return true &&
         // Block does not match a mirror set in the bucket.
@@ -213,9 +201,6 @@ function _getBlockGroupID(block, placementMirroSets, spilloverMirrorSet, resilie
 
         // Block was not rebuild after resilency change
         (!allowedBlockType.includes(block.kind) && 'REMOVED') ||
-
-        // Block is written to spillover.
-        (block.mirrorSet === spilloverMirrorSet && 'SPILLOVER') ||
 
         // Here to help find bug if block to mirror set mappings.
         (!placementMirroSets.includes(block.mirrorSet) && 'REMOVED') ||

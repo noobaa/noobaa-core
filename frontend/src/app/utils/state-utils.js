@@ -23,7 +23,6 @@ export function mapApiStorage(storage, lastUpdate) {
         lastUpdate: lastUpdate,
         total: storage.total,
         free: storage.free,
-        spilloverFree: storage.spillover_free,
         unavailableFree: storage.unavailable_free,
         used: _subSize(storage.used, storage.unavailable_used),
         unavailableUsed: storage.unavailable_used,

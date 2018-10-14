@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isUndefined, mapValues, sumBy } from './core-utils';
+import { deepFreeze, isUndefined, mapValues, sumBy, flatMap } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
 import { stringifyAmount, pluralize } from 'utils/string-utils';
 
@@ -25,26 +25,6 @@ const bucketStateToIcon = deepFreeze({
         css: 'error',
         name: 'problem'
     },
-    NO_RESOURCES_SPILLOVER_UNSERVICEABLE: {
-        tooltip: 'No storage resources - Spillover unavailable ',
-        css: 'error',
-        name: 'problem'
-    },
-    NOT_ENOUGH_HEALTHY_RESOURCES_SPILLOVER_UNSERVICEABLE: {
-        tooltip:  'Resources and configured spillover are unavailable',
-        css: 'error',
-        name: 'problem'
-    },
-    NOT_ENOUGH_RESOURCES_SPILLOVER_UNSERVICEABLE: {
-        tooltip: 'Cannot enforce resiliency policy - spillover unavailable',
-        css: 'error',
-        name: 'problem'
-    },
-    NO_CAPACITY_SPILLOVER_UNSERVICEABLE: {
-        tooltip: 'No free storage - Spillover unserviceable',
-        css: 'error',
-        name: 'problem'
-    },
     EXCEEDING_QUOTA: {
         tooltip: 'Exceeded configured quota',
         css: 'error',
@@ -54,26 +34,6 @@ const bucketStateToIcon = deepFreeze({
         tooltip: 'Data spilling back to resources',
         css: 'warning',
         name: 'working'
-    },
-    SPILLOVER_NO_RESOURCES: {
-        tooltip: 'No storage resources - using spillover',
-        css: 'warning',
-        name: 'problem'
-    },
-    SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES: {
-        tooltip: ' Resources unavailable - using spillover',
-        css: 'warning',
-        name: 'problem'
-    },
-    SPILLOVER_NOT_ENOUGH_RESOURCES: {
-        tooltip: 'Cannot enforce resiliency policy - using spillover',
-        css: 'warning',
-        name: 'problem'
-    },
-    SPILLOVER_NO_CAPACITY: {
-        tooltip: 'No potential available storage - using spillover',
-        css: 'warning',
-        name: 'problem'
     },
     LOW_CAPACITY: {
         tooltip: 'Storage is low',
@@ -94,11 +54,6 @@ const bucketStateToIcon = deepFreeze({
         tooltip: 'In process',
         css: 'warning',
         name: 'working'
-    },
-    SPILLOVER_ISSUES: {
-        tooltip: 'Spillover resource has issues',
-        css: 'warning',
-        name: 'problem'
     },
     OPTIMAL: {
         tooltip: 'Healthy',
@@ -139,34 +94,6 @@ const resiliencyModeToIcon = deepFreeze({
     OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
 });
 
-const spilloverModeToIcon = deepFreeze({
-    SPILLING_BACK: _alignIconTooltip(bucketStateToIcon.SPILLING_BACK, 'start'),
-    SPILLOVER_ERRORS: {
-        tooltip: {
-            text: 'Spillover resource has errors',
-            align: 'start'
-        },
-        css: 'error',
-        name: 'problem'
-    },
-    SPILLOVER_ISSUES: {
-        tooltip: {
-            text: 'Spillover resource has issues',
-            align: 'start'
-        },
-        css: 'warning',
-        name: 'problem'
-    },
-    OPTIMAL: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: {
-            text: 'Enabled',
-            align: 'start'
-        }
-    }
-});
-
 const resiliencyTypeToDisplay = deepFreeze({
     REPLICATION: 'Replication',
     ERASURE_CODING: 'Erasure Coding'
@@ -174,15 +101,10 @@ const resiliencyTypeToDisplay = deepFreeze({
 
 const writableStates = deepFreeze([
     'SPILLING_BACK',
-    'SPILLOVER_NO_RESOURCES',
-    'SPILLOVER_NOT_ENOUGH_HEALTHY_RESOURCES',
-    'SPILLOVER_NOT_ENOUGH_RESOURCES',
-    'SPILLOVER_NO_CAPACITY',
     'LOW_CAPACITY',
     'RISKY_TOLERANCE',
     'APPROUCHING_QUOTA',
     'DATA_ACTIVITY',
-    'SPILLOVER_ISSUES',
     'OPTIMAL'
 ]);
 
@@ -260,8 +182,6 @@ export function getDataBreakdown(data, quota) {
             overused: 0,
             availableForUpload: data.availableForUpload,
             potentialForUpload: 0,
-            availableForSpillover: data.availableForSpillover,
-            potentialForSpillover: 0,
             overallocated: 0
         };
     }
@@ -269,7 +189,6 @@ export function getDataBreakdown(data, quota) {
     const { zero, max, min } = bigInteger;
     const sizeBigInt = toBigInteger(data.size);
     const uploadBigInt = toBigInteger(data.availableForUpload);
-    const spilloverBigInt = toBigInteger(data.availableForSpillover);
 
     let q = toBigInteger(quota.size).multiply(unitsInBytes[quota.unit]);
     const used = min(sizeBigInt, q);
@@ -278,20 +197,13 @@ export function getDataBreakdown(data, quota) {
     q = max(q.subtract(sizeBigInt), zero);
     const availableForUpload = min(uploadBigInt, q);
     const potentialForUpload = uploadBigInt.subtract(availableForUpload);
-
-    q = max(q.subtract(uploadBigInt), zero);
-    const availableForSpillover = min(spilloverBigInt, q);
-    const potentialForSpillover = spilloverBigInt.subtract(availableForSpillover);
-
-    const overallocated = max(q.subtract(spilloverBigInt), zero);
+    const overallocated = max(q.subtract(uploadBigInt), zero);
 
     return {
         used: fromBigInteger(used),
         overused: fromBigInteger(overused),
         availableForUpload: fromBigInteger(availableForUpload),
         potentialForUpload: fromBigInteger(potentialForUpload),
-        availableForSpillover: fromBigInteger(availableForSpillover),
-        potentialForSpillover: fromBigInteger(potentialForSpillover),
         overallocated: fromBigInteger(overallocated)
     };
 }
@@ -307,12 +219,14 @@ export function isBucketWritable(bucket) {
 }
 
 export function countStorageNodesByMirrorSet(placement, hostPools) {
-    return mapValues(
-        placement.mirrorSets,
-        ms => sumBy(
+    return flatMap(
+        placement.tiers,
+        tier => tier.mirrorSets.map(ms => sumBy(
             ms.resources,
-            res => res.type === 'HOSTS' ? hostPools[res.name].storageNodeCount : Infinity
-        )
+            res => res.type === 'HOSTS' ?
+                hostPools[res.name].storageNodeCount :
+                Infinity
+        ))
     );
 }
 
@@ -366,10 +280,21 @@ export function getResiliencyRequirementsWarning(resiliencyType, drivesCount) {
     } is derived from the minimal number of available drives across all mirror sets.`;
 }
 
-export function getSpilloverStateIcon(spilloverMode) {
-    return spilloverModeToIcon[spilloverMode];
-}
-
 export function getVersioningStateText(versioningMode) {
     return versioningModeToText[versioningMode];
+}
+
+export function flatPlacementPolicy(bucket) {
+    return flatMap(
+        bucket.placement2.tiers,
+        tier => flatMap(
+            tier.mirrorSets,
+            ms => ms.resources.map(resource => ({
+                bucket: bucket.name,
+                tier: tier.name,
+                mirrorSet: ms.namer,
+                resource: resource
+            }))
+        )
+    );
 }

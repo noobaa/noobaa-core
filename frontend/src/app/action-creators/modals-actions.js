@@ -786,22 +786,6 @@ export function openEditBucketTriggerModal(bucketName, triggerId) {
     };
 }
 
-export function openEditBucketSpilloverModal(bucketName) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'edit-bucket-spillover-modal',
-                params: { bucketName }
-            },
-            options: {
-                title: 'Edit Spillover',
-                size: 'small'
-            }
-        }
-    };
-}
-
 export function openCreateFuncModal() {
     return {
         type: OPEN_MODAL,

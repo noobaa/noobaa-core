@@ -2,6 +2,7 @@
 
 MONGO_PROGRAM="mongo_wrapper"
 MONGO_SHELL="/usr/bin/mongo nbcore"
+LOCAL_MONGO_SHELL="/usr/bin/mongo nbcore" # shell for local (if in RS) instance of mongo
 LOG_FILE="/var/log/noobaa_deploy_wrapper.log"
 LOG_TOPIC="UPGRADE"
 NOOBAANET="/etc/noobaa_network"
@@ -21,8 +22,10 @@ function set_deploy_log_topic {
 }
 
 function set_mongo_cluster_mode {
+    local PORT=$1
 	RS_SERVERS=`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'@' -f 2 | cut -d'/' -f 1`
     MONGO_SHELL="/usr/bin/mongors --host mongodb://${RS_SERVERS}/nbcore?replicaSet=shard1"
+    LOCAL_MONGO_SHELL="/usr/bin/mongors --port ${PORT} nbcore"
 }
 
 function update_noobaa_net {
@@ -34,8 +37,10 @@ function update_noobaa_net {
 }
 
 function check_mongo_status {
-    if [ "$2" == '27000' ]; then
-      set_mongo_cluster_mode
+    local mongo_port=$1
+    local mongo_pid=$2
+    if [ "${mongo_port}" == '27000' ]; then
+      set_mongo_cluster_mode ${mongo_port}
     fi
     # even if the supervisor reports the service is running try to connect to it
     # beware not to run "local" in the same line changes the exit code
@@ -44,13 +49,19 @@ function check_mongo_status {
     local retries=0
     # don't fail the check on the first try. keep trying for a minute
     while [ $res -ne 0 ]; do
-        mongo_status=$(${MONGO_SHELL} --quiet --eval 'quit(!db.serverStatus().ok)')
+        mongo_status=$(${LOCAL_MONGO_SHELL} --quiet --eval 'quit(!db.serverStatus().ok)')
         res=$?
         if [ $res -ne 0 ]
         then
             # if we keep failing for a minute return failure to the caller
             if [ $retries -eq 12 ]; then
                 deploy_log "check_mongo_status FAILED!!! could not connect to mongod for over a minute"
+                return 1
+            fi
+            # if mongo process is not running return failure
+            kill -0 ${mongo_pid} &> /dev/null
+            if [ $? -ne 0 ]; then
+                deploy_log "check_mongo_status FAILED!!! could not find mongo pid ${mongo_pid}"
                 return 1
             fi
             # if failed to get mongo status sleep 5 seconds and retry

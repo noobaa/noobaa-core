@@ -435,7 +435,8 @@ function _wait_for_upgrade_state(ip, state) {
 }
 
 function _wait_for_upgrade_stage(ip, stage_req) {
-    let max_retries = 60;
+    // member upgrade can take some time. keep retrying for an hour
+    let max_retries = 360;
     const upgrade_retry_delay = 10 * 1000; // the delay between testing upgrade status
     return promise_utils.retry(max_retries, upgrade_retry_delay, () => system_store.load()
         .then(() => {

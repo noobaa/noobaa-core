@@ -49,7 +49,7 @@ stop() {
     local mongo_pids=$(pgrep -lf mongo | awk '{print $1}')
     echo "mongo_pids=$mongo_pids"
     logger -p local0.info "mongo_pids=$mongo_pids"
-    kill -9 ${mongo_pids}
+    kill -2 ${mongo_pids}
 
     local p=$(cat $PIDFILE)
     kill -9 ${p}

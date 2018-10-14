@@ -321,7 +321,7 @@ function delete_policy(req) {
         remove: {
             tieringpolicies: [policy._id]
         }
-    });
+    }).return();
 }
 
 
@@ -380,6 +380,61 @@ function policy_defaults_from_req(req) {
             disabled: t.disabled || false
         }))
     );
+}
+
+function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, hosts_aggregate_pool) {
+    const info = {
+        has_any_pool_confidured: false,
+        num_nodes_in_mirror_group: 0,
+        mirrors_with_valid_pool: 0,
+        mirrors_with_enough_nodes: 0,
+        has_internal_or_cloud_pool: false,
+        has_valid_pool: false,
+        any_rebuilds: false,
+    };
+    const ccc = tier.chunk_config.chunk_coder_config;
+    const required_valid_nodes = ccc ? (ccc.data_frags + ccc.parity_frags) * ccc.replicas : config.NODES_MIN_COUNT;
+    const tiering_pools_used_agg = [0];
+    tier.mirrors.forEach(mirror_object => {
+        _.compact((mirror_object.spread_pools || []).map(pool => {
+                info.has_any_pool_configured = true;
+                const spread_pool = system_store.data.pools.find(pool_rec => String(pool_rec._id) === String(pool._id));
+                tiering_pools_used_agg.push(_.get(spread_pool, 'storage_stats.blocks_size') || 0);
+                return _.extend({ pool_id: pool._id }, tiering_pools_status[tier._id].pools[pool._id]);
+            }))
+            .forEach(pool_status => {
+                info.any_rebuilds = info.any_rebuilds || _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.data_activities.length`);
+                const pool_num_nodes = _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.storage_nodes.count`) || 0;
+                const pool_num_hosts = _.get(hosts_aggregate_pool, `groups.${pool_status.pool_id}.nodes.online`) || 0;
+                info.num_nodes_in_mirror_group += pool_num_nodes;
+                info.num_valid_nodes += (pool_status.num_nodes || 0);
+                info.num_valid_hosts += (pool_num_hosts || 0);
+                info.has_valid_pool = info.has_valid_pool || pool_status.valid_for_allocation;
+                info.has_internal_or_cloud_pool = info.has_internal_or_cloud_pool || (pool_status.resource_type !== 'HOSTS');
+            });
+        if (info.has_valid_pool || ((info.num_valid_nodes || 0) >= required_valid_nodes)) info.mirrors_with_valid_pool += 1;
+        if (info.num_nodes_in_mirror_group >= required_valid_nodes || info.has_internal_or_cloud_pool) info.mirrors_with_enough_nodes += 1;
+
+        const existing_minimum = _.isUndefined(info.num_of_nodes) ? Number.MAX_SAFE_INTEGER : info.num_of_nodes;
+        const existing_hosts_minimum = _.isUndefined(info.num_of_hosts) ? Number.MAX_SAFE_INTEGER : info.num_of_hosts;
+        const num_valid_nodes_for_minimum = _.isUndefined(info.num_valid_nodes) ? Number.MAX_SAFE_INTEGER : info.num_valid_nodes;
+        const potential_new_minimum = info.has_internal_or_cloud_pool ?
+            Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
+        info.num_of_nodes = Math.min(existing_minimum, potential_new_minimum);
+        const potential_new_hosts_minimum = info.has_internal_or_cloud_pool ?
+            Number.MAX_SAFE_INTEGER : info.num_valid_hosts;
+        info.num_of_hosts = Math.min(existing_hosts_minimum, potential_new_hosts_minimum);
+    });
+    info.num_of_nodes = info.num_of_nodes || 0;
+    info.num_of_hosts = info.num_of_hosts || 0;
+    info.node_tolerance = ccc.parity_frags ?
+        Math.max(info.num_of_nodes - ccc.parity_frags, 0) :
+        Math.max(info.num_of_nodes - 1, 0);
+    info.host_tolerance = ccc.parity_frags ?
+        Math.max(info.num_of_hosts - ccc.parity_frags, 0) :
+        Math.max(info.num_of_hosts - 1, 0);
+    info.used_of_pools_in_tier = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
+    return info;
 }
 
 function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier) {
@@ -448,25 +503,28 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
     };
 }
 
-function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate_data_free_by_tier) {
+function get_tiering_policy_info(tiering_policy, tiering_pools_status,
+    nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier) {
     const info = _.pick(tiering_policy, 'name');
     const tiers_storage = nodes_aggregate_pool ? [] : null;
     const tiers_data = aggregate_data_free_by_tier ? [] : null;
     info.tiers = _.map(tiering_policy.tiers, t => {
+        let mode;
         if (tiers_storage) {
+            const extra_info = get_tier_extra_info(t.tier, tiering_pools_status, nodes_aggregate_pool, hosts_aggregate_pool);
             const tier_info = get_tier_info(t.tier,
                 nodes_aggregate_pool,
                 aggregate_data_free_by_tier[String(t.tier._id)]);
-            if (!t.spillover) {
-                tiers_storage.push(tier_info.storage);
-                tiers_data.push(tier_info.data);
-            }
+            tiers_storage.push(tier_info.storage);
+            tiers_data.push(tier_info.data);
+            mode = calc_tier_policy_status(t.tier, tier_info, extra_info);
         }
         return {
             order: t.order,
             tier: t.tier.name,
             spillover: t.spillover || false,
-            disabled: t.disabled || false
+            disabled: t.disabled || false,
+            mode: mode || 'OPTIMAL',
         };
     });
     if (tiers_storage) {
@@ -476,6 +534,49 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool, aggregate
         info.data = size_utils.reduce_storage(size_utils.reduce_sum, tiers_data);
     }
     return info;
+}
+
+function calc_tier_policy_status(tier, tier_info, extra_info) {
+    let has_enough_healthy_nodes_for_tier = false;
+    let has_enough_total_nodes_for_tier = false;
+    let is_no_storage = false;
+    let is_storage_low = false;
+    const tier_free = size_utils.json_to_bigint(_.get(tier_info, 'storage.free') || 0);
+    const tier_used = size_utils.json_to_bigint(_.get(tier_info, 'storage.used') || 0);
+    const tier_used_other = size_utils.json_to_bigint(_.get(tier_info, 'storage.used_other') || 0);
+    const tier_total = tier_free.plus(tier_used).plus(tier_used_other);
+    const low_tolerance = (extra_info.node_tolerance === 0 || extra_info.host_tolerance === 0);
+    if (tier_free.isZero()) {
+        is_no_storage = true;
+    } else {
+        let free_percent = tier_free.multiply(100).divide(tier_total);
+        if (free_percent < 30) {
+            is_storage_low = true;
+        }
+    }
+    if (tier.mirrors.length > 0) {
+        if (extra_info.mirrors_with_valid_pool === tier.mirrors.length) has_enough_healthy_nodes_for_tier = true;
+        if (extra_info.mirrors_with_enough_nodes === tier.mirrors.length) has_enough_total_nodes_for_tier = true;
+    }
+    if (!extra_info.has_valid_pool) {
+        return 'NO_RESOURCES';
+    }
+    if (!has_enough_total_nodes_for_tier) {
+        return 'NOT_ENOUGH_RESOURCES';
+    }
+    if (!has_enough_healthy_nodes_for_tier) {
+        return 'NOT_ENOUGH_HEALTHY_RESOURCES';
+    }
+    if (is_no_storage) {
+        return 'NO_CAPACITY';
+    }
+    if (low_tolerance) {
+        return 'RISKY_TOLERANCE';
+    }
+    if (is_storage_low) {
+        return 'LOW_CAPACITY';
+    }
+    return 'OPTIMAL';
 }
 
 function get_associated_tiering_policies(tier) {
@@ -492,6 +593,7 @@ exports.get_associated_tiering_policies = get_associated_tiering_policies;
 exports.new_tier_defaults = new_tier_defaults;
 exports.new_policy_defaults = new_policy_defaults;
 exports.get_tier_info = get_tier_info;
+exports.get_tier_extra_info = get_tier_extra_info;
 exports.get_tiering_policy_info = get_tiering_policy_info;
 //Tiers
 exports.create_tier = create_tier;

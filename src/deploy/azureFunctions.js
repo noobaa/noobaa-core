@@ -937,6 +937,7 @@ class AzureFunctions {
             location = IMAGE_LOCATION,
             latestRelease = true,
             createSystem = false,
+            createPools = [],
             updateNTP = false,
             allocate_pip = true
         } = params;
@@ -1005,7 +1006,10 @@ class AzureFunctions {
                                 console.log('System created successfully');
                                 return P.resolve();
                             }
-                        });
+                        })
+                        .then(() => P.map(createPools, pool => client.pool.create_hosts_pool({
+                            name: pool,
+                        })));
                 } else {
                     console.log('Skipping system creation');
                     return P.resolve();

@@ -8,6 +8,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap, sumBy } from 'utils/core-utils';
 import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
 import { unassignedRegionText, getHostsPoolStateIcon } from 'utils/resource-utils';
+import { flatPlacementPolicy } from 'utils/bucket-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
 import * as routes from 'routes';
@@ -72,24 +73,16 @@ const notEnoughHostsTooltip = deepFreeze({
 });
 
 function _getBucketsByPool(buckets) {
-    return Object.values(buckets).reduce((map, bucket) => {
-        const resources = [
-            ...flatMap(bucket.placement.mirrorSets, set => set.resources),
-            bucket.spillover
-        ];
+    const placement = flatMap(
+        Object.values(buckets),
+        bucket => flatPlacementPolicy(bucket)
+    );
 
-        const hostPools = resources
-            .filter(item => item && item.type === 'HOSTS')
-            .map(item => item.name);
-
-        for (const poolName of hostPools) {
-            let list = map[poolName];
-            if (!list) list = map[poolName] = [];
-            list.push(bucket);
-        }
-
-        return map;
-    }, {});
+    return groupBy(
+        placement.filter(r => r.resource.type === 'HOSTS'),
+        r => r.resource.name,
+        r => r.bucket
+    );
 }
 
 function _matchFilter(filter, pool) {
@@ -138,15 +131,12 @@ function _mapPoolToRow(
         },
         buckets: {
             text: connectedBuckets.length ? stringifyAmount('bucket',  connectedBuckets.length) : 'None',
-            tooltip: connectedBuckets.length > 0 ? {
+            tooltip: connectedBuckets.length ? {
                 template: 'linkList',
-                text: connectedBuckets.map(bucket => {
-                    const { name } = bucket;
-                    return {
-                        text: name,
-                        href: realizeUri(routes.bucket, { system, bucket: name })
-                    };
-                })
+                text: connectedBuckets.map(name => ({
+                    text: name,
+                    href: realizeUri(routes.bucket, { system, bucket: name })
+                }))
             } : ''
         },
         hosts: {

@@ -58,6 +58,9 @@ class MDStore {
         });
     }
 
+    /**
+     * @returns {MDStore}
+     */
     static instance() {
         if (!MDStore._instance) MDStore._instance = new MDStore();
         return MDStore._instance;
@@ -796,6 +799,13 @@ class MDStore {
             .then(res => mongo_utils.check_update_one(res, 'multipart'));
     }
 
+    update_multiparts_by_ids(multipart_ids, set_updates, unset_updates) {
+        if (!multipart_ids || !multipart_ids.length) return;
+        return this._multiparts.col().updateMany({
+            _id: { $in: multipart_ids }
+        }, compact_updates(set_updates, unset_updates));
+    }
+
     find_multipart_by_id(multipart_id) {
         return this._multiparts.col().findOne({
                 _id: multipart_id,
@@ -803,7 +813,11 @@ class MDStore {
             .then(obj => mongo_utils.check_entity_not_deleted(obj, 'multipart'));
     }
 
-    find_multiparts_of_object(obj_id, num_gt, limit) {
+    find_all_multiparts_of_object(obj_id) {
+        return this._multiparts.col().find({ obj: obj_id, deleted: null }).toArray();
+    }
+
+    find_completed_multiparts_of_object(obj_id, num_gt, limit) {
         return this._multiparts.col().find({
                 obj: obj_id,
                 num: { $gt: num_gt },
@@ -919,6 +933,7 @@ class MDStore {
                     $gt: end_gt
                 },
                 deleted: null,
+                uncommitted: null,
             }, {
                 sort: {
                     start: 1
@@ -954,9 +969,7 @@ class MDStore {
 
     find_parts_unreferenced_chunk_ids(chunk_ids) {
         return this._parts.col().find({
-                chunk: {
-                    $in: chunk_ids
-                },
+                chunk: { $in: chunk_ids },
                 deleted: null,
             }, {
                 fields: {
@@ -1016,22 +1029,15 @@ class MDStore {
             }));
     }
 
-    find_parts_of_object(obj) {
-        return this._parts.col().find({
-                obj: obj._id,
-            })
-            .toArray();
+    find_all_parts_of_object(obj) {
+        return this._parts.col().find({ obj: obj._id, deleted: null }).toArray();
     }
 
     update_parts_in_bulk(parts_updates) {
         const bulk = this._parts.col().initializeUnorderedBulkOp();
         for (const update of parts_updates) {
-            bulk.find({
-                    _id: update._id
-                })
-                .updateOne({
-                    $set: update.set_updates
-                });
+            bulk.find({ _id: update._id })
+                .updateOne(compact_updates(update.set_updates, update.unset_updates));
         }
         return bulk.length ? bulk.execute() : P.resolve();
     }

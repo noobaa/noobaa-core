@@ -74,5 +74,10 @@ module.exports = {
             type: 'integer'
         },
 
+        // the uncommitted property is set on creation, 
+        // and unset only once the part is chosen to be part of the object.
+        // see complete_object_upload()
+        uncommitted: { type: 'boolean' },
+
     }
 };

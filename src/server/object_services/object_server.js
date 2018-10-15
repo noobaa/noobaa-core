@@ -249,6 +249,7 @@ async function create_multipart(req) {
     multipart.system = req.system._id;
     multipart.bucket = req.bucket._id;
     multipart.obj = obj._id;
+    multipart.uncommitted = true;
     const tier = await map_writer.select_tier_for_write(req.bucket, multipart.obj);
     await MDStore.instance().insert_multipart(multipart);
     return {
@@ -324,7 +325,7 @@ async function list_multiparts(req) {
     const num_gt = req.rpc_params.num_marker || 0;
     const limit = req.rpc_params.max || 1000;
     const obj = await find_object_upload(req);
-    const multiparts = await MDStore.instance().find_multiparts_of_object(obj._id, num_gt, limit);
+    const multiparts = await MDStore.instance().find_completed_multiparts_of_object(obj._id, num_gt, limit);
     const reply = {
         is_truncated: false,
         multiparts: [],

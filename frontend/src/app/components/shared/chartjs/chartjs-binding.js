@@ -44,7 +44,10 @@ ko.bindingHandlers.chartjs = {
 
                 } else if (chart) {
                     if (options !== lastOptions) {
-                        chart.options = deepClone(options);
+                        //chart.options = deepClone(options);
+                        //OHAD: W/A shoudl work wiht options instead
+                        if (chart) chart.destroy();
+                        chart = createChart(canvas, type, options, data);
                     }
 
                     if (data !== lastData) {
@@ -72,50 +75,10 @@ ko.bindingHandlers.chartjs = {
                 lastData = data;
             });
 
-        // const typeSub = type.subscribe(type => {
-        //     if (chart) chart.destroy();
-        //     chart = createChart(
-        //         canvas,
-        //         type,
-        //         options.peek(),
-        //         data.peek()
-        //     );
-        // });
-
-        // const optionsSub = options.subscribe(options => {
-        //     if (chart) {
-        //         chart.options = deepClone(options);
-        //         chart.update();
-        //     }
-        // });
-
-        // const dataSub = data.subscribe(data => {
-        //     if (chart) {
-        //         const { datasets, labels } = chart.data;
-
-        //         if (Array.isArray(labels) && Array.isArray(data.labels)) {
-        //             labels.length = data.labels.length;
-        //             chart.data.labels = Object.assign(labels, data.labels);
-
-        //         } else {
-        //             chart.data.labels = data.labels;
-        //         }
-
-        //         datasets.length = data.datasets.length;
-        //         for (let i = 0; i < datasets.length; ++i) {
-        //             datasets[i] = Object.assign(datasets[i] || {}, data.datasets[i]);
-        //         }
-
-        //         chart.update();
-        //     }
-        // });
 
         ko.utils.domNodeDisposal.addDisposeCallback(canvas, () => {
             chart.destroy();
             sub.dispose();
-            // typeSub.dispose();
-            // optionsSub.dispose();
-            // dataSub.dispose();
         });
     }
 };

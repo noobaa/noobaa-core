@@ -132,9 +132,10 @@ function _prepareBarChartParams(samples, timeMeta, tickFormat) {
                 yAxes: [{
                     scaleLabel: {
                         display: true,
-                        labelString: 'Aggr. R/W'
+                        labelString: 'Aggregated R/W'
                     },
                     ticks: {
+                        suggestedMax: 10,
                         // Using space for visual padding.
                         callback: size => `${
                             size && formatSize(size)
@@ -204,6 +205,7 @@ function _prepareLineChartParams(samples, timeMeta, tickFormat, now) {
                         labelString: 'R/W'
                     },
                     ticks: {
+                        suggestedMax: 10,
                         // Using space for visual padding.
                         callback: size => `${
                             size && formatSize(size)

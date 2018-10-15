@@ -85,6 +85,7 @@ function _perpareChartParams(samples) {
                     },
                     stacked: true,
                     ticks: {
+                        suggestedMax: 10,
                         // Using space for visual padding.
                         callback: size => `${
                             size && formatSize(size)

@@ -9,6 +9,7 @@ import ko from 'knockout';
 import style from 'style';
 import numeral from 'numeral';
 import { requestLocation } from 'action-creators';
+import { hexToRgb } from 'utils/color-utils';
 
 const colors = deepFreeze([
     style['color14'],
@@ -93,7 +94,9 @@ function _prepareDatasets(view, buckets, colors) {
 
     return bubbles.map((bubble, i) => ({
         label: bubble.label,
-        backgroundColor: colors[i],
+        backgroundColor: hexToRgb(colors[i], 0.3),
+        borderColor: colors[i],
+        borderWidth: 2,
         dataSize: bubble.r,
         data: [{
             x: bubble.x,
@@ -195,7 +198,7 @@ class DataBreakdownFormViewModel extends ConnectableViewModel {
             );
 
             const legend = datasets.map(dataset => ({
-                color: dataset.backgroundColor,
+                color: dataset.borderColor,
                 label: dataset.label,
                 value: dataset.dataSize
             }));

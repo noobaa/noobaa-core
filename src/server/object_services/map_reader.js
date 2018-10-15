@@ -25,26 +25,28 @@ const auth_server = require('../common_services/auth_server');
  * to make it ready for replying and simpler to iterate
  *
  */
-function read_object_mappings(obj, start, end, skip, limit, adminfo, location_info) {
+async function read_object_mappings(obj, start, end, skip, limit, adminfo, location_info) {
     // check for empty range
     const rng = sanitize_object_range(obj, start, end);
-    if (!rng) return P.resolve([]);
+    if (!rng) return [];
 
     // find parts intersecting the [start,end) range
-    return MDStore.instance().find_parts_by_start_range({
-            obj_id: obj._id,
-            // since end is not indexed we query start with both
-            // low and high constraint, which allows the index to reduce scan
-            // we use a constant that limits the max part size because
-            // this is the only way to limit the minimal start value
-            start_gte: rng.start - config.MAX_OBJECT_PART_SIZE,
-            start_lt: rng.end,
-            end_gt: rng.start,
-            skip,
-            limit,
-        })
-        .then(parts => MDStore.instance().populate_chunks_for_parts(parts))
-        .then(parts => read_parts_mappings({ parts, adminfo, location_info }));
+    const parts = await MDStore.instance().find_parts_by_start_range({
+        obj_id: obj._id,
+        // since end is not indexed we query start with both
+        // low and high constraint, which allows the index to reduce scan
+        // we use a constant that limits the max part size because
+        // this is the only way to limit the minimal start value
+        start_gte: rng.start - config.MAX_OBJECT_PART_SIZE,
+        start_lt: rng.end,
+        end_gt: rng.start,
+        skip,
+        limit,
+    });
+    // console.log('TODO GGG read_object_mappings', parts);
+    await MDStore.instance().populate_chunks_for_parts(parts);
+    const parts_mappings = await read_parts_mappings({ parts, adminfo, location_info });
+    return parts_mappings;
 }
 
 

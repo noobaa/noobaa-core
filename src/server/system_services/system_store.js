@@ -371,6 +371,9 @@ class SystemStoreData {
  */
 class SystemStore extends EventEmitter {
 
+    /**
+     * @returns {SystemStore}
+     */
     static get_instance(options = {}) {
         const { standalone } = options;
         SystemStore._instance = SystemStore._instance || new SystemStore({ standalone });

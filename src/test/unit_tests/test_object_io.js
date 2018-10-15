@@ -9,10 +9,9 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const crypto = require('crypto');
 const assert = require('assert');
+const stream = require('stream');
 
-const P = require('../../util/promise');
 const ObjectIO = require('../../sdk/object_io');
-const SliceReader = require('../../util/slice_reader');
 const promise_utils = require('../../util/promise_utils');
 
 const { rpc_client } = coretest;
@@ -57,57 +56,44 @@ coretest.describe_mapper_test_case({
         big_loops = 3;
     }
 
-    mocha.before(function() {
+    mocha.before(async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.node.list_nodes({}))
-            .then(res => {
-                nodes_list = res.nodes;
-            });
+        const { nodes } = await rpc_client.node.list_nodes({});
+        nodes_list = nodes;
     });
 
-    mocha.it('empty object', function() {
+    mocha.it('empty object', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const key = `${KEY}-${key_counter}`;
         key_counter += 1;
         const content_type = 'application/octet-stream';
         const content_type2 = 'text/plain';
-        return P.resolve()
-            .then(() => rpc_client.object.create_object_upload({ bucket, key, content_type }))
-            .then(create_reply => rpc_client.object.complete_object_upload({
-                obj_id: create_reply.obj_id,
-                bucket,
-                key,
-            }))
-            .then(() => rpc_client.object.read_object_md({ bucket, key, adminfo: {} })
-                .then(object_md => {
-                    assert.strictEqual(object_md.num_parts, 0);
-                    assert.strictEqual(object_md.capacity_size, 0);
-                })
-            )
-            .then(() => rpc_client.object.update_object_md({ bucket, key, content_type: content_type2 }))
-            .then(() => rpc_client.object.list_objects_admin({ bucket, prefix: key }))
-            .then(() => rpc_client.object.delete_object({ bucket, key }));
+        const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
+        await rpc_client.object.complete_object_upload({ obj_id, bucket, key });
+        const object_md = await rpc_client.object.read_object_md({ bucket, key, adminfo: {} });
+        assert.strictEqual(object_md.num_parts, 0);
+        assert.strictEqual(object_md.capacity_size, 0);
+        await rpc_client.object.update_object_md({ bucket, key, content_type: content_type2 });
+        await rpc_client.object.list_objects_admin({ bucket, prefix: key });
+        await rpc_client.object.delete_object({ bucket, key });
     });
 
-    mocha.it('upload_and_verify', function() {
+    mocha.it('upload_and_verify', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => promise_utils.loop(small_loops, () => upload_and_verify(61)))
-            .then(() => promise_utils.loop(medium_loops, () => upload_and_verify(4015)))
-            .then(() => promise_utils.loop(big_loops, () => upload_and_verify(10326)));
+        await promise_utils.loop(small_loops, () => upload_and_verify(61));
+        await promise_utils.loop(medium_loops, () => upload_and_verify(4015));
+        await promise_utils.loop(big_loops, () => upload_and_verify(10326));
     });
 
-    mocha.it('multipart_upload_and_verify', function() {
+    mocha.it('multipart_upload_and_verify', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => promise_utils.loop(small_loops, () => multipart_upload_and_verify(45, 7)))
-            .then(() => promise_utils.loop(medium_loops, () => multipart_upload_and_verify(3245, 5)))
-            .then(() => promise_utils.loop(big_loops, () => multipart_upload_and_verify(7924, 3)));
+        await promise_utils.loop(small_loops, () => multipart_upload_and_verify(45, 7));
+        await promise_utils.loop(medium_loops, () => multipart_upload_and_verify(3245, 5));
+        await promise_utils.loop(big_loops, () => multipart_upload_and_verify(7924, 3));
     });
 
 
-    function upload_and_verify(size) {
+    async function upload_and_verify(size) {
         const data = generator.update(Buffer.alloc(size));
         const key = `${KEY}-${key_counter}`;
         key_counter += 1;
@@ -117,101 +103,147 @@ coretest.describe_mapper_test_case({
             key,
             size,
             content_type: 'application/octet-stream',
-            source_stream: new SliceReader(data),
+            source_stream: readable_buffer(data),
         };
-        return P.resolve()
-            .then(() => object_io.upload_object(params))
-            .then(() => verify_read_data(key, data, params.obj_id))
-            .then(() => verify_read_mappings(key, size))
-            .then(() => verify_nodes_mappings(nodes_list))
-            .then(() => rpc_client.object.delete_object({ bucket, key }))
-            .then(() => console.log('upload_and_verify: OK', size));
+        await object_io.upload_object(params);
+        await verify_read_mappings(key, size);
+        await verify_read_data(key, data, params.obj_id);
+        await verify_nodes_mappings(nodes_list);
+        await rpc_client.object.delete_object({ bucket, key });
+        console.log('upload_and_verify: OK', size);
     }
 
-    function multipart_upload_and_verify(part_size, num_parts) {
-        let obj_id;
+    async function multipart_upload_and_verify(part_size, num_parts) {
         const key = `${KEY}-${key_counter}`;
         key_counter += 1;
         const content_type = 'test/test';
         const size = num_parts * part_size;
         const data = generator.update(Buffer.alloc(size));
-        return P.resolve()
-            .then(() => rpc_client.object.create_object_upload({ bucket, key, content_type }))
-            .then(create_reply => {
-                obj_id = create_reply.obj_id;
-            })
-            .then(() => rpc_client.object.list_multiparts({ obj_id, bucket, key }))
-            .tap(list => console.log('list_multiparts reply', list))
-            .then(list => P.map(_.times(num_parts),
-                i => object_io.upload_multipart({
-                    client: rpc_client,
-                    obj_id,
-                    bucket,
-                    key,
-                    num: i + 1,
-                    size: part_size,
-                    source_stream: new SliceReader(data, {
-                        start: i * part_size,
-                        end: (i + 1) * part_size
-                    }),
-                })
-            ))
-            .then(() => rpc_client.object.list_multiparts({ obj_id, bucket, key }))
-            .tap(list => console.log('list_multiparts reply', list))
-            .then(list => rpc_client.object.complete_object_upload({
+        const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
+
+        const mp_list_before = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
+        console.log('list_multiparts before', mp_list_before);
+        assert.strictEqual(mp_list_before.multiparts.length, 0);
+
+        const get_part_slice = i => data.slice(i * part_size, (i + 1) * part_size);
+
+        const upload_multipart = (i, mp_data, split, finish) =>
+            object_io.upload_multipart({
+                client: rpc_client,
                 obj_id,
                 bucket,
                 key,
-                multiparts: _.map(list.multiparts, p => _.pick(p, 'num', 'etag'))
-            }))
-            .then(() => verify_read_data(key, data, obj_id))
-            .then(() => verify_read_mappings(key, size))
-            .then(() => verify_nodes_mappings())
-            .then(() => rpc_client.object.delete_object({ bucket, key }))
-            .then(() => console.log('multipart_upload_and_verify: OK', part_size, num_parts));
-    }
-
-    function verify_read_mappings(key, size) {
-        return rpc_client.object.read_object_mappings({ bucket, key, adminfo: true })
-            .then(({ parts }) => {
-                let pos = 0;
-                parts.forEach(part => {
-                    const { start, end, chunk: { frags } } = part;
-                    assert.strictEqual(start, pos);
-                    pos = end;
-                    assert.strictEqual(frags.length, total_frags);
-                    _.forEach(frags, frag => assert.strictEqual(frag.blocks.length, replicas));
-                    // check blocks don't repeat in the same chunk
-                    const part_blocks = _.flatMap(frags, 'blocks');
-                    const blocks_per_node = _.groupBy(part_blocks, block => block.adminfo.node_name);
-                    _.forEach(blocks_per_node, (b, node_name) => assert.strictEqual(b.length, 1));
-                });
-                assert.strictEqual(pos, size);
+                num: i + 1,
+                size: mp_data.length,
+                source_stream: readable_buffer(mp_data, split, finish),
             });
-    }
 
-    function verify_read_data(key, data, obj_id) {
-        return object_io.read_entire_object({ client: rpc_client, bucket, key, obj_id })
-            .then(read_buf => {
-                // verify the read buffer equals the written buffer
-                assert.strictEqual(data.length, read_buf.length);
-                for (let i = 0; i < data.length; i++) {
-                    assert.strictEqual(data[i], read_buf[i], `mismatch data at pos ${i}`);
-                }
-            });
-    }
-
-    function verify_nodes_mappings() {
-        return P.map(nodes_list, node => P.join(
-            rpc_client.object.read_node_mappings({
-                name: node.name,
-                adminfo: true
-            }),
-            rpc_client.object.read_host_mappings({
-                name: `${node.os_info.hostname}#${node.host_seq}`,
-                adminfo: true
-            })
+        // upload multiparts with different data that fail before they finish.
+        // this is an attempt to reproduce an issue that left unfinished multiparts,
+        // and when left in wrong offsets it will return bad data on read.
+        await Promise.all(_.times(num_parts,
+            i => upload_multipart(i, generator.update(Buffer.alloc(part_size)), 4, 'fail').catch(err => ({ err }))
         ));
+
+        // upload multiparts with different data that completes.
+        // we expect that complete_object_upload will remove these since we do not send their etags.
+        await Promise.all(_.times(num_parts,
+            i => upload_multipart(i, generator.update(Buffer.alloc(part_size)))
+        ));
+
+        // upload the real multiparts we want to complete with
+        const multiparts = await Promise.all(_.times(num_parts,
+            i => upload_multipart(i, get_part_slice(i))
+        ));
+
+        // again upload multiparts with different data that fail before they finish.
+        await Promise.all(_.times(num_parts,
+            i => upload_multipart(i, generator.update(Buffer.alloc(part_size)), 4, 'fail').catch(err => ({ err }))
+        ));
+
+        const mp_list_after = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
+        console.log('list_multiparts after', mp_list_after);
+        assert.strictEqual(mp_list_after.multiparts.length, num_parts);
+        assert.deepStrictEqual(
+            mp_list_after.multiparts.map(mp => mp.etag),
+            multiparts.map(mp => mp.etag)
+        );
+
+        await rpc_client.object.complete_object_upload({
+            obj_id,
+            bucket,
+            key,
+            multiparts: multiparts.map((mp, i) => ({ num: i + 1, etag: mp.etag }))
+        });
+
+        await verify_read_mappings(key, size);
+        await verify_read_data(key, data, obj_id);
+        await verify_nodes_mappings();
+        await rpc_client.object.delete_object({ bucket, key });
+        console.log('multipart_upload_and_verify: OK', part_size, num_parts);
+    }
+
+    async function verify_read_mappings(key, size) {
+        const { parts } = await rpc_client.object.read_object_mappings({ bucket, key, adminfo: true });
+        let pos = 0;
+        for (const part of parts) {
+            const { start, end, chunk: { frags } } = part;
+            // console.log(`TODO GGG READ PART pos=${pos}`, JSON.stringify(part));
+            assert.strictEqual(start, pos);
+            pos = end;
+            assert.strictEqual(frags.length, total_frags);
+            _.forEach(frags, frag => assert.strictEqual(frag.blocks.length, replicas));
+            // check blocks don't repeat in the same chunk
+            const part_blocks = _.flatMap(frags, 'blocks');
+            const blocks_per_node = _.groupBy(part_blocks, block => block.adminfo.node_name);
+            _.forEach(blocks_per_node, (b, node_name) => assert.strictEqual(b.length, 1));
+        }
+        assert.strictEqual(pos, size);
+    }
+
+    async function verify_read_data(key, data, obj_id) {
+        const read_buf = await object_io.read_entire_object({ client: rpc_client, bucket, key, obj_id });
+        // verify the read buffer equals the written buffer
+        assert.strictEqual(data.length, read_buf.length);
+        for (let i = 0; i < data.length; i++) {
+            assert.strictEqual(data[i], read_buf[i], `mismatch data at pos ${i}`);
+        }
+    }
+
+    async function verify_nodes_mappings() {
+        await Promise.all([
+            ...nodes_list.map(node =>
+                rpc_client.object.read_node_mappings({
+                    name: node.name,
+                    adminfo: true
+                })
+            ),
+            ...nodes_list.map(node =>
+                rpc_client.object.read_host_mappings({
+                    name: `${node.os_info.hostname}#${node.host_seq}`,
+                    adminfo: true
+                })
+            )
+        ]);
+    }
+
+    function readable_buffer(data, split = 1, finish = 'end') {
+        const max = Math.ceil(data.length / split);
+        let pos = 0;
+        return new stream.Readable({
+            read() {
+                if (pos < data.length) {
+                    const len = Math.min(data.length - pos, max);
+                    const buf = data.slice(pos, pos + len);
+                    pos += len;
+                    setImmediate(() => this.push(buf));
+                } else if (finish === 'fail') {
+                    this.emit('error', new Error('TEST_OBJECT_IO FAIL ON FINISH'));
+                } else {
+                    this.push(null);
+                }
+            }
+        });
     }
 
 });

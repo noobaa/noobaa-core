@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 const crypto = require('crypto');
+const assert = require('assert');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -249,10 +250,12 @@ function finalize_object_parts(bucket, obj, parts) {
             end: part.end,
             seq: part.seq,
             chunk: chunk_id,
+            uncommitted: true,
         };
         if (part.multipart_id) {
             new_part.multipart = MDStore.instance().make_md_id(part.multipart_id);
         }
+        // dbg.log0('TODO GGG INSERT PART', JSON.stringify(new_part));
         new_parts.push(new_part);
     }
 
@@ -272,28 +275,6 @@ function finalize_object_parts(bucket, obj, parts) {
         });
 }
 
-function process_next_parts(parts, context) {
-    parts.sort((a, b) => a.seq - b.seq);
-    for (const part of parts) {
-        const len = part.end - part.start;
-        if (part.seq !== context.seq) {
-            dbg.log0('complete_object_parts: update part at seq', context.seq,
-                'pos', context.pos, 'len', len,
-                'part', util.inspect(part, { colors: true, depth: null, breakLength: Infinity }));
-            context.parts_updates.push({
-                _id: part._id,
-                set_updates: {
-                    seq: context.seq,
-                    start: context.pos,
-                    end: context.pos + len,
-                }
-            });
-        }
-        context.pos += len;
-        context.seq += 1;
-        context.num_parts += 1;
-    }
-}
 
 /**
  *
@@ -308,14 +289,10 @@ async function complete_object_parts(obj) {
         parts_updates: [],
     };
 
-    const parts = await MDStore.instance().find_parts_of_object(obj);
-    process_next_parts(parts, context);
-
-    // we do not expect any start/end/seq updates for non multipart uploads
+    const parts = await MDStore.instance().find_all_parts_of_object(obj);
+    _process_next_parts(parts, context);
     if (context.parts_updates.length) {
-        dbg.error('complete_object_parts: unexpected parts update', context);
-        throw new Error('complete_object_parts: unexpected parts update');
-        // await  MDStore.instance().update_parts_in_bulk(context.parts_updates),
+        await MDStore.instance().update_parts_in_bulk(context.parts_updates);
     }
 
     return {
@@ -336,47 +313,62 @@ async function complete_object_multiparts(obj, multipart_req) {
         num_parts: 0,
         parts_updates: [],
     };
-    const parts_to_delete = [];
-    const multiparts_to_delete = [];
 
     const [multiparts, parts] = await P.join(
-        MDStore.instance().find_multiparts_of_object(obj._id, 0, 10000),
-        MDStore.instance().find_parts_of_object(obj)
+        MDStore.instance().find_all_multiparts_of_object(obj._id),
+        MDStore.instance().find_all_parts_of_object(obj)
     );
 
     let next_part_num = 1;
     const md5 = crypto.createHash('md5');
     const parts_by_mp = _.groupBy(parts, 'multipart');
     const multiparts_by_num = _.groupBy(multiparts, 'num');
+    const used_parts = [];
+    const used_multiparts = [];
 
-    _.forEach(multipart_req, part => {
-        const etag_md5_b64 = Buffer.from(part.etag, 'hex').toString('base64');
-        const mp_group = multiparts_by_num[part.num];
-        const mp_index = _.findIndex(mp_group, mp => mp.md5_b64 === etag_md5_b64);
-        if (mp_index < 0) throw new RpcError('INVALID_PART');
-        if (part.num !== next_part_num) throw new RpcError('INVALID_PART_ORDER');
-        next_part_num += 1;
-        const mp_selected = mp_group[mp_index];
-        md5.update(mp_selected.md5_b64, 'base64');
-        const mp_parts = parts_by_mp[mp_selected._id];
-        process_next_parts(mp_parts, context);
-
-        if (mp_group.length > 1) {
-            for (let i = 0; i < mp_group.length; ++i) {
-                if (i !== mp_index) {
-                    multiparts_to_delete.push(mp_group[i]);
-                    parts_to_delete.push(...parts_by_mp[mp_group[i]._id]);
-                }
-            }
+    for (const { num, etag } of multipart_req) {
+        if (num !== next_part_num) {
+            throw new RpcError('INVALID_PART',
+                `multipart num=${num} etag=${etag} expected next_part_num=${next_part_num}`);
         }
-    });
+        next_part_num += 1;
+        const etag_md5_b64 = Buffer.from(etag, 'hex').toString('base64');
+        const group = multiparts_by_num[num];
+        group.sort(_sort_multiparts_by_create_time);
+        const mp = _.find(group, it => it.md5_b64 === etag_md5_b64 && it.create_time);
+        if (!mp) {
+            throw new RpcError('INVALID_PART',
+                `multipart num=${num} etag=${etag} etag_md5_b64=${etag_md5_b64} not found in group ${util.inspect(group)}`);
+        }
+        md5.update(mp.md5_b64, 'base64');
+        const mp_parts = parts_by_mp[mp._id];
+        _process_next_parts(mp_parts, context);
+        used_multiparts.push(mp);
+        // console.log('TODO GGG COMPLETE MULTIPART', JSON.stringify(mp));
+        for (const part of mp_parts) {
+            used_parts.push(part);
+            // console.log('TODO GGG COMPLETE PART', JSON.stringify(part));
+        }
+    }
+
     const multipart_etag = md5.digest('hex') + '-' + (next_part_num - 1);
+    const unused_parts = _.difference(parts, used_parts);
+    const unused_multiparts = _.difference(multiparts, used_multiparts);
+    const chunks_to_dereference = unused_parts.map(part => part.chunk);
+    const used_multiparts_ids = used_multiparts.map(mp => mp._id);
+
+    dbg.log0('complete_object_multiparts:', obj, 'size', context.pos,
+        'num_parts', context.num_parts, 'multipart_etag', multipart_etag);
+
+    // for (const mp of unused_multiparts) dbg.log0('TODO GGG DELETE UNUSED MULTIPART', JSON.stringify(mp));
+    // for (const part of unused_parts) dbg.log0('TODO GGG DELETE UNUSED PART', JSON.stringify(part));
 
     await P.join(
         context.parts_updates.length && MDStore.instance().update_parts_in_bulk(context.parts_updates),
-        parts_to_delete.length && MDStore.instance().delete_parts(parts_to_delete),
-        multiparts_to_delete.length && MDStore.instance().delete_multiparts(multiparts_to_delete),
-        parts_to_delete.length && map_deleter.delete_chunks_if_unreferenced(parts_to_delete.map(part => part.chunk)),
+        used_multiparts_ids.length && MDStore.instance().update_multiparts_by_ids(used_multiparts_ids, undefined, { uncommitted: 1 }),
+        unused_parts.length && MDStore.instance().delete_parts(unused_parts),
+        unused_multiparts.length && MDStore.instance().delete_multiparts(unused_multiparts),
+        chunks_to_dereference.length && map_deleter.delete_chunks_if_unreferenced(chunks_to_dereference),
     );
 
     return {
@@ -386,6 +378,41 @@ async function complete_object_multiparts(obj, multipart_req) {
     };
 }
 
+function _sort_parts_by_seq(a, b) {
+    return a.seq - b.seq;
+}
+
+function _sort_multiparts_by_create_time(a, b) {
+    if (!b.create_time) return 1;
+    if (!a.create_time) return -1;
+    return b.create_time - a.create_time;
+}
+
+function _process_next_parts(parts, context) {
+    parts.sort(_sort_parts_by_seq);
+    const start_pos = context.pos;
+    const start_seq = context.seq;
+    for (const part of parts) {
+        assert.strictEqual(part.start, context.pos - start_pos);
+        assert.strictEqual(part.seq, context.seq - start_seq);
+        const len = part.end - part.start;
+        const updates = {
+            _id: part._id,
+            unset_updates: { uncommitted: 1 },
+        };
+        if (part.seq !== context.seq) {
+            updates.set_updates = {
+                seq: context.seq,
+                start: context.pos,
+                end: context.pos + len,
+            };
+        }
+        context.parts_updates.push(updates);
+        context.pos += len;
+        context.seq += 1;
+        context.num_parts += 1;
+    }
+}
 
 
 

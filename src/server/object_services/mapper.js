@@ -625,7 +625,7 @@ function get_part_info(part, adminfo, tiering_status, location_info) {
         start: part.start,
         end: part.end,
         seq: part.seq,
-        multipart_id: part.multipart_id,
+        multipart_id: part.multipart,
         chunk_id: part.chunk._id,
         chunk: get_chunk_info(part.chunk, adminfo, tiering_status, location_info),
         chunk_offset: part.chunk_offset, // currently undefined

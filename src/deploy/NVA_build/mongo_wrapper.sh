@@ -109,7 +109,6 @@ function min {
   echo $(($1>$2?$2:$1))
 }
 
-
 function backoff_before_start {
   local backoff=$(cat $BACKOFF_FILE)
   local time_since_backoff_written=$(( $(date +%s) - $(stat ${BACKOFF_FILE} -c "%Y") ))

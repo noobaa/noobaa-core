@@ -33,7 +33,7 @@ const s3CompatibleOption = {
     selectedIcon: 'cloud-colored'
 };
 
-const aspectRatio = 1.7;
+const aspectRatio = 1.5;
 
 class CloudUsageStatsFormViewModel extends ConnectableViewModel {
     pathname = '';
@@ -98,6 +98,7 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
                         labelString: 'Egress'
                     },
                     ticks: {
+                        suggestedMax: 10,
                         callback: size => `${
                             size && formatSize(size)
                         }${

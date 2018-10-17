@@ -375,7 +375,7 @@ async function check_syslog_status(protocol) {
     }
 }
 
-async function set_remote_syslog_protocol_and_check(protocol, address, port) {
+async function set_remote_syslog_protocol_and_check(protocol, address, port, secret) {
     console.log(`Setting ${protocol} Remote Syslog`);
     try {
         await client.system.configure_remote_syslog({
@@ -384,7 +384,7 @@ async function set_remote_syslog_protocol_and_check(protocol, address, port) {
             protocol,
             port
         });
-        await createServerAndWaitForMessage(protocol, port, 60 * 1000);
+        await createServerAndWaitForMessage(protocol, port, 60 * 1000, secret);
         console.log(`Just received ${protocol} rsyslog message - as should`);
     } catch (e) {
         console.error(e);
@@ -393,7 +393,7 @@ async function set_remote_syslog_protocol_and_check(protocol, address, port) {
     }
 }
 
-function createServerAndWaitForMessage(protocol, port, timeout = 0) {
+function createServerAndWaitForMessage(protocol, port, timeout = 0, secret) {
     return new P((resolve, reject) => {
         let server = null;
         if (protocol === 'TCP') {
@@ -427,14 +427,21 @@ function createServerAndWaitForMessage(protocol, port, timeout = 0) {
                 reject(new Error('Timeout'));
             }, timeout);
         }
+
+        // Using it in order to create an event for the rsyslog to send
+        client.cluster_server.update_server_conf({
+                target_secret: secret,
+                location: 'SlothLand'
+            })
+            .catch(console.error);
     });
 }
 
-async function remote_syslog(protocol) {
+async function remote_syslog(protocol, secret) {
     try {
         const port = protocol === 'TCP' ? tcp_rsyslog_port : udp_rsyslog_port;
         console.log(`port: ${port}`);
-        await set_remote_syslog_protocol_and_check(protocol, lg_ip, port);
+        await set_remote_syslog_protocol_and_check(protocol, lg_ip, port, secret);
         await check_defined_syslog(protocol, port);
         await check_syslog_status(protocol);
         await report.success(`${protocol}_Remote_Syslog`);
@@ -612,8 +619,8 @@ async function main() {
         await set_DNS_And_check();
         await set_NTP_And_check();
         await set_Phonehome_and_check();
-        await remote_syslog('TCP');
-        await remote_syslog('UDP');
+        await remote_syslog('TCP', secret);
+        await remote_syslog('UDP', secret);
         await set_maintenance_mode_and_check();
         await update_n2n_config_and_check();
         await set_debug_level_and_check();

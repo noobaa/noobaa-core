@@ -626,38 +626,48 @@ async function upgrade_mongodb_schemas(params) {
     let UPGRADE_SCRIPTS = [];
     if (params.should_upgrade_schemas) {
         UPGRADE_SCRIPTS = [
-            'mongo_upgrade_2_1_3.js',
-            'mongo_upgrade_2_3_0.js',
-            'mongo_upgrade_2_3_1.js',
-            'mongo_upgrade_2_6_0.js',
-            'mongo_upgrade_2_7_3.js',
-            'mongo_upgrade_2_8_0.js',
-            'mongo_upgrade_2_8_2.js',
-            'mongo_upgrade_2_9_0.js',
-            'mongo_upgrade_mark_completed.js'
+            { file: 'mongo_upgrade_2_1_3.js', version: [2, 1, 3] },
+            { file: 'mongo_upgrade_2_3_0.js', version: [2, 3, 0] },
+            { file: 'mongo_upgrade_2_3_1.js', version: [2, 3, 1] },
+            { file: 'mongo_upgrade_2_6_0.js', version: [2, 6, 0] },
+            { file: 'mongo_upgrade_2_7_3.js', version: [2, 7, 3] },
+            { file: 'mongo_upgrade_2_8_0.js', version: [2, 8, 0] },
+            { file: 'mongo_upgrade_2_8_2.js', version: [2, 8, 2] },
+            { file: 'mongo_upgrade_2_9_0.js', version: [2, 9, 0] },
+            { file: 'mongo_upgrade_2_10_0.js', version: [2, 10, 0] },
+            { file: 'mongo_upgrade_mark_completed.js' }
         ];
     } else {
         UPGRADE_SCRIPTS = [
-            'mongo_upgrade_wait_for_master.js'
+            { file: 'mongo_upgrade_wait_for_master.js' }
         ];
     }
 
     // set mongo debug level
     await set_mongo_debug_level(5);
-
+    const [old_major, old_minor, old_patch] = parse_ver(params.old_version.split('-')[0]);
+    // calculate single int value to represent version
+    const old_ver_value = (old_major * 10000) + (old_minor * 100) + old_patch;
     for (const script of UPGRADE_SCRIPTS) {
-        dbg.log0(`UPGRADE: Running Mongo Upgrade Script ${script}`);
-        try {
-            await promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${secret}', version='${ver}', is_pure_version=${is_pure_version}" ${CORE_DIR}/src/deploy/mongo_upgrade/${script}`, {
-                ignore_rc: false,
-                return_stdout: true,
-                trim_stdout: true
-            });
+        const [script_major, script_minor, script_patch] = script.version || [99, 99, 99];
+        const script_ver_value = (script_major * 10000) + (script_minor * 100) + script_patch;
+        // only run upgrade script if we upgrade from a version older than the upgrade script version
+        if (old_ver_value < script_ver_value) {
+            dbg.log0(`UPGRADE: Running Mongo Upgrade Script ${script.file}`);
+            try {
+                await promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${secret}', version='${ver}', is_pure_version=${is_pure_version}" ${CORE_DIR}/src/deploy/mongo_upgrade/${script.file}`, {
+                    ignore_rc: false,
+                    return_stdout: true,
+                    trim_stdout: true
+                });
 
-        } catch (err) {
-            dbg.error(`Failed Mongo Upgrade Script ${script}`, err);
-            await set_mongo_debug_level(0);
-            throw err;
+            } catch (err) {
+                dbg.error(`Failed Mongo Upgrade Script ${script.file}`, err);
+                await set_mongo_debug_level(0);
+                throw err;
+            }
+        } else {
+            dbg.log0(`UPGRADE: Skipping old Mongo Upgrade Script ${script.file}`);
         }
     }
 

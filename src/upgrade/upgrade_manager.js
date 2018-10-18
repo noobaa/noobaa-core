@@ -191,6 +191,7 @@ class UpgradeManager {
             should_upgrade_schemas: this.should_upgrade_schemas,
             mongodb_upgraded: this.upgrade_mongodb,
             feature_version,
+            old_version: this.old_version,
             ip: this.ip
         });
     }

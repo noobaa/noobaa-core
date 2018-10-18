@@ -26,6 +26,7 @@ const TEST_CFG_DEFAULTS = {
     s3_access: true, //TODO: this is a bug, we will not ve able to change it (argv changes from false to true only)
     cycles: 15,
     accounts_number: 2,
+    skip_report: false,
     skip_delete: false,
     skip_create: false
 };
@@ -48,13 +49,14 @@ let report = new Report();
 function usage() {
     console.log(`
     --server_ip         -   azure location (default: ${TEST_CFG_DEFAULTS.server_ip})
-    --name              -   account preffix (default: ${TEST_CFG_DEFAULTS.name})
+    --name              -   account prefix (default: ${TEST_CFG_DEFAULTS.name})
     --bucket            -   bucket name (default: ${TEST_CFG_DEFAULTS.bucket})
     --emailSuffix       -   The email suffix (default: ${TEST_CFG_DEFAULTS.emailSuffix})
     --password          -   Account's Password (default: ${TEST_CFG_DEFAULTS.password}) 
     --s3_access         -   should we have s3 access (default: ${TEST_CFG_DEFAULTS.s3_access})
     --cycles            -   number of cycles (default: ${TEST_CFG_DEFAULTS.cycles})
     --accounts_number   -   number of accounts to create per cycle (default: ${TEST_CFG_DEFAULTS.accounts_number})
+    --skip_report       -   will skip sending report to mongo 
     --skip_delete       -   should we delete the accounts (default: ${TEST_CFG_DEFAULTS.skip_delete})
     --skip_create       -   Skip creating accounts (default: ${TEST_CFG_DEFAULTS.skip_create})
     --help              -   show this help
@@ -221,10 +223,10 @@ async function edit_bucket_creation(email, allow_bucket_creation) {
     }
 }
 
-async function check_bucket_creation_premissions(email) {
+async function check_bucket_creation_permissions(email) {
     let create_bucket_status = await get_account_create_bucket_status(email);
     if (!create_bucket_status) {
-        throw new Error(`Account ${email} default bucket creation premissions should be enabled`);
+        throw new Error(`Account ${email} default bucket creation permissions should be enabled`);
     }
     await edit_bucket_creation(email, false);
     create_bucket_status = await get_account_create_bucket_status(email);
@@ -364,7 +366,7 @@ async function checkAccountFeatures() {
         await verify_s3_no_access(newAccount);
         await restrict_ip_access(newAccount, null);
         await verify_s3_access(newAccount, TEST_CFG.bucket);
-        await check_bucket_creation_premissions(newAccount);
+        await check_bucket_creation_permissions(newAccount);
         await disable_s3_Access_and_check(newAccount);
         await rpc.disconnect_all();
     } else {
@@ -415,6 +417,9 @@ async function create_delete_accounts(cycle_num, count) {
 }
 
 async function main() {
+    if (TEST_CFG.skip_report) {
+        report.pause();
+    }
     for (let cycle = 1; cycle <= TEST_CFG.cycles; cycle++) {
         console.log(`${YELLOW}Starting cycle ${cycle}${NC}`);
         try {

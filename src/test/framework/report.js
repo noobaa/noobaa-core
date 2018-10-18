@@ -34,13 +34,14 @@ class Reporter {
     }
 
     static get OMITTED_TEST_CONF() {
-        //Common argv/test config parameters which are not relevant and should be ommited
+        //Common argv/test config parameters which are not relevant and should be omitted
         return OMITTED_TEST_CONF;
     }
 
     constructor() {
         this._passed = 0;
         this._failed = 0;
+        this._paused = true;
         this.host = '127.0.0.1';
         this.port = '38000';
         this._passed_cases = [];
@@ -65,13 +66,23 @@ class Reporter {
         this._failed_cases.push(step);
     }
 
+    pause() {
+        this._paused = true;
+    }
+
+    resume() {
+        this._paused = false;
+    }
+
     async report() {
-        console.log(`----- SUITE ${this._suite_name} -----\nconf ${JSON.stringify(this._conf, null, 4)}` + (this._env ? `\n\tenv ${this._env}` : ''));
-        if (this._passed_cases.length > 0 || this._failed_cases.length > 0) {
-            console.log(`Passed cases: ${JSON.stringify(_.countBy(this._passed_cases), null, 4)}
+        if (!this._paused) {
+            console.log(`----- SUITE ${this._suite_name} -----\nconf ${JSON.stringify(this._conf, null, 4)}` + (this._env ? `\n\tenv ${this._env}` : ''));
+            if (this._passed_cases.length > 0 || this._failed_cases.length > 0) {
+                console.log(`Passed cases: ${JSON.stringify(_.countBy(this._passed_cases), null, 4)}
 Failed cases: ${JSON.stringify(_.countBy(this._failed_cases), null, 4)}`);
 
-            await this._send_report();
+                await this._send_report();
+            }
         }
     }
 
@@ -133,7 +144,7 @@ Failed cases: ${JSON.stringify(_.countBy(this._failed_cases), null, 4)}`);
                 return;
             }
         } catch (err) {
-            console.error('failed seding report', err);
+            console.error('failed sending report', err);
         }
     }
 

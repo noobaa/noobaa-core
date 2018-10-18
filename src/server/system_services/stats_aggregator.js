@@ -166,6 +166,7 @@ function get_systems_stats(req) {
 
 var NODES_STATS_DEFAULTS = {
     count: 0,
+    hosts_count: 0,
     os: {},
     nodes_with_issue: 0
 };
@@ -175,8 +176,14 @@ const CLOUD_POOL_STATS_DEFAULTS = {
     cloud_pool_count: 0,
     cloud_pool_target: {
         amazon: 0,
+        azure: 0,
+        gcp: 0,
         other: 0,
     },
+    compatible_auth_type: {
+        v2: 0,
+        v4: 0,
+    }
 };
 
 //Collect nodes related stats and usage
@@ -184,34 +191,50 @@ function get_nodes_stats(req) {
     var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
     var nodes_histo = get_empty_nodes_histo();
     //Per each system fill out the needed info
-    return P.all(_.map(system_store.data.systems,
-            system => nodes_client.instance().list_nodes_by_system(system._id)))
-        .then(results => {
-            for (const system_nodes of results) {
-                for (const node of system_nodes.nodes) {
-                    if (node.has_issues) {
-                        nodes_stats.nodes_with_issue += 1;
-                    }
-                    nodes_stats.count += 1;
-                    nodes_histo.histo_allocation.add_value(
-                        node.storage.alloc / SCALE_BYTES_TO_GB);
-                    nodes_histo.histo_usage.add_value(
-                        node.storage.used / SCALE_BYTES_TO_GB);
-                    nodes_histo.histo_free.add_value(
-                        node.storage.free / SCALE_BYTES_TO_GB);
-                    nodes_histo.histo_unavailable_free.add_value(
-                        node.storage.unavailable_free / SCALE_BYTES_TO_GB);
-                    nodes_histo.histo_uptime.add_value(
-                        node.os_info.uptime / SCALE_SEC_TO_DAYS);
-                    if (nodes_stats.os[node.os_info.ostype]) {
-                        nodes_stats.os[node.os_info.ostype] += 1;
-                    } else {
-                        nodes_stats.os[node.os_info.ostype] = 1;
-                    }
+    const system = system_store.data.systems[0];
+    const support_account = _.find(system_store.data.accounts, account => account.is_support);
+
+    return P.join(
+            server_rpc.client.node.list_nodes({}, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin',
+                    account_id: support_account._id
+                })
+            }),
+            server_rpc.client.host.list_hosts({}, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin',
+                    account_id: support_account._id
+                })
+            }))
+        .spread((nodes_results, hosts_results) => {
+            //Collect nodes stats
+            for (const node of nodes_results.nodes) {
+                if (node.has_issues) {
+                    nodes_stats.nodes_with_issue += 1;
+                }
+                nodes_stats.count += 1;
+                nodes_histo.histo_allocation.add_value(
+                    node.storage.alloc / SCALE_BYTES_TO_GB);
+                nodes_histo.histo_usage.add_value(
+                    node.storage.used / SCALE_BYTES_TO_GB);
+                nodes_histo.histo_free.add_value(
+                    node.storage.free / SCALE_BYTES_TO_GB);
+                nodes_histo.histo_unavailable_free.add_value(
+                    node.storage.unavailable_free / SCALE_BYTES_TO_GB);
+                nodes_histo.histo_uptime.add_value(
+                    node.os_info.uptime / SCALE_SEC_TO_DAYS);
+                if (nodes_stats.os[node.os_info.ostype]) {
+                    nodes_stats.os[node.os_info.ostype] += 1;
+                } else {
+                    nodes_stats.os[node.os_info.ostype] = 1;
                 }
             }
             nodes_stats.histograms = _.mapValues(nodes_histo,
                 histo => histo.get_object_data(false));
+            nodes_stats.hosts_count = hosts_results.hosts.length;
             return nodes_stats;
         })
         .catch(err => {
@@ -276,12 +299,26 @@ function get_cloud_pool_stats(req) {
                 cloud_pool_stats.pool_count += 1;
                 if (pool.cloud_pool_info) {
                     cloud_pool_stats.cloud_pool_count += 1;
-                    if (pool.cloud_pool_info.endpoint) {
-                        if (pool.cloud_pool_info.endpoint.indexOf('amazonaws.com') > -1) {
+                    switch (pool.cloud_pool_info.endpoint_type) {
+                        case 'AWS':
                             cloud_pool_stats.cloud_pool_target.amazon += 1;
-                        } else {
+                            break;
+                        case 'AZURE':
+                            cloud_pool_stats.cloud_pool_target.azure += 1;
+                            break;
+                        case 'GOOGLE':
+                            cloud_pool_stats.cloud_pool_target.gcp += 1;
+                            break;
+                        default:
                             cloud_pool_stats.cloud_pool_target.other += 1;
-                        }
+                            if (pool.cloud_pool_info.endpoint_type === 'S3_COMPATIBLE') {
+                                if (pool.cloud_pool_info.auth_method === 'AWS_V2') {
+                                    cloud_pool_stats.compatible_auth_type.v2 += 1;
+                                } else {
+                                    cloud_pool_stats.compatible_auth_type.v4 += 1;
+                                }
+                            }
+                            break;
                     }
                 }
             });

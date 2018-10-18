@@ -34,6 +34,7 @@ const {
     udp_rsyslog_port = 5001,
     tcp_rsyslog_port = 514,
     ph_proxy_port = 5003,
+    skip_report = false,
     help = false
 } = argv;
 
@@ -49,6 +50,7 @@ function usage() {
     --udp_rsyslog_port      -   udp rsyslog port (default: ${udp_rsyslog_port})
     --tcp_rsyslog_port      -   tcp rsyslog port (default: ${tcp_rsyslog_port})
     --ph_proxy_port         -   Phone home proxy port (default: ${ph_proxy_port})
+    --skip_report           -   will skip sending report to mongo
     --id                    -   an id that is attached to the agents name
     --help                  -   show this help.
     `);
@@ -605,6 +607,9 @@ async function set_rpc_and_create_auth_token() {
 
 async function main() {
     try {
+        if (skip_report) {
+            report.pause();
+        }
         await set_rpc_and_create_auth_token();
         const system_info = await client.system.read_system({});
         const secret = system_info.cluster.shards[0].servers[0].secret;

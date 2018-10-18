@@ -42,8 +42,20 @@ async function main() {
     console.log(`running ${js_script} flow in the pipeline`);
     try {
         let path = set_code_path(TEST_CFG.version);
-        await run_account_test(path, ['--cycles', 1, '--accounts_number', 2]);
-        await run_account_test(path, ['--cycles', 1, '--accounts_number', 200, '--to_delete']);
+        const flags = ['--cycles', 1];
+        try {
+            if (TEST_CFG.version !== 'latest') {
+                flags.push('--skip_report');
+            }
+            await run_account_test(path, flags.concat('--accounts_number', 2));
+            await run_account_test(path, flags.concat('--accounts_number', 200, '--to_delete'));
+        } catch (err) {
+            if (TEST_CFG.version === 'latest') {
+                throw err;
+            } else {
+                console.error(`${js_script} failed in ${TEST_CFG.version}, ${err}`);
+            }
+        }
         await server_ops.upgrade_server(TEST_CFG.server_ip, TEST_CFG.upgrade);
         path = set_code_path('latest');
         await run_account_test(path, ['--cycles', 1, '--accounts_number', 2]);

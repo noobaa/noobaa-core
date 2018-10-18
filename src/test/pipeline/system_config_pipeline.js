@@ -42,7 +42,19 @@ async function main() {
     console.log(`running ${js_script} flow in the pipeline`);
     try {
         let path = set_code_path(TEST_CFG.version);
-        await run_test(path, ['--skip_create_system']); //will not call clean ove.
+        const flags = ['--skip_create_system'];
+        try {
+            if (TEST_CFG.version !== 'latest') {
+                flags.push('--skip_report');
+            }
+            await run_test(path, flags); //will not call clean ova.
+        } catch (err) {
+            if (TEST_CFG.version === 'latest') {
+                throw err;
+            } else {
+                console.error(`${js_script} failed in ${TEST_CFG.version}, ${err}`);
+            }
+        }
         await server_ops.upgrade_server(TEST_CFG.server_ip, TEST_CFG.upgrade);
         path = set_code_path('latest');
         await run_test(path, []);

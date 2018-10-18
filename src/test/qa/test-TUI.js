@@ -37,7 +37,7 @@ if (help) {
 const api = require('../../api');
 let rpc = api.new_rpc(`wss://${server_ip}:8443`);
 let client = rpc.new_client({});
-// the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty eventhough stdin is a pipe
+// the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty even though stdin is a pipe
 const sshOptions = ['-t', '-t', '-o', `ServerAliveInterval=60`, '-o', `LogLevel=QUIET`, `noobaa@${server_ip}`];
 
 function usage() {
@@ -56,7 +56,7 @@ const YELLOW = "\x1b[33;1m";
 
 let report = new Report();
 
-report.init_reporter({ suite: test_name, conf: {}, mongo_report: true});
+report.init_reporter({ suite: test_name, conf: {}, mongo_report: true });
 
 //class Expect, should move to a util.
 class Expect {
@@ -150,7 +150,7 @@ const DELETE = `${END}${BACKSPACE}${BACKSPACE}${BACKSPACE}${BACKSPACE}${BACKSPAC
 // const RIGHT = '\x1BOC';
 // const LEFT = '\x1BOD';
 
-//clean the TUI from grafics
+//clean the TUI from graphics
 function strip_ansi_escape_codes(str) {
     const ansi_escape_codes_regexp = /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PRZcf-ntqry=><~]))/g;
     return str
@@ -181,7 +181,7 @@ async function expect_an_error_and_get_back(e, errorMassage, timeout) {
     await expect_and_send(e, errorMassage, `${SHIFTTAB}\r`, 5, timeout);
 }
 
-async function expect_a_resoult_and_get_back(e, text, timeout) {
+async function expect_a_result_and_get_back(e, text, timeout) {
     await expect_and_send(e, text, `${SHIFTTAB}\r`, 5, timeout);
 }
 
@@ -202,7 +202,7 @@ async function login_logout() {
 }
 
 function ntp_Configuration_parameters(configureTZ, reachable) {
-    //runing with or without TZ
+    //running with or without TZ
     const ntp_parameters = {
         ntpString: '',
         toExpect: '',
@@ -263,7 +263,7 @@ async function ntp_Configuration(configureTZ = true, reachable = true) {
             await expect_an_error_and_get_back(e, 'NTP Server must be set', 120 * 1000);
         } else {
             await expect_and_send(e, 'NTP Configuration', `2\r`);
-            await expect_a_resoult_and_get_back(e, ntp_parameters.toExpect, 120 * 1000);
+            await expect_a_result_and_get_back(e, ntp_parameters.toExpect, 120 * 1000);
         }
         await expect_and_send(e, '6*Exit', '6\r', 1);
         await P.delay(5 * 1000);
@@ -278,7 +278,7 @@ async function ntp_Configuration(configureTZ = true, reachable = true) {
 }
 
 function dns_Configuration_parameters(configurePrimary, configureSecondary, reachablePrimaryDns, reachableSecondaryDns) {
-    //runing with or without Secondary and wit or without valid ip
+    //running with or without Secondary and wit or without valid ip
     const dns_parameters = {
         dnsString: '',
         toExpect: '',
@@ -290,7 +290,7 @@ function dns_Configuration_parameters(configurePrimary, configureSecondary, reac
         if (Math.floor(Math.random() * 2) === 0) {
             console.log('Configuring primary DNS ip with wrong ip format');
             dns_parameters.dnsString = `${DELETE}8,8.8.8${DOWN}${DELETE}\r`;
-            dns_parameters.to_report = `DNS_primary_unvalid`;
+            dns_parameters.to_report = `DNS_primary_invalid`;
         } else {
             console.log('Configuring secondary DNS ip with wrong ip format');
             dns_parameters.dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8,8.4.4\r`;
@@ -371,7 +371,7 @@ async function dns_Configuration(configurePrimary = true, configureSecondary = t
             await expect_an_error_and_get_back(e, 'DNS server is not valid', 120 * 1000);
         } else {
             await expect_and_send(e, 'DNS Settings', `2\r`, 0, 120 * 1000);
-            await expect_a_resoult_and_get_back(e, dns_parameters.toExpect, 120 * 1000);
+            await expect_a_result_and_get_back(e, dns_parameters.toExpect, 120 * 1000);
         }
         await expect_and_send(e, '4*Exit', '4\r', 1);
         await P.delay(5 * 1000);
@@ -417,7 +417,7 @@ async function hostname_Settings() {
         await P.delay(30 * 1000);
         if (!expectFail) {
             await expect_and_send(e, 'Hostname Settings', `3\r`);
-            await expect_a_resoult_and_get_back(e, hostname, 120 * 1000);
+            await expect_a_result_and_get_back(e, hostname, 120 * 1000);
         }
         await expect_and_send(e, '4*Exit', '4\r', 1);
         await P.delay(5 * 1000);
@@ -452,15 +452,15 @@ async function main() {
         await server_ops.enable_nooba_login(server_ip, secret);
         //will loop twice, one with system and the other without.
         for (let cycle = 0; cycle < cycles; ++cycle) {
-            console.log(`${YELLOW}Starting cycle numer: ${cycle}${NC}`);
+            console.log(`${YELLOW}Starting cycle number: ${cycle}${NC}`);
             if (cycle % 2 > 0) {
                 console.log(`Running cycle without system`);
                 // currently we are running only in azure. 
-                // clea_ova does not delete /etc/first_install.mrk on platform other then esx
+                // clean_ova does not delete /etc/first_install.mrk on platform other then esx
                 // system is always consider started. 
                 //isSystemStarted = false;
                 await server_ops.clean_ova(server_ip, secret, true);
-                await server_ops.wait_server_recoonect(server_ip);
+                await server_ops.wait_server_reconnect(server_ip);
                 rpc = api.new_rpc(`wss://${server_ip}:8443`);
                 client = rpc.new_client({});
             } else {

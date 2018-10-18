@@ -76,8 +76,8 @@ async function clean_ova(server_ip, secret) {
     }
 }
 
-//will wait untill the server reconnects via rpc
-async function wait_server_recoonect(server_ip) {
+//will wait until the server reconnects via rpc
+async function wait_server_reconnect(server_ip) {
     console.log(`Connecting to the server via rpc`);
     const rpc = api.new_rpc(`wss://${server_ip}:8443`);
     const client = rpc.new_client({});
@@ -153,14 +153,24 @@ async function clean_ova_and_create_system(server_ip, secret) {
         throw new Error('clean_ova::' + e);
     }
     try {
-        await wait_server_recoonect(server_ip);
+        await wait_server_reconnect(server_ip);
     } catch (e) {
-        throw new Error('wait_server_recoonect::' + e);
+        throw new Error('wait_server_reconnect::' + e);
     }
-    try {
-        await validate_activation_code(server_ip);
-    } catch (e) {
-        throw new Error('validate_activation_code::' + e);
+    let retryValidate = true;
+    let retry_count = 1;
+    while (retryValidate) {
+        try {
+            await validate_activation_code(server_ip);
+            retryValidate = false;
+        } catch (e) {
+            retry_count += 1;
+            if (retry_count <= 5) {
+                await P.delay(30 * retry_count * 1000);
+            } else {
+                throw new Error('validate_activation_code::' + e);
+            }
+        }
     }
     try {
         await create_system_and_check(server_ip);
@@ -204,7 +214,7 @@ async function upgrade_server(server_ip, upgrade) {
 exports.enable_nooba_login = enable_nooba_login;
 exports.set_first_install_mark = set_first_install_mark;
 exports.clean_ova = clean_ova;
-exports.wait_server_recoonect = wait_server_recoonect;
+exports.wait_server_reconnect = wait_server_reconnect;
 exports.validate_activation_code = validate_activation_code;
 exports.create_system_and_check = create_system_and_check;
 exports.clean_ova_and_create_system = clean_ova_and_create_system;

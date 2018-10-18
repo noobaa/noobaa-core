@@ -280,12 +280,15 @@ module.exports = {
 
         nodes_stats: {
             type: 'object',
-            required: ['count', 'os', 'nodes_with_issue'],
+            required: ['count', 'hosts_count', 'os', 'nodes_with_issue'],
             properties: {
                 nodes_with_issue: {
                     type: 'integer'
                 },
                 count: {
+                    type: 'integer'
+                },
+                hosts_count: {
                     type: 'integer'
                 },
                 os: {
@@ -317,9 +320,26 @@ module.exports = {
                         amazon: {
                             type: 'integer'
                         },
+                        azure: {
+                            type: 'integer'
+                        },
+                        gcp: {
+                            type: 'integer'
+                        },
                         other: {
                             type: 'integer'
                         }
+                    }
+                },
+                compatible_auth_type: {
+                    type: 'object',
+                    properties: {
+                        v2: {
+                            type: 'integer'
+                        },
+                        v4: {
+                            type: 'integer'
+                        },
                     }
                 },
             }

@@ -90,6 +90,10 @@ async function get_blob(req, res) {
         dbg.log0('response error:', err, req.path);
         if (read_stream.close) read_stream.close();
     });
+    read_stream.on('error', err => {
+        dbg.log0('read stream error:', err, req.path);
+        res.destroy(err);
+    });
 
     if (get_range_md5) {
         const buffers = [];

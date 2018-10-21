@@ -179,9 +179,9 @@ async function fix_supervisor_alias() {
 
 supervisorctl() {
 /bin/supervisorctl $@
-if [$1 == "status' ]; then
+if [ $1 == "status" ]; then
     echo ""
-    if [! -f / tmp / mongo_wrapper_backoff]; then
+    if [ ! -f /tmp/mongo_wrapper_backoff ]; then
         echo "There is no mongo backoff in effect"
     else
         echo "There is a mongo backoff in effect for $(cat /tmp/mongo_wrapper_backoff) seconds"

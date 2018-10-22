@@ -126,13 +126,17 @@ async function get_random_base_version() {
     let version;
     const buf = await fs.readFileAsync(version_map);
     const ver_map = JSON.parse(buf.toString());
-    while (will_retry) {
-        version = ver_map.versions[Math.floor((Math.random() * ver_map.versions.length))];
-        if (version.ver.split('.')[0] >= String(min_version).split('.')[0]) {
-            if (version.ver.split('.')[1] >= String(min_version).split('.')[1]) {
-                will_retry = false;
+    if (ver_map.versions.length > 1) {
+        while (will_retry) {
+            version = ver_map.versions[Math.floor((Math.random() * ver_map.versions.length))];
+            if (version.ver.split('.')[0] >= String(min_version).split('.')[0]) {
+                if (version.ver.split('.')[1] >= String(min_version).split('.')[1]) {
+                    will_retry = false;
+                }
             }
         }
+    } else {
+        version = ver_map.versions[0];
     }
     return version.vhd;
 }

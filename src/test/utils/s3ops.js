@@ -72,7 +72,7 @@ class S3OPS {
                 highWaterMark: 1024 * 1024,
             });
 
-            console.log(`>>> UPLOAD - About to upload object... ${file_name}, size: ${actual_size}`);
+            console.log(`>>> UPLOAD - About to upload object... name: ${file_name}, size: ${actual_size}, bucket: ${bucket}`);
             let start_ts = Date.now();
             await this.s3.putObject({
                 Bucket: bucket,

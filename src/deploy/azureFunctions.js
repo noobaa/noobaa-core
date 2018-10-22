@@ -111,7 +111,7 @@ class AzureFunctions {
             os.version = 'latest';
             os.osType = 'Linux';
             os.hasImage = true;
-            if (ver === '7') { //TODO: remove this statment when we build redhat7 image
+            if (ver === '7') { //TODO: remove this statement when we build redhat7 image
                 os.hasImage = false;
             }
         } else if (osname.includes('win')) {
@@ -319,7 +319,7 @@ class AzureFunctions {
         const { vmName, os, serverIP, agentConf, ip } = params;
         let extension = {
             publisher: 'Microsoft.OSTCExtensions',
-            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
+            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't believe Microsoft
             typeHandlerVersion: '1.5',
             autoUpgradeMinorVersion: true,
             settings: {
@@ -347,7 +347,7 @@ class AzureFunctions {
     }
 
     async createWinSecurityExtension(vmName) {
-        console.log('Createing IaaSAntimalware extantion');
+        console.log('Creating IaaSAntimalware extension');
         const extension = {
             publisher: "Microsoft.Azure.Security",
             virtualMachineExtensionType: 'IaaSAntimalware',
@@ -621,7 +621,7 @@ class AzureFunctions {
         await this.deleteVirtualMachineExtension(vm);
         const extension = {
             publisher: 'Microsoft.OSTCExtensions',
-            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
+            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't believe Microsoft
             typeHandlerVersion: '1.5',
             autoUpgradeMinorVersion: true,
             settings: {
@@ -821,7 +821,7 @@ class AzureFunctions {
             });
     }
 
-    getMachinByIp(ip) {
+    getMachineByIp(ip) {
         return this.listVirtualMachines('', '')
             .then(machines_in_rg => {
                 const machine_with_ip = [];
@@ -901,17 +901,17 @@ class AzureFunctions {
             vmName + '_ext', callback));
     }
 
-    //copyVHD will copy the relevant VHD if it doesnt exsist
+    //copyVHD will copy the relevant VHD if it doesn't exist
     copyVHD(params) {
         const { image, CONTAINER_NAME = 'staging-vhds', location = IMAGE_LOCATION } = params;
         const NOOBAA_IMAGE = location + CONTAINER_NAME + '/' + image;
-        // const image_preffix = image.split('-')[0];
+        // const image_prefix = image.split('-')[0];
         var isDone = false;
-        // check if the containar exsist 
+        // check if the container exist 
         return P.fromCallback(callback => blobSvc.doesContainerExist(CONTAINER_NAME, callback))
-            //if the container doesnt exist create it
+            //if the container doesn't exist create it
             .then(({ exists }) => !exists && P.fromCallback(callback => blobSvc.createContainer(CONTAINER_NAME, callback)))
-            //copy the image (blob) if it doesn't exsist
+            //copy the image (blob) if it doesn't exist
             .then(() => P.fromCallback(callback => blobSvc.doesBlobExist(CONTAINER_NAME, image, callback)))
             .then(({ exists }) => !exists && P.fromCallback(
                     callback => blobSvc.startCopyBlob(NOOBAA_IMAGE, CONTAINER_NAME, image, callback))
@@ -941,7 +941,7 @@ class AzureFunctions {
             vmSize = DEFAULT_VMSIZE,
             CONTAINER_NAME = 'staging-vhds',
             location = IMAGE_LOCATION,
-            latesetRelease = true,
+            latestRelease = true,
             createSystem = false,
             updateNTP = false,
             allocate_pip = true
@@ -959,7 +959,7 @@ class AzureFunctions {
                     return fs.readFileAsync('src/deploy/version_map.json')
                         .then(buf => {
                             const ver_map = JSON.parse(buf.toString());
-                            if (latesetRelease) {
+                            if (latestRelease) {
                                 imagename = ver_map.versions[_.findLastIndex(ver_map.versions, obj => obj.released === true)].vhd;
                             } else {
                                 imagename = ver_map.versions[ver_map.versions.length - 1].vhd;
@@ -1008,7 +1008,7 @@ class AzureFunctions {
                                     })
                                     .then(() => rpc.disconnect_all());
                             } else {
-                                console.log('System created successfuly');
+                                console.log('System created successfully');
                                 return P.resolve();
                             }
                         });
@@ -1018,7 +1018,7 @@ class AzureFunctions {
                 }
             })
             .then(() => {
-                console.log('Server', serverName, 'was successfuly created');
+                console.log('Server', serverName, 'was successfully created');
                 return secret;
             })
             .catch(err => {
@@ -1063,7 +1063,7 @@ class AzureFunctions {
                         should_run = servers.every(srv => srv.address !== slave_ip) && Date.now() < limit;
                         return P.delay(should_run ? WAIT_INTERVAL : 0);
                     })
-                    .catch(err => console.log(`Caught ${err}, supressing`))
+                    .catch(err => console.log(`Caught ${err}, suppressing`))
                 );
             })
             .tap(() => console.log(`successfully added server ${slave_ip} to cluster, with master ${master_ip}`))

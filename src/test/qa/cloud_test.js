@@ -137,7 +137,7 @@ async function create_noobaa_for_compatible() {
     try {
         if (compatible_ip) {
             server.ip = compatible_ip;
-            server.name = await azf.getMachinByIp(compatible_ip);
+            server.name = await azf.getMachineByIp(compatible_ip);
             server.secret = compatible_password;
             server.s3ops = new S3OPS({ ip: compatible_ip, system_verify_name: server.name });
             console.log(server);

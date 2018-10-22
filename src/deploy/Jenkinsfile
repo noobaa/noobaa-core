@@ -7,7 +7,7 @@ def storage = 'jenkinspipeline7'
 def vm_size = 'B'
 def azureEnv = " --resource ${resource} --vnet ${vnet} --storage ${storage} --vm_size ${vm_size}"
 def env_builder = "node src/test/framework/test_env_builder.js --skip_configuration --upgrade /tmp/noobaa-NVA-latest.tar.gz "
-def env_builder_clean = "node src/test/framework/test_env_builder.js --clean_only"
+def env_builder_clean = "node src/test/framework/test_env_builder.js --clean_only --clean_by_id"
 def build = env.BUILD
 
 node('pipeline') {
@@ -60,7 +60,7 @@ node('pipeline') {
                 pipePath="$JENKINS_URL/job/Test/job/Test-Pipeline/api/xml"
             else
                 echo "Build is: ${build}"
-                path="$JENKINS_URL/job/Build/job/Build-Package-Master/${build}"
+                path="$JENKINS_URL/job/Build/job/Build-Package/${build}"
                 pipePath="$JENKINS_URL/job/Test/job/Test-Pipeline-QA/api/xml"
             fi
             curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L \${path}/api/xml >/tmp/lastSuccessfulBuild.xml
@@ -99,7 +99,7 @@ node('pipeline') {
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh &> /dev/null
             id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)1
-            flags="${azureEnv} --name account --id \${id} --random_base_version --min_version 2.3"
+            flags="${azureEnv} --name account --id \${id} --random_base_version --min_version 3.0"
             ${env_builder} \${flags} \
                 --js_script $WORKSPACE/src/test/pipeline/account_pipeline.js
             """
@@ -215,24 +215,24 @@ node('pipeline') {
             ${env_builder_clean} \${flags}
             """
         },
-        // "cluster test": {
-        //     echo 'Running cluster_test'
-        //     sh script: """
-        //     export NVM_DIR=/opt/nvm
-        //     . /opt/nvm/nvm.sh &> /dev/null
-        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)9
-        //     flags="${azureEnv} --name cluster --id \${id}"
-        //     node src/test/qa/cluster_test.js \
-        //         \${flags} \
-        //         --upgrade_pack /tmp/noobaa-NVA-latest.tar.gz 
-        //     """
-        //     echo 'Deleting cluster_test env'
-        //     sh script: """
-        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)9
-        //     flags="${azureEnv} --name cluster --id \${id} "
-        //     ${env_builder_clean} \${flags}
-        //     """
-        // },
+        "cluster test": {
+            echo 'Running cluster_test'
+            sh script: """
+            export NVM_DIR=/opt/nvm
+            . /opt/nvm/nvm.sh &> /dev/null
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)9
+            flags="${azureEnv} --name cluster --id \${id}"
+            node src/test/qa/cluster_test.js \
+                \${flags} \
+                --upgrade_pack /tmp/noobaa-NVA-latest.tar.gz 
+            """
+            echo 'Deleting cluster_test env'
+            sh script: """
+            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)9
+            flags="${azureEnv} --name cluster --id \${id} "
+            ${env_builder_clean} \${flags}
+            """
+        },
         // "TUI": {
         //     echo 'Running test_TUI'
         //     sh script: """
@@ -262,7 +262,7 @@ node('pipeline') {
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh &> /dev/null
             id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)11  
-            flags="${azureEnv} --name SystemConfig --id \${id} --skip_agent_creation --random_base_version --min_version 2.9"
+            flags="${azureEnv} --name SystemConfig --id \${id} --skip_agent_creation --random_base_version --min_version 3.0"
             ${env_builder} \${flags} \
                 --js_script $WORKSPACE/src/test/pipeline/system_config_pipeline.js
             """
@@ -279,7 +279,7 @@ node('pipeline') {
             export NVM_DIR=/opt/nvm
             . /opt/nvm/nvm.sh &> /dev/null
             id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)12
-            flags="${azureEnv} --name CloudTest --id \${id} --skip_agent_creation"
+            flags="${azureEnv} --name CloudTest --id \${id} --skip_agent_creation --no_exit_on_success"
             ${env_builder} \${flags} \
                 --js_script $WORKSPACE/src/test/qa/cloud_test.js
             """

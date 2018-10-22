@@ -449,7 +449,7 @@ async function checkExcludeDisk(excludeList) {
     const excludeF = test_nodes_names.filter(node => node.includes('-F-'));
     const excludes_exclude = test_nodes_names.filter(node => node.includes('exclude'));
     const activated_nodes_list = await excludeE.concat(excludeF).concat(excludes_exclude);
-    await af.deactiveAgents(server_ip, activated_nodes_list);
+    await af.deactivateAgents(server_ip, activated_nodes_list);
 }
 
 //check how many agents there are now, expecting agent not to be included.

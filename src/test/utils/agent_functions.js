@@ -95,7 +95,7 @@ async function list_optimal_agents(server_ip, suffix = '') {
     return test_optimal_nodes_names;
 }
 
-// Creates agent using map [agentname,agentOs]
+// Creates agent using map [agentName,agentOs]
 async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives = [], agentmap) {
     const created_agents = [];
     const agents_to_create = Array.from(agentmap.keys());
@@ -105,6 +105,7 @@ async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives
             const os = agentmap.get(name);
             const { hasImage } = await azf.getImagesfromOSname(os);
             if (hasImage) {
+                console.log(`Creating ${name} using createAgentFromImage`);
                 await azf.createAgentFromImage({
                     vmName: name,
                     vmSize: 'Standard_B2s',
@@ -116,6 +117,7 @@ async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives
                 });
                 created_agents.push(name);
             } else {
+                console.log(`Creating ${name} using createAgent`);
                 await azf.createAgent({
                     vmName: name,
                     storage,
@@ -137,7 +139,7 @@ async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives
 }
 
 
-//TODO: the if inside this function and the isInclude is for the use of agent_metrix test, need to make it work.
+//TODO: the if inside this function and the isInclude is for the use of agent_matrix test, need to make it work.
 // function createAgents(azf, server_ip, storage, resource_vnet, isInclude, exclude_drives = [], ...oses) {
 async function createAgents(azf, server_ip, storage, vnet, exclude_drives = [], suffix = '', oses) {
     console.log(`starting the create agents stage`);
@@ -256,7 +258,7 @@ async function activeAgents(server_ip, deactivated_nodes_list) {
     }
 }
 
-async function deactiveAgents(server_ip, activated_nodes_list) {
+async function deactivateAgents(server_ip, activated_nodes_list) {
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
@@ -284,8 +286,8 @@ async function activeAllHosts(server_ip) {
     }
 }
 
-async function deactiveAllHosts(server_ip) {
-    console.log(`Deactiveing All Hosts`);
+async function deactivateAllHosts(server_ip) {
+    console.log(`Deactivating All Hosts`);
     const rpc = api.new_rpc('wss://' + server_ip + ':8443');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
@@ -377,33 +379,33 @@ async function deleteAgents(server_ip, suffix = '') {
     console.warn(`${Yellow}Num nodes after the delete agent are ${listNods.length}${NC}`);
 }
 
-//get a list of agents that names are inculude suffix, deletes corresponding VM and agents from NooBaa server
+//get a list of agents that names are include suffix, deletes corresponding VM and agents from NooBaa server
 async function clean_agents(azf, server_ip, suffix = '') {
     const testNodes = await getTestNodes(server_ip, suffix);
-    await P.map(testNodes, async agentname => {
+    await P.map(testNodes, async agent_name => {
         try {
-            await azf.deleteVirtualMachine(agentname);
+            await azf.deleteVirtualMachine(agent_name);
         } catch (err) {
-            console.log(`Blob ${agentname} not found - skipping. Error: `, err.message.split('\n')[0]);
+            console.log(`Blob ${agent_name} not found - skipping. Error: `, err.message.split('\n')[0]);
         }
     });
     await deleteAgents(server_ip, suffix);
 }
 
 function getRandomOsesFromList(amount, oses) {
-    let listforrnd = oses.slice();
+    let listForRnd = oses.slice();
     let listOses = [];
     if (amount <= oses.length) {
         for (let i = 0; i < amount; i++) {
-            let rand = Math.floor(Math.random() * listforrnd.length);
-            listOses.push(listforrnd[rand]);
-            listforrnd.splice(rand, 1);
+            let rand = Math.floor(Math.random() * listForRnd.length);
+            listOses.push(listForRnd[rand]);
+            listForRnd.splice(rand, 1);
         }
     } else {
         for (let i = 0; i < oses.length; i++) {
-            let rand = Math.floor(Math.random() * listforrnd.length);
-            listOses.push(listforrnd[rand]);
-            listforrnd.splice(rand, 1);
+            let rand = Math.floor(Math.random() * listForRnd.length);
+            listOses.push(listForRnd[rand]);
+            listForRnd.splice(rand, 1);
         }
         for (let i = 0; i < amount - oses.length; i++) {
             let rand = Math.floor(Math.random() * oses.length);
@@ -414,9 +416,9 @@ function getRandomOsesFromList(amount, oses) {
     return listOses;
 }
 
-async function stopRandomAgents(azf, server_ip, amount, suffix, agentlist) {
+async function stopRandomAgents(azf, server_ip, amount, suffix, agentList) {
     const offlineAgents = await number_offline_nodes(server_ip);
-    const stopped_agents = getRandomOsesFromList(amount, agentlist);
+    const stopped_agents = getRandomOsesFromList(amount, agentList);
     for (const agent of stopped_agents) {
         await stop_agent(azf, agent);
     }
@@ -430,7 +432,7 @@ async function stopRandomAgents(azf, server_ip, amount, suffix, agentlist) {
     }
     const optimal_agents = await list_optimal_agents(server_ip, suffix);
     const onlineAgents = optimal_agents.length;
-    const expectedOnlineAgents = agentlist.length - amount;
+    const expectedOnlineAgents = agentList.length - amount;
     if (onlineAgents === expectedOnlineAgents) {
         console.log(`Number of online agents is: ${onlineAgents} - as should`);
     } else {
@@ -454,7 +456,7 @@ async function waitForAgentsAmount(server_ip, numberAgents) {
             await P.delay(5 * 1000);
         }
     }
-    console.warn(`We excpected ${agents}, and got ${numberAgents}`);
+    console.warn(`We expected ${agents}, and got ${numberAgents}`);
     return false;
 }
 
@@ -475,14 +477,29 @@ async function startOfflineAgents(azf, server_ip, oses) {
 }
 
 async function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suffix, oses) {
-    let agentmap = new Map();
+    const agentmap = new Map();
     const createdAgents = getRandomOsesFromList(amount, oses);
     for (let i = 0; i < createdAgents.length; i++) {
         agentmap.set(suffix + i, createdAgents[i]);
     }
-    await createAgentsFromMap(azf, server_ip, storage, resource_vnet, [], agentmap);
+    let retryCreate = true;
+    let retry_count = 1;
+    const MAX_RETRIES = 5;
+    while (retryCreate) {
+        try {
+            await createAgentsFromMap(azf, server_ip, storage, resource_vnet, [], agentmap);
+            retryCreate = false;
+        } catch (e) {
+            retry_count += 1;
+            if (retry_count <= MAX_RETRIES) {
+                await P.delay(30 * retry_count * 1000);
+            } else {
+                throw new Error('createAgentsFromMap::' + e);
+            }
+        }
+    }
     const listNodes = await list_nodes(server_ip);
-    let node_number_after_create = listNodes.length;
+    const node_number_after_create = listNodes.length;
     console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
     console.warn(`Node names are ${listNodes.map(node => node.name)}`);
     return agentmap;
@@ -515,11 +532,10 @@ exports.getAgentConf = getAgentConf;
 exports.getAgentConfInstallString = getAgentConfInstallString;
 exports.runAgentCommandViaSsh = runAgentCommandViaSsh;
 exports.activeAgents = activeAgents;
-exports.deactiveAgents = deactiveAgents;
+exports.deactivateAgents = deactivateAgents;
 exports.activeAllHosts = activeAllHosts;
-exports.deactiveAllHosts = deactiveAllHosts;
+exports.deactivateAllHosts = deactivateAllHosts;
 exports.createAgentsFromMap = createAgentsFromMap;
-// exports.create_agents = create_agents;
 exports.deleteAgents = deleteAgents;
 exports.clean_agents = clean_agents;
 exports.number_offline_agents = number_offline_nodes;

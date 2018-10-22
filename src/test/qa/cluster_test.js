@@ -31,7 +31,7 @@ let master_ip;
 let s3ops;
 let rpc;
 let client;
-const serversincluster = argv.servers || 3;
+const serversInCluster = argv.servers || 3;
 let failures_in_test = false;
 let errors = [];
 
@@ -74,7 +74,7 @@ function usage() {
     --id                    -   an id that is attached to the server names
     --upgrade_pack          -   location of the file for upgrade
     --agents_number         -   number of agents to add (default: ${agents_number})
-    --servers               -   number of servers to create cluster from (default: ${serversincluster})
+    --servers               -   number of servers to create cluster from (default: ${serversInCluster})
     --clean                 -   will only delete the env and exit.
     --help                  -   show this help
     `);
@@ -207,7 +207,7 @@ function checkClusterStatus(servers, oldMasterNumber) {
                 console.log(`${YELLOW}Previous master is ${servers[oldMasterNumber].name}, status: ${
                     res}${NC}`);
             } else {
-                console.log(`${YELLOW}Previous master is undesicive - too much servers were down${NC}`);
+                console.log(`${YELLOW}Previous master is undeceive - too much servers were down${NC}`);
             }
         })
         .then(() => {
@@ -571,7 +571,7 @@ function runForthFlow() {
 
 return azf.authenticate()
     .then(() => {
-        for (let i = 0; i < serversincluster; ++i) {
+        for (let i = 0; i < serversInCluster; ++i) {
             servers.push({
                 name: prefix + i,
                 secret: '',
@@ -604,7 +604,7 @@ return azf.authenticate()
           const start = Date.now();
           let cycle = 0;
           return promise_utils.pwhile(() => (timeout === 0 || (Date.now() - start) < timeInMin), () => {
-              let rand = Math.floor(Math.random() * serversincluster);
+              let rand = Math.floor(Math.random() * serversInCluster);
               console.log(`${RED}<==== Starting a new cycle ${cycle}... ====>${NC}`);
               let prom;
               if (servers[rand].status === 'CONNECTED') {

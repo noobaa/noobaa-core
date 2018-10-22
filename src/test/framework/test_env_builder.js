@@ -351,23 +351,22 @@ function run_tests() {
         });
 }
 
-function clean_test_env() {
+async function clean_test_env() {
     if (clean_by_id) {
-        return azf.listVirtualMachinesBySuffix(id)
-            .then(vms_to_delete => {
-                console.log(`deleting virtual machines`, vms_to_delete);
-                return P.map(vms_to_delete, vm =>
-                    azf.deleteVirtualMachine(vm)
-                    .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
-                );
-            });
+        const vms_list = await azf.listVirtualMachines('', '');
+        const vms_to_delete = vms_list.filter(vm => vm.includes(id));
+        console.log(`deleting virtual machines`, vms_to_delete);
+        await P.map(vms_to_delete, vm =>
+            azf.deleteVirtualMachine(vm)
+            .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
+        );
     } else {
         let vms_to_delete = [
             ...agents.map(agent => agent.name),
             server.name.replace(/_/g, '-')
         ];
         console.log(`deleting virtual machines`, vms_to_delete);
-        return P.map(vms_to_delete, vm =>
+        await P.map(vms_to_delete, vm =>
             azf.deleteVirtualMachine(vm)
             .catch(err => console.error(`failed deleting ${vm} with error: `, err.message))
         );
@@ -416,6 +415,13 @@ function verify_args() {
     if (num_agents < min_required_agents) {
         min_required_agents = num_agents;
     }
+
+    if (clean_by_id) {
+        if (id === 0) {
+            console.error(`When using --clean_by_id we must use also --id <id>`);
+            process.exit(1);
+        }
+    }
 }
 
 function print_usage() {
@@ -428,10 +434,10 @@ Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storag
   --name                        -   the vm name
   --id                          -   run id - will be added to server name and agents
   --clean_only                  -   only delete resources from previous runs
-  --clean_by_id                 -   delete all the machines with the specifyed id
+  --clean_by_id                 -   delete all the machines with the specified id
   --cleanup                     -   delete all resources from azure env after the run
   --upgrade                     -   path to an upgrade package
-  --rerun_upgrade               -   reruning the upgrade after the first upgrade
+  --rerun_upgrade               -   rerunning the upgrade after the first upgrade
   --server_ip                   -   existing server ip
   --server_secret               -   existing server secret
   --js_script                   -   js script to run after env is ready (receives server_name, server_ip server_secret arguments)
@@ -446,8 +452,8 @@ Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storag
   --min_required_agents         -   min number of agents required to run the desired tests (default: ${
       min_required_agents}), will fail if could not create this number of agents
   --vm_size                     -   vm size can be A (A2) or B (B2) (default: ${vm_size})
-  --random_base_version         -   will create a randome version of base noobaa server
-  --agents_disk_size            -   created agents with diffrent disk size in GB (min: 40, max 1023)
+  --random_base_version         -   will create a random version of base noobaa server
+  --agents_disk_size            -   created agents with different disk size in GB (min: 40, max 1023)
 `);
 }
 

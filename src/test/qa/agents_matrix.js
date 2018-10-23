@@ -117,7 +117,7 @@ async function runClean() {
             console.log(`VM ${osname}-${id} not found - skipping...`);
         }
     });
-    //running all all the VM machines and deleating all the disks.
+    //running all all the VM machines and deleting all the disks.
     await P.map(oses, async osname => {
         try {
             await azf.deleteBlobDisks(osname + suffix);
@@ -131,7 +131,7 @@ async function runClean() {
     }
 }
 
-async function createAgentMachins(osname, exclude_drives) {
+async function createAgentMachines(osname, exclude_drives) {
     if (osname === 'ubuntu12' || osname === 'ubuntu14' || osname === 'ubuntu18') {
         console.log(`skipping creation of ${osname}`);
         // try {
@@ -200,7 +200,7 @@ async function createAgents(isInclude, excludeList) {
     }
     if (isInclude) {
         await P.map(osesToCreate, async osname => {
-            await createAgentMachins(osname, excludeList);
+            await createAgentMachines(osname, excludeList);
         });
         if (created_agents.length < min_required_agents) {
             saveErrorAndExit(`Could not create the minimum number of required agents (${min_required_agents})`);
@@ -278,10 +278,10 @@ async function runExtensions(vms, script_name, flags = '') {
         }
     });
     await P.map(vms, async osname => {
-        console.log(`running extention: ${script_name}`);
+        console.log(`running extension: ${script_name}`);
         const extension = {
             publisher: 'Microsoft.OSTCExtensions',
-            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't beleive Microsoft
+            virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't believe Microsoft
             typeHandlerVersion: '1.5',
             autoUpgradeMinorVersion: true,
             settings: {
@@ -313,7 +313,7 @@ async function runExtensions(vms, script_name, flags = '') {
 }
 
 async function upgradeAgent() {
-    // if upgrade pack is not specifyed then skipping this stage.
+    // if upgrade pack is not specified then skipping this stage.
     console.log(`Upgrade_pack: ${upgrade_pack}`);
     if (!_.isUndefined(upgrade_pack)) {
         console.log('Starting the upgrade agents stage');
@@ -362,23 +362,23 @@ async function addDisksToMachine(vms, diskSize) {
 }
 
 async function checkIncludeDisk() {
-    const number_befor_adding_disks = await af.getTestNodes(server_ip, suffix);
-    console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks.length}${NC}`);
+    const number_before_adding_disks = await af.getTestNodes(server_ip, suffix);
+    console.log(`${Yellow}Num nodes before adding disks is: ${number_before_adding_disks.length}${NC}`);
     await addDisksToMachine(created_agents, size);
     //map the disks
     await runExtensions(created_agents, 'map_new_disk');
     await P.delay(120 * 1000);
     await af.isIncluded({
         server_ip,
-        previous_agent_number: number_befor_adding_disks.length,
+        previous_agent_number: number_before_adding_disks.length,
         additional_agents: created_agents.length,
         suffix
     });
 }
 
-async function addExcludeDisks(excludeList, number_befor_adding_disks) {
+async function addExcludeDisks(excludeList, number_before_adding_disks) {
     //adding disk to exclude them
-    console.log(`${Yellow}Num nodes before adding disks is: ${number_befor_adding_disks}${NC}`);
+    console.log(`${Yellow}Num nodes before adding disks is: ${number_before_adding_disks}${NC}`);
     await addDisksToMachine(created_agents, size);
     await runExtensions(created_agents, 'map_new_disk', '-e');
     await P.delay(120 * 1000);
@@ -389,9 +389,9 @@ async function addExcludeDisks(excludeList, number_befor_adding_disks) {
     await P.delay(120 * 1000);
     await af.isIncluded({
         server_ip,
-        previous_agent_number: number_befor_adding_disks,
+        previous_agent_number: number_before_adding_disks,
         additional_agents: 0,
-        print: 'exluding small disks',
+        print: 'excluding small disks',
         suffix
     });
     //adding disk to check that it is not getting exclude
@@ -400,12 +400,12 @@ async function addExcludeDisks(excludeList, number_befor_adding_disks) {
     await P.delay(120 * 1000);
     await af.isIncluded({
         server_ip,
-        previous_agent_number: number_befor_adding_disks,
+        previous_agent_number: number_before_adding_disks,
         additional_agents: created_agents.length,
-        print: 'exlude',
+        print: 'exclude',
         suffix
     });
-    return number_befor_adding_disks + created_agents.length;
+    return number_before_adding_disks + created_agents.length;
 }
 
 async function checkExcludeDisk(excludeList) {
@@ -415,7 +415,7 @@ async function checkExcludeDisk(excludeList) {
     let includes_exclude1 = nodes_befor_adding_disks.filter(node => node.includes('exclude1'));
     const prevNum = nodes_befor_adding_disks.length - includesE.concat(includesF.concat(includes_exclude1)).length;
     const number_befor_adding_disks = await addExcludeDisks(excludeList, prevNum);
-    console.log(`The numberof agents befor adding disks is: ${number_befor_adding_disks}`);
+    console.log(`The number of agents before adding disks is: ${number_befor_adding_disks}`);
     //verifying write, read, diag and debug level.
     await verifyAgent();
     //activate a deactivated node
@@ -425,7 +425,7 @@ async function checkExcludeDisk(excludeList) {
     // return includesE.concat(includes_exclude1);
     await af.activeAgents(server_ip, includesE.concat(includes_exclude1));
     // .then(res => af.activeAgents(server_ip, res)))
-    //currently we are using a machine with max 4 disks. skiiping the below.
+    //currently we are using a machine with max 4 disks. skipping the below.
     /*
     //verifying write, read, diag and debug level.
     .then(verifyAgent)
@@ -464,7 +464,7 @@ async function isExcluded(excludeList) {
             return mount;
         })
         .filter(mount => excludeList.includes(mount)).length;
-    // excludeListPerOSType assums that excludeList contain 2 pathes per os.
+    // excludeListPerOSType assume that excludeList contain 2 paths per os.
     const excludeListPerOSType = 2;
     const expectedExcludedCount = (excludeList.length / excludeListPerOSType * created_agents.length);
     if (excludedCount === expectedExcludedCount) {
@@ -494,7 +494,7 @@ async function includeExcludeCycle(isInclude) {
         await af.getAgentConf(server_ip, excludeList);
         await runExtensions(created_agents, 'map_new_disk', '-r');
     }
-    // creating agents on the VM - diffrent oses.
+    // creating agents on the VM - different oses.
     await runCreateAgents(isInclude, excludeList);
     // verifying write, read, diag and debug level.
     console.log(``);
@@ -507,7 +507,7 @@ async function includeExcludeCycle(isInclude) {
     // })
     // verifying write, read, diag and debug level.
     await verifyAgent();
-    // adding phisical disks to the machines.
+    // adding physical disks to the machines.
     if (isInclude) {
         await checkIncludeDisk();
     } else {
@@ -515,8 +515,8 @@ async function includeExcludeCycle(isInclude) {
     }
     //verifying write, read, diag and debug level.
     await verifyAgent();
-    //enableing the entire host or enabling with random number of agents enabled
-    await af.deactiveAllHosts(server_ip);
+    //enabling the entire host or enabling with random number of agents enabled
+    await af.deactivateAllHosts(server_ip);
     //verifying write, read, diag and debug level.
     await verifyAgent();
     //disabling the entire host
@@ -525,7 +525,7 @@ async function includeExcludeCycle(isInclude) {
     await upgradeAgent();
     //verifying write, read, diag and debug level after the upgrade.
     await verifyAgent();
-    // Cleaning the machine Extention and installing new one that remove nodes.
+    // Cleaning the machine Extension and installing new one that remove nodes.
     if (!skipsetup) {
         await deleteAgent();
     }
@@ -544,7 +544,7 @@ async function main() {
         console.error(`Could not connect to Azure`, e);
         process.exit(1);
     }
-    //deleteing the previous test agents machins.
+    //deleting the previous test agents machines.
     if (!(skipsetup || updateenv)) {
         await runClean();
     }

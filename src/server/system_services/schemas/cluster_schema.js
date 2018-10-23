@@ -147,9 +147,6 @@ module.exports = {
                         'UPGRADE_COMPLETED',
                     ]
                 },
-                stage_changed_date: {
-                    idate: true
-                },
                 error: {
                     type: 'string'
                 },

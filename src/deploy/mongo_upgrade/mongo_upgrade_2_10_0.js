@@ -76,5 +76,15 @@ function fix_bucketstats_null_content_type() {
 }
 
 
+function unset_upgrade_stage_changed_date() {
+    db.clusters.updateMany({}, {
+        $unset: {
+            "upgrade.stage_changed_date": 1
+        }
+    });
+}
+
+
 fix_bucket_stats_writes();
 fix_bucketstats_null_content_type();
+unset_upgrade_stage_changed_date();

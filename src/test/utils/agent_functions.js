@@ -101,36 +101,47 @@ async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives
     const agents_to_create = Array.from(agentmap.keys());
     const agentConf = await getAgentConf(server_ip, exclude_drives);
     await P.map(agents_to_create, async name => {
-        try {
-            const os = agentmap.get(name);
-            const { hasImage } = await azf.getImagesfromOSname(os);
-            if (hasImage) {
-                console.log(`Creating ${name} using createAgentFromImage`);
-                await azf.createAgentFromImage({
-                    vmName: name,
-                    vmSize: 'Standard_B2s',
-                    storage,
-                    vnet,
-                    os,
-                    server_ip,
-                    shouldInstall: true,
-                });
-                created_agents.push(name);
-            } else {
-                console.log(`Creating ${name} using createAgent`);
-                await azf.createAgent({
-                    vmName: name,
-                    storage,
-                    vnet,
-                    os,
-                    vmsize: 'Standard_B2s',
-                    agentConf,
-                    server_ip
-                });
-                created_agents.push(name);
+        let retryCreate = true;
+        let retry_count = 1;
+        const MAX_RETRIES = 5;
+        while (retryCreate) {
+            try {
+                const os = agentmap.get(name);
+                const { hasImage } = await azf.getImagesfromOSname(os);
+                if (hasImage) {
+                    console.log(`Creating ${name} using createAgentFromImage`);
+                    await azf.createAgentFromImage({
+                        vmName: name,
+                        vmSize: 'Standard_B2s',
+                        storage,
+                        vnet,
+                        os,
+                        server_ip,
+                        shouldInstall: true,
+                    });
+                    created_agents.push(name);
+                } else {
+                    console.log(`Creating ${name} using createAgent`);
+                    await azf.createAgent({
+                        vmName: name,
+                        storage,
+                        vnet,
+                        os,
+                        vmsize: 'Standard_B2s',
+                        agentConf,
+                        server_ip
+                    });
+                    created_agents.push(name);
+                }
+                retryCreate = false;
+            } catch (e) {
+                retry_count += 1;
+                if (retry_count <= MAX_RETRIES) {
+                    await P.delay(30 * retry_count * 1000);
+                } else {
+                    throw new Error(`create agent ${name}`, e);
+                }
             }
-        } catch (e) {
-            console.error(`Creating agent ${name} FAILED `, e);
         }
     });
     console.warn(`Waiting for a 2 min for agents to come up...`);
@@ -482,21 +493,10 @@ async function createRandomAgents(azf, server_ip, storage, resource_vnet, amount
     for (let i = 0; i < createdAgents.length; i++) {
         agentmap.set(suffix + i, createdAgents[i]);
     }
-    let retryCreate = true;
-    let retry_count = 1;
-    const MAX_RETRIES = 5;
-    while (retryCreate) {
-        try {
-            await createAgentsFromMap(azf, server_ip, storage, resource_vnet, [], agentmap);
-            retryCreate = false;
-        } catch (e) {
-            retry_count += 1;
-            if (retry_count <= MAX_RETRIES) {
-                await P.delay(30 * retry_count * 1000);
-            } else {
-                throw new Error('createAgentsFromMap::' + e);
-            }
-        }
+    try {
+        await createAgentsFromMap(azf, server_ip, storage, resource_vnet, [], agentmap);
+    } catch (e) {
+        throw new Error('createAgentsFromMap::' + e);
     }
     const listNodes = await list_nodes(server_ip);
     const node_number_after_create = listNodes.length;

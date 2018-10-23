@@ -12,8 +12,6 @@ const system_utils = require('../utils/system_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const md_aggregator = require('./md_aggregator');
 
-const LIMIT = 100;
-
 /**************
  *
  * DB_CLEANER
@@ -23,7 +21,7 @@ const LIMIT = 100;
  * @this worker instance
  *
  *************************/
-function background_worker() {
+async function background_worker() {
     if (!system_store.is_finished_initial_load) {
         dbg.log0('DB_CLEANER: system_store did not finish initial load');
         return;
@@ -33,129 +31,122 @@ function background_worker() {
     const now = Date.now();
 
     let last_date_to_remove = now - config.DB_CLEANER.BACK_TIME;
-
-    if (this.last_check && now - this.last_check < config.DB_CLEANER.CYCLE) return P.resolve();
-    const skip = new Error('skip');
-
-    return P.resolve()
-        .then(() => {
-            this.last_check = now;
-            const { from_time } = md_aggregator.find_minimal_range({
-                target_now: now,
-                system_store: system_store
-            });
-            dbg.log2('DB_CLEANER: md_aggreagator at', new Date(from_time));
-            if (from_time < last_date_to_remove) {
-                dbg.log0('DB_CLEANER: waiting for md_aggreagator to advance to later than', new Date(last_date_to_remove));
-                throw skip; // if md_aggreagator is still working on more than 3 month old objects - exit
-            }
-            return clean_md_store(last_date_to_remove);
-        })
-        .then(() => clean_nodes_store(last_date_to_remove))
-        .then(() => clean_system_store(last_date_to_remove))
-        .then(() => {
-            dbg.log0('DB_CLEANER:', 'END');
-            return config.DB_CLEANER.CYCLE;
-        })
-        .catch(err => {
-            if (err === skip) {
-                dbg.log0('DB_CLEANER:', 'SKIP');
-                return config.DB_CLEANER.CYCLE;
-            }
-            dbg.error('DB_CLEANER:', 'ERROR', err, err.stack);
-            return config.DB_CLEANER.CYCLE;
-        });
+    if (this.last_check && now - this.last_check < config.DB_CLEANER.CYCLE) return config.DB_CLEANER.CYCLE;
+    this.last_check = now;
+    const { from_time } = md_aggregator.find_minimal_range({
+        target_now: now,
+        system_store: system_store
+    });
+    dbg.log2('DB_CLEANER: md_aggreagator at', new Date(from_time));
+    if (from_time < last_date_to_remove) {
+        dbg.log0('DB_CLEANER: waiting for md_aggreagator to advance to later than', new Date(last_date_to_remove));
+        return config.DB_CLEANER.CYCLE; // if md_aggreagator is still working on more than 3 month old objects - exit
+    }
+    dbg.log0('DB_CLEANER:', 'START');
+    await clean_md_store(last_date_to_remove);
+    await clean_nodes_store(last_date_to_remove);
+    await clean_system_store(last_date_to_remove);
+    dbg.log0('DB_CLEANER:', 'END');
+    return config.DB_CLEANER.CYCLE;
 }
 
-function clean_md_store(last_date_to_remove) {
-    dbg.log0('DB_CLEANER: checking the number of objects deleted before', new Date(last_date_to_remove));
-    return MDStore.instance().find_deleted_objects(last_date_to_remove, LIMIT)
-        .then(objects => {
-            dbg.log2('DB_CLEANER: list objects:', objects);
-            return objects &&
-                P.map(objects, obj => db_delete_object_parts(obj), { concurrency: 10 })
-                .then(() => MDStore.instance().db_delete_objects(objects));
-        })
-        .then(() => {
-            dbg.log0('DB_CLEANER: checking the number of blocks deleted before', new Date(last_date_to_remove));
-            return MDStore.instance().find_deleted_blocks(last_date_to_remove, LIMIT);
-        })
-        .then(blocks => {
-            dbg.log2('DB_CLEANER: list blocks:', blocks);
-            return blocks && MDStore.instance().db_delete_blocks(blocks);
-        })
-        .then(() => {
-            dbg.log0('DB_CLEANER: checking the number of chunks deleted before', new Date(last_date_to_remove));
-            return MDStore.instance().find_deleted_chunks(last_date_to_remove, LIMIT);
-        }) // remove the objects
-        .then(chunks => {
-            dbg.log2('DB_CLEANER: list chunks:', chunks);
-            const filtered_chunks = chunks.filter(chunk =>
-                MDStore.instance().has_any_blocks_for_chunk(chunk) &&
-                MDStore.instance().has_any_parts_for_chunk(chunk)
-            );
-            dbg.log2('DB_CLEANER: list chunks with no blocks and no parts to be removed from DB', filtered_chunks);
-            return filtered_chunks && MDStore.instance().db_delete_chunks(filtered_chunks);
-        });
+async function clean_md_store(last_date_to_remove) {
+    const total_objects_count = await MDStore.instance().count_total_objects();
+    if (total_objects_count < config.DB_CLEANER.MAX_TOTAL_DOCS) {
+        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER.MAX_TOTAL_DOCS} objects in MD-STORE 
+        ${total_objects_count} objects - Skipping...`);
+        return;
+    }
+    dbg.log0('DB_CLEANER: checking md-store for documents deleted before', new Date(last_date_to_remove));
+    const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT);
+    dbg.log2('DB_CLEANER: list objects:', objects_to_remove);
+    if (objects_to_remove.length) {
+        await P.map(objects_to_remove, obj => db_delete_object_parts(obj), { concurrency: 10 });
+        await MDStore.instance().db_delete_objects(objects_to_remove);
+    }
+    const blocks_to_remove = await MDStore.instance().find_deleted_blocks(last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT);
+    dbg.log2('DB_CLEANER: list blocks:', blocks_to_remove);
+    if (blocks_to_remove.length) await MDStore.instance().db_delete_blocks(blocks_to_remove);
+    const chunks_to_remove = await MDStore.instance().find_deleted_chunks(last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT);
+    const filtered_chunks = chunks_to_remove.filter(async chunk =>
+        !(await MDStore.instance().has_any_blocks_for_chunk(chunk)) &&
+        !(await MDStore.instance().has_any_parts_for_chunk(chunk)));
+    dbg.log2('DB_CLEANER: list chunks with no blocks and no parts to be removed from DB', filtered_chunks);
+    if (filtered_chunks.length) await MDStore.instance().db_delete_chunks(filtered_chunks);
+    dbg.log0(`DB_CLEANER: removed ${objects_to_remove.length + blocks_to_remove.length + filtered_chunks.length} documents from md-store`);
 }
 
-function db_delete_object_parts(obj) {
-    if (!obj) return P.resolve();
-    return P.join(
+async function db_delete_object_parts(obj) {
+    if (!obj) return;
+    return P.all([
         MDStore.instance().db_delete_parts_of_object(obj),
         MDStore.instance().db_delete_multiparts_of_object(obj)
-    );
+    ]);
 }
 
-function clean_nodes_store(last_date_to_remove) {
-    dbg.log0('DB_CLEANER: checking the number of nodes deleted before', new Date(last_date_to_remove));
+async function clean_nodes_store(last_date_to_remove) {
+    const total_nodes_count = await nodes_store.count_total_nodes();
+    if (total_nodes_count < config.DB_CLEANER.MAX_TOTAL_DOCS) {
+        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER.MAX_TOTAL_DOCS} nodes in nodes-store 
+        ${total_nodes_count} nodes - Skipping...`);
+        return;
+    }
+    dbg.log0('DB_CLEANER: checking nodes-store for nodes deleted before', new Date(last_date_to_remove));
     const query = {
         deleted: {
             $lt: last_date_to_remove
         },
     };
     const options = {
-        limit: LIMIT,
+        limit: config.DB_CLEANER.DOCS_LIMIT,
         fields: {
             _id: 1,
             deleted: 1
         }
     };
-    return nodes_store.find_nodes(query, options)
-        .then(nodes => mongo_utils.uniq_ids(nodes, '_id'))
-        .then(node_ids => {
-            dbg.log2('DB_CLEANER: list nodes:', node_ids);
-            const filtered_nodes = node_ids.filter(node => true); // place holder - should verify the agents are really deleted
-            dbg.log2('DB_CLEANER: list nodes with no agents to be removed from DB', filtered_nodes);
-            return filtered_nodes && nodes_store.db_delete_nodes(filtered_nodes);
-        });
+    const nodes = await nodes_store.find_nodes(query, options);
+    const node_ids = await mongo_utils.uniq_ids(nodes, '_id');
+    dbg.log2('DB_CLEANER: list nodes:', node_ids);
+    const filtered_nodes = node_ids.filter(node => true); // place holder - should verify the agents are really deleted
+    dbg.log2('DB_CLEANER: list nodes with no agents to be removed from DB', filtered_nodes);
+    if (filtered_nodes.length) await nodes_store.db_delete_nodes(filtered_nodes);
+    dbg.log0(`DB_CLEANER: removed ${filtered_nodes.length} documents from nodes-store`);
 }
 
-function clean_system_store(last_date_to_remove) {
-    dbg.log0('DB_CLEANER: checking the number of system_store objects deleted before', new Date(last_date_to_remove));
-    return P.join(
-            system_store.find_deleted_docs('accounts', last_date_to_remove, LIMIT),
-            system_store.find_deleted_docs('buckets', last_date_to_remove, LIMIT),
-            system_store.find_deleted_docs('pools', last_date_to_remove, LIMIT)
-        )
-        .spread((accounts, buckets, pools) => {
-            dbg.log2('DB_CLEANER: list accounts:', accounts);
-            dbg.log2('DB_CLEANER: list buckets:', buckets);
-            dbg.log2('DB_CLEANER: list pools:', pools);
-            const filtered_buckets = buckets.filter(bucket =>
-                MDStore.instance().has_any_objects_for_bucket_including_deleted(bucket)
-            );
-            const filtered_pools = pools.filter(pool =>
-                nodes_store.has_any_nodes_for_pool(pool)
-            );
-            return system_store.make_changes({
-                db_delete: {
-                    accounts: accounts,
-                    buckets: filtered_buckets,
-                    pools: filtered_pools
-                }
-            });
+async function clean_system_store(last_date_to_remove) {
+    const total_accounts_count = await system_store.count_total_docs('accounts');
+    const total_buckets_count = await system_store.count_total_docs('buckets');
+    const total_pools_count = await system_store.count_total_docs('pools');
+    if ((total_accounts_count < config.DB_CLEANER.MAX_TOTAL_DOCS) &&
+        (total_buckets_count < config.DB_CLEANER.MAX_TOTAL_DOCS) &&
+        (total_pools_count < config.DB_CLEANER.MAX_TOTAL_DOCS)) {
+        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER.MAX_TOTAL_DOCS} docs in system-store 
+        ${total_accounts_count} accounts, ${total_buckets_count} buckets, ${total_pools_count} pools - Skipping...`);
+        return;
+    }
+    dbg.log0('DB_CLEANER: checking system_store for documents deleted before', new Date(last_date_to_remove));
+    const [accounts, buckets, pools] = await P.all([
+        system_store.find_deleted_docs('accounts', last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT),
+        system_store.find_deleted_docs('buckets', last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT),
+        system_store.find_deleted_docs('pools', last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT)
+    ]);
+    dbg.log2('DB_CLEANER: list accounts:', accounts);
+    dbg.log2('DB_CLEANER: list buckets:', buckets);
+    dbg.log2('DB_CLEANER: list pools:', pools);
+    const filtered_buckets = buckets.filter(async bucket =>
+        !(await MDStore.instance().has_any_objects_for_bucket_including_deleted(bucket)));
+    const filtered_pools = pools.filter(async pool =>
+        !(await nodes_store.has_any_nodes_for_pool(pool)));
+    if (accounts.length || filtered_buckets.length || filtered_pools.length) {
+        await system_store.make_changes({
+            db_delete: {
+                accounts: accounts,
+                buckets: filtered_buckets,
+                pools: filtered_pools
+            }
         });
+    }
+    dbg.log0(`DB_CLEANER: removed ${accounts.length + filtered_buckets.length + filtered_pools.length} documents from system-store`);
 }
 
 // EXPORTS

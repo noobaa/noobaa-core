@@ -211,8 +211,10 @@ config.DEDUP_INDEXER_CHECK_INDEX_CYCLE = 60000;
 ///////////////////////
 config.DB_CLEANER = {
     ENABLED: true,
-    CYCLE: 120000,
-    BACK_TIME: 3 * 30 * 24 * 60 * 60 * 1000 // 3 months
+    CYCLE: 2 * 60 * 60 * 1000, // 2 hours
+    BACK_TIME: 3 * 30 * 24 * 60 * 60 * 1000, // 3 months
+    DOCS_LIMIT: 1000,
+    MAX_TOTAL_DOCS: 10000
 };
 
 /////////////////////

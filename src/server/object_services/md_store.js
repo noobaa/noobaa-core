@@ -771,6 +771,7 @@ class MDStore {
 
     async db_delete_objects(object_ids) {
         if (!object_ids || !object_ids.length) return;
+        dbg.warn('Removing the following objects from DB:', object_ids);
         return this._objects.col().deleteMany({
             _id: { $in: object_ids },
             deleted: { $exists: true }
@@ -865,11 +866,12 @@ class MDStore {
         });
     }
 
-    db_delete_multiparts_of_object(obj) {
-        return this._multiparts.col().deleteMany({
+    async db_delete_multiparts_of_object(obj) {
+        const res = await this._multiparts.col().deleteMany({
             obj: obj._id,
             deleted: { $exists: true }
         });
+        dbg.warn(`Removed ${res.n} multiparts of object ${obj} from DB`);
     }
 
     has_any_objects_for_bucket_including_deleted(bucket_id) {
@@ -1075,11 +1077,12 @@ class MDStore {
         });
     }
 
-    db_delete_parts_of_object(obj) {
-        return this._parts.col().deleteMany({
+    async db_delete_parts_of_object(obj) {
+        const res = await this._parts.col().deleteMany({
             obj: obj._id,
             deleted: { $exists: true }
         });
+        dbg.warn(`Removed ${res.n} parts of object ${obj} from DB`);
     }
 
 
@@ -1338,6 +1341,7 @@ class MDStore {
 
     db_delete_chunks(chunk_ids) {
         if (!chunk_ids || !chunk_ids.length) return;
+        dbg.warn('Removing the following chunks from DB:', chunk_ids);
         return this._chunks.col().deleteMany({
             _id: {
                 $in: chunk_ids
@@ -1583,12 +1587,17 @@ class MDStore {
 
     db_delete_blocks(block_ids) {
         if (!block_ids || !block_ids.length) return;
+        dbg.warn('Removing the following blocks from DB:', block_ids);
         return this._blocks.col().deleteMany({
             _id: {
                 $in: block_ids
             },
             deleted: { $exists: true }
         });
+    }
+
+    count_total_objects() {
+        return this._objects.col().count({});
     }
 }
 

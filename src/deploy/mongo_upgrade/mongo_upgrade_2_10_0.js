@@ -54,5 +54,27 @@ function fix_bucket_stats_writes() {
     });
 }
 
+function fix_bucketstats_null_content_type() {
+    // add all documents with content_type=null to application/octet-stream
+    var null_docs = db.bucketstats.find({
+        content_type: null
+    }).toArray();
+    null_docs.forEach(doc => {
+        db.bucketstats.updateOne({
+            system: doc.system,
+            bucket: doc.bucket,
+            content_type: 'application/octet-stream'
+        }, {
+            $inc: {
+                writes: doc.writes || 0,
+                reads: doc.reads || 0
+            }
+        }, { upsert: true });
+    });
+    // remove all null documents
+    db.bucketstats.remove({ content_type: null });
+}
+
 
 fix_bucket_stats_writes();
+fix_bucketstats_null_content_type();

@@ -743,6 +743,11 @@ class SystemStore extends EventEmitter {
             }).toArray()
             .then(docs => mongo_utils.uniq_ids(docs, '_id'));
     }
+
+    count_total_docs(name) {
+        const collection = mongo_client.instance().collection(name);
+        return collection.count({});
+    }
 }
 
 

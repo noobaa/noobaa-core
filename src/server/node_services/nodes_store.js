@@ -57,6 +57,7 @@ class NodesStore {
 
     db_delete_nodes(node_ids) {
         if (!node_ids || !node_ids.length) return;
+        dbg.warn('Removing the following nodes from DB:', node_ids);
         return this._nodes.col().deleteMany({
             _id: {
                 $in: node_ids
@@ -182,6 +183,10 @@ class NodesStore {
                 pool: pool_id,
             })
             .then(obj => Boolean(obj));
+    }
+
+    count_total_nodes() {
+        return this._nodes.col().count({});
     }
 
 }

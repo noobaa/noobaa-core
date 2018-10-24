@@ -5,21 +5,8 @@ const P = require('../../util/promise');
 
 class CloudFunction {
 
-    constructor(client, report) {
+    constructor(client) {
         this._client = client;
-        this._report = report;
-    }
-
-    async report_success(params) {
-        if (this._report) {
-            await this._report.success(params);
-        }
-    }
-
-    async report_fail(params) {
-        if (this._report) {
-            await this._report.fail(params);
-        }
     }
 
     getAWSConnection() {
@@ -41,9 +28,7 @@ class CloudFunction {
                 name,
                 target_bucket
             });
-            await this.report_success(`Create_Cloud_Pool_${connection}`);
         } catch (err) {
-            await this.report_fail(`Create_Cloud_Pool_${connection}`);
             throw new Error('Failed to create cloud pool ', err);
         }
     }
@@ -54,9 +39,7 @@ class CloudFunction {
             await this._client.pool.delete_pool({
                 name: pool
             });
-            await this.report_success(`Delete_Cloud_Pool_${pool}`);
         } catch (err) {
-            await this.report_fail(`Delete_Cloud_Pool_${pool}`);
             throw new Error(`Failed to delete cloud pool error`, err);
         }
     }
@@ -87,13 +70,7 @@ class CloudFunction {
 
     async createConnection(connection, type) {
         console.log(`Creating ${type} connection`);
-        try {
-            await this._client.account.add_external_connection(connection);
-            await this.report_success(`Create_Connection_${type}`);
-        } catch (err) {
-            await this.report_fail(`Create_Connection_${type}`);
-            throw new Error('Failed to create connection ', err);
-        }
+        await this._client.account.add_external_connection(connection);
     }
 
     async deleteConnection(connection_name) {
@@ -102,9 +79,7 @@ class CloudFunction {
             await this._client.account.delete_external_connection({
                 connection_name
             });
-            await this.report_success(`Delete_Connection_${connection_name}`);
         } catch (err) {
-            await this.report_fail(`Delete_Connection_${connection_name}`);
             throw new Error('Failed to delete connection ', err);
         }
     }
@@ -117,9 +92,7 @@ class CloudFunction {
                 name,
                 target_bucket
             });
-            await this.report_success(`Create_Namespace_Resource_${connection}`);
         } catch (err) {
-            await this.report_fail(`Create_Namespace_Resource_${connection}`);
             throw new Error('Failed to create namespace resource ', err);
         }
     }
@@ -130,9 +103,7 @@ class CloudFunction {
             await this._client.pool.delete_namespace_resource({
                 name: namespace
             });
-            await this.report_success(`Delete_Namespace_Resource_${namespace}`);
         } catch (err) {
-            await this.report_fail(`Delete_Namespace_Resource_${namespace}`);
             throw new Error(`Failed to delete cloud pool error`, err);
         }
     }

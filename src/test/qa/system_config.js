@@ -62,8 +62,20 @@ if (help) {
 }
 
 let report = new Report();
-
-report.init_reporter({ suite: test_name, conf: {}, mongo_report: true });
+const cases = [
+    'set_DNS',
+    'set_NTP',
+    'set_Proxy',
+    'disable_Proxy',
+    'TCP_Remote_Syslog',
+    'UDP_Remote_Syslog',
+    'set_maintenance_mode',
+    'update_n2n_config_single_port',
+    'update_n2n_config_range',
+    'set_debug_level_and_check',
+    'set_diagnose_system',
+];
+report.init_reporter({ suite: test_name, conf: {}, mongo_report: true, cases: cases});
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -553,13 +565,13 @@ async function set_debug_level(level) {
         const debug_level = system_info.debug.level;
         if (debug_level === level) {
             console.log(`The debug level is: ${level} - as should`);
-            await report.success(`set_debug_level_and_check `);
+            await report.success(`set_debug_level_and_check`);
         } else {
             saveErrorAndResume(`The debug level is ${debug_level}`);
             throw new Error('Test set_debug_level_and_check Failed');
         }
     } catch (e) {
-        await report.fail(`set_debug_level_and_check `);
+        await report.fail(`set_debug_level_and_check`);
         throw new Error('Test set_debug_level_and_check Failed');
     }
 }

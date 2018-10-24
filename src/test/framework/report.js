@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const request = require('request');
 const mongodb = require('mongodb');
+const assert = require('assert');
 
 const P = require('../../util/promise');
 //const report_schema = require('./report_schema'); //NBNB TODO add schema verification
@@ -46,9 +47,10 @@ class Reporter {
         this.port = '38000';
         this._passed_cases = [];
         this._failed_cases = [];
+        this._cases_map = [];
     }
 
-    init_reporter({ suite, conf, env, mongo_report }) {
+    init_reporter({ suite, conf, env, mongo_report, cases, prefix }) {
         this._suite_name = suite;
         this._conf = _.omit(conf, OMITTED_TEST_CONF);
         this._env = env;
@@ -56,13 +58,30 @@ class Reporter {
             this._remote_mongo = true;
             this._mongo_connect_delay = 30 * 1000;
         }
+        if (prefix) {
+            this._prefix = prefix;
+        }
+        if (cases) {
+            this._cases_map = _.clone(cases.map(c => (this._prefix ? this._prefix + '_' + c : c)));
+        }
+    }
+
+    add_test_cases(cases) {
+        this._cases_map = _.uniq(
+            this._cases_map.concat(cases.map(c => (this._prefix ? this._prefix + '_' + c : c))));
     }
 
     success(step) {
+        if (_.findIndex(this._cases_map, c => c === step) === -1) {
+            assert(false, `Trying to add success for non existent case ${step}`);
+        }
         this._passed_cases.push(step);
     }
 
     fail(step) {
+        if (_.findIndex(this._cases_map, c => c === step) === -1) {
+            assert(false, `Trying to add failure for non existent case ${step}`);
+        }
         this._failed_cases.push(step);
     }
 
@@ -79,8 +98,12 @@ class Reporter {
             console.log(`----- SUITE ${this._suite_name} -----\nconf ${JSON.stringify(this._conf, null, 4)}` + (this._env ? `\n\tenv ${this._env}` : ''));
             if (this._passed_cases.length > 0 || this._failed_cases.length > 0) {
                 console.log(`Passed cases: ${JSON.stringify(_.countBy(this._passed_cases), null, 4)}
-Failed cases: ${JSON.stringify(_.countBy(this._failed_cases), null, 4)}`);
-
+Failed cases: ${JSON.stringify(_.countBy(this._failed_cases), null, 4)}
+Didn't Run: ${JSON.stringify(
+                        this._cases_map.filter(c =>
+                            !_.includes(this._passed_cases, c) &&
+                            !_.includes(this._failed_cases, c)),
+                        null, 4)}`);
                 await this._send_report();
             }
         }
@@ -94,7 +117,10 @@ Failed cases: ${JSON.stringify(_.countBy(this._failed_cases), null, 4)}`);
             env: this._env,
             results: {
                 passed_cases: _.countBy(this._passed_cases),
-                failed_cases: _.countBy(this._failed_cases)
+                failed_cases: _.countBy(this._failed_cases),
+                didnt_run: this._cases_map.filter(c =>
+                    !_.includes(this._passed_cases, c) &&
+                    !_.includes(this._failed_cases, c))
             }
         };
     }

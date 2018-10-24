@@ -81,7 +81,21 @@ const s3ops = new S3OPS({ ip: TEST_CFG.server_ip });
 update_dataset_sizes();
 
 let report = new Report();
-report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true });
+const cases = [
+    'RANDOM',
+    'UPLOAD_NEW',
+    'SERVER_SIDE_COPY',
+    'CLIENT_SIDE_COPY',
+    'UPLOAD_OVERWRITE',
+    'UPLOAD_AND_ABORT',
+    'RENAME',
+    'SET_ATTR',
+    'READ',
+    'READ_RANGE',
+    'DELETE',
+    'MULTI_DELETE',
+];
+report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true, cases: cases});
 
 /*
 ActionTypes defines the operations which will be used in the test
@@ -680,12 +694,14 @@ async function run_multi_delete(params) {
 /*********
  * MAIN
  *********/
-function init_parameters(params) {
+function init_parameters({ dataset_params, report_params }) {
     TEST_STATE = Object.assign({}, TEST_STATE_INITIAL);
-    TEST_CFG = _.defaults(_.pick(params, _.keys(TEST_CFG)), TEST_CFG);
-    update_dataset_sizes();
+    TEST_CFG = _.defaults(_.pick(dataset_params, _.keys(TEST_CFG)), TEST_CFG);
 
-    report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true });
+    update_dataset_sizes();
+    const suite_name = report_params.suite_name || test_name;
+
+    report.init_reporter({ suite: suite_name, conf: TEST_CFG, mongo_report: true, cases: cases, prefix: report_params.cases_prefix});
 }
 
 async function upload_new_files() {

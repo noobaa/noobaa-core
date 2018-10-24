@@ -76,8 +76,8 @@ const client = rpc.new_client({});
 
 const server_s3ops = new S3OPS({ ip: server_ip });
 const report = new Report();
-const bf = new BucketFunctions(client, report);
-const cf = new CloudFunction(client, report);
+const bf = new BucketFunctions(client);
+const cf = new CloudFunction(client);
 const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
 const conf = {
@@ -112,7 +112,28 @@ const dataset_params = {
     dataset_size: 1024 * 5,
 };
 
-report.init_reporter({ suite: test_name, conf, mongo_report: true });
+//Define test cases
+const cases = [
+    'create compatible 2 http resource',
+    'create compatible 2 https resource',
+    'create compatible 4 http resource',
+    'create compatible 4 https resource',
+    'create AWS resource',
+    'create AZURE resource',
+    'delete all file from resource aws',
+    'delete all file from resource azure',
+    'delete all file from resource compatible-2-http',
+    'delete all file from resource compatible-2-https',
+    'delete all file from resource compatible-4-http',
+    'delete all file from resource compatible-4-https',
+    'delete resource aws',
+    'delete resource azure',
+    'delete resource compatible-2-http',
+    'delete resource compatible-2-https',
+    'delete resource compatible-4-http',
+    'delete resource compatible-4-https',
+];
+report.init_reporter({ suite: test_name, conf, mongo_report: true, cases: cases });
 
 const AWSDefaultConnection = cf.getAWSConnection();
 connections_mapping = Object.assign(connections_mapping, { AWS: AWSDefaultConnection });
@@ -159,19 +180,33 @@ async function create_noobaa_for_compatible() {
         if (!_.isUndefined(upgrade)) {
             await ops.upload_and_upgrade(server.ip, upgrade);
         }
+    } catch (err) {
+        console.log(err);
+        throw new Error('Can\'t create server and upgrade servers', err);
+    }
+
+    try {
         server.internal_ip = await azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
         connections_mapping.COMPATIBLE.endpoint = 'https://' + server.internal_ip;
         const rpc2 = api.new_rpc('wss://' + server.ip + ':8443');
         const client2 = rpc2.new_client({});
         await set_rpc_and_create_auth_token(client2);
-        bf_compatible = new BucketFunctions(client2, report);
-        cf_compatible = new CloudFunction(client2, report);
-        await cf_compatible.createConnection(connections_mapping.AZURE, 'AZURE');
-        await cf_compatible.createCloudPool(connections_mapping.AZURE.name, cloudPoolForCompatible, "noobaa-for-compatible");
+        bf_compatible = new BucketFunctions(client2);
+        cf_compatible = new CloudFunction(client2);
     } catch (err) {
         console.log(err);
-        throw new Error('Can\'t create server and upgrade servers', err);
+        throw new Error('Failed creating RPC', err);
     }
+
+    try {
+        await cf_compatible.createConnection(connections_mapping.AZURE, 'AZURE');
+        await cf_compatible.createCloudPool(connections_mapping.AZURE.name, cloudPoolForCompatible, "noobaa-for-compatible");
+        report.success('create AZURE resource');
+    } catch (err) {
+        report.fail('create AZURE resource');
+        throw err;
+    }
+
 }
 
 async function clean_cloud_bucket(s3ops, bucket) {
@@ -190,59 +225,80 @@ async function clean_cloud_bucket(s3ops, bucket) {
 
 async function preperCompatibleCloudPoolsEnv(type, version) {
     for (const protocol of ['http', 'https']) {
-        //TODO: ????????? should we remove version 4 of http due to bug #3642 ?????????
-        // if (version === 4 && protocol === 'http') {
-        //     console.log(`noobaa compatible v4 with http is not working.`);
-        // } else {
-        connections_mapping.COMPATIBLE.auth_method = 'AWS_V' + version;
-        connections_mapping.COMPATIBLE.endpoint = protocol + '://' + server.internal_ip;
-        connections_mapping.COMPATIBLE.name = 'COMPATIBLEConnection' + version + protocol;
-        connections_names.push(connections_mapping.COMPATIBLE.name);
-        await cf.createConnection(connections_mapping[type], type);
-        const target_bucket = `noobaa-cloud-test-${protocol}${version}`;
-        remote_bucket_names.push(target_bucket);
-        const cloud_pool_name = `${type}${version}${protocol}-bucket`;
-        cloud_pools.push(cloud_pool_name);
-        await bf_compatible.createBucket(target_bucket);
-        await bf_compatible.editBucketDataPlacement(cloudPoolForCompatible, target_bucket, 'SPREAD');
-        await cf.createCloudPool(connections_mapping[type].name, cloud_pool_name, target_bucket);
-        const bucket = cloud_pool_name.toLowerCase();
-        await bf.createBucket(bucket);
-        bucket_names.push(bucket);
-        await bf.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
-        // }
+        try {
+            //TODO: ????????? should we remove version 4 of http due to bug #3642 ?????????
+            // if (version === 4 && protocol === 'http') {
+            //     console.log(`noobaa compatible v4 with http is not working.`);
+            // } else {
+            connections_mapping.COMPATIBLE.auth_method = 'AWS_V' + version;
+            connections_mapping.COMPATIBLE.endpoint = protocol + '://' + server.internal_ip;
+            connections_mapping.COMPATIBLE.name = 'COMPATIBLEConnection' + version + protocol;
+            connections_names.push(connections_mapping.COMPATIBLE.name);
+            await cf.createConnection(connections_mapping[type], type);
+            const target_bucket = `noobaa-cloud-test-${protocol}${version}`;
+            remote_bucket_names.push(target_bucket);
+            const cloud_pool_name = `${type}${version}${protocol}-bucket`;
+            cloud_pools.push(cloud_pool_name);
+            await bf_compatible.createBucket(target_bucket);
+            await bf_compatible.editBucketDataPlacement(cloudPoolForCompatible, target_bucket, 'SPREAD');
+            await cf.createCloudPool(connections_mapping[type].name, cloud_pool_name, target_bucket);
+            const bucket = cloud_pool_name.toLowerCase();
+            await bf.createBucket(bucket);
+            bucket_names.push(bucket);
+            await bf.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
+            report.success(`create compatible ${version} ${protocol} resource`);
+            // }
+        } catch (err) {
+            report.fail(`create compatible ${version} ${protocol} resource`);
+            throw err;
+        }
     }
 }
 
 async function createCloudPools(type) {
     if (type === "COMPATIBLE") {
-        await preperCompatibleCloudPoolsEnv(type, 2);
+        await preperCompatibleCloudPoolsEnv(type, 2); //Report inside
     } else {
-        const cloud_pool_name = `${type}-bucket`;
-        await cf.createConnection(connections_mapping[type], type);
-        connections_names.push(connections_mapping[type].name);
-        await cf.createCloudPool(connections_mapping[type].name, cloud_pool_name, "noobaa-cloud-test");
-        cloud_pools.push(cloud_pool_name);
-        const bucket = cloud_pool_name.toLowerCase();
-        await bf.createBucket(bucket);
-        bucket_names.push(bucket);
         try {
+            const cloud_pool_name = `${type}-bucket`;
+            await cf.createConnection(connections_mapping[type], type);
+            connections_names.push(connections_mapping[type].name);
+            await cf.createCloudPool(connections_mapping[type].name, cloud_pool_name, "noobaa-cloud-test");
+            cloud_pools.push(cloud_pool_name);
+            const bucket = cloud_pool_name.toLowerCase();
+            await bf.createBucket(bucket);
+            bucket_names.push(bucket);
+            report.success(`create ${type} resource`);
             await bf.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
-        } catch (e) {
-            console.error(e);
-            throw e;
+            report.success(`create ${type} resource`);
+        } catch (err) {
+            console.error(err);
+            report.fail(`create ${type} resource`);
+            throw err;
         }
     }
 }
 
 async function clean_env() {
     for (const bucket_name of bucket_names) {
-        await clean_cloud_bucket(server_s3ops, bucket_name);
+        try {
+            await clean_cloud_bucket(server_s3ops, bucket_name);
+            report.success(`delete all file from resource ${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`);
+        } catch (err) {
+            report.fail(`delete all file from resource ${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`);
+            throw err;
+        }
         await bf.deleteBucket(bucket_name);
     }
     bucket_names = [];
     for (const cloud_pool of cloud_pools) {
-        await cf.deleteCloudPool(cloud_pool);
+        try {
+            await cf.deleteCloudPool(cloud_pool);
+            report.success(`delete resource ${cloud_pool.slice(0, cloud_pool.lastIndexOf('-'))}`);
+        } catch (err) {
+            report.fail(`delete resource ${cloud_pool.slice(0, cloud_pool.lastIndexOf('-'))}`);
+            throw err;
+        }
     }
     cloud_pools = [];
     for (const connections of connections_names) {
@@ -260,7 +316,11 @@ async function run_dataset() {
     for (const bucket_name of bucket_names) {
         dataset_params.bucket = bucket_name;
         console.log(dataset_params);
-        await dataset.init_parameters(dataset_params);
+        const report_params = {
+            suite_name: 'test_name',
+            cases_prefix: `${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`
+        };
+        await dataset.init_parameters({ dataset_params: dataset_params, report_params: report_params });
         await dataset.run_test();
     }
 }

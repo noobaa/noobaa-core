@@ -63,7 +63,17 @@ function usage() {
     `);
 }
 
-report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true });
+//Define test cases
+const cases = [
+    'create_account',
+    'delete_account',
+    'regenerate_s3Access',
+    'edit_s3Access',
+    'edit_bucket_creation',
+    'restrict_ip_access',
+    'reset_password'
+];
+report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true, cases: cases});
 
 function saveErrorAndResume(message) {
     console.error(message);

@@ -87,7 +87,35 @@ if (argv.help) {
 
 const osesSet = af.supported_oses();
 const report = new Report();
-report.init_reporter({ suite: testName, conf: { agents_number: agents_number }, mongo_report: true });
+const cases = [
+    'Add member no NTP master',
+    'Add member no NTP 2nd',
+    'Stop/start same member',
+    'succeeded config 2/3 down',
+    'Stop/start 2/3 of cluster',
+    'stop all start all',
+    'stop all start two',
+    'succeeded config 2/3 down',
+    'stop master',
+    'stop/start master',
+    'create bucket one srv down',
+    'ul and verify obj one srv down',
+    'create bucket all up after one down',
+    'ul and verify obj all up after one down',
+    'create bucket one srv down after 2 down',
+    'ul and verify obj one srv down after 2 down',
+    'create bucket all up after 2 down',
+    'ul and verify obj all up after 2 down',
+    'create bucket one down after all down',
+    'ul and verify obj one down after all down',
+    'create bucket all up after all down',
+    'ul and verify obj all up after all down',
+    'create bucket stop master',
+    'ul and verify obj stop master',
+    'create bucket stop/start master',
+    'ul and verify obj stop/start master',
+];
+report.init_reporter({ suite: testName, conf: { agents_number: agents_number }, mongo_report: true, cases: cases });
 
 
 function saveErrorAndResume(message) {
@@ -488,7 +516,7 @@ function runSecondFlow() {
                 .then(() => report.fail('succeeded config 2/3 down'))
                 .catch(err => {
                     console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`);
-                    report.success('fail config 2/3 down');
+                    report.success('succeeded config 2/3 down');
                 });
         })
         .then(() => startVirtualMachineWithStatus(1, 180))
@@ -518,7 +546,7 @@ function runThirdFlow() {
                 .then(() => report.fail('succeeded config 2/3 down'))
                 .catch(err => {
                     console.log(`Couldn't create bucket with 2 disconnected clusters - as should ${err.message}`);
-                    report.success('fail config 2/3 down');
+                    report.success('succeeded config 2/3 down');
                 });
         })
         .then(() => {

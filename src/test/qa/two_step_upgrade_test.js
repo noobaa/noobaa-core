@@ -49,11 +49,24 @@ function usage() {
     `);
 }
 
+const cases = [
+    'blocked downgrade patch',
+    'blocked downgrade minor',
+    'blocked downgrade major',
+    'non-package',
+    'disk space',
+    'time skew',
+    'preconditions met',
+    'stage package',
+    'disk space 2nd step',
+    'time skew 2nd step',
+    'preconditions met 2nd step',
+];
 //Init Clients
 function init_clients() {
     //Init ssh client and rpc client
     report = new Report();
-    report.init_reporter({ suite: 'upgrade', conf: TEST_CFG, mongo_report: true });
+    report.init_reporter({ suite: 'upgrade', conf: TEST_CFG, mongo_report: true, cases: cases});
     return ssh_functions.ssh_connect({
             host: TEST_CFG.ip,
             username: 'noobaaroot',

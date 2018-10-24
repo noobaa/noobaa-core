@@ -72,7 +72,21 @@ const rpc = api.new_rpc('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
 let report = new Report();
-let bf = new BucketFunctions(client, report);
+//Define test cases
+const cases = [
+    'reclaimed blocks',
+    'edit placement policy'
+];
+report.init_reporter({
+    suite: test_name,
+    conf: {
+        dataset_size: dataset_size,
+    },
+    mongo_report: true,
+    cases: cases
+});
+
+let bf = new BucketFunctions(client);
 
 const osesLinuxSet = af.supported_oses('LINUX');
 const osesWinSet = af.supported_oses('WIN');
@@ -173,13 +187,28 @@ async function reclaimCycle(oses, prefix) {
         const agentList = Array.from(agents.keys());
         await bf.createBucket(bucket);
         await createReclaimPool(reclaim_pool, agentSuffix);
-        await bf.editBucketDataPlacement(reclaim_pool, bucket, 'SPREAD');
+        try {
+            await bf.editBucketDataPlacement(reclaim_pool, bucket, 'SPREAD');
+            report.success('edit placement policy');
+        } catch (err) {
+            report.fail('edit placement policy');
+        }
         await uploadAndVerifyFiles(bucket);
-        const stoppedAgent = await af.stopRandomAgents(azf, server_ip, 1, agentSuffix, agentList);
+        const stoppedAgent = await af.stopRandomAgents(azf, server_ip, 1, agentSuffix, agentList); //stop one agent
         await cleanupBucket(bucket);
         await af.startOfflineAgents(azf, server_ip, stoppedAgent);
-        await s3ops.get_list_files(bucket, '');
+
+        /*
+        TODO:: wait, until when ?
+        const agent_blocks = await af.countNoobaaBlocks(stoppedAgent);
+        if (agent_blocks) {
+            report.fail('reclaimed blocks');
+        } else {
+            report.success('reclaimed blocks');
+        }
+        */
     } catch (err) {
+        report.fail('reclaimed blocks');
         throw new Error(`reclaimCycle failed: ${err}`);
     }
 }
@@ -202,8 +231,10 @@ async function run_main() {
         //.then(() => af.createRandomAgents(azf, server_ip, storage, vnet, osesWinSet.length, suffix, osesWinSet))
         await af.clean_agents(azf, server_ip, suffix);
         console.log('reclaim test was successful!');
+        await report.report();
         process.exit(0);
     } catch (err) {
+        await report.report();
         console.error('something went wrong' + err + errors);
         process.exit(1);
     }

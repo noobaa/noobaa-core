@@ -424,27 +424,51 @@ class MongoClient extends EventEmitter {
     }
 
 
-    // wait until all replica set members are operational
     async wait_for_all_members(timeout) {
         timeout = timeout || 2 * 60000; // default timeout 2 minutes
-        return P.resolve().then(async () => {
-                if (process.env.MONGO_RS_URL) {
-                    let all_members_up = false;
-                    while (!all_members_up) {
-                        const rs_status = await this.get_mongo_rs_status();
-                        all_members_up = rs_status.members.every(member =>
-                            (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY'));
-                        if (all_members_up) return;
-                        dbg.warn('waiting for all members to be operational. current status =', util.inspect(rs_status));
-                        // wait 5 seconds before retesting
-                        await P.delay(5000);
+        let waiting_exhausted = false;
+        try {
+            await P.resolve()
+                .then(async () => {
+                    // wait until all replica set members are operational
+                    if (process.env.MONGO_RS_URL) {
+                        let all_members_up = false;
+                        // eslint-disable-next-line no-unmodified-loop-condition
+                        while (!all_members_up && !waiting_exhausted) {
+                            let rs_status;
+                            try {
+                                rs_status = await this.get_mongo_rs_status();
+                                all_members_up = rs_status.members.every(member =>
+                                    (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY'));
+                                if (!all_members_up) throw new Error('not all members are up');
+                                // wait 5 seconds before retesting
+                            } catch (err) {
+                                dbg.warn('waiting for all members to be operational. current status =', util.inspect(rs_status));
+                                await P.delay(5000);
+                            }
+                        }
                     }
-                } else if (!this.db) {
-                    dbg.warn('db is not connected. waiting for reconnect signal');
-                    await promise_utils.wait_for_event(this, 'reconnect');
-                }
-            })
-            .timeout(timeout);
+                    // after connected, make sure we can access the db by calling db.stats
+                    let db_is_down = true;
+                    // eslint-disable-next-line no-unmodified-loop-condition
+                    while (db_is_down && !waiting_exhausted) {
+                        try {
+                            let stats = this.db && await this.db.stats();
+                            db_is_down = _.get(stats, 'ok') !== 1;
+                        } catch (err) {
+                            dbg.error('db is still down. got error on db.stats():', err.message);
+
+                        }
+                        if (db_is_down) await P.delay(2000);
+                    }
+                })
+                .timeout(timeout);
+        } catch (err) {
+            waiting_exhausted = true;
+            dbg.error('failed waiting for members:', err);
+            throw err;
+        }
+
     }
 
     async step_down_master({ force, duration }) {

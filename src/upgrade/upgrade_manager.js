@@ -15,7 +15,6 @@ dotenv.load();
 
 const REQUIRED_MONGODB_VERSION = '3.6.5';
 
-
 mongo_client.instance().connect();
 system_store.load();
 dbg.set_process_name('UpgradeManager');
@@ -28,19 +27,7 @@ class UpgradeManager {
     }
 
     async init() {
-        // get the last stored upgrade stage from DB
-        let server = system_store.get_local_cluster_info();
-        this.ip = server.owner_address;
-        const upgrade_info = server.upgrade;
-        dbg.log0('UPGRADE: upgrade info in db:', upgrade_info);
-        this.upgrade_stage = _.get(server, 'upgrade.stage') || 'START_UPGRADE';
-        if (this.upgrade_stage === 'DB_READY') {
-            // if restarted while in DB_READY (can happen only on secondary memebers)
-            // just repeat the upgrade schema stage which should only wait for master
-            this.upgrade_stage = 'UPGRADE_MONGODB_SCHEMAS';
-        }
-        dbg.log0('UPGRADE: last stored upgrade stage is', this.upgrade_stage);
-        this.should_upgrade_schemas = upgrade_info.mongo_upgrade;
+        await this.init_upgrade_info();
 
         // define the upgrade stages order.
         // upgrade stages will run one by one serially by run_upgrade_stages
@@ -80,11 +67,34 @@ class UpgradeManager {
         ]);
     }
 
+    // get the last stored upgrade stage and other information
+    async init_upgrade_info() {
+        this.upgrade_info = await platform_upgrade.get_upgrade_info();
+        if (!this.upgrade_info) {
+            dbg.log0('did not find a previously stored upgrade_info. initializing from DB');
+            let server = system_store.get_local_cluster_info();
+            const upgrade_info = server.upgrade;
+            dbg.log0('UPGRADE: upgrade info in db:', upgrade_info);
+            this.upgrade_info = {
+                stage: 'START_UPGRADE',
+                ip: server.owner_address,
+                should_upgrade_schemas: upgrade_info.mongo_upgrade
+            };
+            dbg.log0('initialized upgrade_');
+        }
+        dbg.log0('upgrade info:', this.upgrade_info);
+    }
+
+
     async end_upgrade(params = {}) {
 
         dbg.log0('UPGRADE: ending upgrade process. removing upgrade_manager from supervisor.conf');
-        if (!params.aborted) {
-            await this.update_db({ 'upgrade.stage': 'UPGRADE_COMPLETED', 'upgrade.status': 'COMPLETED' });
+        try {
+            if (!params.aborted) {
+                await this.update_db({ 'upgrade.stage': 'UPGRADE_COMPLETED', 'upgrade.status': 'COMPLETED' });
+            }
+        } catch (err) {
+            dbg.error('UPGRADE: failed updating DB with UPGRADE_COMPLETED');
         }
         dbg.log0('UPGRADE: starting services');
         await platform_upgrade.start_services();
@@ -99,15 +109,24 @@ class UpgradeManager {
         try {
             dbg.error('UPGRADE FAILED ¯\\_(ツ)_/¯');
             dbg.error('aborting upgrade with params', params);
-            await this.update_db({
+            const update = {
                 'upgrade.status': 'UPGRADE_FAILED',
                 'upgrade.error': params.error,
                 'upgrade.stage': 'UPGRADE_ABORTED'
-            });
+            };
+            try {
+                await this.update_db(update);
+            } catch (err) {
+                dbg.error('UPGRADE: failed updating DB with', update);
+            }
 
             if (params.rollback) {
                 dbg.warn('UPGRADE: restoring previous version');
-                await platform_upgrade.restore_old_version();
+                try {
+                    await platform_upgrade.restore_old_version();
+                } catch (err) {
+                    dbg.error(`UPGRADE: failed restoring back to old version ${this.old_version}`);
+                }
             }
         } catch (err) {
             dbg.error('UPGRADE: got error while aborting upgrade', err);
@@ -142,14 +161,14 @@ class UpgradeManager {
         };
         dbg.log0('UPGRADE: updating upgrade in db', updates);
         await system_store.make_changes_with_retries({ update }, {
-            max_retries: 10,
+            max_retries: 60,
             delay: 5000
         });
     }
 
-    async set_upgrade_stage(stage) {
-        this.upgrade_stage = stage;
-        await this.update_db({ 'upgrade.stage': stage });
+    async set_upgrade_info(stage) {
+        this.upgrade_info.stage = stage;
+        await platform_upgrade.set_upgrade_info(this.upgrade_info);
     }
 
     async start_upgrade_stage() {
@@ -187,11 +206,11 @@ class UpgradeManager {
         const feature_version = [major, minor].join('.');
         await platform_upgrade.upgrade_mongodb_schemas({
             is_cluster: this.cluster,
-            should_upgrade_schemas: this.should_upgrade_schemas,
+            should_upgrade_schemas: this.upgrade_info.should_upgrade_schemas,
             mongodb_upgraded: this.upgrade_mongodb,
             feature_version,
             old_version: this.old_version,
-            ip: this.ip
+            ip: this.upgrade_info.ip
         });
     }
 
@@ -203,7 +222,7 @@ class UpgradeManager {
         // Run upgrade stage by stage. each stage marks the next stage in DB
         for (let i = 0; i < this.UPGRADE_STAGES.length; ++i) {
             const stage = this.UPGRADE_STAGES[i];
-            if (this.upgrade_stage === stage.name) {
+            if (this.upgrade_info.stage === stage.name) {
                 try {
                     dbg.log0(`UPGRADE: running upgrade stage - ${stage.name}`);
                     await stage.func();
@@ -211,7 +230,7 @@ class UpgradeManager {
                     if (i < this.UPGRADE_STAGES.length - 1) {
                         // if we are not in the last stage - advance to next stage
                         const next_stage = this.UPGRADE_STAGES[i + 1].name;
-                        await this.set_upgrade_stage(next_stage);
+                        await this.set_upgrade_info(next_stage);
                     }
                 } catch (err) {
                     dbg.error(`UPGRADE: got error on upgrade stage - ${stage.name}`, err);

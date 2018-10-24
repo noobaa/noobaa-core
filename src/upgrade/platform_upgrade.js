@@ -17,6 +17,7 @@ const supervisor = require('../server/utils/supervisor_ctrl');
 const mongo_client = require('../util/mongo_client');
 
 const EXTRACTION_PATH = '/tmp/test';
+const UPGRADE_INFO_FILE_PATH = `/tmp/upgrade_info_${pkg.version}.json`;
 const CORE_DIR = '/root/node_modules/noobaa-core';
 const NEW_VERSION_DIR = path.join(EXTRACTION_PATH, 'noobaa-core');
 // use shell script for backup\restore so we won't be dependent in node version
@@ -28,6 +29,9 @@ const NVM_DIR = `${HOME}/.nvm`;
 const SWAP_SIZE_MB = 8 * 1024;
 
 const MONGO_RECONNECT_TIMEOUT = 120000;
+
+// in clustered mongo it can take time before all members are operational. wait up to 10 minutes
+const WAIT_FOR_MONGO_TIMEOUT = 10 * 60000;
 
 
 const DOTENV_VARS_FROM_OLD_VER = Object.freeze([
@@ -477,52 +481,56 @@ async function clean_shutdown_old_mongo() {
     }
 }
 
+function disconnect_mongo_client() {
+    dbg.warn('UPGRADE: disconnecting mongo_client..');
+    mongo_client.instance().disconnect();
+}
+
+function connect_mongo_client() {
+    dbg.warn('UPGRADE: connecting mongo_client..');
+    mongo_client.instance().connect();
+}
+
 async function change_mongo_kill_signal() {
-    let mongo_client_connected = true;
-    mongo_client.instance().on('close', () => {
-        mongo_client_connected = false;
-    });
-    mongo_client.instance().on('reconnect', () => {
-        mongo_client_connected = true;
-    });
     const mongo_wrapper_prog = await supervisor.get_program('mongo_wrapper');
     if (mongo_wrapper_prog.stopsignal !== 'INT') {
+        // before touching mongo, first disconnect mongo_client
+        disconnect_mongo_client();
         dbg.log0(`UPGRADE: changing mongo_wrapper stop signal in noobaa_supervisor.conf from ${mongo_wrapper_prog.stopsignal} to INT`);
         mongo_wrapper_prog.stopsignal = 'INT';
         // stopwaitsecs is the time supervisord waits for the supervised program to end before using SIGKILL
         dbg.log0(`UPGRADE: adding to mongo_wrapper stopwaitsecs=30`);
         mongo_wrapper_prog.stopwaitsecs = 30;
+
         try {
             await supervisor.update_program(mongo_wrapper_prog);
             await clean_shutdown_old_mongo();
             await supervisor.apply_changes();
             await supervisor.start(['mongo_wrapper']);
-            // to be on the safe side, wait for all members to be operational again before continuing with the upgrade
-            await mongo_client.instance().wait_for_all_members();
-
-            // wait for mongo to reconnect
-            if (!mongo_client_connected) {
-                await promise_utils.wait_for_event(mongo_client.instance(), 'reconnect', MONGO_RECONNECT_TIMEOUT);
-            }
         } catch (err) {
-            dbg.error('UPGRADE: failed to change mongo_wrapper kill signal');
+            dbg.error('failed updating mongo program in supervisor conf');
         }
 
+        try {
+            connect_mongo_client();
+            dbg.log0('waiting for mongo..');
+            await mongo_client.instance().wait_for_all_members(WAIT_FOR_MONGO_TIMEOUT);
+            dbg.log0('UPGRADE: all mongodb members are up');
+        } catch (err) {
+            // if mongo is not up yet something went wrong
+            // exit upgrade manager and let it restart from current stage. can help if the problem is in mongo_client\mongo-driver
+            dbg.error('UPGRADE: failed waiting for mongo to start. exit and restart upgrade manager', err);
+            process.exit(1);
+        }
     }
 }
 
 
 async function upgrade_mongodb_version(params) {
-    let mongo_client_connected = true;
-    mongo_client.instance().on('close', () => {
-        mongo_client_connected = false;
-    });
-    mongo_client.instance().on('reconnect', () => {
-        mongo_client_connected = true;
-    });
-
     if (params.should_upgrade_mongodb) {
         try {
+            // before touching mongo, first disconnect mongo_client
+            disconnect_mongo_client();
             if (params.is_cluster && await mongo_client.instance().is_master(params.ip)) {
                 // if this is the master, step down the and continue
                 try {
@@ -567,13 +575,17 @@ async function upgrade_mongodb_version(params) {
             await supervisor.apply_changes();
             await supervisor.start(['mongo_wrapper']);
 
-            // to be on the safe side, wait for all members to be operational again before continuing with the upgrade
-            await mongo_client.instance().wait_for_all_members();
 
-            // wait for mongo to reconnect
-            if (!mongo_client_connected) {
-                await promise_utils.wait_for_event(mongo_client.instance(), 'reconnect', MONGO_RECONNECT_TIMEOUT);
+            try {
+                connect_mongo_client();
+                dbg.log0('waiting for mongo..');
+                await mongo_client.instance().wait_for_all_members(WAIT_FOR_MONGO_TIMEOUT);
+                dbg.log0('UPGRADE: all mongodb members are up');
+            } catch (err) {
+                dbg.error('UPGRADE: failed waiting for mongo to start.', err);
+                throw err;
             }
+
         } catch (err) {
             dbg.error('UPGRADE: failed upgrading mongodb version', err);
             throw err;
@@ -689,6 +701,7 @@ async function after_upgrade_cleanup() {
     await exec(`rm -f /tmp/*.tar.gz`, { ignore_err: true });
     await exec(`rm -rf /tmp/v*`, { ignore_err: true });
     await exec(`rm -rf /backup/build/public/*diagnostics*`, { ignore_err: true });
+    await exec(`rm -f ${UPGRADE_INFO_FILE_PATH}`, { ignore_err: true });
 }
 
 function parse_ver(ver) {
@@ -712,6 +725,30 @@ function version_compare(ver1, ver2) {
 }
 
 
+async function get_upgrade_info() {
+    try {
+        let upgrade_info = JSON.parse(await fs.readFileAsync(UPGRADE_INFO_FILE_PATH));
+        dbg.log0('UPGRADE: found existing upgrade info', upgrade_info);
+        return upgrade_info;
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            dbg.error(`got unexpected error when reading upgrade info file ${UPGRADE_INFO_FILE_PATH}`, err);
+        }
+        dbg.log0('there is no previous upgrade info');
+    }
+}
+
+async function set_upgrade_info(new_upgrade_info) {
+    try {
+        const upgrade_data = JSON.stringify(new_upgrade_info);
+        await fs.writeFileAsync(UPGRADE_INFO_FILE_PATH, upgrade_data);
+        dbg.log0('UPGRADE: upgrade info updated successfuly with upgrade_info =', new_upgrade_info);
+    } catch (err) {
+        dbg.error(`got unexpected error when writing upgrade info file ${UPGRADE_INFO_FILE_PATH}`, err);
+    }
+}
+
+
 
 
 
@@ -728,3 +765,5 @@ exports.after_upgrade_cleanup = after_upgrade_cleanup;
 exports.stop_services = stop_services;
 exports.start_services = start_services;
 exports.version_compare = version_compare;
+exports.get_upgrade_info = get_upgrade_info;
+exports.set_upgrade_info = set_upgrade_info;

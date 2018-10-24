@@ -306,7 +306,7 @@ function wait_for_event(emitter, event, timeout) {
             emitter.once('error', err => reject(err || new Error('wait_for_event: error')));
         }
         if (timeout) {
-            setTimeout(reject, timeout);
+            setTimeout(() => reject(new Error(`timedout waiting for event ${event} `)), timeout);
         }
     });
 }

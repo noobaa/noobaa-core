@@ -95,7 +95,7 @@ const cases = [
     'DELETE',
     'MULTI_DELETE',
 ];
-report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true, cases: cases});
+report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true, cases: cases });
 
 /*
 ActionTypes defines the operations which will be used in the test
@@ -701,7 +701,7 @@ function init_parameters({ dataset_params, report_params }) {
     update_dataset_sizes();
     const suite_name = report_params.suite_name || test_name;
 
-    report.init_reporter({ suite: suite_name, conf: TEST_CFG, mongo_report: true, cases: cases, prefix: report_params.cases_prefix});
+    report.init_reporter({ suite: suite_name, conf: TEST_CFG, mongo_report: true, cases: cases, prefix: report_params.cases_prefix });
 }
 
 async function upload_new_files() {

@@ -76,7 +76,7 @@ const cases = [
     'DNS_primary_empty',
     'DNS_primary_reachable',
 ];
-report.init_reporter({ suite: test_name, conf: {}, mongo_report: true, cases: cases});
+report.init_reporter({ suite: test_name, conf: {}, mongo_report: true, cases: cases });
 
 //class Expect, should move to a util.
 class Expect {
@@ -468,6 +468,13 @@ async function authenticate() {
 async function main() {
     try {
         await authenticate();
+        server_ops.init_reporter({
+            suite_name: 'TUI',
+            cases: [
+                'clean_ova',
+                'create_system'
+            ]
+        });
         await server_ops.set_first_install_mark(server_ip, secret);
         await server_ops.enable_nooba_login(server_ip, secret);
         //will loop twice, one with system and the other without.

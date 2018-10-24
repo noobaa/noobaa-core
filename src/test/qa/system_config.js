@@ -75,7 +75,7 @@ const cases = [
     'set_debug_level_and_check',
     'set_diagnose_system',
 ];
-report.init_reporter({ suite: test_name, conf: {}, mongo_report: true, cases: cases});
+report.init_reporter({ suite: test_name, conf: {}, mongo_report: true, cases: cases });
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -627,6 +627,15 @@ async function main() {
         const secret = system_info.cluster.shards[0].servers[0].secret;
         console.log('Secret is ' + secret);
         rpc.disconnect_all();
+
+        server_ops.init_reporter({
+            suite_name: 'system_config',
+            cases: [
+                'clean_ova',
+                'create_system'
+            ]
+        });
+
         if (skip_create_system) {
             console.log(`Skipping clean ova and create system`);
         } else {

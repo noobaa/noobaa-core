@@ -72,17 +72,19 @@ class Reporter {
     }
 
     success(step) {
-        if (_.findIndex(this._cases_map, c => c === step) === -1) {
-            assert(false, `Trying to add success for non existent case ${step}`);
+        const updated_step = this._prefix ? this._prefix + '_' + step : step;
+        if (_.findIndex(this._cases_map, c => c === updated_step) === -1) {
+            assert(false, `Trying to add success for non existent case ${updated_step}`);
         }
-        this._passed_cases.push(step);
+        this._passed_cases.push(updated_step);
     }
 
     fail(step) {
-        if (_.findIndex(this._cases_map, c => c === step) === -1) {
-            assert(false, `Trying to add failure for non existent case ${step}`);
+        const updated_step = this._prefix ? this._prefix + '_' + step : step;
+        if (_.findIndex(this._cases_map, c => c === updated_step) === -1) {
+            assert(false, `Trying to add failure for non existent case ${updated_step}`);
         }
-        this._failed_cases.push(step);
+        this._failed_cases.push(updated_step);
     }
 
     pause() {

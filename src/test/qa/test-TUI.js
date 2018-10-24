@@ -55,8 +55,28 @@ const YELLOW = "\x1b[33;1m";
 //const RED = "\x1b[31m";
 
 let report = new Report();
-
-report.init_reporter({ suite: test_name, conf: {}, mongo_report: true });
+const cases = [
+    'NTP_only_TZ',
+    'NTP_reachable_with_TZ',
+    'NTP_reachable_without_TZ',
+    'NTP_unreachable_with_TZ',
+    'NTP_unreachable_without_TZ',
+    'NTP_reachable_with_TZ',
+    'set_valid_hostname_dialog',
+    'set_empty_hostname_dialog',
+    'DNS_primary_invalid',
+    'DNS_primary_reachable',
+    'DNS_primary_reachable',
+    'DNS_secondary_unreachable',
+    'DNS_primary_unreachable',
+    'DNS_secondary_unreachable',
+    'DNS_primary_reachable',
+    'DNS_primary_unreachable',
+    'DNS_primary_empty',
+    'DNS_primary_empty',
+    'DNS_primary_reachable',
+];
+report.init_reporter({ suite: test_name, conf: {}, mongo_report: true, cases: cases});
 
 //class Expect, should move to a util.
 class Expect {

@@ -77,6 +77,7 @@ function usage() {
 }
 
 const suffix = suffixName + '-' + id;
+const test_name = 'data_availability';
 
 if (help) {
     usage();
@@ -87,7 +88,25 @@ const rpc = api.new_rpc('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
 let report = new Report();
-let bf = new BucketFunctions(client, report);
+//Define test cases
+const cases = [
+    'verify file availability',
+    'change tier settings'
+];
+report.init_reporter({
+    suite: test_name,
+    conf: {
+        failed_agents_number: failed_agents_number,
+        iterationsNumber: iterationsNumber,
+        data_frags: data_frags,
+        parity_frags: parity_frags,
+        replicas: replicas
+    },
+    mongo_report: true,
+    cases: cases
+});
+
+let bf = new BucketFunctions(client);
 
 const osesSet = af.supported_oses();
 
@@ -162,19 +181,6 @@ async function uploadAndVerifyFiles() {
     }
 }
 
-async function readFiles() {
-    for (let index = 0; index < files.length; index++) {
-        const file = files[index];
-        try {
-            await s3ops.get_file_check_md5(bucket, file);
-        } catch (err) {
-            saveErrorAndResume(`${server_ip} FAILED read file`, err);
-            failures_in_test = true;
-            throw err;
-        }
-    }
-}
-
 async function clean_up_dataset() {
     console.log('runing clean up files from bucket ' + bucket);
     try {
@@ -188,7 +194,19 @@ async function stopAgentsAndCheckFiles() {
     //Power down agents (random number between 1 to the max amount)
     const test_nodes = await af.getTestNodes(server_ip, suffix);
     stopped_oses = await af.stopRandomAgents(azf, server_ip, failed_agents_number, '', test_nodes);
-    return readFiles();
+
+    for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+        try {
+            await s3ops.get_file_check_md5(bucket, file);
+            report.success('verify file availability');
+        } catch (err) {
+            saveErrorAndResume(`${server_ip} FAILED read file`, err);
+            report.fail('verify file availability');
+            failures_in_test = true;
+            throw err;
+        }
+    }
 }
 
 async function set_rpc_and_create_auth_token() {
@@ -204,7 +222,12 @@ async function run_main() {
     try {
         await azf.authenticate();
         await set_rpc_and_create_auth_token();
-        await bf.changeTierSetting(bucket, data_frags, parity_frags, replicas);
+        try {
+            await bf.changeTierSetting(bucket, data_frags, parity_frags, replicas);
+            report.success('change tier settings');
+        } catch (err) {
+            report.fail('change tier settings');
+        }
         const test_nodes = await af.getTestNodes(server_ip, suffix);
         if ((use_existing_env) && (test_nodes)) {
             let agents = new Map();

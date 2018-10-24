@@ -1,30 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
+
 class BucketFunctions {
 
-    constructor(client, report) {
+    constructor(client) {
         this._client = client;
-        this._report = report;
-    }
-
-    async report_success(params) {
-        if (this._report) {
-            await this._report.success(params);
-        }
-    }
-
-    async report_fail(params) {
-        if (this._report) {
-            await this._report.fail(params);
-        }
     }
 
     async listBuckets(server_ip) {
         try {
             await this._client.bucket.list_buckets();
-            await this.report_success(`List_Bucket`);
         } catch (err) {
-            await this.report_fail(`List_Bucket`);
             console.log(`${server_ip} FAILED to get bucket list`, err);
             throw err;
         }
@@ -33,10 +19,8 @@ class BucketFunctions {
     async createBucket(name) {
         try {
             let buck = await this._client.bucket.create_bucket({ name });
-            await this.report_success(`Create_Bucket`);
             return buck;
         } catch (err) {
-            await this.report_fail(`Create_Bucket`);
             console.log('Create bucket ERR', err);
             throw err;
         }
@@ -45,9 +29,7 @@ class BucketFunctions {
     async deleteBucket(name) {
         try {
             await this._client.bucket.delete_bucket({ name });
-            await this.report_success(`Delete_Bucket`);
         } catch (err) {
-            await this.report_fail(`Delete_Bucket`);
             console.log('Delete bucket ERR', err);
             throw err;
         }
@@ -74,9 +56,7 @@ class BucketFunctions {
                 name: read_bucket.tiering.tiers[0].tier,
                 chunk_coder_config: chunk_coder_config
             });
-            await this.report_success(`Update_Tier`);
         } catch (err) {
-            await this.report_fail(`Update_Tier`);
             console.log('Update tier ERR', err);
             throw err;
         }
@@ -93,9 +73,7 @@ class BucketFunctions {
                     unit //'GIGABYTE', 'TERABYTE', 'PETABYTE'
                 }
             });
-            await this.report_success(`Set_Quota_Bucket`);
         } catch (err) {
-            await this.report_fail(`Set_Quota_Bucket`);
             console.log(`$FAILED setting quota bucket `, err);
             throw err;
         }
@@ -108,9 +86,7 @@ class BucketFunctions {
                 name: bucket_name,
                 quota: null
             });
-            await this.report_success(`Disable_Quota_Bucket`);
         } catch (err) {
-            await this.report_fail(`Disable_Quota_Bucket`);
             console.log(`${server_ip} FAILED disable quota bucket `, err);
             throw err;
         }
@@ -168,9 +144,7 @@ class BucketFunctions {
                 name: bucket_name,
                 spillover: pool
             });
-            await this.report_success(`Set_Spillover`);
         } catch (err) {
-            await this.report_fail(`Set_Spillover`);
             console.log('Failed to set spillover ' + pool + ' for bucket ' + bucket_name + err);
             throw err;
         }
@@ -193,9 +167,7 @@ class BucketFunctions {
                 data_placement,
                 name: tier
             });
-            await this.report_success(`Change_DataPlacement`);
         } catch (err) {
-            await this.report_fail(`Change_DataPlacement`);
             console.log('Failed to set data placement for bucket ' + bucket_name + err);
             throw err;
         }
@@ -239,9 +211,7 @@ class BucketFunctions {
                     write_resource: namespace
                 }
             });
-            await this.report_success(`Create_Namespace_Bucket`);
         } catch (err) {
-            await this.report_fail(`Create_Namespace_Bucket`);
             throw new Error('Failed to create Namespace bucket ', err);
         }
     }
@@ -256,9 +226,7 @@ class BucketFunctions {
                     write_resource
                 }
             });
-            await this.report_success(`Update_Namespace_Bucket`);
         } catch (err) {
-            await this.report_fail(`Update_Namespace_Bucket`);
             throw new Error('Failed to update Namespace bucket ', err);
         }
     }

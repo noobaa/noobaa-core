@@ -45,6 +45,7 @@ const {
 } = argv;
 
 const s3ops = new S3OPS({ ip: server_ip });
+const test_name = 'rebuild_replica';
 
 function usage() {
     console.log(`
@@ -74,7 +75,25 @@ const rpc = api.new_rpc('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
 let report = new Report();
-let bf = new BucketFunctions(client, report);
+//Define test cases
+const cases = [
+    'correct num replicas after node failure',
+    'chunk healthy'
+];
+report.init_reporter({
+    suite: test_name,
+    conf: {
+        failed_agents_number: failed_agents_number,
+        iterations_number: iterations_number,
+        data_frags: data_frags,
+        parity_frags: parity_frags,
+        replicas: replicas
+    },
+    mongo_report: true,
+    cases: cases
+});
+
+let bf = new BucketFunctions(client);
 
 const suffix = suffixName + '-' + id;
 
@@ -235,15 +254,19 @@ async function stopAgentAndCheckRebuildReplicas() {
         //Read and verify the read
         try {
             await getRebuildReplicasStatus(file);
+            report.success('correct num replicas after node failure');
             console.log('File ' + file + ' rebuild replicas parts successfully');
         } catch (e) {
+            report.fail('correct num replicas after node failure');
             saveErrorAndResume('File ' + file + ' didn\'t rebuild replicas parts');
         }
         await waitForRebuildChunks(file);
         try {
             await getFilesChunksHealthStatus(file);
+            report.success('chunk healthy');
             console.log('File ' + file + ' rebuild files chunks successfully');
         } catch (e) {
+            report.fail('chunk healthy');
             saveErrorAndResume('File ' + file + ' didn\'t rebuild files chunks');
         }
     }
@@ -277,11 +300,13 @@ async function main() {
     } catch (err) {
         console.error('something went wrong :(' + err + errors);
         console.error(':( :( Errors during rebuild replicas parts test (replicas) ): ):' + errors);
+        await report.report();
         process.exit(1);
     }
     await af.clean_agents(azf, server_ip, suffix);
     await clean_up_dataset();
     console.log(':) :) :) rebuild replicas parts test (replicas) were successful! (: (: (:');
+    await report.report();
     process.exit(0);
 }
 

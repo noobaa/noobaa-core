@@ -317,7 +317,7 @@ async function run_dataset() {
         dataset_params.bucket = bucket_name;
         console.log(dataset_params);
         const report_params = {
-            suite_name: 'test_name',
+            suite_name: 'cloud_test',
             cases_prefix: `${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`
         };
         await dataset.init_parameters({ dataset_params: dataset_params, report_params: report_params });

@@ -56,6 +56,14 @@ async function main() {
                 console.error(`${js_script} failed in ${TEST_CFG.version}, ${err}`);
             }
         }
+        server_ops.init_reporter({
+            suite_name: 'accounts',
+            cases: [
+                'upgrade',
+                'clean_ova',
+                'create_system'
+            ]
+        });
         await server_ops.upgrade_server(TEST_CFG.server_ip, TEST_CFG.upgrade);
         path = set_code_path('latest');
         await run_account_test(path, ['--cycles', 1, '--accounts_number', 2]);

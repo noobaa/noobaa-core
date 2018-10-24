@@ -16,6 +16,18 @@ const activation_code = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
     "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +
     "3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd";
 
+//Enable reporter and set parameters
+function init_reporter(report_params) {
+    const suite_name = report_params.suite_name || 'UNKNW_server_func';
+    report.init_reporter({
+        suite: suite_name,
+        conf: {},
+        mongo_report: true,
+        cases: report_params.cases,
+        prefix: report_params.cases_prefix
+    });
+}
+
 //will enable noobaa user login via ssh
 async function enable_nooba_login(server_ip, secret) {
     const client_ssh = await ssh.ssh_connect({
@@ -220,3 +232,4 @@ exports.create_system_and_check = create_system_and_check;
 exports.clean_ova_and_create_system = clean_ova_and_create_system;
 exports.upload_upgrade_package = upload_upgrade_package;
 exports.upgrade_server = upgrade_server;
+exports.init_reporter = init_reporter;

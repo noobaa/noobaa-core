@@ -98,6 +98,8 @@ const cases = [
     'succeeded config 2/3 down',
     'stop master',
     'stop/start master',
+    'create bucket pre test',
+    'ul and verify obj pre test',
     'create bucket one srv down',
     'ul and verify obj one srv down',
     'create bucket all up after one down',
@@ -437,18 +439,18 @@ function verifyS3Server(topic) {
         .then(() => s3ops.get_list_buckets())
         .then(res => {
             if (res.includes(bucket)) {
-                report.success(`create bucket ${topic ? '- ' + topic : ''}`);
+                report.success(`create bucket${topic ? ' ' + topic : ''}`);
                 console.log('Bucket is successfully added');
             } else {
-                report.fail(`create bucket ${topic ? '- ' + topic : ''}`);
+                report.fail(`create bucket${topic ? ' ' + topic : ''}`);
                 saveErrorAndResume(`Created bucket ${master_ip} bucket is not returns on list`, res);
             }
         })
         .then(() => s3ops.put_file_with_md5(bucket, '100MB_File', 100, 1048576)
             .then(() => s3ops.get_file_check_md5(bucket, '100MB_File')))
-        .then(() => report.success(`ul and verify obj ${topic ? '- ' + topic : ''}`))
+        .then(() => report.success(`ul and verify obj${topic ? ' ' + topic : ''}`))
         .catch(err => {
-            report.fail(`ul and verify obj ${topic ? '- ' + topic : ''}`);
+            report.fail(`ul and verify obj${topic ? ' ' + topic : ''}`);
             saveErrorAndResume(`${master_ip} FAILED verification s3 server`, err);
             failures_in_test = true;
             throw err;
@@ -618,7 +620,7 @@ return azf.authenticate()
     .then(() => delayInSec(90))
     .then(() => checkClusterStatus(servers, masterIndex)) //TODO: remove... ??
     .then(() => af.createRandomAgents(azf, master_ip, storage, vnet, agents_number, suffix, osesSet))
-    .then(res => verifyS3Server())
+    .then(res => verifyS3Server('pre test'))
     .then(() => checkClusterStatus(servers, masterIndex))
     .then(runFirstFlow)
     .then(runSecondFlow)

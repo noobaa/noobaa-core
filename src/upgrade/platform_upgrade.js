@@ -28,7 +28,6 @@ const NVM_DIR = `${HOME}/.nvm`;
 
 const SWAP_SIZE_MB = 8 * 1024;
 
-const MONGO_RECONNECT_TIMEOUT = 120000;
 
 // in clustered mongo it can take time before all members are operational. wait up to 10 minutes
 const WAIT_FOR_MONGO_TIMEOUT = 10 * 60000;

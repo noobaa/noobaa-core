@@ -9,7 +9,6 @@ const mongodb = require('mongodb');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('./promise');
-const promise_utils = require('./promise_utils');
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
 const js_utils = require('./js_utils');

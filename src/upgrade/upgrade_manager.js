@@ -2,7 +2,6 @@
 "use strict";
 
 const argv = require('minimist')(process.argv);
-const _ = require('lodash');
 
 const promise_utils = require('../util/promise_utils');
 const mongo_client = require('../util/mongo_client');

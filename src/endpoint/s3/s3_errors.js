@@ -55,7 +55,7 @@ const errors_defs = [{
     http_code: 409,
 }, {
     code: 'BucketNotEmpty',
-    message: 'The bucket you tried to delete is not empty.',
+    message: 'The bucket you tried to delete is not empty. You must delete all versions in the bucket.',
     http_code: 409,
 }, {
     code: 'CredentialsNotSupported',

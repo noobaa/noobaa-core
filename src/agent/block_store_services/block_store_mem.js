@@ -11,9 +11,13 @@ class BlockStoreMem extends BlockStoreBase {
 
     constructor(options) {
         super(options);
-        this._used = 0;
-        this._count = 0;
+        this._usage = {
+            size: 0,
+            count: 0
+        };
         this._blocks = new Map();
+        // below 15 GB the node is deactivated, so we report 16 GB here
+        this._total_mem_storage = 16 * 1024 * 1024 * 1024;
     }
 
     init() {
@@ -21,18 +25,19 @@ class BlockStoreMem extends BlockStoreBase {
     }
 
     get_storage_info() {
-        // below 15 GB the node is deactivated, so we report 16 GB here
-        const total = 16 * 1024 * 1024 * 1024;
-        //from some reason we don't init this value. I can't find it now.
-        //TODO: init correctly.
-        if (!this._used) {
-            this._used = 0;
-        }
         return {
-            total: total,
-            free: total - this._used,
-            used: this._used,
+            total: this._total_mem_storage,
+            free: this._total_mem_storage - this._usage.size,
+            used: this._usage.size,
         };
+    }
+
+    _write_usage_internal() {
+        // noop
+    }
+
+    _get_usage() {
+        return this._usage;
     }
 
     _read_block(block_md) {
@@ -47,27 +52,28 @@ class BlockStoreMem extends BlockStoreBase {
     _write_block(block_md, data) {
         const block_id = block_md.id;
         const b = this._blocks.get(block_id);
+        const usage = { size: 0, count: 0 };
         if (b) {
-            this._used -= b.length;
-            this._count -= 1;
+            usage.size -= b.data.length;
+            usage.count -= 1;
         }
-        this._blocks.set(block_id, {
-            data: data,
-            block_md: block_md
-        });
-        this._used += data.length;
-        this._count += 1;
+        this._blocks.set(block_id, { data, block_md });
+        usage.size += data.length;
+        usage.count += 1;
+        this._update_usage(usage);
     }
 
     _delete_blocks(block_ids) {
+        const usage = { size: 0, count: 0 };
         _.each(block_ids, block_id => {
             const b = this._blocks.get(block_id);
             if (b) {
-                this._used -= b.length;
-                this._count -= 1;
+                usage.size -= b.data.length;
+                usage.count -= 1;
                 this._blocks.delete(block_id);
             }
         });
+        this._update_usage(usage);
         // Just a place filler since we always succeed in deletions
         return {
             failed_block_ids: [],

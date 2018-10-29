@@ -3,11 +3,13 @@
 
 const _ = require('lodash');
 const chance = require('chance')();
+// const util = require('util');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const nodes_client = require('./nodes_client');
+const node_server = require('./node_server');
 
 const ALLOC_REFRESH_MS = 10000;
 
@@ -16,7 +18,7 @@ let alloc_group_by_pool_set = {};
 let alloc_group_by_tiering = {};
 
 
-function refresh_tiering_alloc(tiering) {
+function refresh_tiering_alloc(tiering, force) {
     const pools = _.flatMap(tiering.tiers, ({ tier }) => {
         let tier_pools = [];
         // Inside the Tier, pools are unique and we don't need to filter afterwards
@@ -26,13 +28,12 @@ function refresh_tiering_alloc(tiering) {
         return tier_pools;
     });
     return P.join(
-        P.map(pools, refresh_pool_alloc),
-        refresh_tiers_alloc(tiering)
+        P.map(pools, pool => refresh_pool_alloc(pool, force)),
+        refresh_tiers_alloc(tiering, force),
     );
 }
 
-function refresh_pool_alloc(pool) {
-
+function refresh_pool_alloc(pool, force) {
     let group = alloc_group_by_pool[pool._id];
     if (!group) {
         group = {
@@ -44,9 +45,11 @@ function refresh_pool_alloc(pool) {
 
     dbg.log2('refresh_pool_alloc: checking pool', pool._id, 'group', group);
 
-    // cache the nodes for some time before refreshing
-    if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
-        return P.resolve();
+    if (force !== 'force') {
+        // cache the nodes for some time before refreshing
+        if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
+            return P.resolve();
+        }
     }
 
     if (group.promise) return group.promise;
@@ -57,7 +60,7 @@ function refresh_pool_alloc(pool) {
             group.last_refresh = Date.now();
             group.promise = null;
             group.latency_groups = res.latency_groups;
-            dbg.log1('refresh_pool_alloc: updated pool', pool.name,
+            dbg.log0('refresh_pool_alloc: updated pool', pool.name,
                 'nodes', _.map(_.flatMap(group.latency_groups, 'nodes'), 'name'));
             _.each(alloc_group_by_pool_set, (g, pool_set) => {
                 if (_.includes(pool_set, String(pool._id))) {
@@ -75,7 +78,7 @@ function refresh_pool_alloc(pool) {
 }
 
 
-function refresh_tiers_alloc(tiering) {
+function refresh_tiers_alloc(tiering, force) {
 
     let group = alloc_group_by_tiering[tiering._id];
     if (!group) {
@@ -88,9 +91,11 @@ function refresh_tiers_alloc(tiering) {
 
     dbg.log1('refresh_tier_alloc: checking tiering', tiering._id, 'group', group);
 
-    // cache the nodes for some time before refreshing
-    if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
-        return P.resolve();
+    if (force !== 'force') {
+        // cache the nodes for some time before refreshing
+        if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
+            return P.resolve();
+        }
     }
 
     if (group.promise) return group.promise;
@@ -210,6 +215,7 @@ function allocate_node(pools, avoid_nodes, allocated_hosts) {
         'alloc_group', alloc_group);
 
     if (num_nodes < 1) {
+        // await P.map(pools, pool => refresh_pool_alloc(pool, 'force'));
         dbg.error('allocate_node: no nodes for allocation in pool set',
             pools, avoid_nodes, allocated_hosts);
         return;
@@ -267,12 +273,6 @@ function report_error_on_node_alloc(node_id) {
     });
 }
 
-function reset_alloc_groups() {
-    alloc_group_by_pool = {};
-    alloc_group_by_pool_set = {};
-    alloc_group_by_tiering = {};
-}
-
 
 // EXPORTS
 exports.get_tiering_status = get_tiering_status;
@@ -280,4 +280,3 @@ exports.refresh_tiering_alloc = refresh_tiering_alloc;
 exports.refresh_pool_alloc = refresh_pool_alloc;
 exports.allocate_node = allocate_node;
 exports.report_error_on_node_alloc = report_error_on_node_alloc;
-exports.reset_alloc_groups = reset_alloc_groups;

@@ -891,11 +891,8 @@ module.exports = {
         },
         policy_modes: {
             type: 'object',
-            required: ['placement_status', 'resiliency_status', 'quota_status'],
+            required: ['resiliency_status', 'quota_status'],
             properties: {
-                placement_status: { // For now - maybe should be deleted/changed
-                    $ref: 'tiering_policy_api#/definitions/tier_placement_status'
-                },
                 resiliency_status: {
                     type: 'string',
                     enum: [
@@ -924,8 +921,9 @@ module.exports = {
                 'APPROUCHING_QUOTA',
                 'LOW_CAPACITY',
                 'RISKY_TOLERANCE',
+                'MANY_TIERS_ISSUES',
+                'ONE_TIER_ISSUES',
                 'NO_RESOURCES_INTERNAL',
-                'NO_RESOURCES_INTERNAL_ISSUES',
                 'EXCEEDING_QUOTA',
                 'NO_CAPACITY',
                 'NOT_ENOUGH_HEALTHY_RESOURCES',

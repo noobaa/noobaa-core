@@ -516,7 +516,7 @@ function log_builder(idx, options) {
     };
 }
 for (i = 0; i < 5; ++i) {
-    DebugLogger.prototype[log_func_name + i] = log_builder(i, { throttled: true });
+    DebugLogger.prototype[log_func_name + i] = log_builder(i, { throttled: false });
 }
 
 function log_bt_builder(idx) {

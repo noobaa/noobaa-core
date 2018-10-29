@@ -22,6 +22,7 @@ export default {
             'data',
             'objectCount',
             'placement',
+            'placement2',
             'resiliency',
             'versioning',
             'io',
@@ -46,7 +47,8 @@ export default {
                     'LOW_CAPACITY',
                     'RISKY_TOLERANCE',
                     'NO_RESOURCES_INTERNAL',
-                    'NO_RESOURCES_INTERNAL_ISSUES',
+                    'MANY_TIERS_ISSUES',
+                    'ONE_TIER_ISSUES',
                     'EXCEEDING_QUOTA',
                     'NO_CAPACITY',
                     'NOT_ENOUGH_HEALTHY_RESOURCES',
@@ -178,6 +180,14 @@ export default {
                                         mode: {
                                             type: 'string',
                                             enum: [
+                                                'INTERNAL_ISSUES',
+                                                'NO_RESOURCES',
+                                                'NOT_ENOUGH_RESOURCES',
+                                                'NOT_ENOUGH_HEALTHY_RESOURCES',
+                                                'NO_CAPACITY',
+                                                'RISKY_TOLERANCE',
+                                                'LOW_CAPACITY',
+                                                'DATA_ACTIVITY',
                                                 'OPTIMAL'
                                             ]
                                         },
@@ -208,6 +218,14 @@ export default {
                                         mode: {
                                             type: 'string',
                                             enum: [
+                                                'INTERNAL_ISSUES',
+                                                'NO_RESOURCES',
+                                                'NOT_ENOUGH_RESOURCES',
+                                                'NOT_ENOUGH_HEALTHY_RESOURCES',
+                                                'NO_CAPACITY',
+                                                'RISKY_TOLERANCE',
+                                                'LOW_CAPACITY',
+                                                'DATA_ACTIVITY',
                                                 'OPTIMAL'
                                             ]
                                         },

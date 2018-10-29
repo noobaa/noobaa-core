@@ -1,0 +1,19 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<p class="greedy">
+    {{message}}
+    Would you like to leave this tier without any resource?
+</p>
+
+<div class="row push-prev content-middle align-end">
+    <button class="btn alt-colors push-next"
+        ko.click="onBack"
+        ko.hasFocus="true"
+    >
+        Back to edit resources
+    </button>
+    <button class="btn" ko.click="onContinue">
+        Yes, Continue without resources
+    </button>
+</div>
+

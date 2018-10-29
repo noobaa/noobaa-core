@@ -7,6 +7,7 @@ export default function tweenExtender(
     target,
     {
         duration = 1000,
+        delay = 0,
         easing = 'easeOutQuad',
         resetValue = target(),
         resetOnChange = false,
@@ -17,8 +18,9 @@ export default function tweenExtender(
     tween({
         from: { val: resetValue },
         to: { val: target() },
-        duration: duration,
-        easing: easing,
+        delay,
+        duration,
+        easing,
         step: ({ val }) => result(val)
     });
 
@@ -36,6 +38,7 @@ export default function tweenExtender(
                     val: resetOnChange ? 0 : result()
                 },
                 to: { val },
+                delay,
                 duration,
                 easing,
                 step: ({ val }) => result(val)

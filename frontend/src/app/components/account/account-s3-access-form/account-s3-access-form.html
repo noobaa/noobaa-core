@@ -27,20 +27,8 @@
     loading: !isAccountLoaded()
 ">
     <template name="list">
-        <div class="row content-middle" ko.if="$data">
-            <ul class="no-wrap box-list list-no-style row" ko.foreach="visibleItems">
-                <li class="box no-wrap pad push-next-half highlight" ko.tooltip="tooltip">
-                   {{ text }}
-                </li>
-            </ul>
-            <span class="highlight align-middle push-prev-half"
-                ko.visible="hasExtra"
-                ko.tooltip="extraTooltip"
-            >
-                {{ extraText }}
-            </span>
-         </div>
-   </template>
+        <tag-list params="tags: tags, maxCount: boxCount"></tag-list>
+    </template>
 </property-sheet>
 
 <div class="row alt-bg pad content-middle">

@@ -1,0 +1,12 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<ol class="list-no-style" ko.foreach="$data">
+    <p class="highlight">
+        {{subject}} in Tier {{tierIndex}}
+    </p>
+    <ul class="list-no-style" ko.foreach="resources">
+        <li>
+            <a class="link" ko.attr.href="href">{{name}}</a>
+        </li>
+    </ul>
+</ol>

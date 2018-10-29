@@ -1,83 +1,102 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isUndefined, sumBy, flatMap } from './core-utils';
+import { deepFreeze, isUndefined, sumBy, flatMap, mapValues } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
 import { stringifyAmount, pluralize } from 'utils/string-utils';
 
-const bucketStateToIcon = deepFreeze({
-    NO_RESOURCES: {
-        tooltip: 'No storage resources',
-        css: 'error',
-        name: 'problem'
-    },
-    NOT_ENOUGH_HEALTHY_RESOURCES: {
-        tooltip: 'Not enough healthy storage resources',
-        css: 'error',
-        name: 'problem'
-    },
-    NOT_ENOUGH_RESOURCES: {
-        tooltip: 'Not enough drives to meet resiliency policy',
-        css: 'error',
-        name: 'problem'
-    },
-    NO_CAPACITY: {
-        tooltip: 'No potential available storage',
-        css: 'error',
-        name: 'problem'
-    },
-    EXCEEDING_QUOTA: {
-        tooltip: 'Exceeded configured quota',
-        css: 'error',
-        name: 'problem'
-    },
-    LOW_CAPACITY: {
-        tooltip: 'Storage is low',
-        css: 'warning',
-        name: 'problem'
-    },
-    RISKY_TOLERANCE: {
-        tooltip: 'Risky failure tolerance ',
-        css: 'warning',
-        name: 'problem'
-    },
-    'NO_RESOURCES_INTERNAL': {
-        tooltip: 'TODO ',
-        css: 'warning',
-        name: 'problem'
-    },
-    'NO_RESOURCES_INTERNAL_ISSUES': {
-        tooltip: 'TODO',
-        css: 'error',
-        name: 'problem'
-    },
-    APPROUCHING_QUOTA: {
-        tooltip: 'Approaching configured quota',
-        css: 'warning',
-        name: 'problem'
-    },
-    DATA_ACTIVITY: {
-        tooltip: 'In process',
-        css: 'warning',
-        name: 'working'
-    },
-    OPTIMAL: {
-        tooltip: 'Healthy',
-        css: 'success',
-        name: 'healthy'
-    }
-});
+const bucketStateToIcon = deepFreeze(
+    _mapObjectsToFunction({
+        NO_RESOURCES: {
+            tooltip: 'No storage resources',
+            css: 'error',
+            name: 'problem'
+        },
+        NOT_ENOUGH_HEALTHY_RESOURCES: {
+            tooltip: 'Not enough healthy storage resources',
+            css: 'error',
+            name: 'problem'
+        },
+        NOT_ENOUGH_RESOURCES: {
+            tooltip: 'Not enough drives to meet resiliency policy',
+            css: 'error',
+            name: 'problem'
+        },
+        NO_CAPACITY: {
+            tooltip: 'No potential available storage',
+            css: 'error',
+            name: 'problem'
+        },
+        EXCEEDING_QUOTA: {
+            tooltip: 'Exceeded configured quota',
+            css: 'error',
+            name: 'problem'
+        },
+        LOW_CAPACITY: {
+            tooltip: 'Storage is low',
+            css: 'warning',
+            name: 'problem'
+        },
+        RISKY_TOLERANCE: {
+            tooltip: 'Risky failure tolerance ',
+            css: 'warning',
+            name: 'problem'
+        },
+        NO_RESOURCES_INTERNAL: {
+            tooltip: 'No Storage Resources - Using Internal Storage',
+            css: 'warning',
+            name: 'problem'
+        },
+        APPROUCHING_QUOTA: {
+            tooltip: 'Approaching configured quota',
+            css: 'warning',
+            name: 'problem'
+        },
+        DATA_ACTIVITY: {
+            tooltip: 'In process',
+            css: 'warning',
+            name: 'working'
+        },
+        MANY_TIERS_ISSUES: {
+            tooltip: 'Tiers Resources has Issues ',
+            css: 'warning',
+            name: 'problem'
+        },
+        ONE_TIER_ISSUES: bucket => {
+            const i = bucket.placement2.tiers.findIndex(tier =>
+                tier.mode !== 'OPTIMAL'
+            );
+
+            return {
+                tooltip: `Tier ${i + 1}'s Resources has Issues`,
+                css: 'warning',
+                name: 'problem'
+            };
+        },
+        OPTIMAL: {
+            tooltip: 'Healthy',
+            css: 'success',
+            name: 'healthy'
+        }
+    })
+);
 
 const placementModeToIcon = deepFreeze({
-    NO_RESOURCES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES, 'start'),
-    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES, 'start'),
-    NOT_ENOUGH_HEALTHY_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_HEALTHY_RESOURCES, 'start'),
-    NO_CAPACITY: _alignIconTooltip(bucketStateToIcon.NO_CAPACITY, 'start'),
-    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
-    NO_RESOURCES_INTERNAL: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES_INTERNAL, 'start'),
-    NO_RESOURCES_INTERNAL_ISSUES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES_INTERNAL_ISSUES, 'start'),
-    LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY, 'start'),
-    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
-    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
+    INTERNAL_ISSUES: {
+        tooltip: {
+            text: 'Tier is empty and the internal storage is unavailable',
+            align: 'start'
+        },
+        css: 'error',
+        name: 'problem'
+    },
+    NO_RESOURCES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES(), 'start'),
+    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES(), 'start'),
+    NOT_ENOUGH_HEALTHY_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_HEALTHY_RESOURCES(), 'start'),
+    NO_CAPACITY: _alignIconTooltip(bucketStateToIcon.NO_CAPACITY(), 'start'),
+    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE(), 'start'),
+    LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY(), 'start'),
+    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY(), 'start'),
+    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL(), 'start')
 });
 
 const placementTypeToDisplayName = deepFreeze({
@@ -94,10 +113,10 @@ const namespaceBucketToStateIcon = deepFreeze({
 });
 
 const resiliencyModeToIcon = deepFreeze({
-    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES, 'start'),
-    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
-    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
-    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
+    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES(), 'start'),
+    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE(), 'start'),
+    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY(), 'start'),
+    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL(), 'start')
 });
 
 const resiliencyTypeToDisplay = deepFreeze({
@@ -120,15 +139,12 @@ const resiliencyTypeToBlockType = deepFreeze({
 });
 
 const quotaModeToIcon = deepFreeze({
-    EXCEEDING_QUOTA: _alignIconTooltip(bucketStateToIcon.EXCEEDING_QUOTA, 'start'),
-    APPROUCHING_QUOTA: _alignIconTooltip(bucketStateToIcon.APPROUCHING_QUOTA, 'start'),
+    EXCEEDING_QUOTA: _alignIconTooltip(bucketStateToIcon.EXCEEDING_QUOTA(), 'start'),
+    APPROUCHING_QUOTA: _alignIconTooltip(bucketStateToIcon.APPROUCHING_QUOTA(), 'start'),
     OPTIMAL: {
         name: 'healthy',
         css: 'success',
-        tooltip: {
-            text: 'Enabled',
-            align: 'start'
-        }
+        tooltip: 'Enabled'
     }
 });
 
@@ -153,6 +169,12 @@ export const bucketEvents = deepFreeze([
     }
 ]);
 
+function _mapObjectsToFunction(statusMap) {
+    return mapValues(statusMap, objOrFunc =>
+        typeof objOrFunc === 'function' ? objOrFunc : () => objOrFunc
+    );
+}
+
 function _alignIconTooltip(icon, align) {
     const { tooltip: text, ...rest } = icon;
     return {
@@ -162,9 +184,8 @@ function _alignIconTooltip(icon, align) {
 }
 
 export function getBucketStateIcon(bucket, align) {
-    return isUndefined(align) ?
-        bucketStateToIcon[bucket.mode] :
-        _alignIconTooltip( bucketStateToIcon[bucket.mode], align);
+    const status = bucketStateToIcon[bucket.mode](bucket);
+    return isUndefined(align) ? status : _alignIconTooltip(status, align);
 }
 
 export function getPlacementTypeDisplayName(type) {
@@ -231,7 +252,7 @@ export function isBucketWritable(bucket) {
 export function countStorageNodesByMirrorSet(placement, hostPools) {
     return flatMap(
         placement.tiers,
-        tier => tier.mirrorSets.map(ms => sumBy(
+        tier => (tier.mirrorSets || []).map(ms => sumBy(
             ms.resources,
             res => res.type === 'HOSTS' ?
                 hostPools[res.name].storageNodeCount :
@@ -298,13 +319,50 @@ export function flatPlacementPolicy(bucket) {
     return flatMap(
         bucket.placement2.tiers,
         tier => flatMap(
-            tier.mirrorSets,
+            tier.policyType === 'INTERNAL_STORAGE' ? [] : tier.mirrorSets,
             ms => ms.resources.map(resource => ({
                 bucket: bucket.name,
                 tier: tier.name,
-                mirrorSet: ms.namer,
+                mirrorSet: ms.name,
                 resource: resource
             }))
         )
     );
+}
+
+export function validatePlacementPolicy(policy, errors = {}) {
+    const { policyType, selectedResources } = policy;
+
+    if (policyType === 'MIRROR' && selectedResources.length < 2) {
+        errors.selectedResources = 'Mirror policy requires at least 2 participating resources';
+
+    } else if (policyType === 'SPREAD') {
+        const [ first, ...others ] = selectedResources.map(res =>
+            res.split(':')[0]
+        );
+
+        if (others.some(type => type !== first)) {
+            errors.selectedResources = 'Configuring nodes pools combined with cloud resource as spread is not allowed';
+        }
+    }
+
+    return errors;
+}
+
+export function warnPlacementPolicy(policy, hostPools, cloudResources, warnings = {}) {
+    const { policyType, selectedResources } = policy;
+
+    if (policyType === 'SPREAD') {
+        const [first, ...rest] = selectedResources.map(id => {
+            const [type, name] = id.split(':');
+            const { region } = (type === 'HOSTS' ? hostPools : cloudResources)[name];
+            return region || 'NOT_SET';
+        });
+
+        if (first && rest.some(region => region !== first)) {
+            warnings.selectedResources = 'Combining resources with different assigned regions is not recommended and might raise costs';
+        }
+    }
+
+    return warnings;
 }

@@ -13,7 +13,8 @@ import {
 import * as routes from 'routes';
 
 const undeletableReasons = deepFreeze({
-    IN_USE: 'Cannot delete a resource in use'
+    IN_USE: 'Cannot delete a resource in use',
+    DEFAULT_RESOURCE: 'TODO: understand the case and add message for "DEFAULT_RESOURCE"'
 });
 
 export default class CloudResourceRowViewModel {

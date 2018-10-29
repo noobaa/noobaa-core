@@ -1,0 +1,47 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="pad" ko.if="dataReady">
+    <div class="row content-middle bucket-policy-summary cursor-pointer"
+        ko.click="onToggleSection"
+    >
+        <svg-icon class="push-next"
+            params="name: stateIcon().name"
+            ko.css="stateIcon().css"
+            ko.tooltip="stateIcon().tooltip"
+        ></svg-icon>
+        <div class="column greedy">
+            <h2 class="heading3 greedy">{{tierDisplayName}}</h2>
+            <p class="row content-middle">
+                Policy Type: {{placementType}}
+                <vr class="alt-colors push-both-half"></vr>
+                Node Pools: {{hostPoolCount}}
+                <vr class="alt-colors push-both-half"></vr>
+                Cloud Resources: {{cloudResourceCount}}
+                <vr class="alt-colors push-both-half"></vr>
+                Available Capacity: {{capacity}}
+            </p>
+        </div>
+        <div class="push-both" ko.tooltip="editTierPlacementTooltip">
+            <button class="btn"
+                ko.disable="isEditTierPlacementDisabled"
+                ko.click="onEditTierPlacement"
+            >
+                Edit {{tierDisplayName}} Resources
+            </button>
+        </div>
+        <svg-icon class="icon-small rotate"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div class="column hpad" ko.expand="isExpanded">
+        <div class="hpad push-prev">
+            <data-table class="placement-table alt-bg" params="
+                columns: columns,
+                data: rows,
+                emptyMessage: emptyMessage
+            "></data-table>
+        </div>
+    </div>
+</section>
+

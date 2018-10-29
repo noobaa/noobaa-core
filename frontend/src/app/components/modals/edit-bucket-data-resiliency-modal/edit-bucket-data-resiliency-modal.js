@@ -1,15 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './edit-bucket-data-resiliency-modal.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { state$, action$ } from 'state';
 import { deepFreeze, pick } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
-import { countStorageNodesByMirrorSet, summrizeResiliency, getResiliencyRequirementsWarning } from 'utils/bucket-utils';
-import { getMany } from 'rx-extensions';
 import { editBucketDataResiliency as learnMoreHref } from 'knowledge-base-articles';
+import {
+    countStorageNodesByMirrorSet,
+    summrizeResiliency,
+    getResiliencyRequirementsWarning
+} from 'utils/bucket-utils';
 import {
     closeModal,
     updateForm,
@@ -87,9 +89,10 @@ function _getErasureCodingRebuildEffortInfo(rebuildEffort) {
     };
 }
 
-class EditBucketDataResiliencyModalViewModel extends Observer {
+class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
-    fields = ko.observable();
+    bucketName = '';
+    tierName = '';
     advancedMode = false;
     toggleModeBtnText = ko.observable();
     isReplicationDisabled = ko.observable();
@@ -107,85 +110,67 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
     ecRebuildEffort = ko.observable();
     ecIsPolicyRisky = false;
     learnMoreHref = learnMoreHref
+    fields = ko.observable();
 
-    constructor({ bucketName }) {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['buckets', ko.unwrap(bucketName)],
-                    'hostPools',
-                    ['forms', this.formName],
-                )
-            ),
-            this.onState
-        );
+    selectState(state, params) {
+        const { buckets, hostPools, forms } = state;
+        return [
+            buckets && buckets[params.bucketName],
+            hostPools,
+            forms[this.formName]
+        ];
     }
 
-    onState([bucket, hostPools, form]) {
-        if (!bucket) return;
+    mapStateToProps(bucket, hostPools, form) {
+        if (!bucket || !hostPools) {
+            return;
+        }
 
         const values = form ? getFormValues(form) : _getFormInitalValues(bucket);
         const minNodeCountInMirrorSets = Math.min(
             ...countStorageNodesByMirrorSet(bucket.placement2, hostPools)
         );
+        const repSummary = summrizeResiliency({
+            kind: 'REPLICATION',
+            replicas: values.replicas
+        });
+        const repRequiredDrives = _getRequiredDrivesInfo(
+            'REPLICATION',
+            repSummary.requiredDrives,
+            minNodeCountInMirrorSets,
+        );
+        const ecSummary = summrizeResiliency({
+            kind: 'ERASURE_CODING',
+            dataFrags: values.dataFrags,
+            parityFrags: values.parityFrags
+        });
+        const ecRequiredDrives = _getRequiredDrivesInfo(
+            'ERASURE_CODING',
+            ecSummary.requiredDrives,
+            minNodeCountInMirrorSets
+        );
 
-        this.bucketName = bucket.name;
-        this.tierName = bucket.tierName;
-        this.advancedMode = values.advancedMode;
-        this.toggleModeBtnText(values.advancedMode ? 'Basic Settings' : 'Advanced Settings');
-        this.isReplicationDisabled(!values.advancedMode || values.resiliencyType !== 'REPLICATION');
-        this.isErasureCodingDisabled(!values.advancedMode || values.resiliencyType !== 'ERASURE_CODING');
-
-        {
-            const summary = summrizeResiliency({
-                kind: 'REPLICATION',
-                replicas: values.replicas
-            });
-            const requiredDrives = _getRequiredDrivesInfo(
-                'REPLICATION',
-                summary.requiredDrives,
-                minNodeCountInMirrorSets,
-            );
-
-            this.repCopies(summary.replicas);
-            this.repStorageOverhead(numeral(summary.storageOverhead).format('%'));
-            this.repFailureTolerance(_getFailureToleranceInfo(summary.failureTolerance));
-            this.repRequiredDrives(requiredDrives);
-            this.repRebuildEffort(rebuildEffortToDisplay[summary.rebuildEffort]);
-            this.repIsPolicyRisky = summary.failureTolerance < 2;
-        }
-
-        {
-            const summary = summrizeResiliency({
-                kind: 'ERASURE_CODING',
-                dataFrags: values.dataFrags,
-                parityFrags: values.parityFrags
-            });
-            const requiredDrives = _getRequiredDrivesInfo(
-                'ERASURE_CODING',
-                summary.requiredDrives,
-                minNodeCountInMirrorSets
-            );
-
-            this.ecDisribution(`${summary.dataFrags} + ${summary.parityFrags}`);
-            this.ecStorageOverhead(numeral(summary.storageOverhead).format('%'));
-            this.ecFailureTolerance(_getFailureToleranceInfo(summary.failureTolerance));
-            this.ecRequiredDrives(requiredDrives);
-            this.ecRebuildEffort(_getErasureCodingRebuildEffortInfo(summary.rebuildEffort));
-            this.ecIsPolicyRisky = summary.failureTolerance < 2;
-        }
-
-        if (!this.fields()) {
-            this.fields({
-                advancedMode: values.advancedMode,
-                resiliencyType: values.resiliencyType,
-                replicas: values.replicas,
-                dataFrags: values.dataFrags,
-                parityFrags: values.parityFrags
-            });
-        }
+        ko.assignToProps(this, {
+            bucketName: bucket.name,
+            tierName: bucket.tierName,
+            advancedMode: values.advancedMode,
+            toggleModeBtnText: values.advancedMode ? 'Basic Settings' : 'Advanced Settings',
+            isReplicationDisabled: !values.advancedMode || values.resiliencyType !== 'REPLICATION',
+            isErasureCodingDisabled: !values.advancedMode || values.resiliencyType !== 'ERASURE_CODING',
+            repCopies: repSummary.replicas,
+            repStorageOverhead: numeral(repSummary.storageOverhead).format('%'),
+            repFailureTolerance: _getFailureToleranceInfo(repSummary.failureTolerance),
+            repRequiredDrives: repRequiredDrives,
+            repRebuildEffort: rebuildEffortToDisplay[repSummary.rebuildEffort],
+            repIsPolicyRisky: repSummary.failureTolerance < 2,
+            ecDisribution: `${ecSummary.dataFrags} + ${ecSummary.parityFrags}`,
+            ecStorageOverhead: numeral(ecSummary.storageOverhead).format('%'),
+            ecFailureTolerance: _getFailureToleranceInfo(ecSummary.failureTolerance),
+            ecRequiredDrives: ecRequiredDrives,
+            ecRebuildEffort: _getErasureCodingRebuildEffortInfo(ecSummary.rebuildEffort),
+            ecIsPolicyRisky: ecSummary.failureTolerance < 2,
+            fields: !form ? values : undefined
+        });
     }
 
     onToggleMode() {
@@ -194,11 +179,11 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             ...defaults
         };
 
-        action$.next(updateForm(this.formName, values, false));
+        this.dispatch(updateForm(this.formName, values, false));
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     onValidate(values) {
@@ -230,17 +215,24 @@ class EditBucketDataResiliencyModalViewModel extends Observer {
             pick(values, ['resiliencyType', 'replicas']) :
             pick(values, ['resiliencyType', 'dataFrags', 'parityFrags']);
 
+        const action = updateBucketResiliencyPolicy(
+            this.bucketName,
+            this.tierName,
+            policy
+        );
+
         const isPolicyRisky = resiliencyType === 'REPLICATION' ?
             this.repIsPolicyRisky :
             this.ecIsPolicyRisky;
 
         if (isPolicyRisky) {
-            action$.next(
-                openRiskyBucketDataResiliencyWarningModal(this.bucketName, this.tierName, policy)
-            );
+            this.dispatch(openRiskyBucketDataResiliencyWarningModal(action));
+
         } else {
-            action$.next(updateBucketResiliencyPolicy(this.bucketName, this.tierName, policy));
-            action$.next(closeModal());
+            this.dispatch(
+                closeModal(),
+                action
+            );
         }
     }
 }
@@ -249,3 +241,4 @@ export default {
     viewModel: EditBucketDataResiliencyModalViewModel,
     template: template
 };
+

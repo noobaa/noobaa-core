@@ -73,10 +73,10 @@ function new_namespace_resource_defaults(name, system_id, account_id, connection
 function create_nodes_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
-    if (name !== config.NEW_SYSTEM_POOL_NAME && nodes.length < config.NODES_MIN_COUNT) {
-        throw new RpcError('NOT ENOUGH NODES', 'cant create a pool with less than ' +
-            config.NODES_MIN_COUNT + ' nodes');
-    }
+    // if (name !== config.NEW_SYSTEM_POOL_NAME && nodes.length < config.NODES_MIN_COUNT) {
+    //     throw new RpcError('NOT ENOUGH NODES', 'cant create a pool with less than ' +
+    //         config.NODES_MIN_COUNT + ' nodes');
+    // }
     var pool = new_pool_defaults(name, req.system._id, 'HOSTS', 'BLOCK_STORE_FS');
     dbg.log0('Creating new pool', pool);
 

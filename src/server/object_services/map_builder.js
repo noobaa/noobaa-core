@@ -41,7 +41,7 @@ class MapBuilder {
 
     async run(chunk_ids, tier) {
         this.tier = tier;
-        dbg.log0('MapBuilder.run:', 'batch start', chunk_ids);
+        dbg.log0('MapBuilder.run:', 'batch start', chunk_ids, 'tier', tier);
         if (!chunk_ids.length) return;
 
         await builder_lock.surround_keys(_.map(chunk_ids, String), async () => {
@@ -196,10 +196,11 @@ class MapBuilder {
                 throw new Error(`Not all chunks belong to the same bucket`);
             }
             const bucket = buckets[0];
-            chunks_moving_tiers = await make_room_in_tier(this.tier, bucket, config.MIN_TIER_FREE_THRESHOLD); /* TODO JACKY free_threshold ??? */
+            dbg.log0('JAJA bucket', bucket);
+            chunks_moving_tiers = await make_room_in_tier(this.tier, bucket); /* TODO JACKY free_threshold ??? */
         } else {
             for (const chunk of populated_chunks) {
-                chunks_moving_tiers += await make_room_in_tier(chunk.tier, chunk.bucket, config.MIN_TIER_FREE_THRESHOLD);
+                chunks_moving_tiers += await make_room_in_tier(chunk.tier, chunk.bucket);
             }
         }
         // We always call refresh_tiering_alloc twice, but if make_room_in_tier doesn't do anything we can skip it
@@ -434,7 +435,7 @@ class MapBuilder {
     }
 }
 
-async function make_room_in_tier(tier, bucket, free_threshold) {
+async function make_room_in_tier(tier, bucket) {
     const tiering = bucket.tiering;
     const tiering_status = node_allocator.get_tiering_status(tiering);
     const tier_status = tiering_status[tier._id];
@@ -443,15 +444,19 @@ async function make_room_in_tier(tier, bucket, free_threshold) {
     const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
     ));
-    if (available_to_upload && available_to_upload.greater(free_threshold)) return 0;
+    if (available_to_upload && available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD * 2)) {
+        dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.MIN_TIER_FREE_THRESHOLD * 2);
+        return 0;
+    }
     const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
     // const next_tier = _.find(tiering.tiers, t => t.order === (tier_in_tiering.order + 1));
     const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
     if (!next_tier) {
-        console.log(`Can't make room in tier - No next tier to move data to`, tier.name);
+        dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
         return 0;
     }
-    console.log(`Making room in tier ${tier.name} - Moving ${chunk_ids.length} to next tier ${next_tier.name}`);
+    dbg.log0(`make_room_in_tier: not enough room ${tier.name}: ${available_to_upload} < ${config.MIN_TIER_FREE_THRESHOLD * 2}
+        moving ${chunk_ids.length} to next tier ${next_tier.name}`);
     await server_rpc.client.scrubber.build_chunks({
         chunk_ids,
         tier: next_tier._id,
@@ -461,6 +466,7 @@ async function make_room_in_tier(tier, bucket, free_threshold) {
             role: 'admin'
         })
     });
+    dbg.log0(`make_room_in_tier: Done making room in tier ${tier.name}`);
     return chunk_ids.length;
 }
 

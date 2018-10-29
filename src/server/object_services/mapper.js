@@ -100,6 +100,7 @@ class MirrorMapper {
         this.regular_pools_valid = false;
         this.redundant_pools_valid = false;
 
+        this.has_online_pool = _.some(spread_pools, pool => tier_status.pools[pool._id].valid_for_allocation);
         // to decide which mirror to use for the first writing mirror
         // we set a weight for each mirror_mapper based on the pool types
         // when all are regular pools we
@@ -321,12 +322,16 @@ class TierMapper {
     update_status(tier_status, location_info) {
         const { mirror_mappers } = this;
         this.write_mapper = undefined;
+        this.online = true;
 
         for (let i = 0; i < mirror_mappers.length; ++i) {
             const mirror_mapper = mirror_mappers[i];
             mirror_mapper.update_status(tier_status, location_info);
             if (!this.write_mapper || MirrorMapper.compare_mapper_for_write(mirror_mapper, this.write_mapper) > 0) {
                 this.write_mapper = mirror_mapper;
+            }
+            if (!mirror_mapper.has_online_pool) {
+                this.online = false;
             }
         }
 
@@ -425,26 +430,13 @@ class TierMapper {
      */
     static compare_tier(mapper1, mapper2) {
 
-        const { valid_for_allocation: has_space1, order: order1 } = mapper1;
-        const { valid_for_allocation: has_space2, order: order2 } = mapper2;
+        const { online: online1, order: order1 } = mapper1;
+        const { online: online2, order: order2 } = mapper2;
 
-        // 1st consideration - Space / Spillover
-        // =====================================
-        // Choose tier which can be used over a tier that can't.
-        // This handles spillover, but also non spillover space tiering.
-
-        if (has_space1 && !has_space2) return 1;
-        if (has_space2 && !has_space1) return -1;
-
-        // 4th consideration - Policy Order
-        // ================================
-        // Prefer lower policy order as defined in the tiering policy.
-
-        if (has_space1 && order1 <= order2) return 1;
-        if (has_space2 && order2 <= order1) return -1;
+        if (online1 && order1 <= order2) return 1;
+        if (online2 && order2 <= order1) return -1;
         return order2 - order1;
     }
-
 }
 
 
@@ -578,7 +570,7 @@ function assign_node_to_block(block, node, system_id) {
     if (!system) throw new Error('Could not find system ' + system_id);
 
     const pool = system.pools_by_name[node.pool];
-    if (!pool) throw new Error('Could not find pool ' + node.pool);
+    if (!pool) throw new Error('Could not find pool ' + node.pool + node);
 
     block.node = node;
     block.pool = pool._id;

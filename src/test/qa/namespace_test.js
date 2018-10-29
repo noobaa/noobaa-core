@@ -114,40 +114,50 @@ const unit_mapping = {
     }
 };
 
-function saveErrorAndResume(message, err) {
+// function saveErrorAndResume(message, err) {
+//     console.error(message, err);
+//     errors.push(`${message} ${err}`);
+//     failures_in_test = true;
+// }
+
+function throwError(message, err) {
     console.error(message, err);
-    errors.push(`${message} ${err}`);
-    failures_in_test = true;
+    throw err;
 }
 
-async function getMD5fromS3Bucket(s3ops_arg, bucket, file_name) {
+async function getPropertiesFromS3Bucket(s3ops_arg, bucket, file_name) {
     try {
         const object_list = await s3ops_arg.get_object(bucket, file_name);
         console.log('Getting md5 data from file ' + file_name);
-        return crypto.createHash('md5').update(object_list.Body).digest('base64');
+        return {
+            md5: crypto.createHash('md5').update(object_list.Body).digest('base64'),
+            size: object_list.Body.length
+        };
     } catch (err) {
-        saveErrorAndResume(`Getting md5 data from file ${file_name}`, err);
-        throw err;
+        throw new Error(`Getting md5 data from file ${file_name}`, err);
     }
 }
 
-async function comperMD5betweencloudAndNooBaa(type, bucket, noobaa_bucket, file_name) {
+async function compereMD5betweenCloudAndNooBaa(type, bucket, noobaa_bucket, file_name) {
     console.log(`Compering NooBaa bucket to ${type}`);
-    let cloudMD5;
+    let cloudProperties;
     if (type === 'AWS') {
-        cloudMD5 = await getMD5fromS3Bucket(s3opsAWS, bucket, file_name);
+        cloudProperties = await getPropertiesFromS3Bucket(s3opsAWS, bucket, file_name);
     } else if (type === 'AZURE') {
-        cloudMD5 = await blobops.getMD5Blob(bucket, file_name, saveErrorAndResume);
+        cloudProperties = await blobops.getPropertyBlob(bucket, file_name, throwError);
     }
-    const noobaaMD5 = await getMD5fromS3Bucket(s3ops, noobaa_bucket, file_name);
+    const cloudMD5 = cloudProperties.md5;
+    const noobaaProperties = await getPropertiesFromS3Bucket(s3ops, noobaa_bucket, file_name);
+    const noobaaMD5 = noobaaProperties.md5;
     if (cloudMD5 === noobaaMD5) {
-        console.log(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${noobaaMD5} and the cloud md5 is: ${cloudMD5} for file ${file_name}`);
+        console.log(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${noobaaMD5} and the cloud md5 is: ${cloudProperties} for file ${file_name}`);
     } else {
-        saveErrorAndResume(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${noobaaMD5} instead of ${cloudMD5} for file ${file_name}`);
+        console.warn(`file: ${file_name} size is ${cloudProperties.size} on ${type} and ${noobaaProperties.size} on noobaa`);
+        throw new Error(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${noobaaMD5} instead of ${cloudProperties} for file ${file_name}`);
     }
 }
 
-async function uploadDataSetTocloud(type, bucket) {
+async function uploadDataSetToCloud(type, bucket) {
     for (const size of dataSet) {
         const { data_multiplier } = unit_mapping[size.size_units.toUpperCase()];
         const file_name = 'file_' + size.data_size + size.size_units + (Math.floor(Date.now() / 1000));
@@ -156,7 +166,7 @@ async function uploadDataSetTocloud(type, bucket) {
         if (type === 'AWS') {
             await s3opsAWS.put_file_with_md5(bucket, file_name, size.data_size, data_multiplier);
         } else if (type === 'AZURE') {
-            await blobops.uploadRandomFileDirectlyToAzure(bucket, file_name, actual_size, saveErrorAndResume);
+            await blobops.uploadRandomFileDirectlyToAzure(bucket, file_name, actual_size, throwError);
         }
     }
 }
@@ -171,7 +181,7 @@ async function upload_directly_to_cloud(type) {
             await s3opsAWS.put_file_with_md5(namespace_mapping.AWS.bucket2, file_name, 15, data_multiplier);
         } else if (type === 'AZURE') {
             const actual_size = 15 * data_multiplier;
-            await blobops.uploadRandomFileDirectlyToAzure(namespace_mapping.AZURE.bucket2, file_name, actual_size, saveErrorAndResume);
+            await blobops.uploadRandomFileDirectlyToAzure(namespace_mapping.AZURE.bucket2, file_name, actual_size, throwError);
         }
     } catch (err) {
         throw new Error(`Failed to upload directly into ${type}`);
@@ -186,7 +196,7 @@ async function isFilesAvailableInNooBaaBucket(gateway, files) {
         if (keys.includes(file)) {
             console.log('Server contains file ' + file);
         } else {
-            saveErrorAndResume(`Server is not contains uploaded file ${file} in bucket ${gateway}`);
+            throw new Error(`Server is not contains uploaded file ${file} in bucket ${gateway}`);
         }
     }
 }
@@ -196,8 +206,7 @@ async function uploadFileToNoobaaS3(bucket, file_name) {
     try {
         await s3ops.put_file_with_md5(bucket, file_name, 15, data_multiplier);
     } catch (err) {
-        saveErrorAndResume(`Failed upload file ${file_name}`, err);
-        throw err;
+        throw new Error(`Failed upload file ${file_name}`, err);
     }
 }
 
@@ -206,8 +215,7 @@ async function deleteNamesapaceBucket(bucket) {
     try {
         await bf.deleteBucket(bucket);
     } catch (err) {
-        saveErrorAndResume(`Failed to delete namespace bucket with error`, err);
-        throw err;
+        throw new Error(`Failed to delete namespace bucket with error`, err);
     }
 }
 
@@ -225,14 +233,14 @@ async function create_resource(type) {
         //create connection
         await cf.createConnection(connections_mapping[type], type);
     } catch (e) {
-        saveErrorAndResume('', e);
+        throw new Error(e);
     }
     try {
         // create namespace resource 
         await cf.createNamespaceResource(connections_mapping[type].name,
             namespace_mapping[type].namespace, namespace_mapping[type].bucket2);
     } catch (e) {
-        saveErrorAndResume('', e);
+        throw new Error(e);
     }
 }
 
@@ -241,14 +249,14 @@ async function upload_via_cloud_check_via_noobaa(type) {
         //create a namespace bucket
         await bf.createNamespaceBucket(namespace_mapping[type].gateway, namespace_mapping[type].namespace);
     } catch (e) {
-        saveErrorAndResume('', e);
+        throw new Error(e);
     }
     //upload dataset
-    await uploadDataSetTocloud(type, namespace_mapping[type].bucket2);
+    await uploadDataSetToCloud(type, namespace_mapping[type].bucket2);
     await upload_directly_to_cloud(type);
     await isFilesAvailableInNooBaaBucket(namespace_mapping[type].gateway, files_cloud[`files_${type}`]);
     for (const file of files_cloud[`files_${type}`]) {
-        await comperMD5betweencloudAndNooBaa(type, namespace_mapping[type].bucket2, namespace_mapping[type].gateway, file);
+        await compereMD5betweenCloudAndNooBaa(type, namespace_mapping[type].bucket2, namespace_mapping[type].gateway, file);
     }
 }
 
@@ -276,7 +284,7 @@ async function list_files_in_cloud(type) {
         const list_files_obj = await s3opsAWS.get_list_files(namespace_mapping[type].bucket2);
         list_files = list_files_obj.map(file => file.Key);
     } else if (type === 'AZURE') {
-        list_files = await blobops.getListFilesAzure(namespace_mapping[type].bucket2, saveErrorAndResume);
+        list_files = await blobops.getListFilesAzure(namespace_mapping[type].bucket2, throwError);
     }
     return list_files;
 }
@@ -305,7 +313,7 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
     try {
         await bf.updateNamesapceBucket(name, read_resources, write_resource);
     } catch (e) {
-        saveErrorAndResume('', e);
+        throw new Error(e);
     }
     await P.delay(30 * 1000);
     console.error(`${RED}TODO: REMOVE THIS DELAY, IT IS TEMP OVERRIDE FOR BUG #4831${NC}`);
@@ -321,7 +329,7 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
             console.log(`${e}, as should`);
         }
         if (should_fail) {
-            throw new Error(`Upload succeed To the read only cloud (${run_on_clouds[cycle]}) while it shoulden't`);
+            throw new Error(`Upload succeed To the read only cloud (${run_on_clouds[cycle]}) while it shouldn't`);
         }
     }
 }
@@ -330,7 +338,7 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
 async function list_cloud_files_read_via_noobaa(type, noobaa_bucket) {
     const files_in_cloud_bucket = await list_files_in_cloud(type);
     for (const file of files_in_cloud_bucket) {
-        await comperMD5betweencloudAndNooBaa(type, namespace_mapping[type].bucket2, noobaa_bucket, file);
+        await compereMD5betweenCloudAndNooBaa(type, namespace_mapping[type].bucket2, noobaa_bucket, file);
     }
 }
 
@@ -341,7 +349,7 @@ async function add_and_remove_resources(clouds) {
     try {
         await bf.createNamespaceBucket(noobaa_bucket_name, read_resources[0]);
     } catch (e) {
-        saveErrorAndResume('', e);
+        throw new Error(e);
     }
     await upload_via_noobaa_check_via_cloud({ type: 'AWS', bucket: noobaa_bucket_name });
     read_resources.push(namespace_mapping.AZURE.namespace);
@@ -351,7 +359,7 @@ async function add_and_remove_resources(clouds) {
             await list_cloud_files_read_via_noobaa(run_on_clouds[read_only_clouds], noobaa_bucket_name);
         }
         run_on_clouds.push(run_on_clouds.shift());
-        console.log(`cycle: ${cycle} number of cloudes: ${run_on_clouds.length}`);
+        console.log(`cycle: ${cycle} number of clouds: ${run_on_clouds.length}`);
     }
     return noobaa_bucket_name;
 }
@@ -402,7 +410,7 @@ async function main(clouds) {
             process.exit(0);
         }
     } catch (err) {
-        saveErrorAndResume('something went wrong', err);
+        console.error('something went wrong', err);
         await report.report();
         process.exit(1);
     }

@@ -36,13 +36,16 @@ async function uploadRandomFileDirectlyToAzure(container, file_name, size, err_h
     }
 }
 
-async function getMD5Blob(container, file_name, err_handler) {
+async function getPropertyBlob(container, file_name, err_handler) {
     const message = `Getting md5 for ${file_name} directly from azure container ${container}`;
     console.log(message);
     try {
         const blobProperties = await P.fromCallback(callback => blobService.getBlobProperties(container, file_name, callback));
         console.log(JSON.stringify(blobProperties));
-        return blobProperties.contentSettings.contentMD5;
+        return {
+            md5: blobProperties.contentSettings.contentMD5,
+            size: blobProperties.contentLength
+        };
     } catch (err) {
         _handle_error(err, message, err_handler);
     }
@@ -59,10 +62,10 @@ async function getListFilesAzure(bucket, err_handler) {
     }
 }
 
-function _handle_error(err, mesage, err_handler) {
-    console.error(`Failed ${mesage}`);
+function _handle_error(err, message, err_handler) {
+    console.error(`Failed ${message}`);
     if (err_handler) {
-        err_handler(mesage, err);
+        err_handler(message, err);
     } else {
         throw err;
     }
@@ -70,5 +73,5 @@ function _handle_error(err, mesage, err_handler) {
 
 exports.AzureDefaultConnection = AzureDefaultConnection;
 exports.uploadRandomFileDirectlyToAzure = uploadRandomFileDirectlyToAzure;
-exports.getMD5Blob = getMD5Blob;
+exports.getPropertyBlob = getPropertyBlob;
 exports.getListFilesAzure = getListFilesAzure;

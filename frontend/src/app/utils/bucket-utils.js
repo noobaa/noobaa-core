@@ -73,8 +73,6 @@ const placementModeToIcon = deepFreeze({
     NOT_ENOUGH_HEALTHY_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_HEALTHY_RESOURCES, 'start'),
     NO_CAPACITY: _alignIconTooltip(bucketStateToIcon.NO_CAPACITY, 'start'),
     RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
-    NO_RESOURCES_INTERNAL: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES_INTERNAL, 'start'),
-    NO_RESOURCES_INTERNAL_ISSUES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES_INTERNAL_ISSUES, 'start'),
     LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY, 'start'),
     DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
     OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
@@ -294,13 +292,52 @@ export function flatPlacementPolicy(bucket) {
     return flatMap(
         bucket.placement2.tiers,
         tier => flatMap(
-            tier.mirrorSets,
+            tier.policyType === 'INTERNAL_STORAGE' ? [] : tier.mirrorSets,
             ms => ms.resources.map(resource => ({
                 bucket: bucket.name,
                 tier: tier.name,
-                mirrorSet: ms.namer,
+                mirrorSet: ms.name,
                 resource: resource
             }))
         )
     );
+}
+
+export function validatePlacementPolicy(policy) {
+    const { policyType, selectedResources } = policy;
+    const errors = {};
+
+    if (policyType === 'MIRROR' && selectedResources.length === 1) {
+        errors.selectedResources = 'Mirror policy requires at least 2 participating pools';
+
+    } else if (policyType === 'SPREAD') {
+        const [ first, ...others ] = selectedResources.map(res =>
+            res.split(':')[0]
+        );
+
+        if (others.some(type => type !== first)) {
+            errors.selectedResources = 'Configuring nodes pools combined with cloud resource as spread is not allowed';
+        }
+    }
+
+    return errors;
+}
+
+export function warnPlacementPolicy(policy, hostPools, cloudResources) {
+    const { policyType, selectedResources } = policy;
+    const warnings = {};
+
+    if (policyType === 'SPREAD') {
+        const [first, ...rest] = selectedResources.map(id => {
+            const [type, name] = id.split(':');
+            const { region } = (type === 'HOSTS' ? hostPools : cloudResources)[name];
+            return region || 'NOT_SET';
+        });
+
+        if (first && rest.some(region => region !== first)) {
+            warnings.selectedResources = 'Combining resources with different assigned regions is not recommended and might raise costs';
+        }
+    }
+
+    return warnings;
 }

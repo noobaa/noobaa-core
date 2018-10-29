@@ -5,9 +5,9 @@ import deleteBtnTooltipTemplate  from './delete-button-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
-import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap, sumBy } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, groupBy, sumBy, flatMap } from 'utils/core-utils';
 import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
-import { unassignedRegionText, getHostsPoolStateIcon } from 'utils/resource-utils';
+import { unassignedRegionText, getHostPoolStateIcon } from 'utils/resource-utils';
 import { flatPlacementPolicy } from 'utils/bucket-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
@@ -110,7 +110,7 @@ function _mapPoolToRow(
         hostsByMode
     } = pool;
 
-    const stateIcon = getHostsPoolStateIcon(pool);
+    const stateIcon = getHostPoolStateIcon(pool);
     const { all, healthy, hasIssues, offline } = summrizeHostModeCounters(hostsByMode);
 
     return {

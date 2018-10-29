@@ -80,7 +80,6 @@ import connectAppModal from './modals/connect-app-modal/connect-app-modal';
 import createNamespaceResourceModal from './modals/create-namespace-resource-modal/create-namespace-resource-modal';
 import createNamespaceBucketModal from './modals/create-namespace-bucket-modal/create-namespace-bucket-modal';
 import editNamespaceBucketDataPlacementModal from './modals/edit-namespace-bucket-data-placement-modal/edit-namespace-bucket-data-placement-modal';
-import editBucketPlacementModal from './modals/edit-bucket-placement-modal/edit-bucket-placement-modal';
 import emptyBucketPlacementWarningModal from './modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal';
 import setNodeAsTrustedModal from './modals/set-node-as-trusted-modal/set-node-as-trusted-modal';
 import confirmDeleteHostModal from './modals/confirm-delete-host-modal/confirm-delete-host-modal';
@@ -131,11 +130,13 @@ import bucketSummary from './bucket/bucket-summary/bucket-summary';
 import bucketObjectsTable from './bucket/bucket-objects-table/bucket-objects-table';
 import bucketS3AccessTable from './bucket/bucket-s3-access-table/bucket-s3-access-table';
 import bucketDataPoliciesForm from './bucket/bucket-data-policies-form/bucket-data-policies-form';
-import bucketDataPlacementPolicyForm from './bucket/bucket-data-placement-policy-form/bucket-data-placement-policy-form';
 import bucketDataResiliencyPolicyForm from './bucket/bucket-data-resiliency-policy-form/bucket-data-resiliency-policy-form';
 import bucketQuotaPolicyForm from './bucket/bucket-quota-policy-form/bucket-quota-policy-form';
 import bucketVersioningPolicyForm from './bucket/bucket-versioning-policy-form/bucket-versioning-policy-form';
 import bucketTriggersForm from './bucket/bucket-triggers-form/bucket-triggers-form';
+import bucketDataPlacementForm from './bucket/bucket-data-placement-form/bucket-data-placement-form';
+import tierDataPlacementPolicyForm from './bucket/tier-data-placement-policy-form/tier-data-placement-policy-form';
+import editTierDataPlacementModal from './bucket/edit-tier-data-placement-modal/edit-tier-data-placement-modal';
 /** INJECT:bucket.import **/
 
 // -------------------------------
@@ -335,6 +336,8 @@ import resourceDistributionTable from './shared/resource-distribution-table/reso
 import resourceDistributionChart from './shared/resource-distribution-chart/resource-distribution-chart';
 import hostPartsTable from './shared/host-parts-table/host-parts-table';
 import counter from './shared/counter/counter';
+import resourcesSelectionTable from './shared/resources-selection-table/resources-selection-table';
+import placementPolicyToggle from './shared/placement-policy-toggle/placement-policy-toggle';
 /** INJECT:shared.import **/
 
 // Register the components with knockout component container.
@@ -423,7 +426,6 @@ export default function register(ko, services) {
         createNamespaceResourceModal,
         createNamespaceBucketModal,
         editNamespaceBucketDataPlacementModal,
-        editBucketPlacementModal,
         emptyBucketPlacementWarningModal,
         setNodeAsTrustedModal,
         confirmDeleteHostModal,
@@ -466,11 +468,13 @@ export default function register(ko, services) {
         bucketObjectsTable,
         bucketS3AccessTable,
         bucketDataPoliciesForm,
-        bucketDataPlacementPolicyForm,
         bucketDataResiliencyPolicyForm,
         bucketQuotaPolicyForm,
         bucketVersioningPolicyForm,
         bucketTriggersForm,
+        bucketDataPlacementForm,
+        tierDataPlacementPolicyForm,
+        editTierDataPlacementModal,
         /** INJECT:bucket.list **/
 
         namespaceBucketPanel,
@@ -622,6 +626,8 @@ export default function register(ko, services) {
         resourceDistributionChart,
         hostPartsTable,
         counter,
+        resourcesSelectionTable,
+        placementPolicyToggle,
         /** INJECT:shared.list **/
 
         // An empty component used for app/data loading periods

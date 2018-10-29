@@ -55,7 +55,8 @@ export default {
                 type: 'string',
                 enum: [
                     'NOT_EMPTY',
-                    'IN_USE'
+                    'IN_USE',
+                    'DEFAULT_RESOURCE'
                 ]
             },
             usedBy: {

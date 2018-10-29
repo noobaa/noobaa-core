@@ -1,0 +1,26 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: dataReady -->
+<section class="column greedy">
+     <div class="row content-middle push-next-half">
+        <h2 class="heading3 greedy push-next">
+            {{title}}
+        </h2>
+        <div>
+            <button type="button" class="link alt-colors" ko.click="onSelectAll">
+                Select all
+            </button>
+            |
+            <button type="button" class="link alt-colors" ko.click="onClearAll">
+                Clear all
+            </button>
+        </div>
+    </div>
+    <data-table class="greedy resource-table" params="
+        columns: columns,
+        data: rows,
+        rowCssProp: 'rowCss',
+        emptyMessage: 'No resources are connected to the system'
+    "></data-table>
+</section>
+<!-- /ko -->

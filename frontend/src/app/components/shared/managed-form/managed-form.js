@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './managed-form.html';
-import Observer from 'observer';
 import { isFunction, mapValues, noop, pick } from 'utils/core-utils';
 import { getFormValues, isFormValid, isFormDirty } from 'utils/form-utils';
 import { get } from 'rx-extensions';
@@ -17,7 +16,7 @@ import {
     dropForm
 } from 'action-creators';
 
-class ManagedFormViewModel extends Observer {
+class ManagedFormViewModel {
     constructor({
         name,
         fields = {},
@@ -28,8 +27,6 @@ class ManagedFormViewModel extends Observer {
         asyncTriggers,
         onSubmit = noop
     }, owner) {
-        super();
-
         if (!name) {
             throw new Error('Cannot create a form without a name');
         }
@@ -98,10 +95,9 @@ class ManagedFormViewModel extends Observer {
         }
 
         // listen for state changes.
-        this.observe(
-            state$.pipe(get('forms', name)),
-            this._onState
-        );
+        this.stateSub = state$
+            .pipe(get('forms', name))
+            .subscribe(this._onState.bind(this))
     }
 
     get name() {
@@ -118,7 +114,7 @@ class ManagedFormViewModel extends Observer {
 
     dispose() {
         action$.next(dropForm(this.name));
-        super.dispose();
+        this.stateSub.unsubscribe();
     }
 
     _initialize(fields) {

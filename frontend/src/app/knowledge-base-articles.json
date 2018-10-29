@@ -9,5 +9,6 @@
     "createBucketSpreadTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
     "editBucketPlacementMirrorTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
     "editBucketPlacementSpreadTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
-    "ipCollisionSticky": "https://noobaa.desk.com/customer/en/portal/articles/2950678-ip-collision-detection-"
+    "ipCollisionSticky": "https://noobaa.desk.com/customer/en/portal/articles/2950678-ip-collision-detection-",
+    "usingInternalStorageWarningTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2852040-joining-storage-nodes-to-noobaa"
 }

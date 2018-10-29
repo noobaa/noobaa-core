@@ -6,7 +6,7 @@ import { sumBy } from 'utils/core-utils';
 import { hostWritableModes, storageNodeWritableModes } from 'utils/host-utils';
 import {
     unassignedRegionText,
-    getHostsPoolStateIcon,
+    getHostPoolStateIcon,
     getCloudResourceStateIcon,
     getCloudResourceTypeIcon
 } from 'utils/resource-utils';
@@ -66,7 +66,7 @@ export default class ResourceRowViewModel {
             storageNodesByMode
         } = pool;
         const isSelected = selected.some(record => record.type === 'HOSTS' && record.name === name);
-        const state = getHostsPoolStateIcon(pool);
+        const state = getHostPoolStateIcon(pool);
         const healthyHosts = sumBy(
             hostWritableModes,
             mode => hostsByMode[mode] || 0

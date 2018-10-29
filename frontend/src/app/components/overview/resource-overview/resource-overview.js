@@ -3,14 +3,12 @@
 import template from './resource-overview.html';
 import hostPoolsTemplate from './host-pools.html';
 import cloudResourcesTemplate from './cloud-resources.html';
-import internalResourcesTemplate from './internal-resources.html';
 import Observer from 'observer';
 import { stringifyAmount} from 'utils/string-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, keyByProperty, sumBy, assignWith, groupBy, mapValues } from 'utils/core-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
-import { aggregateStorage } from 'utils/storage-utils';
 import * as routes from 'routes';
 import { state$, action$ } from 'state';
 import { requestLocation, openInstallNodesModal, openAddCloudResrouceModal } from 'action-creators';
@@ -29,11 +27,6 @@ const resourceTypes = deepFreeze([
         label: 'Cloud',
         value: 'CLOUD_RESOURCES',
         template: cloudResourcesTemplate
-    },
-    {
-        label: 'Internal',
-        value: 'INTERNAL_RESOURCES',
-        template: internalResourcesTemplate
     }
 ]);
 
@@ -41,7 +34,6 @@ const hostPoolTooltip = 'Nodes pool is a group of nodes that can be used for Noo
 const hostStorageTooltip = 'This number is calculated from the total capacity of all installed nodes in the system regardless to current usage or availability';
 const cloudTooltip = 'Cloud resource can be an Azure blob storage, AWS bucket or any S3 compatible service and can be used for NooBaa\'s bucket data placement policy';
 const cloudStorageTooltip = 'This number is an estimated aggregation of all public cloud resources connected to the system. Any cloud resource is defined as 1PB of raw storage';
-const internalTooltip = 'Internal storage is a resource which resides on the local VM’s disks.  It can only be used for spilled-over data from buckets';
 
 class ResourceOverviewViewModel extends Observer {
     constructor() {
@@ -122,33 +114,12 @@ class ResourceOverviewViewModel extends Observer {
             }
         ];
 
-
-        // Internal resources observables
-        this.internalTooltip = internalTooltip;
-        this.internalResourceUsage = ko.observable();
-        this.internalCounters = [
-            {
-                label: 'Available',
-                color: style['color18'],
-                value: ko.observable(),
-                tooltip: 'The available storage from the internal resource which resides on the local VM’s disks'
-            },
-            {
-                label: 'Used for spillover',
-                color: style['color8'],
-                value: ko.observable(),
-                tooltip: 'The total amount of data uploaded to the internal resource'
-            }
-        ];
-
         this.observe(
             state$.pipe(
                 getMany(
                     'location',
                     'hostPools',
-                    'cloudResources',
-                    'internalResources',
-                    'buckets'
+                    'cloudResources'
                 )
             ),
             this.onState
@@ -156,8 +127,8 @@ class ResourceOverviewViewModel extends Observer {
 
     }
 
-    onState([ location, hostPools, cloudResources, internalResources, buckets ]) {
-        if (!hostPools || !cloudResources, !internalResources) {
+    onState([ location, hostPools, cloudResources ]) {
+        if (!hostPools || !cloudResources) {
             this.resourcesLoaded(false);
             return;
         }
@@ -165,7 +136,7 @@ class ResourceOverviewViewModel extends Observer {
         const { pathname, params } = location;
         const { selectedResourceType = resourceTypes[0].value } = location.query;
         const resourceCount = sumBy(
-            [ hostPools, cloudResources, internalResources ],
+            [ hostPools, cloudResources ],
             collection => Object.keys(collection).length
         );
         const resourcesLinkText = stringifyAmount('resource', resourceCount);
@@ -219,23 +190,6 @@ class ResourceOverviewViewModel extends Observer {
             this.cloudCounters[3].value(FLASHBLADE);
             this.cloudCounters[4].value(S3_COMPATIBLE);
             this.cloudCapacity(formatSize(cloudCapacity));
-        }
-
-        if (selectedResourceType === 'INTERNAL_RESOURCES') {
-            const resourceList = Object.values(internalResources);
-            const bucketsUsingSpillover = Object.values(buckets)
-                .filter(bucket => Boolean(bucket.spillover))
-                .length;
-            const usage = bucketsUsingSpillover ?
-                `Used by ${stringifyAmount('bucket', bucketsUsingSpillover)}` :
-                'Not in use by any bucket';
-            const aggregated = aggregateStorage(
-                ...resourceList.map(resource => resource.storage)
-            );
-
-            this.internalResourceUsage(usage);
-            this.internalCounters[0].value(aggregated.free);
-            this.internalCounters[1].value(aggregated.used);
         }
     }
 

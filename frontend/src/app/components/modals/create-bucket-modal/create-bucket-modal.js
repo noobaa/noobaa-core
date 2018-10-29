@@ -78,7 +78,6 @@ const policyTypeOptions = deepFreeze([
                     text: 'Learn more about mirror policy',
                     href: createBucketMirrorTooltip
                 }
-
             }
         }
     }

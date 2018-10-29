@@ -4,6 +4,11 @@
 
 <div class="tabs greedy">
     <nav>
+        <a ko.css.selected="selectedTab.eq('data-placement')"
+            ko.attr.href="tabHref('data-placement')"
+        >
+            Resources &amp; Tiers
+        </a>
         <a ko.css.selected="selectedTab.eq('data-policies')"
             ko.attr.href="tabHref('data-policies')"
         >
@@ -27,6 +32,11 @@
     </nav>
 
     <div class="tabs-row">
+        <bucket-data-placement-form class="tab"
+            ko.css.selected="selectedTab.eq('data-placement')"
+            params="bucketName: bucket"
+        ></bucket-data-placement-form>
+
         <bucket-data-policies-form class="tab"
             ko.css.selected="selectedTab.eq('data-policies')"
             params="bucketName: bucket"

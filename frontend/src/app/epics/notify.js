@@ -217,12 +217,12 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
+    [types.COMPLETE_UPDATE_TIER_PLACEMENT_POLICY]: ({ bucket }) => ({
         message: `${bucket} placement policy updated successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_UPDATE_BUCKET_PLACEMENT_POLICY]: ({ bucket }) => ({
+    [types.FAIL_UPDATE_TIER_PLACEMENT_POLICY]: ({ bucket }) => ({
         message: `Updating ${bucket} placement policy failed`,
         severity: 'error'
     }),

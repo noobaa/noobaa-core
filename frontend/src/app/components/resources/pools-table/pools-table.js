@@ -5,9 +5,9 @@ import deleteBtnTooltipTemplate  from './delete-button-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
-import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap, sumBy } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap } from 'utils/core-utils';
 import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
-import { unassignedRegionText, getHostsPoolStateIcon } from 'utils/resource-utils';
+import { unassignedRegionText, getHostPoolStateIcon } from 'utils/resource-utils';
 import { flatPlacementPolicy } from 'utils/bucket-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
@@ -67,11 +67,6 @@ const columns = deepFreeze([
     }
 ]);
 
-const notEnoughHostsTooltip = deepFreeze({
-    align: 'end',
-    text: 'Not enough nodes to create a new pool, please install at least one node'
-});
-
 function _getBucketsByPool(buckets) {
     const placement = flatMap(
         Object.values(buckets),
@@ -110,7 +105,7 @@ function _mapPoolToRow(
         hostsByMode
     } = pool;
 
-    const stateIcon = getHostsPoolStateIcon(pool);
+    const stateIcon = getHostPoolStateIcon(pool);
     const { all, healthy, hasIssues, offline } = summrizeHostModeCounters(hostsByMode);
 
     return {
@@ -275,7 +270,6 @@ class PoolsTableViewModel extends ConnectableViewModel {
             const order = Number(location.query.order || 1);
             const page = Number(location.query.page || 0);
             const poolList = Object.values(pools);
-            const hostCount = sumBy(poolList, pool => pool.hostCount);
             const pageStart = page * paginationPageSize;
             const filteredPools = poolList.filter(pool => _matchFilter(filter, pool));
             const bucketsByPool = _getBucketsByPool(buckets);
@@ -297,8 +291,6 @@ class PoolsTableViewModel extends ConnectableViewModel {
             ko.assignToProps(this, {
                 dataReady: true,
                 pathname: location.pathname,
-                isCreatePoolDisabled: hostCount == 0,
-                createPoolTooltip: hostCount === 0 ? notEnoughHostsTooltip : '',
                 filter: filter,
                 sorting: { sortBy, order },
                 page: page,

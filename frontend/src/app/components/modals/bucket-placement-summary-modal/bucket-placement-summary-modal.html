@@ -1,0 +1,40 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<h2 class="heading3">
+    Main Data Placement Tiers
+</h2>
+<p class="push-next">
+    The main resources of this bucket store data.
+    "Cold" data will be moved to the second tier automatically according to an LRU policy.
+</p>
+
+<section class="greedy push-prev">
+    <div class="column borders pad" ko.forEach="tiers">
+        <!-- ko if: $index -->
+        <svg-icon class="icon-small rotate deg90 align-middle push-both-half highlight" params="
+            name: 'arrow-right'
+        "></svg-icon>
+        <!-- /ko -->
+
+        <div class="borders border-dash border-light alt-bg pad row content-middle">
+            <div class="column c10">
+                <h3 class="heading3">{{label}}</h3>
+                <p class="row content-middle">
+                    Policy Type: {{policyType}}
+                    <vr class="alt-colors push-both-half"></vr>
+                    Node Pools: {{hostPoolCount}}
+                    <vr class=" alt-colors push-both-half"></vr>
+                    Cloud Resources: {{cloudResourceCount}}
+                </p>
+            </div>
+            <capacity-bar class="c2" params="
+                total: capacity.total,
+                used: capacity.used
+            "></capacity-bar>
+        </div>
+    </div>
+</section>
+
+<button class="btn align-end" ko.click="onDone">
+    Done
+</button>

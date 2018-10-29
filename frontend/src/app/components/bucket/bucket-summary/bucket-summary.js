@@ -2,20 +2,16 @@
 
 import template from './bucket-summary.html';
 import chartTooltipTemplate from './chart-tooltip.html';
-import Observer from 'observer';
-import BarViewModel from './bar';
-import { state$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { deepFreeze, flatMap, mapValues, sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { isSizeZero, formatSize, toBytes } from 'utils/size-utils';
-import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
 import numeral from 'numeral';
 import {
     getBucketStateIcon,
-    getPlacementTypeDisplayName,
     getDataBreakdown,
     getQuotaValue,
     countStorageNodesByMirrorSet
@@ -73,6 +69,9 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
         case 'RISKY_TOLERANCE': {
             return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the nodes pools and distribute drives over the different nodes';
         }
+        case 'NO_RESOURCES_INTERNAL': {
+            return 'Bucket doesn\’t have any connected resources in it’s tier. Currently the system is using the internal VM disk capacity to store data which is not recommended. Add   resources to the bucket’s tier placement policy.';
+        }
         case 'APPROUCHING_QUOTA': {
             const quota = formatSize(getQuotaValue(bucket.quota));
             const used = formatSize(dataBreakdown.used);
@@ -82,6 +81,15 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
         case 'DATA_ACTIVITY': {
             return 'Currently restoring/migrating/deleting data according to the latest change that was made in the bucket policy. The process might take a while';
         }
+        case 'MANY_TIERS_ISSUES': {
+            return 'Some resources in the bucket’s tiers have issues. Review tiering section and try to fix problematic resources or edit the tiers placement policy.';
+        }
+        case 'ONE_TIER_ISSUES': {
+            const i = bucket.placement2.tiers.findIndex(tier =>
+                tier.mode !== 'OPTIMAL'
+            ) + 1;
+            return `Some resources in tier ${i} have issues. Review tier’s ${i} section and try to fix problematic resources or edit the tier’s placement policy.`;
+        }
         case 'OPTIMAL': {
             return 'Bucket is operating as expected according to it’s configured bucket policies';
         }
@@ -89,11 +97,16 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
 }
 
 function _getDataPlacementText(placement) {
-    const { policyType, mirrorSets } = placement;
-    const resources = flatMap(mirrorSets, ms => ms.resources);
+    const { tiers } = placement;
+    const resources = flatMap(tiers, tier =>
+        flatMap(tier.mirrorSets || [], ms =>
+            ms.resources
+        )
+    );
+
     return `${
-        getPlacementTypeDisplayName(policyType)
-    } on ${
+        stringifyAmount('tier', tiers.length)
+    }, ${
         stringifyAmount('resource', resources.length)
     }`;
 }
@@ -127,11 +140,10 @@ function _getBucketStateInfo(bucket, dataBreakdown, hostPools) {
     };
 }
 
-class BucketSummrayViewModel extends Observer {
-    bucketLoaded = ko.observable();
+class BucketSummrayViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
     state = ko.observable();
     dataPlacement = ko.observable();
-
     availablityLimitsFormatter = _formatAvailablityLimits;
     availablityMarkers = ko.observableArray();
     availablityTime = ko.observable();
@@ -156,6 +168,13 @@ class BucketSummrayViewModel extends Observer {
             tooltip: 'The actual free space on this bucket for data writes taking into account the current configured bucket policies'
         },
         {
+            label: 'Available on Internal Storage',
+            color: style['color18'],
+            value: ko.observable(),
+            visible: ko.observable(),
+            tooltip: 'The current available storage from the system internal storage resource, will be used only in the case of no available data storage on this bucket. Once possible, data will be spilled-back'
+        },
+        {
             label: 'Overallocated',
             color: style['color11'],
             value: ko.observable(),
@@ -163,7 +182,6 @@ class BucketSummrayViewModel extends Observer {
             tooltip: 'Overallocation happens when configuring a higher quota than this bucket assigned resources can store'
         }
     ];
-
     dataOptimization = ko.observable();
     dataUsageTooltip = dataUsageTooltip;
     dataUsage = [
@@ -183,7 +201,12 @@ class BucketSummrayViewModel extends Observer {
         height: 60,
         draw: this.onDrawBars.bind(this),
         disabled: ko.observable(),
-        bars: this.dataUsage.map(item => new BarViewModel(item.color)),
+        bars: this.dataUsage.map(item => ({
+            color: item.color,
+            height: ko.observable(),
+            animate: ko.observable()
+                .extend({ tween: { delay: 350 } })
+        })),
         tooltip: {
             maxWidth: 280,
             template: chartTooltipTemplate,
@@ -193,8 +216,6 @@ class BucketSummrayViewModel extends Observer {
             }
         }
     };
-
-
     rawUsageLabel = ko.observable();
     rawUsageTooltip = rawUsageTooltip;
     rawUsage = [
@@ -229,72 +250,108 @@ class BucketSummrayViewModel extends Observer {
         }
     };
 
-    constructor({ bucketName }) {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['buckets', ko.unwrap(bucketName)],
-                    'hostPools'
-                )
-            ),
-            this.onState
-        );
+    selectState(state, params) {
+        return [
+            state.buckets && state.buckets[params.bucketName],
+            state.hostPools
+        ];
     }
 
-    onState([bucket, hostPools]) {
+    mapStateToProps(bucket, hostPools) {
         if (!bucket) {
-            this.bucketLoaded(false);
-            return;
+            ko.assignToProps(this, {
+                dataReady: false
+            });
+
+        } else {
+            const { quota, placement2: placement } = bucket;
+            const storage = mapValues(bucket.storage, toBytes);
+            const usingInternalStorage = placement.tiers[0].policyType === 'INTERNAL_STORAGE';
+            const data = mapValues(bucket.data, toBytes);
+            const dataBreakdown = mapValues(getDataBreakdown(data, quota), toBytes);
+            const rawUsageLabel = storage.used ? formatSize(storage.used) : 'No Usage';
+            const rawUsageTooltipCaption = `Total Raw Storage: ${formatSize(storage.total)}`;
+            const dataLastUpdateTime = moment(storage.lastUpdate).fromNow();
+            const storageLastUpdateTime = moment(data.lastUpdate).fromNow();
+            const hasSize = data.size > 0;
+            const reducedRatio = hasSize ? Math.min(data.sizeReduced / data.size, 1) : 0;
+            const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                state: _getBucketStateInfo(bucket, dataBreakdown, hostPools),
+                dataPlacement: _getDataPlacementText(placement),
+                availablity: [
+                    {
+                        value: dataBreakdown.used
+                    },
+                    {
+                        value: dataBreakdown.overused,
+                        visible: !isSizeZero(dataBreakdown.overused)
+                    },
+                    {
+                        value: !usingInternalStorage ?
+                            dataBreakdown.availableForUpload :
+                            0
+                    },
+                    {
+                        value: usingInternalStorage ?
+                            dataBreakdown.availableForUpload :
+                            0,
+                        visible: usingInternalStorage
+                    },
+                    {
+                        value: dataBreakdown.overallocated,
+                        visible: !isSizeZero(dataBreakdown.overallocated)
+                    }
+                ],
+                availablityMarkers: _getQuotaMarkers(quota),
+                availablityTime: dataLastUpdateTime,
+                dataOptimization: dataOptimization,
+                dataUsage: [
+                    { value: data.size },
+                    { value: data.sizeReduced }
+                ],
+                dataUsageChart: {
+                    disabled: !hasSize,
+                    bars: [
+                        {
+                            height: 1,
+                            aniamte: hasSize
+                        },
+                        {
+                            height: hasSize ? reducedRatio : 1,
+                            animate: hasSize
+                        }
+                    ],
+                    tooltip: {
+                        text: {
+                            updateTime: dataLastUpdateTime
+                        }
+                    }
+                },
+                rawUsage: [
+                    { value: storage.free },
+                    { value: storage.used },
+                    { value: storage.usedOther }
+                ],
+                rawUsageLabel: rawUsageLabel,
+                rawUsageChart: {
+                    disabled: storage.total === 0,
+                    silhouetteColor: storage.total === 0 ? style['color7'] : undefined,
+                    tooltip: {
+                        text: {
+                            caption: rawUsageTooltipCaption,
+                            updateTime: storageLastUpdateTime
+                        }
+                    }
+                }
+            });
         }
-
-        const { quota, placement } = bucket;
-        const storage = mapValues(bucket.storage, toBytes);
-        const data = mapValues(bucket.data, toBytes);
-        const dataBreakdown = mapValues(getDataBreakdown(data, quota), toBytes);
-        const rawUsageLabel = storage.used ? formatSize(storage.used) : 'No Usage';
-        const rawUsageTooltipCaption = `Total Raw Storage: ${formatSize(storage.total)}`;
-        const dataLastUpdateTime = moment(storage.lastUpdate).fromNow();
-        const storageLastUpdateTime = moment(data.lastUpdate).fromNow();
-        const hasSize = data.size > 0;
-        const reducedRatio = hasSize ? Math.min(data.sizeReduced / data.size, 1) : 0;
-        const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
-
-        this.state(_getBucketStateInfo(bucket, dataBreakdown, hostPools));
-        this.dataPlacement(_getDataPlacementText(placement));
-
-        this.availablity[0].value(dataBreakdown.used);
-        this.availablity[1].value(dataBreakdown.overused);
-        this.availablity[1].visible(!isSizeZero(dataBreakdown.overused));
-        this.availablity[2].value(dataBreakdown.availableForUpload);
-        this.availablity[3].value(dataBreakdown.overallocated);
-        this.availablity[3].visible(!isSizeZero(dataBreakdown.overallocated));
-        this.availablityMarkers(_getQuotaMarkers(quota));
-        this.availablityTime(dataLastUpdateTime);
-
-        this.dataOptimization(dataOptimization);
-        this.dataUsage[0].value(data.size);
-        this.dataUsage[1].value(data.sizeReduced);
-        this.dataUsageChart.disabled(!hasSize);
-        this.dataUsageChart.bars[0].onState(1, hasSize);
-        this.dataUsageChart.bars[1].onState(hasSize ? reducedRatio : 1, hasSize);
-        this.dataUsageChart.tooltip.text.updateTime(dataLastUpdateTime);
-
-        this.rawUsage[0].value(storage.free);
-        this.rawUsage[1].value(storage.used);
-        this.rawUsage[2].value(storage.usedOther);
-        this.rawUsageLabel(rawUsageLabel);
-        this.rawUsageChart.disabled(storage.total === 0);
-        this.rawUsageChart.silhouetteColor(storage.total === 0 ? style['color7'] : undefined);
-        this.rawUsageChart.tooltip.text.caption(rawUsageTooltipCaption);
-        this.rawUsageChart.tooltip.text.updateTime(storageLastUpdateTime);
-
-        this.bucketLoaded(true);
     }
 
     onDrawBars(ctx, size) {
-        if (!this.bucketLoaded()) return;
+        if (!this.dataReady()) return;
 
         const barWidth = 16;
         const { width, height: scale } = size;

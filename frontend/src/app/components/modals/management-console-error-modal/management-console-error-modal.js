@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './management-console-error-modal.html';
-import Observer from 'observer';
 import { support } from 'config';
 import { deepFreeze } from 'utils/core-utils';
 import { formatEmailUri, reloadBrowser } from 'utils/browser-utils';
@@ -11,10 +10,8 @@ const emailInfo = deepFreeze({
     href: formatEmailUri(support.email, support.managementConsoleSubject)
 });
 
-class ManagementConsoleErrorModalViewModel extends Observer {
+class ManagementConsoleErrorModalViewModel {
     constructor() {
-        super();
-
         this.emailInfo = emailInfo;
     }
 

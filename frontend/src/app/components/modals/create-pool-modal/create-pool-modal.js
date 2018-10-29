@@ -354,7 +354,7 @@ class CreatePoolModalViewModel extends ConnectableViewModel {
         this
     );
 
-    onValidate({ step, poolName, selectedHosts }) {
+    onValidate({ step, poolName }) {
         const errors = {};
 
         if (step === 0) {
@@ -365,8 +365,6 @@ class CreatePoolModalViewModel extends ConnectableViewModel {
                 errors.poolName = '';
             }
 
-        } else if (!selectedHosts.length) {
-            errors.selectedHosts = 'Please select at least one node';
         }
 
         return errors;

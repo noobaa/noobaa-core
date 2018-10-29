@@ -3,6 +3,7 @@
 import { deepFreeze, isFunction, isDefined, sumBy } from 'utils/core-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
 import { flatPlacementPolicy } from 'utils/bucket-utils';
+import { hostWritableModes, storageNodeWritableModes } from 'utils/host-utils';
 import numeral from 'numeral';
 
 const GB = Math.pow(1024, 3);
@@ -129,44 +130,6 @@ const cloudResourceModeToStateIcon = deepFreeze({
     }
 });
 
-const internalResourceModeToStateIcon = deepFreeze({
-    INITIALIZING: {
-        tooltip: 'Initializing',
-        css: 'warning',
-        name: 'working'
-    },
-    LOW_CAPACITY: pool => {
-        const free = toBytes(pool.storage.free);
-        const limit = formatSize(Math.max(30 * GB, .2 * free));
-
-        return {
-            tooltip: `Available capacity is below ${limit}`,
-            css: 'warning',
-            name: 'problem'
-        };
-    },
-    ALL_NODES_OFFLINE: {
-        tooltip: 'Resource is offline',
-        css: 'error',
-        name: 'problem'
-    },
-    NO_CAPACITY: {
-        tooltip: 'No available resource capacity',
-        css: 'error',
-        name: 'problem'
-    },
-    IO_ERRORS: {
-        tooltip: 'Resource has Read/Write problems',
-        css: 'error',
-        name: 'problem'
-    },
-    OPTIMAL: {
-        tooltip: 'Healthy',
-        css: 'success',
-        name: 'healthy'
-    }
-});
-
 const namespaceResourceModeToStateIcon = deepFreeze({
     OPTIMAL: {
         name: 'healthy',
@@ -213,10 +176,36 @@ export function getResourceId(type, name) {
     return `${type}:${name}`;
 }
 
-export function getHostsPoolStateIcon(pool) {
+export function getHostPoolStateIcon(pool) {
     const { mode } = pool;
     const state = hostsPoolModeToStateIcon[mode];
     return isFunction(state) ? state(pool) : state;
+}
+
+export function getHostPoolHostsSummary(pool) {
+    const healthyHosts = sumBy(
+        hostWritableModes,
+        mode => pool.hostsByMode[mode] || 0
+    );
+
+    return `${
+        numeral(healthyHosts).format(',')
+    } of ${
+        numeral(pool.hostCount).format(',')
+    }`;
+}
+
+export function getHostPoolNodesSummary(pool) {
+    const healthyNodes = sumBy(
+        storageNodeWritableModes,
+        mode => pool.hostsByMode[mode] || 0
+    );
+
+    return `${
+        numeral(healthyNodes).format(',')
+    } of ${
+        numeral(pool.storageNodeCount).format(',')
+    }`;
 }
 
 export function getCloudResourceStateIcon(resource) {
@@ -230,17 +219,6 @@ export function getCloudResourceTypeIcon(resource) {
     return cloudAndNamespaceResourceTypeToIcon[type];
 }
 
-export function getInternalResourceStateIcon(resource) {
-    const { mode } = resource;
-    const state = internalResourceModeToStateIcon[mode];
-    return isFunction(state) ? state(resource) : state;
-}
-
-export function getInternalResourceDisplayName(resource) {
-    return resource.name
-        .replace(/-pool.*/, '');
-}
-
 export function getNamespaceResourceStateIcon(resource) {
     const { mode } = resource;
     return namespaceResourceModeToStateIcon[mode];
@@ -249,13 +227,6 @@ export function getNamespaceResourceStateIcon(resource) {
 export function getNamespaceResourceTypeIcon(resource) {
     const { service } = resource;
     return cloudAndNamespaceResourceTypeToIcon[service];
-}
-
-export function getResourceStateIcon(resourceType, resource) {
-    return true &&
-        resourceType === 'HOSTS' && getHostsPoolStateIcon(resource) ||
-        resourceType === 'CLOUD' && getCloudResourceStateIcon(resource) ||
-        resourceType === 'INTERNAL' && getInternalResourceStateIcon(resource);
 }
 
 export function getUsageDistribution(resourceType, resourceName, buckets) {

@@ -233,6 +233,14 @@ export function groupBy(array, keySelector, valueMapper = echo) {
     );
 }
 
+export function countBy(array, keySelector) {
+    return keyBy(
+        array,
+        keySelector,
+        (_, __, count = 0) => count + 1
+    );
+}
+
 export function assignWith(target, ...sources) {
     const assignOp = isFunction(last(sources)) ?
         sources.pop() :

@@ -115,16 +115,32 @@ export function openBucketS3AccessModal(bucketName) {
     };
 }
 
-export function openEditBucketPlacementModal(bucketName) {
+export function openAddTierModal(bucketName) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'edit-bucket-placement-modal',
+                name: 'add-tier-modal',
                 params: { bucketName }
             },
             options: {
-                title: 'Edit Data Placement',
+                title: 'Add a New Tier',
+                size: 'xlarge'
+            }
+        }
+    };
+}
+
+export function openEditTierDataPlacementModal(bucketName, tierName, tierDisplayName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-tier-data-placement-modal',
+                params: { bucketName, tierName }
+            },
+            options: {
+                title: `Edit ${tierDisplayName} Data Placement`,
                 size: 'xlarge'
             }
         }
@@ -147,13 +163,13 @@ export function openEditBucketDataResiliencyModal(bucketName) {
     };
 }
 
-export function openRiskyBucketDataResiliencyWarningModal(bucketName, tierName, policy) {
+export function openRiskyBucketDataResiliencyWarningModal(action) {
     return {
         type: OPEN_MODAL,
         payload:{
             component: {
                 name: 'risky-bucket-data-resiliency-warning-modal',
-                params: { bucketName, tierName, policy }
+                params: { action }
             },
             options: {
                 title: 'Risky Data Resiliency Policy',
@@ -164,16 +180,33 @@ export function openRiskyBucketDataResiliencyWarningModal(bucketName, tierName, 
     };
 }
 
-export function openEmptyBucketPlacementWarningModal(action) {
+export function openEmptyDataPlacementWarningModal(bucketName, tierName, action) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'empty-bucket-placement-warning-modal',
-                params: { action }
+                name: 'empty-data-placement-warning-modal',
+                params: { bucketName, tierName, action }
             },
             options: {
                 title: 'Empty data placement policy',
+                size: 'xsmall',
+                severity: 'warning'
+            }
+        }
+    };
+}
+
+export function openKeepUsingInternalStorageModal(action) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'keep-using-internal-storage-modal',
+                params: { action }
+            },
+            options: {
+                title: 'Internal Storage Usage',
                 size: 'xsmall',
                 severity: 'warning'
             }
@@ -861,6 +894,7 @@ export function openAssignRegionModal(resourceType, resourceName) {
     };
 }
 
+
 export function openChangePasswordModal(accountName) {
     return {
         type: OPEN_MODAL,
@@ -954,6 +988,22 @@ export function openInvokeFuncModal(funcName, funcVersion) {
             options: {
                 title: 'Set Event and Invoke',
                 size: 'medium'
+            }
+        }
+    };
+}
+
+export function openBucketPlacementSummaryModal(bucketName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'bucket-placement-summary-modal',
+                params: { bucketName }
+            },
+            options: {
+                title: 'Bucket Tiering Structure',
+                size: 'xlarge'
             }
         }
     };

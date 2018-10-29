@@ -1,0 +1,23 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="column">
+    <h2 class="heading3">Policy Type</h2>
+
+    <!-- ko foreach: policyTypeOptions -->
+    <div class="row content-middle option-row">
+        <radio-btn params="
+            group: $component.toggleGroupId,
+            value: policyType,
+            selected: $component.selectedPolicy,
+            label: label,
+            hasFocus: ko.unwrap($component.hasFocus) && $index() == 0
+        "></radio-btn>
+        <span class="push-both-half">|</span>
+        {{description}}
+        <svg-icon class="icon-small push-prev-half"
+            ko.tooltip="tooltip"
+            params="name: 'question'"
+        ></svg-icon>
+    </div>
+    <!-- /ko -->
+</section>

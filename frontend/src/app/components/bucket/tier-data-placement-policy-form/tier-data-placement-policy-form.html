@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="pad">
-    <div class="row content-middle bucket-policy-summary"
+<section class="pad" ko.if="dataReady">
+    <div class="row content-middle bucket-policy-summary cursor-pointer"
         ko.click="onToggleSection"
     >
         <svg-icon class="push-next"
@@ -10,20 +10,25 @@
             ko.tooltip="stateIcon().tooltip"
         ></svg-icon>
         <div class="column greedy">
-            <h2 class="heading3 greedy">Data Placement Resources</h2>
+            <h2 class="heading3 greedy">{{tierDisplayName}}</h2>
             <p class="row content-middle">
                 Policy Type: {{placementType}}
                 <vr class="push-both-half"></vr>
                 Node Pools: {{hostPoolCount}}
                 <vr class="push-both-half"></vr>
                 Cloud Resources: {{cloudResourceCount}}
+                <vr class="push-both-half"></vr>
+                Tier Raw Capacity: {{rawCapacity}}
             </p>
         </div>
-        <button class="btn push-both"
-            ko.click="onEditDataPlacement"
-        >
-            Edit Data Placement
-        </button>
+        <div class="push-both" ko.tooltip="editTierPlacementTooltip">
+            <button class="btn"
+                ko.disable="isEditTierPlacementDisabled"
+                ko.click="onEditTierPlacement"
+            >
+                Edit {{tierDisplayName}} Resources
+            </button>
+        </div>
         <svg-icon class="icon-small rotate"
             ko.css="{ 'deg-90': !isExpanded() }"
             params="name: 'chevron'"
@@ -34,7 +39,7 @@
             <data-table class="placement-table alt-bg" params="
                 columns: columns,
                 data: rows,
-                emptyMessage: 'No resources participate in policy'
+                emptyMessage: emptyMessage
             "></data-table>
         </div>
     </div>

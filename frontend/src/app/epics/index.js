@@ -38,10 +38,10 @@ import tryDeleteAccount from './try-delete-account';
 import signOutDeletedUser from './sign-out-deleted-user';
 import createBucket from './create-bucket';
 import updateBucketQuotaPolicy from './update-bucket-quota-policy';
-import updateBucketPlacementPolicy from './update-bucket-placement-policy';
 import updateBucketResiliencyPolicy from './update-bucket-resiliency-policy';
 import updateBucketVersioningPolicy from './update-bucket-versioning-policy';
 import deleteBucket from './delete-bucket';
+import updateTierPlacementPolicy from './update-tier-placement-policy';
 import fetchCloudTargets from './fetch-cloud-targets';
 import createNamespaceResource from './create-namespace-resource';
 import deleteNamespaceResource from './delete-namespace-resource';
@@ -141,10 +141,10 @@ const accountRelatedEpics = [
 const bucketRelatedEpics = [
     createBucket,
     updateBucketQuotaPolicy,
-    updateBucketPlacementPolicy,
     updateBucketResiliencyPolicy,
     updateBucketVersioningPolicy,
     deleteBucket,
+    updateTierPlacementPolicy,
     createNamespaceBucket,
     updateNamespaceBucketPlacement,
     deleteNamespaceBucket,

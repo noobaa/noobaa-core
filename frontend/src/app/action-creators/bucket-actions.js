@@ -5,10 +5,6 @@ import {
     UPDATE_BUCKET_QUOTA_POLICY,
     COMPLETE_UPDATE_BUCKET_QUOTA_POLICY,
     FAIL_UPDATE_BUCKET_QUOTA_POLICY,
-    UPDATE_BUCKET_PLACEMENT_POLICY,
-    COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
-    FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
-    UPDATE_BUCKET_RESILIENCY_POLICY,
     COMPLETE_UPDATE_BUCKET_RESILIENCY_POLICY,
     FAIL_UPDATE_BUCKET_RESILIENCY_POLICY,
     UPDATE_BUCKET_VERSIONING_POLICY,
@@ -37,7 +33,10 @@ import {
     FAIL_UPDATE_BUCKET_TRIGGER,
     REMOVE_BUCKET_TRIGGER,
     COMPLETE_REMOVE_BUCKET_TRIGGER,
-    FAIL_REMOVE_BUCKET_TRIGGER
+    FAIL_REMOVE_BUCKET_TRIGGER,
+    UPDATE_TIER_PLACEMENT_POLICY,
+    COMPLETE_UPDATE_TIER_PLACEMENT_POLICY,
+    FAIL_UPDATE_TIER_PLACEMENT_POLICY
 } from 'action-types';
 
 export function createBucket(name, placementType, resources) {
@@ -78,27 +77,6 @@ export function completeUpdateBucketQuotaPolicy(bucket) {
 export function failUpdateBucketQuotaPolicy(bucket, error) {
     return {
         type: FAIL_UPDATE_BUCKET_QUOTA_POLICY,
-        payload: { bucket, error }
-    };
-}
-
-export function updateBucketPlacementPolicy(bucket, tier, policyType, resources) {
-    return {
-        type: UPDATE_BUCKET_PLACEMENT_POLICY,
-        payload: { bucket, tier, policyType,resources }
-    };
-}
-
-export function completeUpdateBucketPlacementPolicy(bucket) {
-    return {
-        type: COMPLETE_UPDATE_BUCKET_PLACEMENT_POLICY,
-        payload: { bucket }
-    };
-}
-
-export function failUpdateBucketPlacementPolicy(bucket, error) {
-    return {
-        type: FAIL_UPDATE_BUCKET_PLACEMENT_POLICY,
         payload: { bucket, error }
     };
 }
@@ -313,5 +291,27 @@ export function failRemoveBucketTrigger(bucketName, error) {
     return {
         type: FAIL_REMOVE_BUCKET_TRIGGER,
         payload: { bucketName, error }
+    };
+}
+
+
+export function updateTierPlacementPolicy(bucket, tier, policyType, resourceIds) {
+    return {
+        type: UPDATE_TIER_PLACEMENT_POLICY,
+        payload: { bucket, tier, policyType, resourceIds }
+    };
+}
+
+export function completeUpdateTierPlacementPolicy(bucket, tier) {
+    return {
+        type: COMPLETE_UPDATE_TIER_PLACEMENT_POLICY,
+        payload: { bucket }
+    };
+}
+
+export function failUpdateTierPlacementPolicy(bucket, tier, error) {
+    return {
+        type: FAIL_UPDATE_TIER_PLACEMENT_POLICY,
+        payload: { bucket, error }
     };
 }

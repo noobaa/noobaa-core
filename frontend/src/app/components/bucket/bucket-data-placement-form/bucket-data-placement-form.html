@@ -1,0 +1,55 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<loading-indicator class="align-start pad" ko.visible="!dataReady()"></loading-indicator>
+
+<!-- ko if: dataReady -->
+<div class="column alt-bg pad">
+    <div class="row content-middle">
+        <div class="column greedy push-next">
+            <h3 class="heading3">
+                Bucket Resources &amp; Tiering Management
+            </h3>
+            <p>In order to sotre data on this bucket, resources and teirings policies should be added.</p>
+        </div>
+        <div ko.tooltip="addTierTooltip">
+            <button class="btn"
+                ko.click="onAddTer"
+                ko.disable="isAddTierDisabled"
+                >
+                Add Tier
+            </button>
+        </div>
+    </div>
+
+    <!-- ko if: isInternalWarningVisible -->
+    <div class="row content-middle pad borders alt-bg-dark warning-box push-prev">
+        <svg-icon class="warning push-next-half" params="name: 'problem'"></svg-icon>
+        <div class="column">
+            <p>
+                <span class="warning">
+                    This bucket is using the internal server's disks capacity as a storage source until a
+                    healthy resource will be added to to Tier 1
+                </span>
+                <svg-icon class="icon-small"
+                    ko.tooltip="internalWarningTooltip"
+                    params="name: 'question'"
+                ></svg-icon>
+            </p>
+            <p class="remark">
+                {{internalStorageUsage}} used by this bucket
+            </p>
+        </div>
+    </div>
+    <!-- /ko -->
+</div>
+<!-- ko foreach: tierNames -->
+<tier-data-placement-policy-form params="
+    bucketName: $component.bucketName,
+    tierIndex: $index
+"></tier-data-placement-policy-form>
+<!-- ko ifnot: $index -->
+<hr>
+<!-- /ko -->
+<!-- /ko -->
+<!-- /ko -->
+

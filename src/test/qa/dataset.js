@@ -35,6 +35,7 @@ const TEST_CFG_DEFAULTS = {
     file_size_high: 200, // maximum 200Mb
     dataset_size: 10, // DS of 10GB
     versioning: false,
+    no_exit_on_success: false,
     seed: crypto.randomBytes(10).toString('hex')
 };
 
@@ -89,7 +90,7 @@ each action contains its name and can contain the following:
     include_random: should this action be included in random selection
     action: the actual func to run if this action is selected
     weight: how much weight this action gets (default is 1)
-    randomizer: randomizer function for the action, returns the needed randomized paramters (names, sizes, etc.)
+    randomizer: randomizer function for the action, returns the needed randomized parameters (names, sizes, etc.)
 
 */
 const ACTION_TYPES = [{
@@ -188,23 +189,24 @@ populate_random_selection();
 
 function usage() {
     console.log(`
-    --server_ip         -   azure location (default: ${TEST_CFG_DEFAULTS.server_ip})
-    --bucket            -   bucket to run on (default: ${TEST_CFG_DEFAULTS.bucket})
-    --part_num_low      -   min part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_low})
-    --part_num_high     -   max part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_high}) 
-    --aging_timeout     -   time to run aging in min (default: ${TEST_CFG_DEFAULTS.aging_timeout})
-    --min_depth         -   min depth of directorys (default: ${TEST_CFG_DEFAULTS.min_depth})
-    --max_depth         -   max depth of directorys (default: ${TEST_CFG_DEFAULTS.max_depth})
-    --size_units        -   size of units in KB/MB/GB (default: ${TEST_CFG_DEFAULTS.size_units})
-    --file_size_low     -   lowest file size (min 50 MB) (default: ${TEST_CFG_DEFAULTS.file_size_low})
-    --file_size_high    -   highest file size (max 200 MB) (default: ${TEST_CFG_DEFAULTS.file_size_high})
-    --dataset_size      -   dataset size (default: ${TEST_CFG_DEFAULTS.dataset_size})
-    --versioning        -   run dataset in versioning mode (assumption: bucket versioning is ENABLED)
-    --replay            -   replays a given scenario, requires a path to the journal file. 
-                            server and bucket are the only applicable parameters when running in replay mode  
-    --seed              -   seed for random generator. testing with the same seed generates the same sequence of operations.
-    --no_aging          -   skip aging stage
-    --help              -   show this help
+    --server_ip             -   azure location (default: ${TEST_CFG_DEFAULTS.server_ip})
+    --bucket                -   bucket to run on (default: ${TEST_CFG_DEFAULTS.bucket})
+    --part_num_low          -   min part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_low})
+    --part_num_high         -   max part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_high}) 
+    --aging_timeout         -   time to run aging in min (default: ${TEST_CFG_DEFAULTS.aging_timeout})
+    --min_depth             -   min depth of directories (default: ${TEST_CFG_DEFAULTS.min_depth})
+    --max_depth             -   max depth of directories (default: ${TEST_CFG_DEFAULTS.max_depth})
+    --size_units            -   size of units in KB/MB/GB (default: ${TEST_CFG_DEFAULTS.size_units})
+    --file_size_low         -   lowest file size (min 50 MB) (default: ${TEST_CFG_DEFAULTS.file_size_low})
+    --file_size_high        -   highest file size (max 200 MB) (default: ${TEST_CFG_DEFAULTS.file_size_high})
+    --dataset_size          -   dataset size (default: ${TEST_CFG_DEFAULTS.dataset_size})
+    --versioning            -   run dataset in versioning mode (assumption: bucket versioning is ENABLED)
+    --replay                -   replays a given scenario, requires a path to the journal file. 
+                                server and bucket are the only applicable parameters when running in replay mode  
+    --seed                  -   seed for random generator. testing with the same seed generates the same sequence of operations.
+    --no_aging              -   skip aging stage
+    --no_exit_on_success    -   do not exit when test is successful
+    --help                  -   show this help
     `);
 }
 
@@ -305,7 +307,7 @@ function set_fileSize() {
     if (TEST_CFG.dataset_size - TEST_STATE.current_size === 0) {
         rand_size = 1;
         //if we choose file size grater then the remaining space for the dataset,
-        //set it to be in the size that complet the dataset size.
+        //set it to be in the size that complete the dataset size.
     } else if (rand_size > TEST_CFG.dataset_size - TEST_STATE.current_size) {
         rand_size = TEST_CFG.dataset_size - TEST_STATE.current_size;
     }
@@ -389,6 +391,10 @@ async function upload_new_randomizer() {
         rand_parts = (Math.floor(Math.random() *
                 (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
             TEST_CFG.part_num_low);
+    }
+    if (rand_size / rand_parts < 5242880) {
+        console.log(`part size is too low ${rand_size / rand_parts}, skipping multipart upload`);
+        is_multi_part = false;
     }
     //If versioning is enabled, randomize between uploading a new key and a new version
     if (should_use_versioning()) {
@@ -483,6 +489,10 @@ async function upload_overwrite_randomizer() {
     if (is_multi_part) {
         rand_parts = (Math.floor(Math.random() * (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
             TEST_CFG.part_num_low);
+    }
+    if (rand_size / rand_parts < 5242880) {
+        console.log(`part size is too low ${rand_size / rand_parts}, skipping multipart upload`);
+        is_multi_part = false;
     }
     const rfile = await s3ops.get_a_random_file(TEST_CFG.bucket, DATASET_NAME);
     let res = {
@@ -628,7 +638,7 @@ async function delete_randomizer() {
 }
 
 async function run_delete(params) {
-    console.log(`runing delete ${params.filename} ${params.versionid}`);
+    console.log(`running delete ${params.filename} ${params.versionid}`);
     const object_number = await s3ops.get_file_number(TEST_CFG.bucket, DATASET_NAME);
     // won't delete the last file in the bucket
     if (object_number > 1) {
@@ -708,7 +718,7 @@ function run_test() {
                         let action_type;
                         if (TEST_STATE.current_size > TEST_CFG.dataset_size) {
                             console.log(`${Yellow}the current dataset size is ${
-                                TEST_STATE.current_size}${TEST_CFG.size_units} and the reqested dataset size is ${
+                                TEST_STATE.current_size}${TEST_CFG.size_units} and the requested dataset size is ${
                                 TEST_CFG.dataset_size}${TEST_CFG.size_units}, going to delete${NC}`);
                             action_type = Math.round(Math.random()) ? 'DELETE' : 'MULTI_DELETE';
                         } else {
@@ -723,7 +733,7 @@ function run_test() {
             })
             .then(() => {
                 console.log(`Everything finished with success!`);
-                process.exit(0);
+                if (!TEST_CFG.no_exit_on_success) process.exit(0);
             })
             .catch(async err => {
                 await report.report();
@@ -795,25 +805,20 @@ function run_replay() {
         });
 }
 
-function main() {
+async function main() {
     console.log(`Starting dataset. seeding randomness with seed ${TEST_CFG.seed}`);
     Math.seedrandom(TEST_CFG.seed);
-    return P.resolve()
-        .then(() => {
-            if (argv.replay) {
-                return run_replay();
-            } else {
-                return run_test()
-                    .then(() => report.print_report());
-            }
-        })
-        .then(() => report.print_report()
-            .then(() => process.exit(0)))
-        .catch(err => report.print_report()
-            .then(() => {
-                console.warn('error while running test ', err);
-                process.exit(6);
-            }));
+    try {
+        if (argv.replay) {
+            await run_replay();
+        } else {
+            await run_test();
+        }
+        if (!TEST_CFG.no_exit_on_success) process.exit(0);
+    } catch (err) {
+        console.warn('error while running test ', err);
+        process.exit(6);
+    }
 }
 
 if (require.main === module) {

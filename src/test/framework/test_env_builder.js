@@ -354,7 +354,7 @@ function run_tests() {
 async function clean_test_env() {
     if (clean_by_id) {
         const vms_list = await azf.listVirtualMachines('', '');
-        const vms_to_delete = vms_list.filter(vm => vm.includes(id));
+        const vms_to_delete = vms_list.filter(vm => (vm.includes(id) && vm.includes(name)));
         console.log(`deleting virtual machines`, vms_to_delete);
         await P.map(vms_to_delete, vm =>
             azf.deleteVirtualMachine(vm)

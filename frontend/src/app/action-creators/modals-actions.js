@@ -115,16 +115,16 @@ export function openBucketS3AccessModal(bucketName) {
     };
 }
 
-export function openEditBucketPlacementModal(bucketName) {
+export function openEditTierDataPlacementModal(bucketName, tierName, tierDisplayName) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'edit-bucket-placement-modal',
-                params: { bucketName }
+                name: 'edit-tier-data-placement-modal',
+                params: { bucketName, tierName }
             },
             options: {
-                title: 'Edit Data Placement',
+                title: `Edit ${tierDisplayName} Data Placement`,
                 size: 'xlarge'
             }
         }

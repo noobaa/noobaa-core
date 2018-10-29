@@ -188,8 +188,7 @@ function _generateResourcesCrumb(params) {
             label: (!params.tab  && 'Node Pools') ||
                 (params.tab === 'pools' && 'Node Pools') ||
                 (params.tab === 'cloud' && 'Cloud Resources') ||
-                (params.tab === 'namespace' && 'Namespace Resources') ||
-                (params.tab === 'internal' && 'Internal Storage')
+                (params.tab === 'namespace' && 'Namespace Resources')
         }
     ];
 }

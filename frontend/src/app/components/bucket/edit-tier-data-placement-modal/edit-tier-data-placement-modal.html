@@ -1,0 +1,43 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onWarn: values => onWarn(values, hostPools(), cloudResources()),
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
+    <placement-policy-toggle class="push-next" params="
+        selectedPolicy: $form.policyType,
+        hasFocus: true
+    "></placement-policy-toggle>
+
+    <resources-selection-table class="column greedy" params="
+        title: 'Resources in Tier # policy',
+        hostPools: hostPools,
+        cloudResources: cloudResources,
+        selected: $form.selectedResources,
+    "></resources-selection-table>
+
+    <validation-message class="push-next" params="
+        field: $form.selectedResources"
+    ></validation-message>
+
+    <div class="row content-middle">
+        <p class="remark greedy push-next">
+            <svg-icon class="icon-small valign-bottom"
+                params="name: 'notif-info'"
+            ></svg-icon>
+            To create a new resource go to
+            <a class="link" ko.attr.href="resourcesHref">
+                Resources
+            </a>
+        </p>
+        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
+            Save
+        </button>
+    </div>
+</managed-form>

@@ -41,7 +41,7 @@ class MapAllocator {
     async run_select_tier() {
         await this.prepare_tiering_for_alloc();
         const tier = await mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
-        await map_builder.make_room_in_tier(tier, this.bucket, config.MIN_TIER_FREE_THRESHOLD);
+        await map_builder.make_room_in_tier(tier, this.bucket);
         return tier;
     }
 
@@ -64,14 +64,11 @@ class MapAllocator {
         }
     }
 
-    prepare_tiering_for_alloc() {
+    async prepare_tiering_for_alloc() {
         const tiering = this.bucket.tiering;
         // const tier = tiering.tiers[0].tier;
-        return P.resolve()
-            .then(() => node_allocator.refresh_tiering_alloc(tiering))
-            .then(() => {
-                this.tiering_status = node_allocator.get_tiering_status(tiering);
-            });
+        await node_allocator.refresh_tiering_alloc(tiering); //, 'force');
+        this.tiering_status = node_allocator.get_tiering_status(tiering);
     }
 
     check_parts() {
@@ -126,6 +123,11 @@ class MapAllocator {
             const allocated_hosts = [];
 
             const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
+            // const tier = await this.run_select_tier();
+            // await this.prepare_tiering_for_alloc();
+            // mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
+
+            // We must set the tier id for the mapper to get the tier reference
             chunk.tier = tier._id;
 
             const mapping = mapper.map_chunk(chunk, tier, this.bucket.tiering, this.tiering_status, this.location_info);
@@ -133,7 +135,11 @@ class MapAllocator {
             _.forEach(mapping.allocations, ({ frag, pools }) => {
                 const node = node_allocator.allocate_node(pools, avoid_nodes, allocated_hosts);
                 if (!node) {
-                    throw new Error(`MapAllocator: no nodes for allocation (avoid_nodes: ${avoid_nodes.join(',')})`);
+                    throw new Error(`MapAllocator: no nodes for allocation ` +
+                        `avoid_nodes ${avoid_nodes.join(',')} ` +
+                        `pools ${pools.join(',')} ` +
+                        `tier ${tier.name} ` +
+                        `tiering_status ${util.inspect(this.tiering_status, { depth: null })} `);
                 }
                 const block = {
                     _id: MDStore.instance().make_md_id(),
@@ -152,6 +158,7 @@ class MapAllocator {
                     allocated_hosts.push(node.host_id);
                 }
             });
+            // We must set the tier name for the reply schema check to pass
             chunk.tier = tier.name;
         }
     }

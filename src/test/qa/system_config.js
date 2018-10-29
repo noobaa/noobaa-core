@@ -623,8 +623,8 @@ async function main() {
             report.pause();
         }
         await set_rpc_and_create_auth_token();
-        const system_info = await client.system.read_system({});
-        const secret = system_info.cluster.shards[0].servers[0].secret;
+        let system_info = await client.system.read_system({});
+        let secret = system_info.cluster.shards[0].servers[0].secret;
         console.log('Secret is ' + secret);
         rpc.disconnect_all();
 
@@ -640,8 +640,10 @@ async function main() {
             console.log(`Skipping clean ova and create system`);
         } else {
             await server_ops.clean_ova_and_create_system(server_ip, secret);
+            await set_rpc_and_create_auth_token();
+            system_info = await client.system.read_system({});
+            secret = system_info.cluster.shards[0].servers[0].secret;
         }
-        await set_rpc_and_create_auth_token();
         await set_DNS_And_check();
         await set_NTP_And_check();
         await set_Phonehome_and_check();

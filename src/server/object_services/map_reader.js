@@ -28,12 +28,7 @@ const auth_server = require('../common_services/auth_server');
 async function read_object_mappings(obj, start, end, skip, limit, adminfo, location_info) {
     // check for empty range
     const rng = sanitize_object_range(obj, start, end);
-<<<<<<< HEAD
     if (!rng) return [];
-=======
-    if (!rng) return P.resolve([]);
-    if (!obj._id) return P.reject(new Error('Object missing object ID'));
->>>>>>> f706327a4... commit after reset head
 
     // find parts intersecting the [start,end) range
     const parts = await MDStore.instance().find_parts_by_start_range({

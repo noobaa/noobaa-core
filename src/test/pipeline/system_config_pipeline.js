@@ -33,7 +33,7 @@ async function run_test(path, flags) {
     try {
         await promise_utils.fork(path + js_script, flags.concat(process.argv));
     } catch (err) {
-        console.log('Failed running script', js_script);
+        console.warn('Failed running script', js_script);
         throw err;
     }
 }

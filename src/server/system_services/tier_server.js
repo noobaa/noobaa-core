@@ -288,6 +288,42 @@ function update_policy(req) {
 
 }
 
+function add_tier_to_policy(req) {
+    const policy = find_policy_by_name(req);
+    const tier_params = req.rpc_params.tier;
+    const tier = find_tier_by_name(req, tier_params.tier);
+    const order = req.rpc_params.tier.order || policy.tiers.length;
+    if (_.find(policy.tiers, t => String(t.tier._id) === String(tier._id))) {
+        throw new RpcError('DUPLICATE_TIER', `tier ${tier.name} is already part of policy`);
+    }
+    if (order < 0 || order > policy.tiers.length) {
+        throw new RpcError('ILLEGAL_ORDER', `tier order ${order} is not allowed`);
+    }
+    const new_tiers = Array.from(policy.tiers);
+    new_tiers.splice(order, 0, {
+        order: order,
+        tier: tier,
+        spillover: tier_params.spillover || false,
+        disabled: tier_params.disabled || false
+    });
+    const updates = {
+        _id: policy._id,
+        tiers: new_tiers.map((t, index) => ({
+            order: index,
+            tier: t.tier._id,
+            spillover: t.spillover,
+            disabled: t.disabled,
+        })),
+        chunk_split_config: policy.chunk_split_config
+    };
+    return system_store.make_changes({ update: { tieringpolicies: [updates] } })
+        .then(() => {
+            req.load_auth();
+            const created_policy = find_policy_by_name(req);
+            return get_tiering_policy_info(created_policy);
+        });
+}
+
 function get_policy_pools(req) {
     const policy = find_policy_by_name(req);
     return get_tiering_policy_info(policy);
@@ -350,8 +386,8 @@ function find_bucket_by_tier(req) {
     return bucket;
 }
 
-function find_tier_by_name(req) {
-    const name = req.rpc_params.name;
+function find_tier_by_name(req, tier_name) {
+    const name = tier_name || req.rpc_params.name;
     const tier = req.system.tiers_by_name[name];
     if (!tier) {
         throw new RpcError('NO_SUCH_TIER', 'No such tier: ' + name);
@@ -603,6 +639,7 @@ exports.delete_tier = delete_tier;
 //Tiering Policy
 exports.create_policy = create_policy;
 exports.update_policy = update_policy;
+exports.add_tier_to_policy = add_tier_to_policy;
 exports.get_policy_pools = get_policy_pools;
 exports.read_policy = read_policy;
 exports.delete_policy = delete_policy;

@@ -240,7 +240,7 @@ function create_bucket(req) {
  * READ_BUCKET
  *
  */
-function read_bucket(req) {
+function read_bucket(req, dont_count_objects) {
     var bucket = find_bucket(req);
     var pools = [];
 
@@ -258,7 +258,7 @@ function read_bucket(req) {
             hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, req.system._id),
             aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
                 bucket.tiering.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id),
-            num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
+            num_of_objects: dont_count_objects === 'dont_count_objects' ? 0 : MDStore.instance().count_objects_of_bucket(bucket._id),
             func_configs: get_bucket_func_configs(req, bucket),
             unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
         })
@@ -283,7 +283,7 @@ function get_bucket_namespaces(req) {
                     proxy: system.phone_home_proxy_address
                 };
             } else {
-                return read_bucket(req);
+                return read_bucket(req, 'dont_count_objects');
             }
         });
 }

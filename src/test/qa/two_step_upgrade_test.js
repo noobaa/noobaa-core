@@ -66,7 +66,7 @@ const cases = [
 function init_clients() {
     //Init ssh client and rpc client
     report = new Report();
-    report.init_reporter({ suite: 'upgrade', conf: TEST_CFG, mongo_report: true, cases: cases});
+    report.init_reporter({ suite: 'upgrade', conf: TEST_CFG, mongo_report: true, cases: cases });
     return ssh_functions.ssh_connect({
             host: TEST_CFG.ip,
             username: 'noobaaroot',
@@ -317,47 +317,46 @@ function create_env() {
 }
 
 //Test first stage of upgrade
-function test_first_step() {
+async function test_first_step() {
     rpc.disable_validation();
-    return P.resolve()
-        .then(() => { //Upload a non noobaa package & verify failure
-            let data = crypto.randomBytes(10 * 1024 * 1024);
-            fs.writeFileSync(TEST_CFG_DEFAULTS.dummyPackagePath, data);
-            return server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG_DEFAULTS.dummyPackagePath);
-        })
-        .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on random bytes package', `non-package`))
-        .then(() => _verify_downgrade_fails()) //Test Failure on a downgrade noobaa package
-        .then(() => _fill_local_disk() //Full local disk & verify failure
-            .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
-            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on not enough disk space', `disk space`))
-            .then(() => agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
-            .delay(10000)) //clean local disk
-        //No phone home connectivity test
-        //.then(() => {
-        //NBNB block phone home connectivity and test
-        //_verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on blocked phone home connectivity', `ph connectivity`))
-        //        })
-        //Create a time skew and verify failure
-        .then(() => rpc_client.cluster_server.update_time_config({
-                target_secret: TEST_CFG.secret,
-                timezone: "Asia/Jerusalem",
-                epoch: 1514798132
-            })
-            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on time skew', `time skew`))
-            //Reset time back to normal
-            .then(() => rpc_client.cluster_server.update_time_config({
-                target_secret: TEST_CFG.secret,
-                timezone: "Asia/Jerusalem",
-                ntp_server: "time.windows.com"
-            }))
-            .delay(25000)) //time update restarts the services
-        .then(() => {
-            console.log('Verified all pre-condition tests, uploading package with optimal server state');
-            return server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
-        })
-        //All well, verify can upgrade
-        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'All preconditions met, verify success', `preconditions met`))
-        .then(() => rpc.enable_validation());
+    // Upload a non noobaa package & verify failure
+    console.log('Upload a non noobaa package & verify failure..');
+    let data = crypto.randomBytes(10 * 1024 * 1024);
+    fs.writeFileSync(TEST_CFG_DEFAULTS.dummyPackagePath, data);
+    await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG_DEFAULTS.dummyPackagePath);
+    await _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on random bytes package', `non-package`);
+    await _verify_downgrade_fails();
+
+    // Fill local disk & verify failure
+    console.log('Fill local disk & verify failure..');
+    await _fill_local_disk();
+    await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
+    await _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on not enough disk space', `disk space`);
+    await agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret });
+    await P.delay(10000);
+
+    // Create a time skew and verify failure
+    console.log('Create a time skew and verify failure..');
+    await rpc_client.cluster_server.update_time_config({
+        target_secret: TEST_CFG.secret,
+        timezone: "Asia/Jerusalem",
+        epoch: 1514798132
+    });
+    await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
+    await _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on time skew', `time skew`);
+    //Reset time back to normal
+    await rpc_client.cluster_server.update_time_config({
+        target_secret: TEST_CFG.secret,
+        timezone: "Asia/Jerusalem",
+        ntp_server: "time.windows.com"
+    });
+    await P.delay(25000);
+
+    console.log('Verified all pre-condition tests, uploading package with optimal server state');
+    await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
+    //All well, verify can upgrade
+    await _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'All preconditions met, verify success', `preconditions met`);
+    rpc.enable_validation();
 }
 
 function test_second_step() {

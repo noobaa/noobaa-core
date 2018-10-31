@@ -32,6 +32,19 @@ const UsageReportStore = require('../analytic_services/usage_report_store').Usag
 const events_dispatcher = require('./events_dispatcher');
 const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
 
+// short living cache for objects
+// the purpose is to reduce hitting the DB many many times per second during upload/download.
+const object_md_cache = new LRUCache({
+    name: 'ObjectMDCache',
+    max_usage: 1000,
+    expiry_ms: 1000, // 1 second of blissful ignorance
+    load: function(id_str) {
+        console.log('ObjectMDCache: load', id_str);
+        const obj_id = MDStore.instance().make_md_id(id_str);
+        return MDStore.instance().find_object_by_id(obj_id);
+    }
+});
+
 /**
  *
  * create_object_upload
@@ -68,6 +81,7 @@ async function create_object_upload(req) {
 
     const tier = await map_writer.select_tier_for_write(req.bucket, info);
     await MDStore.instance().insert_object(info);
+    object_md_cache.put_in_cache(String(info._id), info);
 
     return {
         obj_id: info._id,
@@ -91,7 +105,7 @@ async function complete_object_upload(req) {
         upload_size: 1,
         upload_started: 1,
     };
-    const obj = await find_object_upload(req);
+    const obj = await find_cached_object_upload(req);
     if (req.rpc_params.size !== obj.size) {
         if (obj.size >= 0) {
             throw new RpcError('BAD_SIZE',
@@ -982,19 +996,6 @@ function load_bucket(req) {
     req.check_s3_bucket_permission(bucket);
     req.bucket = bucket;
 }
-
-// short living cache for objects
-// the purpose is to reduce hitting the DB many many times per second during upload/download.
-const object_md_cache = new LRUCache({
-    name: 'ObjectMDCache',
-    max_usage: 1000,
-    expiry_ms: 1000, // 1 second of blissful ignorance
-    load: function(id_str) {
-        console.log('ObjectMDCache: load', id_str);
-        const obj_id = MDStore.instance().make_md_id(id_str);
-        return MDStore.instance().find_object_by_id(obj_id);
-    }
-});
 
 async function find_object_md(req) {
     let obj;

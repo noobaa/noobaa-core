@@ -52,7 +52,13 @@ module.exports = {
                         type: 'string'
                     },
                     tier: {
-                        $ref: '#/definitions/tier_item'
+                        type: 'object',
+                        properties: {
+                            chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
+                            data_placement: { $ref: 'tier_api#/definitions/data_placement_enum' },
+                            attached_pools: { $ref: 'tier_api#/definitions/pool_info' },
+                            order: { type: 'integer' },
+                        }
                     }
                 }
             },
@@ -62,6 +68,27 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        update_chunk_config_for_policy: {
+            doc: 'Updating the chunk code config for all the tiers in a Tiering Policy',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name', 'chunk_coder_config'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/tiering_policy'
+            },
+            auth: {
+                system: 'admin'
+            },
         },
 
         read_policy: {
@@ -162,6 +189,7 @@ module.exports = {
         tier_placement_status: {
             type: 'string',
             enum: [
+                'INTERNAL_ISSUES',
                 'NO_RESOURCES',
                 'NOT_ENOUGH_RESOURCES',
                 'NOT_ENOUGH_HEALTHY_RESOURCES',

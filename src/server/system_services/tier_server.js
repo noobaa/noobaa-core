@@ -288,8 +288,13 @@ function update_policy(req) {
 
 }
 
-function update_chunk_config_for_policy(req) { // please remove when CCC is per tier and not per policy  
-    const policy = find_policy_by_name(req);
+function update_chunk_config_for_bucket(req) { // please remove when CCC is per tier and not per policy  
+    var bucket = req.system.buckets_by_name[req.rpc_params.bucket_name];
+    if (!bucket) {
+        dbg.error('BUCKET NOT FOUND', req.rpc_params.bucket_name);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket_name);
+    }
+    const policy = bucket.tiering;
     const changes = {
         insert: {},
         update: {},
@@ -304,16 +309,16 @@ function update_chunk_config_for_policy(req) { // please remove when CCC is per 
         _id: t.tier._id,
         chunk_config: chunk_config._id
     }));
-    return system_store.make_changes(changes)
-        .then(() => {
-            req.load_auth();
-            const created_policy = find_policy_by_name(req);
-            return get_tiering_policy_info(created_policy);
-        });
+    return system_store.make_changes(changes).return();
 }
 
-function add_tier_to_policy(req) {
-    const policy = find_policy_by_name(req);
+function add_tier_to_bucket(req) {
+    var bucket = req.system.buckets_by_name[req.rpc_params.bucket_name];
+    if (!bucket) {
+        dbg.error('BUCKET NOT FOUND', req.rpc_params.bucket_name);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket_name);
+    }
+    const policy = bucket.tiering;
     const tier_params = req.rpc_params.tier;
     const changes = { insert: {}, update: {} };
     const policy_pool_ids = _.map(tier_params.attached_pools,
@@ -327,7 +332,7 @@ function add_tier_to_policy(req) {
         chunk_config = chunk_config_utils.resolve_chunk_config(
             info.tiers[0].tier.chunk_coder_config, req.account, req.system);
     }
-    const new_tier_name = req.rpc_params.name.split('#')[0] + Date.now().toString(36);
+    const new_tier_name = bucket.name + '#' + Date.now().toString(36);
     const tier = new_tier_defaults(
         new_tier_name,
         req.system._id,
@@ -356,12 +361,7 @@ function add_tier_to_policy(req) {
         })),
         chunk_split_config: policy.chunk_split_config
     }];
-    return system_store.make_changes(changes)
-        .then(() => {
-            req.load_auth();
-            const created_policy = find_policy_by_name(req);
-            return get_tiering_policy_info(created_policy);
-        });
+    return system_store.make_changes(changes).return();
 }
 
 function get_policy_pools(req) {
@@ -677,7 +677,7 @@ exports.new_policy_defaults = new_policy_defaults;
 exports.get_tier_info = get_tier_info;
 exports.get_tier_extra_info = get_tier_extra_info;
 exports.get_tiering_policy_info = get_tiering_policy_info;
-exports.update_chunk_config_for_policy = update_chunk_config_for_policy;
+exports.update_chunk_config_for_bucket = update_chunk_config_for_bucket;
 //Tiers
 exports.create_tier = create_tier;
 exports.read_tier = read_tier;
@@ -686,7 +686,7 @@ exports.delete_tier = delete_tier;
 //Tiering Policy
 exports.create_policy = create_policy;
 exports.update_policy = update_policy;
-exports.add_tier_to_policy = add_tier_to_policy;
+exports.add_tier_to_bucket = add_tier_to_bucket;
 exports.get_policy_pools = get_policy_pools;
 exports.read_policy = read_policy;
 exports.delete_policy = delete_policy;

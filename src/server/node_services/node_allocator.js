@@ -9,7 +9,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const nodes_client = require('./nodes_client');
-const node_server = require('./node_server');
+// const node_server = require('./node_server');
 
 const ALLOC_REFRESH_MS = 10000;
 

@@ -288,14 +288,54 @@ function update_policy(req) {
 
 }
 
+function update_chunk_config_for_policy(req) { // please remove when CCC is per tier and not per policy  
+    const policy = find_policy_by_name(req);
+    const changes = {
+        insert: {},
+        update: {},
+    };
+    const chunk_config = chunk_config_utils.resolve_chunk_config(
+        req.rpc_params.chunk_coder_config, req.account, req.system);
+    if (!chunk_config._id) {
+        chunk_config._id = system_store.generate_id();
+        changes.insert.chunk_configs = [chunk_config];
+    }
+    changes.update.tiers = policy.tiers.map(t => ({
+        _id: t.tier._id,
+        chunk_config: chunk_config._id
+    }));
+    return system_store.make_changes(changes)
+        .then(() => {
+            req.load_auth();
+            const created_policy = find_policy_by_name(req);
+            return get_tiering_policy_info(created_policy);
+        });
+}
+
 function add_tier_to_policy(req) {
     const policy = find_policy_by_name(req);
     const tier_params = req.rpc_params.tier;
-    const tier = find_tier_by_name(req, tier_params.tier);
-    const order = req.rpc_params.tier.order || policy.tiers.length;
-    if (_.find(policy.tiers, t => String(t.tier._id) === String(tier._id))) {
-        throw new RpcError('DUPLICATE_TIER', `tier ${tier.name} is already part of policy`);
+    const changes = { insert: {}, update: {} };
+    const policy_pool_ids = _.map(tier_params.attached_pools,
+        pool_name => req.system.pools_by_name[pool_name]._id
+    );
+    const mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
+    let chunk_config = chunk_config_utils.resolve_chunk_config(
+        req.rpc_params.chunk_coder_config, req.account, req.system);
+    if (!chunk_config._id) {
+        const info = get_tiering_policy_info(policy);
+        chunk_config = chunk_config_utils.resolve_chunk_config(
+            info.tiers[0].tier.chunk_coder_config, req.account, req.system);
     }
+    const new_tier_name = req.rpc_params.name.split('#')[0] + Date.now().toString(36);
+    const tier = new_tier_defaults(
+        new_tier_name,
+        req.system._id,
+        chunk_config._id,
+        mirrors
+    );
+    changes.insert.tiers = [tier];
+    const order = req.rpc_params.tier.order || policy.tiers.length;
     if (order < 0 || order > policy.tiers.length) {
         throw new RpcError('ILLEGAL_ORDER', `tier order ${order} is not allowed`);
     }
@@ -306,7 +346,7 @@ function add_tier_to_policy(req) {
         spillover: tier_params.spillover || false,
         disabled: tier_params.disabled || false
     });
-    const updates = {
+    changes.update.tieringpolicies = [{
         _id: policy._id,
         tiers: new_tiers.map((t, index) => ({
             order: index,
@@ -315,8 +355,8 @@ function add_tier_to_policy(req) {
             disabled: t.disabled,
         })),
         chunk_split_config: policy.chunk_split_config
-    };
-    return system_store.make_changes({ update: { tieringpolicies: [updates] } })
+    }];
+    return system_store.make_changes(changes)
         .then(() => {
             req.load_auth();
             const created_policy = find_policy_by_name(req);
@@ -420,11 +460,12 @@ function policy_defaults_from_req(req) {
 
 function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, hosts_aggregate_pool) {
     const info = {
-        has_any_pool_confidured: false,
+        has_any_pool_configured: false,
         num_nodes_in_mirror_group: 0,
         mirrors_with_valid_pool: 0,
         mirrors_with_enough_nodes: 0,
         has_internal_or_cloud_pool: false,
+        use_internal: false,
         has_valid_pool: false,
         any_rebuilds: false,
     };
@@ -447,6 +488,7 @@ function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, h
                 info.num_valid_hosts += (pool_num_hosts || 0);
                 info.has_valid_pool = info.has_valid_pool || pool_status.valid_for_allocation;
                 info.has_internal_or_cloud_pool = info.has_internal_or_cloud_pool || (pool_status.resource_type !== 'HOSTS');
+                info.use_internal = info.use_internal || (pool_status.resource_type === 'INTERNAL');
             });
         if (info.has_valid_pool || ((info.num_valid_nodes || 0) >= required_valid_nodes)) info.mirrors_with_valid_pool += 1;
         if (info.num_nodes_in_mirror_group >= required_valid_nodes || info.has_internal_or_cloud_pool) info.mirrors_with_enough_nodes += 1;
@@ -577,6 +619,7 @@ function calc_tier_policy_status(tier, tier_info, extra_info) {
     let has_enough_total_nodes_for_tier = false;
     let is_no_storage = false;
     let is_storage_low = false;
+
     const tier_free = size_utils.json_to_bigint(_.get(tier_info, 'storage.free') || 0);
     const tier_used = size_utils.json_to_bigint(_.get(tier_info, 'storage.used') || 0);
     const tier_used_other = size_utils.json_to_bigint(_.get(tier_info, 'storage.used_other') || 0);
@@ -593,6 +636,9 @@ function calc_tier_policy_status(tier, tier_info, extra_info) {
     if (tier.mirrors.length > 0) {
         if (extra_info.mirrors_with_valid_pool === tier.mirrors.length) has_enough_healthy_nodes_for_tier = true;
         if (extra_info.mirrors_with_enough_nodes === tier.mirrors.length) has_enough_total_nodes_for_tier = true;
+    }
+    if (extra_info.use_internal && extra_info.mirrors_with_valid_pool === 0) {
+        return 'INTERNAL_ISSUES';
     }
     if (!extra_info.has_valid_pool) {
         return 'NO_RESOURCES';
@@ -631,6 +677,7 @@ exports.new_policy_defaults = new_policy_defaults;
 exports.get_tier_info = get_tier_info;
 exports.get_tier_extra_info = get_tier_extra_info;
 exports.get_tiering_policy_info = get_tiering_policy_info;
+exports.update_chunk_config_for_policy = update_chunk_config_for_policy;
 //Tiers
 exports.create_tier = create_tier;
 exports.read_tier = read_tier;

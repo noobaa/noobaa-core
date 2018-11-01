@@ -41,14 +41,14 @@ module.exports = {
             }
         },
 
-        add_tier_to_policy: {
+        add_tier_to_bucket: {
             doc: 'Adding Tier to Tiering Policy',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'tier'],
+                required: ['bucket_name', 'tier'],
                 properties: {
-                    name: {
+                    bucket_name: {
                         type: 'string'
                     },
                     tier: {
@@ -62,29 +62,23 @@ module.exports = {
                     }
                 }
             },
-            reply: {
-                $ref: '#/definitions/tiering_policy'
-            },
             auth: {
                 system: 'admin'
             }
         },
 
-        update_chunk_config_for_policy: {
+        update_chunk_config_for_bucket: {
             doc: 'Updating the chunk code config for all the tiers in a Tiering Policy',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'chunk_coder_config'],
+                required: ['bucket_name', 'chunk_coder_config'],
                 properties: {
-                    name: {
+                    bucket_name: {
                         type: 'string'
                     },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 }
-            },
-            reply: {
-                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'

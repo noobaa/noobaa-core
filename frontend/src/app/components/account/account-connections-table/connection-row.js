@@ -5,6 +5,7 @@ import UsageRowViewModel from './usage-row';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { deepFreeze, ensureArray } from 'utils/core-utils';
+import { flatPlacementPolicy } from 'utils/bucket-utils';
 
 const emptyMessage = 'Connection is not used by any resource';
 
@@ -53,10 +54,8 @@ const columns = deepFreeze([
 ]);
 
 export function _isBucketUsingResource(bucket, resource) {
-    return bucket.placement.mirrorSets.some(
-        mirrorSet => mirrorSet.resources.some(
-            another => another.name === resource
-        )
+    return flatPlacementPolicy(bucket).some(record =>
+        record.resource === resource
     );
 }
 

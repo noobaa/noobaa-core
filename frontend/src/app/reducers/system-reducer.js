@@ -17,7 +17,7 @@ const initialState = undefined;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
+function onCompleteFetchSystemInfo(state = {}, { payload, timestamp }) {
     const {
         version,
         upgrade,
@@ -25,10 +25,9 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         ip_address,
         has_ssl_cert,
         remote_syslog_config,
-        maintenance_mode
+        maintenance_mode,
+        pools
     } = payload;
-
-    const { releaseNotes } = state || {};
 
     return {
         version,
@@ -37,11 +36,14 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         sslCert: has_ssl_cert ? {} : undefined,
         upgrade: _mapUpgrade(upgrade),
         remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
-        releaseNotes,
+        releaseNotes: state.releaseNotes,
         vmTools: _mapVMTools(payload),
         maintenanceMode: {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
-        }
+        },
+        internalStorage: _mapInternalStorage(
+            pools.find(pool => pool.resource_type === 'INTERNAL')
+        )
     };
 }
 
@@ -132,6 +134,12 @@ function _mapVMTools(payload) {
 
 
     return 'NOT_INSTALLED';
+}
+
+function _mapInternalStorage(internalResource) {
+    return internalResource ?
+        pick(internalResource.storage, ['total', 'used']) :
+        { total: 0, used: 0 };
 }
 
 // ------------------------------

@@ -5,11 +5,11 @@ import resourceListTooltip from './resource-list-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import { openObjectPreviewModal, requestLocation } from 'action-creators';
 import { paginationPageSize } from 'config';
-import { deepFreeze, flatMap, assignWith, sumBy, isDefined, unique, mapValues } from 'utils/core-utils';
+import { deepFreeze, assignWith, sumBy, isDefined, unique, mapValues } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getCloudResourceTypeIcon } from 'utils/resource-utils';
 import { splitObjectId, summerizePartDistribution, formatBlockDistribution } from 'utils/object-utils';
-import { getPlacementTypeDisplayName, getResiliencyTypeDisplay } from 'utils/bucket-utils';
+import { getResiliencyTypeDisplay } from 'utils/bucket-utils';
 import { formatSize } from 'utils/size-utils';
 import { stringifyAmount, capitalize } from 'utils/string-utils';
 import { getHostDisplayName } from 'utils/host-utils';
@@ -419,20 +419,26 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
         } else {
             const { params, query, protocol, pathname } = location;
             const httpsNoCert = protocol === 'https' && !sslCert;
-            const resources = flatMap(bucket.placement.mirrorSets,  mirrorSet => mirrorSet.resources);
             const partDistributions = parts.map(part => summerizePartDistribution(bucket, part));
             const selectedRow = isDefined(query.row) ? Number(query.row) : -1;
             const isRowSelected = selectedRow > -1;
             const cloudTypeMapping = mapValues(cloudResources, res => res.type);
+            const resourceCount = bucket.placement2.tiers.reduce(
+                (count, tier) => count + tier.mirrorSets.reduce(
+                    (count, ms) => count + ms.resources.length,
+                    0
+                ),
+                0
+            );
 
             ko.assignToProps(this, {
                 partsLoaded: true,
                 pathname: pathname,
                 s3SignedUrl: object.s3SignedUrl,
                 partCount: object.partCount,
-                placementType: getPlacementTypeDisplayName(bucket.placement.policyType),
+                placementType: 'TODO: Need to figure out What should go here ???',
                 resilinecySummary: _summrizeResiliency(bucket.resiliency),
-                resourceCount: resources.length,
+                resourceCount: resourceCount,
                 downloadTooltip: _getActionsTooltip(user.isOwner, httpsNoCert, 'download'),
                 previewTooltip: _getActionsTooltip(user.isOwner, httpsNoCert, 'preview', 'end'),
                 page: Number(query.page || 0),

@@ -7,17 +7,28 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
+
+    <div class="tier-indicator row content-middle push-next">
+        <span class="push-next heading3">
+            Tiering Structure:
+        </span>
+        <tag-list class="borders border-light pad-quarter" params="
+            tags: tiersSummary,
+            separator: 'arrow-right'
+        "></tag-list>
+    </div>
+
     <placement-policy-toggle class="push-next" params="
         selectedPolicy: $form.policyType,
         hasFocus: true
     "></placement-policy-toggle>
 
     <resources-selection-table class="column greedy" params="
-        title: 'Resources in Tier # policy',
+        title: tableTitle,
         hostPools: hostPools,
         cloudResources: cloudResources,
+        disabled: resourcesInUse,
         selected: $form.selectedResources,
-        disabled: resourcesInUse
     "></resources-selection-table>
 
     <validation-message class="push-next" params="
@@ -38,7 +49,9 @@
             Cancel
         </button>
         <button class="btn" ko.shakeOnClick="!$form.isValid()">
-            Save
+            add
         </button>
     </div>
 </managed-form>
+
+

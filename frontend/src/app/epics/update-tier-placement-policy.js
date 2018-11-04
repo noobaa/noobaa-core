@@ -23,7 +23,6 @@ export default function(action$, { api }) {
                 return completeUpdateTierPlacementPolicy(bucket, tier);
 
             } catch (error) {
-                console.warn('HEREEREREREr', error);
                 return failUpdateTierPlacementPolicy(
                     bucket,
                     tier,

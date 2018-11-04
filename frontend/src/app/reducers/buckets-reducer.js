@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { keyBy, keyByProperty, groupBy, compare, pick } from 'utils/core-utils';
+import { keyBy, keyByProperty, compare, pick } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { getResourceId } from 'utils/resource-utils';
 import { mapApiStorage } from 'utils/state-utils';
@@ -32,25 +32,29 @@ function onCompleteFetchSystemInfo(state, { payload }) {
 // Local util functions
 // ------------------------------
 function _mapBucket(bucket, tiersByName, resTypeByName) {
-    const placementTiers = bucket.tiering.tiers
+    const placementRecords = bucket.tiering.tiers
         .filter(record => !record.disabled)
         .sort((r1, r2) => compare(r1.order, r2.order))
-        .map(record => tiersByName[record.tier]);
+        .map(record => {
+            const { mode, tier: name } = record;
+            const tier = tiersByName[name];
+            return { mode, tier };
+        });
 
     const { storage, data, quota, stats, triggers, policy_modes, stats_by_type = [] } = bucket;
     const { placement_status, resiliency_status, quota_status } = policy_modes;
     return {
         name: bucket.name,
-        tierName: placementTiers[0].name,
+        tierName: placementRecords[0].tier.name, // TODO, need to be removed
         mode: bucket.mode,
         storage: mapApiStorage(storage.values, storage.last_update),
         data: _mapData(data),
         quota: _mapQuota(quota_status, quota),
         objectCount: bucket.num_objects,
         undeletable: bucket.undeletable,
-        placement: _mapPlacement(placement_status, placementTiers[0], resTypeByName),
-        placement2: _mapPlacement2(placementTiers, resTypeByName),
-        resiliency: _mapResiliency(resiliency_status, placementTiers[0]),
+        placement: _mapPlacement(placement_status, placementRecords[0].tier, resTypeByName), // TODO, need to be removed
+        placement2: _mapPlacement2(placementRecords, resTypeByName),
+        resiliency: _mapResiliency(resiliency_status, placementRecords[0].tier),
         failureTolerance: _mapFailureTolerance(bucket),
         versioning: _mapVersioning(bucket),
         io: _mapIO(stats),
@@ -82,7 +86,7 @@ function _mapQuota(mode, quota) {
     return { mode, size, unit };
 }
 
-function _mapPlacement(mode, tier, typeByName) {
+function _mapPlacement(mode = 'OPTIMAL' /*TODO: remove*/, tier, typeByName) {
     const { data_placement: policyType, mirror_groups } = tier;
     const usingInternal =
         (tier.mirror_groups.length === 1) &&
@@ -110,19 +114,37 @@ function _mapPlacement(mode, tier, typeByName) {
     }
 }
 
-function _mapPlacement2(tiers, typeByName) {
-    const usingInternal =
-        (tiers.length === 1) &&
-        (tiers[0].mirror_groups.length === 1) &&
-        (tiers[0].mirror_groups[0].pools.length === 1) &&
-        (typeByName[tiers[0].mirror_groups[0].pools[0]] === 'INTERNAL');
+function _usingInternalStorage(placement, typeByName) {
+    if (placement.length !== 1) {
+        return false;
+    }
 
-    if (usingInternal) {
+    const { mirror_groups } = placement[0].tier;
+    if (mirror_groups.length !== 1) {
+        return false;
+    }
+
+    const { pools } = mirror_groups[0];
+    if (pools.length !== 1) {
+        return false;
+    }
+
+    const poolType = typeByName[pools[0]];
+    if (poolType !== 'INTERNAL') {
+        return false;
+    }
+
+    return true;
+}
+
+function _mapPlacement2(placement, typeByName) {
+    if (_usingInternalStorage(placement, typeByName)) {
+        const { mode, tier } = placement[0];
         return {
             mode: 'OPTIMAL',
             tiers: [{
-                name: tiers[0].name,
-                mode: 'OPTIMAL', // TODO
+                name: tier.name,
+                mode: mode,
                 policyType: 'INTERNAL_STORAGE'
             }]
         };
@@ -130,9 +152,9 @@ function _mapPlacement2(tiers, typeByName) {
     } else {
         return {
             mode: 'OPTIMAL',
-            tiers: tiers.map(tier => {
+            tiers: placement.map(record => {
+                const { mode, tier } = record;
                 const { name, data_placement: policyType, mirror_groups } = tier;
-                const mode = 'OPTIMAL'; // TODO
                 const mirrorSets = mirror_groups
                     .sort((g1, g2) => compare(g1.name, g2.name))
                     .map(group => {

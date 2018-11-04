@@ -20,6 +20,7 @@ class WizardViewModel {
             disabled = false,
             shakeOnFailedStep = true,
             onBeforeStep = () => true,
+            onAfterStep = noop,
             onCancel = noop,
             onComplete = noop,
             renderControls = true
@@ -31,6 +32,7 @@ class WizardViewModel {
         this.disabled = disabled;
         this.shakeOnFailedStep = shakeOnFailedStep;
         this.shake = ko.observable(false);
+        this.afterStepHandler = onAfterStep.bind(owner);
         this.beforeStepHandler = onBeforeStep.bind(owner);
         this.cancelHandler = onCancel.bind(owner);
         this.completeHandler = onComplete.bind(owner);
@@ -83,10 +85,13 @@ class WizardViewModel {
         }
 
         this.step(step + 1);
+        this.afterStepHandler(step + 1);
     }
 
     async onStepBackword() {
-        this.step(this.step() - 1);
+        const step = this.step();
+        this.step(step - 1);
+        this.afterStepHandler(step - 1);
     }
 
     async onComplete() {

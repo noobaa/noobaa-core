@@ -365,8 +365,6 @@ class CreatePoolModalViewModel extends ConnectableViewModel {
                 errors.poolName = '';
             }
 
-        } else if (!selectedHosts.length) {
-            errors.selectedHosts = 'Please select at least one node';
         }
 
         return errors;

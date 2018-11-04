@@ -115,6 +115,22 @@ export function openBucketS3AccessModal(bucketName) {
     };
 }
 
+export function openAddTierModal(bucketName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'add-tier-modal',
+                params: { bucketName }
+            },
+            options: {
+                title: 'Add a New Tier',
+                size: 'xlarge'
+            }
+        }
+    };
+}
+
 export function openEditTierDataPlacementModal(bucketName, tierName, tierDisplayName) {
     return {
         type: OPEN_MODAL,
@@ -164,12 +180,12 @@ export function openRiskyBucketDataResiliencyWarningModal(bucketName, tierName, 
     };
 }
 
-export function openEmptyBucketPlacementWarningModal(action) {
+export function openEmptyDataPlacementWarningModal(action) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'empty-bucket-placement-warning-modal',
+                name: 'empty-data-placement-warning-modal',
                 params: { action }
             },
             options: {
@@ -845,6 +861,7 @@ export function openAssignRegionModal(resourceType, resourceName) {
     };
 }
 
+
 export function openChangePasswordModal(accountName) {
     return {
         type: OPEN_MODAL,
@@ -938,6 +955,22 @@ export function openInvokeFuncModal(funcName, funcVersion) {
             options: {
                 title: 'Set Event and Invoke',
                 size: 'medium'
+            }
+        }
+    };
+}
+
+export function openBucketPlacementSummaryModal(bucketName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'bucket-placement-summary-modal',
+                params: { bucketName }
+            },
+            options: {
+                title: 'Bucket Tiering Structure',
+                size: 'xlarge'
             }
         }
     };

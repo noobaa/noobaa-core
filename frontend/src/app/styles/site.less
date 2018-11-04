@@ -58,6 +58,10 @@ vr {
     background-color: @color15;
     margin: 0 @gutter;
     align-self: stretch;
+
+    &.alt-colors {
+        background: @color7;
+    }
 }
 
 output {
@@ -329,6 +333,10 @@ pre {
     padding: @gutter/2;
 }
 
+.pad-quarter {
+    padding: @gutter/4;
+}
+
 .vpad {
     padding-top: @gutter;
     padding-bottom: @gutter;
@@ -368,7 +376,7 @@ pre {
 }
 
 .alt-bg-dark {
-    background-color: @color1;
+    background-color: @color4;
     // currently we don't have cases with .alt-bg-dark scroll
     /*&::-webkit-scrollbar-thumb, ::-webkit-scrollbar-thumb {
         border-color: @color1;
@@ -395,6 +403,19 @@ pre {
     border-right: 1px solid @color15;
 }
 
+.borders,
+.border-bottom,
+.border-top,
+.border-left,
+.border-right {
+    &.border-light {
+        border-color: @color6;
+    }
+
+    &.border-dash {
+        border-style: dashed;
+    }
+}
 
 .break-words {
     word-wrap: break-word;

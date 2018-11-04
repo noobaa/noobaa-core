@@ -3,7 +3,6 @@
 
 const _ = require('lodash');
 const api = require('../../api');
-const dataset = require('./dataset.js');
 const blobops = require('../utils/blobops');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
@@ -58,7 +57,7 @@ function usage() {
     --id                    -   an id that is attached to the agents name
     --name                  -   compatible s3 server name (default: ${name})
     --upgrade               -   location of the file for upgrade
-    --compatible_ip         -   use an allready installed compatible s3 (by ip)
+    --compatible_ip         -   use an already installed compatible s3 (by ip)
     --compatible_password   -   the compatible s3 password
     --help                  -   show this help.
     `);
@@ -68,6 +67,9 @@ if (argv.help) {
     usage();
     process.exit(1);
 }
+
+// we require this here so --help will not call datasets help.
+const dataset = require('./dataset.js');
 
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 
@@ -223,7 +225,7 @@ async function clean_cloud_bucket(s3ops, bucket) {
     }
 }
 
-async function preperCompatibleCloudPoolsEnv(type, version) {
+async function prepareCompatibleCloudPoolsEnv(type, version) {
     for (const protocol of ['http', 'https']) {
         try {
             //TODO: ????????? should we remove version 4 of http due to bug #3642 ?????????
@@ -257,7 +259,7 @@ async function preperCompatibleCloudPoolsEnv(type, version) {
 
 async function createCloudPools(type) {
     if (type === "COMPATIBLE") {
-        await preperCompatibleCloudPoolsEnv(type, 2); //Report inside
+        await prepareCompatibleCloudPoolsEnv(type, 2); //Report inside
     } else {
         try {
             const cloud_pool_name = `${type}-bucket`;
@@ -335,7 +337,7 @@ async function main() {
         }
         await run_dataset();
         await clean_env();
-        await preperCompatibleCloudPoolsEnv("COMPATIBLE", 4);
+        await prepareCompatibleCloudPoolsEnv("COMPATIBLE", 4);
         await run_dataset();
         await clean_env();
         console.log('cloud tests were successful!');

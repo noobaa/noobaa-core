@@ -375,7 +375,7 @@ async function update_node_version() {
     dbg.log0(`UPGRADE: pre_upgrade: Extracted node package`);
     await exec(`mkdir -p ~/.nvm/versions/node/v${nodever}/`);
     dbg.log0(`UPGRADE: pre_upgrade: Created node dir`);
-    await exec(`cp /tmp/v${nodever}/* ~/.nvm/versions/node/v${nodever}/`);
+    await exec(`cp -r /tmp/v${nodever}/* ~/.nvm/versions/node/v${nodever}/`);
     dbg.log0(`UPGRADE: pre_upgrade: copied node dir from /tmp to /.nvm`);
 
     // TODO: maybe backup the old node version in backup script

@@ -80,7 +80,7 @@ import connectAppModal from './modals/connect-app-modal/connect-app-modal';
 import createNamespaceResourceModal from './modals/create-namespace-resource-modal/create-namespace-resource-modal';
 import createNamespaceBucketModal from './modals/create-namespace-bucket-modal/create-namespace-bucket-modal';
 import editNamespaceBucketDataPlacementModal from './modals/edit-namespace-bucket-data-placement-modal/edit-namespace-bucket-data-placement-modal';
-import emptyBucketPlacementWarningModal from './modals/empty-bucket-placement-warning-modal/empty-bucket-placement-warning-modal';
+import emptyDataPlacementWarningModal from './modals/empty-data-placement-warning-modal/empty-data-placement-warning-modal';
 import setNodeAsTrustedModal from './modals/set-node-as-trusted-modal/set-node-as-trusted-modal';
 import confirmDeleteHostModal from './modals/confirm-delete-host-modal/confirm-delete-host-modal';
 import upgradeSystemModal from './modals/upgrade-system-modal/upgrade-system-modal';
@@ -104,6 +104,7 @@ import resetPasswordModal from './modals/reset-password-modal/reset-password-mod
 import passwordResetCompletedModal from './modals/password-reset-completed-modal/password-reset-completed-modal';
 import passwordResetFailedModal from './modals/password-reset-failed-modal/password-reset-failed-modal';
 import editFuncConfigModal from './modals/edit-func-config-modal/edit-func-config-modal';
+import bucketPlacementSummaryModal from './modals/bucket-placement-summary-modal/bucket-placement-summary-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -137,6 +138,7 @@ import bucketTriggersForm from './bucket/bucket-triggers-form/bucket-triggers-fo
 import bucketDataPlacementForm from './bucket/bucket-data-placement-form/bucket-data-placement-form';
 import tierDataPlacementPolicyForm from './bucket/tier-data-placement-policy-form/tier-data-placement-policy-form';
 import editTierDataPlacementModal from './bucket/edit-tier-data-placement-modal/edit-tier-data-placement-modal';
+import addTierModal from './bucket/add-tier-modal/add-tier-modal';
 /** INJECT:bucket.import **/
 
 // -------------------------------
@@ -338,6 +340,7 @@ import hostPartsTable from './shared/host-parts-table/host-parts-table';
 import counter from './shared/counter/counter';
 import resourcesSelectionTable from './shared/resources-selection-table/resources-selection-table';
 import placementPolicyToggle from './shared/placement-policy-toggle/placement-policy-toggle';
+import tagList from './shared/tag-list/tag-list';
 /** INJECT:shared.import **/
 
 // Register the components with knockout component container.
@@ -426,7 +429,7 @@ export default function register(ko, services) {
         createNamespaceResourceModal,
         createNamespaceBucketModal,
         editNamespaceBucketDataPlacementModal,
-        emptyBucketPlacementWarningModal,
+        emptyDataPlacementWarningModal,
         setNodeAsTrustedModal,
         confirmDeleteHostModal,
         upgradeSystemModal,
@@ -450,6 +453,7 @@ export default function register(ko, services) {
         passwordResetCompletedModal,
         passwordResetFailedModal,
         editFuncConfigModal,
+        bucketPlacementSummaryModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -475,6 +479,7 @@ export default function register(ko, services) {
         bucketDataPlacementForm,
         tierDataPlacementPolicyForm,
         editTierDataPlacementModal,
+        addTierModal,
         /** INJECT:bucket.list **/
 
         namespaceBucketPanel,
@@ -628,6 +633,7 @@ export default function register(ko, services) {
         counter,
         resourcesSelectionTable,
         placementPolicyToggle,
+        tagList,
         /** INJECT:shared.list **/
 
         // An empty component used for app/data loading periods

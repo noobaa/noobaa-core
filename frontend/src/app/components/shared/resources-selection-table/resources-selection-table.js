@@ -48,10 +48,10 @@ const columns = deepFreeze([
     }
 ]);
 
-function _mapHostPoolToRow(id, pool, isSelected) {
+function _mapHostPoolToRow(id, pool, isDisabled, isSelected) {
     return {
         id: id,
-        rowCss: '',
+        rowCss: isDisabled ? 'disabled-row' : '',
         isSelected: isSelected,
         state: getHostPoolStateIcon(pool),
         type: 'nodes-pool',
@@ -66,10 +66,10 @@ function _mapHostPoolToRow(id, pool, isSelected) {
     };
 }
 
-function _mapCloudResourceToRow(id, res, isSelected) {
+function _mapCloudResourceToRow(id, res, isDisabled, isSelected) {
     return {
         id: id,
-        rowCss: '',
+        rowCss: isDisabled ? 'disabled-row' : '',
         isSelected: isSelected,
         state: getCloudResourceStateIcon(res),
         type: getCloudResourceTypeIcon(res),
@@ -86,6 +86,7 @@ function _mapCloudResourceToRow(id, res, isSelected) {
 
 class RowViewModel {
     id = '';
+    rowCss = ko.observable();
     state = ko.observable();
     type = ko.observable();
     name = ko.observable();
@@ -130,6 +131,7 @@ class ResourcesSelectionTableViewModel {
             ko.unwrap(params.title),
             ko.unwrap(params.hostPools),
             ko.unwrap(params.cloudResources),
+            ko.unwrap(params.disabled || []),
             ko.unwrap(params.selected)
         ));
     }
@@ -138,6 +140,7 @@ class ResourcesSelectionTableViewModel {
         title,
         hostPools,
         cloudResources,
+        disabled,
         selected
     ) {
         if (!hostPools || !cloudResources) {
@@ -148,12 +151,16 @@ class ResourcesSelectionTableViewModel {
         } else {
             const hostPoolRows = Object.values(hostPools).map(pool => {
                 const id = getResourceId('HOSTS', pool.name);
-                return _mapHostPoolToRow(id, pool, selected.includes(id));
+                const isDisabled = disabled.includes(id);
+                const isSelected = selected.includes(id);
+                return _mapHostPoolToRow(id, pool, isDisabled, isSelected);
             });
 
             const cloudResourceRows = Object.values(cloudResources).map(res => {
                 const id = getResourceId('CLOUD', res.name);
-                return _mapCloudResourceToRow(id, res, selected.includes(id));
+                const isDisabled = disabled.includes(id);
+                const isSelected = selected.includes(id);
+                return _mapCloudResourceToRow(id, res, isDisabled, isSelected);
             });
 
             ko.assignToProps(this, {

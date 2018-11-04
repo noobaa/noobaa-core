@@ -14,37 +14,6 @@ import {
 const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
 const boxCount = 4;
 
-function _prepareListTemplateData(items) {
-    const hasExtra = items.length > boxCount;
-    const extraText =  `${items.length - (boxCount - 1)} more`;
-    const extraItems = items.slice(boxCount - 1);
-
-    const visibleItems = items
-        .slice(0, hasExtra ? boxCount - 1 : items.length)
-        .map(item => ({
-            text: item,
-            tooltip: {
-                text: item,
-                breakWords: true
-            }
-        }));
-
-    const extraTooltip = {
-        text: extraItems,
-        template: extraItems.length > 1  ? 'list' : 'text',
-        align: 'end',
-        breakWords: true
-    };
-
-    return {
-        visibleItems,
-        hasExtra,
-        extraText,
-        extraTooltip,
-        boxCount
-    };
-}
-
 class AccountS3AccessFormViewModel extends Observer {
     accountName = ko.observable();
     isAccountLoaded = ko.observable();
@@ -145,14 +114,14 @@ class AccountS3AccessFormViewModel extends Observer {
                 return start === end ? start : `${start} - ${end}`;
             });
 
-            allowedIpsInfo = _prepareListTemplateData(formattedIpList);
+            allowedIpsInfo = { tags: formattedIpList, boxCount };
             allowedIpsTemplate = 'list';
         }
 
         let allowedBucketsTemplate;
         let allowedBucketsInfo = 'All current and future buckets';
         if (!hasAccessToAllBuckets) {
-            allowedBucketsInfo = allowedBuckets.length ? _prepareListTemplateData(allowedBuckets) : '(none)';
+            allowedBucketsInfo = allowedBuckets.length ? { tags: allowedBuckets, boxCount } : '(none)';
             allowedBucketsTemplate = allowedBuckets.length && 'list';
         }
 

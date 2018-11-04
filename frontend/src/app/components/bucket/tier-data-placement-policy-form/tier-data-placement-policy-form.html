@@ -13,12 +13,12 @@
             <h2 class="heading3 greedy">{{tierDisplayName}}</h2>
             <p class="row content-middle">
                 Policy Type: {{placementType}}
-                <vr class="push-both-half"></vr>
+                <vr class="alt-colors push-both-half"></vr>
                 Node Pools: {{hostPoolCount}}
-                <vr class="push-both-half"></vr>
+                <vr class="alt-colors push-both-half"></vr>
                 Cloud Resources: {{cloudResourceCount}}
-                <vr class="push-both-half"></vr>
-                Tier Raw Capacity: {{rawCapacity}}
+                <vr class="alt-colors push-both-half"></vr>
+                Available Capacity: {{capacity}}
             </p>
         </div>
         <div class="push-both" ko.tooltip="editTierPlacementTooltip">

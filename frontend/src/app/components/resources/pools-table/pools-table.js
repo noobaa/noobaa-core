@@ -5,7 +5,7 @@ import deleteBtnTooltipTemplate  from './delete-button-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
-import { deepFreeze, throttle, createCompareFunc, groupBy, sumBy, flatMap } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap } from 'utils/core-utils';
 import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
 import { unassignedRegionText, getHostPoolStateIcon } from 'utils/resource-utils';
 import { flatPlacementPolicy } from 'utils/bucket-utils';
@@ -66,11 +66,6 @@ const columns = deepFreeze([
         type: 'delete'
     }
 ]);
-
-const notEnoughHostsTooltip = deepFreeze({
-    align: 'end',
-    text: 'Not enough nodes to create a new pool, please install at least one node'
-});
 
 function _getBucketsByPool(buckets) {
     const placement = flatMap(
@@ -275,7 +270,6 @@ class PoolsTableViewModel extends ConnectableViewModel {
             const order = Number(location.query.order || 1);
             const page = Number(location.query.page || 0);
             const poolList = Object.values(pools);
-            const hostCount = sumBy(poolList, pool => pool.hostCount);
             const pageStart = page * paginationPageSize;
             const filteredPools = poolList.filter(pool => _matchFilter(filter, pool));
             const bucketsByPool = _getBucketsByPool(buckets);
@@ -297,8 +291,6 @@ class PoolsTableViewModel extends ConnectableViewModel {
             ko.assignToProps(this, {
                 dataReady: true,
                 pathname: location.pathname,
-                isCreatePoolDisabled: hostCount == 0,
-                createPoolTooltip: hostCount === 0 ? notEnoughHostsTooltip : '',
                 filter: filter,
                 sorting: { sortBy, order },
                 page: page,

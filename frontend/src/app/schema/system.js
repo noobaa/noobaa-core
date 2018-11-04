@@ -10,7 +10,8 @@ export default {
         'p2pSettings',
         'phoneHome',
         'debug',
-        'diagnostics'
+        'diagnostics',
+        'internalStorage'
     ],
     properties: {
         version: {
@@ -179,6 +180,14 @@ export default {
         },
         diagnostics: {
             $ref: '#/def/common/diagnostics'
+        },
+        internalStorage: {
+            total: {
+                $ref: '#/def/common/size'
+            },
+            size: {
+                $ref: '#/def/common/size'
+            }
         }
     }
 };

@@ -6,6 +6,7 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { usingInternalStorageWarningTooltip } from 'knowledge-base-articles.json';
 import { formatSize } from 'utils/size-utils';
+import { openAddTierModal, openBucketPlacementSummaryModal } from 'action-creators';
 
 const addTierTooltips = deepFreeze({
     usingInternal: 'Adding more tiers will be enabled after adding storage resources to the system',
@@ -30,60 +31,69 @@ class BucketDataPlacementFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     bucketName = ko.observable();
     tierNames = ko.observableArray();
+    tierLabels = ko.observableArray();
     isAddTierDisabled = ko.observable();
     addTierTooltip = ko.observable();
     isInternalWarningVisible = ko.observable();
     internalWarningTooltip = internalWarningTooltip;
     internalStorageUsage = ko.observable();
+    hasMultipleTiers = ko.observable();
 
     selectState(state, params) {
-        const { buckets } = state;
+        const { buckets, system } = state;
         return [
             params.bucketName,
-            buckets && buckets[params.bucketName].placement2
+            buckets && buckets[params.bucketName].placement2,
+            system && system.internalStorage
+
         ];
     }
 
-    mapStateToProps(bucketName, placement) {
-        if (!placement) {
+    mapStateToProps(bucketName, placement, internalStorage) {
+        if (!placement || !internalStorage) {
             ko.assignToProps(this, {
                 dataReady: false
             });
 
         } else {
-
             const { tiers } = placement;
             const isUsingInternalStorage = tiers[0].policyType === 'INTERNAL_STORAGE';
-            const isAddTierDisabled = isUsingInternalStorage;
-            const tierNames = placement.tiers.map(tier => tier.name);
+            const tierNames = tiers.map(tier => tier.name);
+            const tierLabels = tiers.map((_, i) => `Tier ${i + 1}`);
+            const isAddTierDisabled = isUsingInternalStorage || tierNames.length > 1;
             const addTierTooltip = {
                 text:
                     (isUsingInternalStorage && addTierTooltips.usingInternal) ||
-                    (tierNames.length === 2 && addTierTooltips.hasMaxTiers) ||
+                    (tierNames.length > 1 && addTierTooltips.hasMaxTiers) ||
                     '',
                 align: 'end'
             };
             const internalStorageUsage = `${
-                formatSize(3 * (1024 ** 3))
+                formatSize(internalStorage.used)
             } of ${
-                formatSize(320 * (1024 ** 3))
+                formatSize(internalStorage.total)
             }`;
-
 
             ko.assignToProps(this, {
                 dataReady: true,
                 bucketName,
                 tierNames,
+                tierLabels,
                 isInternalWarningVisible: isUsingInternalStorage,
                 isAddTierDisabled,
                 addTierTooltip,
-                internalStorageUsage
+                internalStorageUsage,
+                hasMultipleTiers: tierNames.length > 1
             });
         }
     }
 
     onAddTer() {
+        this.dispatch(openAddTierModal(this.bucketName()));
+    }
 
+    onOpenTiersFlow() {
+        this.dispatch(openBucketPlacementSummaryModal(this.bucketName()));
     }
 }
 

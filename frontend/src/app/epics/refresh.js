@@ -25,6 +25,7 @@ export default function(action$) {
             types.COMPLETE_UPDATE_BUCKET_QUOTA_POLICY,
             types.COMPLETE_UPDATE_BUCKET_RESILIENCY_POLICY,
             types.COMPLETE_UPDATE_BUCKET_VERSIONING_POLICY,
+            types.COMPLETE_ADD_BUCKET_TIER,
             types.COMPLETE_DELETE_BUCKET,
             types.COMPLETE_UPDATE_TIER_PLACEMENT_POLICY,
             types.COMPLETE_CREATE_NAMESPACE_BUCKET,

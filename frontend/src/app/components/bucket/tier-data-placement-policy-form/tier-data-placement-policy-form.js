@@ -4,6 +4,8 @@ import template from './tier-data-placement-policy-form.html';
 import ConnectableViewModel from 'components/connectable';
 import { getPlacementTypeDisplayName, getPlacementStateIcon } from 'utils/bucket-utils';
 import { deepFreeze, groupBy, flatMap } from 'utils/core-utils';
+import { aggregateStorage } from 'utils/storage-utils';
+import { formatSize, sumSize } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import {
     getResourceId,
@@ -16,6 +18,7 @@ import {
 } from 'utils/resource-utils';
 import { requestLocation, openEditTierDataPlacementModal } from 'action-creators';
 import ko from 'knockout';
+import numeral from 'numeral';
 import * as routes from 'routes';
 
 const columns = deepFreeze([
@@ -136,7 +139,7 @@ class TierDataPlacementPolicyFormViewModel extends ConnectableViewModel {
     placementType = ko.observable();
     hostPoolCount = ko.observable();
     cloudResourceCount = ko.observable();
-    rawCapacity = ko.observable();
+    capacity = ko.observable();
     isExpanded = ko.observable();
     columns = columns;
     isEditTierPlacementDisabled = ko.observable();
@@ -194,9 +197,9 @@ class TierDataPlacementPolicyFormViewModel extends ConnectableViewModel {
                     toggleUri,
                     stateIcon: emptyTierStateIcon,
                     placementType: 'Spread',
-                    hostPoolCount: 0,
-                    cloudResourceCount: 0,
-                    rawCapacity: 0,
+                    hostPoolCount: numeral(0).format(','),
+                    cloudResourceCount: numeral(0).format(','),
+                    capacity: `${formatSize(0)} of ${formatSize(0)}`,
                     isExpanded,
                     isEditTierPlacementDisabled: !hasResources,
                     editTierPlacementTooltip: !hasResources && editTierPlacementTooltip,
@@ -205,10 +208,21 @@ class TierDataPlacementPolicyFormViewModel extends ConnectableViewModel {
                 });
 
             } else {
+                const resources = flatMap(tier.mirrorSets, ms => ms.resources);
                 const { HOSTS: hostPoolNames = [], CLOUD: cloudResourceNames = [] } = groupBy(
-                    flatMap(tier.mirrorSets, ms => ms.resources),
+                    resources,
                     res => res.type,
                     res => res.name
+                );
+                const storage = aggregateStorage(
+                    ...resources.map(res => {
+                        const coll = res.type === 'HOSTS' ? hostPools : cloudResources;
+                        return coll[res.name].storage;
+                    })
+                );
+                const freeStorage = sumSize(
+                    storage.free || 0,
+                    storage.unavailableFree || 0
                 );
 
                 ko.assignToProps(this, {
@@ -219,9 +233,9 @@ class TierDataPlacementPolicyFormViewModel extends ConnectableViewModel {
                     toggleUri,
                     stateIcon: getPlacementStateIcon(tier.mode),
                     placementType: getPlacementTypeDisplayName(tier.policyType),
-                    hostPoolCount: hostPoolNames.length,
-                    cloudResourceCount: cloudResourceNames.length,
-                    rawCapacity: 'TODO',
+                    hostPoolCount: numeral(hostPoolNames.length).format(','),
+                    cloudResourceCount: numeral(cloudResourceNames.length).format(','),
+                    capacity: `${formatSize(freeStorage)} of ${formatSize(storage.total || 0)}`,
                     isExpanded,
                     isEditTierPlacementDisabled: !hasResources,
                     editTierPlacementTooltip: !hasResources && editTierPlacementTooltip,

@@ -1,0 +1,25 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row content-middle">
+    <ul class="no-wrap list-no-style row content-middle" ko.forEach="tags">
+        <!-- ko if: $index() && $component.separator() -->
+        <svg-icon class="icon-small highlight push-prev-half"
+            params="name: $component.separator"
+        ></svg-icon>
+        <!-- /ko -->
+
+        <li class="no-wrap pad highlight tag"
+            ko.css="css"
+            ko.tooltip="tooltip"
+        >
+           {{text}}
+        </li>
+    </ul>
+    <!-- ko with: extra -->
+    <span class="highlight align-middle push-prev-half"
+        ko.tooltip="tooltip"
+    >
+        {{text}}
+    </span>
+    <!-- /ko -->
+</div>

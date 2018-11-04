@@ -1,81 +1,102 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isUndefined, sumBy, flatMap } from './core-utils';
+import { deepFreeze, isUndefined, sumBy, flatMap, mapValues } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
 import { stringifyAmount, pluralize } from 'utils/string-utils';
 
-const bucketStateToIcon = deepFreeze({
-    NO_RESOURCES: {
-        tooltip: 'No storage resources',
-        css: 'error',
-        name: 'problem'
-    },
-    NOT_ENOUGH_HEALTHY_RESOURCES: {
-        tooltip: 'Not enough healthy storage resources',
-        css: 'error',
-        name: 'problem'
-    },
-    NOT_ENOUGH_RESOURCES: {
-        tooltip: 'Not enough drives to meet resiliency policy',
-        css: 'error',
-        name: 'problem'
-    },
-    NO_CAPACITY: {
-        tooltip: 'No potential available storage',
-        css: 'error',
-        name: 'problem'
-    },
-    EXCEEDING_QUOTA: {
-        tooltip: 'Exceeded configured quota',
-        css: 'error',
-        name: 'problem'
-    },
-    LOW_CAPACITY: {
-        tooltip: 'Storage is low',
-        css: 'warning',
-        name: 'problem'
-    },
-    RISKY_TOLERANCE: {
-        tooltip: 'Risky failure tolerance ',
-        css: 'warning',
-        name: 'problem'
-    },
-    'NO_RESOURCES_INTERNAL': {
-        tooltip: 'TODO ',
-        css: 'warning',
-        name: 'problem'
-    },
-    'NO_RESOURCES_INTERNAL_ISSUES': {
-        tooltip: 'TODO',
-        css: 'error',
-        name: 'problem'
-    },
-    APPROUCHING_QUOTA: {
-        tooltip: 'Approaching configured quota',
-        css: 'warning',
-        name: 'problem'
-    },
-    DATA_ACTIVITY: {
-        tooltip: 'In process',
-        css: 'warning',
-        name: 'working'
-    },
-    OPTIMAL: {
-        tooltip: 'Healthy',
-        css: 'success',
-        name: 'healthy'
-    }
-});
+const bucketStateToIcon = deepFreeze(
+    _mapObjectsToFunction({
+        NO_RESOURCES: {
+            tooltip: 'No storage resources',
+            css: 'error',
+            name: 'problem'
+        },
+        NOT_ENOUGH_HEALTHY_RESOURCES: {
+            tooltip: 'Not enough healthy storage resources',
+            css: 'error',
+            name: 'problem'
+        },
+        NOT_ENOUGH_RESOURCES: {
+            tooltip: 'Not enough drives to meet resiliency policy',
+            css: 'error',
+            name: 'problem'
+        },
+        NO_CAPACITY: {
+            tooltip: 'No potential available storage',
+            css: 'error',
+            name: 'problem'
+        },
+        EXCEEDING_QUOTA: {
+            tooltip: 'Exceeded configured quota',
+            css: 'error',
+            name: 'problem'
+        },
+        LOW_CAPACITY: {
+            tooltip: 'Storage is low',
+            css: 'warning',
+            name: 'problem'
+        },
+        RISKY_TOLERANCE: {
+            tooltip: 'Risky failure tolerance ',
+            css: 'warning',
+            name: 'problem'
+        },
+        NO_RESOURCES_INTERNAL: {
+            tooltip: 'No Storage Resources - Using Internal Storage',
+            css: 'warning',
+            name: 'problem'
+        },
+        APPROUCHING_QUOTA: {
+            tooltip: 'Approaching configured quota',
+            css: 'warning',
+            name: 'problem'
+        },
+        DATA_ACTIVITY: {
+            tooltip: 'In process',
+            css: 'warning',
+            name: 'working'
+        },
+        MANY_TIERS_ISSUES: {
+            tooltip: 'Tiers Resources has Issues ',
+            css: 'warning',
+            name: 'problem'
+        },
+        ONE_TIER_ISSUES: bucket => {
+            const i = bucket.placement2.tiers.findIndex(tier =>
+                tier.mode !== 'OPTIMAL'
+            );
+
+            return {
+                tooltip: `Tier ${i + 1}'s Resources has Issues`,
+                css: 'warning',
+                name: 'problem'
+            };
+        },
+        OPTIMAL: {
+            tooltip: 'Healthy',
+            css: 'success',
+            name: 'healthy'
+        }
+    })
+);
 
 const placementModeToIcon = deepFreeze({
-    NO_RESOURCES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES, 'start'),
-    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES, 'start'),
-    NOT_ENOUGH_HEALTHY_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_HEALTHY_RESOURCES, 'start'),
-    NO_CAPACITY: _alignIconTooltip(bucketStateToIcon.NO_CAPACITY, 'start'),
-    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
-    LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY, 'start'),
-    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
-    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
+    INTERNAL_ISSUES: {
+        tooltip: {
+            text: 'TODO: some text',
+            align: 'start'
+        },
+        css: 'error',
+        name: 'problem'
+    },
+    NO_RESOURCES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES(), 'start'),
+    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES(), 'start'),
+    NOT_ENOUGH_HEALTHY_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_HEALTHY_RESOURCES(), 'start'),
+    NO_CAPACITY: _alignIconTooltip(bucketStateToIcon.NO_CAPACITY(), 'start'),
+    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE(), 'start'),
+    LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY(), 'start'),
+    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY(), 'start'),
+    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL(), 'start')
 });
 
 const placementTypeToDisplayName = deepFreeze({
@@ -92,10 +113,10 @@ const namespaceBucketToStateIcon = deepFreeze({
 });
 
 const resiliencyModeToIcon = deepFreeze({
-    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES, 'start'),
-    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE, 'start'),
-    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY, 'start'),
-    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL, 'start')
+    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES(), 'start'),
+    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE(), 'start'),
+    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY(), 'start'),
+    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL(), 'start')
 });
 
 const resiliencyTypeToDisplay = deepFreeze({
@@ -118,15 +139,12 @@ const resiliencyTypeToBlockType = deepFreeze({
 });
 
 const quotaModeToIcon = deepFreeze({
-    EXCEEDING_QUOTA: _alignIconTooltip(bucketStateToIcon.EXCEEDING_QUOTA, 'start'),
-    APPROUCHING_QUOTA: _alignIconTooltip(bucketStateToIcon.APPROUCHING_QUOTA, 'start'),
+    EXCEEDING_QUOTA: _alignIconTooltip(bucketStateToIcon.EXCEEDING_QUOTA(), 'start'),
+    APPROUCHING_QUOTA: _alignIconTooltip(bucketStateToIcon.APPROUCHING_QUOTA(), 'start'),
     OPTIMAL: {
         name: 'healthy',
         css: 'success',
-        tooltip: {
-            text: 'Enabled',
-            align: 'start'
-        }
+        tooltip: 'Enabled'
     }
 });
 
@@ -147,6 +165,12 @@ export const bucketEvents = deepFreeze([
     }
 ]);
 
+function _mapObjectsToFunction(statusMap) {
+    return mapValues(statusMap, objOrFunc =>
+        typeof objOrFunc === 'function' ? objOrFunc : () => objOrFunc
+    );
+}
+
 function _alignIconTooltip(icon, align) {
     const { tooltip: text, ...rest } = icon;
     return {
@@ -156,9 +180,8 @@ function _alignIconTooltip(icon, align) {
 }
 
 export function getBucketStateIcon(bucket, align) {
-    return isUndefined(align) ?
-        bucketStateToIcon[bucket.mode] :
-        _alignIconTooltip( bucketStateToIcon[bucket.mode], align);
+    const status = bucketStateToIcon[bucket.mode](bucket);
+    return isUndefined(align) ? status : _alignIconTooltip(status, align);
 }
 
 export function getPlacementTypeDisplayName(type) {
@@ -303,9 +326,8 @@ export function flatPlacementPolicy(bucket) {
     );
 }
 
-export function validatePlacementPolicy(policy) {
+export function validatePlacementPolicy(policy, errors = {}) {
     const { policyType, selectedResources } = policy;
-    const errors = {};
 
     if (policyType === 'MIRROR' && selectedResources.length === 1) {
         errors.selectedResources = 'Mirror policy requires at least 2 participating pools';
@@ -323,9 +345,8 @@ export function validatePlacementPolicy(policy) {
     return errors;
 }
 
-export function warnPlacementPolicy(policy, hostPools, cloudResources) {
+export function warnPlacementPolicy(policy, hostPools, cloudResources, warnings = {}) {
     const { policyType, selectedResources } = policy;
-    const warnings = {};
 
     if (policyType === 'SPREAD') {
         const [first, ...rest] = selectedResources.map(id => {

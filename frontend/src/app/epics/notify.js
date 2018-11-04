@@ -259,9 +259,18 @@ const actionToNotification = deepFreeze({
         };
     },
 
+    [types.COMPLETE_ADD_BUCKET_TIER]: ({ bucket }) => ({
+        message: `A tier was added to bucket ${bucket} successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_ADD_BUCKET_TIER]: ({ bucket }) => ({
+        message: `Adding a tier to bucket ${bucket} failed`
+    }),
+
     [types.COMPLETE_DELETE_BUCKET]: ({ bucket }) => ({
         message: `Bucket ${bucket} deleted successfully`,
-        severity:'success'
+        severity: 'success'
     }),
 
     [types.FAIL_DELETE_BUCKET]: ({ bucket }) => ({

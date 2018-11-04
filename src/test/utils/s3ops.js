@@ -565,6 +565,32 @@ class S3OPS {
             });
     }
 
+    // test if service is up by putting small object.
+    // default timeout of 2 minutes
+    test_s3_put(timeout = 120000, tag) {
+        return P.resolve()
+            .then(async () => {
+                const now = Date.now();
+                const Bucket = `test.s3.put.${now}`;
+                const Key = `test_s3_put_${tag}_${now}`;
+                try {
+                    await this.s3.createBucket({ Bucket }).promise();
+                    await this.s3.putObject({
+                        Bucket,
+                        Key,
+                        Body: crypto.randomBytes(128)
+                    }).promise();
+                    await this.s3.deleteObject({ Bucket, Key }).promise();
+                } catch (err) {
+                    console.warn('S3 test failed. got error:', err.message);
+                    throw err;
+                }
+                await this.s3.deleteBucket({ Bucket }).promise().catch(_.noop);
+            })
+            .timeout(timeout)
+            .return();
+    }
+
     create_bucket(bucket_name) {
 
         let params = {

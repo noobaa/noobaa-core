@@ -2,26 +2,28 @@
 
 import template from './edit-tier-data-placement-modal.html';
 import ConnectableViewModel from 'components/connectable';
-import { deepFreeze, flatMap } from 'utils/core-utils';
-import { getResourceId } from 'utils/resource-utils';
-import { warnPlacementPolicy, validatePlacementPolicy } from 'utils/bucket-utils';
-import { closeModal, updateTierPlacementPolicy } from 'action-creators';
 import ko from 'knockout';
-
-function _mapResourcesToRegions(resType, resCollection) {
-    return Object.values(resCollection).map(res => ({
-        id: getResourceId(resType, res.name),
-        region: res.region
-    }));
-}
+import { flatMap } from 'utils/core-utils';
+import { getResourceId } from 'utils/resource-utils';
+import {
+    warnPlacementPolicy,
+    validatePlacementPolicy,
+    flatPlacementPolicy
+} from 'utils/bucket-utils';
+import {
+    closeModal,
+    updateTierPlacementPolicy,
+    openEmptyDataPlacementWarningModal
+} from 'action-creators';
 
 class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
     bucketName = '';
     tierName = '';
-    resourcesHref = '#';
-    dataReady = ko.observable();
+    resourcesHref = '#'; // TODO fill in href
     hostPools = ko.observable();
     cloudResources = ko.observable();
+    resourcesInUse = ko.observableArray();
     formName = this.constructor.name;
     formFields = ko.observable();
 
@@ -29,40 +31,49 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     onValidate = validatePlacementPolicy;
 
     selectState(state, params) {
+        const { buckets, hostPools, cloudResources } = state;
         const { bucketName, tierName } = params;
-
-        const bucket = state.buckets &&
-            state.buckets[params.bucketName];
-
-        const tier = bucket && bucket.placement2.tiers.find(
-            tier => tier.name === tierName
-        );
+        const bucket = buckets && buckets[bucketName];
 
         return [
-            bucketName,
-            tier,
-            state.hostPools,
-            state.cloudResources,
+            tierName,
+            bucket,
+            hostPools,
+            cloudResources
         ];
     }
 
-    mapStateToProps(bucketName, tier, hostPools, cloudResources) {
-        if (!hostPools || !cloudResources) {
+    mapStateToProps(tierName, bucket, hostPools, cloudResources) {
+        if (!bucket || !hostPools || !cloudResources) {
             ko.assignToProps(this, {
                 dataReady: false
             });
 
         } else {
+            const tier = bucket.placement2.tiers.find(tier =>
+                tier.name === tierName
+            );
+
+            const resourcesInUse = flatPlacementPolicy(bucket)
+                .filter(record => record.tier !== tierName)
+                .map(record => {
+                    const { type, name } = record.resource;
+                    return getResourceId(type, name);
+                });
+
             ko.assignToProps(this, {
                 dataReady: true,
-                bucketName,
+                bucketName: bucket.name,
                 tierName: tier.name,
                 hostPools,
                 cloudResources,
+                resourcesInUse,
                 formFields: !this.formFields() ? {
-                    policyType: tier.policyType,
+                    policyType: tier.policyType === 'INTERNAL_STORGE' ?
+                        tier.policyType :
+                        'SPREAD',
                     selectedResources: flatMap(
-                        tier.mirrorSets,
+                        tier.mirrorSets || [],
                         ms => ms.resources.map(res =>
                             getResourceId(res.type, res.name)
                         )
@@ -75,9 +86,17 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     onSubmit(values) {
         const { bucketName, tierName } = this;
         const { policyType, selectedResources } = values;
+        const action = updateTierPlacementPolicy(bucketName, tierName, policyType, selectedResources);
 
-        this.dispatch(closeModal());
-        this.dispatch(updateTierPlacementPolicy(bucketName, tierName, policyType, selectedResources));
+        if (selectedResources.length > 0) {
+            this.dispatch(closeModal());
+            this.dispatch(action);
+
+        } else {
+            this.dispatch(openEmptyDataPlacementWarningModal({ action }));
+        }
+
+
     }
 
     onCancel() {

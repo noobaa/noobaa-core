@@ -40,6 +40,7 @@ import createBucket from './create-bucket';
 import updateBucketQuotaPolicy from './update-bucket-quota-policy';
 import updateBucketResiliencyPolicy from './update-bucket-resiliency-policy';
 import updateBucketVersioningPolicy from './update-bucket-versioning-policy';
+import addBucketTier from './add-bucket-tier';
 import deleteBucket from './delete-bucket';
 import updateTierPlacementPolicy from './update-tier-placement-policy';
 import fetchCloudTargets from './fetch-cloud-targets';
@@ -143,6 +144,7 @@ const bucketRelatedEpics = [
     updateBucketQuotaPolicy,
     updateBucketResiliencyPolicy,
     updateBucketVersioningPolicy,
+    addBucketTier,
     deleteBucket,
     updateTierPlacementPolicy,
     createNamespaceBucket,

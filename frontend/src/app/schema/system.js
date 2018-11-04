@@ -107,6 +107,14 @@ export default {
                 'INSTALLING',
                 'INSTALLED'
             ]
+        },
+        internalStorage: {
+            total: {
+                $ref: '#/def/common/size'
+            },
+            size: {
+                $ref: '#/def/common/size'
+            }
         }
     }
 };

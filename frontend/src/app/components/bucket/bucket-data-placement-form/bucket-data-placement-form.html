@@ -3,8 +3,8 @@
 <loading-indicator class="align-start pad" ko.visible="!dataReady()"></loading-indicator>
 
 <!-- ko if: dataReady -->
-<div class="column alt-bg pad">
-    <div class="row content-middle">
+<div class="column alt-bg">
+    <div class="pad row content-middle">
         <div class="column greedy push-next">
             <h3 class="heading3">
                 Bucket Resources &amp; Tiering Management
@@ -22,23 +22,43 @@
     </div>
 
     <!-- ko if: isInternalWarningVisible -->
-    <div class="row content-middle pad borders alt-bg-dark warning-box push-prev">
-        <svg-icon class="warning push-next-half" params="name: 'problem'"></svg-icon>
-        <div class="column">
-            <p>
-                <span class="warning">
-                    This bucket is using the internal server's disks capacity as a storage source until a
-                    healthy resource will be added to to Tier 1
-                </span>
-                <svg-icon class="icon-small"
-                    ko.tooltip="internalWarningTooltip"
-                    params="name: 'question'"
-                ></svg-icon>
-            </p>
-            <p class="remark">
-                {{internalStorageUsage}} used by this bucket
-            </p>
+    <div class="hpad push-next">
+        <div class="row content-middle pad borders alt-bg-dark warning-box">
+            <svg-icon class="warning push-next-half" params="name: 'problem'"></svg-icon>
+            <div class="column">
+                <p>
+                    <span class="warning">
+                        This bucket is using the internal server's disks capacity as a storage source until a
+                        healthy resource will be added to to Tier 1
+                    </span>
+                    <svg-icon class="icon-small"
+                        ko.tooltip="internalWarningTooltip"
+                        params="name: 'question'"
+                    ></svg-icon>
+                </p>
+                <p class="remark">
+                    {{internalStorageUsage}} used by this bucket
+                </p>
+            </div>
         </div>
+    </div>
+    <!-- /ko -->
+
+    <!-- ko if: hasMultipleTiers -->
+    <div class="row content-middle pad-half hpad alt-bg-dark">
+        <svg-icon class="highlight push-next-half" params="name: 'layers'"></svg-icon>
+        <span class="push-next-half highlight">
+            Tiering Structure:
+        </span>
+        <div class="column greedy push-next">
+            <tag-list class="align-start borders border-light pad-quarter" params="
+                tags: tierLabels,
+                separator: 'arrow-right'
+            "></tag-list>
+        </div>
+        <button class="link alt-colors" ko.click="onOpenTiersFlow">
+            See Full Tiers Flow
+        </button>
     </div>
     <!-- /ko -->
 </div>

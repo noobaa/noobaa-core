@@ -15,7 +15,6 @@ import moment from 'moment';
 import numeral from 'numeral';
 import {
     getBucketStateIcon,
-    getPlacementTypeDisplayName,
     getDataBreakdown,
     getQuotaValue,
     countStorageNodesByMirrorSet
@@ -73,6 +72,9 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
         case 'RISKY_TOLERANCE': {
             return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the nodes pools and distribute drives over the different nodes';
         }
+        case 'NO_RESOURCES_INTERNAL': {
+            return 'Bucket doesn\’t have any connected resources in it’s tier. Currently the system is using the internal VM disk capacity to store data which is not recommended. Add   resources to the bucket’s tier placement policy.';
+        }
         case 'APPROUCHING_QUOTA': {
             const quota = formatSize(getQuotaValue(bucket.quota));
             const used = formatSize(dataBreakdown.used);
@@ -82,6 +84,15 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
         case 'DATA_ACTIVITY': {
             return 'Currently restoring/migrating/deleting data according to the latest change that was made in the bucket policy. The process might take a while';
         }
+        case 'MANY_TIERS_ISSUES': {
+            return 'Some resources in the bucket’s tiers have issues. Review tiering section and try to fix problematic resources or edit the tiers placement policy.';
+        }
+        case 'ONE_TIER_ISSUES': {
+            const i = bucket.placement2.tiers.findIndex(tier =>
+                tier.mode !== 'OPTIMAL'
+            ) + 1;
+            return `Some resources in tier ${i} have issues. Review tier’s ${i} section and try to fix problematic resources or edit the tier’s placement policy.`;
+        }
         case 'OPTIMAL': {
             return 'Bucket is operating as expected according to it’s configured bucket policies';
         }
@@ -89,11 +100,16 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
 }
 
 function _getDataPlacementText(placement) {
-    const { policyType, mirrorSets } = placement;
-    const resources = flatMap(mirrorSets, ms => ms.resources);
+    const { tiers } = placement;
+    const resources = flatMap(tiers, tier =>
+        flatMap(tier.mirrorSets || [], ms =>
+            ms.resources
+        )
+    );
+
     return `${
-        getPlacementTypeDisplayName(policyType)
-    } on ${
+        stringifyAmount('tier', tiers.length)
+    }, ${
         stringifyAmount('resource', resources.length)
     }`;
 }
@@ -249,7 +265,7 @@ class BucketSummrayViewModel extends Observer {
             return;
         }
 
-        const { quota, placement } = bucket;
+        const { quota, placement2: placement } = bucket;
         const storage = mapValues(bucket.storage, toBytes);
         const data = mapValues(bucket.data, toBytes);
         const dataBreakdown = mapValues(getDataBreakdown(data, quota), toBytes);

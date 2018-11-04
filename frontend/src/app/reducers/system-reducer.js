@@ -41,7 +41,10 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         debug: _mapDebug(payload, timestamp),
         maintenanceMode: _mapMaintenanceMode(payload, timestamp),
         releaseNotes: state && state.releaseNotes,
-        diagnostics: state ? state.diagnostics : diagnosticsInitialState
+        diagnostics: state ? state.diagnostics : diagnosticsInitialState,
+        internalStorage: _mapInternalStorage(pools.find(pool =>
+            pool.resource_type === 'INTERNAL'
+        ))
     };
 }
 
@@ -197,6 +200,12 @@ function _mapMaintenanceMode(payload, timestamp) {
     const { state, time_left } = payload.maintenance_mode;
     const till = state ? timestamp + time_left : 0;
     return { till };
+}
+
+function _mapInternalStorage(internalResource) {
+    return internalResource ?
+        pick(internalResource.storage, ['total', 'used']) :
+        { total: 0, used: 0 };
 }
 
 // ------------------------------

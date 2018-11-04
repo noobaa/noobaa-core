@@ -3,8 +3,8 @@
 <managed-form class="column greedy" params="
     name: formName,
     fields: fields,
-    onValidate: values => onValidate(values, existingNames),
-    onWarn: values => onWarn(values, regionByResource),
+    onValidate: onValidate,
+    onWarn: onWarn,
     onSubmit: onSubmit
 ">
     <wizard class="column greedy" params="
@@ -12,6 +12,7 @@
         step: $form.step,
         actionLabel: 'Create',
         onBeforeStep: onBeforeStep,
+        onAfterStep: onAfterStep,
         onComplete: $form.submit,
         onCancel: onCancel,
         renderControls: false
@@ -38,49 +39,19 @@
         </section>
 
         <section class="column greedy">
-            <div class="push-next">
-                <h2 class="heading3">Policy Type</h2>
-                <!-- ko foreach: policyTypeOptions -->
-                <div class="row content-middle option-row">
-                    <radio-btn params="
-                        group: 'policy-type',
-                        value: policyType,
-                        selected: $form.policyType,
-                        label: label,
-                        hasFocus: $index() == 0
-                    "></radio-btn>
-                    <span class="push-both-half">|</span>
-                    {{description}}
-                    <svg-icon class="icon-small push-prev-half"
-                        ko.tooltip="tooltip"
-                        params="name: 'question'"
-                    ></svg-icon>
-                </div>
-                <!-- /ko -->
-            </div>
-            <div class="column greedy push-next">
-                 <div class="row content-middle push-next-half">
-                    <h2 class="heading3 greedy push-next">
-                        Resources in Policy
-                    </h2>
-                    <div>
-                        <button type="button" class="link alt-colors" ko.click="onSelectAll">
-                            Select all
-                        </button>
-                        |
-                        <button type="button" class="link alt-colors" ko.click="onClearAll">
-                            Clear all
-                        </button>
-                    </div>
-                </div>
-                <data-table class="resource-table greedy" params="
-                    columns: resourceColumns,
-                    data: resourceRows,
-                    rowCssProp: 'disabledCss'
-                ">
-                </data-table>
-                <validation-message params="field: $form.selectedResources"></validation-message>
-            </div>
+            <placement-policy-toggle class="push-next" params="
+                selectedPolicy: $form.policyType,
+                hasFocus: true
+            "></placement-policy-toggle>
+            <resources-selection-table class="column greedy" params="
+                title: 'Resources in Policy',
+                hostPools: hostPools,
+                cloudResources: cloudResources,
+                selected: $form.selectedResources
+            "></resources-selection-table>
+            <validation-message class="push-next" params="
+                field: $form.selectedResources
+            "></validation-message>
             <div class="row content-middle page-footer">
                 <p class="remark greedy">
                     <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>

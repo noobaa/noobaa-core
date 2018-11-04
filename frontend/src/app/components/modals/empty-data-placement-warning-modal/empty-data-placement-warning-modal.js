@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './empty-bucket-placement-warning-modal.html';
+import template from './empty-data-placement-warning-modal.html';
 import Observer from 'observer';
 import { action$ } from 'state';
 import { closeModal } from 'action-creators';
 
-class EmptyBucketPlacementWarningModalViewModel extends Observer {
+class EmptyDataPlacementWarningModalViewModel extends Observer {
     constructor({ action }) {
         super();
 
@@ -23,6 +23,6 @@ class EmptyBucketPlacementWarningModalViewModel extends Observer {
 }
 
 export default {
-    viewModel: EmptyBucketPlacementWarningModalViewModel,
+    viewModel: EmptyDataPlacementWarningModalViewModel,
     template: template
 };

@@ -120,9 +120,9 @@ Didn't Run: ${JSON.stringify(
             results: {
                 passed_cases: _.countBy(this._passed_cases),
                 failed_cases: _.countBy(this._failed_cases),
-                didnt_run: this._cases_map.filter(c =>
+                didnt_run: _.countBy(this._cases_map.filter(c =>
                     !_.includes(this._passed_cases, c) &&
-                    !_.includes(this._failed_cases, c))
+                    !_.includes(this._failed_cases, c)))
             }
         };
     }

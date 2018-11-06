@@ -5,7 +5,6 @@ import { strictify } from 'utils/schema-utils';
 import * as common from './common';
 import location from './location';
 import session from './session';
-import internalResources from './internal-resources';
 import namespaceResources from './namespace-resources';
 import buckets from './buckets';
 import namespaceBuckets from './namespace-buckets';
@@ -40,7 +39,6 @@ const schemas = {
     common,
     location,
     session,
-    internalResources,
     namespaceResources,
     buckets,
     objectUploads,

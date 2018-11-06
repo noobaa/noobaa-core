@@ -1,37 +1,92 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-panel.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { state$ } from 'state';
-import { get } from 'rx-extensions';
 import { realizeUri } from 'utils/browser-utils';
+import { getPlacementStateIcon, getResiliencyStateIcon, getQuotaStateIcon } from 'utils/bucket-utils';
 
-class BucketPanelViewModel extends Observer {
-    constructor() {
-        super();
+function _updateCounterState(state, severity) {
+    if (severity === 'warning') {
+        state.count += 1;
+        if (state.severity !== 'error') {
+            state.severity = 'warning';
+        }
 
-        this.baseRoute = '';
-        this.selectedTab = ko.observable();
-        this.bucket = ko.observable();
+    } else if (severity === 'error') {
+        state.count += 1;
+        state.severity = 'error';
 
-        this.observe(
-            state$.pipe(get('location')),
-            this.onLocation
-        );
+    }
+    return state;
+}
+
+function _getPlacementCounterState(bucket) {
+    const counterState = { count: 0, severity: '' };
+    if (!bucket) return counterState;
+
+    return bucket.placement2.tiers
+        .map(tier =>
+            tier.policyType !== 'INTERNAL_STORAGE' ?
+                getPlacementStateIcon(tier.mode).css :
+                'warning'
+        )
+        .reduce(_updateCounterState, counterState);
+}
+
+function _getPolicyCounterState(bucket) {
+    const counterState = { count: 0, severity: '' };
+    if (!bucket) return counterState;
+
+    const { resiliency, versioning, quota } = bucket;
+    return [
+        getResiliencyStateIcon(resiliency.mode).css,
+        versioning.mode === 'SUSPENDED' ? 'warning' : '',
+        quota ? getQuotaStateIcon(quota.mode).css : ''
+    ].reduce(_updateCounterState, counterState);
+}
+
+class BucketPanelViewModel extends ConnectableViewModel {
+    baseRoute = ko.observable();
+    selectedTab = ko.observable();
+    bucketName = ko.observable();
+    placementIssueCounter = {
+        count: ko.observable(),
+        severity: ko.observable()
+    };
+    policyIssueCounter = {
+        count: ko.observable(),
+        severity: ko.observable()
+    };
+
+    selectState(state) {
+        const { location, buckets } = state;
+        const bucket = buckets && buckets[location.params.bucket];
+
+        return [
+            location,
+            bucket
+        ];
     }
 
-    onLocation({ route, params }) {
-        const { system, bucket, tab = 'data-placement' } = params;
-        if (!bucket) return;
+    mapStateToProps(location, bucket) {
+        const { system, bucket: bucketName, tab = 'data-placement' } = location.params;
 
-        this.baseRoute = realizeUri(route, { system, bucket }, {}, true);
-        this.selectedTab(tab);
-        this.bucket(bucket);
+        ko.assignToProps(this, {
+            baseRoute: realizeUri(location.route, { system, bucket: bucketName }, {}, true),
+            selectedTab: tab,
+            bucketName: bucketName,
+            placementIssueCounter: _getPlacementCounterState(bucket),
+            policyIssueCounter: _getPolicyCounterState(bucket)
+        });
     }
 
     tabHref(tab) {
-        return realizeUri(this.baseRoute, { tab });
+        const route = this.baseRoute();
+        if (route) {
+            return realizeUri(route, { tab });
+        }
+
     }
 }
 

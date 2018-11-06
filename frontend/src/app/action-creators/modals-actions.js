@@ -163,13 +163,13 @@ export function openEditBucketDataResiliencyModal(bucketName) {
     };
 }
 
-export function openRiskyBucketDataResiliencyWarningModal(bucketName, tierName, policy) {
+export function openRiskyBucketDataResiliencyWarningModal(action) {
     return {
         type: OPEN_MODAL,
         payload:{
             component: {
                 name: 'risky-bucket-data-resiliency-warning-modal',
-                params: { bucketName, tierName, policy }
+                params: { action }
             },
             options: {
                 title: 'Risky Data Resiliency Policy',
@@ -180,13 +180,13 @@ export function openRiskyBucketDataResiliencyWarningModal(bucketName, tierName, 
     };
 }
 
-export function openEmptyDataPlacementWarningModal(action) {
+export function openEmptyDataPlacementWarningModal(bucketName, tierName, action) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'empty-data-placement-warning-modal',
-                params: { action }
+                params: { bucketName, tierName, action }
             },
             options: {
                 title: 'Empty data placement policy',

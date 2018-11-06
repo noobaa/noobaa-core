@@ -5,6 +5,7 @@ import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { flatMap } from 'utils/core-utils';
 import { getResourceId } from 'utils/resource-utils';
+import { realizeUri } from 'utils/browser-utils';
 import {
     warnPlacementPolicy,
     validatePlacementPolicy,
@@ -15,12 +16,13 @@ import {
     updateTierPlacementPolicy,
     openEmptyDataPlacementWarningModal
 } from 'action-creators';
+import * as routes from 'routes';
 
 class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     bucketName = '';
     tierName = '';
-    resourcesHref = '#'; // TODO fill in href
+    resourcesHref = '';
     hostPools = ko.observable();
     cloudResources = ko.observable();
     resourcesInUse = ko.observableArray();
@@ -31,7 +33,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     onValidate = validatePlacementPolicy;
 
     selectState(state, params) {
-        const { buckets, hostPools, cloudResources } = state;
+        const { buckets, hostPools, cloudResources, location } = state;
         const { bucketName, tierName } = params;
         const bucket = buckets && buckets[bucketName];
 
@@ -39,11 +41,12 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
             tierName,
             bucket,
             hostPools,
-            cloudResources
+            cloudResources,
+            location.params.system
         ];
     }
 
-    mapStateToProps(tierName, bucket, hostPools, cloudResources) {
+    mapStateToProps(tierName, bucket, hostPools, cloudResources, system) {
         if (!bucket || !hostPools || !cloudResources) {
             ko.assignToProps(this, {
                 dataReady: false
@@ -53,13 +56,13 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
             const tier = bucket.placement2.tiers.find(tier =>
                 tier.name === tierName
             );
-
             const resourcesInUse = flatPlacementPolicy(bucket)
                 .filter(record => record.tier !== tierName)
                 .map(record => {
                     const { type, name } = record.resource;
                     return getResourceId(type, name);
                 });
+            const resourcesHref = realizeUri(routes.resources, { system });
 
             ko.assignToProps(this, {
                 dataReady: true,
@@ -68,6 +71,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
                 hostPools,
                 cloudResources,
                 resourcesInUse,
+                resourcesHref,
                 formFields: !this.formFields() ? {
                     policyType: tier.policyType === 'INTERNAL_STORGE' ?
                         tier.policyType :
@@ -89,11 +93,17 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
         const action = updateTierPlacementPolicy(bucketName, tierName, policyType, selectedResources);
 
         if (selectedResources.length > 0) {
-            this.dispatch(closeModal());
-            this.dispatch(action);
+            this.dispatch(
+                closeModal(),
+                action
+            );
 
         } else {
-            this.dispatch(openEmptyDataPlacementWarningModal({ action }));
+            this.dispatch(openEmptyDataPlacementWarningModal(
+                bucketName,
+                tierName,
+                action
+            ));
         }
 
 

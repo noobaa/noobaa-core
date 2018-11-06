@@ -137,9 +137,11 @@ function _mapVMTools(payload) {
 }
 
 function _mapInternalStorage(internalResource) {
-    return internalResource ?
-        pick(internalResource.storage, ['total', 'used']) :
-        { total: 0, used: 0 };
+    const { total = 0, used = 0, free = 0 } = internalResource ?
+        internalResource.storage :
+        {};
+
+    return { total, used, free };
 }
 
 // ------------------------------

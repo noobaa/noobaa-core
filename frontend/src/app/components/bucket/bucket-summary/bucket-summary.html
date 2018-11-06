@@ -1,10 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="fill row" ko.visible="!bucketLoaded()">
+<div class="fill row" ko.visible="!dataReady()">
     <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
 </div>
 
-<div class="summary greedy row" ko.css.visible="bucketLoaded">
+<div class="summary greedy row" ko.css.visible="dataReady">
     <section class="c3 column pad borders">
         <div class="row content-middle greedy" ko.if="state">
             <svg-icon class="push-next" params="name: state().icon.name"

@@ -1,17 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './button-group.html';
-import Observer from 'observer';
 import ko from 'knockout';
 
-class ButtonGroupViewModel extends Observer {
+class ButtonGroupViewModel {
     mainBtn = null;
     otherBtns = [];
     opened = ko.observable(false);
 
     constructor([mainBtn, ...otherBtns]) {
-        super();
-
         this.mainBtn = mainBtn;
         this.otherBtns = otherBtns;
     }

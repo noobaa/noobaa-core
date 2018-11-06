@@ -2,7 +2,6 @@
 
 // import './dropdown-binding';
 import template from './dropdown.html';
-import Observer from 'observer';
 import OptionRowViewModel from './option-row';
 import ActionRowViewModel from './action-row';
 import ko from 'knockout';
@@ -116,7 +115,7 @@ function _findFirstFocusId(filterVisible, actionRows, selectAllVisible, optionRo
     return 'SUMMARY';
 }
 
-class DropdownViewModel extends Observer {
+class DropdownViewModel {
     sub = null;
     subject = '';
     selectableValues = [];
@@ -149,8 +148,6 @@ class DropdownViewModel extends Observer {
     };
 
     constructor({ selected, hasFocus, ...rest }) {
-        super();
-
         // Check if the dropdown should be focused on initial render.
         if (ko.unwrap(hasFocus)) {
             this.focus('SUMMARY');

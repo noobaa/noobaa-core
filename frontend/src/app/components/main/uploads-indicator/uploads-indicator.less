@@ -36,12 +36,8 @@ uploads-indicator {
 
     .icon-btn {
         overflow: visible;
-
-        &.uploading::before {
-            .count-indicator(@color8, @color6);
-            position: absolute;
-            top: -7px;
-            left: 0;
+        &.uploading {
+            .count-indicator(3px, -5px);
         }
     }
 }

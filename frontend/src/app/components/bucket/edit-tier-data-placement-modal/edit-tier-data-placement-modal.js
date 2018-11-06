@@ -14,6 +14,7 @@ import {
 import {
     closeModal,
     updateTierPlacementPolicy,
+    openKeepUsingInternalStorageModal,
     openEmptyDataPlacementWarningModal
 } from 'action-creators';
 import * as routes from 'routes';
@@ -22,6 +23,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     bucketName = '';
     tierName = '';
+    usingInternalStorage = false;
     resourcesHref = '';
     hostPools = ko.observable();
     cloudResources = ko.observable();
@@ -56,6 +58,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
             const tier = bucket.placement2.tiers.find(tier =>
                 tier.name === tierName
             );
+            const usingInternalStorage = tier.policyType === 'INTERNAL_STORAGE';
             const resourcesInUse = flatPlacementPolicy(bucket)
                 .filter(record => record.tier !== tierName)
                 .map(record => {
@@ -68,12 +71,13 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
                 dataReady: true,
                 bucketName: bucket.name,
                 tierName: tier.name,
+                usingInternalStorage,
                 hostPools,
                 cloudResources,
                 resourcesInUse,
                 resourcesHref,
                 formFields: !this.formFields() ? {
-                    policyType: tier.policyType === 'INTERNAL_STORGE' ?
+                    policyType: !usingInternalStorage ?
                         tier.policyType :
                         'SPREAD',
                     selectedResources: flatMap(
@@ -88,7 +92,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     }
 
     onSubmit(values) {
-        const { bucketName, tierName } = this;
+        const { bucketName, tierName, usingInternalStorage } = this;
         const { policyType, selectedResources } = values;
         const action = updateTierPlacementPolicy(bucketName, tierName, policyType, selectedResources);
 
@@ -97,6 +101,9 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
                 closeModal(),
                 action
             );
+
+        } else if (usingInternalStorage) {
+            this.dispatch(openKeepUsingInternalStorageModal(action));
 
         } else {
             this.dispatch(openEmptyDataPlacementWarningModal(

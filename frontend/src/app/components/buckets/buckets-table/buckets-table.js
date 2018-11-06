@@ -1,23 +1,29 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './buckets-table.html';
+import tiersColTooltip from './tiers-col-tooltip.html';
+import resourcesColTooltip from './resources-col-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze, flatMap, createCompareFunc, throttle, groupBy } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { getBucketStateIcon, getPlacementTypeDisplayName, getVersioningStateText } from 'utils/bucket-utils';
-import { getResourceId } from 'utils/resource-utils';
-import { toBytes, formatSize } from 'utils/size-utils';
-import { includesIgnoreCase } from 'utils/string-utils';
+import { toBytes } from 'utils/size-utils';
+import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
 import { paginationPageSize, inputThrottle } from 'config';
-import * as routes from 'routes';
+import {
+    getBucketStateIcon,
+    getVersioningStateText,
+    getResiliencyTypeDisplay,
+    flatPlacementPolicy
+} from 'utils/bucket-utils';
 import {
     requestLocation,
     deleteBucket,
     openCreateBucketModal,
     openConnectAppModal
 } from 'action-creators';
+import * as routes from 'routes';
 
 const columns = deepFreeze([
     {
@@ -40,19 +46,26 @@ const columns = deepFreeze([
         compareKey: bucket => bucket.objectCount
     },
     {
-        name: 'placementPolicy',
+        name: 'resiliencyPolicy',
         sortable: true,
-        compareKey: bucket => bucket.placement.policyType
+        compareKey: bucket => bucket.resiliency.kind
+    },
+    {
+        name: 'tiers',
+        sortable: true,
+        compareKey: bucket => bucket.placement2.tiers.length
     },
     {
         name: 'resources',
+        label: 'Resources in Tiers',
         type: 'resources-cell',
         sortable: true,
         compareKey: bucket => {
-            const resources = flatMap(bucket.placement.mirrorSets, ms => ms.resources);
-            const useHosts = resources.some(res => res.type === 'HOSTS');
-            const useCloud = resources.some(res => res.type === 'CLOUD');
-            return Number(useHosts) + Number(useCloud);
+            const resourceTypes = flatPlacementPolicy(bucket)
+                .map(record => record.resource.type);
+
+            return (resourceTypes.includes('HOSTS') ? 1 : 0) +
+                (resourceTypes.includes('CLOUD') ? 1 : 0);
         }
     },
     {
@@ -88,7 +101,7 @@ const undeletableReasons = deepFreeze({
 const resourceGroupMetadata = deepFreeze({
     HOSTS: {
         icon: 'nodes-pool',
-        tooltipTitle: 'Nodes pool resources',
+        subject: 'Node pools',
         uriFor: (resName, system) => realizeUri(
             routes.pool,
             { system, pool: resName }
@@ -96,7 +109,7 @@ const resourceGroupMetadata = deepFreeze({
     },
     CLOUD: {
         icon: 'cloud-hollow',
-        tooltipTitle: 'Cloud resources',
+        subject: 'Cloud resources',
         uriFor: (resName, system) => realizeUri(
             routes.cloudResource,
             { system, resource: resName }
@@ -104,38 +117,76 @@ const resourceGroupMetadata = deepFreeze({
     }
 });
 
-function _getResourceGroupTooltip(type, group, system) {
-    const { tooltipTitle, uriFor } = resourceGroupMetadata[type];
-    if (group.length === 0) {
-        return `No ${tooltipTitle.toLowerCase()}`;
-
-    } else {
-        return {
-            template: 'linkListWithCaption',
-            text: {
-                title: tooltipTitle,
-                list: group.map(res => ({
-                    text: res.name,
-                    href: uriFor(res.name, system)
-                }))
-            }
-        };
-    }
+function _mapResiliency(resiliency) {
+    const { kind, replicas, dataFrags, parityFrags } = resiliency;
+    return `${
+        getResiliencyTypeDisplay(kind)
+    } (${
+        kind === 'REPLICATION' ?
+            `${replicas} copies` :
+            `${dataFrags}+${parityFrags}`
+    })`;
 }
 
-function _mapResourceGroups(placement, system) {
+function _mapTiers(tiers) {
+    const text = stringifyAmount('Tier', tiers.length);
+    const tooltip = {
+        template: tiersColTooltip,
+        text: tiers.map((tier, i) => {
+            if (tier.policyType === 'INTERNAL_STORAGE') {
+                return {
+                    tierIndex: 1,
+                    placement: 'No Resources'
+                };
+
+            } else {
+                const verb = tier.policyType === 'SPREAD' ? 'Spread' : 'Mirrored';
+                const resourceCount = flatMap(tier.mirrorSets, ms => ms.resources).length;
+                return {
+                    tierIndex: i + 1,
+                    placement: `${verb} on ${stringifyAmount('resoruce', resourceCount)}`
+                };
+            }
+        })
+    };
+
+    return { text, tooltip };
+}
+
+function _getResourceGroupTooltip(records, subject, hrefGen, system) {
+    if (records.length === 0) {
+        return `No ${subject.toLowerCase()}`;
+    }
+
+    return {
+        template: resourcesColTooltip,
+        text: Object.values(groupBy(records, record => record.tier))
+            .map((group, i) => ({
+                subject: subject,
+                tierIndex: i + 1,
+                resources: group.map(record => {
+                    const { name } = record.resource;
+                    const href = hrefGen(name, system);
+                    return { name, href };
+                })
+            }))
+    };
+}
+
+function _mapResourceGroups(bucket, system) {
     const groups = groupBy(
-        flatMap(placement.mirrorSets, ms => ms.resources),
-        res => res.type
+        flatPlacementPolicy(bucket),
+        record => record.resource.type
     );
 
     return Object.keys(resourceGroupMetadata)
         .map(type => {
             const group = groups[type] || [];
+            const { icon, subject, uriFor } = resourceGroupMetadata[type];
             return {
-                icon: resourceGroupMetadata[type].icon,
+                icon: icon,
                 lighted: Boolean(group.length),
-                tooltip: _getResourceGroupTooltip(type, group, system)
+                tooltip: _getResourceGroupTooltip(group, subject, uriFor, system)
             };
         });
 }
@@ -152,8 +203,9 @@ function _mapBucket(bucket, system, selectedForDelete) {
             }
         },
         objectCount: numeral(bucket.objectCount).format('0,0'),
-        placementPolicy: getPlacementTypeDisplayName(bucket.placement.policyType),
-        resources: _mapResourceGroups(bucket.placement, system),
+        resiliencyPolicy: _mapResiliency(bucket.resiliency),
+        resources: _mapResourceGroups(bucket, system),
+        tiers: _mapTiers(bucket.placement2.tiers),
         versioning: getVersioningStateText(bucket.versioning.mode),
         capacity: {
             total: bucket.storage.total,
@@ -173,7 +225,8 @@ class RowViewModel {
     name = ko.observable();
     state = ko.observable();
     objectCount = ko.observable();
-    placementPolicy = ko.observable();
+    resiliencyPolicy = ko.observable();
+    tiers = ko.observable();
     resources = ko.observable();
     versioning = ko.observable();
     capacity = {

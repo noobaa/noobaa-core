@@ -1,6 +1,8 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<bucket-summary class="push-next" params="bucketName: bucket"></bucket-summary>
+<bucket-summary class="push-next" params="
+    bucketName: bucketName
+"></bucket-summary>
 
 <div class="tabs greedy">
     <nav>
@@ -8,11 +10,21 @@
             ko.attr.href="tabHref('data-placement')"
         >
             Resources &amp; Tiers
+            <span class="issue-counter"
+                  ko.attr.data-count="placementIssueCounter.count"
+                  ko.visible="placementIssueCounter.count"
+                  ko.css="placementIssueCounter.severity"
+            ></span>
         </a>
         <a ko.css.selected="selectedTab.eq('data-policies')"
             ko.attr.href="tabHref('data-policies')"
         >
             Bucket Policies
+            <span class="issue-counter"
+                  ko.attr.data-count="policyIssueCounter.count"
+                  ko.visible="policyIssueCounter.count"
+                  ko.css="policyIssueCounter.severity"
+            ></span>
         </a>
         <a ko.css.selected="selectedTab.eq('objects')"
             ko.attr.href="tabHref('objects')"
@@ -34,27 +46,27 @@
     <div class="tabs-row">
         <bucket-data-placement-form class="tab"
             ko.css.selected="selectedTab.eq('data-placement')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-data-placement-form>
 
         <bucket-data-policies-form class="tab"
             ko.css.selected="selectedTab.eq('data-policies')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-data-policies-form>
 
         <bucket-objects-table class="tab"
             ko.css.selected="selectedTab.eq('objects')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-objects-table>
 
         <bucket-s3-access-table class="tab"
             ko.css.selected="selectedTab.eq('s3-access')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-s3-access-table>
 
         <bucket-triggers-form class="tab column"
             ko.css.selected="selectedTab.eq('triggers')"
-            params="bucketName: bucket"
+            params="bucketName: bucketName"
         ></bucket-triggers-form>
     </div>
 </div>

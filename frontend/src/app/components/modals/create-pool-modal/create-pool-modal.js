@@ -354,7 +354,7 @@ class CreatePoolModalViewModel extends ConnectableViewModel {
         this
     );
 
-    onValidate({ step, poolName, selectedHosts }) {
+    onValidate({ step, poolName }) {
         const errors = {};
 
         if (step === 0) {

@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- ko if: dataLoaded -->
+<!-- ko if: dataReady -->
 <div class="column greedy">
     <section class="borders c5 column push-next">
         <div class="pad-half hpad row border-bottom">
@@ -27,11 +27,13 @@
                     <span class="highlight">{{storageCloud}}</span>
                     <span class="remark">Cloud</span>
                 </p>
+                <!-- ko if: isIntenralStorageVisible -->
                 <vr class="push-both-half"></vr>
                 <p class="column">
                     <span class="highlight">{{storageInternal}}</span>
                     <span class="remark">Internal</span>
                 </p>
+                <!-- /ko -->
             </div>
 
             <bar class="push-prev" params="

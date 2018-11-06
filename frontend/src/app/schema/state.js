@@ -15,9 +15,6 @@ export default {
         namespaceBuckets: {
             $ref: '#/def/namespaceBuckets'
         },
-        internalResources: {
-            $ref: '#/def/internalResources'
-        },
         namespaceResources: {
             $ref: '#/def/namespaceResources'
         },

@@ -105,6 +105,7 @@ import passwordResetCompletedModal from './modals/password-reset-completed-modal
 import passwordResetFailedModal from './modals/password-reset-failed-modal/password-reset-failed-modal';
 import editFuncConfigModal from './modals/edit-func-config-modal/edit-func-config-modal';
 import bucketPlacementSummaryModal from './modals/bucket-placement-summary-modal/bucket-placement-summary-modal';
+import keepUsingInternalStorageModal from './modals/keep-using-internal-storage-modal/keep-using-internal-storage-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -454,6 +455,7 @@ export default function register(ko, services) {
         passwordResetFailedModal,
         editFuncConfigModal,
         bucketPlacementSummaryModal,
+        keepUsingInternalStorageModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

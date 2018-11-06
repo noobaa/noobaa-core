@@ -83,7 +83,7 @@ const bucketStateToIcon = deepFreeze(
 const placementModeToIcon = deepFreeze({
     INTERNAL_ISSUES: {
         tooltip: {
-            text: 'TODO: some text',
+            text: 'Tier is empty and the internal storage is unavailable',
             align: 'start'
         },
         css: 'error',
@@ -248,7 +248,7 @@ export function isBucketWritable(bucket) {
 export function countStorageNodesByMirrorSet(placement, hostPools) {
     return flatMap(
         placement.tiers,
-        tier => tier.mirrorSets.map(ms => sumBy(
+        tier => (tier.mirrorSets || []).map(ms => sumBy(
             ms.resources,
             res => res.type === 'HOSTS' ?
                 hostPools[res.name].storageNodeCount :
@@ -329,8 +329,8 @@ export function flatPlacementPolicy(bucket) {
 export function validatePlacementPolicy(policy, errors = {}) {
     const { policyType, selectedResources } = policy;
 
-    if (policyType === 'MIRROR' && selectedResources.length === 1) {
-        errors.selectedResources = 'Mirror policy requires at least 2 participating pools';
+    if (policyType === 'MIRROR' && selectedResources.length < 2) {
+        errors.selectedResources = 'Mirror policy requires at least 2 participating resources';
 
     } else if (policyType === 'SPREAD') {
         const [ first, ...others ] = selectedResources.map(res =>

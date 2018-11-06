@@ -1,8 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="button-cell">
-    <button class="link alt-colors" data-bind="
-        text: ko.unwrap($data).text || $data,
-        click: ko.unwrap($data).click
-    "></button>
+    <button class="link alt-colors" ko.click="ko.unwrap($data).click">
+        {{ko.unwrap($data).text || $data}}
+    </button>
 </div>

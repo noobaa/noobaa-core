@@ -22,6 +22,7 @@ export default {
             'data',
             'objectCount',
             'placement',
+            'placement2',
             'resiliency',
             'versioning',
             'io',

@@ -11,7 +11,6 @@ import bucketsReducer from './buckets-reducer';
 import namespaceBucketsReducer from './namespace-buckets-reducer';
 import hostPoolsReducer from './host-pools-reducer';
 import cloudResourcesReducer from './cloud-resources-reducer';
-import internalResourcesReducer from './internal-resources-reducer';
 import namespaceResourcesReducer from './namespace-resources-reducer';
 import hostsReducer from './hosts-reducer';
 import accountsReducer from './accounts-reducer';
@@ -47,7 +46,6 @@ export default combineReducers({
     buckets: bucketsReducer,
     namespaceBuckets: namespaceBucketsReducer,
     cloudResources: cloudResourcesReducer,
-    internalResources: internalResourcesReducer,
     namespaceResources: namespaceResourcesReducer,
     hostPools: hostPoolsReducer,
     hosts: hostsReducer,

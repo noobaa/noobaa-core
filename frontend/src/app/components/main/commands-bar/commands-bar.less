@@ -12,11 +12,8 @@ commands-bar {
         position: relative;
         overflow: visible;
 
-        &.counter::before {
-            .count-indicator(@color8, @color6);
-            position: absolute;
-            top: -7px;
-            left: 0;
+        &.counter{
+            .count-indicator(0, -5px);
         }
     }
 }

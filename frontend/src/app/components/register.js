@@ -101,6 +101,7 @@ import afterUpgradeFailureModal from './modals/after-upgrade-failure-modal/after
 import createBucketModal from './modals/create-bucket-modal/create-bucket-modal';
 import assignRegionModal from './modals/assign-region-modal/assign-region-modal';
 import bucketPlacementSummaryModal from './modals/bucket-placement-summary-modal/bucket-placement-summary-modal';
+import keepUsingInternalStorageModal from './modals/keep-using-internal-storage-modal/keep-using-internal-storage-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -448,6 +449,7 @@ export default function register(ko, services) {
         createBucketModal,
         assignRegionModal,
         bucketPlacementSummaryModal,
+        keepUsingInternalStorageModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

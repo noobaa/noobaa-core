@@ -1,0 +1,38 @@
+<!-- Copyright (C) 2016 NooBaa -->
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
+    <p class="push-next">
+        The selected data placement of tier 1 does not contain any resources. <br>
+        Currently this bucket is using the system internal disks storage in order to be able to continue writing data.
+    </p>
+
+    <div class="column greedy">
+        <h2 class=" heading3">
+            How would you like like to proceed?
+        </h2>
+        <radio-group params="
+            multiline: true,
+            options: options,
+            selected: $form.selection,
+            hasFocus: true
+        "></radio-group>
+        <validation-message params="field: $form.selection"></validation-message>
+    </div>
+
+    <div class="row align-end">
+        <button class="btn alt-colors push-next"
+            ko.click="onBack"
+        >
+            Back to edit resources
+        </button>
+        <button class="btn align-end"
+            ko.shakeOnClick="!$form.isValid()"
+        >
+            Save
+        </button>
+    </div>
+</managed-form>

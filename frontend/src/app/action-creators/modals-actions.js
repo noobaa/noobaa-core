@@ -197,6 +197,23 @@ export function openEmptyDataPlacementWarningModal(bucketName, tierName, action)
     };
 }
 
+export function openKeepUsingInternalStorageModal(action) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'keep-using-internal-storage-modal',
+                params: { action }
+            },
+            options: {
+                title: 'Internal Storage Usage',
+                size: 'xsmall',
+                severity: 'warning'
+            }
+        }
+    };
+}
+
 export function openFileUploadsModal() {
     return {
         type: OPEN_MODAL,

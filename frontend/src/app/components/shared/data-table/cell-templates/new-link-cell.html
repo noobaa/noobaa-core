@@ -1,14 +1,14 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="link-cell">
-    <!-- ko if: $data().href -->
+    <!-- ko if: ko.unwrap($data).href -->
     <a class="link"
        ko.attr.href="ko.unwrap($data).href"
        ko.text="ko.unwrap($data).text"
        ko.tooltip="ko.unwrap($data).tooltip"
     ></a>
     <!-- /ko -->
-    <!-- ko ifnot: $data().href -->
+    <!-- ko ifnot: ko.unwrap($data).href -->
     <span ko.text="ko.unwrap($data).text"
        ko.tooltip="ko.unwrap($data).tooltip"
     ></span>

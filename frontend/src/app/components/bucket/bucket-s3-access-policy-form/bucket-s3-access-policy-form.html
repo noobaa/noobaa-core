@@ -1,0 +1,36 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="pad">
+    <div class="row content-middle bucket-policy-summary"
+        ko.click="onToggleSection"
+    >
+        <svg-icon class="push-next"
+            params="name: stateIcon.name"
+            ko.css="stateIcon.css"
+            ko.tooltip="stateIcon.tooltip"
+        ></svg-icon>
+        <div class="column greedy">
+            <h2 class="heading3 greedy">Accounts S3 Access</h2>
+            <p class="row content-middle">{{summary}}</p>
+        </div>
+        <button class="btn push-next"
+            ko.click="onEditS3Access"
+        >
+            Edit S3 Access
+        </button>
+        <svg-icon class="icon-small rotate"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div class="column hpad" ko.expand="isExpanded">
+        <data-table class="push-prev accounts-table" params="
+            columns: columns,
+            data: rows,
+            loading: !dataReady,
+            emptyMessage: 'No accounts were granted access for this bucket'
+        "></data-table>
+    </div>
+</section>
+
+

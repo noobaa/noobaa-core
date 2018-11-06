@@ -31,11 +31,11 @@
         >
             Objects
         </a>
-        <a ko.css.selected="selectedTab.eq('s3-access')"
+<!--         <a ko.css.selected="selectedTab.eq('s3-access')"
             ko.attr.href="tabHref('s3-access')"
         >
             S3 Access
-        </a>
+        </a> -->
         <a ko.css.selected="selectedTab.eq('triggers')"
             ko.attr.href="tabHref('triggers')"
         >
@@ -58,11 +58,6 @@
             ko.css.selected="selectedTab.eq('objects')"
             params="bucketName: bucketName"
         ></bucket-objects-table>
-
-        <bucket-s3-access-table class="tab"
-            ko.css.selected="selectedTab.eq('s3-access')"
-            params="bucketName: bucketName"
-        ></bucket-s3-access-table>
 
         <bucket-triggers-form class="tab column"
             ko.css.selected="selectedTab.eq('triggers')"

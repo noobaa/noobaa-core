@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './set-node-as-trusted-modal.html';
-import Observer from 'observer';
 import { deepFreeze, flatMap } from 'utils/core-utils';
 import { retrustHost, closeModal } from 'action-creators';
 import { action$ } from 'state';
@@ -34,10 +33,8 @@ const eventMapping = deepFreeze({
     }
 });
 
-class SetNodeAsTrustedModalViewModel extends Observer {
+class SetNodeAsTrustedModalViewModel {
     constructor({ host, untrustedReasons }) {
-        super();
-
         this.columns = columns;
         this.host = host;
 

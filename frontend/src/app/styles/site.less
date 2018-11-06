@@ -486,20 +486,37 @@ pre {
     }
 }
 
-.count-indicator(@color, @bgColor) {
-    @size : 10px;
-    content: attr(data-count);
-    display: block;
-    min-width: @size;
-    height: @size;
-    line-height: 100%;
-    padding: 2px;
-    background-color: @bgColor;
-    border-radius: @size;
-    color: @color;
-    text-align: center;
-    font-size: 11px;
-    z-index: 1;
+.count-indicator(@left, @top) {
+    @size: 10px;
+    position: relative;
+
+    &::before {
+        position: absolute;
+        left: @left;
+        top: @top;
+        content: attr(data-count);
+        display: block;
+        min-width: @size;
+        height: @size;
+        line-height: 100%;
+        padding: 2px;
+        background-color: @color6;
+        color: @color8;
+        border-radius: @size;
+        text-align: center;
+        font-size: 11px;
+        z-index: 1;
+    }
+
+    &.warning::before {
+        background-color: @color11;
+        color: @color1;
+    }
+
+    &.error::before {
+        background-color: @color10;
+        color: @color1;
+    }
 }
 
 dirty-mark {

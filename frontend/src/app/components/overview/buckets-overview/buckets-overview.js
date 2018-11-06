@@ -70,6 +70,21 @@ const chartDatasets = deepFreeze([
 
 const firstSampleHideDuration = moment.duration(1, 'hours').asMilliseconds();
 
+function _isInternalSotrageUsed(internalStorage, buckets) {
+    if (internalStorage.used > 0) {
+        return true;
+    }
+
+    if (Object.values(buckets).some(bucket =>
+        bucket.placement2.tiers[0].policyType === 'INTERNAL_STORAGE'
+    )) {
+        return true;
+    }
+
+    return false;
+
+}
+
 function _getChartEmptyMessage(showSamples, samples, selectedDatasets) {
     if (!selectedDatasets.length) return 'No resources selected for display';
     if (!showSamples) return 'Not enough usage history to display';
@@ -192,12 +207,7 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
     const durationSettings = durations[selectedDuration];
     const { stepUnit, timespan, points } = durationSettings;
     const { start, end } = _getTimespanBounds(stepUnit, timespan, now);
-    const currSample = {
-        timestamp: now,
-        hosts: used.hostPools,
-        cloud: used.cloudResources,
-        internal: used.internalResources
-    };
+    const currSample = { timestamp: now, ...used };
     const historySamples = storageHistory
         .map(record => ({
             timestamp: record.timestamp,
@@ -239,61 +249,62 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
 }
 
 class BucketsOverviewViewModel extends Observer{
+    pathname = '';
+    lastDurationFilter = '';
+    lastDataPoints = [];
+    durationOptions = Object.entries(durations).map(pair => ({
+        value: pair[0],
+        label: pair[1].label
+    }));
+
+    location = null;
+    dataLoaded = ko.observable();
+    bucketsLinkText = ko.observable();
+    bucketsLinkHref = ko.observable();
+    selectedDuration = ko.observable();
+    hiddenDatasets = null;
+    showInternalLegend = ko.observable();
+    hideHosts = ko.observable();
+    hideCloud = ko.observable();
+    hideInternal = ko.observable();
+    chartParams = ko.observable();
+    emptyChartMessage = ko.observable();
+    usedValues = [
+        {
+            label: 'Used on Nodes',
+            value: ko.observable(),
+            disabled: ko.pc(
+                this.hideHosts,
+                val => this.onToggleDataset('hosts', !val)
+            ),
+            color : style['color8'],
+            tooltip: 'The total raw data that was written on all installed nodes in the system'
+        },
+        {
+            label: 'Used on Cloud',
+            value: ko.observable(),
+            disabled: ko.pc(
+                this.hideCloud,
+                val => this.onToggleDataset('cloud', !val)
+            ),
+            color : style['color6'],
+            tooltip: 'The total raw data that was written on all configured cloud resources in the system'
+        },
+        {
+            label: 'Used on Internal',
+            value: ko.observable(),
+            visible: this.showInternalLegend,
+            disabled: ko.pc(
+                this.hideInternal,
+                val => this.onToggleDataset('internal', !val)
+            ),
+            color : style['color16'],
+            tooltip: 'The total raw data that was spilled-over to the system internal storage resource'
+        }
+    ];
+
     constructor() {
         super();
-
-        this.pathname = '';
-        this.lastDurationFilter = '';
-        this.lastDataPoints = [];
-        this.durationOptions = Object.entries(durations)
-            .map(pair => ({
-                value: pair[0],
-                label: pair[1].label
-            }));
-
-        this.location = null;
-        this.dataLoaded = ko.observable();
-        this.bucketsLinkText = ko.observable();
-        this.bucketsLinkHref = ko.observable();
-        this.selectedDuration = ko.observable();
-        this.hiddenDatasets = null;
-        this.hideHosts = ko.observable();
-        this.hideCloud = ko.observable();
-        this.hideInternal = ko.observable();
-        this.chartParams = ko.observable();
-        this.emptyChartMessage = ko.observable();
-        this.usedValues = [
-            {
-                label: 'Used on Nodes',
-                value: ko.observable(),
-                disabled: ko.pc(
-                    this.hideHosts,
-                    val => this.onToggleDataset('hosts', !val)
-                ),
-                color : style['color8'],
-                tooltip: 'The total raw data that was written on all installed nodes in the system'
-            },
-            {
-                label: 'Used on Cloud',
-                value: ko.observable(),
-                disabled: ko.pc(
-                    this.hideCloud,
-                    val => this.onToggleDataset('cloud', !val)
-                ),
-                color : style['color6'],
-                tooltip: 'The total raw data that was written on all configured cloud resources in the system'
-            },
-            {
-                label: 'Used on Internal',
-                value: ko.observable(),
-                disabled: ko.pc(
-                    this.hideInternal,
-                    val => this.onToggleDataset('internal', !val)
-                ),
-                color : style['color16'],
-                tooltip: 'The total raw data that was spilled-over to the system internal storage resource'
-            }
-        ];
 
         this.observe(
             state$.pipe(get('location')),
@@ -306,7 +317,7 @@ class BucketsOverviewViewModel extends Observer{
                     'buckets',
                     'hostPools',
                     'cloudResources',
-                    'internalResources',
+                    ['system', 'internalStorage'],
                     ['topology', 'servers'],
                     'storageHistory'
                 )
@@ -333,7 +344,7 @@ class BucketsOverviewViewModel extends Observer{
             buckets,
             hostPools,
             cloudResources,
-            internalResources,
+            internalStorage,
             servers,
             storageHistory
         ] = state;
@@ -341,17 +352,16 @@ class BucketsOverviewViewModel extends Observer{
         const { query, params } = this.location;
         const selectedDuration = query.selectedDuration || this.durationOptions[0].value;
         const hiddenDatasets = query.hiddenDatasets ? query.hiddenDatasets.split(',') : [];
+        const showInternalLegend = _isInternalSotrageUsed(internalStorage, buckets);
         const { system } = params;
         const bucketList = Object.values(buckets);
         const bucketsLinkText = stringifyAmount('bucket', bucketList.length);
         const bucketsLinkHref = realizeUri(routes.buckets, { system });
-        const used = mapValues(
-            { hostPools, cloudResources, internalResources },
-            group => {
-                const usedList = Object.values(group).map(res => res.storage.used || 0);
-                return sumSize(...usedList);
-            }
-        );
+        const used = {
+            hosts: sumSize(...Object.values(hostPools).map(res => res.storage.used || 0)),
+            cloud: sumSize(...Object.values(cloudResources).map(res => res.storage.used || 0)),
+            internal: internalStorage.used || 0
+        };
         const now = Date.now();
         const { timezone } = Object.values(servers).find(server => server.isMaster);
         const datasets = chartDatasets.filter(({ key }) => !hiddenDatasets.includes(key));
@@ -359,33 +369,32 @@ class BucketsOverviewViewModel extends Observer{
         const currentDataPoints = chartParams.data.datasets
             .map(ds => last(ds.data))
             .filter(Boolean);
+        const shouldRedraw = _shouldRedraw(
+            this.lastDurationFilter, selectedDuration,
+            this.lastDataPoints, currentDataPoints
+        );
 
+        ko.assignToProps(this, {
+            dataLoaded: true,
+            bucketsLinkText: bucketsLinkText,
+            bucketsLinkHref: bucketsLinkHref,
+            selectedDuration: selectedDuration,
+            hiddenDatasets: hiddenDatasets,
+            showInternalLegend: showInternalLegend,
+            hideHosts: hiddenDatasets.includes('hosts'),
+            hideCloud: hiddenDatasets.includes('cloud'),
+            hideInternal: !showInternalLegend || hiddenDatasets.includes('internal'),
+            usedValues: [
+                { value: used.hosts },
+                { value: used.cloud },
+                { value: used.internal }
+            ],
+            emptyChartMessage: chartParams.emptyChartMessage,
+            chartParams: shouldRedraw ? chartParams : undefined,
+            lastDurationFilter: selectedDuration,
+            lastDataPoints: currentDataPoints
+        });
 
-        this.bucketsLinkText(bucketsLinkText);
-        this.bucketsLinkHref(bucketsLinkHref);
-        this.selectedDuration(selectedDuration);
-        this.hiddenDatasets = hiddenDatasets;
-        this.hideHosts(hiddenDatasets.includes('hosts'));
-        this.hideCloud(hiddenDatasets.includes('cloud'));
-        this.hideInternal(hiddenDatasets.includes('internal'));
-        this.usedValues[0].value(used.hostPools);
-        this.usedValues[1].value(used.cloudResources);
-        this.usedValues[2].value(used.internalResources);
-        this.emptyChartMessage(chartParams.emptyChartMessage);
-
-        if (_shouldRedraw(
-            this.lastDurationFilter,
-            selectedDuration,
-            this.lastDataPoints,
-            currentDataPoints
-        )
-        ) {
-            this.chartParams(chartParams);
-        }
-
-        this.dataLoaded(true);
-        this.lastDurationFilter = selectedDuration;
-        this.lastDataPoints = currentDataPoints;
     }
 
     onSelectDuration(duration) {

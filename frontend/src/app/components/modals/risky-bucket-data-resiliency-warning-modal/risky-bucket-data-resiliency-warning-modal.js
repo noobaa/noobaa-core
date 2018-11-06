@@ -1,28 +1,25 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './risky-bucket-data-resiliency-warning-modal.html';
-import Observer from 'observer';
-import { action$ } from 'state';
-import { updateBucketResiliencyPolicy, closeModal } from 'action-creators';
+import ConnectableViewModel from 'components/connectable';
+import { closeModal } from 'action-creators';
 import { all, sleep } from 'utils/promise-utils';
 import { api } from 'services';
 import ko from 'knockout';
 
-class RiskyBucketDataResiliencyWarningModalViewModel extends Observer {
+class RiskyBucketDataResiliencyWarningModalViewModel extends ConnectableViewModel{
     formName = this.constructor.name;
-    bucketName = '';
-    tierName = '';
-    policy = null;
+    action = null;
     fields = { password: '' }
 
-    constructor(params) {
-        super();
+    selectState(_, params) {
+        return [
+            params.action
+        ];
+    }
 
-        const { bucketName, tierName, policy } = ko.deepUnwrap(params);
-
-        this.bucketName = bucketName;
-        this.tierName = tierName;
-        this.policy = policy;
+    mapStateToProps(action) {
+        ko.assignToProps(this, { action });
     }
 
     onValidate(values) {
@@ -53,13 +50,14 @@ class RiskyBucketDataResiliencyWarningModalViewModel extends Observer {
     }
 
     onSubmit() {
-        const { bucketName, tierName, policy } = this;
-        action$.next(updateBucketResiliencyPolicy(bucketName, tierName, policy));
-        action$.next(closeModal(2));
+        this.dispatch(
+            closeModal(Infinity),
+            this.action
+        );
     }
 
     onBack() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

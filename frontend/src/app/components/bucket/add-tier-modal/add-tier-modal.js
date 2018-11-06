@@ -7,12 +7,14 @@ import { stringifyAmount } from 'utils/string-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { flatMap, countBy } from 'utils/core-utils';
 import { getResourceId } from 'utils/resource-utils';
+import { realizeUri } from 'utils/browser-utils';
 import {
     warnPlacementPolicy,
     validatePlacementPolicy,
     flatPlacementPolicy
 } from 'utils/bucket-utils';
 import { addBucketTier, closeModal } from 'action-creators';
+import * as routes from 'routes';
 
 function _getTierSummary(tier, tierIndex, hostPools, cloudResources) {
     const resources = flatMap(
@@ -54,7 +56,7 @@ function _getTierSummary(tier, tierIndex, hostPools, cloudResources) {
 
 class AddTierModalViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
-    resourcesHref = '#'; // TODO fill in href
+    resourcesHref = '';
     bucketName = '';
     tiersSummary = ko.observable();
     tableTitle = ko.observable();
@@ -71,15 +73,17 @@ class AddTierModalViewModel extends ConnectableViewModel {
     onValidate = validatePlacementPolicy;
 
     selectState(state, params) {
-        const bucket = state.buckets && state.buckets[params.bucketName];
+        const { buckets, hostPools, cloudResources, location } = state;
+        const bucket = buckets && buckets[params.bucketName];
         return [
             bucket,
-            state.hostPools,
-            state.cloudResources
+            hostPools,
+            cloudResources,
+            location.params.system
         ];
     }
 
-    mapStateToProps(bucket, hostPools, cloudResources) {
+    mapStateToProps(bucket, hostPools, cloudResources, system) {
         if (!bucket || !hostPools || !cloudResources) {
             ko.assignToProps(this, {
                 dataReady: false
@@ -102,6 +106,7 @@ class AddTierModalViewModel extends ConnectableViewModel {
                     const { type, name } = record.resource;
                     return getResourceId(type, name);
                 });
+            const resourcesHref = realizeUri(routes.resources, { system });
 
             ko.assignToProps(this, {
                 dataReady: true,
@@ -110,7 +115,8 @@ class AddTierModalViewModel extends ConnectableViewModel {
                 tableTitle,
                 hostPools,
                 cloudResources,
-                resourcesInUse
+                resourcesInUse,
+                resourcesHref
             });
         }
     }

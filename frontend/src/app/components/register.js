@@ -131,11 +131,11 @@ import namespaceBucketsTable from './buckets/namespace-buckets-table/namespace-b
 import bucketPanel from './bucket/bucket-panel/bucket-panel';
 import bucketSummary from './bucket/bucket-summary/bucket-summary';
 import bucketObjectsTable from './bucket/bucket-objects-table/bucket-objects-table';
-import bucketS3AccessTable from './bucket/bucket-s3-access-table/bucket-s3-access-table';
 import bucketDataPoliciesForm from './bucket/bucket-data-policies-form/bucket-data-policies-form';
 import bucketDataResiliencyPolicyForm from './bucket/bucket-data-resiliency-policy-form/bucket-data-resiliency-policy-form';
 import bucketQuotaPolicyForm from './bucket/bucket-quota-policy-form/bucket-quota-policy-form';
 import bucketVersioningPolicyForm from './bucket/bucket-versioning-policy-form/bucket-versioning-policy-form';
+import bucketS3AccessPolicyForm from './bucket/bucket-s3-access-policy-form/bucket-s3-access-policy-form';
 import bucketTriggersForm from './bucket/bucket-triggers-form/bucket-triggers-form';
 import bucketDataPlacementForm from './bucket/bucket-data-placement-form/bucket-data-placement-form';
 import tierDataPlacementPolicyForm from './bucket/tier-data-placement-policy-form/tier-data-placement-policy-form';
@@ -476,11 +476,11 @@ export default function register(ko, services) {
         bucketPanel,
         bucketSummary,
         bucketObjectsTable,
-        bucketS3AccessTable,
         bucketDataPoliciesForm,
         bucketDataResiliencyPolicyForm,
         bucketQuotaPolicyForm,
         bucketVersioningPolicyForm,
+        bucketS3AccessPolicyForm,
         bucketTriggersForm,
         bucketDataPlacementForm,
         tierDataPlacementPolicyForm,

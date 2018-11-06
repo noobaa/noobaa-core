@@ -122,7 +122,8 @@ class ReportsSummarizer {
         const initial_report = {
             results: {
                 passed_cases: {},
-                failed_cases: {}
+                failed_cases: {},
+                didnt_run: {}
             }
         };
         const aggregated_docs = _.map(reports_by_day, reports => reports.reduce((reduced_doc, current_doc) => {
@@ -134,12 +135,17 @@ class ReportsSummarizer {
                 reduced_doc.results.failed_cases,
                 current_doc.results.failed_cases,
                 (obj_val = 0, src_val = 0) => obj_val + src_val);
+            const didnt_run = _.assignWith({},
+                reduced_doc.results.didnt_run,
+                current_doc.results.didnt_run,
+                (obj_val = 0, src_val = 0) => obj_val + src_val);
             return {
                 date: current_doc.date,
                 suite_name: current_doc.suite_name,
                 results: {
                     passed_cases,
-                    failed_cases
+                    failed_cases,
+                    didnt_run
                 }
             };
         }, initial_report));
@@ -151,7 +157,9 @@ class ReportsSummarizer {
     summarize_suite(reports, suite_name) {
         debug(`summarizing ${reports.length} reports for suite ${suite_name}`);
         const all_cases = _.union(...reports.map(report =>
-            Object.keys(report.results.passed_cases).concat(Object.keys(report.results.failed_cases))
+            Object.keys(report.results.passed_cases)
+            .concat(Object.keys(report.results.failed_cases))
+            .concat(Object.keys(report.results.didnt_run))
         )).sort();
         // debug(`cases for suite ${suite_name}:`, all_cases);
 
@@ -170,13 +178,15 @@ class ReportsSummarizer {
             return [`Failed_${test_case}`, ...case_results, _.sum(case_results)].join(SEPARATOR);
         });
 
-        return [date_line, ...passed_lines, ...failed_lines];
+        // create rows for didn't run cases
+        const didnt_run_lines = all_cases.map(test_case => {
+            const case_results = reports.map(report => report.results.didnt_run[test_case] || 0);
+            return [`didnt_run_${test_case}`, ...case_results, _.sum(case_results)].join(SEPARATOR);
+        });
+
+        return [date_line, ...passed_lines, ...failed_lines, ...didnt_run_lines];
     }
 }
-
-
-
-
 
 function print_usage() {
     console.log(`

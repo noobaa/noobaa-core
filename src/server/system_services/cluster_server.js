@@ -274,6 +274,7 @@ function add_member_to_cluster_invoke(req, my_address) {
             }, 'add_memeber_to_cluster');
         })
         .return();
+
 }
 
 function verify_join_conditions(req) {
@@ -422,6 +423,7 @@ function join_to_cluster(req) {
             // later it will be updated to hold this server's info in the cluster's DB
             return _update_cluster_info(req.rpc_params.topology);
         })
+        .then(() => _stop_services())
         .then(() => {
             dbg.log0(`overwrite mongo certs to /etc/mongo_ssl/`);
             return P.join(
@@ -430,6 +432,7 @@ function join_to_cluster(req) {
                 fs.writeFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, req.rpc_params.ssl_certs.client_cert)
             );
         })
+        // before joining to cluster stop bg workers to avoid sudden restarts (due to configuration mismatches, ntp, etc.)
         .then(() => {
             if (req.rpc_params.new_hostname) {
                 dbg.log0('setting hostname to ', req.rpc_params.new_hostname);
@@ -484,9 +487,9 @@ function join_to_cluster(req) {
         .then(() => cluster_hb.do_heartbeat({ skip_server_monitor: true }))
         // send update to all services with the master address
         .then(() => cutil.send_master_update(false, req.rpc_params.master_ip))
-        // restart bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
-        .then(() => _restart_services())
+        // start bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
         .then(() => MongoCtrl.add_mongo_monitor_program())
+        .finally(() => _start_services())
         .return();
 }
 
@@ -1057,12 +1060,17 @@ function apply_set_debug_level(req) {
         .return();
 }
 
-function _restart_services() {
-    dbg.log0(`restarting services: s3rver bg_workers hosted_agents`);
+function _start_services() {
+    dbg.log0(`starting services: s3rver bg_workers hosted_agents`);
     // set timeout to restart services in 1 second
     setTimeout(() => {
-        promise_utils.exec('supervisorctl restart s3rver bg_workers hosted_agents');
+        promise_utils.exec('supervisorctl start s3rver bg_workers hosted_agents');
     }, 1000);
+}
+
+function _stop_services() {
+    dbg.log0(`stopping services: s3rver bg_workers hosted_agents`);
+    return promise_utils.exec('supervisorctl stop s3rver bg_workers hosted_agents');
 }
 
 

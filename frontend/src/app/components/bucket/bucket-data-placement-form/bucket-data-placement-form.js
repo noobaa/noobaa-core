@@ -43,7 +43,7 @@ class BucketDataPlacementFormViewModel extends ConnectableViewModel {
         const { buckets, system } = state;
         return [
             params.bucketName,
-            buckets && buckets[params.bucketName].placement2,
+            buckets && buckets[params.bucketName].placement,
             system && system.internalStorage
 
         ];

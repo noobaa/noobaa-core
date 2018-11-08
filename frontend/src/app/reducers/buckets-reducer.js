@@ -42,18 +42,16 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         });
 
     const { storage, data, quota, stats, triggers, policy_modes, stats_by_type = [] } = bucket;
-    const { placement_status, resiliency_status, quota_status } = policy_modes;
+    const { resiliency_status, quota_status } = policy_modes;
     return {
         name: bucket.name,
-        tierName: placementRecords[0].tier.name, // TODO, need to be removed
         mode: bucket.mode,
         storage: mapApiStorage(storage.values, storage.last_update),
         data: _mapData(data),
         quota: _mapQuota(quota_status, quota),
         objectCount: bucket.num_objects,
         undeletable: bucket.undeletable,
-        placement: _mapPlacement(placement_status, placementRecords[0].tier, resTypeByName), // TODO, need to be removed
-        placement2: _mapPlacement2(placementRecords, resTypeByName),
+        placement: _mapPlacement(placementRecords, resTypeByName),
         resiliency: _mapResiliency(resiliency_status, placementRecords[0].tier),
         failureTolerance: _mapFailureTolerance(bucket),
         versioning: _mapVersioning(bucket),
@@ -86,34 +84,6 @@ function _mapQuota(mode, quota) {
     return { mode, size, unit };
 }
 
-function _mapPlacement(mode = 'OPTIMAL' /*TODO: remove*/, tier, typeByName) {
-    const { data_placement: policyType, mirror_groups } = tier;
-    const usingInternal =
-        (tier.mirror_groups.length === 1) &&
-        (tier.mirror_groups[0].pools.length === 1) &&
-        (typeByName[tier.mirror_groups[0].pools[0]] === 'INTERNAL');
-
-    if (usingInternal) {
-        return { mode: 'OPTIMAL', policyType, mirrorSets: [] };
-
-    } else {
-        const mirrorSets = mirror_groups
-            .sort((group1, group2) => compare(group1.name, group2.name))
-            .map(group => {
-                const { name, pools } = group;
-                const resources = pools
-                    .map(name => {
-                        const type = typeByName[name];
-                        return { type, name };
-                    });
-
-                return { name, resources };
-            });
-
-        return { mode, policyType, mirrorSets };
-    }
-}
-
 function _usingInternalStorage(placement, typeByName) {
     if (placement.length !== 1) {
         return false;
@@ -137,11 +107,10 @@ function _usingInternalStorage(placement, typeByName) {
     return true;
 }
 
-function _mapPlacement2(placement, typeByName) {
+function _mapPlacement(placement, typeByName) {
     if (_usingInternalStorage(placement, typeByName)) {
         const { mode, tier } = placement[0];
         return {
-            mode: 'OPTIMAL',
             tiers: [{
                 name: tier.name,
                 mode: mode,
@@ -151,7 +120,6 @@ function _mapPlacement2(placement, typeByName) {
 
     } else {
         return {
-            mode: 'OPTIMAL',
             tiers: placement.map(record => {
                 const { mode, tier } = record;
                 const { name, data_placement: policyType, mirror_groups } = tier;

@@ -76,7 +76,7 @@ function _isInternalSotrageUsed(internalStorage, buckets) {
     }
 
     if (Object.values(buckets).some(bucket =>
-        bucket.placement2.tiers[0].policyType === 'INTERNAL_STORAGE'
+        bucket.placement.tiers[0].policyType === 'INTERNAL_STORAGE'
     )) {
         return true;
     }

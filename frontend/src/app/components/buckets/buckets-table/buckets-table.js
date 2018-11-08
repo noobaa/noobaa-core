@@ -15,8 +15,7 @@ import {
     flatMap,
     createCompareFunc,
     throttle,
-    groupBy,
-    makeArray
+    groupBy
 } from 'utils/core-utils';
 import {
     getBucketStateIcon,

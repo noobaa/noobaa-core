@@ -203,7 +203,7 @@ class BucketDataResiliencyPolicyFormViewModel extends Observer {
             routes.bucket,
             { system, bucket: bucketName, tab, section: toggleSection }
         );
-        this.stateIcon(getResiliencyStateIcon(resiliency.mode));
+        this.stateIcon(getResiliencyStateIcon(resiliency));
         this.resiliencyType(getResiliencyTypeDisplay(resiliency.type));
         this.usingReplicationPolicy(resiliency.type === 'REPLICATION');
         this.usingErasureCodingPolicy(resiliency.type === 'ERASURE_CODING');

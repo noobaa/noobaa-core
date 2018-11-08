@@ -48,7 +48,7 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
                 (kind === 'ERASURE_CODING' && (dataFrags + parityFrags)) ||
                 NaN;
 
-            const storageNodesPerMirrorSet = countStorageNodesByMirrorSet(bucket.placement2, hostPools);
+            const storageNodesPerMirrorSet = countStorageNodesByMirrorSet(bucket.placement, hostPools);
             const missingNodesForResiliency = sumBy(
                 storageNodesPerMirrorSet,
                 count => Math.max(0, requiredDrives - count)
@@ -85,7 +85,7 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
             return 'Some resources in the bucket’s tiers have issues. Review tiering section and try to fix problematic resources or edit the tiers placement policy.';
         }
         case 'ONE_TIER_ISSUES': {
-            const i = bucket.placement2.tiers.findIndex(tier =>
+            const i = bucket.placement.tiers.findIndex(tier =>
                 tier.mode !== 'OPTIMAL'
             ) + 1;
             return `Some resources in tier ${i} have issues. Review tier’s ${i} section and try to fix problematic resources or edit the tier’s placement policy.`;
@@ -264,7 +264,7 @@ class BucketSummrayViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const { quota, placement2: placement } = bucket;
+            const { quota, placement } = bucket;
             const storage = mapValues(bucket.storage, toBytes);
             const usingInternalStorage = placement.tiers[0].policyType === 'INTERNAL_STORAGE';
             const data = mapValues(bucket.data, toBytes);

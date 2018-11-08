@@ -25,7 +25,7 @@ function _getPlacementCounterState(bucket) {
     const counterState = { count: 0, severity: '' };
     if (!bucket) return counterState;
 
-    return bucket.placement2.tiers
+    return bucket.placement.tiers
         .map(tier =>
             tier.policyType !== 'INTERNAL_STORAGE' ?
                 getPlacementStateIcon(tier.mode).css :

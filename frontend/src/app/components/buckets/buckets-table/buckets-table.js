@@ -6,11 +6,18 @@ import resourcesColTooltip from './resources-col-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze, flatMap, createCompareFunc, throttle, groupBy } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { toBytes } from 'utils/size-utils';
 import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
 import { paginationPageSize, inputThrottle } from 'config';
+import {
+    deepFreeze,
+    flatMap,
+    createCompareFunc,
+    throttle,
+    groupBy,
+    makeArray
+} from 'utils/core-utils';
 import {
     getBucketStateIcon,
     getVersioningStateText,
@@ -53,7 +60,7 @@ const columns = deepFreeze([
     {
         name: 'tiers',
         sortable: true,
-        compareKey: bucket => bucket.placement2.tiers.length
+        compareKey: bucket => bucket.placement.tiers.length
     },
     {
         name: 'resources',
@@ -98,8 +105,9 @@ const undeletableReasons = deepFreeze({
     NOT_EMPTY: 'Cannot delete a bucket that contains objects or any objects versions'
 });
 
-const resourceGroupMetadata = deepFreeze({
-    HOSTS: {
+const resourceGroupMetadata = deepFreeze([
+    {
+        type: 'HOSTS',
         icon: 'nodes-pool',
         subject: 'Node pools',
         uriFor: (resName, system) => realizeUri(
@@ -107,7 +115,8 @@ const resourceGroupMetadata = deepFreeze({
             { system, pool: resName }
         )
     },
-    CLOUD: {
+    {
+        type: 'CLOUD',
         icon: 'cloud-hollow',
         subject: 'Cloud resources',
         uriFor: (resName, system) => realizeUri(
@@ -115,7 +124,7 @@ const resourceGroupMetadata = deepFreeze({
             { system, resource: resName }
         )
     }
-});
+]);
 
 function _mapResiliency(resiliency) {
     const { kind, replicas, dataFrags, parityFrags } = resiliency;
@@ -158,13 +167,18 @@ function _getResourceGroupTooltip(records, subject, hrefGen, system) {
         return `No ${subject.toLowerCase()}`;
     }
 
+    const byTierIndex = groupBy(
+        records,
+        record => record.tierIndex
+    );
+
     return {
         template: resourcesColTooltip,
-        text: Object.values(groupBy(records, record => record.tier))
-            .map((group, i) => ({
+        text: Object.entries(byTierIndex)
+            .map(([i, records]) => ({
                 subject: subject,
-                tierIndex: i + 1,
-                resources: group.map(record => {
+                tierIndex: Number(i) + 1,
+                resources: records.map(record => {
                     const { name } = record.resource;
                     const href = hrefGen(name, system);
                     return { name, href };
@@ -179,16 +193,15 @@ function _mapResourceGroups(bucket, system) {
         record => record.resource.type
     );
 
-    return Object.keys(resourceGroupMetadata)
-        .map(type => {
-            const group = groups[type] || [];
-            const { icon, subject, uriFor } = resourceGroupMetadata[type];
-            return {
-                icon: icon,
-                lighted: Boolean(group.length),
-                tooltip: _getResourceGroupTooltip(group, subject, uriFor, system)
-            };
-        });
+    return resourceGroupMetadata.map(meta => {
+        const { type, icon, subject, uriFor } = meta;
+        const group = groups[type] || [];
+        return {
+            icon: icon,
+            lighted: Boolean(group.length),
+            tooltip: _getResourceGroupTooltip(group, subject, uriFor, system)
+        };
+    });
 }
 
 function _mapBucket(bucket, system, selectedForDelete) {
@@ -205,7 +218,7 @@ function _mapBucket(bucket, system, selectedForDelete) {
         objectCount: numeral(bucket.objectCount).format('0,0'),
         resiliencyPolicy: _mapResiliency(bucket.resiliency),
         resources: _mapResourceGroups(bucket, system),
-        tiers: _mapTiers(bucket.placement2.tiers),
+        tiers: _mapTiers(bucket.placement.tiers),
         versioning: getVersioningStateText(bucket.versioning.mode),
         capacity: {
             total: bucket.storage.total,

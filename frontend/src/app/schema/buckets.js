@@ -16,13 +16,11 @@ export default {
         type: 'object',
         required: [
             'name',
-            'tierName',
             'mode',
             'storage',
             'data',
             'objectCount',
             'placement',
-            'placement2',
             'resiliency',
             'versioning',
             'io',
@@ -33,9 +31,6 @@ export default {
         ],
         properties: {
             name: {
-                type: 'string'
-            },
-            tierName: {
                 type: 'string'
             },
             mode: {
@@ -82,84 +77,9 @@ export default {
             placement: {
                 type: 'object',
                 required: [
-                    'mode',
-                    'policyType',
-                    'mirrorSets'
-                ],
-                properties: {
-                    mode: {
-                        type: 'string',
-                        enum: [
-                            'NO_RESOURCES',
-                            'NOT_ENOUGH_RESOURCES',
-                            'NOT_ENOUGH_HEALTHY_RESOURCES',
-                            'NO_CAPACITY',
-                            'RISKY_TOLERANCE',
-                            'SPILLING_BACK',
-                            'LOW_CAPACITY',
-                            'DATA_ACTIVITY',
-                            'OPTIMAL'
-                        ]
-                    },
-                    policyType: {
-                        type: 'string',
-                        enum: [
-                            'SPREAD',
-                            'MIRROR'
-                        ]
-                    },
-                    mirrorSets: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: [
-                                'name',
-                                'resources'
-                            ],
-                            properties: {
-                                name: {
-                                    type: 'string'
-                                },
-                                resources: {
-                                    type: 'array',
-                                    items: {
-                                        type: 'object',
-                                        required: [
-                                            'type',
-                                            'name'
-                                        ],
-                                        properties: {
-                                            type: {
-                                                type: 'string',
-                                                enum: [
-                                                    'HOSTS',
-                                                    'CLOUD'
-                                                ]
-                                            },
-                                            name: {
-                                                type: 'string'
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            placement2: {
-                type: 'object',
-                required: [
-                    'mode',
                     'tiers'
                 ],
                 properties: {
-                    mode: {
-                        type: 'string',
-                        enum: [
-                            'OPTIMAL'
-                        ]
-                    },
                     tiers: {
                         oneOf: [
                             {

@@ -10,12 +10,12 @@ export default function(action$, { api }) {
     return action$.pipe(
         ofType(UPDATE_BUCKET_RESILIENCY_POLICY),
         mergeMap(async action => {
-            const { bucket, tier, policy } = action.payload;
+            const { bucket, policy } = action.payload;
             const { replicas, dataFrags: data_frags, parityFrags: parity_frags } = policy;
 
             try {
-                await api.tier.update_tier({
-                    name: tier,
+                await api.tiering_policy.update_chunk_config_for_bucket({
+                    bucket_name: bucket,
                     chunk_coder_config: { replicas, data_frags, parity_frags }
                 });
 

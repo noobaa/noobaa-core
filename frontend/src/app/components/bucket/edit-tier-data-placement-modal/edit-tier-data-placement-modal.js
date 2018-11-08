@@ -55,7 +55,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const tier = bucket.placement2.tiers.find(tier =>
+            const tier = bucket.placement.tiers.find(tier =>
                 tier.name === tierName
             );
             const usingInternalStorage = tier.policyType === 'INTERNAL_STORAGE';

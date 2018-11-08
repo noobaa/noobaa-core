@@ -1,102 +1,125 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, isUndefined, sumBy, flatMap, mapValues } from './core-utils';
+import { deepFreeze, sumBy, flatMap } from './core-utils';
 import { toBigInteger, fromBigInteger, bigInteger, unitsInBytes } from 'utils/size-utils';
 import { stringifyAmount, pluralize } from 'utils/string-utils';
+import { errorIcon, warningIcon, processIcon, healthyIcon } from 'utils/icon-utils';
 
-const bucketStateToIcon = deepFreeze(
-    _mapObjectsToFunction({
-        NO_RESOURCES: {
-            tooltip: 'No storage resources',
-            css: 'error',
-            name: 'problem'
-        },
-        NOT_ENOUGH_HEALTHY_RESOURCES: {
-            tooltip: 'Not enough healthy storage resources',
-            css: 'error',
-            name: 'problem'
-        },
-        NOT_ENOUGH_RESOURCES: {
-            tooltip: 'Not enough drives to meet resiliency policy',
-            css: 'error',
-            name: 'problem'
-        },
-        NO_CAPACITY: {
-            tooltip: 'No potential available storage',
-            css: 'error',
-            name: 'problem'
-        },
-        EXCEEDING_QUOTA: {
-            tooltip: 'Exceeded configured quota',
-            css: 'error',
-            name: 'problem'
-        },
-        LOW_CAPACITY: {
-            tooltip: 'Storage is low',
-            css: 'warning',
-            name: 'problem'
-        },
-        RISKY_TOLERANCE: {
-            tooltip: 'Risky failure tolerance',
-            css: 'warning',
-            name: 'problem'
-        },
-        NO_RESOURCES_INTERNAL: {
-            tooltip: 'No Storage Resources - Using Internal Storage',
-            css: 'warning',
-            name: 'problem'
-        },
-        APPROUCHING_QUOTA: {
-            tooltip: 'Approaching configured quota',
-            css: 'warning',
-            name: 'problem'
-        },
-        DATA_ACTIVITY: {
-            tooltip: 'In process',
-            css: 'warning',
-            name: 'working'
-        },
-        MANY_TIERS_ISSUES: {
-            tooltip: 'Tiers Resources has Issues ',
-            css: 'warning',
-            name: 'problem'
-        },
-        ONE_TIER_ISSUES: bucket => {
-            const i = bucket.placement.tiers.findIndex(tier =>
-                tier.mode !== 'OPTIMAL'
-            );
-
-            return {
-                tooltip: `Tier ${i + 1}'s Resources has Issues`,
-                css: 'warning',
-                name: 'problem'
-            };
-        },
-        OPTIMAL: {
-            tooltip: 'Healthy',
-            css: 'success',
-            name: 'healthy'
-        }
+const bucketStateToIcon = deepFreeze({
+    NO_RESOURCES: (_, align) => errorIcon({
+        text: 'No storage resources',
+        align
+    }),
+    NOT_ENOUGH_RESOURCES: (_, align) => errorIcon({
+        text: 'Not enough drives to meet resiliency policy',
+        align
+    }),
+    NOT_ENOUGH_HEALTHY_RESOURCES: (_, align) => errorIcon({
+        text:'Not enough healthy storage resources',
+        align
+    }),
+    NO_CAPACITY: (_, align) => errorIcon({
+        text: 'No potential available storage',
+        align
+    }),
+    ALL_TIERS_HAVE_ISSUES: (_, align) => errorIcon({
+        text: 'All tiers have mixed issues',
+        align
+    }),
+    EXCEEDING_QUOTA: (_, align) => errorIcon({
+        text: 'Exceeded configured quota',
+        align
+    }),
+    TIER_NO_RESOURCES: (bucket, align) => {
+        const i = _tierIndexForMode(bucket, 'NO_RESOURCES');
+        return warningIcon({
+            text: `Tier ${i + 1} has no storage resources`,
+            align
+        });
+    },
+    TIER_NOT_ENOUGH_RESOURCES: (bucket, align) => {
+        const i = _tierIndexForMode(bucket, 'NOT_ENOUGH_RESOURCES');
+        return warningIcon({
+            text: `Not enough drives to meet resiliency policy in tier ${i + 1}`,
+            align
+        });
+    },
+    TIER_ENOUGH_HEALTHY_RESOURCES: (bucket, align) => {
+        const i = _tierIndexForMode(bucket, 'NOT_ENOUGH_HEALTHY_RESOURCES');
+        return warningIcon({
+            text: `Not enough healthy storage resources in tier ${i +1}`,
+            align
+        });
+    },
+    TIER_NO_CAPACITY: (bucket, align) => {
+        const i = _tierIndexForMode(bucket, 'NO_CAPACITY');
+        return warningIcon({
+            text: `No potential available storage in tier ${i + 1}`,
+            align
+        });
+    },
+    LOW_CAPACITY: (_, align) => warningIcon({
+        text: 'Storage is low',
+        align
+    }),
+    TIER_LOW_CAPACITY: (bucket, align) => {
+        const i = _tierIndexForMode(bucket, 'LOW_CAPACITY');
+        return warningIcon({
+            text: `Storage is low in tier ${i + 1}`,
+            align
+        });
+    },
+    NO_RESOURCES_INTERNAL: (_, align) => warningIcon({
+        text: 'No Storage Resources - Using Internal Storage',
+        align
+    }),
+    RISKY_TOLERANCE: (_, align) => warningIcon({
+        text: 'Risky failure tolerance',
+        align
+    }),
+    APPROUCHING_QUOTA: (_, align) => warningIcon({
+        text: 'Approaching configured quota',
+        align
+    }),
+    DATA_ACTIVITY: (_, align) => processIcon({
+        text: 'In Process',
+        align
+    }),
+    OPTIMAL: (_, align) => healthyIcon({
+        text: 'Healthy',
+        align
     })
-);
+});
 
 const placementModeToIcon = deepFreeze({
-    INTERNAL_ISSUES: {
-        tooltip: {
-            text: 'Tier is empty and the internal storage is unavailable',
-            align: 'start'
-        },
-        css: 'error',
-        name: 'problem'
-    },
-    NO_RESOURCES: _alignIconTooltip(bucketStateToIcon.NO_RESOURCES(), 'start'),
-    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES(), 'start'),
-    NOT_ENOUGH_HEALTHY_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_HEALTHY_RESOURCES(), 'start'),
-    NO_CAPACITY: _alignIconTooltip(bucketStateToIcon.NO_CAPACITY(), 'start'),
-    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE(), 'start'),
-    LOW_CAPACITY: _alignIconTooltip(bucketStateToIcon.LOW_CAPACITY(), 'start'),
-    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY(), 'start'),
-    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL(), 'start')
+    NO_RESOURCES: () => errorIcon({
+        text: 'No storage resources',
+        align: 'start'
+    }),
+    NOT_ENOUGH_RESOURCES: () => errorIcon({
+        text: 'Not enough drives to meet resiliency policy',
+        align: 'start'
+    }),
+    NOT_ENOUGH_HEALTHY_RESOURCES: () => errorIcon({
+        text: 'Not enough healthy storage resources',
+        align: 'start'
+    }),
+    INTERNAL_STORAGE_ISSUES: () => errorIcon({
+        text: 'Tier has no resources and the internal storage is unavailable',
+        align: 'start'
+    }),
+    NO_CAPACITY: () => errorIcon({
+        text: 'No potential available storage',
+        align: 'start'
+    }),
+    LOW_CAPACITY: () => warningIcon({
+        text: 'Storage is low',
+        align: 'start'
+    }),
+    OPTIMAL: () => healthyIcon({
+        text: 'Healthy',
+        align: 'start'
+    })
 });
 
 const placementTypeToDisplayName = deepFreeze({
@@ -113,10 +136,32 @@ const namespaceBucketToStateIcon = deepFreeze({
 });
 
 const resiliencyModeToIcon = deepFreeze({
-    NOT_ENOUGH_RESOURCES: _alignIconTooltip(bucketStateToIcon.NOT_ENOUGH_RESOURCES(), 'start'),
-    RISKY_TOLERANCE: _alignIconTooltip(bucketStateToIcon.RISKY_TOLERANCE(), 'start'),
-    DATA_ACTIVITY: _alignIconTooltip(bucketStateToIcon.DATA_ACTIVITY(), 'start'),
-    OPTIMAL: _alignIconTooltip(bucketStateToIcon.OPTIMAL(), 'start')
+    NOT_ENOUGH_RESOURCES: () => errorIcon({
+        text: 'Not enough drives to meet resiliency policy',
+        align: 'start'
+    }),
+    POLICY_PARTIALLY_APPLIED: resiliency => {
+        const resiliencyEntity = resiliency.kind === 'REPLICATION' ?
+            'replicas' :
+            'parity fragments';
+
+        return warningIcon({
+            text: `Bucket has no resources - no ${resiliencyEntity} will be kept while using internal storage`,
+            align: 'start'
+        });
+    },
+    RISKY_TOLERANCE: () => warningIcon({
+        text: 'Risky failure tolerance',
+        align: 'start'
+    }),
+    LOW_CAPACITY: () => warningIcon({
+        text: 'Storage is low',
+        align: 'start'
+    }),
+    OPTIMAL: () => healthyIcon({
+        text: 'Healthy',
+        align: 'start'
+    })
 });
 
 const resiliencyTypeToDisplay = deepFreeze({
@@ -139,13 +184,18 @@ const resiliencyTypeToBlockType = deepFreeze({
 });
 
 const quotaModeToIcon = deepFreeze({
-    EXCEEDING_QUOTA: _alignIconTooltip(bucketStateToIcon.EXCEEDING_QUOTA(), 'start'),
-    APPROUCHING_QUOTA: _alignIconTooltip(bucketStateToIcon.APPROUCHING_QUOTA(), 'start'),
-    OPTIMAL: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Enabled'
-    }
+    EXCEEDING_QUOTA: () => errorIcon({
+        text: 'Exceeded configured quota',
+        align: 'start'
+    }),
+    APPROUCHING_QUOTA: () => warningIcon({
+        text: 'Approaching configured quota',
+        align: 'start'
+    }),
+    OPTIMAL: () => healthyIcon({
+        text: 'Enabled',
+        align: 'start'
+    })
 });
 
 const versioningModeToText = deepFreeze({
@@ -165,31 +215,21 @@ export const bucketEvents = deepFreeze([
     }
 ]);
 
-function _mapObjectsToFunction(statusMap) {
-    return mapValues(statusMap, objOrFunc =>
-        typeof objOrFunc === 'function' ? objOrFunc : () => objOrFunc
-    );
+function _tierIndexForMode(bucket, mode) {
+    return bucket.placement.tiers
+        .findIndex(tier => tier.mode === mode);
 }
 
-function _alignIconTooltip(icon, align) {
-    const { tooltip: text, ...rest } = icon;
-    return {
-        ...rest,
-        tooltip: { text, align }
-    };
-}
-
-export function getBucketStateIcon(bucket, align) {
-    const status = bucketStateToIcon[bucket.mode](bucket);
-    return isUndefined(align) ? status : _alignIconTooltip(status, align);
+export function getBucketStateIcon(bucket, align = 'center') {
+    return bucketStateToIcon[bucket.mode](bucket, align);
 }
 
 export function getPlacementTypeDisplayName(type) {
     return placementTypeToDisplayName[type];
 }
 
-export function getPlacementStateIcon(placementMode) {
-    return placementModeToIcon[placementMode];
+export function getPlacementStateIcon(tier) {
+    return placementModeToIcon[tier.mode](tier);
 }
 
 export function getNamespaceBucketStateIcon(bucket) {
@@ -197,9 +237,8 @@ export function getNamespaceBucketStateIcon(bucket) {
     return namespaceBucketToStateIcon[mode];
 }
 
-
-export function getQuotaStateIcon(quotaMode) {
-    return quotaModeToIcon[quotaMode];
+export function getQuotaStateIcon(quota) {
+    return quotaModeToIcon[quota.mode](quota);
 }
 
 export function getDataBreakdown(data, quota) {
@@ -245,16 +284,13 @@ export function isBucketWritable(bucket) {
     return writableStates.includes(bucket.mode);
 }
 
-export function countStorageNodesByMirrorSet(placement, hostPools) {
-    return flatMap(
-        placement.tiers,
-        tier => (tier.mirrorSets || []).map(ms => sumBy(
-            ms.resources,
-            res => res.type === 'HOSTS' ?
-                hostPools[res.name].storageNodeCount :
-                Infinity
-        ))
-    );
+export function countStorageNodesByMirrorSet(tier, hostPools) {
+    return (tier.mirrorSets || []).map(ms => sumBy(
+        ms.resources,
+        res => res.type === 'HOSTS' ?
+            hostPools[res.name].storageNodeCount :
+            Infinity
+    ));
 }
 
 export function summrizeResiliency(resiliency) {
@@ -289,8 +325,8 @@ export function summrizeResiliency(resiliency) {
     }
 }
 
-export function getResiliencyStateIcon(resiliencyMode) {
-    return resiliencyModeToIcon[resiliencyMode];
+export function getResiliencyStateIcon(resiliency) {
+    return resiliencyModeToIcon[resiliency.mode](resiliency);
 }
 
 export function getResiliencyTypeDisplay(resiliencyType) {

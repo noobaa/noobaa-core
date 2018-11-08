@@ -4,7 +4,7 @@ import template from './edit-bucket-data-resiliency-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze, pick } from 'utils/core-utils';
+import { deepFreeze, pick, flatMap } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
 import { editBucketDataResiliency as learnMoreHref } from 'knowledge-base-articles';
 import {
@@ -126,9 +126,12 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
         }
 
         const values = form ? getFormValues(form) : _getFormInitalValues(bucket);
-        const minNodeCountInMirrorSets = Math.min(
-            ...countStorageNodesByMirrorSet(bucket.placement, hostPools)
+        const nodeCountInMirrorSets = flatMap(
+            bucket.placement.tiers,
+            tier => countStorageNodesByMirrorSet(tier, hostPools)
         );
+
+        const minNodeCountInMirrorSets = Math.min(...nodeCountInMirrorSets);
         const repSummary = summrizeResiliency({
             kind: 'REPLICATION',
             replicas: values.replicas

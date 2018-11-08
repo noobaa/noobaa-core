@@ -378,59 +378,6 @@ function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, chan
     changes.events.push(quota_event);
 }
 
-// function get_bucket_changes_spillover(req, bucket, update_request, tiering_policy, changes) {
-//     const spillover_pool = req.system.pools_by_name[update_request.spillover];
-//     const tiering = tiering_policy || bucket.tiering;
-//     let spillover_tier = tiering.tiers.find(tier_and_order => tier_and_order.spillover);
-//     if (!spillover_tier) {
-//         if (!spillover_pool) throw new RpcError('POOL NOT FOUND');
-//         spillover_tier = req.system.tiers_by_name[`${config.SPILLOVER_TIER_NAME}-${bucket._id}`];
-//         if (!spillover_tier) {
-//             spillover_tier = create_bucket_spillover_tier(req.system, bucket._id, spillover_pool._id);
-//             changes.inserts.tiers = changes.inserts.tiers || [];
-//             changes.inserts.tiers.push(spillover_tier);
-//         }
-//         tiering.tiers.push({
-//             tier: spillover_tier,
-//             order: 1,
-//             spillover: true,
-//             disabled: !update_request.spillover
-//         });
-//     }
-//     if (spillover_pool) {
-//         changes.updates.tiers = [{
-//             _id: spillover_tier.tier._id,
-//             'mirrors.0.spread_pools': [spillover_pool._id]
-//         }];
-//     }
-//     spillover_tier.disabled = !update_request.spillover;
-//     changes.updates.tieringpolicies = changes.updates.tieringpolicies || [];
-//     changes.updates.tieringpolicies.push({
-//         _id: tiering._id,
-//         tiers: tiering.tiers.map(tier_and_order => ({
-//             tier: tier_and_order.tier._id,
-//             order: tier_and_order.order,
-//             spillover: tier_and_order.spillover,
-//             disabled: tier_and_order.disabled
-//         }))
-//     });
-
-//     let desc;
-//     if (update_request.spillover) {
-//         desc = `Bucket ${bucket.name} spillover on resource ${update_request.spillover} was set by ${req.account && req.account.email}`;
-//     } else {
-//         desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
-//     }
-//     changes.events.push({
-//         event: 'bucket.spillover',
-//         level: 'info',
-//         system: req.system._id,
-//         actor: req.account && req.account._id,
-//         bucket: bucket._id,
-//         desc
-//     });
-// }
-
 /**
  *
  * GET_BUCKET_UPDATE
@@ -1134,6 +1081,19 @@ function get_bucket_info({
     return info;
 }
 
+function is_using_internal_storage(bucket, internal_pool) {
+    const tiers = bucket.tiering;
+    if (tiers.length !== 1) return false;
+
+    const mirrors = tiers[0].mirrors;
+    if (mirrors.length !== 1) return false;
+
+    const spread_pools = mirrors[0].spread_pools;
+    if (spread_pools.length !== 1) return false;
+
+    return String(spread_pools[0]._id) === String(internal_pool._id);
+}
+
 function _calc_metrics({
     bucket,
     nodes_aggregate_pool,
@@ -1169,8 +1129,6 @@ function _calc_metrics({
         }
     }
     const internal_info = pool_server.get_pool_info(internal_pool, nodes_aggregate_pool, hosts_aggregate_pool);
-    const is_using_internal = String(bucket.tiering.tiers[0].tier.mirrors[0].spread_pools[0]._id) ===
-        String(internal_pool._id);
 
     _.each(bucket.tiering.tiers, tier_and_order => {
         const tier = tier_and_order.tier;
@@ -1246,7 +1204,7 @@ function _calc_metrics({
     });
 
     return {
-        is_using_internal,
+        is_using_internal: is_using_internal_storage(bucket, internal_pool),
         internal_has_issues: (internal_info.mode !== 'OPTIMAL'),
         has_any_pool_configured,
         has_enough_healthy_nodes_for_tiering,
@@ -1278,19 +1236,38 @@ function calc_namespace_mode() {
     return 'OPTIMAL';
 }
 
-function calc_bucket_mode(metrics) {
-    return (metrics.is_using_internal && metrics.internal_has_issues && 'NO_RESOURCES') ||
-        (metrics.is_using_internal && 'NO_RESOURCES_INTERNAL') ||
-        (!metrics.has_any_pool_configured && 'NO_RESOURCES') ||
-        (!metrics.has_enough_total_nodes_for_tiering && 'NOT_ENOUGH_RESOURCES') ||
-        (!metrics.has_enough_healthy_nodes_for_tiering && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
-        (metrics.is_no_storage && 'NO_CAPACITY') ||
+function calc_bucket_mode(bucket, metrics) {
+    const tiers = bucket.tiering.tiers;
+    const {
+        NO_RESOURCES = 0,
+            NOT_ENOUGH_RESOURCES = 0,
+            NOT_ENOUGH_HEALTHY_RESOURCES = 0,
+            NO_CAPACITY = 0,
+            LOW_CAPACITY = 0,
+            INTERNAL_STORAGE_ISSUES = 0,
+            OPTIMAL = 0
+    } = _.mapValues(_.groupBy(tiers, t => t.mode), arr => arr.length);
+
+    return ((INTERNAL_STORAGE_ISSUES || (NO_RESOURCES === tiers.length)) && 'NO_RESOURCES') ||
+        (NOT_ENOUGH_RESOURCES === tiers.length && 'NOT_ENOUGH_RESOURCES') ||
+        (NOT_ENOUGH_HEALTHY_RESOURCES === tiers.length && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
+        (NO_CAPACITY === tiers.length && 'NO_CAPACITY') ||
+        (OPTIMAL === 0 && 'ALL_TIERS_HAVE_ISSUES') ||
         (metrics.is_quota_enabled && metrics.is_quota_exceeded && 'EXCEEDING_QUOTA') ||
-        (metrics.tier_with_issues > 1 && 'MANY_TIERS_ISSUES') ||
-        (metrics.tier_with_issues === 1 && 'ONE_TIER_ISSUES') ||
-        (metrics.low_tolerance && 'RISKY_TOLERANCE') ||
+        (NO_RESOURCES && 'TIER_NO_RESOURCES') ||
+        (NOT_ENOUGH_RESOURCES && 'TIER_NOT_ENOUGH_RESOURCES') ||
+        (NOT_ENOUGH_HEALTHY_RESOURCES && 'TIER_NOT_ENOUGH_HEALTHY_RESOURCES') ||
+        (NO_CAPACITY && 'TIER_NO_CAPACITY') ||
         (metrics.is_storage_low && 'LOW_CAPACITY') ||
+        (LOW_CAPACITY && 'TIER_LOW_CAPACITY') ||
+        return_bucket_issues_mode(metrics);
+}
+
+function return_bucket_issues_mode(metrics) {
+    return (metrics.is_using_internal && 'NO_RESOURCES_INTERNAL') ||
+        (metrics.low_tolerance && 'RISKY_TOLERANCE') ||
         (metrics.is_quota_enabled && metrics.is_quota_low && 'APPROUCHING_QUOTA') ||
+        (metrics.any_rebuilds && 'DATA_ACTIVITY') ||
         'OPTIMAL';
 }
 
@@ -1298,8 +1275,14 @@ function calc_data_resiliency_status(metrics) {
     if (!metrics.has_enough_total_nodes_for_tiering) {
         return 'NOT_ENOUGH_RESOURCES';
     }
+    if (metrics.is_using_internal) {
+        return 'POLICY_PARTIALLY_APPLIED';
+    }
     if (metrics.low_tolerance) {
         return 'RISKY_TOLERANCE';
+    }
+    if (metrics.any_rebuilds) {
+        return 'DATA_ACTIVITY';
     }
     return 'OPTIMAL';
 }
@@ -1370,5 +1353,4 @@ exports.get_buckets_stats_by_content_type = get_buckets_stats_by_content_type;
 exports.add_bucket_lambda_trigger = add_bucket_lambda_trigger;
 exports.update_bucket_lambda_trigger = update_bucket_lambda_trigger;
 exports.delete_bucket_lambda_trigger = delete_bucket_lambda_trigger;
-
 exports.check_for_lambda_permission_issue = check_for_lambda_permission_issue;

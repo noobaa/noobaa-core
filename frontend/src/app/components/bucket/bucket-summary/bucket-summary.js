@@ -27,50 +27,78 @@ const dataUsageTooltip = deepFreeze({
     align: 'end'
 });
 
+function _summrizeResiliencyPolicy(resiliency) {
+    const { kind, replicas, dataFrags, parityFrags } = resiliency;
+    const desc =
+        (kind === 'REPLICATION' && `replication of ${replicas} copies`) ||
+        (kind === 'ERASURE_CODING' && `erasure coding of ${dataFrags}+${parityFrags}`) ||
+        'an unknown policy';
+    const driveCount =
+        (kind === 'REPLICATION' && replicas) ||
+        (kind === 'ERASURE_CODING' && (dataFrags + parityFrags)) ||
+        NaN;
+
+    return { desc, driveCount };
+}
+
 function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
+    const { tiers } = bucket.placement;
+
     switch (bucket.mode) {
         case 'NO_RESOURCES': {
-            return 'This bucket is not connected to any resources that can be utilized. Add resources via bucket data placement policy';
-        }
-        case 'NOT_ENOUGH_HEALTHY_RESOURCES': {
-            // TODO: x of x resources...
-            return 'Some resources are not healthy and the bucket data allocation cannot be completed. Try fixing problematic resources or change the bucket’s placement policy.';
+            return 'This bucket is not connected to any resources that can be utilized. Add resources via bucket data placement policy'
         }
         case 'NOT_ENOUGH_RESOURCES': {
-            const { kind, replicas, dataFrags, parityFrags } = bucket.resiliency;
-            const policyText =
-                (kind === 'REPLICATION' && `replication of ${replicas} copies`) ||
-                (kind === 'ERASURE_CODING' && `erasure coding of ${dataFrags}+${parityFrags}`) ||
-                'an unknown policy';
-
-            const requiredDrives =
-                (kind === 'REPLICATION' && replicas) ||
-                (kind === 'ERASURE_CODING' && (dataFrags + parityFrags)) ||
-                NaN;
-
-            const storageNodesPerMirrorSet = countStorageNodesByMirrorSet(bucket.placement, hostPools);
-            const missingNodesForResiliency = sumBy(
-                storageNodesPerMirrorSet,
-                count => Math.max(0, requiredDrives - count)
-            );
-
-            return `The bucket’s configured data resiliency is set to ${policyText}. In order to meet that requirement, add at least ${missingNodesForResiliency} more drives to the nodes pool or add a cloud resource to placement policy`;
+            const { desc, driveCount } = _summrizeResiliencyPolicy(bucket.resiliency);
+            return `The bucket’s configured data resiliency is set to ${desc} In order to meet that requirement, each tier must have at least ${driveCount} in their nodes pools or a cloud resource in it\'s placement policy`;
+        }
+        case 'NOT_ENOUGH_HEALTHY_RESOURCES': {
+            return 'Some resources are not healthy and the bucket data allocation cannot be completed. Try fixing problematic resources or change the bucket’s placement policy.';
         }
         case 'NO_CAPACITY': {
             return 'This bucket has no more available storage. In order to enable data writes, add more resources to the bucket data placement policy';
         }
+        case 'ALL_TIERS_HAVE_ISSUES': {
+            return 'The bucket’s tiering structure is suffering from various issues. Try fixing problematic resources or change the tiers placement policy';
+        }
         case 'EXCEEDING_QUOTA': {
             return 'This bucket data writes reached the configured limit. Change the bucket quota configurations to enable new writes';
+        }
+        case 'TIER_NO_RESOURCES': {
+            const i = tiers.findIndex(tier => tier.mode === 'NO_RESOURCES');
+            return `Tier ${i + 1} is not connected to any resources that can be utilized. Add resources via Edit tier ${i + 1} resources.`;
+        }
+        case 'TIER_NOT_ENOUGH_RESOURCES': {
+            const tier = tiers.find(tier => tier.mode === 'NOT_ENOUGH_RESOURCES');
+            const { desc, driveCount } = _summrizeResiliencyPolicy(bucket.resiliency);
+            const storageNodesPerMirrorSet = countStorageNodesByMirrorSet(tier, hostPools);
+            const missingNodes = sumBy(
+                storageNodesPerMirrorSet,
+                count => Math.max(0, driveCount - count)
+            );
+
+            return `The bucket's configured data resiliency is set to ${desc}. In order to meet that requirement, add at least ${missingNodes} more drives to the nodes pool or add a cloud resource to the tier's placement policy`;
+        }
+        case 'TIER_NOT_ENOUGH_HEALTHY_RESOURCES': {
+            const i = tiers.findIndex(tier => tier.mode === 'NOT_ENOUGH_HEALTHY_RESOURCES');
+            return `Some resources are not healthy and the data allocation cannot be completed. Try fixing problematic resources or change tier ${i+1} resources policy.`;
+        }
+        case 'TIER_NO_CAPACITY': {
+            const i = tiers.findIndex(tier => tier.mode === 'NO_CAPACITY');
+            return `Tier ${i + 1} has no more available storage. In order to enable data writes and maintain the tier data structure, add more resources to the tier resources policy`;
         }
         case 'LOW_CAPACITY': {
             const available = formatSize(dataBreakdown.availableForUpload);
             return `The currently size available for uploads is ${available}, try adding more resources or change the bucket policies`;
         }
-        case 'RISKY_TOLERANCE': {
-            return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the nodes pools and distribute drives over the different nodes';
+        case 'TIER_LOW_CAPACITY': {
+            return 'TODO: Waiting for shiri';
         }
         case 'NO_RESOURCES_INTERNAL': {
-            return 'Bucket doesn\’t have any connected resources in it’s tier. Currently the system is using the internal VM disk capacity to store data which is not recommended. Add   resources to the bucket’s tier placement policy.';
+            return 'Bucket doesn\’t have any connected resources in it’s tier. Currently the system is using the internal VM disk capacity to store data which is not recommended. Add resources to the bucket’s tier placement policy.';
+        }
+        case 'RISKY_TOLERANCE': {
+            return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the nodes pools and distribute drives over the different nodes';
         }
         case 'APPROUCHING_QUOTA': {
             const quota = formatSize(getQuotaValue(bucket.quota));
@@ -80,15 +108,6 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
         }
         case 'DATA_ACTIVITY': {
             return 'Currently restoring/migrating/deleting data according to the latest change that was made in the bucket policy. The process might take a while';
-        }
-        case 'MANY_TIERS_ISSUES': {
-            return 'Some resources in the bucket’s tiers have issues. Review tiering section and try to fix problematic resources or edit the tiers placement policy.';
-        }
-        case 'ONE_TIER_ISSUES': {
-            const i = bucket.placement.tiers.findIndex(tier =>
-                tier.mode !== 'OPTIMAL'
-            ) + 1;
-            return `Some resources in tier ${i} have issues. Review tier’s ${i} section and try to fix problematic resources or edit the tier’s placement policy.`;
         }
         case 'OPTIMAL': {
             return 'Bucket is operating as expected according to it’s configured bucket policies';
@@ -125,7 +144,7 @@ function _formatAvailablityLimits(val) {
 }
 
 function _getBucketStateInfo(bucket, dataBreakdown, hostPools) {
-    const { name, css, tooltip: text } = getBucketStateIcon(bucket);
+    const { name, css, tooltip: { text } } = getBucketStateIcon(bucket);
     const tooltip = _mapModeToStateTooltip(bucket, dataBreakdown, hostPools);
     return {
         icon: {

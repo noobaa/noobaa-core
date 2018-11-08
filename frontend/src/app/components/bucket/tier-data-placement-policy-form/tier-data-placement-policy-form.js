@@ -231,7 +231,7 @@ class TierDataPlacementPolicyFormViewModel extends ConnectableViewModel {
                     tierName: tier.name,
                     tierDisplayName,
                     toggleUri,
-                    stateIcon: getPlacementStateIcon(tier.mode),
+                    stateIcon: getPlacementStateIcon(tier),
                     placementType: getPlacementTypeDisplayName(tier.policyType),
                     hostPoolCount: numeral(hostPoolNames.length).format(','),
                     cloudResourceCount: numeral(cloudResourceNames.length).format(','),

@@ -183,14 +183,12 @@ module.exports = {
         tier_placement_status: {
             type: 'string',
             enum: [
-                'INTERNAL_ISSUES',
                 'NO_RESOURCES',
                 'NOT_ENOUGH_RESOURCES',
                 'NOT_ENOUGH_HEALTHY_RESOURCES',
+                'INTERNAL_STORAGE_ISSUES',
                 'NO_CAPACITY',
-                'RISKY_TOLERANCE',
                 'LOW_CAPACITY',
-                'DATA_ACTIVITY',
                 'OPTIMAL'
             ]
         },

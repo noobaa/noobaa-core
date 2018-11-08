@@ -4,7 +4,7 @@ import template from './edit-bucket-data-resiliency-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { deepFreeze, pick } from 'utils/core-utils';
+import { deepFreeze, pick, flatMap } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
 import { editBucketDataResiliency as learnMoreHref } from 'knowledge-base-articles';
 import {
@@ -92,7 +92,6 @@ function _getErasureCodingRebuildEffortInfo(rebuildEffort) {
 class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     bucketName = '';
-    tierName = '';
     advancedMode = false;
     toggleModeBtnText = ko.observable();
     isReplicationDisabled = ko.observable();
@@ -127,9 +126,12 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
         }
 
         const values = form ? getFormValues(form) : _getFormInitalValues(bucket);
-        const minNodeCountInMirrorSets = Math.min(
-            ...countStorageNodesByMirrorSet(bucket.placement2, hostPools)
+        const nodeCountInMirrorSets = flatMap(
+            bucket.placement.tiers,
+            tier => countStorageNodesByMirrorSet(tier, hostPools)
         );
+
+        const minNodeCountInMirrorSets = Math.min(...nodeCountInMirrorSets);
         const repSummary = summrizeResiliency({
             kind: 'REPLICATION',
             replicas: values.replicas
@@ -152,7 +154,6 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
 
         ko.assignToProps(this, {
             bucketName: bucket.name,
-            tierName: bucket.tierName,
             advancedMode: values.advancedMode,
             toggleModeBtnText: values.advancedMode ? 'Basic Settings' : 'Advanced Settings',
             isReplicationDisabled: !values.advancedMode || values.resiliencyType !== 'REPLICATION',
@@ -217,7 +218,6 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
 
         const action = updateBucketResiliencyPolicy(
             this.bucketName,
-            this.tierName,
             policy
         );
 

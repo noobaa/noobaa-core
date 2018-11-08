@@ -28,7 +28,7 @@ class EmptyDataPlacementWarningModalViewModel extends ConnectableViewModel {
             state.buckets[params.bucketName];
 
         return [
-            bucket && bucket.placement2.tiers,
+            bucket && bucket.placement.tiers,
             params.tierName,
             params.action
         ];

@@ -9,8 +9,14 @@ import ko from 'knockout';
 import { getMany } from 'rx-extensions';
 import { state$, action$ } from 'state';
 import { updateBucketQuotaPolicy, closeModal } from 'action-creators';
-import { formatSize, toBytes, toBigInteger, fromBigInteger,
-    unitsInBytes, isSizeZero, sumSize } from 'utils/size-utils';
+import {
+    formatSize,
+    toBytes,
+    toBigInteger,
+    fromBigInteger,
+    unitsInBytes,
+    isSizeZero
+} from 'utils/size-utils';
 
 const unitOptions = deepFreeze([
     {

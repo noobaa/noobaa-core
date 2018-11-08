@@ -178,7 +178,7 @@ class TierDataPlacementPolicyFormViewModel extends ConnectableViewModel {
         } else {
             const hasResources = _systemHasResources(hostPools, cloudResources);
             const usageDistribution = bucket.usageDistribution.resources;
-            const tier = bucket.placement2.tiers[tierIndex];
+            const tier = bucket.placement.tiers[tierIndex];
             const { system, tab = 'data-placement', section } = locationParams;
             const isExpanded = section === tier.name;
             const toggleUri = realizeUri(routes.bucket, {
@@ -231,7 +231,7 @@ class TierDataPlacementPolicyFormViewModel extends ConnectableViewModel {
                     tierName: tier.name,
                     tierDisplayName,
                     toggleUri,
-                    stateIcon: getPlacementStateIcon(tier.mode),
+                    stateIcon: getPlacementStateIcon(tier),
                     placementType: getPlacementTypeDisplayName(tier.policyType),
                     hostPoolCount: numeral(hostPoolNames.length).format(','),
                     cloudResourceCount: numeral(cloudResourceNames.length).format(','),

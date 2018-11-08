@@ -4,8 +4,22 @@ const resiliencyMode = {
     type: 'string',
     enum: [
         'NOT_ENOUGH_RESOURCES',
+        'POLICY_PARTIALLY_APPLIED',
         'RISKY_TOLERANCE',
         'DATA_ACTIVITY',
+        'OPTIMAL'
+    ]
+};
+
+const tierMode = {
+    type: 'string',
+    enum: [
+        'NO_RESOURCES',
+        'NOT_ENOUGH_RESOURCES',
+        'NOT_ENOUGH_HEALTHY_RESOURCES',
+        'INTERNAL_STORAGE_ISSUES',
+        'NO_CAPACITY',
+        'LOW_CAPACITY',
         'OPTIMAL'
     ]
 };
@@ -16,13 +30,11 @@ export default {
         type: 'object',
         required: [
             'name',
-            'tierName',
             'mode',
             'storage',
             'data',
             'objectCount',
             'placement',
-            'placement2',
             'resiliency',
             'versioning',
             'io',
@@ -35,25 +47,26 @@ export default {
             name: {
                 type: 'string'
             },
-            tierName: {
-                type: 'string'
-            },
             mode: {
                 type: 'string',
                 enum: [
-                    'OPTIMAL',
-                    'DATA_ACTIVITY',
-                    'APPROUCHING_QUOTA',
-                    'LOW_CAPACITY',
-                    'RISKY_TOLERANCE',
-                    'NO_RESOURCES_INTERNAL',
-                    'MANY_TIERS_ISSUES',
-                    'ONE_TIER_ISSUES',
-                    'EXCEEDING_QUOTA',
-                    'NO_CAPACITY',
-                    'NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'NO_RESOURCES',
                     'NOT_ENOUGH_RESOURCES',
-                    'NO_RESOURCES'
+                    'NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'NO_CAPACITY',
+                    'ALL_TIERS_HAVE_ISSUES',
+                    'EXCEEDING_QUOTA',
+                    'TIER_NO_RESOURCES',
+                    'TIER_NOT_ENOUGH_RESOURCES',
+                    'TIER_NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'TIER_NO_CAPACITY',
+                    'LOW_CAPACITY',
+                    'TIER_LOW_CAPACITY',
+                    'NO_RESOURCES_INTERNAL',
+                    'RISKY_TOLERANCE',
+                    'APPROUCHING_QUOTA',
+                    'DATA_ACTIVITY',
+                    'OPTIMAL'
                 ]
             },
             storage: {
@@ -82,84 +95,9 @@ export default {
             placement: {
                 type: 'object',
                 required: [
-                    'mode',
-                    'policyType',
-                    'mirrorSets'
-                ],
-                properties: {
-                    mode: {
-                        type: 'string',
-                        enum: [
-                            'NO_RESOURCES',
-                            'NOT_ENOUGH_RESOURCES',
-                            'NOT_ENOUGH_HEALTHY_RESOURCES',
-                            'NO_CAPACITY',
-                            'RISKY_TOLERANCE',
-                            'SPILLING_BACK',
-                            'LOW_CAPACITY',
-                            'DATA_ACTIVITY',
-                            'OPTIMAL'
-                        ]
-                    },
-                    policyType: {
-                        type: 'string',
-                        enum: [
-                            'SPREAD',
-                            'MIRROR'
-                        ]
-                    },
-                    mirrorSets: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: [
-                                'name',
-                                'resources'
-                            ],
-                            properties: {
-                                name: {
-                                    type: 'string'
-                                },
-                                resources: {
-                                    type: 'array',
-                                    items: {
-                                        type: 'object',
-                                        required: [
-                                            'type',
-                                            'name'
-                                        ],
-                                        properties: {
-                                            type: {
-                                                type: 'string',
-                                                enum: [
-                                                    'HOSTS',
-                                                    'CLOUD'
-                                                ]
-                                            },
-                                            name: {
-                                                type: 'string'
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            placement2: {
-                type: 'object',
-                required: [
-                    'mode',
                     'tiers'
                 ],
                 properties: {
-                    mode: {
-                        type: 'string',
-                        enum: [
-                            'OPTIMAL'
-                        ]
-                    },
                     tiers: {
                         oneOf: [
                             {
@@ -177,20 +115,7 @@ export default {
                                         name: {
                                             type: 'string'
                                         },
-                                        mode: {
-                                            type: 'string',
-                                            enum: [
-                                                'INTERNAL_ISSUES',
-                                                'NO_RESOURCES',
-                                                'NOT_ENOUGH_RESOURCES',
-                                                'NOT_ENOUGH_HEALTHY_RESOURCES',
-                                                'NO_CAPACITY',
-                                                'RISKY_TOLERANCE',
-                                                'LOW_CAPACITY',
-                                                'DATA_ACTIVITY',
-                                                'OPTIMAL'
-                                            ]
-                                        },
+                                        mode: tierMode,
                                         policyType: {
                                             type: 'string',
                                             enum: [
@@ -215,20 +140,7 @@ export default {
                                         name: {
                                             type: 'string'
                                         },
-                                        mode: {
-                                            type: 'string',
-                                            enum: [
-                                                'INTERNAL_ISSUES',
-                                                'NO_RESOURCES',
-                                                'NOT_ENOUGH_RESOURCES',
-                                                'NOT_ENOUGH_HEALTHY_RESOURCES',
-                                                'NO_CAPACITY',
-                                                'RISKY_TOLERANCE',
-                                                'LOW_CAPACITY',
-                                                'DATA_ACTIVITY',
-                                                'OPTIMAL'
-                                            ]
-                                        },
+                                        mode: tierMode,
                                         policyType: {
                                             type: 'string',
                                             enum: [

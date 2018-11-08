@@ -32,7 +32,7 @@ class BucketPlacementSummaryModalViewModel extends ConnectableViewModel {
         const tiers =
             buckets &&
             buckets[bucketName] &&
-            buckets[bucketName].placement2.tiers;
+            buckets[bucketName].placement.tiers;
 
 
         return [

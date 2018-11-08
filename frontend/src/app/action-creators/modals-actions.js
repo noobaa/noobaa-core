@@ -208,7 +208,9 @@ export function openKeepUsingInternalStorageModal(action) {
             options: {
                 title: 'Internal Storage Usage',
                 size: 'xsmall',
-                severity: 'warning'
+                severity: 'warning',
+                closeButton: 'hidden',
+                backdropClose: false
             }
         }
     };

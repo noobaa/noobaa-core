@@ -90,7 +90,7 @@ class AddTierModalViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const { tiers } = bucket.placement2;
+            const { tiers } = bucket.placement;
             const tableTitle = `Resources in Tier ${tiers.length + 1} policy`;
             const tiersSummary = [
                 ...tiers.map((tier, i) =>

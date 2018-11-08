@@ -624,7 +624,7 @@ function calc_tier_policy_status(tier, tier_info, extra_info) {
     const tier_used = size_utils.json_to_bigint(_.get(tier_info, 'storage.used') || 0);
     const tier_used_other = size_utils.json_to_bigint(_.get(tier_info, 'storage.used_other') || 0);
     const tier_total = tier_free.plus(tier_used).plus(tier_used_other);
-    const low_tolerance = (extra_info.node_tolerance === 0 || extra_info.host_tolerance === 0);
+    // const low_tolerance = (extra_info.node_tolerance === 0 || extra_info.host_tolerance === 0);
     if (tier_free.isZero()) {
         is_no_storage = true;
     } else {
@@ -638,7 +638,7 @@ function calc_tier_policy_status(tier, tier_info, extra_info) {
         if (extra_info.mirrors_with_enough_nodes === tier.mirrors.length) has_enough_total_nodes_for_tier = true;
     }
     if (extra_info.use_internal && extra_info.mirrors_with_valid_pool === 0) {
-        return 'INTERNAL_ISSUES';
+        return 'INTERNAL_STORAGE_ISSUES';
     }
     if (!extra_info.has_valid_pool) {
         return 'NO_RESOURCES';
@@ -651,9 +651,6 @@ function calc_tier_policy_status(tier, tier_info, extra_info) {
     }
     if (is_no_storage) {
         return 'NO_CAPACITY';
-    }
-    if (low_tolerance) {
-        return 'RISKY_TOLERANCE';
     }
     if (is_storage_low) {
         return 'LOW_CAPACITY';

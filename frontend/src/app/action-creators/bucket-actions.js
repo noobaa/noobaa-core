@@ -85,10 +85,10 @@ export function failUpdateBucketQuotaPolicy(bucket, error) {
     };
 }
 
-export function updateBucketResiliencyPolicy(bucket, tier, policy) {
+export function updateBucketResiliencyPolicy(bucket, policy) {
     return {
         type: UPDATE_BUCKET_RESILIENCY_POLICY,
-        payload: { bucket, tier, policy }
+        payload: { bucket, policy }
     };
 }
 

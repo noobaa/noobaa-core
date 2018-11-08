@@ -4,8 +4,22 @@ const resiliencyMode = {
     type: 'string',
     enum: [
         'NOT_ENOUGH_RESOURCES',
+        'POLICY_PARTIALLY_APPLIED',
         'RISKY_TOLERANCE',
         'DATA_ACTIVITY',
+        'OPTIMAL'
+    ]
+};
+
+const tierMode = {
+    type: 'string',
+    enum: [
+        'NO_RESOURCES',
+        'NOT_ENOUGH_RESOURCES',
+        'NOT_ENOUGH_HEALTHY_RESOURCES',
+        'INTERNAL_STORAGE_ISSUES',
+        'NO_CAPACITY',
+        'LOW_CAPACITY',
         'OPTIMAL'
     ]
 };
@@ -36,19 +50,23 @@ export default {
             mode: {
                 type: 'string',
                 enum: [
-                    'OPTIMAL',
-                    'DATA_ACTIVITY',
-                    'APPROUCHING_QUOTA',
-                    'LOW_CAPACITY',
-                    'RISKY_TOLERANCE',
-                    'NO_RESOURCES_INTERNAL',
-                    'MANY_TIERS_ISSUES',
-                    'ONE_TIER_ISSUES',
-                    'EXCEEDING_QUOTA',
-                    'NO_CAPACITY',
-                    'NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'NO_RESOURCES',
                     'NOT_ENOUGH_RESOURCES',
-                    'NO_RESOURCES'
+                    'NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'NO_CAPACITY',
+                    'ALL_TIERS_HAVE_ISSUES',
+                    'EXCEEDING_QUOTA',
+                    'TIER_NO_RESOURCES',
+                    'TIER_NOT_ENOUGH_RESOURCES',
+                    'TIER_NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'TIER_NO_CAPACITY',
+                    'LOW_CAPACITY',
+                    'TIER_LOW_CAPACITY',
+                    'NO_RESOURCES_INTERNAL',
+                    'RISKY_TOLERANCE',
+                    'APPROUCHING_QUOTA',
+                    'DATA_ACTIVITY',
+                    'OPTIMAL'
                 ]
             },
             storage: {
@@ -97,20 +115,7 @@ export default {
                                         name: {
                                             type: 'string'
                                         },
-                                        mode: {
-                                            type: 'string',
-                                            enum: [
-                                                'INTERNAL_ISSUES',
-                                                'NO_RESOURCES',
-                                                'NOT_ENOUGH_RESOURCES',
-                                                'NOT_ENOUGH_HEALTHY_RESOURCES',
-                                                'NO_CAPACITY',
-                                                'RISKY_TOLERANCE',
-                                                'LOW_CAPACITY',
-                                                'DATA_ACTIVITY',
-                                                'OPTIMAL'
-                                            ]
-                                        },
+                                        mode: tierMode,
                                         policyType: {
                                             type: 'string',
                                             enum: [
@@ -135,20 +140,7 @@ export default {
                                         name: {
                                             type: 'string'
                                         },
-                                        mode: {
-                                            type: 'string',
-                                            enum: [
-                                                'INTERNAL_ISSUES',
-                                                'NO_RESOURCES',
-                                                'NOT_ENOUGH_RESOURCES',
-                                                'NOT_ENOUGH_HEALTHY_RESOURCES',
-                                                'NO_CAPACITY',
-                                                'RISKY_TOLERANCE',
-                                                'LOW_CAPACITY',
-                                                'DATA_ACTIVITY',
-                                                'OPTIMAL'
-                                            ]
-                                        },
+                                        mode: tierMode,
                                         policyType: {
                                             type: 'string',
                                             enum: [

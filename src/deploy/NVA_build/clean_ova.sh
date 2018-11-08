@@ -99,7 +99,7 @@ then
 fi
 
 #calling yum upgrade before cleaning the network
-yum upgrade -y 
+yum upgrade -y
 
 if ! ${isEsx}
 then
@@ -117,6 +117,7 @@ echo Passw0rd | passwd noobaaroot --stdin
 rm -f /var/log/*.log
 rm -f /var/log/*-*
 rm -f /var/log/noobaa*
+rm -f /var/log/nbfedump/*
 rm -f /tmp/supervisor/*
 rm -f /tmp/supervisord.log
 rm -rf /etc/mongo_ssl/

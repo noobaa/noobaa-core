@@ -387,7 +387,6 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
         const { location, buckets, objects, objectParts,
             cloudResources, accounts, system } = state;
 
-
         return [
             location,
             buckets && buckets[bucketName],
@@ -399,7 +398,15 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
         ];
     }
 
-    mapStateToProps(location, bucket, object, parts, cloudResources, user, sslCert) {
+    mapStateToProps(
+        location,
+        bucket,
+        object,
+        parts,
+        cloudResources,
+        user,
+        sslCert
+    ) {
         if (!parts || !user) {
             ko.assignToProps(this, {
                 partsLoaded: false,
@@ -423,7 +430,7 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
             const selectedRow = isDefined(query.row) ? Number(query.row) : -1;
             const isRowSelected = selectedRow > -1;
             const cloudTypeMapping = mapValues(cloudResources, res => res.type);
-            const resourceCount = bucket.placement2.tiers.reduce(
+            const resourceCount = bucket.placement.tiers.reduce(
                 (count, tier) => count + tier.mirrorSets.reduce(
                     (count, ms) => count + ms.resources.length,
                     0

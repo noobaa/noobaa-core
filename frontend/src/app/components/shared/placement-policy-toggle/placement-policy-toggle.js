@@ -3,8 +3,11 @@
 import template from './placement-policy-toggle.html';
 import { deepFreeze } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
-import { editBucketPlacementMirrorTooltip, editBucketPlacementSpreadTooltip } from 'knowledge-base-articles';
 import ko from 'knockout';
+import {
+    placementPolicyToggleMirrorTooltip,
+    placementPolicyToggleSpreadTooltip
+} from 'knowledge-base-articles';
 
 const policyTypeOptions = deepFreeze([
     {
@@ -26,7 +29,7 @@ const policyTypeOptions = deepFreeze([
                 ],
                 link: {
                     text: 'Learn more about spread policy',
-                    href: editBucketPlacementSpreadTooltip
+                    href: placementPolicyToggleSpreadTooltip
                 }
 
             }
@@ -51,7 +54,7 @@ const policyTypeOptions = deepFreeze([
                 ],
                 link: {
                     text: 'Learn more about mirror policy',
-                    href: editBucketPlacementMirrorTooltip
+                    href: placementPolicyToggleMirrorTooltip
                 }
 
             }

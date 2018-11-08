@@ -92,7 +92,7 @@ class BucketQuotaPolicyFormViewModel extends Observer {
             );
 
             this.isQuotaDisabled(false);
-            this.stateIcon(getQuotaStateIcon(quota.mode));
+            this.stateIcon(getQuotaStateIcon(quota));
             this.summary(`Set to ${formatSize(quotaSize)}`);
             this.quotaStateText('Enabled');
             this.quotaSize(formatSize(quotaSize));

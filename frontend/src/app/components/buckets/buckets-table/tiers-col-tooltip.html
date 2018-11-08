@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<ol class="list-no-style" ko.foreach="$data">
-    <li>
+<ol class="list-no-style column" ko.foreach="$data">
+    <li ko.css.push-prev-half="$index">
         <p>
             <span class="highlight">Tier {{tierIndex}}:</span>
             {{placement}}

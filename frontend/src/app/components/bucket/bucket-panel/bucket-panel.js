@@ -25,10 +25,10 @@ function _getPlacementCounterState(bucket) {
     const counterState = { count: 0, severity: '' };
     if (!bucket) return counterState;
 
-    return bucket.placement2.tiers
+    return bucket.placement.tiers
         .map(tier =>
             tier.policyType !== 'INTERNAL_STORAGE' ?
-                getPlacementStateIcon(tier.mode).css :
+                getPlacementStateIcon(tier).css :
                 'warning'
         )
         .reduce(_updateCounterState, counterState);
@@ -40,9 +40,9 @@ function _getPolicyCounterState(bucket) {
 
     const { resiliency, versioning, quota } = bucket;
     return [
-        getResiliencyStateIcon(resiliency.mode).css,
+        getResiliencyStateIcon(resiliency).css,
         versioning.mode === 'SUSPENDED' ? 'warning' : '',
-        quota ? getQuotaStateIcon(quota.mode).css : ''
+        quota ? getQuotaStateIcon(quota).css : ''
     ].reduce(_updateCounterState, counterState);
 }
 

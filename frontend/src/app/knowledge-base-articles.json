@@ -5,10 +5,8 @@
     "editBucketDataResiliency": "https://noobaa.desk.com/customer/en/portal/articles/2918448-how-to-edit-bucket-data-resiliency-",
     "createFunction": "https://noobaa.desk.com/customer/en/portal/articles/2939400-create-your-own-serverless-function",
     "addBucketTrigger": "https://noobaa.desk.com/customer/en/portal/articles/2939400-create-your-own-serverless-function",
-    "createBucketMirrorTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
-    "createBucketSpreadTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
-    "editBucketPlacementMirrorTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
-    "editBucketPlacementSpreadTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
     "ipCollisionSticky": "https://noobaa.desk.com/customer/en/portal/articles/2950678-ip-collision-detection-",
-    "usingInternalStorageWarningTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2852040-joining-storage-nodes-to-noobaa"
+    "usingInternalStorageWarningTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2852040-joining-storage-nodes-to-noobaa",
+    "placementPolicyToggleMirrorTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
+    "placementPolicyToggleSpreadTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror"
 }

@@ -10,6 +10,7 @@ const AzureFunctions = require('./azureFunctions');
 
 const P = require('../util/promise');
 const af = require('../test/utils/agent_functions'); //TODO: remove from here when Win can be copied from an image
+const srv_ops = require('../test/utils/basic_server_ops');
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('azureJs');
 
@@ -71,13 +72,14 @@ Usage:
       --clusterize                If the number of servers > 1, this flag will clusterize all the servers together, default is false
       --nosystem                  Skip system creation, defaults is to create one. If clusterize is turned on, a system will be created
       --setNTP                    If supplied will set NTP to local IL time and TZ. Default is off
+      --upgrade                   will upgrade to the given package immediately after system creation
       \n
       Examples:
       \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name test1 --servers 1 --setNTP
-      \t\tWould result in creating 1 new server with the name test1 with a system created and an NTP congiured\n
+      \t\tWould result in creating 1 new server with the name test1 with a system created and an NTP configured\n
       \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name test1 --servers 1 --nosystem
       \t\tWould result in creating 1 new server with the name test1 with no system and no NTP configured\n
-      \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name clust1 --servers 3 --clusterize
+      \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name cluster1 --servers 3 --clusterize
       \t\tWould result in creating 3 new servers in the names of cluster101, cluster102, cluster103 and clusterizing them\n
     `);
 }
@@ -106,7 +108,7 @@ Usage:
     \n
     Examples:
     \tnode src/deploy/azure.js agent --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --ip 20.190.61.158 --add 1 --os redhat6 --usemarket
-    \t\tWould result in adding 1 new agent to the server at 20.190.61.158, of type redhar6 using the market image\n
+    \t\tWould result in adding 1 new agent to the server at 20.190.61.158, of type redhat6 using the market image\n
     \tnode src/deploy/azure.js agent --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --ip 20.190.61.158 --add 12 --allimages
     \t\tWould result in adding 12 agents, from all supported OSs (round robin). All agents will be created form the pre-prepared images if such are available\n
     \tnode src/deploy/azure.js agent --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --ip 20.190.61.158 --delete 2
@@ -268,6 +270,7 @@ async function _runServer() {
     const serverName = argv.name;
     const numServers = argv.servers || 1;
     const setNTP = Boolean(argv.clusterize || argv.setNTP);
+    const upgrade_package = argv.upgrade || undefined;
     let createSystem;
     if (argv.clusterize) {
         createSystem = true;
@@ -300,7 +303,10 @@ async function _runServer() {
         }
         server.secret = await azf.createServer(createServerParams);
         server.ip = await azf.getIpAddress(server.name + '_pip');
-        console.log(`Cluster/Server: ${serverName} was successfuly created, ip is: ${server.ip}` + (server.secret ? ` secret is: ${server.secret}` : ''));
+        if (createSystem && upgrade_package) {
+            await srv_ops.upload_and_upgrade(server.ip, upgrade_package);
+        }
+        console.log(`Cluster/Server: ${serverName} was successfully created, ip is: ${server.ip}` + (server.secret ? ` secret is: ${server.secret}` : ''));
     });
     if (argv.servers > 1 && argv.clusterize) {
         console.log('Clusterizing servers');
@@ -342,7 +348,7 @@ function _runAgent() {
                 }
                 return P.map(machines_to_del,
                     machine => azf.deleteVirtualMachine(machine)
-                    .then(() => console.log(`Finsihed deleting ${machine}`))
+                    .then(() => console.log(`Finished deleting ${machine}`))
                     .catch(err => console.log('got error on deleteVirtualMachine', err)));
             } else { //Add Agents
                 const agentsPlan = agents_plan_builder(addAgents, (allimages ? 'ALL' : os), prefix, current_vms.length);

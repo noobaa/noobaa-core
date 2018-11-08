@@ -288,7 +288,7 @@ function update_policy(req) {
 
 }
 
-function update_chunk_config_for_bucket(req) { // please remove when CCC is per tier and not per policy  
+function update_chunk_config_for_bucket(req) { // please remove when CCC is per tier and not per policy
     var bucket = req.system.buckets_by_name[req.rpc_params.bucket_name];
     if (!bucket) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.bucket_name);
@@ -640,7 +640,7 @@ function calc_tier_policy_status(tier, tier_info, extra_info) {
     if (extra_info.use_internal && extra_info.mirrors_with_valid_pool === 0) {
         return 'INTERNAL_STORAGE_ISSUES';
     }
-    if (!extra_info.has_valid_pool) {
+    if (!extra_info.has_any_pool_configured) {
         return 'NO_RESOURCES';
     }
     if (!has_enough_total_nodes_for_tier) {

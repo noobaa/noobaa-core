@@ -986,6 +986,8 @@ function get_bucket_info({
     bucket_stats
 }) {
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
+    const tiering = tier_server.get_tiering_policy_info(bucket.tiering, tiering_pools_status,
+            nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier);
     const info = {
         name: bucket.name,
         namespace: bucket.namespace ? {
@@ -993,8 +995,7 @@ function get_bucket_info({
                 bucket.namespace.write_resource).name,
             read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_info(rs).name)
         } : undefined,
-        tiering: tier_server.get_tiering_policy_info(bucket.tiering, tiering_pools_status,
-            nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier),
+        tiering: tiering,
         tag: bucket.tag ? bucket.tag : '',
         num_objects: num_of_objects || 0,
         writable: false,
@@ -1038,7 +1039,7 @@ function get_bucket_info({
     // calc_bucket_aggregated_mode(metrics);
     info.mode = bucket.namespace ?
         calc_namespace_mode() :
-        calc_bucket_mode(metrics);
+        calc_bucket_mode(tiering.tiers, metrics);
 
     info.triggers = _.map(bucket.lambda_triggers, trigger => {
         const ret_trigger = _.omit(trigger, '_id');
@@ -1236,23 +1237,27 @@ function calc_namespace_mode() {
     return 'OPTIMAL';
 }
 
-function calc_bucket_mode(bucket, metrics) {
-    const tiers = bucket.tiering.tiers;
+function calc_bucket_mode(tiers, metrics) {
     const {
         NO_RESOURCES = 0,
-            NOT_ENOUGH_RESOURCES = 0,
-            NOT_ENOUGH_HEALTHY_RESOURCES = 0,
-            NO_CAPACITY = 0,
-            LOW_CAPACITY = 0,
-            INTERNAL_STORAGE_ISSUES = 0,
-            OPTIMAL = 0
-    } = _.mapValues(_.groupBy(tiers, t => t.mode), arr => arr.length);
+        NOT_ENOUGH_RESOURCES = 0,
+        NOT_ENOUGH_HEALTHY_RESOURCES = 0,
+        INTERNAL_STORAGE_ISSUES = 0,
+        NO_CAPACITY = 0,
+        LOW_CAPACITY = 0
+    } = _.countBy(tiers, t => t.mode);
 
-    return ((INTERNAL_STORAGE_ISSUES || (NO_RESOURCES === tiers.length)) && 'NO_RESOURCES') ||
+    const issueCount =
+        NO_RESOURCES +
+        NOT_ENOUGH_RESOURCES +
+        NOT_ENOUGH_HEALTHY_RESOURCES;
+
+    return (NO_RESOURCES === tiers.length && 'NO_RESOURCES') ||
         (NOT_ENOUGH_RESOURCES === tiers.length && 'NOT_ENOUGH_RESOURCES') ||
         (NOT_ENOUGH_HEALTHY_RESOURCES === tiers.length && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
+        (INTERNAL_STORAGE_ISSUES && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
         (NO_CAPACITY === tiers.length && 'NO_CAPACITY') ||
-        (OPTIMAL === 0 && 'ALL_TIERS_HAVE_ISSUES') ||
+        (issueCount === tiers.length && 'ALL_TIERS_HAVE_ISSUES') ||
         (metrics.is_quota_enabled && metrics.is_quota_exceeded && 'EXCEEDING_QUOTA') ||
         (NO_RESOURCES && 'TIER_NO_RESOURCES') ||
         (NOT_ENOUGH_RESOURCES && 'TIER_NOT_ENOUGH_RESOURCES') ||

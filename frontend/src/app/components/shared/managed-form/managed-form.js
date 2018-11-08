@@ -97,7 +97,7 @@ class ManagedFormViewModel {
         // listen for state changes.
         this.stateSub = state$
             .pipe(get('forms', name))
-            .subscribe(this._onState.bind(this))
+            .subscribe(this._onState.bind(this));
     }
 
     get name() {

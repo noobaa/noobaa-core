@@ -37,7 +37,7 @@ const bucketStateToIcon = deepFreeze(
             name: 'problem'
         },
         RISKY_TOLERANCE: {
-            tooltip: 'Risky failure tolerance ',
+            tooltip: 'Risky failure tolerance',
             css: 'warning',
             name: 'problem'
         },
@@ -62,7 +62,7 @@ const bucketStateToIcon = deepFreeze(
             name: 'problem'
         },
         ONE_TIER_ISSUES: bucket => {
-            const i = bucket.placement2.tiers.findIndex(tier =>
+            const i = bucket.placement.tiers.findIndex(tier =>
                 tier.mode !== 'OPTIMAL'
             );
 
@@ -313,12 +313,13 @@ export function getVersioningStateText(versioningMode) {
 
 export function flatPlacementPolicy(bucket) {
     return flatMap(
-        bucket.placement2.tiers,
-        tier => flatMap(
+        bucket.placement.tiers,
+        (tier, i) => flatMap(
             tier.policyType === 'INTERNAL_STORAGE' ? [] : tier.mirrorSets,
             ms => ms.resources.map(resource => ({
                 bucket: bucket.name,
                 tier: tier.name,
+                tierIndex: i,
                 mirrorSet: ms.name,
                 resource: resource
             }))

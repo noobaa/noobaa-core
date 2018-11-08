@@ -27,19 +27,21 @@ export function splitObjectId(objId) {
 export function summerizePartDistribution(bucket, part) {
     const { resiliency, placement } = bucket;
 
-    const placementMirroSets = placement.mirrorSets
-        .map(mirrorSet => mirrorSet.name);
+    const mirrorSets = flatMap(
+        placement.tiers,
+        tier => tier.mirrorSets
+    );
 
     const blocksByGorupId = groupBy(
         part.blocks,
         block => _getBlockGroupID(
             block,
-            placementMirroSets,
+            mirrorSets.map(mirrorSet => mirrorSet.name),
             resiliency.kind
         ),
     );
 
-    const groups = placement.mirrorSets
+    const groups = mirrorSets
         .map((mirrorSet, index) => {
             const type = 'MIRROR_SET';
             const { name, resources } = mirrorSet;

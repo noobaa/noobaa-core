@@ -5,7 +5,7 @@ import chartTooltipTemplate from './chart-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import { deepFreeze, flatMap, mapValues, sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { isSizeZero, formatSize, toBytes } from 'utils/size-utils';
+import { isSizeZero, formatSize, toBytes, sumSize } from 'utils/size-utils';
 import ko from 'knockout';
 import style from 'style';
 import moment from 'moment';
@@ -41,12 +41,12 @@ function _summrizeResiliencyPolicy(resiliency) {
     return { desc, driveCount };
 }
 
-function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
+function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources) {
     const { tiers } = bucket.placement;
 
     switch (bucket.mode) {
         case 'NO_RESOURCES': {
-            return 'This bucket is not connected to any resources that can be utilized. Add resources via bucket data placement policy'
+            return 'This bucket is not connected to any resources that can be utilized. Add resources via bucket data placement policy';
         }
         case 'NOT_ENOUGH_RESOURCES': {
             const { desc, driveCount } = _summrizeResiliencyPolicy(bucket.resiliency);
@@ -92,7 +92,16 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools) {
             return `The currently size available for uploads is ${available}, try adding more resources or change the bucket policies`;
         }
         case 'TIER_LOW_CAPACITY': {
-            return 'TODO: Waiting for shiri';
+            const i = tiers.findIndex(tier => tier.mode === 'LOW_CAPACITY');
+            const availableSize = flatMap(tiers[i].mirrorSets || [], ms => ms.resources)
+                .reduce((size, { type, name }) => {
+                    const coll = type === 'HOSTS' ? hostPools : cloudResources;
+                    const { free = 0, unavailableFree = 0 } = coll[name];
+                    return sumSize(size, free, unavailableFree);
+                }, 0);
+            const available = formatSize(availableSize);
+
+            return `Tier ${i + 1} current available capacity is only ${available}. If you wish to continue writing to this tier, try adding more resources or change the bucket policies `;
         }
         case 'NO_RESOURCES_INTERNAL': {
             return 'Bucket doesn\’t have any connected resources in it’s tier. Currently the system is using the internal VM disk capacity to store data which is not recommended. Add resources to the bucket’s tier placement policy.';
@@ -143,9 +152,9 @@ function _formatAvailablityLimits(val) {
     return val === 0 ? '0' : formatSize(val);
 }
 
-function _getBucketStateInfo(bucket, dataBreakdown, hostPools) {
+function _getBucketStateInfo(bucket, dataBreakdown, hostPools, cloudResources) {
     const { name, css, tooltip: { text } } = getBucketStateIcon(bucket);
-    const tooltip = _mapModeToStateTooltip(bucket, dataBreakdown, hostPools);
+    const tooltip = _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources);
     return {
         icon: {
             name,
@@ -272,11 +281,12 @@ class BucketSummrayViewModel extends ConnectableViewModel {
     selectState(state, params) {
         return [
             state.buckets && state.buckets[params.bucketName],
-            state.hostPools
+            state.hostPools,
+            state.cloudResources
         ];
     }
 
-    mapStateToProps(bucket, hostPools) {
+    mapStateToProps(bucket, hostPools, cloudResources) {
         if (!bucket) {
             ko.assignToProps(this, {
                 dataReady: false
@@ -298,7 +308,7 @@ class BucketSummrayViewModel extends ConnectableViewModel {
 
             ko.assignToProps(this, {
                 dataReady: true,
-                state: _getBucketStateInfo(bucket, dataBreakdown, hostPools),
+                state: _getBucketStateInfo(bucket, dataBreakdown, hostPools, cloudResources),
                 dataPlacement: _getDataPlacementText(placement),
                 availablity: [
                     {

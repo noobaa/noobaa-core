@@ -657,9 +657,12 @@ function get_frag_info(chunk, frag, blocks, mapping, adminfo, location_info) {
         lrc_index: frag.lrc_index,
         digest_b64: frag.digest && frag.digest.toString('base64'),
         blocks: blocks ? _.map(blocks, block => get_block_info(chunk, frag, block, adminfo)) : [],
-        deletions: mapping.deletions ? _.map(mapping.deletions, block => get_block_info(chunk, frag, block, adminfo)) : [],
-        future_deletions: mapping.future_deletions ? _.map(mapping.future_deletions,
-            block => get_block_info(chunk, frag, block, adminfo)) : [],
+        deletions: mapping.deletions ? _.map(mapping.deletions, block => ({
+            block_id: get_block_md(chunk, frag, block).id
+        })) : [],
+        future_deletions: mapping.future_deletions ? _.map(mapping.future_deletions, block => ({
+            block_id: get_block_md(chunk, frag, block).id
+        })) : [],
         allocations: mapping.allocations ? _.map(mapping.allocations, alloc => get_alloc_info(alloc)) : [],
     };
 }

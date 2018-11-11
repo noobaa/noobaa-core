@@ -193,9 +193,13 @@ class BlockStoreBase {
         const block_md = req.rpc_params.block_md;
         const data = req.rpc_params[RPC_BUFFERS].data || Buffer.alloc(0);
         dbg.log1('write_block', block_md.id, data.length, 'node', this.node_name);
+        const required_space = data.length + (1024 * 1024); // require some spare space
+        if (this.total_capacity - this._usage.size < required_space) {
+            throw new RpcError('NO_BLOCK_STORE_SPACE', 'used space exceeded the total capacity of ' +
+                this.total_capacity + ' bytes');
+        }
         if (this.storage_limit) {
             const free_space = this.storage_limit - this._usage.size;
-            const required_space = data.length + (1024 * 1024); // require some spare space
             if (free_space < required_space) {
                 throw new Error('used space exceeded the storage limit of ' +
                     this._storage_limit + ' bytes');

@@ -28,6 +28,19 @@ module.exports = {
             auth: { system: 'admin' }
         },
 
+        make_room_in_tier: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['bucket', 'tier'],
+                properties: {
+                    bucket: { objectid: true },
+                    tier: { objectid: true },
+                }
+            },
+            auth: { system: 'admin' }
+        },
+
     },
 
     definitions: {

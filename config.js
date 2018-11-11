@@ -73,7 +73,7 @@ config.DEDUP_ENABLED = true;
 config.NOOBAA_EPOCH = 1430006400000;
 config.NEW_SYSTEM_POOL_NAME = 'first.pool';
 config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
-config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
+// config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
 
 config.MD_AGGREGATOR_INTERVAL = 30000;
 // the max cycles limits how many intervals the aggregator will split the gap
@@ -96,6 +96,7 @@ config.IO_REPLICATE_BLOCK_TIMEOUT = 120 * 1000;
 config.IO_REPLICATE_RETRY_DELAY_MS = 100;
 config.IO_READ_BLOCK_TIMEOUT = 120 * 1000;
 config.IO_DELETE_BLOCK_TIMEOUT = 120 * 1000;
+config.IO_WRITE_PART_ATTEMPTS_EXHAUSTED = 120 * 1000;
 
 config.IO_WRITE_CONCURRENCY_GLOBAL = 256;
 config.IO_REPLICATE_CONCURRENCY_GLOBAL = 256;
@@ -161,6 +162,7 @@ config.REBUILD_NODE_BATCH_DELAY = 50;
 // TODO: Temporary using the same number but later on they will be different cellings
 config.MIN_TIER_FREE_THRESHOLD = 100 * 1024 * 1024;
 config.MAX_TIER_FREE_THRESHOLD = 100 * 1024 * 1024;
+config.ENOUGH_ROOM_IN_TIER_THRESHOLD = 100 * 1024 * 1024;
 
 config.CHUNK_MOVE_LIMIT = 10;
 

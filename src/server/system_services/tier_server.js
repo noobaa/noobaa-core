@@ -325,13 +325,11 @@ function add_tier_to_bucket(req) {
         pool_name => req.system.pools_by_name[pool_name]._id
     );
     const mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
+    const info = req.system.tiering_policies_by_name[policy.name.unwrap()];
+    const tier0_ccc = info.tiers[0].tier.chunk_config.chunk_coder_config;
     let chunk_config = chunk_config_utils.resolve_chunk_config(
-        req.rpc_params.chunk_coder_config, req.account, req.system);
-    if (!chunk_config._id) {
-        const info = get_tiering_policy_info(policy);
-        chunk_config = chunk_config_utils.resolve_chunk_config(
-            info.tiers[0].tier.chunk_coder_config, req.account, req.system);
-    }
+        req.rpc_params.chunk_coder_config || tier0_ccc, req.account, req.system);
+
     const new_tier_name = bucket.name + '#' + Date.now().toString(36);
     const tier = new_tier_defaults(
         new_tier_name,
@@ -462,6 +460,8 @@ function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, h
     const info = {
         has_any_pool_configured: false,
         num_nodes_in_mirror_group: 0,
+        num_valid_nodes: 0,
+        num_valid_hosts: 0,
         mirrors_with_valid_pool: 0,
         mirrors_with_enough_nodes: 0,
         has_internal_or_cloud_pool: false,
@@ -498,10 +498,10 @@ function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, h
         const num_valid_nodes_for_minimum = _.isUndefined(info.num_valid_nodes) ? Number.MAX_SAFE_INTEGER : info.num_valid_nodes;
         const potential_new_minimum = info.has_internal_or_cloud_pool ?
             Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
-        info.num_of_nodes = Math.min(existing_minimum, potential_new_minimum);
+        info.num_of_nodes = info.use_internal ? 0 : Math.min(existing_minimum, potential_new_minimum);
         const potential_new_hosts_minimum = info.has_internal_or_cloud_pool ?
             Number.MAX_SAFE_INTEGER : info.num_valid_hosts;
-        info.num_of_hosts = Math.min(existing_hosts_minimum, potential_new_hosts_minimum);
+        info.num_of_hosts = info.use_internal ? 0 : Math.min(existing_hosts_minimum, potential_new_hosts_minimum);
     });
     info.num_of_nodes = info.num_of_nodes || 0;
     info.num_of_hosts = info.num_of_hosts || 0;

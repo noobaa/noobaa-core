@@ -3739,7 +3739,11 @@ class NodesMonitor extends EventEmitter {
                 'issues_report', item.node.issues_report,
                 'block_report', block_report);
             // disconnect from the node to force reconnect
-            this._disconnect_node(item);
+            if (block_report.rpc_code === 'NO_BLOCK_STORE_SPACE') {
+                // TODO SYNC STORAGE SPACE WITH THE NODE...
+            } else {
+                this._disconnect_node(item);
+            }
         }
     }
 

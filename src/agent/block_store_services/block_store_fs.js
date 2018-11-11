@@ -58,9 +58,6 @@ class BlockStoreFs extends BlockStoreBase {
                         });
                 }
             });
-
-
-
     }
 
     get_storage_info() {
@@ -76,6 +73,7 @@ class BlockStoreFs extends BlockStoreBase {
             .spread((usage, drive) => {
                 const storage = drive.storage;
                 storage.used = usage.size;
+                this.total_capacity = Math.min(storage.total, this.storage_limit);
                 return storage;
             });
     }

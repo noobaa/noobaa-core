@@ -8,6 +8,7 @@ const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const mongo_utils = require('../../util/mongo_utils');
 const node_allocator = require('./node_allocator');
+const system_store = require('../system_services/system_store').get_instance();
 
 const NODE_FIELDS_FOR_MAP = [
     'name',
@@ -270,18 +271,9 @@ class NodesClient {
         return this.populate_nodes(system_id, docs, doc_path, NODE_FIELDS_FOR_MAP);
     }
 
-    report_error_on_node_blocks(system_id, blocks_report) {
+    async report_error_on_node_blocks(system_id, blocks_report, bucket_name) {
 
-        // node_allocator keeps nodes in memory,
-        // and in the write path it allocated a block on a node that failed to write
-        // so we notify about the error to remove the node from next allocations
-        // until it will refresh the alloc.
-        _.each(blocks_report, block_report => {
-            const node_id = block_report.block_md.node;
-            node_allocator.report_error_on_node_alloc(node_id);
-        });
-
-        return server_rpc.client.node.report_error_on_node_blocks({
+        await server_rpc.client.node.report_error_on_node_blocks({
             blocks_report: blocks_report
         }, {
             auth_token: auth_server.make_auth_token({
@@ -289,6 +281,21 @@ class NodesClient {
                 role: 'admin'
             })
         });
+
+        // node_allocator keeps nodes in memory,
+        // and in the write path it allocated a block on a node that failed to write
+        // so we notify about the error to remove the node from next allocations
+        // until it will refresh the alloc.
+        for (const block_report of blocks_report) {
+            if (block_report.rpc_code === 'NO_BLOCK_STORE_SPACE') {
+                const bucket = _.find(system_store.data.buckets, b => (b.name === bucket_name));
+                dbg.log0('JAJA NO_BLOCK_STORE_SPACE', system_store.data.buckets, bucket_name);
+                await node_allocator.refresh_tiering_alloc(bucket.tiering, 'force');
+            } else {
+                const node_id = block_report.block_md.node;
+                node_allocator.report_error_on_node_alloc(node_id);
+            }
+        }
     }
 
 

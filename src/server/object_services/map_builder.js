@@ -21,9 +21,11 @@ const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const size_utils = require('../../util/size_utils');
+const Semaphore = require('../../util/semaphore');
 
 const builder_lock = new KeysLock();
 const object_io = new ObjectIO();
+const _load_serial = new Semaphore(1);
 
 // dbg.set_level(5);
 
@@ -196,15 +198,16 @@ class MapBuilder {
                 throw new Error(`Not all chunks belong to the same bucket`);
             }
             const bucket = buckets[0];
-            dbg.log0('JAJA bucket', bucket);
-            chunks_moving_tiers = await make_room_in_tier(this.tier, bucket); /* TODO JACKY free_threshold ??? */
+            chunks_moving_tiers = await ensure_room_in_tier(this.tier, bucket); /* TODO JACKY free_threshold ??? */
         } else {
             for (const chunk of populated_chunks) {
-                chunks_moving_tiers += await make_room_in_tier(chunk.tier, chunk.bucket);
+                chunks_moving_tiers += await ensure_room_in_tier(chunk.tier, chunk.bucket);
             }
         }
         // We always call refresh_tiering_alloc twice, but if make_room_in_tier doesn't do anything we can skip it
-        return await chunks_moving_tiers && P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
+        if (chunks_moving_tiers) {
+            await P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
+        }
     }
 
     build_chunks() {
@@ -433,9 +436,96 @@ class MapBuilder {
             this.tier && MDStore.instance().update_chunks_by_ids(success_chunk_ids, { tier: this.tier._id }),
         );
     }
+
 }
 
-async function make_room_in_tier(tier, bucket) {
+// async function make_room_in_tier(tier, bucket) {
+//     const tiering = bucket.tiering;
+//     const tiering_status = node_allocator.get_tiering_status(tiering);
+//     const tier_status = tiering_status[tier._id];
+//     const tier_in_tiering = _.find(tiering.tiers, t => String(t.tier._id) === String(tier._id));
+//     if (!tier_in_tiering || !tier_status) throw new Error(`Can't find current tier in bucket`);
+//     const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
+//         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
+//     ));
+//     if (available_to_upload && available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD * 2)) {
+//         dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.MIN_TIER_FREE_THRESHOLD * 2);
+//         return 0;
+//     }
+//     const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
+//     // const next_tier = _.find(tiering.tiers, t => t.order === (tier_in_tiering.order + 1));
+//     const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
+//     if (!next_tier) {
+//         dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
+//         return 0;
+//     }
+//     dbg.log0(`make_room_in_tier: not enough room ${tier.name}: ${available_to_upload} < ${config.MIN_TIER_FREE_THRESHOLD * 2}
+//         moving ${chunk_ids.length} to next tier ${next_tier.name}`);
+//     await server_rpc.client.scrubber.build_chunks({
+//         chunk_ids,
+//         tier: next_tier._id,
+//     }, {
+//         auth_token: auth_server.make_auth_token({
+//             system_id: bucket.system._id,
+//             role: 'admin'
+//         })
+//     });
+//     dbg.log0(`make_room_in_tier: Done making room in tier ${tier.name}`);
+//     return chunk_ids.length;
+// }
+
+async function make_room_in_tier(tier_id, bucket_id) {
+    return _load_serial.surround(async () => {
+        const tier = tier_id && system_store.data.get_by_id(tier_id);
+        const bucket = bucket_id && system_store.data.get_by_id(bucket_id);
+        const tiering = bucket.tiering;
+        await server_rpc.client.node.sync_monitor_to_store(undefined, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_store.data.systems[0]._id,
+                role: 'admin'
+            })
+        });
+        await node_allocator.refresh_tiering_alloc(tiering, 'force');
+        const tiering_status = node_allocator.get_tiering_status(tiering);
+        if (enough_room_in_tier(tier, bucket)) return 0;
+        const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
+        const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
+        if (!next_tier) {
+            dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
+            return 0;
+        }
+        await server_rpc.client.scrubber.build_chunks({
+            chunk_ids,
+            tier: next_tier._id,
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: bucket.system._id,
+                role: 'admin'
+            })
+        });
+        return chunk_ids.length;
+    });
+}
+
+async function ensure_room_in_tier(tier, bucket) {
+    if (enough_room_in_tier(tier, bucket)) return 0;
+    dbg.log0('ZZZZ current place is less than', config.MIN_TIER_FREE_THRESHOLD * 2);
+    const moved_chunks = await server_rpc.client.scrubber.make_room_in_tier({
+        tier: tier._id,
+        bucket: bucket._id
+    }, {
+        auth_token: auth_server.make_auth_token({
+            system_id: bucket.system._id,
+            role: 'admin'
+        })
+    });
+    dbg.log0(`make_room_in_tier: moved ${moved_chunks} to next tier`);
+    dbg.log0(`ZZZZ moved ${moved_chunks} :~${moved_chunks * 5 * 1024 * 1024} was freed`);
+    enough_room_in_tier(tier, bucket, 'after');
+    return moved_chunks;
+}
+
+function enough_room_in_tier(tier, bucket, after) {
     const tiering = bucket.tiering;
     const tiering_status = node_allocator.get_tiering_status(tiering);
     const tier_status = tiering_status[tier._id];
@@ -444,30 +534,15 @@ async function make_room_in_tier(tier, bucket) {
     const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
     ));
+    dbg.log0('ZZZZ current place in tier is', available_to_upload, tier_status.mirrors_storage);
     if (available_to_upload && available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD * 2)) {
         dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.MIN_TIER_FREE_THRESHOLD * 2);
-        return 0;
+        return true;
+    } else {
+        dbg.log0(`make_room_in_tier: not enough room ${tier.name}: ${available_to_upload} < ${config.MIN_TIER_FREE_THRESHOLD * 2}
+        should move chunks to next tier`);
+        return false;
     }
-    const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
-    // const next_tier = _.find(tiering.tiers, t => t.order === (tier_in_tiering.order + 1));
-    const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
-    if (!next_tier) {
-        dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
-        return 0;
-    }
-    dbg.log0(`make_room_in_tier: not enough room ${tier.name}: ${available_to_upload} < ${config.MIN_TIER_FREE_THRESHOLD * 2}
-        moving ${chunk_ids.length} to next tier ${next_tier.name}`);
-    await server_rpc.client.scrubber.build_chunks({
-        chunk_ids,
-        tier: next_tier._id,
-    }, {
-        auth_token: auth_server.make_auth_token({
-            system_id: bucket.system._id,
-            role: 'admin'
-        })
-    });
-    dbg.log0(`make_room_in_tier: Done making room in tier ${tier.name}`);
-    return chunk_ids.length;
 }
 
 /**
@@ -480,4 +555,6 @@ function custom_inspect_chunk() {
 }
 
 exports.MapBuilder = MapBuilder;
+exports.ensure_room_in_tier = ensure_room_in_tier;
+exports.enough_room_in_tier = enough_room_in_tier;
 exports.make_room_in_tier = make_room_in_tier;

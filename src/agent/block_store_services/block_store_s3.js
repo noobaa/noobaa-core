@@ -163,8 +163,8 @@ class BlockStoreS3 extends BlockStoreBase {
         const block_key = this._block_key(block_md.id);
 
         const usage = data_length ? {
-            size: data_length + encoded_md.length,
-            count: 1
+            size: (block_md.preallocated ? 0 : data_length) + encoded_md.length,
+            count: block_md.preallocated ? 0 : 1
         } : { size: 0, count: 0 };
         if (data_length) {
             this._update_usage(usage);
@@ -242,8 +242,8 @@ class BlockStoreS3 extends BlockStoreBase {
             if (options && options.ignore_usage) return;
             // return usage count for the object
             return this._update_usage({
-                size: data.length + encoded_md.length,
-                count: 1
+                size: (block_md.preallocated ? 0 : data.length) + encoded_md.length,
+                count: block_md.preallocated ? 0 : 1
             });
         } catch (err) {
             dbg.error('_write_block failed:', err, _.omit(this.cloud_info, 'access_keys'));

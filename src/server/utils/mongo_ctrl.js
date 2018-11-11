@@ -13,6 +13,8 @@ const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('./clustering_utils');
 const promise_utils = require('../../util/promise_utils');
 
+const fs = require('fs');
+
 module.exports = new MongoCtrl(); // Singleton
 
 //
@@ -218,13 +220,20 @@ MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
 };
 
 
-MongoCtrl.prototype._add_replica_set_member_program = function(name, first_server) {
+MongoCtrl.prototype._add_replica_set_member_program = async function(name, first_server) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');
     }
 
     let program_obj = {};
     let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_server ? '' : 'rs');
+    // get uid and gid of common path, to set for new dbpath
+    let stats;
+    try {
+        stats = await fs.statAsync(config.MONGO_DEFAULTS.COMMON_PATH);
+    } catch (err) {
+        dbg.error(`could not get stats for ${config.MONGO_DEFAULTS.COMMON_PATH}. mongod uid and gid are unkown`);
+    }
     program_obj.name = 'mongo_wrapper';
     program_obj.command = '/root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_wrapper.sh' +
         ' mongod' +
@@ -251,11 +260,14 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_serve
     if (first_server) { //If shard1 (this means this is the first server which will be the base of the cluster)
         //use the original server`s data
         dbg.log0('first server in the cluster - leaving dbpath as is:', dbpath);
-        return SupervisorCtl.add_program(program_obj);
+        await SupervisorCtl.add_program(program_obj);
     } else {
         dbg.log0('adding server to an existing cluster. cleaning dbpath:', dbpath);
-        return fs_utils.create_fresh_path(dbpath)
-            .then(() => SupervisorCtl.add_program(program_obj));
+        await fs_utils.create_fresh_path(dbpath);
+        if (stats) {
+            await fs.chownAsync(dbpath, stats.uid, stats.gid);
+        }
+        await SupervisorCtl.add_program(program_obj);
     }
 };
 

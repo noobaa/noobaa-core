@@ -184,7 +184,7 @@ class UpgradeManager {
     }
 
     async update_services_stage() {
-        await platform_upgrade.update_services();
+        await platform_upgrade.update_services(this.old_version);
     }
 
     async upgrade_mongodb_version_stage() {

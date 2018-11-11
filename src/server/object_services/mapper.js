@@ -258,7 +258,7 @@ class MirrorMapper {
             // Notice that in case of redundant pools we expect to be here only on the first allocation
             // Since the weight calculation above which adds max_replicas for every replica on redundant pool
             // Will block us from performing the current context and statement.
-            const is_redundant = _.every(pools, _pool_has_redundancy);
+            const is_redundant = pools.length > 0 && _.every(pools, _pool_has_redundancy);
             const num_missing = is_redundant ? 1 : Math.max(0, replicas - used_replicas);
 
             // Notice that we push the minimum required replicas in higher priority
@@ -356,6 +356,7 @@ class TierMapper {
             accessible,
             blocks_in_use: [],
             deletions: undefined,
+            future_deletions: undefined,
             allocations: undefined,
             missing_frags: undefined,
         });
@@ -370,11 +371,11 @@ class TierMapper {
             }
         }
 
-        if (accessible && !tier_mapping.allocations) {
-            const { blocks } = chunk_mapper.chunk;
-            const used_blocks = _.uniq(tier_mapping.blocks_in_use);
-            const unused_blocks = _.uniq(_.difference(blocks, used_blocks));
-            if (unused_blocks.length) {
+        const { blocks } = chunk_mapper.chunk;
+        const used_blocks = _.uniq(tier_mapping.blocks_in_use);
+        const unused_blocks = _.uniq(_.difference(blocks, used_blocks));
+        if (unused_blocks.length) {
+            if (accessible && !tier_mapping.allocations) {
                 // Protect from too many deletions by checking:
                 // - the number of unused blocks to delete does not include all blocks
                 // - the number of unused blocks to delete does not exceed number blocks that should exist
@@ -396,6 +397,8 @@ class TierMapper {
                 } else {
                     tier_mapping.deletions = unused_blocks;
                 }
+            } else {
+                tier_mapping.future_deletions = unused_blocks;
             }
         }
 
@@ -604,6 +607,7 @@ function get_part_info(part, adminfo, tiering_status, location_info) {
 function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
     let allocations_by_frag_id;
     let deletions_by_frag_id;
+    let future_deletions_by_frag_id;
     if (adminfo) {
         const bucket = system_store.data.get_by_id(chunk.bucket);
         const mapping = map_chunk(chunk, chunk.tier, bucket.tiering, tiering_status);
@@ -616,6 +620,7 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
         }
         allocations_by_frag_id = _.groupBy(mapping.allocations, allocation => String(allocation.frag._id));
         deletions_by_frag_id = _.groupBy(mapping.deletions, deletion => String(deletion.frag));
+        future_deletions_by_frag_id = _.groupBy(mapping.future_deletions, deletion => String(deletion.frag));
     }
     const blocks_by_frag_id = _.groupBy(chunk.blocks, 'frag');
     return {
@@ -629,9 +634,11 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
         cipher_iv_b64: chunk.cipher_iv && chunk.cipher_iv.toString('base64'),
         cipher_auth_tag_b64: chunk.cipher_auth_tag && chunk.cipher_auth_tag.toString('base64'),
         frags: chunk.frags && _.map(chunk.frags, frag =>
-            get_frag_info(chunk, frag, blocks_by_frag_id[frag._id],
-                allocations_by_frag_id && allocations_by_frag_id[frag._id],
-                deletions_by_frag_id && deletions_by_frag_id[frag._id],
+            get_frag_info(chunk, frag, blocks_by_frag_id[frag._id], {
+                    allocations: allocations_by_frag_id && allocations_by_frag_id[frag._id],
+                    deletions: deletions_by_frag_id && deletions_by_frag_id[frag._id],
+                    future_deletions: future_deletions_by_frag_id && future_deletions_by_frag_id[frag._id],
+                },
                 adminfo,
                 location_info)
         ),
@@ -640,7 +647,7 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
 }
 
 
-function get_frag_info(chunk, frag, blocks, allocations, deletions, adminfo, location_info) {
+function get_frag_info(chunk, frag, blocks, mapping, adminfo, location_info) {
     // sorting the blocks to have most available node on front
     // TODO GUY OPTIMIZE what about load balancing - maybe random the order of good blocks
     if (blocks) blocks.sort(location_info ? _block_sorter_local(location_info) : _block_sorter_basic);
@@ -650,8 +657,10 @@ function get_frag_info(chunk, frag, blocks, allocations, deletions, adminfo, loc
         lrc_index: frag.lrc_index,
         digest_b64: frag.digest && frag.digest.toString('base64'),
         blocks: blocks ? _.map(blocks, block => get_block_info(chunk, frag, block, adminfo)) : [],
-        deletions: deletions ? _.map(deletions, block => get_block_info(chunk, frag, block, adminfo)) : [],
-        allocations: allocations ? _.map(allocations, alloc => get_alloc_info(alloc)) : [],
+        deletions: mapping.deletions ? _.map(mapping.deletions, block => get_block_info(chunk, frag, block, adminfo)) : [],
+        future_deletions: mapping.future_deletions ? _.map(mapping.future_deletions,
+            block => get_block_info(chunk, frag, block, adminfo)) : [],
+        allocations: mapping.allocations ? _.map(mapping.allocations, alloc => get_alloc_info(alloc)) : [],
     };
 }
 

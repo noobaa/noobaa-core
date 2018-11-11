@@ -1058,7 +1058,7 @@ function get_bucket_info({
 }) {
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
     const tiering = tier_server.get_tiering_policy_info(bucket.tiering, tiering_pools_status,
-            nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier);
+        nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier);
     const info = {
         name: bucket.name,
         namespace: bucket.namespace ? {
@@ -1155,14 +1155,15 @@ function get_bucket_info({
 }
 
 function is_using_internal_storage(bucket, internal_pool) {
-    const tiers = bucket.tiering;
+    const tiers = bucket.tiering.tiers;
     if (tiers.length !== 1) return false;
 
-    const mirrors = tiers[0].mirrors;
+    const mirrors = tiers[0].tier.mirrors;
     if (mirrors.length !== 1) return false;
 
     const spread_pools = mirrors[0].spread_pools;
     if (spread_pools.length !== 1) return false;
+
 
     return String(spread_pools[0]._id) === String(internal_pool._id);
 }
@@ -1171,7 +1172,6 @@ function _calc_metrics({
     bucket,
     nodes_aggregate_pool,
     hosts_aggregate_pool,
-    aggregate_data_free_by_tier,
     tiering_pools_status,
     info
 }) {
@@ -1272,7 +1272,6 @@ function _calc_metrics({
         size_reduced: bucket_chunks_capacity,
         free: actual_free,
         available_for_upload,
-        // spillover_free: 0, // JAJA TODO: REMOVE BEFORE PUSH
         last_update: _.get(bucket, 'storage_stats.last_update')
     });
 
@@ -1312,11 +1311,11 @@ function calc_namespace_mode() {
 function calc_bucket_mode(tiers, metrics) {
     const {
         NO_RESOURCES = 0,
-        NOT_ENOUGH_RESOURCES = 0,
-        NOT_ENOUGH_HEALTHY_RESOURCES = 0,
-        INTERNAL_STORAGE_ISSUES = 0,
-        NO_CAPACITY = 0,
-        LOW_CAPACITY = 0
+            NOT_ENOUGH_RESOURCES = 0,
+            NOT_ENOUGH_HEALTHY_RESOURCES = 0,
+            INTERNAL_STORAGE_ISSUES = 0,
+            NO_CAPACITY = 0,
+            LOW_CAPACITY = 0
     } = _.countBy(tiers, t => t.mode);
 
     const issueCount =

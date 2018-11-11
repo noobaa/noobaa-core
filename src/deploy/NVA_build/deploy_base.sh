@@ -233,6 +233,13 @@ function install_mongo {
     mkdir -p /var/lib/mongo/cluster/shard1
     mkdir -p /data/db
 
+    # mongodb will probably run as root after yum (if not docker) - we need to fix it if we want to use deploy_base
+    chown -R mongod:mongod /var/lib/mongo/
+    chown -R mongod:mongod /etc/mongo_ssl/
+    #change permissions for mongo_ssl files - allow r\x for dir and r only for files
+    chmod 400 -R /etc/mongo_ssl
+    chmod 500 /etc/mongo_ssl
+
     # create a Mongo 3.6 Repo file
     cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.6.repo
 
@@ -244,6 +251,8 @@ function install_mongo {
 		mongodb-org-mongos-3.6.5 \
 		mongodb-org-tools-3.6.5
 
+
+
     # pin mongo version in yum, so it won't auto update
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
     rm -f /etc/init.d/mongod
@@ -251,14 +260,15 @@ function install_mongo {
     # In docker the service doesn't start unlike regular VM Centos
     if [ "${container}" = "docker" ]; then
         # This is a hack in order to perform the mongo_ssl_user creation
-        mongod &
+        su - mongod -s /bin/bash -c "mongod &"
         # Replace with clever way to wait (for example like wait_for_mongo method that checks status)
         sleep 10
     fi
 
     deploy_log "adding mongo ssl user"
     add_mongo_ssl_user
-    
+
+
     if [ "${container}" = "docker" ]; then
         local mongod_pid=$(pgrep -lf mongod | awk '{print $1}')
         kill -2 ${mongod_pid}

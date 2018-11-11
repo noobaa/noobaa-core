@@ -149,9 +149,13 @@ backoff_before_start
 
 #First of all we kill proc that hold the desired port
 kill_mongo_services
-$MONGO_EXEC &
-MONGO_PID=$!
+
+# run mongod as mongod user and store its pid in tempfile
+MONGO_PID_FILE=/tmp/mongo_wrapper_$$_mongod.pid
+su - mongod -s /bin/bash -c "${MONGO_EXEC} & echo -n \$! > $MONGO_PID_FILE"
+MONGO_PID=$(cat ${MONGO_PID_FILE})
 deploy_log "mongod pid is ${MONGO_PID}"
+rm -f ${MONGO_PID_FILE}
 #Test sanity of mongo in order to catch problems and reload
 mongo_sanity_check
 if [ $? -eq 1 ]; then

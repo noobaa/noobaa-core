@@ -160,6 +160,16 @@ async function platform_upgrade_2_10_0() {
     await fix_supervisor_alias();
 }
 
+
+async function fix_mongod_user() {
+    // change ownership of mongo related files to mongod user\group
+    await exec('chown -R mongod:mongod /var/lib/mongo/');
+    await exec('chown -R mongod:mongod /etc/mongo_ssl/');
+    //change permissions for mongo_ssl files - allow r\x for dir and r only for files
+    await exec('chmod 400 -R /etc/mongo_ssl/*');
+    await exec('chmod 500 /etc/mongo_ssl');
+}
+
 async function fix_azure_swap() {
     if (process.env.PLATFORM !== 'azure') return;
     // turn off swap
@@ -458,23 +468,61 @@ async function _create_packages_md5() {
 
 // TODO: make sure that update_services is synchronized between all cluster members 
 // (currently all members are upgraded serially, so we're good)
-async function update_services() {
+async function update_services(old_version) {
     dbg.log0('UPGRADE: updating services in noobaa_supervisor.conf');
-    await change_mongo_kill_signal();
+    // perform specific platform upgrades according to old version
+    const [major_ver, minor_ver] = parse_ver(old_version.split('-')[0]);
+    if (major_ver <= 2) {
+        if (minor_ver < 10) await update_services_2_10_0();
+    }
+
 }
 
+
+async function update_services_2_10_0() {
+    dbg.log0('UPGRADE: upgrading from version older than 2.10.0');
+    dbg.log0('UPGRADE: change mongo kill signal from KILL to INT');
+    // change_mongo_kill_signal will also restart mongo_wrapper so it will run mongod by mongod user
+    await change_mongo_kill_signal_and_update_mongod_user();
+}
 
 // attempt to send kill -2 to currently running mongod, so it can do a clean shutdown
 async function clean_shutdown_old_mongo() {
     try {
         const mongo_pid = Number.parseInt(await exec('pgrep mongod'), 10);
         if (mongo_pid) {
+            // send SIGINT to mongod
             dbg.log0(`UPGRADE: mongod PID is ${mongo_pid}. sending SIGINT for clean shutdown`);
             process.kill(mongo_pid, 'SIGINT');
-            dbg.log0(`sent SIGINT to ${mongo_pid}. sleep for 10 seconds and continue`);
-            // sleep for 10 seconds to give time for clean shutdown
-            await P.delay(10000);
+            dbg.log0(`UPGRADE: sent SIGINT to ${mongo_pid}. wait for mongod to shutdown`);
+
+            // wait for mongo to shutdown
+            let mongo_running = true;
+            const timeout_seconds = 5 * 60;
+            let secs = 0;
+            const delay_secs = 2;
+            while (mongo_running) {
+                await P.delay(delay_secs * 1000);
+                try {
+                    // send signal 0 to test if pid is still alive
+                    process.kill(mongo_pid, 0);
+                    // process is still alive:
+                    secs += delay_secs;
+                    dbg.warn(`UPGRADE: mongod process[${mongo_pid}] is still alive. waiting for shutdown..`);
+                    if (secs >= timeout_seconds) {
+                        dbg.warn(`UPGRADE: mongod process[${mongo_pid}] did not shutdown in ${timeout_seconds}`,
+                            ` seconds!! force killing mongod and continue with upgrade..`);
+                        process.kill(mongo_pid, 'SIGKILL');
+                        mongo_running = false;
+                    }
+                } catch (error) {
+                    dbg.log0(`UPGRADE: mongod[${mongo_pid}] was shutdown successfully. continue with upgrade..`);
+                    mongo_running = false;
+                }
+            }
         }
+        // stop mongo_wrapper program
+        await supervisor.stop(['mongo_wrapper']);
     } catch (err) {
         dbg.warn('failed to send SIGINT to mongod', err);
     }
@@ -490,37 +538,39 @@ function connect_mongo_client() {
     mongo_client.instance().connect();
 }
 
-async function change_mongo_kill_signal() {
+async function change_mongo_kill_signal_and_update_mongod_user() {
     const mongo_wrapper_prog = await supervisor.get_program('mongo_wrapper');
-    if (mongo_wrapper_prog.stopsignal !== 'INT') {
-        // before touching mongo, first disconnect mongo_client
-        disconnect_mongo_client();
-        dbg.log0(`UPGRADE: changing mongo_wrapper stop signal in noobaa_supervisor.conf from ${mongo_wrapper_prog.stopsignal} to INT`);
-        mongo_wrapper_prog.stopsignal = 'INT';
-        // stopwaitsecs is the time supervisord waits for the supervised program to end before using SIGKILL
-        dbg.log0(`UPGRADE: adding to mongo_wrapper stopwaitsecs=30`);
-        mongo_wrapper_prog.stopwaitsecs = 30;
+    // before touching mongo, first disconnect mongo_client
+    disconnect_mongo_client();
+    dbg.log0(`UPGRADE: changing mongo_wrapper stop signal in noobaa_supervisor.conf from ${mongo_wrapper_prog.stopsignal} to INT`);
+    mongo_wrapper_prog.stopsignal = 'INT';
+    // stopwaitsecs is the time supervisord waits for the supervised program to end before using SIGKILL
+    dbg.log0(`UPGRADE: adding to mongo_wrapper stopwaitsecs=30`);
+    mongo_wrapper_prog.stopwaitsecs = 30;
 
-        try {
-            await supervisor.update_program(mongo_wrapper_prog);
-            await clean_shutdown_old_mongo();
-            await supervisor.apply_changes();
-            await supervisor.start(['mongo_wrapper']);
-        } catch (err) {
-            dbg.error('failed updating mongo program in supervisor conf');
-        }
+    try {
+        await supervisor.update_program(mongo_wrapper_prog);
+        await clean_shutdown_old_mongo();
 
-        try {
-            connect_mongo_client();
-            dbg.log0('waiting for mongo..');
-            await mongo_client.instance().wait_for_all_members(WAIT_FOR_MONGO_TIMEOUT);
-            dbg.log0('UPGRADE: all mongodb members are up');
-        } catch (err) {
-            // if mongo is not up yet something went wrong
-            // exit upgrade manager and let it restart from current stage. can help if the problem is in mongo_client\mongo-driver
-            dbg.error('UPGRADE: failed waiting for mongo to start. exit and restart upgrade manager', err);
-            process.exit(1);
-        }
+        // after mongod is stopped fix ownership and 
+        await fix_mongod_user();
+
+        await supervisor.apply_changes();
+        await supervisor.start(['mongo_wrapper']);
+    } catch (err) {
+        dbg.error('failed updating mongo program in supervisor conf', err);
+    }
+
+    try {
+        connect_mongo_client();
+        dbg.log0('waiting for mongo..');
+        await mongo_client.instance().wait_for_all_members(WAIT_FOR_MONGO_TIMEOUT);
+        dbg.log0('UPGRADE: all mongodb members are up');
+    } catch (err) {
+        // if mongo is not up yet something went wrong
+        // exit upgrade manager and let it restart from current stage. can help if the problem is in mongo_client\mongo-driver
+        dbg.error('UPGRADE: failed waiting for mongo to start. exit and restart upgrade manager', err);
+        process.exit(1);
     }
 }
 
@@ -565,6 +615,9 @@ async function upgrade_mongodb_version(params) {
                 trim_stdout: true
             });
             dbg.log0('UPGRADE: yum install returned:', yum_res);
+
+            // make sure all files are owned by mongod user
+            await fix_mongod_user();
 
             dbg.log0('UPGRADE: restarting mongo_wrapper');
             const mongo_wrapper_prog = await supervisor.get_program('mongo_wrapper');

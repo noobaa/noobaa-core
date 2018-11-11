@@ -1329,11 +1329,11 @@ module.exports = {
                 },
                 deletions: {
                     type: 'array',
-                    items: { $ref: '#/definitions/block_info' }
+                    items: { $ref: '#/definitions/deletion_info' }
                 },
                 future_deletions: {
                     type: 'array',
-                    items: { $ref: '#/definitions/block_info' }
+                    items: { $ref: '#/definitions/deletion_info' }
                 },
                 allocations: {
                     type: 'array',
@@ -1383,6 +1383,14 @@ module.exports = {
                         mirror_group: { type: 'string' }
                     }
                 }
+            }
+        },
+
+        deletion_info: {
+            type: 'object',
+            required: ['block_id'],
+            properties: {
+                block_id: { objectid: true }
             }
         },
 

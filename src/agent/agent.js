@@ -90,7 +90,7 @@ class Agent {
 
         this.storage_path = params.storage_path;
         if (params.storage_limit) {
-            this.storage_limit = params.storage_limit;
+            this.storage_limit = params.storage_limit || Infinity;
         }
 
         const block_store_options = {

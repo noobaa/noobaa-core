@@ -19,6 +19,8 @@ const system_utils = require('../utils/system_utils');
 const map_deleter = require('./map_deleter');
 const map_builder = require('./map_builder');
 const { RpcError } = require('../../rpc');
+const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 
 
 // dbg.set_level(5);
@@ -41,7 +43,7 @@ class MapAllocator {
     async run_select_tier() {
         await this.prepare_tiering_for_alloc();
         const tier = await mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
-        await map_builder.make_room_in_tier(tier, this.bucket);
+        await map_builder.ensure_room_in_tier(tier, this.bucket);
         return tier;
     }
 
@@ -49,10 +51,12 @@ class MapAllocator {
         const millistamp = time_utils.millistamp();
         dbg.log1('MapAllocator: start');
         try {
+            this.check_parts();
             await this.prepare_tiering_for_alloc();
-            await this.check_parts();
             await this.find_dups();
-            await this.allocate_blocks();
+            while (!this.allocate_blocks()) {
+                await this.prepare_tiering_for_alloc('force');
+            }
             dbg.log0('MapAllocator: DONE. parts', this.parts.length,
                 'took', time_utils.millitook(millistamp));
             return {
@@ -64,10 +68,20 @@ class MapAllocator {
         }
     }
 
-    async prepare_tiering_for_alloc() {
+    async prepare_tiering_for_alloc(force) {
         const tiering = this.bucket.tiering;
         // const tier = tiering.tiers[0].tier;
-        await node_allocator.refresh_tiering_alloc(tiering); //, 'force');
+        if (force === 'force') {
+            const tier = await mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
+            await map_builder.ensure_room_in_tier(tier, this.bucket);
+            await server_rpc.client.node.sync_monitor_to_store(undefined, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: this.bucket.system._id,
+                    role: 'admin'
+                })
+            });
+        }
+        await node_allocator.refresh_tiering_alloc(tiering, force);
         this.tiering_status = node_allocator.get_tiering_status(tiering);
     }
 
@@ -122,6 +136,11 @@ class MapAllocator {
             const avoid_nodes = [];
             const allocated_hosts = [];
 
+            const saved_frags = chunk.frags;
+            // for (const frag of chunk.frags) {
+            //     frag.blocks = [];
+            // }
+
             const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
             // const tier = await this.run_select_tier();
             // await this.prepare_tiering_for_alloc();
@@ -132,14 +151,16 @@ class MapAllocator {
 
             const mapping = mapper.map_chunk(chunk, tier, this.bucket.tiering, this.tiering_status, this.location_info);
 
-            _.forEach(mapping.allocations, ({ frag, pools }) => {
+            for (const { frag, pools } of mapping.allocations) {
                 const node = node_allocator.allocate_node(pools, avoid_nodes, allocated_hosts);
                 if (!node) {
-                    throw new Error(`MapAllocator: no nodes for allocation ` +
+                    dbg.warn(`MapAllocator: no nodes for allocation ` +
                         `avoid_nodes ${avoid_nodes.join(',')} ` +
                         `pools ${pools.join(',')} ` +
                         `tier ${tier.name} ` +
                         `tiering_status ${util.inspect(this.tiering_status, { depth: null })} `);
+                    chunk.frags = saved_frags;
+                    return false;
                 }
                 const block = {
                     _id: MDStore.instance().make_md_id(),
@@ -157,10 +178,11 @@ class MapAllocator {
                     avoid_nodes.push(String(node._id));
                     allocated_hosts.push(node.host_id);
                 }
-            });
+            }
             // We must set the tier name for the reply schema check to pass
             chunk.tier = tier.name;
         }
+        return true;
     }
 }
 

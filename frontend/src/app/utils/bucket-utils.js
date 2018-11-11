@@ -170,12 +170,17 @@ const resiliencyTypeToDisplay = deepFreeze({
 });
 
 const writableStates = deepFreeze([
-    'SPILLING_BACK',
-    'LOW_CAPACITY',
-    'RISKY_TOLERANCE',
-    'APPROUCHING_QUOTA',
+    'OPTIMAL',
     'DATA_ACTIVITY',
-    'OPTIMAL'
+    'APPROUCHING_QUOTA',
+    'RISKY_TOLERANCE',
+    'NO_RESOURCES_INTERNAL',
+    'TIER_LOW_CAPACITY',
+    'LOW_CAPACITY',
+    'TIER_NO_CAPACITY',
+    'TIER_NOT_ENOUGH_HEALTHY_RESOURCES',
+    'TIER_NOT_ENOUGH_RESOURCES',
+    'TIER_NO_RESOURCES'
 ]);
 
 const resiliencyTypeToBlockType = deepFreeze({

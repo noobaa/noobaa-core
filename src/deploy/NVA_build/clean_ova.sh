@@ -187,6 +187,7 @@ rm -rf /tmp/npm-*
 rm -rf /backup
 
 mongo nbcore --eval 'db.dropDatabase()'
+
 #Clean supervisors
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
 sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/node_modules/noobaa-core/.env

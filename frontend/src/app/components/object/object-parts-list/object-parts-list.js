@@ -431,7 +431,7 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
             const isRowSelected = selectedRow > -1;
             const cloudTypeMapping = mapValues(cloudResources, res => res.type);
             const resourceCount = bucket.placement.tiers.reduce(
-                (count, tier) => count + tier.mirrorSets.reduce(
+                (count, tier) => count + (tier.mirrorSets || []).reduce(
                     (count, ms) => count + ms.resources.length,
                     0
                 ),

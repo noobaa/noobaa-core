@@ -1331,6 +1331,10 @@ module.exports = {
                     type: 'array',
                     items: { $ref: '#/definitions/block_info' }
                 },
+                future_deletions: {
+                    type: 'array',
+                    items: { $ref: '#/definitions/block_info' }
+                },
                 allocations: {
                     type: 'array',
                     items: { $ref: '#/definitions/alloc_info' }

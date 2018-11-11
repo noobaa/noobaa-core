@@ -885,14 +885,14 @@ async function list_objects_admin(req) {
 
 
 async function report_error_on_object(req) {
-    // const bucket = req.rpc_params.bucket;
+    const bucket = req.rpc_params.bucket;
     // const key = req.rpc_params.key;
     // TODO should mark read errors on the object part & chunk?
 
     // report the blocks error to nodes monitor and allocator
     // so that next allocation attempts will use working nodes
     return nodes_client.instance().report_error_on_node_blocks(
-        req.system._id, req.rpc_params.blocks_report);
+        req.system._id, req.rpc_params.blocks_report, bucket);
 }
 
 

@@ -120,24 +120,36 @@ mocha.describe('tiering upload', function() {
         await rpc_client.object.delete_object({ bucket: BUCKET, key });
     });
 
-    mocha.it('test2 - filling more than tiering threshold - checking files starting to tier', async function() {
-        this.timeout(900000); // eslint-disable-line no-invalid-this
-        const upload_size = 150 * 1024 * 1024;
-        const key = await upload_file(upload_size);
-        const storage3 = await get_current_storage(TIER1);
-        if (storage3.used === 0) {
-            assert.fail(`Expected used storage=${storage3.used} is larger than 0`);
-        }
-        await rpc_client.object.delete_object({ bucket: BUCKET, key });
-    });
+    // mocha.it('test2 - filling more than tiering threshold - checking files starting to tier', async function() {
+    //     this.timeout(900000); // eslint-disable-line no-invalid-this
+    //     const upload_size = 150 * 1024 * 1024;
+    //     const storage1 = await get_current_storage(TIER1);
+    //     const key = await upload_file(upload_size);
+    //     const storage2 = await get_current_storage(TIER1);
+    //     const used_delta = storage1.free - storage2.free;
+    //     const diff_percent = Math.abs((used_delta / (upload_size - (100 * 1024 * 1024))) - 1);
+    //     console.log('test_tiering_upload: test2',
+    //         'used_delta', used_delta,
+    //         'diff_percent', diff_percent);
+    //     if (diff_percent > 0.05) {
+    //         assert.fail(`Expected used_delta=${used_delta} to be approx upload_size=${upload_size} - 100MB`);
+    //     }
+    //     await rpc_client.object.delete_object({ bucket: BUCKET, key });
+    // });
 
-    mocha.it('test3 - filling more than full tier threshold - checking everything still works', async function() {
+    mocha.it.only('test3 - filling more than full tier threshold - checking everything still works', async function() {
         this.timeout(900000); // eslint-disable-line no-invalid-this
         const upload_size = 500 * 1024 * 1024;
+        const storage1 = await get_current_storage(TIER1);
         const key = await upload_file(upload_size);
-        const storage3 = await get_current_storage(TIER1);
-        if (storage3.used === 0) {
-            assert.fail(`Expected used storage=${storage3.used} is larger than 0`);
+        const storage2 = await get_current_storage(TIER1);
+        const used_delta = storage1.free - storage2.free;
+        const diff_percent = Math.abs((used_delta / (upload_size - (200 * 1024 * 1024))) - 1);
+        console.log('test_tiering_upload: test3',
+            'used_delta', used_delta,
+            'diff_percent', diff_percent);
+        if (diff_percent > 0.05) {
+            assert.fail(`Expected used_delta=${used_delta} to be approx upload_size=${upload_size} - 200MB`);
         }
         await rpc_client.object.delete_object({ bucket: BUCKET, key });
     });

@@ -70,7 +70,7 @@ config.DEDUP_ENABLED = true;
 config.NOOBAA_EPOCH = 1430006400000;
 config.NEW_SYSTEM_POOL_NAME = 'first.pool';
 config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
-config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
+// config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
 
 config.MD_AGGREGATOR_INTERVAL = 30000;
 // the max cycles limits how many intervals the aggregator will split the gap

@@ -11,7 +11,6 @@ const map_builder = require('../object_services/map_builder');
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 
-
 /**
  *
  * BUILD_CHUNKS_WORKER
@@ -80,7 +79,12 @@ function build_chunks(req) {
         .return();
 }
 
+function make_room_in_tier(req) {
+    return map_builder.make_room_in_tier(req.rpc_params.tier, req.rpc_params.bucket);
+}
+
 
 // EXPORTS
 exports.background_worker = background_worker;
 exports.build_chunks = build_chunks;
+exports.make_room_in_tier = make_room_in_tier;

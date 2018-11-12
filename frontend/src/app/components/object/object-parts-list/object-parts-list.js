@@ -216,9 +216,9 @@ function _getGroupTooltip(groupId, blockType, storageType) {
 }
 
 function _getResourceInfo(resource, cloudTypeMapping, system) {
-    const { kind, resource: name } = resource;
-    switch (kind) {
+    switch (resource.kind) {
         case 'HOSTS': {
+            const { pool: name } = resource;
             return {
                 icon: 'nodes-pool',
                 text: name,
@@ -227,6 +227,7 @@ function _getResourceInfo(resource, cloudTypeMapping, system) {
         }
 
         case 'CLOUD': {
+            const { resource: name } = resource;
             const cloudType = cloudTypeMapping[name];
             return {
                 icon: getCloudResourceTypeIcon({ type: cloudType }).name,

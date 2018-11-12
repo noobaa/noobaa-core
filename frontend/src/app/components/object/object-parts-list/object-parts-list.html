@@ -7,8 +7,6 @@
             {{partCount}}
         </h3>
         <span class="row">
-            Object\'s bucket policy: {{placementType}}
-            <vr class="alt-colors push-both-half"></vr>
             Data resiliency type: {{resilinecySummary}}
             <vr class="alt-colors push-both-half"></vr>
             Number of resources: {{resourceCount}}
@@ -34,12 +32,12 @@
 </div>
 
 <loading-indicator class="align-middle greedy push-prev"
-    ko.visible="!partsLoaded()"
+    ko.visible="!dataReady()"
 ></loading-indicator>
 
 <div class="row greedy no-overflow"
     ko.css.expanded="isPaneExpanded"
-    ko.visible="partsLoaded"
+    ko.visible="dataReady"
 >
     <ul class="part-list greedy list-no-style column" ko.foreach="rows">
         <li class="row content-middle border-bottom part-row"
@@ -79,28 +77,26 @@
                         <p class="row greedy push-next content-middle">
                             <span class="highlight push-next-half">{{label}}:</span>
                             {{policy}}
+
+                            <!-- ko with: storage -->
+                            <!-- ko if: tierIndex -->
+                            | Resides in tier {{tierIndex}}
                             <!-- ko if: resources -->
-                            | Resides on
-                            <!-- ko if: resources().href -->
-                            <a class="box row content-middle cursor-pointer" ko.attr.href="resources().href">
-                                <svg-icon class="icon-small highlight push-next-half" params="name: resources().icon">
-                                </svg-icon>
+                            on
+                            <a class="box row content-middle cursor-pointer"
+                                ko.attr.href="resources().href"
+                            >
+                                <svg-icon class="icon-small highlight push-next-half" params="
+                                    name: resources().icon
+                                "></svg-icon>
                                 {{resources().text}}
                             </a>
                             <!-- /ko -->
-                            <!-- ko ifnot: resources().href -->
-                            <span class="box row content-middle" ko.tooltip="resources().tooltip">
-                                <svg-icon class="icon-small highlight push-next-half"
-                                    ko.visible="resources().icon"
-                                    params="name: resources().icon"
-                                ></svg-icon>
-                                {{resources().text}}
-                            </span>
                             <!-- /ko -->
                             <!-- /ko -->
                         </p>
                         <svg-icon class="icon-small"
-                            ko.visible="tooltip().text"
+                            ko.visible="tooltip"
                             ko.tooltip="tooltip"
                             params="name: 'question'"
                         ></svg-icon>

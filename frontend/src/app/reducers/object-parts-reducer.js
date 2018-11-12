@@ -98,9 +98,7 @@ function _mapPartBlocks(part, resiliency) {
 
         const { deletions = [], future_deletions = [] } = frag;
         const deletionsSet = new Set(
-            [ ...deletions, ...future_deletions ].map(del =>
-                del.block_md.id // TODO: rewrite as del.block_id  after jacky's change.
-            )
+            [ ...deletions, ...future_deletions ].map(del => del.block_id)
         );
 
         const allocations = frag.allocations.map(alloc => {

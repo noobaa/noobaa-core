@@ -96,7 +96,7 @@ class BucketS3AccessTableViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const { route, params } = location;
+            const { params } = location;
             const conenctedAccounts = Object.values(accounts).filter(account =>
                 account.allowedBuckets.includes(params.bucket)
             );
@@ -109,7 +109,7 @@ class BucketS3AccessTableViewModel extends ConnectableViewModel {
             } granted access to this bucket`;
 
             const isExpanded = params.section === policyName;
-            const toggleUri = realizeUri(route, {
+            const toggleUri = realizeUri(routes.bucket, {
                 system: params.system,
                 bucket: params.bucket,
                 tab: params.tab,

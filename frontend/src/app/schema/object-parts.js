@@ -67,14 +67,12 @@ export default {
                     },
                     blocks: {
                         type: 'array',
-                        required: [
-                            'kind',
-                            'mirrorSet',
-                            'mode',
-                            'storage'
-                        ],
                         items: {
                             type: 'object',
+                            required: [
+                                'kind',
+                                'mode'
+                            ],
                             properties: {
                                 kind: {
                                     type: 'string',
@@ -87,15 +85,18 @@ export default {
                                 seq: {
                                     type: 'integer'
                                 },
-                                mirrorSet: {
-                                    type: 'string'
-                                },
                                 mode: {
                                     type: 'string',
                                     enum: [
-                                        'HEALTHY',
-                                        'NOT_ACCESSIBLE'
+                                        'NOT_ACCESSIBLE',
+                                        'CANNOT_BE_DELETED',
+                                        'WAITING_FOR_ALLOCATION',
+                                        'WAITING_FOR_DELETE',
+                                        'HEALTHY'
                                     ]
+                                },
+                                mirrorSet: {
+                                    type: 'string'
                                 },
                                 storage: {
                                     oneOf: [
@@ -140,7 +141,11 @@ export default {
                                             ],
                                             properties: {
                                                 kind: {
-                                                    const: 'INTERNAL'
+                                                    type: 'string',
+                                                    enum: [
+                                                        'INTERNAL_STORAGE',
+                                                        'NOT_ALLOCATED'
+                                                    ]
                                                 }
                                             }
                                         }

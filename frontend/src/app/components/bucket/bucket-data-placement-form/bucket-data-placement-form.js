@@ -27,6 +27,13 @@ const internalWarningTooltip = deepFreeze({
     }
 });
 
+function _findInternalStorageUsage(bucket) {
+    const pair = Object.entries(bucket.usageDistribution.resources)
+        .find(pair => pair[0].startsWith('INTERNAL'));
+
+    return pair ? pair[1] : 0;
+}
+
 class BucketDataPlacementFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     bucketName = ko.observable();
@@ -43,20 +50,20 @@ class BucketDataPlacementFormViewModel extends ConnectableViewModel {
         const { buckets, system } = state;
         return [
             params.bucketName,
-            buckets && buckets[params.bucketName].placement,
+            buckets && buckets[params.bucketName],
             system && system.internalStorage
 
         ];
     }
 
-    mapStateToProps(bucketName, placement, internalStorage) {
-        if (!placement || !internalStorage) {
+    mapStateToProps(bucketName, bucket, internalStorage) {
+        if (!bucket || !internalStorage) {
             ko.assignToProps(this, {
                 dataReady: false
             });
 
         } else {
-            const { tiers } = placement;
+            const { tiers } = bucket.placement;
             const isUsingInternalStorage = tiers[0].policyType === 'INTERNAL_STORAGE';
             const tierNames = tiers.map(tier => tier.name);
             const tierLabels = tiers.map((_, i) => `Tier ${i + 1}`);
@@ -68,8 +75,9 @@ class BucketDataPlacementFormViewModel extends ConnectableViewModel {
                     '',
                 align: 'end'
             };
+
             const internalStorageUsage = `${
-                formatSize(internalStorage.used)
+                formatSize(_findInternalStorageUsage(bucket))
             } of ${
                 formatSize(internalStorage.total)
             }`;

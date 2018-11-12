@@ -66,6 +66,11 @@ function onFailFetchObjectParts(state, { payload }) {
 // ------------------------------
 // Local util functions
 // ------------------------------
+
+const notAllocatedStorage = {
+    kind: 'NOT_ALLOCATED'
+};
+
 function _queryMatch(q1, q2) {
     return true &&
         q1.bucket === q2.bucket &&
@@ -87,18 +92,41 @@ function _mapPart(part) {
     };
 }
 
-
 function _mapPartBlocks(part, resiliency) {
-    const { chunk } = part;
-    return flatMap(chunk.frags, frag => {
+    return flatMap(part.chunk.frags, frag => {
         const [kind, seq] = _getBlockKindAndSeq(resiliency, frag);
-        return frag.blocks
-            .map(block => {
-                const mode = block.accessible ? 'HEALTHY' : 'NOT_ACCESSIBLE';
-                const storage = _mapBlockStorage(block);
-                const mirrorSet = block.adminfo.mirror_group;
-                return { mode, kind, seq, mirrorSet, storage  };
-            });
+
+        const { deletions = [], future_deletions = [] } = frag;
+        const deletionsSet = new Set(
+            [ ...deletions, ...future_deletions ].map(del =>
+                del.block_md.id // TODO: rewrite as del.block_id  after jacky's change.
+            )
+        );
+
+        const allocations = frag.allocations.map(alloc => {
+            const mode = 'WAITING_FOR_ALLOCATION';
+            const storage = notAllocatedStorage;
+            const mirrorSet = alloc.mirror_group;
+            return { mode, kind, seq, storage, mirrorSet };
+        });
+
+        const blocks = frag.blocks.map(block => {
+            const toBeRemoved = deletionsSet.has(block.block_md.id);
+            const mode =
+                (toBeRemoved && block.accessible && 'WAITING_FOR_DELETE') ||
+                (toBeRemoved && !block.accessible && 'CANNOT_BE_DELETED') ||
+                (block.accessible && 'HEALTHY') ||
+                'NOT_ACCESSIBLE';
+
+            const storage = _mapBlockStorage(block);
+            const mirrorSet = block.adminfo.mirror_group;
+            return { mode, kind, seq, mirrorSet, storage };
+        });
+
+        return [
+            ...allocations,
+            ...blocks
+        ];
     });
 }
 
@@ -123,7 +151,7 @@ function _mapBlockStorage(block) {
     } = block.adminfo;
 
     if (in_mongo_pool) {
-        return { kind: 'INTERNAL' };
+        return { kind: 'INTERNAL_STORAGE' };
 
     } else if (in_cloud_pool) {
         return {

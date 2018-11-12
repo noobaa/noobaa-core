@@ -5,10 +5,9 @@ import resourceListTooltip from './resource-list-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import { openObjectPreviewModal, requestLocation } from 'action-creators';
 import { paginationPageSize } from 'config';
-import { deepFreeze, assignWith, sumBy, isDefined, unique, mapValues } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getCloudResourceTypeIcon } from 'utils/resource-utils';
-import { splitObjectId, summerizePartDistribution, formatBlockDistribution } from 'utils/object-utils';
+import { splitObjectId } from 'utils/object-utils';
 import { getResiliencyTypeDisplay } from 'utils/bucket-utils';
 import { formatSize } from 'utils/size-utils';
 import { stringifyAmount, capitalize } from 'utils/string-utils';
@@ -16,6 +15,14 @@ import { getHostDisplayName } from 'utils/host-utils';
 import numeral from 'numeral';
 import ko from 'knockout';
 import * as routes from 'routes';
+import {
+    deepFreeze,
+    isUndefined,
+    mapValues,
+    groupBy,
+    countBy,
+    flatMap
+} from 'utils/core-utils';
 
 const partModeToState = deepFreeze({
     UNAVAILABLE: {
@@ -40,7 +47,8 @@ const groupTooltips = deepFreeze({
     'MIRROR_SET:FRAGMENTS:HOSTS': 'Fragments resides in nodes pool are distributed between the different nodes in the pool according to the configured policy parameters',
     'MIRROR_SET:REPLICAS:CLOUD':  'NooBaa considers cloud resource as resilient and keeps only one replica on this type of resource',
     'MIRROR_SET:FRAGMENTS:CLOUD': 'NooBaa considers cloud resource as resilient and keeps only data fragments on this type of resource',
-    'TO_BE_REMOVED':              'In a case of policy changes, data allocation might be changed and some replicas/ fragments will need to be removed'
+    'INTERNAL_STORAGE_SET':       'While using the system internal storage, no parity fragments / replicas will be kept regardless of the configured policy parameters',
+    'DELETE_SET':                 'In a case of policy changes, data allocation might be changed and some replicas/ fragments will need to be removed'
 });
 
 const blocksTableColumns = deepFreeze([
@@ -80,12 +88,17 @@ const blockModeToState = deepFreeze({
         css: 'error',
         tooltip: 'Unavailable'
     },
-    MOCKED: {
+    CANNOT_BE_DELETED: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Unavailable - Cannot be wipped'
+    },
+    WAITING_FOR_ALLOCATION: {
         name: 'working',
         css: 'warning',
         tooltip: 'Allocating'
     },
-    WIPING: {
+    WAITING_FOR_DELETE: {
         name: 'working',
         css: 'warning',
         tooltip: 'Wiping'
@@ -96,6 +109,12 @@ const blockModeToState = deepFreeze({
         tooltip: 'Healthy'
     }
 });
+
+const specialStorageSets = [
+    'DELETE_SET',
+    'INTERNAL_STORAGE_SET'
+];
+
 
 function _summrizeResiliency(resiliency) {
     const { kind, replicas, dataFrags, parityFrags } = resiliency;
@@ -125,101 +144,147 @@ function _getActionsTooltip(isOwner, httpsNoCert, verb, align) {
     return '';
 }
 
-function _mapPart(part, index, distribution, isSelected) {
+function _formatBlockTypeCounters(counters, seperator = ' | ') {
+    const {
+        REPLICA: replicas = 0,
+        DATA: dataFrags = 0,
+        PARITY: parityFrags = 0,
+        IN_PROCESS: inProcess = 0
+    } = counters;
+
+    const parts = [];
+    if (replicas > 0) {
+        parts.push(stringifyAmount('Replica', replicas));
+    }
+
+    if (dataFrags > 0) {
+        parts.push(stringifyAmount('Data Fragment', dataFrags));
+    }
+
+    if (parityFrags > 0) {
+        parts.push(stringifyAmount('Parity Fragment', parityFrags));
+    }
+
+    if (inProcess > 0) {
+        parts.push(`${stringifyAmount('Block', inProcess)} in process`);
+    }
+
+    return parts.join(seperator);
+}
+
+function _mapPartToRow(part, index, selectIndex) {
     const seq = numeral(part.seq + 1).format(',');
     const size = formatSize(part.size);
-    const counters = {
-        replicas: 0,
-        dataFrags: 0,
-        parityFrags: 0,
-        toBeRemoved: 0
-    };
 
-    for (const group of distribution) {
-        if (group.type === 'TO_BE_REMOVED') {
-            counters.toBeRemoved +=  sumBy(Object.values(group.storagePolicy));
-        } else {
-            assignWith(counters, group.storagePolicy, (a, b) => a + b);
-        }
-    }
+    const distribution = _formatBlockTypeCounters(
+        countBy(part.blocks, block =>
+            block.mode.startsWith('WAITING') ? 'IN_PROCESS' : block.kind
+        )
+    );
 
     return {
-        index,
-        isSelected: isSelected,
-        summary: `Part ${seq} | ${size} | ${formatBlockDistribution(counters, ', ')}`,
-        state: partModeToState[part.mode]
+        index: index,
+        isSelected: index === selectIndex,
+        state: partModeToState[part.mode],
+        summary: `Part ${seq} | ${size} | ${distribution}`
     };
 }
 
-function _getStorageType(group) {
-    if (!group.resources) {
-        return 'UNKNOWN';
-    }
-
-    const types = unique(group.resources.map(res => res.type));
-    if (types.length === 1) {
-        return types[0];
-    }
-
-    const candidate = group.blocks[0];
-    if (candidate.storage) {
-        return candidate.storage.kind;
-    }
-
-    return 'UNKNOWN';
+function _getBlockGroupId(block) {
+    const { mode, storage, mirrorSet } = block;
+    return (
+        (mode === 'WAITING_FOR_DELETE' && 'DELETE_SET') ||
+        (mode === 'CANNOT_BE_DELETED' && 'DELETE_SET') ||
+        (storage.kind === 'INTERNAL_STORAGE' && 'INTERNAL_STORAGE_SET') ||
+        mirrorSet
+    );
 }
 
-function _getGroupTooltip(group, storageType, blocksCategory) {
-    const parts = [group.type];
-    if (group.type !== 'TO_BE_REMOVED') {
-        parts.push(blocksCategory);
+function _getGroupTooltip(groupId, blockType, storageType) {
+    const parts = [
+        specialStorageSets.includes(groupId) ? groupId : 'MIRROR_SET'
+    ];
+
+    if (blockType === 'MIRROR_SET') {
+        parts.push(blockType, storageType);
     }
 
-    return {
-        text: groupTooltips[parts.join(':')],
-        align: 'end'
-    };
+    const text = groupTooltips[parts.join(':')];
+    if (text) {
+        return { text, align: 'end' };
+    }
 }
 
 function _getResourceInfo(resource, cloudTypeMapping, system) {
-    const { type, name } = resource;
-    if (type === 'HOSTS') {
-        return {
-            icon: 'nodes-pool',
-            text: name,
-            href: realizeUri(routes.pool, { system, pool: name })
-        };
+    const { kind, resource: name } = resource;
+    switch (kind) {
+        case 'HOSTS': {
+            return {
+                icon: 'nodes-pool',
+                text: name,
+                href: realizeUri(routes.pool, { system, pool: name })
+            };
+        }
 
-    } else {
-        const cloudType = cloudTypeMapping[name];
-        return {
-            icon: getCloudResourceTypeIcon({ type: cloudType }).name,
-            text: name,
-            href: realizeUri(routes.cloudResource, { system, resource: name })
-        };
+        case 'CLOUD': {
+            const cloudType = cloudTypeMapping[name];
+            return {
+                icon: getCloudResourceTypeIcon({ type: cloudType }).name,
+                text: name,
+                href: realizeUri(routes.cloudResource, { system, resource: name })
+            };
+        }
     }
 }
 
-function _getResourceSummary(resources, system, cloudTypeMapping) {
-    switch (resources.length) {
-        case 0: {
-            return;
-        }
+function _getStorageSummary(tierIndex, resources, system, cloudTypeMapping) {
+    if (tierIndex === -1) {
+        return {
+            tierIndex: 0,
+            resources: null
+        };
 
-        case 1: {
-            return _getResourceInfo(resources[0], cloudTypeMapping, system);
-        }
+    } else if (resources.length === 0) {
+        return {
+            tierIndex: tierIndex + 1,
+            resources: null
+        };
 
-        default: {
-            return {
+    } else if (resources.length === 1) {
+        return {
+            tierIndex: tierIndex + 1,
+            resources: _getResourceInfo(resources[0], cloudTypeMapping, system)
+        };
+
+    } else {
+        return {
+            tierIndex: tierIndex + 1,
+            resources: {
                 text: stringifyAmount('resource', resources.length),
                 tooltip: {
                     template: resourceListTooltip,
                     text: resources.map(res => _getResourceInfo(res, cloudTypeMapping, system))
                 }
-            };
-        }
+            }
+        };
     }
+}
+
+
+function _getGroupBlocksType(blockTypeCounters) {
+    const { REPLICA = 0, DATA = 0, PARITY = 0 } = blockTypeCounters;
+    return (
+        (REPLICA === 0 && 'FRAGMENTS') ||
+        ((DATA + PARITY) === 0 && 'REPLICAS') ||
+        'MIXED'
+    );
+}
+
+function _getGroupLabel(groupId, groupIndex) {
+    return false ||
+        (groupId === 'DELETE_SET' && 'To be removed') ||
+        (groupId === 'INTERNAL_STORAGE_SET' && 'Internal storage') ||
+        `Mirror set ${groupIndex + 1}`;
 }
 
 function _getBlockMarking(block) {
@@ -254,56 +319,79 @@ function _getBlockMarking(block) {
 }
 
 function _getBlockResource(block, system) {
-    if (block.mode === 'MOCKED') {
-        return { text: 'Searching for resource' };
-    }
-
-    const { kind, resource, pool, host } = block.storage || {};
+    const { kind, resource, pool, host } = block.storage;
     switch (kind) {
         case 'HOSTS': {
             const text = getHostDisplayName(host);
             const href = realizeUri(routes.host, { system, pool, host });
             return { text, href };
         }
-
         case 'CLOUD': {
             const text = resource;
             const href = realizeUri(routes.cloudResource, { system, resource });
             return { text, href };
         }
-
-        case 'INTERNAL': {
+        case 'INTERNAL_STORAGE': {
             return { text: 'Internal Storage' };
+        }
+
+        case 'NOT_ALLOCATED': {
+            return { text: 'Searching for resource' };
         }
     }
 }
 
-function _mapDistributionGroup(group, cloudTypeMapping, system) {
-    const policy = group.storagePolicy;
-    const blocksCategory =
-        (policy.replicas && (policy.dataFrags + policy.parityFrags) && 'MIXED') ||
-        (policy.replicas && 'REPLICAS') ||
-        'FRAGMENTS';
+function _mapBlockToRow(block, system) {
+    return {
+        state: blockModeToState[block.mode],
+        marking: _getBlockMarking(block),
+        resource: _getBlockResource(block, system)
+    };
+}
 
-    const visibleColumns = blocksTableColumns
-        .filter(col => col.prop !== 'marking' || col.name === blocksCategory.toLowerCase())
-        .map(col => col.name);
 
-    const groupLabel =
-        (group.type === 'MIRROR_SET' && `Mirror set ${group.index + 1}`) ||
-        (group.type === 'TO_BE_REMOVED' && 'To be removed');
+function _mapBlocksToTables(blocks, placement, cloudTypeMapping, system) {
+    const groups = groupBy(blocks, _getBlockGroupId);
+
+    return Object.entries(groups)
+        .map(([groupId, blocks], i) => {
+            const blockTypeCounters = countBy(blocks, block => block.kind);
+            const blockType = _getGroupBlocksType(blockTypeCounters);
+            const blockStorageType = blocks[0].storage.kind;
+            const tierIndex = placement.tiers.findIndex(tier =>
+                (tier.mirrorSets || []).some(ms => ms.name === groupId)
+            );
+            const resources = flatMap(blocks, block => block.storage)
+                .filter(storage => storage.kind === 'HOSTS' || storage.kind === 'CLOUD');
+
+            const visibleColumns = blocksTableColumns
+                .filter(column => !column.visibleFor || column.visibleFor === blockType)
+                .map(column => column.name);
+
+            const label = _getGroupLabel(groupId, i);
+            const policy = _formatBlockTypeCounters(blockTypeCounters);
+            const tooltip = _getGroupTooltip(groupId, blockType, blockStorageType);
+            const storage = _getStorageSummary(tierIndex, resources, system, cloudTypeMapping);
+            const rows = blocks.map(block => _mapBlockToRow(block, system));
+
+            return { visibleColumns, label, policy, tooltip, storage, rows };
+        });
+}
+
+function _mapPartDetails(part, placement, cloudTypeMapping, system) {
+    if (!part) {
+        return;
+    }
 
     return {
-        visibleColumns: visibleColumns,
-        label: groupLabel,
-        policy: formatBlockDistribution(policy),
-        tooltip: _getGroupTooltip(group.type, blocksCategory, _getStorageType(group)),
-        resources: _getResourceSummary(group.resources, system, cloudTypeMapping),
-        rows: group.blocks.map(block => ({
-            state: blockModeToState[block.mode],
-            marking: _getBlockMarking(block),
-            resource: _getBlockResource(block, system)
-        }))
+        fade: true,
+        partSeq: numeral(part.seq + 1).format(','),
+        blockTables: _mapBlocksToTables(
+            part.blocks,
+            placement,
+            cloudTypeMapping,
+            system
+        )
     };
 }
 
@@ -336,7 +424,11 @@ class BlocksTableViewModel {
     label = ko.observable();
     policy = ko.observable();
     tooltip = ko.observable();
-    resources = ko.observable();
+    storage = {
+        visible: ko.observable(),
+        tierIndex: ko.observable(),
+        resources: ko.observable()
+    };
     rows = ko.observableArray()
         .ofType(BlockRowViewModel);
 }
@@ -365,7 +457,7 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
     pageSize = paginationPageSize;
     pathname = '';
     selectedRow = -1;
-    partsLoaded = ko.observable();
+    dataReady = ko.observable();
     page = ko.observable();
     s3SignedUrl = ko.observable();
     partCount = ko.observable();
@@ -407,43 +499,33 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
         user,
         sslCert
     ) {
-        if (!parts || !user) {
+        if (!parts || !user || !bucket || !object) {
             ko.assignToProps(this, {
-                partsLoaded: false,
-                areActionsAllowed: false
-            });
-
-        } else if (!bucket || !object) {
-            ko.assignToProps(this, {
+                dataReady: false,
                 partCount: 0,
                 placementType: '',
                 resilinecySummary: '',
                 resourceCount: '',
-                partsLoaded: false,
                 areActionsAllowed: false
             });
 
         } else {
             const { params, query, protocol, pathname } = location;
             const httpsNoCert = protocol === 'https' && !sslCert;
-            const partDistributions = parts.map(part => summerizePartDistribution(bucket, part));
-            const selectedRow = isDefined(query.row) ? Number(query.row) : -1;
-            const isRowSelected = selectedRow > -1;
+            const selectedRow = isUndefined(query.row) ? -1 : Number(query.row);
+            const selectedPart = selectedRow > -1 ? parts[selectedRow] : null;
             const cloudTypeMapping = mapValues(cloudResources, res => res.type);
             const resourceCount = bucket.placement.tiers.reduce(
                 (count, tier) => count + (tier.mirrorSets || []).reduce(
-                    (count, ms) => count + ms.resources.length,
-                    0
-                ),
-                0
+                    (count, ms) => count + ms.resources.length, 0
+                ),0
             );
 
             ko.assignToProps(this, {
-                partsLoaded: true,
+                dataReady: true,
                 pathname: pathname,
                 s3SignedUrl: object.s3SignedUrl,
                 partCount: object.partCount,
-                placementType: 'TODO: Need to figure out What should go here ???',
                 resilinecySummary: _summrizeResiliency(bucket.resiliency),
                 resourceCount: resourceCount,
                 downloadTooltip: _getActionsTooltip(user.isOwner, httpsNoCert, 'download'),
@@ -451,17 +533,14 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
                 page: Number(query.page || 0),
                 areActionsAllowed: user.isOwner && !httpsNoCert,
                 selectedRow: selectedRow,
-                rows: parts.map((part, i) =>
-                    _mapPart(part, i, partDistributions[i], selectedRow === i)
-                ),
-                isPaneExpanded: isRowSelected,
-                partDetails: !isRowSelected ? {} : {
-                    fade: true,
-                    partSeq: isRowSelected ? numeral(parts[selectedRow].seq + 1).format(',') : '',
-                    blockTables: partDistributions[selectedRow].map(group =>
-                        _mapDistributionGroup(group, cloudTypeMapping, params.system)
-                    )
-                }
+                rows: parts.map((part, i) => _mapPartToRow(part, i, selectedRow)),
+                isPaneExpanded: Boolean(selectedPart),
+                partDetails: _mapPartDetails(
+                    selectedPart,
+                    bucket.placement,
+                    cloudTypeMapping,
+                    params.system
+                )
             });
         }
     }

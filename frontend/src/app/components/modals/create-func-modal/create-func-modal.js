@@ -1,15 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './create-func-modal.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, pick } from 'utils/core-utils';
 import { readFileAsArrayBuffer, toObjectUrl, openInNewTab } from 'utils/browser-utils';
 import { shortString, stringifyAmount } from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
 import { getFormValues, isFieldValid, isFormValid } from 'utils/form-utils';
-import { getMany } from 'rx-extensions';
-import { action$, state$ } from 'state';
 import { bufferStore } from 'services';
 import JSZip from 'jszip';
 import { createFunction as learnMoreHref } from 'knowledge-base-articles';
@@ -46,7 +44,6 @@ const codeFormatOptions = deepFreeze([
 ]);
 
 const inlineCodeHandlerFile = 'main.js';
-const runtimeTooltip = 'The runtime environment for the function you are uploading. Currently, nodejs6 is the only available environment in NooBaa.';
 const handlerFileTooltip = 'The name of the file which the handler function is written in';
 const handlerFuncTooltip = 'The function within your code that will initiate the execution. The name should match to the function name in the selected file';
 
@@ -55,6 +52,10 @@ const fieldsByStep = deepFreeze({
     1: ['codeFormat', 'inlineCode', 'codePackage', 'handlerFile', 'handlerFunc'],
     2: ['memorySize', 'timeoutMinutes', 'timeoutSeconds']
 });
+
+function _getRuntimeTooltip(runtime) {
+    return `The runtime environment for the function you are uploading. Currently, ${runtime} is the only available environment in NooBaa.`;
+}
 
 async function _selectCode(codeFormat, inlineCode, codePackage) {
     switch (codeFormat) {
@@ -82,15 +83,15 @@ async function _selectCode(codeFormat, inlineCode, codePackage) {
     }
 }
 
-class CreateFuncModalViewModel extends Observer {
+class CreateFuncModalViewModel extends ConnectableViewModel {
     learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     steps = steps;
-    runtime = 'nodejs6';
+    runtime = ko.observable();
     formattedPkgSizeLimit = formatSize(funcSizeLimit);
     codeFormatOptions = codeFormatOptions;
     memorySizeOptions = memorySizeOptions;
-    runtimeTooltip = runtimeTooltip;
+    runtimeTooltip = ko.observable();;
     handlerFileTooltip = handlerFileTooltip;
     handlerFuncTooltip = handlerFuncTooltip
     handlerFileFilterPlaceholder = ko.observable();
@@ -99,6 +100,7 @@ class CreateFuncModalViewModel extends Observer {
     isShowFileContentBtnDisabled = ko.observable();
     handlerFileOptions = ko.observableArray();
     selectedFileInfo = null;
+    isStepValid = false;
     fields = {
         step: 0,
         funcName: '',
@@ -113,24 +115,22 @@ class CreateFuncModalViewModel extends Observer {
         timeoutSeconds: 30
     };
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'functions',
-                    ['forms', this.formName]
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { functions, forms, system } = state;
+        return [
+            functions,
+            forms && forms[this.formName],
+            system.nodeVersion
+        ];
     }
 
-    onState([functions, form]) {
+    mapStateToProps(functions, form, nodeVersion) {
         if (!functions || !form) {
             return;
         }
+
+        const [major, minor] = nodeVersion.slice(1).split('.', 2);
+        const runtime = `nodejs${major}.${minor}`;
 
         const existingNames = Object.values(functions)
             .map(func => func.name);
@@ -160,14 +160,17 @@ class CreateFuncModalViewModel extends Observer {
             stringifyAmount('file', handlerFileOptions.length)
         }`;
 
-
-        this.existingNames = existingNames;
-        this.isHandlerSelectionDisabled(!hasValidCodePkg);
-        this.isShowFileContentBtnDisabled(!isPkgFileSelected);
-        this.handlerFileOptions(handlerFileOptions);
-        this.handlerFileFilterPlaceholder(handlerFileFilterPlaceholder);
-        this.selectedFileInfo = selectedFileInfo;
-        this.isStepValid = isFormValid(form);
+        ko.assignToProps(this, {
+            runtime,
+            runtimeTooltip: _getRuntimeTooltip(runtime),
+            existingNames,
+            isHandlerSelectionDisabled: !hasValidCodePkg,
+            isShowFileContentBtnDisabled: !isPkgFileSelected,
+            handlerFileOptions: handlerFileOptions,
+            handlerFileFilterPlaceholder: handlerFileFilterPlaceholder,
+            selectedFileInfo: selectedFileInfo,
+            isStepValid: isFormValid(form)
+        });
     }
 
     onValidate(values, existingNames) {
@@ -259,7 +262,7 @@ class CreateFuncModalViewModel extends Observer {
 
     onBeforeStep(step) {
         if (!this.isStepValid) {
-            action$.next(touchForm(this.formName, fieldsByStep[step]));
+            this.dispatch(touchForm(this.formName, fieldsByStep[step]));
             return false;
         }
 
@@ -296,23 +299,25 @@ class CreateFuncModalViewModel extends Observer {
             inlineCodeHandlerFile :
             handlerFile;
 
-        action$.next(createLambdaFunc(
-            funcName,
-            '$LATEST',
-            funcDesc,
-            this.runtime,
-            selectedHandlerFile,
-            handlerFunc,
-            memorySize,
-            timeoutMinutes * 60 + timeoutSeconds,
-            bufferKey,
-            size
-        ));
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            createLambdaFunc(
+                funcName,
+                '$LATEST',
+                funcDesc,
+                this.runtime(),
+                selectedHandlerFile,
+                handlerFunc,
+                memorySize,
+                timeoutMinutes * 60 + timeoutSeconds,
+                bufferKey,
+                size
+            )
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     async onShowFileContent() {
@@ -329,7 +334,7 @@ class CreateFuncModalViewModel extends Observer {
         const { name, size } = pkg;
         if (size > funcSizeLimit) {
             const codePackage = { name, size, oversized: true };
-            action$.next(updateForm(this.formName, { codePackage }));
+            this.dispatch(updateForm(this.formName, { codePackage }));
 
         } else {
             const buffer = await readFileAsArrayBuffer(pkg);
@@ -341,8 +346,10 @@ class CreateFuncModalViewModel extends Observer {
                 .map(file => file.name);
 
             const codePackage = { name, size, files, bufferKey };
-            action$.next(updateForm(this.formName, { codePackage, handlerFile: '', handlerFunc: '' }));
-            action$.next(untouchForm(this.formName, ['handlerFile', 'handlerFunc']));
+            this.dispatch(
+                updateForm(this.formName, { codePackage, handlerFile: '', handlerFunc: '' }),
+                untouchForm(this.formName, ['handlerFile', 'handlerFunc'])
+            );
         }
     }
 }

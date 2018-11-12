@@ -59,8 +59,12 @@ vr {
     margin: 0 @gutter;
     align-self: stretch;
 
-    &.alt-colors {
-        background: @color7;
+    &.vr-light {
+        background-color: @color7;
+    }
+
+    &.vr-dark {
+        background-color: @color3;
     }
 }
 
@@ -412,6 +416,10 @@ pre {
         border-color: @color6;
     }
 
+    &.border-dark {
+        border-color: @color1;
+    }
+
     &.border-dash {
         border-style: dashed;
     }
@@ -539,4 +547,20 @@ dirty-mark {
 
 .blur {
     filter: blur(4px);
+}
+
+.scale-on-hover {
+    &:hover {
+        transform: scale(1.15, 1.15);
+    }
+
+    &.disabled, &:disabled {
+        &:hover {
+            transform: unset;
+        }
+    }
+}
+
+.round-corners {
+    border-radius: 3px;
 }

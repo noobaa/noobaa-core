@@ -1,28 +1,32 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="row">
+<div class="fill row" ko.visible="!dataReady()">
+    <loading-indicator class="align-middle greedy"
+        params="label: true"
+    ></loading-indicator>
+</div>
+
+<section class="summary greedy row" ko.css.visible="dataReady">
     <section class="c4 column pad borders">
-        <div class="row greedy content-middle">
+        <div class="row greedy content-middle"
+            ko.with="status"
+        >
             <svg-icon class="push-next"
-                params="name: statusIcon().name"
-                data-bind="css: statusIcon().css"
+                params="name: icon.name"
+                ko.css="icon.css"
             ></svg-icon>
-            <span class="highlight" data-bind="text: statusText"></span>
+            <span class="highlight">{{text}}</span>
         </div>
-
         <hr>
-
-        <div class="row greedy content-middle">
+        <div class="row greedy content-middle"
+            ko.with="issues"
+        >
             <svg-icon class="push-next"
-                params="name: issuesIcon().name"
-                data-bind="
-                    css: issuesIcon().css,
-                    tooltip: issuesTooltip
+                params="name: icon.name"
+                ko.css="icon.css"
+                ko.tooltip="icon.tooltip"
             "></svg-icon>
-            <span class="highlight" data-bind="
-                text: issuesText,
-                css: { disabled: !isConnected() }
-            "></span>
+            <span class="highlight">{{text}}</span>
         </div>
     </section>
 
@@ -30,11 +34,16 @@
         <h3 class="heading3">
             Average utilization over last minute:
         </h3>
-        <bar-chart params="values: barValues, options: barOptions">
+        <bar-chart params="
+            options: bars.options,
+            values: bars.values
+        "></bar-chart>
     </section>
 
     <section class="c4 column pad borders">
-        <h3 class="heading3" data-bind="text: 'No Server Activities'"></h3>
+        <h3 class="heading3">
+            No Server Activities
+        </h3>
         <hr>
     </section>
 </section>

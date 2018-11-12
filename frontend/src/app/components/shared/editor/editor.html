@@ -6,10 +6,10 @@
 >
     {{ko.unwrap(label)}}:
     <!-- ko if: tooltip -->
-    <svg-icon class="icon-small push-prev-half"
-        params="name: 'question'"
-        ko.tooltip="tooltip"
-    ></svg-icon>
+    <more-info-icon
+        class="push-prev-half"
+        params="tooltip: tooltip"
+    ></more-info-icon>
     <!-- /ko -->
 </span>
 <div class="editor-content column"

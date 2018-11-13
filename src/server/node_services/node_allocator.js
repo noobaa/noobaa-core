@@ -9,6 +9,8 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const nodes_client = require('./nodes_client');
+const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 // const node_server = require('./node_server');
 
 const ALLOC_REFRESH_MS = 10000;
@@ -18,7 +20,7 @@ let alloc_group_by_pool_set = {};
 let alloc_group_by_tiering = {};
 
 
-function refresh_tiering_alloc(tiering, force) {
+async function refresh_tiering_alloc(tiering, force) {
     const pools = _.flatMap(tiering.tiers, ({ tier }) => {
         let tier_pools = [];
         // Inside the Tier, pools are unique and we don't need to filter afterwards
@@ -27,6 +29,16 @@ function refresh_tiering_alloc(tiering, force) {
         });
         return tier_pools;
     });
+    if (force === 'force') {
+        const timestamp = Date.now();
+        await server_rpc.client.node.sync_monitor_storage_info(undefined, {
+            auth_token: auth_server.make_auth_token({
+                system_id: tiering.system._id,
+                role: 'admin'
+            })
+        });
+        dbg.log0('ZZZZ refresh_tiering_alloc -> sync_monitor_to_store took', Date.now() - timestamp);
+    }
     return P.join(
         P.map(pools, pool => refresh_pool_alloc(pool, force)),
         refresh_tiers_alloc(tiering, force),

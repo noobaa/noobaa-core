@@ -288,6 +288,19 @@ class NodesMonitor extends EventEmitter {
             .return();
     }
 
+    async sync_storage_to_store() {
+        const items = Array.from(this._map_node_id.values());
+        for (const item of items) {
+            const info = await this.client.agent.get_agent_storage_info(undefined, {
+                    connection: item.connection
+                })
+                .timeout(AGENT_RESPONSE_TIMEOUT);
+            if (!info) return;
+            item.node.storage = info.storage;
+            dbg.log0('JAJA updated storage from node', item.name, item.node.storage);
+        }
+    }
+
 
     /**
      * heartbeat request from node agent
@@ -2030,11 +2043,8 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_item_storage_full(item) {
-        const reserve = item.node.node_type === 'BLOCK_STORE_FS' ? config.NODES_FREE_SPACE_RESERVE : 0;
-        if (!item.node.storage) return true;
-        return item.node.storage.limit ?
-            (item.node.storage.used >= item.node.storage.limit) :
-            (item.node.storage.free <= reserve);
+        const storage_info = this._node_storage_info(item);
+        return storage_info.free <= 1024 * 1024;
     }
 
     _get_item_io_detention(item) {
@@ -3761,37 +3771,53 @@ class NodesMonitor extends EventEmitter {
     }
 
     _node_storage_info(item) {
+
+        const disk_total = size_utils.json_to_bigint(item.node.storage.total || 0);
+        const disk_free = BigInteger.max(size_utils.json_to_bigint(item.node.storage.free || 0), BigInteger.zero);
+        const disk_used = disk_total.minus(disk_free);
+
+        const nb_used = size_utils.json_to_bigint(item.node.storage.used || 0);
+        const used_other = BigInteger.max(BigInteger.zero, disk_used.minus(nb_used));
+
+        // calculate nb_reserved: it's complex.
         const ignore_reserve = item.node.is_internal_node || item.node.is_cloud_node || item.node.is_mongo_node;
-        let reply = {
-            total: size_utils.json_to_bigint(item.node.storage.total || 0),
-            free: BigInteger.max(size_utils.json_to_bigint(item.node.storage.free || 0), BigInteger.zero),
-            used: size_utils.json_to_bigint(item.node.storage.used || 0),
-            alloc: size_utils.json_to_bigint(item.node.storage.alloc || 0),
-            limit: size_utils.json_to_bigint(item.node.storage.limit || 0),
-            reserved: size_utils.json_to_bigint(config.NODES_FREE_SPACE_RESERVE || 0),
-            used_other: size_utils.json_to_bigint(item.node.storage.used_other || 0),
-            unavailable_free: size_utils.json_to_bigint(item.node.storage.unavailable_free || 0),
-            unavailable_used: size_utils.json_to_bigint(item.node.storage.unavailable_used || 0),
-        };
+        const reserved_config = ignore_reserve ?
+            BigInteger.zero :
+            size_utils.json_to_bigint(config.NODES_FREE_SPACE_RESERVE || 0);
+        const nb_limit = BigInteger.min(
+            size_utils.json_to_bigint(item.node.storage.limit || 0),
+            disk_total.minus(reserved_config)
+        );
+        const reserved_free = disk_total.minus(nb_limit).minus(used_other);
+        const nb_reserved = BigInteger.min(
+            disk_free,
+            BigInteger.max(reserved_free, reserved_config)
+        );
 
-        reply.reserved = ignore_reserve ? BigInteger.zero : BigInteger.min(reply.reserved, reply.free);
-        reply.free = reply.free.minus(reply.reserved);
+        let nb_free = disk_free.minus(nb_reserved);
 
+        let unavailable_free = BigInteger.zero;
+        let unavailable_used = BigInteger.zero;
         if (item.has_issues) {
-            if (item.node.enabled) reply.unavailable_free = reply.free;
-            reply.free = BigInteger.zero;
+            if (item.node.enabled) unavailable_free = nb_free;
+            nb_free = BigInteger.zero;
             // unavailable_used is sent as indication to the frontend that used data is unavailable
-            reply.unavailable_used = reply.used;
+            unavailable_used = nb_used;
         }
 
-        reply.used_other = BigInteger.max(reply.total
-            .minus(reply.used)
-            .minus(reply.reserved)
-            .minus(reply.free)
-            .minus(reply.unavailable_free),
-            BigInteger.zero);
+        // console.log('GGG _node_storage_info', { disk_total, disk_free, disk_used, nb_limit, nb_used, nb_free, nb_reserved });
 
-        return size_utils.to_bigint_storage(reply);
+        return size_utils.to_bigint_storage({
+            total: disk_total,
+            free: nb_free,
+            used: nb_used,
+            used_other,
+            alloc: size_utils.json_to_bigint(item.node.storage.alloc || 0),
+            limit: nb_limit,
+            reserved: nb_reserved,
+            unavailable_free,
+            unavailable_used,
+        });
     }
 
     _is_cloud_node(item) {

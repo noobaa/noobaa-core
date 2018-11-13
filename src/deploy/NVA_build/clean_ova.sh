@@ -1,4 +1,5 @@
-set -e
+#!/bin/bash
+set -ex
 # TODO copied from first_install_diaglog.sh
 export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
 eval {isAzure,isEsx,isAlyun,isAws,dev}="false"
@@ -50,6 +51,26 @@ function alyun_specific() {
         sudo passwd -d ${user}
     done
     shred -u ~/.*history
+}
+
+function set_NTP() {
+    set +x
+    # a fix for multiple entries of "NooBaa Configured NTP Server"
+    number_of_lines=$(cat /etc/ntp.conf | grep "NooBaa Configured NTP Server" | wc -l)
+    if [ ${number_of_lines} -ne 1 ]
+    then
+        sed -i "/.*NooBaa Configured NTP Server.*/d" /etc/ntp.conf
+        echo "#NooBaa Configured NTP Server" >>  /etc/ntp.conf
+    fi
+
+    if ${isEsx}
+    then 
+        sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc/ntp.conf
+    else
+        ${isAzure} && ntp_server="time.windows.com" || ntp_server="pool.ntp.org"
+        sed -i "s/.*NooBaa Configured NTP Server.*/server ${ntp_server} iburst #NooBaa Configured NTP Server/" /etc/ntp.conf
+    fi
+    set -x
 }
 
 OPTIONS=$( getopt -o 'h,e,a,l,w,g,d' --long "help,esx,azure,alyun,aws,google,dev" -- "$@" )
@@ -154,7 +175,7 @@ else
 fi
 sudo systemctl enable named
 
-sed -i "s:.*#NooBaa Configured NTP Server.*:#NooBaa Configured NTP Server:" /etc/ntp.conf
+set_NTP
 
 #Clean /tmp old files
 rm -f /tmp/nb_upgrade*
@@ -212,5 +233,6 @@ else
         rm -f zeroFile.tmp
     fi
 fi
+
 history -c
 history -w

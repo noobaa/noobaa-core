@@ -89,14 +89,12 @@ class Agent {
         this.enabled = false;
 
         this.storage_path = params.storage_path;
-        if (params.storage_limit) {
-            this.storage_limit = params.storage_limit || Infinity;
-        }
+        this.storage_limit = params.storage_limit;
 
         const block_store_options = {
             node_name: this.node_name,
             rpc_client: this.client,
-            storage_limit: params.storage_limit,
+            storage_limit: this.storage_limit,
             proxy: this.proxy
         };
         if (this.storage_path) {
@@ -162,6 +160,7 @@ class Agent {
         // (rpc registration requires bound functions)
         js_utils.self_bind(this, [
             'get_agent_info_and_update_masters',
+            'get_agent_storage_info',
             'update_auth_token',
             'update_create_node_token',
             'update_rpc_config',
@@ -615,11 +614,9 @@ class Agent {
     }
 
     _fix_storage_limit(storage_info) {
-        storage_info.limit = this.storage_limit;
-        let limited_total = this.storage_limit;
-        let limited_free = limited_total - storage_info.used;
-        storage_info.total = Math.min(limited_total, storage_info.total);
-        storage_info.free = Math.min(limited_free, storage_info.free);
+        if (this.storage_limit) {
+            storage_info.limit = this.storage_limit;
+        }
     }
 
     _test_server_connection() {
@@ -853,15 +850,7 @@ class Agent {
                         dbg.log0(`used storage is under 200 KB (${storage_info.used}), treat as 0`);
                         storage_info.used = 0;
                     }
-
-                    if (this.storage_limit) {
-                        this._fix_storage_limit(reply.storage);
-                        // reply.storage.limit = this.storage_limit;
-                        // let limited_total = this.storage_limit;
-                        // let limited_free = limited_total - reply.storage.used;
-                        // reply.storage.total = Math.min(limited_total, reply.storage.total);
-                        // reply.storage.free = Math.min(limited_free, reply.storage.free);
-                    }
+                    this._fix_storage_limit(reply.storage);
                 }
             })
             .then(() => extended_hb && os_utils.read_drives()
@@ -880,14 +869,7 @@ class Agent {
                     if (drive.temporary_drive) return false;
                     if (this.storage_path_mount === drive.mount || !this.storage_path_mount) {
                         drive.storage.used = used_size;
-                        if (this.storage_limit) {
-                            this._fix_storage_limit(drive.storage);
-                            // drive.storage.limit = this.storage_limit;
-                            // let limited_total = this.storage_limit;
-                            // let limited_free = limited_total - used_size;
-                            // drive.storage.total = Math.min(limited_total, drive.storage.total);
-                            // drive.storage.free = Math.min(limited_free, drive.storage.free);
-                        }
+                        this._fix_storage_limit(drive.storage);
                         return true;
                     }
                     return false;
@@ -917,6 +899,23 @@ class Agent {
                 }
             })
             .return(reply);
+    }
+
+    async get_agent_storage_info(req) {
+        const dbg = this.dbg;
+        const info = { storage: {} };
+        if (this.block_store) {
+            const storage_info = await this.block_store.get_storage_info();
+            const MIN_USED_STORAGE = 200 * 1024;
+            if (storage_info.used < MIN_USED_STORAGE) {
+                dbg.log0(`used storage is under 200 KB (${storage_info.used}), treat as 0`);
+                storage_info.used = 0;
+            }
+            this._fix_storage_limit(storage_info);
+            info.storage = storage_info;
+        }
+        dbg.log0('get_agent_storage_info: received storage_info request', info);
+        return info;
     }
 
     update_auth_token(req) {

@@ -497,6 +497,13 @@ module.exports = {
             }
         },
 
+        sync_monitor_storage_info: {
+            method: 'PUT',
+            auth: {
+                system: 'admin'
+            }
+        },
+
     },
 
 

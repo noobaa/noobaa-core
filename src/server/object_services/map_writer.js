@@ -19,9 +19,6 @@ const system_utils = require('../utils/system_utils');
 const map_deleter = require('./map_deleter');
 const map_builder = require('./map_builder');
 const { RpcError } = require('../../rpc');
-const server_rpc = require('../server_rpc');
-const auth_server = require('../common_services/auth_server');
-
 
 // dbg.set_level(5);
 
@@ -42,8 +39,7 @@ class MapAllocator {
 
     async run_select_tier() {
         await this.prepare_tiering_for_alloc();
-        const tier = await mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
-        await map_builder.ensure_room_in_tier(tier, this.bucket);
+        const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
         return tier;
     }
 
@@ -55,7 +51,7 @@ class MapAllocator {
             await this.prepare_tiering_for_alloc();
             await this.find_dups();
             while (!this.allocate_blocks()) {
-                await this.prepare_tiering_for_alloc('force');
+                await this.prepare_tiering_for_alloc();
             }
             dbg.log0('MapAllocator: DONE. parts', this.parts.length,
                 'took', time_utils.millitook(millistamp));
@@ -68,20 +64,12 @@ class MapAllocator {
         }
     }
 
-    async prepare_tiering_for_alloc(force) {
+    async prepare_tiering_for_alloc() {
         const tiering = this.bucket.tiering;
-        // const tier = tiering.tiers[0].tier;
-        if (force === 'force') {
-            const tier = await mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
-            await map_builder.ensure_room_in_tier(tier, this.bucket);
-            await server_rpc.client.node.sync_monitor_to_store(undefined, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: this.bucket.system._id,
-                    role: 'admin'
-                })
-            });
-        }
-        await node_allocator.refresh_tiering_alloc(tiering, force);
+        await node_allocator.refresh_tiering_alloc(this.bucket.tiering);
+        this.tiering_status = node_allocator.get_tiering_status(tiering);
+        const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
+        await map_builder.ensure_room_in_tier(tier, this.bucket);
         this.tiering_status = node_allocator.get_tiering_status(tiering);
     }
 

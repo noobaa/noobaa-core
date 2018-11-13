@@ -130,4 +130,5 @@ exports.set_debug_node = req => monitor.set_debug_node(req);
 exports.collect_agent_diagnostics = req => monitor.collect_agent_diagnostics(req.rpc_params);
 exports.report_error_on_node_blocks = req => monitor.report_error_on_node_blocks(req.rpc_params);
 exports.sync_monitor_to_store = req => monitor.sync_to_store();
+exports.sync_monitor_storage_info = req => monitor.sync_storage_to_store();
 exports.ping = req => { /*Empty Func*/ };

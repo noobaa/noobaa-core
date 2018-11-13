@@ -64,7 +64,6 @@ const navItems = deepFreeze([
         icon: 'line-chart',
         label: 'Analytics',
         beta: true
-
     }
 ]);
 

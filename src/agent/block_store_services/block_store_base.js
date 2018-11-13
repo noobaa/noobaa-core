@@ -32,6 +32,7 @@ class BlockStoreBase {
         this.node_name = options.node_name;
         this.client = options.rpc_client;
         this.storage_limit = options.storage_limit;
+        this.usage_limit = options.storage_limit || Infinity;
         // semaphore to serialize writes\deletes of specific blocks
         this.block_modify_lock = new KeysLock();
         this.block_cache = new LRUCache({
@@ -89,6 +90,7 @@ class BlockStoreBase {
     }
 
     delegate_write_block(req) {
+        this._check_write_space(req.rpc_params.data_length);
         return this._delegate_write_block(req.rpc_params.block_md, req.rpc_params.data_length);
     }
 
@@ -189,22 +191,24 @@ class BlockStoreBase {
         return block;
     }
 
+    _check_write_space(data_length) {
+        const required_space = data_length + (1024 * 1024); // require some spare space
+        dbg.log0('ZZZZ write_block', this.usage_limit, '-', this._usage.size, '<', required_space);
+        if (this.usage_limit - this._usage.size < required_space) {
+            throw new RpcError('NO_BLOCK_STORE_SPACE', 'used space exceeded the total capacity of ' +
+                this.usage_limit + ' bytes');
+        }
+    }
+
     async write_block(req) {
         const block_md = req.rpc_params.block_md;
         const data = req.rpc_params[RPC_BUFFERS].data || Buffer.alloc(0);
+        await this.write_block_internal(block_md, data);
+    }
+
+    async write_block_internal(block_md, data) {
         dbg.log1('write_block', block_md.id, data.length, 'node', this.node_name);
-        const required_space = data.length + (1024 * 1024); // require some spare space
-        if (this.total_capacity - this._usage.size < required_space) {
-            throw new RpcError('NO_BLOCK_STORE_SPACE', 'used space exceeded the total capacity of ' +
-                this.total_capacity + ' bytes');
-        }
-        if (this.storage_limit) {
-            const free_space = this.storage_limit - this._usage.size;
-            if (free_space < required_space) {
-                throw new Error('used space exceeded the storage limit of ' +
-                    this._storage_limit + ' bytes');
-            }
-        }
+        this._check_write_space(data.length);
         this._verify_block(block_md, data);
         this.block_cache.invalidate(block_md);
         this.monitoring_stats.inflight_writes += 1;
@@ -252,8 +256,7 @@ class BlockStoreBase {
         }, {
             address: source_md.address,
         });
-        await this._write_block(target_md, res[RPC_BUFFERS].data);
-        this._update_write_stats(res[RPC_BUFFERS].data.length);
+        await this.write_block_internal(target_md, res[RPC_BUFFERS].data);
     }
 
     async delete_blocks(req) {

@@ -17,8 +17,7 @@ class BlockStoreMem extends BlockStoreBase {
         };
         this._blocks = new Map();
         // below 15 GB the node is deactivated, so we report 16 GB here
-        this._total_mem_storage = 16 * 1024 * 1024 * 1024;
-        this.total_capacity = this._total_mem_storage;
+        this.usage_limit = 16 * 1024 * 1024 * 1024;
     }
 
     init() {
@@ -27,8 +26,8 @@ class BlockStoreMem extends BlockStoreBase {
 
     get_storage_info() {
         return {
-            total: this._total_mem_storage,
-            free: this._total_mem_storage - this._usage.size,
+            total: this.usage_limit,
+            free: this.usage_limit - this._usage.size,
             used: this._usage.size,
         };
     }

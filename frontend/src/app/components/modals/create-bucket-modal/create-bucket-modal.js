@@ -125,7 +125,7 @@ class CreateBucketModalViewModel extends ConnectableViewModel {
     }
 
     onValidate(values) {
-        const { step, bucketName } = values;
+        const { step, bucketName, policyType, selectedResources } = values;
         const errors = {};
 
         if (step === 0) {
@@ -139,6 +139,12 @@ class CreateBucketModalViewModel extends ConnectableViewModel {
         } else if (step === 1) {
             if (this.systemResourceCount > 0) {
                 validatePlacementPolicy(values, errors);
+
+                // This rule should be inforced only on bucket creation, this is why it's not
+                // part of the generic validatePlacementPolicy check.
+                if (policyType === 'SPREAD' && selectedResources.length === 0) {
+                    errors.selectedResources = 'Spread policy requires at least 1 participating resources';
+                }
             }
         }
 

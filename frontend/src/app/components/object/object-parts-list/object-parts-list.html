@@ -81,16 +81,24 @@
                             <!-- ko with: storage -->
                             <!-- ko if: tierIndex -->
                             | Resides in tier {{tierIndex}}
-                            <!-- ko if: resources -->
+                            <!-- ko with: resources -->
                             on
+                            <!-- ko if: $data.href -->
                             <a class="box row content-middle cursor-pointer"
-                                ko.attr.href="resources().href"
+                                ko.attr.href="href"
                             >
                                 <svg-icon class="icon-small highlight push-next-half" params="
-                                    name: resources().icon
+                                    name: icon
                                 "></svg-icon>
-                                {{resources().text}}
+                                {{text}}
                             </a>
+                            <!-- /ko -->
+                            <!-- ko ifnot: $data.href -->
+                            <span class="box" ko.tooltip="tooltip">
+                                {{text}}
+                            </span>
+                            <!-- /ko -->
+
                             <!-- /ko -->
                             <!-- /ko -->
                             <!-- /ko -->

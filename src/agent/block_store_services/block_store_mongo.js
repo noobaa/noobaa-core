@@ -42,7 +42,7 @@ class BlockStoreMongo extends BlockStoreBase {
             name: GRID_FS_BUCKET_NAME,
             chunk_size: GRID_FS_CHUNK_SIZE
         });
-        this._STORE_LIMIT = 5 * size_utils.GIGABYTE;
+        this.usage_limit = 5 * size_utils.GIGABYTE;
     }
 
     _init_chunks_collection() {
@@ -86,9 +86,9 @@ class BlockStoreMongo extends BlockStoreBase {
             .then(total => {
                 dbg.log0(`total disk size ${total}, current used ${this._usage}`);
                 if (total < SERVER_MIN_REQUIREMENTS.STORAGE_GB * size_utils.GIGABYTE) {
-                    this._STORE_LIMIT = 5 * size_utils.GIGABYTE;
+                    this.usage_limit = 5 * size_utils.GIGABYTE;
                 } else {
-                    this._STORE_LIMIT = 30 * size_utils.GIGABYTE;
+                    this.usage_limit = 30 * size_utils.GIGABYTE;
                 }
             });
     }
@@ -113,8 +113,8 @@ class BlockStoreMongo extends BlockStoreBase {
     get_storage_info() {
         return P.resolve(this._get_usage())
             .then(usage => ({
-                total: Math.max(this._STORE_LIMIT, usage.size),
-                free: Math.max(this._STORE_LIMIT - usage.size, 0),
+                total: Math.max(this.usage_limit, usage.size),
+                free: Math.max(this.usage_limit - usage.size, 0),
                 used: usage.size
             }));
     }

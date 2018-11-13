@@ -89,6 +89,7 @@ class BucketS3AccessTableViewModel extends ConnectableViewModel {
     }
 
     mapStateToProps(accounts, location) {
+        const { params, route } = location;
         if (!accounts) {
             ko.assignToProps(this, {
                 dataReady: false,
@@ -96,7 +97,8 @@ class BucketS3AccessTableViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const { params } = location;
+            if (route !== routes.bucket) return;
+
             const conenctedAccounts = Object.values(accounts).filter(account =>
                 account.allowedBuckets.includes(params.bucket)
             );
@@ -109,7 +111,7 @@ class BucketS3AccessTableViewModel extends ConnectableViewModel {
             } granted access to this bucket`;
 
             const isExpanded = params.section === policyName;
-            const toggleUri = realizeUri(routes.bucket, {
+            const toggleUri = realizeUri(route, {
                 system: params.system,
                 bucket: params.bucket,
                 tab: params.tab,

@@ -21,7 +21,8 @@ import {
     mapValues,
     groupBy,
     countBy,
-    flatMap
+    flatMap,
+    createCompareFunc
 } from 'utils/core-utils';
 
 const partModeToState = deepFreeze({
@@ -111,10 +112,15 @@ const blockModeToState = deepFreeze({
 });
 
 const specialStorageSets = [
-    'DELETE_SET',
-    'INTERNAL_STORAGE_SET'
+    'INTERNAL_STORAGE_SET',
+    'DELETE_SET'
 ];
 
+
+const _compareGroupIds = createCompareFunc(pair => {
+    const [groupId] = pair;
+    return specialStorageSets.indexOf(groupId)
+});
 
 function _summrizeResiliency(resiliency) {
     const { kind, replicas, dataFrags, parityFrags } = resiliency;
@@ -205,7 +211,7 @@ function _getGroupTooltip(groupId, blockType, storageType) {
         specialStorageSets.includes(groupId) ? groupId : 'MIRROR_SET'
     ];
 
-    if (blockType === 'MIRROR_SET') {
+    if (parts[0] === 'MIRROR_SET') {
         parts.push(blockType, storageType);
     }
 
@@ -216,9 +222,9 @@ function _getGroupTooltip(groupId, blockType, storageType) {
 }
 
 function _getResourceInfo(resource, cloudTypeMapping, system) {
-    switch (resource.kind) {
+    const { type, name } = resource;
+    switch (type) {
         case 'HOSTS': {
-            const { pool: name } = resource;
             return {
                 icon: 'nodes-pool',
                 text: name,
@@ -227,7 +233,6 @@ function _getResourceInfo(resource, cloudTypeMapping, system) {
         }
 
         case 'CLOUD': {
-            const { resource: name } = resource;
             const cloudType = cloudTypeMapping[name];
             return {
                 icon: getCloudResourceTypeIcon({ type: cloudType }).name,
@@ -264,13 +269,14 @@ function _getStorageSummary(tierIndex, resources, system, cloudTypeMapping) {
                 text: stringifyAmount('resource', resources.length),
                 tooltip: {
                     template: resourceListTooltip,
-                    text: resources.map(res => _getResourceInfo(res, cloudTypeMapping, system))
+                    text: resources.map(res =>
+                        _getResourceInfo(res, cloudTypeMapping, system)
+                    )
                 }
             }
         };
     }
 }
-
 
 function _getGroupBlocksType(blockTypeCounters) {
     const { REPLICA = 0, DATA = 0, PARITY = 0 } = blockTypeCounters;
@@ -279,6 +285,23 @@ function _getGroupBlocksType(blockTypeCounters) {
         ((DATA + PARITY) === 0 && 'REPLICAS') ||
         'MIXED'
     );
+}
+
+function _listUsedResources(blocks) {
+    const map = blocks.reduce((map, block) => {
+        const { kind, pool, resource } = block.storage;
+        if (kind === 'HOSTS' || kind === 'CLOUD') {
+            const type = kind;
+            const name = kind === 'HOSTS' ? pool : resource;
+            const key = `${type}:${name}`;
+            if (!map.has(key)) {
+                map.set(key, { name, type });
+            }
+        }
+        return map;
+    }, new Map());
+
+    return Array.from(map.values());
 }
 
 function _getGroupLabel(groupId, groupIndex) {
@@ -355,16 +378,15 @@ function _mapBlocksToTables(blocks, placement, cloudTypeMapping, system) {
     const groups = groupBy(blocks, _getBlockGroupId);
 
     return Object.entries(groups)
+        .sort(_compareGroupIds)
         .map(([groupId, blocks], i) => {
             const blockTypeCounters = countBy(blocks, block => block.kind);
             const blockType = _getGroupBlocksType(blockTypeCounters);
             const blockStorageType = blocks[0].storage.kind;
+            const resources = _listUsedResources(blocks);
             const tierIndex = placement.tiers.findIndex(tier =>
                 (tier.mirrorSets || []).some(ms => ms.name === groupId)
             );
-            const resources = flatMap(blocks, block => block.storage)
-                .filter(storage => storage.kind === 'HOSTS' || storage.kind === 'CLOUD');
-
             const visibleColumns = blocksTableColumns
                 .filter(column => !column.visibleFor || column.visibleFor === blockType)
                 .map(column => column.name);

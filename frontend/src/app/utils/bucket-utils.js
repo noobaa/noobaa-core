@@ -44,7 +44,7 @@ const bucketStateToIcon = deepFreeze({
             align
         });
     },
-    TIER_ENOUGH_HEALTHY_RESOURCES: (bucket, align) => {
+    TIER_NOT_ENOUGH_HEALTHY_RESOURCES: (bucket, align) => {
         const i = _tierIndexForMode(bucket, 'NOT_ENOUGH_HEALTHY_RESOURCES');
         return warningIcon({
             text: `Not enough healthy storage resources in tier ${i +1}`,

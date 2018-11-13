@@ -292,9 +292,13 @@ class MirrorMapper {
         const { spread_pools } = this;
         const picked_pool = spread_pools[Math.max(_.random(spread_pools.length - 1), 0)];
         if (picked_pool && _pool_has_redundancy(picked_pool)) {
-            return this.redundant_pools_valid ? this.redundant_pools : this.regular_pools;
+            return (this.redundant_pools_valid || !this.regular_pools_valid) ?
+                this.redundant_pools :
+                this.regular_pools;
         } else {
-            return this.regular_pools_valid ? this.regular_pools : this.redundant_pools;
+            return (this.regular_pools_valid && !this.redundant_pools_valid) ?
+                this.regular_pools :
+                this.redundant_pools;
         }
     }
 }
@@ -796,7 +800,7 @@ function should_rebuild_chunk_to_local_mirror(mapping, location_info) {
     for (const block of mapping.blocks_in_use) {
         if (block.is_local_mirror) return false;
     }
-    // check if a pool from the same region appear in the allocations list - 
+    // check if a pool from the same region appear in the allocations list -
     // if so then there is enough free space on the pool for this chunk and we should rebuild
     if (!mapping.allocations) return false;
     for (const allocation of mapping.allocations) {

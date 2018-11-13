@@ -159,6 +159,16 @@ module.exports = {
             },
         },
 
+        get_agent_storage_info: {
+            method: 'GET',
+            reply: {
+                type: 'object',
+                properties: {
+                    storage: { $ref: 'common_api#/definitions/storage_info' }
+                }
+            }
+        },
+
         update_auth_token: {
             method: 'POST',
             params: {

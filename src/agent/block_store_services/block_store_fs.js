@@ -9,6 +9,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
+const config = require('../../../config.js');
 const string_utils = require('../../util/string_utils');
 const promise_utils = require('../../util/promise_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
@@ -73,7 +74,8 @@ class BlockStoreFs extends BlockStoreBase {
             .spread((usage, drive) => {
                 const storage = drive.storage;
                 storage.used = usage.size;
-                this.total_capacity = Math.min(storage.total, this.storage_limit);
+                const total_unreserved = Math.max(storage.total - config.NODES_FREE_SPACE_RESERVE, 0);
+                this.usage_limit = Math.min(total_unreserved, this.storage_limit || Infinity);
                 return storage;
             });
     }
@@ -231,20 +233,20 @@ class BlockStoreFs extends BlockStoreBase {
 
     _get_alloc() {
         return this._read_config()
-            .then(config => (config && config.alloc) || 0);
+            .then(conf => (conf && conf.alloc) || 0);
     }
 
     _set_alloc(size) {
         return this._read_config()
-            .then(config => {
-                config = config || {};
-                config.alloc = size;
-                return this._write_config(config);
+            .then(conf => {
+                conf = conf || {};
+                conf.alloc = size;
+                return this._write_config(conf);
             });
     }
 
-    _write_config(config) {
-        const data = JSON.stringify(config);
+    _write_config(conf) {
+        const data = JSON.stringify(conf);
         return fs.writeFileAsync(this.config_path, data);
     }
 

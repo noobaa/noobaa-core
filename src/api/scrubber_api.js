@@ -38,9 +38,6 @@ module.exports = {
                     tier: { objectid: true },
                 }
             },
-            reply: {
-                type: 'integer'
-            },
             auth: { system: 'admin' }
         },
 

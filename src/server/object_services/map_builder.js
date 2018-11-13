@@ -22,6 +22,7 @@ const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const size_utils = require('../../util/size_utils');
 const Semaphore = require('../../util/semaphore');
+const Barrier = require('../../util/barrier');
 
 const builder_lock = new KeysLock();
 const object_io = new ObjectIO();
@@ -192,21 +193,22 @@ class MapBuilder {
         const buckets = _.uniqBy(_.map(populated_chunks, chunk => chunk.bucket), '_id');
         await P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
 
-        let chunks_moving_tiers = 0;
         if (this.tier) {
+            // This path is when called from make_room_in_tier 
+            // with a specific target tier to move all the chunks to.
+            // So we only need to make room in that target tier.
             if (buckets.length > 1) {
                 throw new Error(`Not all chunks belong to the same bucket`);
+            } else if (buckets.length === 1) {
+                const bucket = buckets[0];
+                await ensure_room_in_tier(this.tier, bucket); /* TODO JACKY free_threshold ??? */
             }
-            const bucket = buckets[0];
-            chunks_moving_tiers = await ensure_room_in_tier(this.tier, bucket); /* TODO JACKY free_threshold ??? */
         } else {
-            for (const chunk of populated_chunks) {
-                chunks_moving_tiers += await ensure_room_in_tier(chunk.tier, chunk.bucket);
-            }
-        }
-        // We always call refresh_tiering_alloc twice, but if make_room_in_tier doesn't do anything we can skip it
-        if (chunks_moving_tiers) {
-            await P.map(buckets, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering));
+            // This path is for random chunks found by the scrubber or other workers,
+            // which might all belong to different buckets/tiers.
+            const tiers_and_buckets = populated_chunks.map(chunk => ({ tier: chunk.tier, bucket: chunk.bucket }));
+            const uniq_tiers_and_buckets = _.uniqBy(tiers_and_buckets, 'tier');
+            await P.map(uniq_tiers_and_buckets, ({ tier, bucket }) => ensure_room_in_tier(tier, bucket));
         }
     }
 
@@ -439,61 +441,25 @@ class MapBuilder {
 
 }
 
-// async function make_room_in_tier(tier, bucket) {
-//     const tiering = bucket.tiering;
-//     const tiering_status = node_allocator.get_tiering_status(tiering);
-//     const tier_status = tiering_status[tier._id];
-//     const tier_in_tiering = _.find(tiering.tiers, t => String(t.tier._id) === String(tier._id));
-//     if (!tier_in_tiering || !tier_status) throw new Error(`Can't find current tier in bucket`);
-//     const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
-//         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
-//     ));
-//     if (available_to_upload && available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD * 2)) {
-//         dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.MIN_TIER_FREE_THRESHOLD * 2);
-//         return 0;
-//     }
-//     const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
-//     // const next_tier = _.find(tiering.tiers, t => t.order === (tier_in_tiering.order + 1));
-//     const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
-//     if (!next_tier) {
-//         dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
-//         return 0;
-//     }
-//     dbg.log0(`make_room_in_tier: not enough room ${tier.name}: ${available_to_upload} < ${config.MIN_TIER_FREE_THRESHOLD * 2}
-//         moving ${chunk_ids.length} to next tier ${next_tier.name}`);
-//     await server_rpc.client.scrubber.build_chunks({
-//         chunk_ids,
-//         tier: next_tier._id,
-//     }, {
-//         auth_token: auth_server.make_auth_token({
-//             system_id: bucket.system._id,
-//             role: 'admin'
-//         })
-//     });
-//     dbg.log0(`make_room_in_tier: Done making room in tier ${tier.name}`);
-//     return chunk_ids.length;
-// }
-
 async function make_room_in_tier(tier_id, bucket_id) {
+    // TODO use tier_id as key for KeyLock instead of global mutex
     return _load_serial.surround(async () => {
         const tier = tier_id && system_store.data.get_by_id(tier_id);
         const bucket = bucket_id && system_store.data.get_by_id(bucket_id);
         const tiering = bucket.tiering;
-        await server_rpc.client.node.sync_monitor_to_store(undefined, {
-            auth_token: auth_server.make_auth_token({
-                system_id: system_store.data.systems[0]._id,
-                role: 'admin'
-            })
-        });
-        await node_allocator.refresh_tiering_alloc(tiering, 'force');
+
+        await node_allocator.refresh_tiering_alloc(tiering);
+        if (enough_room_in_tier(tier, bucket)) return;
+
         const tiering_status = node_allocator.get_tiering_status(tiering);
-        if (enough_room_in_tier(tier, bucket)) return 0;
-        const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
         const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
         if (!next_tier) {
             dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
-            return 0;
+            return;
         }
+
+        const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
+        const timestamp3 = Date.now();
         await server_rpc.client.scrubber.build_chunks({
             chunk_ids,
             tier: next_tier._id,
@@ -503,29 +469,45 @@ async function make_room_in_tier(tier_id, bucket_id) {
                 role: 'admin'
             })
         });
-        return chunk_ids.length;
+        dbg.log0('ZZZZ make_room_in_tier -> scrubber.build_chunks took', Date.now() - timestamp3);
+        dbg.log0(`make_room_in_tier: moved ${chunk_ids.length} to next tier`);
+
+        // TODO avoid multiple calls, maybe plan how much to move before and refresh after moving enough
+        const timestamp2 = Date.now();
+        await node_allocator.refresh_tiering_alloc(tiering, 'force');
+        dbg.log0('ZZZZ make_room_in_tier -> refresh_tiering_alloc FORCE took', Date.now() - timestamp2);
     });
 }
+
+const ensure_room_barrier = new Barrier({
+    max_length: 10,
+    expiry_ms: 100,
+    process: async tiers_and_buckets => {
+        const uniq_tiers_and_buckets = _.uniqBy(tiers_and_buckets, 'tier');
+        await P.map(uniq_tiers_and_buckets, async ({ tier, bucket }) => {
+            dbg.log0('ZZZZ ensure_room_barrier', tier.name, bucket.name);
+            await server_rpc.client.scrubber.make_room_in_tier({
+                tier: tier._id,
+                bucket: bucket._id,
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: bucket.system._id,
+                    role: 'admin'
+                })
+            });
+            await node_allocator.refresh_tiering_alloc(bucket.tiering, 'force');
+            enough_room_in_tier(tier, bucket);
+        });
+    }
+});
 
 async function ensure_room_in_tier(tier, bucket) {
-    if (enough_room_in_tier(tier, bucket)) return 0;
-    dbg.log0('ZZZZ current place is less than', config.MIN_TIER_FREE_THRESHOLD * 2);
-    const moved_chunks = await server_rpc.client.scrubber.make_room_in_tier({
-        tier: tier._id,
-        bucket: bucket._id
-    }, {
-        auth_token: auth_server.make_auth_token({
-            system_id: bucket.system._id,
-            role: 'admin'
-        })
-    });
-    dbg.log0(`make_room_in_tier: moved ${moved_chunks} to next tier`);
-    dbg.log0(`ZZZZ moved ${moved_chunks} :~${moved_chunks * 5 * 1024 * 1024} was freed`);
-    enough_room_in_tier(tier, bucket, 'after');
-    return moved_chunks;
+    await node_allocator.refresh_tiering_alloc(bucket.tiering);
+    if (enough_room_in_tier(tier, bucket)) return;
+    await ensure_room_barrier.call({ tier, bucket });
 }
 
-function enough_room_in_tier(tier, bucket, after) {
+function enough_room_in_tier(tier, bucket) {
     const tiering = bucket.tiering;
     const tiering_status = node_allocator.get_tiering_status(tiering);
     const tier_status = tiering_status[tier._id];
@@ -534,13 +516,13 @@ function enough_room_in_tier(tier, bucket, after) {
     const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
     ));
-    dbg.log0('ZZZZ current place in tier is', available_to_upload, tier_status.mirrors_storage);
+    dbg.log0('ZZZZ current place in tier', tier.name, 'is', available_to_upload, tier_status.mirrors_storage);
     if (available_to_upload && available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD * 2)) {
         dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.MIN_TIER_FREE_THRESHOLD * 2);
         return true;
     } else {
-        dbg.log0(`make_room_in_tier: not enough room ${tier.name}: ${available_to_upload} < ${config.MIN_TIER_FREE_THRESHOLD * 2}
-        should move chunks to next tier`);
+        dbg.log0(`make_room_in_tier: not enough room ${tier.name}:`,
+            `${available_to_upload} < ${config.MIN_TIER_FREE_THRESHOLD * 2} should move chunks to next tier`);
         return false;
     }
 }
@@ -551,7 +533,11 @@ function enough_room_in_tier(tier, bucket, after) {
  * @this chunk
  */
 function custom_inspect_chunk() {
-    return _.omit(this, 'rpc_client', util.inspect.custom);
+    return {
+        ..._.omit(this, 'rpc_client', util.inspect.custom),
+        bucket: this.bucket._id,
+        tier: this.tier._id,
+    };
 }
 
 exports.MapBuilder = MapBuilder;

@@ -5,11 +5,6 @@
             "released": true
         },
         {
-            "ver": "2.6.3",
-            "vhd": "2.6.3-c63dc65.vhd",
-            "released": true
-        },
-        {
             "ver": "2.7.3",
             "vhd": "2.7.3-b1880ec.vhd",
             "released": true
@@ -22,6 +17,11 @@
         {
             "ver": "2.9.2",
             "vhd": "2.9.2-a09fff9.vhd",
+            "released": true
+        },
+        {
+            "ver": "2.10.0",
+            "vhd": "2.10.0-33fe3e2.vhd",
             "released": true
         }
     ]

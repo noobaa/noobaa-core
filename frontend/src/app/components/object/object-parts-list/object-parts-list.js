@@ -21,7 +21,6 @@ import {
     mapValues,
     groupBy,
     countBy,
-    flatMap,
     createCompareFunc
 } from 'utils/core-utils';
 
@@ -119,7 +118,7 @@ const specialStorageSets = [
 
 const _compareGroupIds = createCompareFunc(pair => {
     const [groupId] = pair;
-    return specialStorageSets.indexOf(groupId)
+    return specialStorageSets.indexOf(groupId);
 });
 
 function _summrizeResiliency(resiliency) {

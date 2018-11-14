@@ -342,6 +342,7 @@ import counter from './shared/counter/counter';
 import resourcesSelectionTable from './shared/resources-selection-table/resources-selection-table';
 import placementPolicyToggle from './shared/placement-policy-toggle/placement-policy-toggle';
 import tagList from './shared/tag-list/tag-list';
+import moreInfoIcon from './shared/more-info-icon/more-info-icon';
 /** INJECT:shared.import **/
 
 // Register the components with knockout component container.
@@ -636,6 +637,7 @@ export default function register(ko, services) {
         resourcesSelectionTable,
         placementPolicyToggle,
         tagList,
+        moreInfoIcon,
         /** INJECT:shared.list **/
 
         // An empty component used for app/data loading periods

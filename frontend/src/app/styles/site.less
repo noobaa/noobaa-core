@@ -528,3 +528,15 @@ dirty-mark {
 .preserve-whitespaces {
     white-space: pre;
 }
+
+.scale-on-hover {
+    &:hover {
+        transform: scale(1.2, 1.2);
+    }
+
+    &.disabled, &:disabled {
+        &:hover {
+            transform: unset;
+        }
+    }
+}

@@ -15,6 +15,7 @@
         <!-- ko if: vm -->
         <tr class="main-row"
             ko.css="md.css"
+            ko.css.row-disabled="md.isDisabled"
             ko.click="md.clickHandler"
             ko.template="{ html: md.template, data: vm, let: { $row: md } }"
         ></tr>

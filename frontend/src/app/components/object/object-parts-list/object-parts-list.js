@@ -149,7 +149,7 @@ function _getActionsTooltip(isOwner, httpsNoCert, verb, align) {
     return '';
 }
 
-function _formatBlockTypeCounters(counters, seperator = ' | ') {
+function _formatBlockTypeCounters(counters, seperator = ', ') {
     const {
         REPLICA: replicas = 0,
         DATA: dataFrags = 0,

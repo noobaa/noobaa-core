@@ -200,7 +200,7 @@ class BucketSummrayViewModel extends ConnectableViewModel {
             color: style['color18'],
             value: ko.observable(),
             visible: ko.observable(),
-            tooltip: 'The current available storage from the system internal storage resource, will be used only in the case of no available data storage on this bucket. Once possible, data will be spilled-back'
+            tooltip: 'The current available storage from the system internal storage disks, will be used only in the case of no available storage resources on this bucket.'
         },
         {
             label: 'Overallocated',
@@ -305,6 +305,7 @@ class BucketSummrayViewModel extends ConnectableViewModel {
             const hasSize = data.size > 0;
             const reducedRatio = hasSize ? data.sizeReduced / data.size : 0;
             const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
+            const storageUsed = storage.used + storage.usedOther;
 
             ko.assignToProps(this, {
                 dataReady: true,
@@ -366,8 +367,7 @@ class BucketSummrayViewModel extends ConnectableViewModel {
                 ],
                 rawUsageLabel: rawUsageLabel,
                 rawUsageChart: {
-                    disabled: storage.total === 0,
-                    silhouetteColor: storage.total === 0 ? style['color7'] : undefined,
+                    disabled: storageUsed === 0,
                     tooltip: {
                         text: {
                             caption: rawUsageTooltipCaption,

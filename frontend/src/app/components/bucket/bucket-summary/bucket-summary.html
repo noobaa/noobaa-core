@@ -51,7 +51,7 @@
         <div class="greedy borders pad column">
             <div class="row content-middle greedy">
                 <!-- ko with: dataUsageChart -->
-                <canvas class="bucket-chart push-next"
+                <canvas class="data-chart scale-on-hover push-next"
                     ko.tooltip="tooltip"
                     ko.css.disabled="disabled"
                     ko.canvas="$data"
@@ -71,7 +71,7 @@
             <hr />
             <div class="row content-middle greedy">
                 <!-- ko with: rawUsageChart -->
-                <pie-chart class="bucket-chart push-next"
+                <pie-chart class="scale-on-hover push-next"
                     ko.tooltip="tooltip"
                     ko.css.disabled="disabled"
                     params="
@@ -80,8 +80,7 @@
                         showValues: false,
                         enableHover: false,
                         radius: 30,
-                        lineWidth: 8,
-                        silhouetteColor: silhouetteColor
+                        lineWidth: 8
                     "
                 ></pie-chart>
                 <!-- /ko -->

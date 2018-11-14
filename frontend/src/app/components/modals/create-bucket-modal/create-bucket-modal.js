@@ -7,6 +7,7 @@ import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { validatePlacementPolicy, warnPlacementPolicy } from 'utils/bucket-utils';
+import { validateName } from 'utils/validation-utils';
 import * as routes from 'routes';
 import {
     touchForm,
@@ -30,36 +31,6 @@ const fieldsByStep = deepFreeze({
     0: ['bucketName'],
     1: ['policyType', 'selectedResources']
 });
-
-function _validatedName(name = '', existing) {
-    return [
-        {
-            valid: 3 <= name.length && name.length <= 63,
-            message: '3-63 characters'
-        },
-        {
-            valid: /^[a-z0-9].*[a-z0-9]$/.test(name),
-            message: 'Starts and ends with a lowercase letter or number'
-        },
-        {
-            valid: name && /^[a-z0-9.-]*$/.test(name) &&
-                !name.includes(' ') &&
-                !name.includes('..') &&
-                !name.includes('.-') &&
-                !name.includes('-.') &&
-                !name.includes('--'),
-            message: 'Only lowercase letters, numbers, nonconsecutive periods or hyphens'
-        },
-        {
-            valid: name && !/^\d+\.\d+\.\d+\.\d+$/.test(name),
-            message: 'Avoid the form of an IP address'
-        },
-        {
-            valid: name && !existing.includes(name),
-            message: 'Globally unique name'
-        }
-    ];
-}
 
 class CreateBucketModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
@@ -105,7 +76,7 @@ class CreateBucketModalViewModel extends ConnectableViewModel {
             const bucketName = getFieldValue(form, 'bucketName');
             const resourcesHref = realizeUri(routes.resources, { system });
             const isStepValid = isFormValid(form);
-            const nameRestrictionList = _validatedName(bucketName, existingNames)
+            const nameRestrictionList = validateName(bucketName, existingNames)
                 .map(({ valid, message }) => ({
                     label: message,
                     css: isFieldTouched(form, 'bucketName') ? (valid ? 'success' : 'error') : ''
@@ -129,7 +100,7 @@ class CreateBucketModalViewModel extends ConnectableViewModel {
         const errors = {};
 
         if (step === 0) {
-            const hasNameErrors = _validatedName(bucketName, this.existingNames)
+            const hasNameErrors = validateName(bucketName, this.existingNames)
                 .some(({ valid }) => !valid);
 
             if (hasNameErrors) {

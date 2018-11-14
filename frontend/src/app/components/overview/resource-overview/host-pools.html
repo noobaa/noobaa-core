@@ -4,10 +4,7 @@
     <vr class="push-both"></vr>
     <span class="highlight push-next-half">Nodes in pools:</span>
     <span class="greedy">{{hostCount}}</span>
-    <svg-icon class="icon-small"
-        params="name: 'question'"
-        ko.tooltip="hostPoolTooltip"
-    ></svg-icon>
+    <more-info-icon params="tooltip: hostPoolTooltip"></more-info-icon>
 </p>
 
 <chart-legend params="items: hostCounters"></chart-legend>
@@ -20,10 +17,7 @@
 
 <p class="row greedy push-both contnet-middle align-middle">
     <span class="highlight push-next-half">Nodes Storage: {{poolsCapacity}}</span>
-    <svg-icon class="icon-small"
-        params="name: 'question'"
-        ko.tooltip="hostStorageTooltip"
-    ></svg-icon>
+    <more-info-icon params="tooltip: hostStorageTooltip"></more-info-icon>
 </p>
 
 

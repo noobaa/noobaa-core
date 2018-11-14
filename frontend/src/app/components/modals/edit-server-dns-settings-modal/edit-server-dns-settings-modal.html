@@ -35,12 +35,10 @@
                 tokens: searchDomains,
                 validator: tokenValidator
             "></token-field>
-            <svg-icon class="icon-small push-prev-half align-start"
-                      params="name: 'question'"
-                      ko.tooltip="searchDomainTooltip"
-                      ko.css.disabled="hasNoPrimaryDNS"
-            >
-            </svg-icon>
+           <more-info-icon class="push-prev-half" params="
+                tooltip: searchDomainTooltip,
+                disabled: hasNoPrimaryDNS
+            "></more-info-icon>
         </div>
         <span class="remark"
               ko.css.disabled="hasNoPrimaryDNS"

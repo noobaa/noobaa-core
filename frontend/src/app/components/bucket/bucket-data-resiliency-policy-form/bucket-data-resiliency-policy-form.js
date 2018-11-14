@@ -24,24 +24,33 @@ const policyName = 'data-resiliency';
 const rebuildEffortToDisplay = deepFreeze({
     LOW: {
         text: 'Low',
-        icon: {
-            name: 'question',
-            tooltip: 'Rebuild time effort has 3 options: Low/High/Very High and might change according to the amount of fragments or replicas'
+        moreInfo: {
+            severity: 'normal',
+            tooltip: {
+                text: 'Rebuild time effort has 3 options: Low/High/Very High and might change according to the amount of fragments or replicas',
+                position: 'above'
+            }
         }
     },
     HIGH: {
         text: 'High',
-        icon: {
-            name: 'question',
-            tooltip: 'Rebuild time effort has 3 options: Low/High/Very High and might change according to the amount of fragments or replicas'
+        moreInfo: {
+            severity: 'normal',
+            tooltip: {
+                text: 'Rebuild time effort has 3 options: Low/High/Very High and might change according to the amount of fragments or replicas',
+                position: 'above'
+            }
         }
     },
     VERY_HIGH: {
         text: 'Very High',
         css: 'error',
-        icon: {
-            name: 'problem',
-            tooltip: 'Parity fragments rebuild time might take a while, varies according to data placement policy resources and type'
+        moreInfo: {
+            severity: 'error',
+            tooltip: {
+                text: 'Parity fragments rebuild time might take a while, varies according to data placement policy resources and type',
+                position: 'above'
+            }
         }
     }
 });
@@ -54,9 +63,12 @@ function _getConfiguredFailureTolerance(resiliency) {
         return {
             text: text,
             css: 'warning',
-            icon: {
-                name: 'problem',
-                tooltip: 'It is not recommended to use a resiliency policy which results in less than a fault tolerance value of 2'
+            moreInfo: {
+                severity: 'error',
+                tooltip: {
+                    text: 'It is not recommended to use a resiliency policy which results in less than a fault tolerance value of 2',
+                    position: 'above'
+                }
             }
         };
     } else {
@@ -71,17 +83,23 @@ function _getActualFailureTolerance(actualTolerance, configuredTolerance, requir
         return {
             text: text,
             css: 'warning',
-            icon: {
-                name: 'problem',
-                tooltip: `One or more of the configured mirror sets have less than ${requiredDrives} healthy nodes/drives. This brings the bucket\'s actual tolerance below the configured tolerance`
+            moreInfo: {
+                severity: 'warning',
+                tooltip: {
+                    text: `One or more of the configured mirror sets have less than ${requiredDrives} healthy nodes/drives. This brings the bucket\'s actual tolerance below the configured tolerance`,
+                    position: 'above'
+                }
             }
         };
     } else {
         return {
             text: text,
-            icon: {
-                name: 'question',
-                tooltip: 'The current number of nodes and drives that can suffer failure without causing any data loss'
+            moreInfo: {
+                severity: 'normal',
+                tooltip: {
+                    text: 'The current number of nodes and drives that can suffer failure without causing any data loss',
+                    position: 'above'
+                }
             }
         };
     }

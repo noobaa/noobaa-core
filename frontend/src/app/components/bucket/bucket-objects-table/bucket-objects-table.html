@@ -23,10 +23,7 @@
                     disabled: stateFilter.eq('UPLOADING'),
                     checked: ko.pc(showVersions, onShowVersions, $component)
                 "></checkbox>
-                <svg-icon class="icon-small"
-                    params="name: 'question'"
-                    ko.tooltip="showVersionsTooltip"
-                ></svg-icon>
+                <more-info-icon params="tooltip: showVersionsTooltip"></more-info-icon>
             </div>
         </div>
 

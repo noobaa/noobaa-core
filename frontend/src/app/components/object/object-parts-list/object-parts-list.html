@@ -103,11 +103,9 @@
                             <!-- /ko -->
                             <!-- /ko -->
                         </p>
-                        <svg-icon class="icon-small"
-                            ko.visible="tooltip"
-                            ko.tooltip="tooltip"
-                            params="name: 'question'"
-                        ></svg-icon>
+                        <!-- ko if: tooltip -->
+                        <more-info-icon params="tooltip: tooltip"></more-info-icon>
+                        <!-- /ko -->
                     </div>
 
                     <data-table class="alt-bg" params="

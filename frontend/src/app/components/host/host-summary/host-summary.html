@@ -36,10 +36,7 @@
                 params="name: trustIcon().name"
             ></svg-icon>
             <span class="greedy">{{trustIcon().tooltip}}</span>
-            <svg-icon class="icon-small"
-                ko.tooltip="trustTooltip"
-                params="name: 'question'"
-            ></svg-icon>
+            <more-info-icon params="tooltip: trustTooltip"></more-info-icon>
         </div>
         <hr />
         <div class="row content-middle">

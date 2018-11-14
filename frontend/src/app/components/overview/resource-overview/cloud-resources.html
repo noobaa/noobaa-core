@@ -4,10 +4,7 @@
     <vr class="push-both"></vr>
     <span class="highlight push-next-half">Services:</span>
     <span class="greedy">{{cloudServiceCount}}</span>
-    <svg-icon class="icon-small"
-        params="name: 'question'"
-        ko.tooltip="cloudTooltip"
-    ></svg-icon>
+    <more-info-icon params="tooltip: cloudTooltip"></more-info-icon>
 </p>
 
 <chart-legend params="items: cloudCounters"></chart-legend>
@@ -19,10 +16,7 @@
 
 <p class="row greedy push-both contnet-middle align-middle">
     <span class="highlight push-next-half">Estimated Cloud Storage: {{cloudCapacity}}</span>
-    <svg-icon class="icon-small"
-        params="name: 'question'"
-        ko.tooltip="cloudStorageTooltip"
-    ></svg-icon>
+    <more-info-icon params="tooltip: cloudStorageTooltip"></more-info-icon>
 </p>
 
 <button class="btn overview-btn" ko.click="onAddCloudResource">

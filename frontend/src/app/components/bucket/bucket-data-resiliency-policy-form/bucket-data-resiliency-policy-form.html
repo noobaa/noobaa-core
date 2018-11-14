@@ -33,11 +33,11 @@
             <template name="messageWithSeverity">
                 <p class="row content-middle" ko.css="$data.css" >
                     {{$data.text}}
-                    <!-- ko with: $data.icon -->
-                    <svg-icon class="icon-small push-prev-half"
-                        params="name: name"
-                        ko.tooltip="{ text: tooltip, position: 'above' }"
-                    ></svg-icon>
+                    <!-- ko with: $data.moreInfo -->
+                    <more-info-icon class="icon-small push-prev-half" params="
+                        severity: severity,
+                        tooltip: tooltip
+                    "></more-info-icon>
                     <!-- /ko -->
                 </p>
             </template>

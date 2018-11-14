@@ -27,6 +27,7 @@ class DataTableViewModel {
             sorting,
             scroll = ko.observable(),
             rowCssProp,
+            rowDisabledProp,
             rowClick,
             subRow,
             emptyMessage,
@@ -91,6 +92,7 @@ class DataTableViewModel {
         );
 
         this.rowCssProp = rowCssProp;
+        this.rowDisabledProp = rowDisabledProp;
         this.rowClick = rowClick;
 
         // Set loading flags
@@ -151,12 +153,21 @@ class DataTableViewModel {
             isExpanded = ko.observable(false);
         }
 
+        let isDisabled = false;
+        if (isString(this.rowDisabledProp)) {
+            const value = rowVM[this.rowDisabledProp];
+            isDisabled = ko.isObservable(value) ?
+                ko.pureComputed(value) :
+                value;
+        }
+
         return {
             template: this.rowTemplate,
             subRowTemplate: this.subRowTemplate,
             columnCount: this.columnCount,
             css: ko.pureComputed(() => ko.unwrap(rowVM[this.rowCssProp])),
             isExpanded,
+            isDisabled,
             clickHandler: this.rowClick && (() => this.rowClick(rowVM))
         };
     }

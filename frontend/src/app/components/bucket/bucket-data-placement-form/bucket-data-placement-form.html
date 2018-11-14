@@ -31,10 +31,7 @@
                         This bucket is using the internal server's disks capacity as a storage source until a
                         healthy resource will be added to to Tier 1
                     </span>
-                    <svg-icon class="icon-small"
-                        ko.tooltip="internalWarningTooltip"
-                        params="name: 'question'"
-                    ></svg-icon>
+                    <more-info-icon params="tooltip: internalWarningTooltip"></more-info-icon>
                 </p>
                 <p class="remark">
                     {{internalStorageUsage}} used by this bucket

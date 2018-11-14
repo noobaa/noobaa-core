@@ -91,7 +91,7 @@ function init_cluster() {
 }
 
 //Initiate process of adding a server to the cluster
-function add_member_to_cluster(req) {
+async function add_member_to_cluster(req) {
     if (add_member_in_process) {
         throw new Error('Already in process of adding a member to the cluster');
     }
@@ -99,18 +99,17 @@ function add_member_to_cluster(req) {
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
 
-    return pre_add_member_to_cluster(req)
-        .then(my_address => {
-            add_member_to_cluster_invoke(req, my_address)
-                .finally(() => {
-                    add_member_in_process = false;
-                });
-        })
-        .catch(err => {
-            dbg.error(`got error on pre_add_member_to_cluster:`, err);
-            add_member_in_process = false;
-            throw err;
-        });
+    try {
+        const my_address = await pre_add_member_to_cluster(req);
+        add_member_to_cluster_invoke(req, my_address)
+            .finally(() => {
+                add_member_in_process = false;
+            });
+    } catch (err) {
+        dbg.error(`got error on pre_add_member_to_cluster:`, err);
+        add_member_in_process = false;
+        throw err;
+    }
 }
 
 function pre_add_member_to_cluster(req) {

@@ -50,9 +50,9 @@ const columns = deepFreeze([
 
 function _mapHostPoolToRow(id, pool, isDisabled, isSelected) {
     return {
-        id: id,
-        rowCss: isDisabled ? 'disabled-row' : '',
-        isSelected: isSelected,
+        id,
+        isDisabled,
+        isSelected,
         state: getHostPoolStateIcon(pool),
         type: 'nodes-pool',
         name: {
@@ -68,9 +68,9 @@ function _mapHostPoolToRow(id, pool, isDisabled, isSelected) {
 
 function _mapCloudResourceToRow(id, res, isDisabled, isSelected) {
     return {
-        id: id,
-        rowCss: isDisabled ? 'disabled-row' : '',
-        isSelected: isSelected,
+        id,
+        isDisabled,
+        isSelected,
         state: getCloudResourceStateIcon(res),
         type: getCloudResourceTypeIcon(res),
         name: {
@@ -86,7 +86,6 @@ function _mapCloudResourceToRow(id, res, isDisabled, isSelected) {
 
 class RowViewModel {
     id = '';
-    rowCss = ko.observable();
     state = ko.observable();
     type = ko.observable();
     name = ko.observable();
@@ -94,6 +93,7 @@ class RowViewModel {
     healthyHosts = ko.observable();
     healthyNodes = ko.observable();
     usage = ko.observable();
+    isDisabled = ko.observable();
     isSelected = ko.observable();
 
     // This pure computed is used to bound the checkbox column.
@@ -119,6 +119,7 @@ class ResourcesSelectionTableViewModel {
     columns = columns;
     title = ko.observable();
     selected = [];
+    disabled = [];
     rows = ko.observableArray()
         .ofType(RowViewModel, { table: this })
 
@@ -167,6 +168,7 @@ class ResourcesSelectionTableViewModel {
                 dataReady: true,
                 title,
                 selected,
+                disabled,
                 rows: [
                     ...hostPoolRows,
                     ...cloudResourceRows
@@ -177,21 +179,23 @@ class ResourcesSelectionTableViewModel {
 
     onToggleResource(resId, selected) {
         if (selected) {
-            this.onSelect([
-                ...this.selected,
-                resId
-            ]);
+            const ids = [...this.selected, resId];
+            this.onSelect(ids);
 
         } else {
-            this.onSelect(
-                this.selected.filter(id => id !== resId)
-            );
+            const ids = this.selected
+                .filter(id => id !== resId);
+
+            this.onSelect(ids);
         }
     }
 
     onSelectAll() {
-        const rows = this.rows();
-        this.onSelect(rows.map(row => row.id));
+        const ids = this.rows()
+            .map(row => row.id)
+            .filter(id => !this.disabled.includes(id));
+
+        this.onSelect(ids);
     }
 
     onClearAll() {

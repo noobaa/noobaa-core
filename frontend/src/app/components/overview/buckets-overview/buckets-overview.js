@@ -299,7 +299,7 @@ class BucketsOverviewViewModel extends Observer{
                 val => this.onToggleDataset('internal', !val)
             ),
             color : style['color16'],
-            tooltip: 'The total raw data that was spilled-over to the system internal storage resource'
+            tooltip: 'The total raw data that was written to the system internal storage disks'
         }
     ];
 

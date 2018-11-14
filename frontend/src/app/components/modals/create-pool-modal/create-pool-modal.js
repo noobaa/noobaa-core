@@ -7,6 +7,7 @@ import { formatSize, sumSize } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getFormValues, isFormValid, getFieldValue, isFieldTouched } from 'utils/form-utils';
 import { unassignedRegionText } from 'utils/resource-utils';
+import { validatedName } from 'utils/validation-utils';
 import { paginationPageSize, inputThrottle } from 'config';
 import ko from 'knockout';
 import numeral from 'numeral';
@@ -97,36 +98,6 @@ const stateOptions = deepFreeze([
         value: 'OFFLINE'
     }
 ]);
-
-function _validatedName(name = '', existing) {
-    return [
-        {
-            valid: 3 <= name.length && name.length <= 63,
-            message: '3-63 characters'
-        },
-        {
-            valid: /^[a-z0-9].*[a-z0-9]$/.test(name),
-            message: 'Starts and ends with a lowercase letter or number'
-        },
-        {
-            valid: name && /^[a-z0-9.-]*$/.test(name) &&
-                !name.includes(' ') &&
-                !name.includes('..') &&
-                !name.includes('.-') &&
-                !name.includes('-.') &&
-                !name.includes('--'),
-            message: 'Only lowercase letters, numbers, nonconsecutive periods or hyphens'
-        },
-        {
-            valid: name && !/^\d+\.\d+\.\d+\.\d+$/.test(name),
-            message: 'Avoid the form of an IP address'
-        },
-        {
-            valid: name && !existing.includes(name),
-            message: 'Globally unique name'
-        }
-    ];
-}
 
 function _mapPoolToOption({ name, hostCount, storage }) {
     const { total, free: availableFree, unavailableFree } = storage;
@@ -304,7 +275,7 @@ class CreatePoolModalViewModel extends ConnectableViewModel {
             const isPoolNameTouched = form ? isFieldTouched(form, 'poolName') : false;
             const poolList = Object.values(pools);
             const poolNames = poolList.map(pool => pool.name);
-            const validationResults = form ? _validatedName(poolName, poolNames) : [];
+            const validationResults = form ? validatedName(poolName, poolNames) : [];
             const hostCount = sumBy(poolList, pool => pool.hostCount);
 
             ko.assignToProps(this, {
@@ -358,7 +329,7 @@ class CreatePoolModalViewModel extends ConnectableViewModel {
         const errors = {};
 
         if (step === 0) {
-            const hasNameErrors = _validatedName(poolName, this.poolNames)
+            const hasNameErrors = validatedName(poolName, this.poolNames)
                 .some(({ valid }) => !valid);
 
             if (hasNameErrors) {

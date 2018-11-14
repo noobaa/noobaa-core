@@ -1028,47 +1028,6 @@ class AzureFunctions {
             });
     }
 
-    addServerToCluster(master_ip, slave_ip, slave_secret, slave_name) {
-        var rpc = api.new_rpc('wss://' + master_ip + ':8443');
-        var client = rpc.new_client({});
-        return P.fcall(() => {
-                var auth_params = {
-                    email: 'demo@noobaa.com',
-                    password: 'DeMo1',
-                    system: 'demo'
-                };
-                return client.create_auth_token(auth_params);
-            })
-            .then(() => client.cluster_server.add_member_to_cluster({
-                address: slave_ip,
-                secret: slave_secret,
-                role: 'REPLICA',
-                shard: 'shard1',
-                new_hostname: slave_name
-            }))
-            .tap(() => {
-                console.log(`the master ip is: ${master_ip}`);
-                console.log(`sleeping for 5 min then adding ${slave_ip} to the cluster`);
-            })
-            .delay(5 * 60 * 1000)
-            .then(() => {
-                let should_run = true;
-                const WAIT_INTERVAL = 10 * 1000;
-                const limit = Date.now() + (3 * 60 * 1000);
-                return promise_utils.pwhile(
-                    () => should_run,
-                    () => client.system.read_system({})
-                    .then(res => {
-                        const { servers } = res.cluster.shards[0];
-                        should_run = servers.every(srv => srv.address !== slave_ip) && Date.now() < limit;
-                        return P.delay(should_run ? WAIT_INTERVAL : 0);
-                    })
-                    .catch(err => console.log(`Caught ${err}, suppressing`))
-                );
-            })
-            .tap(() => console.log(`successfully added server ${slave_ip} to cluster, with master ${master_ip}`))
-            .finally(() => rpc.disconnect_all());
-    }
 }
 
 module.exports = AzureFunctions;

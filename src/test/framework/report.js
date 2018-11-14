@@ -77,6 +77,7 @@ class Reporter {
             assert(false, `Trying to add success for non existent case ${updated_step}`);
         }
         this._passed_cases.push(updated_step);
+        console.log(`successful case reported: ${step}`);
     }
 
     fail(step) {
@@ -85,6 +86,7 @@ class Reporter {
             assert(false, `Trying to add failure for non existent case ${updated_step}`);
         }
         this._failed_cases.push(updated_step);
+        console.warn(`failed case reported: ${step}`);
     }
 
     pause() {

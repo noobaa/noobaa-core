@@ -2,6 +2,8 @@
 'use strict';
 
 const fs = require('fs');
+let _ = require('lodash');
+
 const api = require('../../api');
 const request = require('request');
 const ssh = require('./ssh_functions');
@@ -85,6 +87,22 @@ async function clean_ova(server_ip, secret) {
     } catch (e) {
         await report.fail('clean_ova');
         throw new Error(`clean_ova failed: ${e}`);
+    }
+}
+
+async function remove_swap_on_azure(server_ip, secret) {
+    try {
+        const client_ssh = await ssh.ssh_connect({
+            host: server_ip,
+            //  port: 22,
+            username: 'noobaaroot',
+            password: secret,
+            keepaliveInterval: 5000,
+        });
+        await ssh.ssh_exec(client_ssh, `sudo sed -i 's:ResourceDisk.EnableSwap=y:ResourceDisk.EnableSwap=n:' /etc/waagent.conf`, true);
+        await client_ssh.end();
+    } catch (e) {
+        throw new Error(`remove_swap_on_azure failed: ${e}`);
     }
 }
 
@@ -223,6 +241,73 @@ async function upgrade_server(server_ip, upgrade) {
     }
 }
 
+
+async function add_server_to_cluster(master_ip, slave_ip, slave_secret, slave_name) {
+    const rpc = api.new_rpc('wss://' + master_ip + ':8443');
+    const client = rpc.new_client({});
+    const auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    await client.create_auth_token(auth_params);
+
+    // register for notification to know when add_member is finished
+    let add_member_completed = new P((resolve, reject) => {
+        let notified = false;
+        let notification_server = {
+            alert: _.noop,
+            remove_host: _.noop,
+            change_upgrade_status: _.noop,
+            add_memeber_to_cluster: async req => {
+                if (notified) return;
+                notified = true;
+                const { secret, result, reason } = req.rpc_params;
+                if (result) {
+                    console.log(`got notification on successful add_member (secret: ${secret})`);
+                    resolve(secret);
+                } else {
+                    console.warn(`got notification on failed add_member (secret: ${secret} reason: ${reason})`);
+                    reject(new Error(reason));
+                }
+            }
+        };
+        rpc.register_service(
+            rpc.schema.frontend_notifications_api,
+            notification_server, {}
+        );
+        client.redirector.register_for_alerts();
+    });
+
+    // 2 minutes timeout for add_memeber
+    const ADD_MEMBER_TIMEOUT = 120 * 1000;
+    return P.resolve()
+        .then(async () => {
+            // add member to master_ip
+            console.log(`Adding member: [master ip: ${master_ip}] [new member ip: ${slave_ip}]`);
+            await client.cluster_server.add_member_to_cluster({
+                address: slave_ip,
+                secret: slave_secret,
+                role: 'REPLICA',
+                shard: 'shard1',
+                new_hostname: slave_name
+            });
+
+            const secret = await add_member_completed;
+            if (secret !== slave_secret) {
+                console.error(`expected to get secret=${slave_secret} but got ${secret}`);
+                throw new Error('got unexpected secret from completed add_member');
+            }
+            console.log(`successfully added server ${slave_ip} to cluster, with master ${master_ip}`);
+        })
+        .timeout(ADD_MEMBER_TIMEOUT, `add_member_to_cluster timed out after ${ADD_MEMBER_TIMEOUT / 1000} seconds`)
+        .finally(async () => {
+            await client.redirector.unregister_from_alerts();
+            rpc.disconnect_all();
+        });
+}
+
+
 exports.enable_nooba_login = enable_nooba_login;
 exports.set_first_install_mark = set_first_install_mark;
 exports.clean_ova = clean_ova;
@@ -233,3 +318,5 @@ exports.clean_ova_and_create_system = clean_ova_and_create_system;
 exports.upload_upgrade_package = upload_upgrade_package;
 exports.upgrade_server = upgrade_server;
 exports.init_reporter = init_reporter;
+exports.add_server_to_cluster = add_server_to_cluster;
+exports.remove_swap_on_azure = remove_swap_on_azure;

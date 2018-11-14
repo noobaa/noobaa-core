@@ -137,9 +137,11 @@ async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives
             } catch (e) {
                 retry_count += 1;
                 if (retry_count <= MAX_RETRIES) {
-                    await P.delay(30 * retry_count * 1000);
+                    const delay = 30 * retry_count * 1000;
+                    console.error(`failed creating agent ${name}. will retry in ${delay / 1000} seconds`, e);
+                    await P.delay(delay);
                 } else {
-                    throw new Error(`create agent ${name}`, e);
+                    throw new Error(`create agent ${name} ` + e);
                 }
             }
         }

@@ -7,7 +7,7 @@
 'use strict';
 
 const AzureFunctions = require('./azureFunctions');
-
+const server_functions = require('../test/utils/server_functions');
 const P = require('../util/promise');
 const af = require('../test/utils/agent_functions'); //TODO: remove from here when Win can be copied from an image
 const srv_ops = require('../test/utils/basic_server_ops');
@@ -313,7 +313,7 @@ async function _runServer() {
         const slaves = Array.from(servers);
         const master = slaves.pop();
         for (const slave of slaves) {
-            await azf.addServerToCluster(master.ip, slave.ip, slave.secret);
+            await server_functions.add_server_to_cluster(master.ip, slave.ip, slave.secret);
         }
     }
     console.log('Finished Server Actions Successfully');

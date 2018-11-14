@@ -27,11 +27,13 @@ class S3OPS {
         use_https = true,
         sig_ver = 'v4',
         system_verify_name = 'default',
+        suppress_long_errors = false,
     }) {
         this.ip = ip;
         this.access_key = access_key;
         this.secret_key = secret_key;
         this.system_verify_name = system_verify_name;
+        this.suppress_long_errors = suppress_long_errors;
 
         if (sig_ver === 'v4' && !use_https) {
             throw new Error('You cannot do this: SigV4 requires https to disable body signing and send streams...');
@@ -54,6 +56,15 @@ class S3OPS {
                 })
             } : undefined,
         });
+    }
+
+    log_error() {
+        const args = Array.from(arguments).map(arg =>
+            (_.isError(arg) && this.suppress_long_errors ?
+                arg.message :
+                arg
+            ));
+        console.error(...args);
     }
 
     validate_multiplier(multiplier) {
@@ -86,7 +97,7 @@ class S3OPS {
             verify_md5_map.set(`${this.system_verify_name}/${bucket}/${file_name}`, md5_hex);
             return md5_hex;
         } catch (err) {
-            console.error(`Put failed ${file_name}!`, err);
+            this.log_error(`Put failed ${file_name}!`, err);
             throw err;
         }
     }
@@ -109,7 +120,7 @@ class S3OPS {
             verify_md5_map.set(`${this.system_verify_name}/${bucket}/${destination}`, file_md5);
             console.log('SS Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
         } catch (err) {
-            console.error(`SS Copy failed from ${source} to ${destination}!`, err);
+            this.log_error(`SS Copy failed from ${source} to ${destination}!`, err);
             throw err;
         }
     }
@@ -179,12 +190,12 @@ class S3OPS {
             if (md5_hex === file_md5) {
                 console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${file_size}`);
             } else {
-                console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5: ${
+                this.log_error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5: ${
                     md5_hex} - they are different, size: ${file_size}`);
                 throw new Error('Bad MD5 from download');
             }
         } catch (err) {
-            console.error(`Download failed for ${file_name}!`, err);
+            this.log_error(`Download failed for ${file_name}!`, err);
             throw err;
         }
     }
@@ -218,12 +229,12 @@ class S3OPS {
             if (md5_digest === file_md5) {
                 console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${file_size}`);
             } else {
-                console.error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5:
+                this.log_error(`uploaded ${file_name} MD5: ${file_md5} and downloaded MD5:
                         ${md5_digest} - they are different, size: ${file_size}`);
                 throw new Error('Bad MD5 from download');
             }
         } catch (err) {
-            console.error(`Download failed for ${file_name}!`, err);
+            this.log_error(`Download failed for ${file_name}!`, err);
             throw err;
         }
     }
@@ -255,7 +266,7 @@ class S3OPS {
             let rand = Math.floor(Math.random() * list.length);
             return list[rand];
         } catch (err) {
-            console.error(`get_a_random_file:: listObjects - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
+            this.log_error(`get_a_random_file:: listObjects - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
             throw err;
         }
     }
@@ -272,7 +283,7 @@ class S3OPS {
             let rand = Math.floor(Math.random() * list.length); //Take a random version , not delete marker and return key and versionid
             return list[rand];
         } catch (err) {
-            console.error(`get_a_random_file:: listObjectVersions - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
+            this.log_error(`get_a_random_file:: listObjectVersions - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
             throw err;
         }
     }
@@ -314,7 +325,7 @@ class S3OPS {
                 return listFiles;
             })
             .catch(err => {
-                console.error(`get_list_files:: ${ops} ${params} failed!`, err);
+                this.log_error(`get_list_files:: ${ops} ${params} failed!`, err);
                 throw err;
             });
     }
@@ -333,7 +344,7 @@ class S3OPS {
             }
             return listFiles;
         } catch (err) {
-            console.error(`get_list_multipart_uploads:: listMultipartUploads - Bucket: ${bucket} failed!`, err);
+            this.log_error(`get_list_multipart_uploads:: listMultipartUploads - Bucket: ${bucket} failed!`, err);
             throw err;
         }
     }
@@ -364,7 +375,7 @@ class S3OPS {
                 return listFiles;
             })
             .catch(err => {
-                console.error(`get_list_multipart_uploads:: listMultipartUploads ${params} failed!`, err);
+                this.log_error(`get_list_multipart_uploads:: listMultipartUploads ${params} failed!`, err);
                 throw err;
             });
     }
@@ -386,7 +397,7 @@ class S3OPS {
             }
             return listPrefixes;
         } catch (err) {
-            console.error(`get_list_prefixes:: listObjects - Bucket: ${bucket},  Delimiter: "/" failed!`, err);
+            this.log_error(`get_list_prefixes:: listObjects - Bucket: ${bucket},  Delimiter: "/" failed!`, err);
             throw err;
         }
     }
@@ -399,7 +410,7 @@ class S3OPS {
             }).promise();
             return list.length;
         } catch (err) {
-            console.error(`get_file_number:: listObjects - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
+            this.log_error(`get_file_number:: listObjects - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
             throw err;
         }
     }
@@ -417,7 +428,7 @@ class S3OPS {
             console.log('Delete object took', (Date.now() - start_ts) / 1000, 'seconds');
             console.log('file ' + file_name + ' successfully deleted');
         } catch (err) {
-            console.error(`Delete file ${file_name} failed!`, err);
+            this.log_error(`Delete file ${file_name} failed!`, err);
             throw err;
         }
     }
@@ -449,7 +460,7 @@ class S3OPS {
                 console.log(`${files.length} files successfully deleted`);
             })
             .catch(err => {
-                console.error(`Multi delete failed! ${util.inspect(files)}`, err);
+                this.log_error(`Multi delete failed! ${util.inspect(files)}`, err);
                 throw err;
             });
     }
@@ -486,7 +497,7 @@ class S3OPS {
         return P.ninvoke(this.s3, 'headObject', params)
             .then(res => res.ContentLength / 1024 / 1024)
             .catch(err => {
-                console.error(`get file size ${file_name} failed!`, err);
+                this.log_error(`get file size ${file_name} failed!`, err);
                 throw err;
             });
     }
@@ -513,7 +524,7 @@ class S3OPS {
 
         return P.ninvoke(this.s3, 'putObjectTagging', params)
             .catch(err => {
-                console.error(`set file attribute failed! ${file_name}`, err);
+                this.log_error(`set file attribute failed! ${file_name}`, err);
                 throw err;
             });
     }
@@ -537,7 +548,7 @@ class S3OPS {
                 })
             }).promise();
         } catch (err) {
-            console.error(`set file attribute failed ${file_name}!`, err);
+            this.log_error(`set file attribute failed ${file_name}!`, err);
             throw err;
         }
     }
@@ -554,13 +565,13 @@ class S3OPS {
                 } else {
                     list.forEach(function(bucket) {
                         listBuckets.push(bucket.Name);
-                        console.log('Account has access to bucket: ' + bucket.Name);
+                        // console.log('Account has access to bucket: ' + bucket.Name);
                     });
                 }
                 return listBuckets;
             })
             .catch(err => {
-                console.error('Getting list of buckets return error: ', err);
+                this.log_error('Getting list of buckets return error: ', err);
                 throw err;
             });
     }
@@ -600,7 +611,7 @@ class S3OPS {
         return P.ninvoke(this.s3, 'createBucket', params)
             .then(res => console.log("Created bucket ", res))
             .catch(err => {
-                console.error(`creating bucket ${bucket_name} is failed!`, err);
+                this.log_error(`creating bucket ${bucket_name} is failed!`, err.message);
                 throw err;
             });
     }
@@ -612,7 +623,7 @@ class S3OPS {
         return P.ninvoke(this.s3, 'deleteBucket', params)
             .then(res => console.log("Deleted bucket ", res))
             .catch(err => {
-                console.error(`Deleting bucket ${bucket_name} is failed!`, err);
+                this.log_error(`Deleting bucket ${bucket_name} is failed!`, err);
                 throw err;
             });
     }
@@ -640,7 +651,7 @@ class S3OPS {
                 return uploadObjectId;
             })
             .catch(err => {
-                //console.error('get_object_uploadId:: listMultipart failed!', err);
+                //this.log_error('get_object_uploadId:: listMultipart failed!', err);
                 throw err;
             });
     }
@@ -664,7 +675,7 @@ class S3OPS {
                 return uploadBucketId;
             })
             .catch(err => {
-                console.error('get_bucket_uploadId:: listBuckets failed!', err);
+                this.log_error('get_bucket_uploadId:: listBuckets failed!', err);
                 throw err;
             });
     }
@@ -693,7 +704,7 @@ class S3OPS {
             const obj = await this.s3.getObject(params).promise();
             return obj;
         } catch (err) {
-            console.error(`get_object:: getObject ${JSON.stringify(params)} failed!`, err);
+            this.log_error(`get_object:: getObject ${JSON.stringify(params)} failed!`, err);
             throw err;
         }
     }
@@ -710,7 +721,7 @@ class S3OPS {
             const obj = await this.s3.getObject(params).promise();
             return obj.Body;
         } catch (err) {
-            console.error(`get_object_range:: getObject ${JSON.stringify(params)} failed!`, err);
+            this.log_error(`get_object_range:: getObject ${JSON.stringify(params)} failed!`, err);
             throw err;
         }
     }
@@ -729,7 +740,7 @@ class S3OPS {
             }).promise();
             console.log(`Upload ${uploadId} of filename: ${file_name} was aborted successfully`);
         } catch (err) {
-            console.error(`Abort failed ${file_name}, UploadId: ${uploadId}!`, err);
+            this.log_error(`Abort failed ${file_name}, UploadId: ${uploadId}!`, err);
             throw err;
         }
     }
@@ -743,7 +754,7 @@ class S3OPS {
             console.log(`Initiated multipart upload filename: ${file_name} uploadId ${multipartUpload.UploadId}`);
             return multipartUpload.UploadId;
         } catch (err) {
-            console.error(`Initiating multipart upload failed ${file_name}`, err);
+            this.log_error(`Initiating multipart upload failed ${file_name}`, err);
             throw err;
         }
     }
@@ -795,7 +806,7 @@ class S3OPS {
 
         } catch (err) {
             if (overlook_error) return;
-            console.error(`Upload failed ${file_name}!`, err);
+            this.log_error(`Upload failed ${file_name}!`, err);
             throw err;
         }
     }

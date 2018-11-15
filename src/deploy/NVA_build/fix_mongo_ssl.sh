@@ -3,6 +3,7 @@ CORE_DIR="/root/node_modules/noobaa-core"
 if [ ! -d /etc/mongo_ssl/ ]; then
   mkdir /etc/mongo_ssl/
   . ${CORE_DIR}/src/deploy/NVA_build/setup_mongo_ssl.sh
+  chown -R mongod:mongod /etc/mongo_ssl/
   chmod 400 -R /etc/mongo_ssl/*
   chmod 500 /etc/mongo_ssl
   client_subject=`openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}'`

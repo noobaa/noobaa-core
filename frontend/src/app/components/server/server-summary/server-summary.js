@@ -27,8 +27,8 @@ const icons = deepFreeze({
         css: 'warning'
     },
     unavailable: {
-        name: 'healthy',
-        css: 'disabled'
+        name: 'problem',
+        css: 'error'
     }
 });
 
@@ -86,7 +86,7 @@ class ServerSummaryViewModel extends BaseViewModel {
                 if (!systemInfo() || !this.isConnected()) {
                     return {
                         icon: icons.unavailable,
-                        text: 'Server services is unavailable',
+                        text: 'Server services are unavailable',
                         tooltip: {
                             text: 'Disconnected',
                             align: 'start'

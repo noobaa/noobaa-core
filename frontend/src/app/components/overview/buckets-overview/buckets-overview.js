@@ -351,8 +351,11 @@ class BucketsOverviewViewModel extends Observer{
 
         const { query, params } = this.location;
         const selectedDuration = query.selectedDuration || this.durationOptions[0].value;
-        const hiddenDatasets = query.hiddenDatasets ? query.hiddenDatasets.split(',') : [];
-        const showInternalLegend = _isInternalSotrageUsed(internalStorage, buckets);
+
+        const hiddenDatasets = new Set(query.hiddenDatasets && query.hiddenDatasets.split(','));
+        const isIntenralStorageUsed = _isInternalSotrageUsed(internalStorage, buckets);
+        if (!isIntenralStorageUsed) hiddenDatasets.add('internal');
+
         const { system } = params;
         const bucketList = Object.values(buckets);
         const bucketsLinkText = stringifyAmount('bucket', bucketList.length);
@@ -364,7 +367,7 @@ class BucketsOverviewViewModel extends Observer{
         };
         const now = Date.now();
         const { timezone } = Object.values(servers).find(server => server.isMaster);
-        const datasets = chartDatasets.filter(({ key }) => !hiddenDatasets.includes(key));
+        const datasets = chartDatasets.filter(ds => !hiddenDatasets.has(ds.key));
         const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
         const currentDataPoints = chartParams.data.datasets
             .map(ds => last(ds.data))
@@ -379,11 +382,11 @@ class BucketsOverviewViewModel extends Observer{
             bucketsLinkText: bucketsLinkText,
             bucketsLinkHref: bucketsLinkHref,
             selectedDuration: selectedDuration,
-            hiddenDatasets: hiddenDatasets,
-            showInternalLegend: showInternalLegend,
-            hideHosts: hiddenDatasets.includes('hosts'),
-            hideCloud: hiddenDatasets.includes('cloud'),
-            hideInternal: !showInternalLegend || hiddenDatasets.includes('internal'),
+            hiddenDatasets: Array.from(hiddenDatasets.values()),
+            showInternalLegend: isIntenralStorageUsed,
+            hideHosts: hiddenDatasets.has('hosts'),
+            hideCloud: hiddenDatasets.has('cloud'),
+            hideInternal: hiddenDatasets.has('internal'),
             usedValues: [
                 { value: used.hosts },
                 { value: used.cloud },

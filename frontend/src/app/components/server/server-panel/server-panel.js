@@ -1,89 +1,79 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './server-panel.html';
-import Observer from 'observer';
-import { state$ } from 'state';
-import { lastSegment } from 'utils/string-utils';
+import ConnectableViewModel from 'components/connectable';
 import { summarizeServerIssues } from 'utils/cluster-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { deepFreeze, sumBy, mapValues } from 'utils/core-utils';
-import { getMany } from 'rx-extensions';
+import { deepFreeze, countBy } from 'utils/core-utils';
+import { lastSegment } from 'utils/string-utils';
 import ko from 'knockout';
 
-const tabsToIssues = deepFreeze({
-    diagnostics: [
-        'debugMode'
-    ],
-    communication: [
-        'clusterConnectivity'
-    ],
-    details: [
-        'version',
-        'dnsNameResolution',
-        'dnsServers',
-        'proxy',
-        'phonehome',
-        'ntp',
-        'remoteSyslog',
-        'minRequirements'
-    ]
+const issuesToTabs = deepFreeze({
+    debugMode: 'diagnostics',
+    clusterConnectivity: 'communication',
+    version: 'details',
+    dnsNameResolution: 'details',
+    dnsServers: 'details',
+    proxy: 'details',
+    phonehome: 'details',
+    ntp: 'details',
+    remoteSyslog: 'details',
+    minRequirements: 'details'
 });
 
-class ServerPanelViewModel extends Observer {
-    constructor() {
-        super();
+class ServerPanelViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
+    system = ko.observable();
+    selectedTab = ko.observable();
+    serverSecret = ko.observable();
+    baseRoute = ko.observable();
+    issueCounters = {
+        details: ko.observable(),
+        diagnostics: ko.observable(),
+        communication: ko.observable()
+    };
 
-        this.selectedTab = ko.observable();
-        this.serverSecret = ko.observable();
-        this.baseRoute = '';
-        this.detailsIssues = ko.observable();
-        this.diagnosticsIssues = ko.observable();
-        this.communicationIssues = ko.observable();
-        this.system = ko.observable();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'location',
-                    'topology',
-                    ['system', 'version']
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { location, system, topology = {} } = state;
+        const { serverMinRequirements, servers } = topology;
+        const serverSecret = lastSegment(location.params.server, '-');
+        return [
+            location,
+            serverMinRequirements,
+            servers && servers[serverSecret],
+            system && system.version
+        ];
     }
 
-    onState([location,  topology, version]) {
+    mapStateToProps(location, minRequirements, server, version) {
         const { route, params } = location;
-        const { system, server, tab = 'details' } = params;
+        const { system, server: serverName, tab = 'details' } = params;
+        if (!serverName || !server) {
+            ko.assignToProps(this, {
+                dataReady: false
+            });
 
-        if (!server) return;
-        this.system(system);
-        this.baseRoute = realizeUri(route, { system, server }, {}, true);
-        this.selectedTab(tab);
-        this.serverSecret(server && lastSegment(server, '-'));
-
-        if (!topology) return;
-        const { servers, serverMinRequirements } = topology;
-        const serverData = servers[this.serverSecret()];
-        const issues = summarizeServerIssues(
-            serverData,
-            version,
-            serverMinRequirements
-        );
-
-        const issuesCount = mapValues(
-            tabsToIssues,
-            keys => sumBy(keys, key => issues[key] ? 1 : 0)
-        );
-
-        this.diagnosticsIssues(issuesCount.diagnostics);
-        this.communicationIssues(issuesCount.communication);
-        this.detailsIssues(issuesCount.details);
+        } else {
+            const issues = summarizeServerIssues(server, version, minRequirements);
+            ko.assignToProps(this, {
+                dataReady: true,
+                system,
+                baseRoute: realizeUri(route, { system, server: serverName }, {}, true),
+                selectedTab: tab,
+                serverSecret: server.secret,
+                issueCounters: countBy(
+                    Object.keys(issues),
+                    key => issuesToTabs[key]
+                )
+            });
+        }
     }
 
     tabHref(tab) {
-        return realizeUri(this.baseRoute, { tab });
+        const route = this.baseRoute();
+        if (route) {
+            return realizeUri(route, { tab });
+        }
     }
 }
 

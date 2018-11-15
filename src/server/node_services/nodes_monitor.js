@@ -291,13 +291,17 @@ class NodesMonitor extends EventEmitter {
     async sync_storage_to_store() {
         const items = Array.from(this._map_node_id.values());
         for (const item of items) {
+            if (item.node.deleted) continue;
+            if (!item.connection) continue;
+            if (!item.node_from_store) continue;
             const info = await this.client.agent.get_agent_storage_info(undefined, {
                     connection: item.connection
                 })
                 .timeout(AGENT_RESPONSE_TIMEOUT);
-            if (!info) return;
-            item.node.storage = info.storage;
-            dbg.log0('JAJA updated storage from node', item.name, item.node.storage);
+            if (info.storage) {
+                item.node.storage = info.storage;
+                dbg.log0('JAJA updated storage from node', item.node.name, item.node.storage);
+            }
         }
     }
 
@@ -3667,6 +3671,8 @@ class NodesMonitor extends EventEmitter {
             list.push(item);
         }
 
+        dbg.log0('JAJAJA items in pool', this._map_node_id, pool_id, list);
+
         const latency_groups = [];
         // Not all nodes always have the avg_disk_write.
         // KMeans needs valid vectors so we exclude the nodes and assume that they are the slowest
@@ -3771,7 +3777,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _node_storage_info(item) {
-
+        //dbg.log0('JAJA _node_storage_info', item.node.name, item.node.storage);
         const disk_total = size_utils.json_to_bigint(item.node.storage.total || 0);
         const disk_free = BigInteger.max(size_utils.json_to_bigint(item.node.storage.free || 0), BigInteger.zero);
         const disk_used = disk_total.minus(disk_free);
@@ -3785,7 +3791,7 @@ class NodesMonitor extends EventEmitter {
             BigInteger.zero :
             size_utils.json_to_bigint(config.NODES_FREE_SPACE_RESERVE || 0);
         const nb_limit = BigInteger.min(
-            size_utils.json_to_bigint(item.node.storage.limit || 0),
+            item.node.storage.limit ? size_utils.json_to_bigint(item.node.storage.limit) : disk_total,
             disk_total.minus(reserved_config)
         );
         const reserved_free = disk_total.minus(nb_limit).minus(used_other);
@@ -3805,7 +3811,7 @@ class NodesMonitor extends EventEmitter {
             unavailable_used = nb_used;
         }
 
-        // console.log('GGG _node_storage_info', { disk_total, disk_free, disk_used, nb_limit, nb_used, nb_free, nb_reserved });
+        //console.log('GGG _node_storage_info', { disk_total, disk_free, disk_used, nb_limit, nb_used, nb_free, nb_reserved });
 
         return size_utils.to_bigint_storage({
             total: disk_total,

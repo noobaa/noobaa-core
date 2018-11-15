@@ -139,7 +139,7 @@ async function stop_services() {
         });
     }
 
-    // now make sure that there is no rouge 
+    // now make sure that there is no rouge
 }
 
 async function start_services() {
@@ -487,7 +487,7 @@ async function build_dotenv() {
     await fs.writeFileAsync(`/data/.env`, dotenv.stringify(new_env));
 }
 
-// TODO: make sure that update_services is synchronized between all cluster members 
+// TODO: make sure that update_services is synchronized between all cluster members
 // (currently all members are upgraded serially, so we're good)
 async function update_services(old_version) {
     dbg.log0('UPGRADE: updating services in noobaa_supervisor.conf');
@@ -573,7 +573,7 @@ async function change_mongo_kill_signal_and_update_mongod_user() {
         await supervisor.update_program(mongo_wrapper_prog);
         await clean_shutdown_old_mongo();
 
-        // after mongod is stopped fix ownership and 
+        // after mongod is stopped fix ownership and
         await fix_mongod_user();
 
         await supervisor.apply_changes();
@@ -721,6 +721,7 @@ async function upgrade_mongodb_schemas(params) {
             { file: 'mongo_upgrade_2_9_0.js', version: [2, 9, 0] },
             { file: 'mongo_upgrade_2_10_0.js', version: [2, 10, 0] },
             { file: 'mongo_upgrade_2_10_1.js', version: [2, 10, 1] },
+            { file: 'mongo_upgrade_2_11_0.js', version: [2, 11, 0] },
             { file: 'mongo_upgrade_mark_completed.js' }
         ];
     } else {
@@ -807,7 +808,7 @@ function version_compare(ver1, ver2) {
         const comp1 = ver1_arr[i] || 0;
         const comp2 = ver2_arr[i] || 0;
         const diff = comp1 - comp2;
-        // if version component is not the same, return the 
+        // if version component is not the same, return the
         if (diff) return diff;
     }
     return 0;

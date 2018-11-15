@@ -5,7 +5,7 @@ import BaseViewModel from 'components/base-view-model';
 import { systemInfo, serverTime } from 'model';
 import { deepFreeze, isDefined} from 'utils/core-utils';
 import { getServerIssues } from 'utils/cluster-utils';
-import { formatSize } from 'utils/size-utils';
+import { formatSize, isSizeZero } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { loadServerTime } from 'actions';
 import { timeLongFormat } from 'config';
@@ -231,22 +231,23 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             }
         );
 
-        const internalStorage = ko.pureComputed(
+        const internalStorageUsage = ko.pureComputed(
             () => {
                 const storage = (systemInfo() ? systemInfo().pools : [])
                     .filter(pool => pool.resource_type === 'INTERNAL')
                     .map(pool => pool.storage)[0];
 
-                const { used = 0, total = 0 } = storage || {};
-                const href = systemInfo() ?
-                    realizeUri(routes.resources, { system: systemInfo().name, tab: 'internal' }) :
-                    '';
-                return {
-                    used: formatSize(used),
-                    total: formatSize(total),
-                    href: href
-                };
+                const { used = 0 } = storage || {};
+                return used;
             }
+        );
+
+        const internalStorageValue = ko.pureComputed(() =>
+            formatSize(internalStorageUsage())
+        );
+
+        const internalStorageVisible = ko.pureComputed(() =>
+            !isSizeZero(internalStorageUsage())
         );
 
         return [
@@ -287,9 +288,9 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                 value: cpusCount
             },
             {
-                label: 'Internal Storage Resource',
-                value: internalStorage,
-                template: 'internal-storage'
+                label: 'Internal Storage Usage',
+                value: internalStorageValue,
+                visible: internalStorageVisible
             }
         ];
     }

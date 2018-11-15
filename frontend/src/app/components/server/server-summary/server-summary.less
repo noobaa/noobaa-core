@@ -2,8 +2,16 @@
 
 server-summary {
     display: block;
+    position: relative;
+    min-height: 186px;
 
-    > .row {
-        height: 186px;
+    .summary  {
+        opacity: 0;
+
+        &.visible {
+            opacity: 1;
+            transition: opacity 250ms ease-out;
+        }
     }
+
 }

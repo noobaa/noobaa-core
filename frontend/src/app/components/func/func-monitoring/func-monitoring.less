@@ -3,7 +3,13 @@
 func-monitoring {
     .column();
 
-    canvas {
-        height: 100%;
+    chart-legend .legend-item {
+        .legend-label {
+            margin-right: @gutter;
+        }
+
+        .legend-value {
+            display: none;
+        }
     }
 }

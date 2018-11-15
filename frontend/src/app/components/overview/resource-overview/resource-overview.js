@@ -104,6 +104,7 @@ class ResourceOverviewViewModel extends Observer {
                 label: 'Pure FlashBlade',
                 color: style['color19'],
                 value: ko.observable(),
+                visible: ko.observable(),
                 tooltip: 'Pure FlashBlade resources that were created in this system'
             },
             {
@@ -188,6 +189,7 @@ class ResourceOverviewViewModel extends Observer {
             this.cloudCounters[1].value(AZURE);
             this.cloudCounters[2].value(GOOGLE);
             this.cloudCounters[3].value(FLASHBLADE);
+            this.cloudCounters[3].visible(Boolean(FLASHBLADE));
             this.cloudCounters[4].value(S3_COMPATIBLE);
             this.cloudCapacity(formatSize(cloudCapacity));
         }

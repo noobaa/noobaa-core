@@ -462,6 +462,8 @@ function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, h
     const info = {
         has_any_pool_configured: false,
         num_nodes_in_mirror_group: 0,
+        num_valid_nodes: 0,
+        num_valid_hosts: 0,
         mirrors_with_valid_pool: 0,
         mirrors_with_enough_nodes: 0,
         has_internal_or_cloud_pool: false,

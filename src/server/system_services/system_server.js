@@ -439,7 +439,7 @@ function read_system(req) {
             }) : undefined,
 
         funcs: P.resolve()
-            // using default domain - will serve the list_funcs from web_server so if 
+            // using default domain - will serve the list_funcs from web_server so if
             // endpoint is down it will not fail the read_system
             .then(() => server_rpc.client.func.list_funcs({}, {
                 auth_token: req.auth_token,
@@ -587,6 +587,7 @@ function read_system(req) {
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
+            node_version: process.version,
             debug: debug,
             system_cap: system_cap,
             has_ssl_cert: has_ssl_cert,

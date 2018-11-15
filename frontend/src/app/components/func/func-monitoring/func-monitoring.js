@@ -9,11 +9,8 @@ import { deepFreeze } from 'utils/core-utils';
 import { hexToRgb } from 'utils/color-utils';
 
 const responseTimeOptions = deepFreeze({
-    maintainAspectRatio: false,
-    title: {
-        display: true,
-        text: 'Response Time Sampling'
-    },
+    maintainAspectRatio: true,
+    aspectRatio: 3,
     scales: {
         xAxes: [{
             display: true,
@@ -50,11 +47,8 @@ const responseTimeOptions = deepFreeze({
 });
 
 const errorsOptions = deepFreeze({
-    maintainAspectRatio: false,
-    title: {
-        display: true,
-        text: 'Request and error count over time'
-    },
+    maintainAspectRatio: true,
+    aspectRatio: 3,
     scales: {
         xAxes: [{
             display: true,
@@ -89,74 +83,89 @@ class FuncMonitoringViewModel extends BaseViewModel {
         super();
 
         this.responseTimeOptions = responseTimeOptions;
-        this.responseTimeData = ko.pureComputed(
-            () => {
-                let { stats } = func() || {};
-                if (!stats) {
-                    return;
-                }
-
-                return {
-                    datasets: [
-                        {
-                            label: 'Last 10 Minutes',
-                            borderColor: style['color8'],
-                            backgroundColor: hexToRgb(style['color8'], .1),
-                            data: stats.response_time_last_10_minutes.percentiles.map(
-                                p => ({ x: p.percent, y: p.value })
-                            )
-                        },
-                        {
-                            label: 'Last Hour',
-                            borderColor: style['color11'],
-                            backgroundColor: hexToRgb(style['color11'], .1),
-                            data: stats.response_time_last_hour.percentiles.map(
-                                p => ({ x: p.percent, y: p.value })
-                            )
-                        },
-                        {
-                            label: 'Last day',
-                            borderColor: style['color12'],
-                            backgroundColor: hexToRgb(style['color12'], .1),
-                            data: stats.response_time_last_day.percentiles.map(
-                                p => ({ x: p.percent, y: p.value })
-                            )
-                        }
-                    ]
-                };
+        this.responseTimeLegendItems = ko.pureComputed(() => [
+            {
+                label: 'Last 10 Minutes',
+                color: style['color8']
+            },
+            {
+                label: 'Last Hour',
+                color: style['color11']
+            },
+            {
+                label: 'Last Day',
+                color: style['color12']
             }
-        );
+        ]);
+        this.responseTimeData = ko.pureComputed(() => {
+            let { stats } = func() || {};
+            if (!stats) {
+                return;
+            }
+
+            return {
+                datasets: [
+                    {
+                        borderColor: style['color8'],
+                        backgroundColor: hexToRgb(style['color8'], .1),
+                        data: stats.response_time_last_10_minutes.percentiles.map(
+                            p => ({ x: p.percent, y: p.value })
+                        )
+                    },
+                    {
+                        borderColor: style['color11'],
+                        backgroundColor: hexToRgb(style['color11'], .1),
+                        data: stats.response_time_last_hour.percentiles.map(
+                            p => ({ x: p.percent, y: p.value })
+                        )
+                    },
+                    {
+                        borderColor: style['color12'],
+                        backgroundColor: hexToRgb(style['color12'], .1),
+                        data: stats.response_time_last_day.percentiles.map(
+                            p => ({ x: p.percent, y: p.value })
+                        )
+                    }
+                ]
+            };
+        });
 
         this.errorsOptions = errorsOptions;
-        this.errorsData =  ko.pureComputed(
-            () => {
-                let { stats } = func() || {};
-                if (!stats) {
-                    return;
-                }
-
-                return {
-                    datasets: [
-                        {
-                            label: 'Requests',
-                            borderColor: style['color12'],
-                            backgroundColor: hexToRgb(style['color12'], .1),
-                            data: stats.requests_over_time.map(
-                                r => ({ x: r.time, y: r.requests - r.errors })
-                            )
-                        },
-                        {
-                            label: 'Errors',
-                            borderColor: style['color10'],
-                            backgroundColor: hexToRgb(style['color10'], .1),
-                            data: stats.requests_over_time.map(
-                                r => ({ x: r.time, y: r.errors })
-                            )
-                        }
-                    ]
-                };
+        this.errorsLegendItems = ko.pureComputed(() => [
+            {
+                label: 'Requests',
+                color: style['color12']
+            },
+            {
+                label: 'Errors',
+                color: style['color10']
             }
-        );
+        ]);
+        this.errorsData =  ko.pureComputed(() => {
+            let { stats } = func() || {};
+            if (!stats) {
+                return;
+            }
+
+            return {
+                datasets: [
+                    {
+                        borderColor: style['color12'],
+                        backgroundColor: hexToRgb(style['color12'], .1),
+                        data: stats.requests_over_time.map(
+                            r => ({ x: r.time, y: r.requests - r.errors })
+                        )
+                    },
+                    {
+                        borderColor: style['color10'],
+                        backgroundColor: hexToRgb(style['color10'], .1),
+                        data: stats.requests_over_time.map(
+                            r => ({ x: r.time, y: r.errors })
+                        )
+                    }
+                ]
+            };
+        });
     }
 }
 

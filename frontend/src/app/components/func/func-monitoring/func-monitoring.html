@@ -1,13 +1,28 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<chartjs class="greedy pad" params="
-    type: 'line',
-    options: responseTimeOptions,
-    data: responseTimeData
-"></chartjs>
-
-<chartjs class="greedy pad" params="
-    type: 'line',
-    options: errorsOptions,
-    data: errorsData
-"></chartjs>
+<section>
+    <h2 class="heading3 pad alt-bg">
+        Response Time Sampling
+    </h2>
+    <chart-legend class="hpad pad-top legend-row" params="
+        items: responseTimeLegendItems,
+    "></chart-legend>
+    <chartjs class="vpad" params="
+        type: 'line',
+        options: responseTimeOptions,
+        data: responseTimeData
+    "></chartjs>
+</section>
+<section class="push-prev">
+    <h2 class="heading3 pad alt-bg">
+        Request and error count over time
+    </h2>
+    <chart-legend class="hpad pad-top legend-row" params="
+        items: errorsLegendItems,
+    "></chart-legend>
+    <chartjs class="pad" params="
+        type: 'line',
+        options: errorsOptions,
+        data: errorsData
+    "></chartjs>
+</section>

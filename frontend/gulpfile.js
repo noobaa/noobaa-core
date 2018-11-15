@@ -19,6 +19,7 @@ const moment = require('moment');
 const spawn = require('child_process').spawn;
 const less = require('less');
 const $ = require('gulp-load-plugins')();
+const { version } = require('../package.json');
 
 const cwd = process.cwd();
 const libsPath = './src/lib';
@@ -35,13 +36,6 @@ const staticAssetsSelector = [
     '!src/assets/icons',
     '!src/assets/icons/*.svg'
 ];
-
-const injectParams = {
-    filter: '*.html',
-    package_file: '../package.json',
-    prepend: '',
-    replace: '%%NOOBAA_VERSION%%'
-};
 
 const libs = [
     {
@@ -221,12 +215,7 @@ gulp.task('generate-svg-icons', () => {
 });
 
 gulp.task('copy', () => {
-    return gulp.src(staticAssetsSelector, { base: 'src' })
-        .pipe($.if(
-            injectParams.filter,
-            $.injectVersion(injectParams)
-        ))
-        .pipe(gulp.dest(buildPath));
+    return injectVersion(staticAssetsSelector);
 });
 
 gulp.task('build-js-style', () => {
@@ -349,15 +338,7 @@ gulp.task('watch-svg-icons', ['generate-svg-icons'], () => {
 gulp.task('watch-assets', ['copy'], () => {
     return $.watch(
         staticAssetsSelector,
-        vinyl => {
-            // Copy the file that changed.
-            gulp.src(vinyl.path, { base: 'src' })
-                .pipe($.if(
-                    injectParams.filter,
-                    $.injectVersion(injectParams)
-                ))
-                .pipe(gulp.dest(buildPath));
-        }
+        vinyl => injectVersion(vinyl.path)
     );
 });
 
@@ -488,6 +469,15 @@ function cssClassToJson() {
 
         callback();
     });
+}
+
+function injectVersion(selector) {
+    return gulp.src(selector, { base: 'src' })
+        .pipe($.if(
+            '*.html',
+            $.replace('%%NOOBAA_VERSION%%', version)
+        ))
+        .pipe(gulp.dest(buildPath));
 }
 
 function lint(folder) {

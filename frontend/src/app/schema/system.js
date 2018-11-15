@@ -5,6 +5,7 @@ export default {
     required: [
         'ipAddress',
         'version',
+        'nodeVersion',
         'maintenanceMode',
         'vmTools',
         'p2pSettings',
@@ -15,6 +16,9 @@ export default {
     ],
     properties: {
         version: {
+            type: 'string'
+        },
+        nodeVersion: {
             type: 'string'
         },
         ipAddress: {

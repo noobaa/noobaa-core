@@ -903,7 +903,7 @@ class Agent {
 
     async get_agent_storage_info(req) {
         const dbg = this.dbg;
-        const info = { storage: {} };
+        const info = {};
         if (this.block_store) {
             const storage_info = await this.block_store.get_storage_info();
             const MIN_USED_STORAGE = 200 * 1024;

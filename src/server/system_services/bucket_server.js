@@ -1130,6 +1130,7 @@ function _calc_metrics({
         }
     }
     const internal_info = pool_server.get_pool_info(internal_pool, nodes_aggregate_pool, hosts_aggregate_pool);
+    let risky_tolerance = false;
 
     _.each(bucket.tiering.tiers, tier_and_order => {
         const tier = tier_and_order.tier;
@@ -1138,20 +1139,22 @@ function _calc_metrics({
         tiering_pools_used_agg.push(tier_extra_info.used_of_pools_in_tier || 0);
 
         const ccc = _.get(tier_and_order, 'tier.chunk_config.chunk_coder_config');
-        const failure_tolerance = ccc.parity_frags || ccc.replicas - 1;
+        const configured_failure_tolerance = ccc.parity_frags || ccc.replicas - 1;
+        risky_tolerance = configured_failure_tolerance < 2;
 
         const mirrors_with_valid_pool = tier_extra_info.mirrors_with_valid_pool;
         const mirrors_with_enough_nodes = tier_extra_info.mirrors_with_enough_nodes;
 
-        info.host_tolerance = Math.min(failure_tolerance, tier_extra_info.host_tolerance);
-        info.node_tolerance = Math.min(failure_tolerance, tier_extra_info.node_tolerance);
+        info.host_tolerance = Math.min(info.host_tolerance || Infinity,
+            tier_extra_info.host_tolerance);
+        info.node_tolerance = Math.min(info.node_tolerance || Infinity,
+            tier_extra_info.node_tolerance);
         info.writable = mirrors_with_valid_pool > 0;
         if (tier_and_order.tier.mirrors.length > 0) {
             if (mirrors_with_valid_pool === tier_and_order.tier.mirrors.length) has_enough_healthy_nodes_for_tiering = true;
             if (mirrors_with_enough_nodes === tier_and_order.tier.mirrors.length) has_enough_total_nodes_for_tiering = true;
         }
     });
-    const low_tolerance = (info.node_tolerance === 0 || info.host_tolerance === 0);
 
     const used_of_pools_in_policy = size_utils.json_to_bigint(size_utils.reduce_sum('blocks_size', tiering_pools_used_agg));
     const bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity') || 0);
@@ -1209,7 +1212,7 @@ function _calc_metrics({
         has_any_pool_configured,
         has_enough_healthy_nodes_for_tiering,
         has_enough_total_nodes_for_tiering,
-        low_tolerance,
+        risky_tolerance,
         any_rebuilds,
         is_storage_low,
         is_no_storage,
@@ -1269,7 +1272,7 @@ function calc_bucket_mode(tiers, metrics) {
 
 function return_bucket_issues_mode(metrics) {
     return (metrics.is_using_internal && 'NO_RESOURCES_INTERNAL') ||
-        (metrics.low_tolerance && 'RISKY_TOLERANCE') ||
+        (metrics.risky_tolerance && 'RISKY_TOLERANCE') ||
         (metrics.is_quota_enabled && metrics.is_quota_low && 'APPROUCHING_QUOTA') ||
         (metrics.any_rebuilds && 'DATA_ACTIVITY') ||
         'OPTIMAL';
@@ -1282,7 +1285,7 @@ function calc_data_resiliency_status(metrics) {
     if (metrics.is_using_internal) {
         return 'POLICY_PARTIALLY_APPLIED';
     }
-    if (metrics.low_tolerance) {
+    if (metrics.risky_tolerance) {
         return 'RISKY_TOLERANCE';
     }
     if (metrics.any_rebuilds) {

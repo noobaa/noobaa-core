@@ -86,7 +86,6 @@ class BucketPanelViewModel extends ConnectableViewModel {
         if (route) {
             return realizeUri(route, { tab });
         }
-
     }
 }
 

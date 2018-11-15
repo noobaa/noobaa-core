@@ -57,8 +57,8 @@ mocha.describe('tiering upload', function() {
         }
         agent0 = agentCtlConfig.allocated_agents[node0].agent;
         const space = 300 * 1024 * 1024;
-        agent0.block_store._usage.size = agent0.block_store._total_mem_storage - space;
-        await node_server.sync_monitor_to_store();
+        agent0.block_store._usage.size = agent0.block_store.usage_limit - space;
+        await node_server.sync_monitor_storage_info();
 
         // await first_agent.get_agent_info_and_update_masters({
         //     addresses: '127.0.0.1'
@@ -103,7 +103,7 @@ mocha.describe('tiering upload', function() {
     });
 
 
-    mocha.it('test1 - filling up to full tier', async function() {
+    mocha.it('filling up to full tier', async function() {
         this.timeout(900000); // eslint-disable-line no-invalid-this
         const upload_size = 100 * 1024 * 1024;
         const storage1 = await get_current_storage(TIER0);
@@ -111,7 +111,7 @@ mocha.describe('tiering upload', function() {
         const storage2 = await get_current_storage(TIER0);
         const used_delta = storage1.free - storage2.free;
         const diff_percent = Math.abs((used_delta / upload_size) - 1);
-        console.log('test_tiering_upload: test1',
+        console.log('test_tiering_upload:',
             'used_delta', used_delta,
             'diff_percent', diff_percent);
         if (diff_percent > 0.05) {
@@ -120,7 +120,47 @@ mocha.describe('tiering upload', function() {
         await rpc_client.object.delete_object({ bucket: BUCKET, key });
     });
 
-    // mocha.it('test2 - filling more than tiering threshold - checking files starting to tier', async function() {
+    mocha.it('filling more than full tier threshold - checking everything still works', async function() {
+        this.timeout(900000); // eslint-disable-line no-invalid-this
+
+        const upload_size = 500 * 1024 * 1024;
+        const up = await upload_and_get_storage(upload_size);
+        const expected_tier1_change = upload_size - up.tier0_before.free;
+        const tier1_skew = Math.abs(up.tier1_change - expected_tier1_change);
+        const tier1_skew_percent = Math.abs((up.tier1_change / expected_tier1_change) - 1);
+
+        console.log('test_tiering_upload:', up,
+            'expected_tier1_change', expected_tier1_change,
+            'tier1_skew', tier1_skew,
+            'tier1_skew_percent', tier1_skew_percent
+        );
+        if (tier1_skew_percent > 0.05 && tier1_skew > 100 * 1024 * 1024) {
+            assert.fail(`Expected tier1 change to be ${expected_tier1_change} but got ${up.tier1_change}`);
+        }
+        await rpc_client.object.delete_object({ bucket: BUCKET, key: up.key });
+    });
+
+    mocha.it('write 3 files the last should push the first to second tier', async function() {
+        this.timeout(900000); // eslint-disable-line no-invalid-this
+        const space = 1024 * 1024 * 1024;
+        agent0.block_store._usage.size = agent0.block_store.usage_limit - space;
+        await node_server.sync_monitor_storage_info();
+
+        const upload_size = 450 * 1024 * 1024;
+        const up1 = await upload_and_get_storage(upload_size);
+        verify_skew(up1.tier0_change, upload_size);
+        const up2 = await upload_and_get_storage(upload_size);
+        verify_skew(up2.tier0_change, upload_size);
+        const up3 = await upload_and_get_storage(upload_size);
+        verify_skew(up3.tier0_change, up3.tier0_free);
+        verify_skew(up3.tier1_change, upload_size - up3.tier0_free);
+
+        await rpc_client.object.delete_object({ bucket: BUCKET, key: up1.key });
+        await rpc_client.object.delete_object({ bucket: BUCKET, key: up2.key });
+        await rpc_client.object.delete_object({ bucket: BUCKET, key: up3.key });
+    });
+
+    // mocha.it('test999 - filling more than tiering threshold - checking files starting to tier', async function() {
     //     this.timeout(900000); // eslint-disable-line no-invalid-this
     //     const upload_size = 150 * 1024 * 1024;
     //     const storage1 = await get_current_storage(TIER1);
@@ -137,30 +177,13 @@ mocha.describe('tiering upload', function() {
     //     await rpc_client.object.delete_object({ bucket: BUCKET, key });
     // });
 
-    mocha.it.only('test3 - filling more than full tier threshold - checking everything still works', async function() {
-        this.timeout(900000); // eslint-disable-line no-invalid-this
-        const upload_size = 500 * 1024 * 1024;
-        const tier0_before = await get_current_storage(TIER0);
-        const tier1_before = await get_current_storage(TIER1);
-        const key = await upload_file(upload_size);
-        const tier1_after = await get_current_storage(TIER1);
-
-        const expected_tier1_change = upload_size - tier0_before.free;
-        const tier1_change = tier1_before.free - tier1_after.free;
-        const tier1_skew = Math.abs(tier1_change - expected_tier1_change);
-        const tier1_skew_percent = Math.abs((tier1_change / expected_tier1_change) - 1);
-
-        console.log('test_tiering_upload: test3',
-            'expected_tier1_change', expected_tier1_change,
-            'tier1_change', tier1_change,
-            'tier1_skew', tier1_skew,
-            'tier1_skew_percent', tier1_skew_percent);
-        if (tier1_skew_percent > 0.05 && tier1_skew > 100 * 1024 * 1024) {
-            assert.fail(`Expected tier1 change to be ${expected_tier1_change} but got ${tier1_change}`);
+    function verify_skew(actual_change, expected_change) {
+        const tier_skew = Math.abs(actual_change - expected_change);
+        const tier_skew_percent = Math.abs((actual_change / expected_change) - 1);
+        if (tier_skew_percent > 0.05 && tier_skew > 100 * 1024 * 1024) {
+            assert.fail(`Expected tier change to be ${expected_change} but got ${actual_change}`);
         }
-        await rpc_client.object.delete_object({ bucket: BUCKET, key });
-    });
-
+    }
 
     async function upload_file(size) {
         const data1 = generator.update(Buffer.alloc(size));
@@ -178,9 +201,35 @@ mocha.describe('tiering upload', function() {
         return key;
     }
 
-    async function get_current_storage(tier) {
-        await node_server.sync_monitor_to_store();
+    async function upload_and_get_storage(upload_size) {
+        const tier0_before = await get_current_storage(TIER0);
+        const tier1_before = await get_current_storage(TIER1);
+        const key = await upload_file(upload_size);
+        const tier0_after = await get_current_storage(TIER0);
+        const tier1_after = await get_current_storage(TIER1);
 
+        const tier0_change = tier0_before.free - tier0_after.free;
+        const tier1_change = tier1_before.free - tier1_after.free;
+
+        console.log('upload_and_get_storage:',
+            'upload_size', upload_size,
+            'key', key,
+            'tier0_change', tier0_change,
+            'tier1_change', tier1_change
+        );
+
+        return {
+            key,
+            tier0_before,
+            tier1_before,
+            tier0_after,
+            tier1_after,
+            tier0_change,
+            tier1_change,
+        };
+    }
+
+    async function get_current_storage(tier) {
         const system = system_store.data.systems_by_name[coretest.SYSTEM];
         const tiering = system.tiering_policies_by_name[TIERING_POLICY];
         const tier0 = system.tiers_by_name[tier];

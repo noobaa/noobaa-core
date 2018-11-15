@@ -29,6 +29,7 @@ const diagnosticsInitialState = {
 function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
     return {
         version: payload.version,
+        nodeVersion: payload.node_version,
         dnsName: payload.dns_name,
         ipAddress: payload.ip_address,
         sslCert: payload.has_ssl_cert ? {} : undefined,

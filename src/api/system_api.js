@@ -529,6 +529,7 @@ module.exports = {
                 'buckets',
                 'objects',
                 'owner',
+                'node_version'
             ],
             properties: {
                 name: {
@@ -677,6 +678,9 @@ module.exports = {
                     type: 'string'
                 },
                 version: {
+                    type: 'string'
+                },
+                node_version: {
                     type: 'string'
                 },
                 debug: {

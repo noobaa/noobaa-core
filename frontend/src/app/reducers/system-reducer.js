@@ -20,6 +20,7 @@ const initialState = undefined;
 function onCompleteFetchSystemInfo(state = {}, { payload, timestamp }) {
     const {
         version,
+        node_version,
         upgrade,
         dns_name,
         ip_address,
@@ -31,6 +32,7 @@ function onCompleteFetchSystemInfo(state = {}, { payload, timestamp }) {
 
     return {
         version,
+        nodeVersion: node_version,
         dnsName: dns_name,
         ipAddress: ip_address,
         sslCert: has_ssl_cert ? {} : undefined,

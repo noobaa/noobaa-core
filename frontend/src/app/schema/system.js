@@ -5,11 +5,15 @@ export default {
     required: [
         'ipAddress',
         'version',
+        'nodeVersion',
         'maintenanceMode',
         'vmTools'
     ],
     properties: {
         version: {
+            type: 'string'
+        },
+        nodeVersion: {
             type: 'string'
         },
         ipAddress: {

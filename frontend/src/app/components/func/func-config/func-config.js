@@ -31,39 +31,36 @@ class FuncConfigViewModel extends BaseViewModel {
     constructor({ func }) {
         super();
 
+        const config = ko.pureComputed(() =>
+            func() ? func().config : {}
+        );
+
         this.func = func;
         this.runtimeOptions = runtimeOptions;
         this.memorySizeOptions = memorySizeOptions;
-
-        this.name = ko.pureComputed(
-            () => func() ? func().name : ''
+        this.name = ko.pureComputed(() =>
+            func() ? func().name : ''
         );
-
-        this.version = ko.pureComputed(
-            () => func() ? func().version : ''
+        this.version = ko.pureComputed(() =>
+            func() ? func().version : ''
         );
-
-        const config = ko.pureComputed(
-            () => func() ? func().config : {}
+        this.runtime = ko.observableWithDefault(() =>
+            config().runtime
         );
-
-        this.runtime = ko.observableWithDefault(
-            () => config().runtime
+        this.runtimeOptions = ko.pureComputed(() => [
+            { value: this.runtime() }
+        ]);
+        this.handler = ko.observableWithDefault(() =>
+            config().handler
         );
-
-        this.handler = ko.observableWithDefault(
-            () => config().handler
+        this.memorySize = ko.observableWithDefault(() =>
+            config().memory_size
         );
-
-        this.memorySize = ko.observableWithDefault(
-            () => config().memory_size
+        this.timeout = ko.observableWithDefault(() =>
+            config().timeout
         );
-
-        this.timeout = ko.observableWithDefault(
-            () => config().timeout
-        );
-        this.description = ko.observableWithDefault(
-            () => config().description
+        this.description = ko.observableWithDefault(() =>
+            config().description
         );
     }
 

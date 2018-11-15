@@ -606,6 +606,7 @@ function read_system(req) {
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
+            node_version: process.version,
             debug: debug,
             system_cap: system_cap,
             has_ssl_cert: has_ssl_cert,

@@ -302,14 +302,7 @@ module.exports = {
                     type: 'string'
                 },
                 runtime: {
-                    type: 'string',
-                    enum: [
-                        'nodejs6',
-                        'nodejs4.3',
-                        // 'nodejs',
-                        // 'python2.7',
-                        // 'java8',
-                    ]
+                    type: 'string'
                 },
                 memory_size: {
                     type: 'integer'

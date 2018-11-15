@@ -10,8 +10,8 @@
         >
             Services &amp; Information
             <span class="issue-counter warning"
-                  ko.attr.data-count="detailsIssues"
-                  ko.visible="detailsIssues"
+                  ko.attr.data-count="issueCounters.details"
+                  ko.visible="issueCounters.details"
             ></span>
         </a>
         <a ko.css.selected="selectedTab.eq('communication')"
@@ -19,8 +19,8 @@
         >
             Internal Cluster Communication
             <span class="issue-counter warning"
-                  ko.attr.data-count="communicationIssues"
-                  ko.visible="communicationIssues"
+                  ko.attr.data-count="issueCounters.communication"
+                  ko.visible="issueCounters.communication"
             ></span>
         </a>
         <a ko.css.selected="selectedTab.eq('diagnostics')"
@@ -28,13 +28,13 @@
         >
             Diagnostics
             <span class="issue-counter"
-                  ko.attr.data-count="diagnosticsIssues"
-                  ko.visible="diagnosticsIssues"
+                  ko.attr.data-count="issueCounters.diagnostics"
+                  ko.visible="issueCounters.diagnostics"
             ></span>
         </a>
     </nav>
 
-    <div class="tabs-row">
+    <div class="tabs-row" ko.if="dataReady">
         <server-details-form class="tab"
             ko.css.selected="selectedTab.eq('details')"
             params="

@@ -56,6 +56,8 @@ module.exports = {
             date: true
         },
 
+        num_parts: { type: 'integer' },
+
         // the uncommitted property is set on creation, 
         // and unset only once the multipart is chosen to be part of the object.
         // see complete_object_upload()

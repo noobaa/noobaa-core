@@ -3,12 +3,20 @@
 <ol class="list-no-style column" ko.foreach="$data">
     <li ko.css.push-prev-half="$index">
         <p class="highlight">
-            {{subject}} in Tier {{tierIndex}}:
+            {{heading}}
         </p>
+        <!-- ko if: resources.length -->
         <ul class="list-no-style" ko.foreach="resources">
-            <li>
+            <li class="row content-middle">
+                <svg-icon class="icon-small highlight push-next-half"
+                    params="name: icon"
+                ></svg-icon>
                 <a class="link" ko.attr.href="href">{{name}}</a>
             </li>
         </ul>
+        <!-- /ko -->
+        <!-- ko ifnot: resources.length -->
+        <p>No resources</p>
+        <!-- /ko -->
     </li>
 </ol>

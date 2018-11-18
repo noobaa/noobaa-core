@@ -30,12 +30,21 @@
     emptyMessage: 'The current filter does not match any bucket'
 ">
     <template name="resources-cell">
-        <!-- ko foreach: $data -->
-        <svg-icon params="name: icon"
-            ko.css.lighted="lighted"
-            ko.tooltip="tooltip"
-        "></svg-icon>
-        <!-- /ko -->
+        <div class="column">
+            <div class="row align-middle alt-bg pad-quarter round-corners scale-on-hover"
+                ko.tooltip="tooltip"
+            >
+                <!-- ko foreach: icons -->
+                <!-- ko if: $index-->
+                <vr class="vr-dark push-both-half"></vr>
+                <!-- /ko -->
+                <svg-icon class=""
+                    params="name: icon"
+                    ko.css.lighted="lighted"
+                "></svg-icon>
+                <!-- /ko -->
+            </div>
+        </div>
     </template>
 </data-table>
 

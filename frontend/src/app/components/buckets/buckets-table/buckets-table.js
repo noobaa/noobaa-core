@@ -15,7 +15,7 @@ import {
     flatMap,
     createCompareFunc,
     throttle,
-    groupBy
+    countBy
 } from 'utils/core-utils';
 import {
     getBucketStateIcon,
@@ -104,26 +104,23 @@ const undeletableReasons = deepFreeze({
     NOT_EMPTY: 'Cannot delete a bucket that contains objects or any objects versions'
 });
 
-const resourceGroupMetadata = deepFreeze([
-    {
-        type: 'HOSTS',
+const resourceGroupMetadata = deepFreeze({
+    HOSTS: {
         icon: 'nodes-pool',
-        subject: 'Node pools',
-        uriFor: (resName, system) => realizeUri(
+        getHref: (resName, system) => realizeUri(
             routes.pool,
             { system, pool: resName }
         )
     },
-    {
-        type: 'CLOUD',
+    CLOUD: {
         icon: 'cloud-hollow',
-        subject: 'Cloud resources',
-        uriFor: (resName, system) => realizeUri(
+        getHref: (resName, system) => realizeUri(
             routes.cloudResource,
             { system, resource: resName }
         )
     }
-]);
+});
+
 
 function _mapResiliency(resiliency) {
     const { kind, replicas, dataFrags, parityFrags } = resiliency;
@@ -152,7 +149,7 @@ function _mapTiers(tiers) {
                 const resourceCount = flatMap(tier.mirrorSets, ms => ms.resources).length;
                 return {
                     tierIndex: i + 1,
-                    placement: `${verb} on ${stringifyAmount('resoruce', resourceCount)}`
+                    placement: `${verb} on ${stringifyAmount('resource', resourceCount)}`
                 };
             }
         })
@@ -161,46 +158,41 @@ function _mapTiers(tiers) {
     return { text, tooltip };
 }
 
-function _getResourceGroupTooltip(records, subject, hrefGen, system) {
-    if (records.length === 0) {
-        return `No ${subject.toLowerCase()}`;
-    }
-
-    const byTierIndex = groupBy(
-        records,
-        record => record.tierIndex
+function _getResourceGroupTooltip(tiers, system) {
+    const resourceListPerTier = tiers.map(tier =>
+        flatMap(tier.mirrorSets || [], ms => ms.resources)
     );
 
     return {
         template: resourcesColTooltip,
-        text: Object.entries(byTierIndex)
-            .map(([i, records]) => ({
-                subject: subject,
-                tierIndex: Number(i) + 1,
-                resources: records.map(record => {
-                    const { name } = record.resource;
-                    const href = hrefGen(name, system);
-                    return { name, href };
-                })
-            }))
+        text: resourceListPerTier.map((list, i) => ({
+            heading: `Resourecs in tier ${i + 1}:`,
+            resources: list.map(resource => {
+                const { name, type } = resource;
+                const { getHref, icon } = resourceGroupMetadata[type];
+                const href = getHref(name, system);
+                return { icon, name, href };
+            })
+        }))
     };
 }
 
 function _mapResourceGroups(bucket, system) {
-    const groups = groupBy(
+    const countByType = countBy(
         flatPlacementPolicy(bucket),
         record => record.resource.type
     );
 
-    return resourceGroupMetadata.map(meta => {
-        const { type, icon, subject, uriFor } = meta;
-        const group = groups[type] || [];
-        return {
-            icon: icon,
-            lighted: Boolean(group.length),
-            tooltip: _getResourceGroupTooltip(group, subject, uriFor, system)
-        };
-    });
+    const icons = Object.entries(resourceGroupMetadata)
+        .map(pair => {
+            const [type, { icon }] = pair;
+            const lighted = Boolean(countByType[type] || 0);
+            return { icon, lighted };
+        });
+
+
+    const tooltip = _getResourceGroupTooltip(bucket.placement.tiers, system);
+    return { icons, tooltip };
 }
 
 function _mapBucket(bucket, system, selectedForDelete) {
@@ -239,7 +231,10 @@ class RowViewModel {
     objectCount = ko.observable();
     resiliencyPolicy = ko.observable();
     tiers = ko.observable();
-    resources = ko.observable();
+    resources = {
+        icons: ko.observableArray(),
+        tooltip: ko.observable()
+    };
     versioning = ko.observable();
     capacity = {
         total: ko.observable(),

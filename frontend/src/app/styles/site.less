@@ -59,8 +59,12 @@ vr {
     margin: 0 @gutter;
     align-self: stretch;
 
-    &.alt-colors {
+    &.vr-light {
         background: @color7;
+    }
+
+    &.vr-dark {
+        background: @color3;
     }
 }
 
@@ -408,6 +412,10 @@ pre {
         border-color: @color6;
     }
 
+    &.border-dark {
+        border-color: @color1;
+    }
+
     &.border-dash {
         border-style: dashed;
     }
@@ -539,4 +547,8 @@ dirty-mark {
             transform: unset;
         }
     }
+}
+
+.round-corners {
+    border-radius: 3px;
 }

@@ -699,6 +699,7 @@ async function upgrade_mongodb_schemas(params) {
             { file: 'mongo_upgrade_2_8_2.js', version: [2, 8, 2] },
             { file: 'mongo_upgrade_2_9_0.js', version: [2, 9, 0] },
             { file: 'mongo_upgrade_2_10_0.js', version: [2, 10, 0] },
+            { file: 'mongo_upgrade_2_10_1.js', version: [2, 10, 1] },
             { file: 'mongo_upgrade_mark_completed.js' }
         ];
     } else {

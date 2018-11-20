@@ -242,6 +242,7 @@ class PoolsTableViewModel extends ConnectableViewModel {
     sorting = ko.observable();
     page = ko.observable();
     poolCount = ko.observable();
+    emptyMessage = ko.observable();
     rows = ko.observableArray()
         .ofType(RowViewModel, { table: this })
 
@@ -287,6 +288,12 @@ class PoolsTableViewModel extends ConnectableViewModel {
                 bucketsByPool
             );
 
+            const emptyMessage =
+                (poolList.length === 0 && 'There are no existing nodes pool in the system') ||
+                (filteredPools.length === 0 && 'The current filter does not match any nodes pool') ||
+                '';
+
+
             ko.assignToProps(this, {
                 dataReady: true,
                 pathname: location.pathname,
@@ -294,6 +301,7 @@ class PoolsTableViewModel extends ConnectableViewModel {
                 sorting: { sortBy, order },
                 page: page,
                 poolCount: filteredPools.length,
+                emptyMessage: emptyMessage,
                 rows: filteredPools
                     .sort(compareOp)
                     .slice(pageStart, pageStart + paginationPageSize)

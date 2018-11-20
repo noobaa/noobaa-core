@@ -100,7 +100,7 @@ const createButtondDisabledTooltip = deepFreeze({
 });
 
 const undeletableReasons = deepFreeze({
-    LAST_BUCKET: 'Last bucket cannot be deleted',
+    LAST_BUCKET: 'The last bucket cannot be deleted',
     NOT_EMPTY: 'Cannot delete a bucket that contains objects or any objects versions'
 });
 

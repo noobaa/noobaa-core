@@ -11,11 +11,11 @@
     </h2>
     <hr>
 
-    <!-- ko ifnot: resourcesLoaded -->
+    <!-- ko ifnot: dataReady -->
     <loading-indicator class="align-middle push-prev"></loading-indicator>
     <!-- /ko -->
 
-    <!-- ko if: resourcesLoaded -->
+    <!-- ko if: dataReady -->
     <div class="row push-next content-middle">
         <span class="greedy push-next">Types</span>
         <toggle-group params="
@@ -32,5 +32,8 @@
     <section class="column greedy" ko.template.html="templates.CLOUD_RESOURCES"></section>
     <!-- /ko -->
 
+    <button class="btn overview-btn" ko.click="onAddResources">
+        Add Resources
+    </button>
     <!-- /ko -->
 </section>

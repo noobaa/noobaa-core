@@ -60,7 +60,11 @@ class ReportsSummarizer {
     }
 
     init_params(params) {
-        if (params.since || params.till) {
+        if (params.normalize) {
+            this.normalize = params.normalize;
+            this.till = new Date();
+            this.since = moment.utc(Date.now()).startOf('day').toDate();
+        } else if (params.since || params.till) {
             this.since = arg_to_date(params.since) || new Date(0);
             this.till = arg_to_date(params.till) || new Date();
         } else {
@@ -164,27 +168,50 @@ class ReportsSummarizer {
         // debug(`cases for suite ${suite_name}:`, all_cases);
 
         // create top row with reports dates:
-        const date_line = ['Date', ...reports.map(report => report.date.toDateString()), 'Total'].join(SEPARATOR);
+        const date_line_Array = ['Date', ...reports.map(report => report.date.toDateString())];
 
-        // create rows for passed cases
-        const passed_lines = all_cases.map(test_case => {
-            const case_results = reports.map(report => report.results.passed_cases[test_case] || 0);
-            return [`Passed_${test_case}`, ...case_results, _.sum(case_results)].join(SEPARATOR);
-        });
+        if (this.normalize) {
+            const date_line = date_line_Array.join(SEPARATOR);
+            const final_lines = all_cases.map(test_case => {
+                const case_results = reports.map(report => {
+                    const { passed_cases, failed_cases, didnt_run } = report.results;
+                    if (passed_cases[test_case] > 0) {
+                        return 1;
+                    } else if (failed_cases[test_case] > 0) {
+                        return 0;
+                    } else if (didnt_run[test_case] > 0) {
+                        return -1;
+                    } else {
+                        return -1;
+                    }
+                });
+                return [test_case, ...case_results].join(SEPARATOR);
+                //TODO: decide on the "_.sum", it is for the total.
+                //return [test_case, ...case_results, _.sum(case_results)].join(SEPARATOR);
+            });
+            return [date_line, ...final_lines];
+        } else {
+            date_line_Array.push('Total');
+            const date_line = date_line_Array.join(SEPARATOR);
+            // create rows for passed cases
+            const passed_lines = all_cases.map(test_case => {
+                const case_results = reports.map(report => report.results.passed_cases[test_case] || 0);
+                return [`Passed_${test_case}`, ...case_results, _.sum(case_results)].join(SEPARATOR);
+            });
 
-        // create rows for failed cases
-        const failed_lines = all_cases.map(test_case => {
-            const case_results = reports.map(report => report.results.failed_cases[test_case] || 0);
-            return [`Failed_${test_case}`, ...case_results, _.sum(case_results)].join(SEPARATOR);
-        });
+            // create rows for failed cases
+            const failed_lines = all_cases.map(test_case => {
+                const case_results = reports.map(report => report.results.failed_cases[test_case] || 0);
+                return [`Failed_${test_case}`, ...case_results, _.sum(case_results)].join(SEPARATOR);
+            });
 
-        // create rows for didn't run cases
-        const didnt_run_lines = all_cases.map(test_case => {
-            const case_results = reports.map(report => report.results.didnt_run[test_case] || 0);
-            return [`didnt_run_${test_case}`, ...case_results, _.sum(case_results)].join(SEPARATOR);
-        });
-
-        return [date_line, ...passed_lines, ...failed_lines, ...didnt_run_lines];
+            // create rows for didn't run cases
+            const didnt_run_lines = all_cases.map(test_case => {
+                const case_results = reports.map(report => report.results.didnt_run[test_case] || 0);
+                return [`didnt_run_${test_case}`, ...case_results, _.sum(case_results)].join(SEPARATOR);
+            });
+            return [date_line, ...passed_lines, ...failed_lines, ...didnt_run_lines];
+        }
     }
 }
 
@@ -196,7 +223,9 @@ function print_usage() {
         --till:             end date in the format ${DATE_FORMAT}
         --days:             number of days back to summarize
         --weeks:            number of weeks back to summarize
-        --output_prefix     prefix for output files (test suite name is added as a suffix)`);
+        --output_prefix     prefix for output files (test suite name is added as a suffix)
+        --normalize         get the report in normalized format
+        `);
 }
 
 async function main() {

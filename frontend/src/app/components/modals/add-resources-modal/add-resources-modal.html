@@ -1,0 +1,43 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="row greedy">
+    <div class="column alt-bg pad greedy push-next">
+        <h2 class="heading3 row content-middle push-next">
+            <svg-icon class="highlight push-next-half"
+                params="name: 'nodes-pool'"
+            ></svg-icon>
+            On-Premise
+        </h2>
+        <p class="push-next ">
+            A storage node is a machine with an operating system, CPU, memory, and file system. By installing NooBaa daemon, you actually turn this machine into NooBaa storage node.
+        </p>
+        <p class="push-next greedy">
+            Nodes will be assigned to nodes groups called “nodes pool” according to the administrator choice.
+        </p>
+        <div class="hpad column push-next-half">
+            <button class="btn" ko.click="onInstallNodes">
+                Install Nodes
+            </button>
+        </div>
+    </div>
+    <div class="column alt-bg pad greedy">
+        <h2 class="heading3 row content-middle push-next">
+            <svg-icon class="highlight push-next-half"
+                params="name: 'cloud-hollow'"
+            ></svg-icon>
+            Cloud
+        </h2>
+        <p class="push-next">
+            A cloud resource can be either an Azure blob storage, AWS S3 bucket or any AWS S3 compatible service.
+        </p>
+        <p class="push-next greedy">
+            It can be used as a resource in the NooBaa buckets created by the administrator.
+        </p>
+        <div class="hpad column push-next-half">
+            <button class="btn" ko.click="onAddCloudResource">
+                Add Cloud Resource
+            </button>
+        </div>
+    </div>
+</section>
+

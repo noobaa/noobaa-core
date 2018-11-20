@@ -46,7 +46,7 @@ const rebuildEffortToDisplay = deepFreeze({
         text: 'Very High',
         css: 'error',
         moreInfo: {
-            severity: 'error',
+            severity: 'warning',
             tooltip: {
                 text: 'Parity fragments rebuild time might take a while, varies according to data placement policy resources and type',
                 position: 'above'
@@ -64,7 +64,7 @@ function _getConfiguredFailureTolerance(resiliency) {
             text: text,
             css: 'warning',
             moreInfo: {
-                severity: 'error',
+                severity: 'warning',
                 tooltip: {
                     text: 'It is not recommended to use a resiliency policy which results in less than a fault tolerance value of 2',
                     position: 'above'
@@ -82,9 +82,9 @@ function _getActualFailureTolerance(actualTolerance, configuredTolerance, requir
     if (hosts < configuredTolerance || nodes < configuredTolerance) {
         return {
             text: text,
-            css: 'warning',
+            css: 'error',
             moreInfo: {
-                severity: 'warning',
+                severity: 'error',
                 tooltip: {
                     text: `One or more of the configured mirror sets have less than ${requiredDrives} healthy nodes/drives. This brings the bucket\'s actual tolerance below the configured tolerance`,
                     position: 'above'

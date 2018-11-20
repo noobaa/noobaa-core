@@ -22,7 +22,7 @@
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
     loading: !dataReady(),
-    emptyMessage: 'The current filter does not match any nodes pool'
+    emptyMessage: emptyMessage
 "></data-table>
 
 <paginator params="

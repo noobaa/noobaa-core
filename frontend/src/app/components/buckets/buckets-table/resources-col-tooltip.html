@@ -3,7 +3,7 @@
 <ol class="list-no-style column" ko.foreach="$data">
     <li ko.css.push-prev-half="$index">
         <p class="highlight">
-            {{heading}}
+            Resources in tier {{tierIndex}}
         </p>
         <!-- ko if: resources.length -->
         <ul class="list-no-style" ko.foreach="resources">

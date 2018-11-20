@@ -1,9 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './add-tier-modal.html';
+import tierSummaryTooltip from './tier-summary-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { stringifyAmount } from 'utils/string-utils';
+import { aggregateStorage } from 'utils/storage-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { flatMap, countBy } from 'utils/core-utils';
 import { getResourceId } from 'utils/resource-utils';
@@ -11,7 +13,8 @@ import { realizeUri } from 'utils/browser-utils';
 import {
     warnPlacementPolicy,
     validatePlacementPolicy,
-    flatPlacementPolicy
+    flatPlacementPolicy,
+    getPlacementTypeDisplayName
 } from 'utils/bucket-utils';
 import { addBucketTier, closeModal } from 'action-creators';
 import * as routes from 'routes';
@@ -22,33 +25,45 @@ function _getTierSummary(tier, tierIndex, hostPools, cloudResources) {
         ms => ms.resources
     );
 
+    const policyTypeText = getPlacementTypeDisplayName(tier.policyType);
+
     const {
         HOSTS: hostPoolCount = 0,
         CLOUD: cloudResourceCount = 0
     } = countBy(resources, res => res.type);
 
-    const resSummary = `${
-        stringifyAmount('Host Pool', hostPoolCount)
-    }<br/>${
-        stringifyAmount('Cloud resource', cloudResourceCount)
-    }`;
+    const hasResources = (hostPoolCount + cloudResourceCount) > 0;
 
-    const capacity = formatSize(sumSize(
+    const hostPoolsText = hostPoolCount > 0 ?
+        stringifyAmount('Node Pool', hostPoolCount) :
+        '';
+
+    const cloudResourcesText = cloudResourceCount > 0 ?
+        stringifyAmount('Cloud resource', cloudResourceCount) :
+        '';
+
+    const storage = aggregateStorage(
         ...resources.map(res => {
-            const { type, name } = res;
-            const coll = type === 'HOSTS' ? hostPools : cloudResources;
-            return coll[name].storage.total;
+            const coll = res.type === 'HOSTS' ? hostPools : cloudResources;
+            return coll[res.name].storage;
         })
-    ));
+    );
+
+    const { total = 0, free = 0, unavailableFree = 0 } = storage;
+    const freeStorage = sumSize(free, unavailableFree);
+    const availCapacityText = `${formatSize(freeStorage)} of ${formatSize(total)}`;
 
     return {
         text: `Tier ${tierIndex + 1}`,
         tooltip: {
-            template: 'propertySheet',
-            text: [
-                { label: 'Resources', value: resSummary },
-                { label: 'Capacity', value: capacity }
-            ],
+            template: tierSummaryTooltip,
+            text: {
+                hasResources,
+                policyTypeText,
+                hostPoolsText,
+                cloudResourcesText,
+                availCapacityText
+            },
             align: 'start'
         }
     };

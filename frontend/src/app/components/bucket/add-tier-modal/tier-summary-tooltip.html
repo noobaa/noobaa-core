@@ -1,0 +1,35 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section class="column">
+    <div class="column push-next">
+        <p class="highlight push-next-quarter">
+            Tier&grave;s Resources ({{policyTypeText}}):
+        </p>
+        <!-- ko if: hasResources -->
+        <ul class="list-no-style">
+            <li class="row content-middle" ko.visible="hostPoolsText">
+                <svg-icon class="icon-small highlight push-next-half"
+                    params="name: 'nodes-pool'"
+                ></svg-icon>
+                <span>{{hostPoolsText}}</span>
+            </li>
+            <li class="row content-middle" ko.visible="cloudResourcesText">
+                <svg-icon class="icon-small highlight push-next-half"
+                params="name: 'cloud-hollow'"
+                ></svg-icon>
+                <span>{{cloudResourcesText}}</span>
+            </li>
+        </ul>
+        <!-- /ko -->
+        <!-- ko ifnot: hasResources -->
+        <p>No Resources</p>
+        <!-- /ko -->
+    </div>
+
+    <div class="column">
+        <p class="highlight push-next-quarter">
+            Available capacity:
+        </p>
+        <p>{{availCapacityText}}</p>
+    </div>
+</section>

@@ -166,7 +166,7 @@ function _getResourceGroupTooltip(tiers, system) {
     return {
         template: resourcesColTooltip,
         text: resourceListPerTier.map((list, i) => ({
-            heading: `Resourecs in tier ${i + 1}:`,
+            tierIndex: i + 1,
             resources: list.map(resource => {
                 const { name, type } = resource;
                 const { getHref, icon } = resourceGroupMetadata[type];

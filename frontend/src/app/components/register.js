@@ -108,6 +108,7 @@ import invokeFuncModal from './modals/invoke-func-modal/invoke-func-modal';
 import editFuncCodeModal from './modals/edit-func-code-modal/edit-func-code-modal';
 import bucketPlacementSummaryModal from './modals/bucket-placement-summary-modal/bucket-placement-summary-modal';
 import keepUsingInternalStorageModal from './modals/keep-using-internal-storage-modal/keep-using-internal-storage-modal';
+import addResourcesModal from './modals/add-resources-modal/add-resources-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -463,6 +464,7 @@ export default function register(ko, services) {
         editFuncCodeModal,
         bucketPlacementSummaryModal,
         keepUsingInternalStorageModal,
+        addResourcesModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

@@ -9,7 +9,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { inputThrottle, paginationPageSize } from 'config';
 import { action$, state$ } from 'state';
 import { getMany } from 'rx-extensions';
-import { openAddCloudResrouceModal, requestLocation, deleteResource } from 'action-creators';
+import { openAddCloudResourceModal, requestLocation, deleteResource } from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -229,7 +229,7 @@ class CloudResourcesTableViewModel extends Observer {
     }
 
     onAddCloudResource() {
-        action$.next(openAddCloudResrouceModal());
+        action$.next(openAddCloudResourceModal());
     }
 
     onDeleteCloudResource(name) {

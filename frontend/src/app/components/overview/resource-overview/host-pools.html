@@ -11,8 +11,8 @@
 
 <pie-chart class="align-middle push-both-half" params="
     values: hostCounters,
-    sumLabel: 'Total',
-    format: hostCountFormatter
+    sumLabel: 'Installed Nodes',
+    format: 'number'
 "></pie-chart>
 
 <p class="row greedy push-both content-middle align-middle">
@@ -20,7 +20,3 @@
     <more-info-icon params="tooltip: hostStorageTooltip"></more-info-icon>
 </p>
 
-
-<button class="btn overview-btn" ko.click="onInstallNodes">
-    Install Nodes
-</button>

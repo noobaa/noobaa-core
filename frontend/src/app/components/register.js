@@ -102,6 +102,7 @@ import createBucketModal from './modals/create-bucket-modal/create-bucket-modal'
 import assignRegionModal from './modals/assign-region-modal/assign-region-modal';
 import bucketPlacementSummaryModal from './modals/bucket-placement-summary-modal/bucket-placement-summary-modal';
 import keepUsingInternalStorageModal from './modals/keep-using-internal-storage-modal/keep-using-internal-storage-modal';
+import addResourcesModal from './modals/add-resources-modal/add-resources-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -451,6 +452,7 @@ export default function register(ko, services) {
         assignRegionModal,
         bucketPlacementSummaryModal,
         keepUsingInternalStorageModal,
+        addResourcesModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

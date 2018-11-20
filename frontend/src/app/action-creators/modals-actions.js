@@ -26,9 +26,9 @@ export function closeModal(count = 1) {
     };
 }
 
-export function openInstallNodesModal() {
+export function replaceWithInstallNodesModal() {
     return {
-        type: OPEN_MODAL,
+        type: REPLACE_MODAL,
         payload: {
             component: 'install-nodes-modal',
             options: {
@@ -55,9 +55,22 @@ export function openInstallNodesToPoolModal(targetPool) {
     };
 }
 
-export function openAddCloudResrouceModal() {
+export function openAddCloudResourceModal() {
     return {
         type: OPEN_MODAL,
+        payload: {
+            component: 'add-cloud-resource-modal',
+            options: {
+                title: 'Add Cloud Resource',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function replaceWithAddCloudResourceModal() {
+    return {
+        type: REPLACE_MODAL,
         payload: {
             component: 'add-cloud-resource-modal',
             options: {
@@ -1006,6 +1019,18 @@ export function openEditFuncCodeModal(funcName, funcVersion) {
             options: {
                 title: 'Edit Function Code',
                 size: 'medium'
+            }
+        }
+    };
+}
+
+export function openAddResourcesModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'add-resources-modal',
+            options: {
+                title: 'Add Resources'
             }
         }
     };

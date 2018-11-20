@@ -11,14 +11,11 @@
 
 <pie-chart class="align-middle" params="
     values: cloudCounters,
-    sumLabel: 'cloud resources',
+    sumLabel: 'Cloud Resources',
+    format: 'number'
 "></pie-chart>
 
 <p class="row greedy push-both content-middle align-middle">
     <span class="highlight push-next-half">Estimated Cloud Storage: {{cloudCapacity}}</span>
     <more-info-icon params="tooltip: cloudStorageTooltip"></more-info-icon>
 </p>
-
-<button class="btn overview-btn" ko.click="onAddCloudResource">
-    Add Cloud Resource
-</button>

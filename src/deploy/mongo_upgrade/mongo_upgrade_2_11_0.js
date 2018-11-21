@@ -21,7 +21,7 @@ function update_spillover_tiers() {
         var second_tier_first_mirror = second_tier && second_tier.mirrors && second_tier.mirrors[0];
         var t2_m1_s1 = second_tier_first_mirror && second_tier_first_mirror.spread_pools &&
             second_tier_first_mirror.spread_pools[0];
-        var is_second_tier_internal = String(t2_m1_s1._id) === String(internal_pool._id);
+        var is_second_tier_internal = String(t2_m1_s1) === String(internal_pool._id);
 
         if (!has_none_internals && (!second_tier_in_tiering.disabled || (second_tier_in_tiering.disabled && has_internal_data))) {
             print('update_spillover_tiers: first tier to become internal');

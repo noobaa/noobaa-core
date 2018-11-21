@@ -4,6 +4,7 @@
     name: formName,
     fields: fields,
     onValidate: onValidate,
+    onWarn: onWarn,
     onSubmit: onSubmit
 ">
     <wizard class="column greedy" params="
@@ -12,6 +13,7 @@
         actionLabel: 'Create',
         disabled: $form.isSubmitted,
         onBeforeStep: onBeforeStep,
+        onAfterStep: onAfterStep,
         onComplete: $form.submit,
         onCancel: onCancel
     ">
@@ -29,13 +31,13 @@
                 </p>
             </editor>
 
-            <editor params="label: accountNameProps().label">
+            <editor params="label: accountNameProps.label">
                 <input type="text"
                     ko.validationCss="$form.accountName"
                     ko.value="$form.accountName"
-                    ko.attr.placeholder="accountNameProps().placeholder"
+                    ko.attr.placeholder="accountNameProps.placeholder"
                 />
-                <p class="remark" ko.visible="accountNameProps().isRemarkVisible">
+                <p class="remark" ko.visible="accountNameProps.isRemarkVisible">
                     3 - 32 characters
                 </p>
                 <validation-message params="field: $form.accountName"></validation-message>
@@ -51,11 +53,15 @@
                     disabled: $form.isSubmitted,
                     hasFocus: true
                 "></toggle-switch>
-                <p class="remark push-prev-half" ko.css.disabled="$form.isSubmitted">
+                <p class="remark push-prev-half"
+                    ko.css.disabled="$form.isSubmitted"
+                >
                     Granting S3 access will allow this account to connect S3 client <br>
                     applications by generating security credentials (key set).
                 </p>
-                <validation-message params="field: $form.hasS3Access"></validation-message>
+                <validation-message class="push-next-quarter"
+                    params="field: $form.hasS3Access"
+                ></validation-message>
             </editor>
 
             <editor params="
@@ -68,7 +74,7 @@
                         options: resourceOptions,
                         selected: $form.defaultResource,
                         disabled: isS3AccessDisabled,
-                        placeholder: 'Choose Resources'
+                        subject: 'resource'
                     "
                     ko.validationCss="$form.defaultResource"
                 ></dropdown>
@@ -103,7 +109,7 @@
                 "></dropdown>
             </editor>
 
-            <editor params="
+            <editor class="no-padding-bottom" params="
                 label: 'Allow new bucket creation',
                 tooltip: allowBucketCreationTooltip,
                 disabled: isS3AccessDisabled

@@ -1,14 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './create-account-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { deepFreeze, flatMap } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { randomString } from 'utils/string-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
-import { getMany } from 'rx-extensions';
 import { getFormValues, getFieldValue, isFieldTouched, isFieldValid, isFormValid } from 'utils/form-utils';
 import { isEmail } from 'validations';
 import {
@@ -62,77 +60,95 @@ function _getAccountNameFieldProps(form) {
     }
 }
 
-class CreateAccountModalViewModel extends Observer {
+class CreateAccountModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     steps = steps;
     s3PlacementToolTip = s3PlacementToolTip;
     allowBucketCreationTooltip = allowBucketCreationTooltip;
     accountNames = null;
-    fields = ko.observable();
+    systemHasResources = null;
     resourceOptions = ko.observable();
     bucketOptions = ko.observable();
     password = randomString();
-    accountNameProps = ko.observable();
+    accountNameProps = {
+        label: ko.observable(),
+        placeholder: ko.observable(),
+        isRemarkVisible: ko.observable()
+    };
     isS3AccessDisabled = ko.observable();
     isBucketSelectionDisabled = ko.observable();
+    isStepValid = false;
+    fields = ko.observable();
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'accounts',
-                    'hostPools',
-                    'cloudResources',
-                    'buckets',
-                    ['forms', this.formName]
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.accounts,
+            state.hostPools,
+            state.cloudResources,
+            state.buckets,
+            state.forms[this.formName]
+        ];
     }
 
-    onState([accounts, hostPools, cloudResources, buckets, form]) {
+    mapStateToProps(accounts, hostPools, cloudResources, buckets, form) {
         if (!accounts || !hostPools || !cloudResources || !buckets) {
-            this.accountNameProps({});
-            return;
-        }
+            ko.assignToProps(this, {
+                accountNameProps: {}
+            });
 
-        const {
-            hasS3Access = true,
-            hasAccessToAllBuckets = false
-        } = form ? getFormValues(form) : {};
+        } else {
+            const {
+                hasS3Access = true,
+                hasAccessToAllBuckets = false
+            } = form ? getFormValues(form) : {};
 
-        const accountNames = Object.keys(accounts);
-        const resourceOptions = flatMap(
-            [ hostPools, cloudResources ],
-            resources => Object.values(resources).map(mapResourceToOptions)
-        );
-        const bucketOptions = Object.keys(buckets);
-        const isS3AccessDisabled = (form && form.submitted) || !hasS3Access;
-        const isBucketSelectionDisabled = isS3AccessDisabled || hasAccessToAllBuckets;
+            const accountNames = Object.keys(accounts);
+            const resourceList = [
+                ...Object.values(hostPools),
+                ...Object.values(cloudResources)
+            ];
+            const resourceOptions = resourceList.map(mapResourceToOptions);
+            const systemHasResources = resourceList.length > 0;
+            const bucketOptions = Object.keys(buckets);
+            const isS3AccessDisabled = (form && form.submitted) || !hasS3Access;
+            const isBucketSelectionDisabled = isS3AccessDisabled || hasAccessToAllBuckets;
 
-        this.accountNames = accountNames;
-        this.resourceOptions(resourceOptions);
-        this.bucketOptions(bucketOptions);
-        this.accountNameProps(_getAccountNameFieldProps(form));
-        this.isS3AccessDisabled(isS3AccessDisabled);
-        this.isBucketSelectionDisabled(isBucketSelectionDisabled);
-        this.isStepValid = form ? isFormValid(form) : false;
-
-        if (!this.fields()) {
-            this.fields({
-                step: 0,
-                accountName: '',
-                hasLoginAccess: true,
-                hasS3Access: hasS3Access,
-                defaultResource: undefined,
-                hasAccessToAllBuckets: hasAccessToAllBuckets,
-                allowedBuckets: Object.keys(buckets),
-                allowBucketCreation: true
+            ko.assignToProps(this, {
+                accountNames,
+                resourceOptions,
+                bucketOptions,
+                accountNameProps: _getAccountNameFieldProps(form),
+                isS3AccessDisabled,
+                isBucketSelectionDisabled,
+                systemHasResources,
+                isStepValid: form ? isFormValid(form) : false,
+                fields: !form ? {
+                    step: 0,
+                    accountName: '',
+                    hasLoginAccess: true,
+                    hasS3Access,
+                    defaultResource: undefined,
+                    hasAccessToAllBuckets,
+                    allowedBuckets: Object.keys(buckets),
+                    allowBucketCreation: true
+                } : undefined
             });
         }
+
+
+    }
+    onWarn(values) {
+        const warnings = {};
+        const { hasS3Access, step } = values;
+
+        // console.warn(values, this.systemHasResources);
+        if (step === 1) {
+            if (hasS3Access && !this.systemHasResources) {
+                warnings.defaultResource = 'Until connecting resources, internal storage will be used';
+            }
+        }
+
+        return warnings;
     }
 
     onValidate(values) {
@@ -170,7 +186,7 @@ class CreateAccountModalViewModel extends Observer {
                 errors.hasS3Access = 'A user must have either login access or s3 access';
             }
 
-            if (hasS3Access && !defaultResource) {
+            if (hasS3Access && this.systemHasResources && !defaultResource) {
                 errors.defaultResource = 'Please select a default resource for the account';
             }
         }
@@ -180,30 +196,37 @@ class CreateAccountModalViewModel extends Observer {
 
     onBeforeStep(step) {
         if (!this.isStepValid) {
-            action$.next(touchForm(this.formName, fieldsByStep[step]));
+            this.dispatch(touchForm(this.formName, fieldsByStep[step]));
             return false;
         }
 
         return true;
     }
 
-    onSubmit(values) {
-        action$.next(createAccount(
-            values.accountName.trim(),
-            values.hasLoginAccess,
-            this.password,
-            values.hasS3Access,
-            values.defaultResource,
-            values.hasAccessToAllBuckets,
-            values.allowedBuckets,
-            values.allowBucketCreation
-        ));
+    onAfterStep(step) {
+        if (step === 1 && !this.systemHasResources) {
+            this.dispatch(touchForm(this.formName, ['defaultResource']));
+        }
+    }
 
-        action$.next(lockModal());
+    onSubmit(values) {
+        this.dispatch(
+            lockModal(),
+            createAccount(
+                values.accountName.trim(),
+                values.hasLoginAccess,
+                this.password,
+                values.hasS3Access,
+                values.defaultResource,
+                values.hasAccessToAllBuckets,
+                values.allowedBuckets,
+                values.allowBucketCreation
+            )
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

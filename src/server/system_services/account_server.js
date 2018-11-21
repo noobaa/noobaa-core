@@ -114,7 +114,16 @@ function create_account(req) {
                     account.allowed_buckets = allowed_buckets;
                     account.default_pool = mongo_utils.make_object_id(req.rpc_params.new_system_parameters.default_pool);
                 } else {
-                    account.default_pool = req.system.pools_by_name[req.rpc_params.default_pool]._id;
+                    if (req.system.pools_by_name === 0) {
+                        throw new RpcError('No resources in the system - Can\'t create accounts');
+                    }
+                    const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
+                    if (pools.length) { // has resources which is not internal - must supply resource
+                        throw new RpcError('Cannot configure without supplying default pool');
+                    }
+                    account.default_pool = req.rpc_params.default_pool ?
+                        req.system.pools_by_name[req.rpc_params.default_pool]._id :
+                        req.system.pools_by_name[0]._id; // only pool is internal
                 }
             }
 

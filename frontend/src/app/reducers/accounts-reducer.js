@@ -15,7 +15,7 @@ const initialState = undefined;
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(_, { payload }) {
-    const { buckets, accounts, owner } = payload;
+    const { buckets, accounts, owner, pools } = payload;
     const allBuckets = buckets.map(bucket => bucket.name);
 
     return keyByProperty(accounts, 'email', account => {
@@ -43,6 +43,10 @@ function onCompleteFetchSystemInfo(_, { payload }) {
 
         const externalConnections = _mapExternalConnections(external_connections);
 
+        const internalResource = pools.find(pool =>
+            pool.resource_type === 'INTERNAL'
+        );
+
         return {
             name: email,
             isOwner: email === owner.email,
@@ -51,7 +55,9 @@ function onCompleteFetchSystemInfo(_, { payload }) {
             hasAccessToAllBuckets,
             allowedBuckets,
             canCreateBuckets: Boolean(has_s3_access && can_create_buckets),
-            defaultResource: default_pool,
+            defaultResource: default_pool !== internalResource.name  ?
+                default_pool :
+                'INTERNAL_STORAGE',
             accessKeys: { accessKey, secretKey },
             allowedIps: allowed_ips,
             externalConnections

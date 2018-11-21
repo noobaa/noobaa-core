@@ -742,12 +742,12 @@ async function upgrade_mongodb_schemas(params) {
         if (old_ver_value < script_ver_value) {
             dbg.log0(`UPGRADE: Running Mongo Upgrade Script ${script.file}`);
             try {
-                await promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${secret}', version='${ver}', is_pure_version=${is_pure_version}" ${CORE_DIR}/src/deploy/mongo_upgrade/${script.file}`, {
+                const stdout = await promise_utils.exec(`${MONGO_SHELL} --eval "var param_secret='${secret}', version='${ver}', is_pure_version=${is_pure_version}" ${CORE_DIR}/src/deploy/mongo_upgrade/${script.file}`, {
                     ignore_rc: false,
                     return_stdout: true,
                     trim_stdout: true
                 });
-
+                dbg.log0(`UPGRADE: Finished Mongo Upgrade Script ${script.file}, stdout: ${stdout}`);
             } catch (err) {
                 dbg.error(`Failed Mongo Upgrade Script ${script.file}`, err);
                 await set_mongo_debug_level(0);

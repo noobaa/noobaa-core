@@ -1,14 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './accounts-table.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import AccountRowViewModel from './account-row';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { inputThrottle, paginationPageSize } from 'config';
-import { action$, state$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
-import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     requestLocation,
@@ -59,138 +56,188 @@ function _getAccountRole(account) {
         'owner';
 }
 
-class AccountsTableViewModel extends Observer {
-    constructor() {
-        super();
+function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
+    const { name, isOwner, hasS3Access, hasLoginAccess, defaultResource } = account;
+    const isCurrentUser = name === currentUser;
+    const accountNameText = `${name} ${isCurrentUser ? '(Current user)' : ''}`;
+    const usingInternalStorage = defaultResource === 'INTERNAL_STORAGE';
 
-        this.columns = columns;
-        this.pathname = '';
-        this.accountsLoading = ko.observable();
-        this.rows = ko.observableArray();
-        this.filter = ko.observable();
-        this.sorting = ko.observable();
-        this.pageSize = paginationPageSize;
-        this.page = ko.observable();
-        this.accountCount = ko.observable();
-        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+    return {
+        isCurrentUser,
+        name: {
+            text: accountNameText,
+            href: realizeUri(baseRoute, { account: name }),
+            tooltip: accountNameText
+        },
+        role: _getAccountRole(account),
+        s3Access: hasS3Access ? 'enabled' : 'disabled',
+        loginAccess: hasLoginAccess ? 'enabled' : 'disabled',
+        defaultResource: {
+            text: false ||
+                (usingInternalStorage && 'Using internal storage') ||
+                (!defaultResource && '(not set)') ||
+                defaultResource,
+            tooltip: defaultResource &&
+                !usingInternalStorage &&
+                { text: defaultResource, breakWords: true }
+        },
+        deleteButton: {
+            id: name,
+            active: selectedForDelete === name,
+            disabled: isOwner,
+            tooltip: isOwner ?
+                'Cannot delete system owner' :
+                'Delete account'
+        }
+    };
+}
 
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'accounts',
-                    'location',
-                    'session'
-                )
-            ),
-            this.onAccounts
-        );
+class AccountRowViewModel {
+    name = ko.observable();
+    role = ko.observable();
+    s3Access = ko.observable();
+    loginAccess = ko.observable();
+    defaultResource = ko.observable();
+    isCurrentUser = false;
+    deleteButton = {
+        id: ko.observable(),
+        text: 'Delete Account',
+        active: ko.observable(),
+        disabled: ko.observable(),
+        tooltip: ko.observable(),
+        onToggle: this.onSelectForDelete.bind(this),
+        onDelete: this.onDelete.bind(this)
+    };
+
+    onSelectForDelete(email) {
+        this.table.onSelectForDelete(email);
     }
 
-    onAccounts([accounts, location, session]) {
-        if (!accounts) {
-            this.accountsLoading(true);
-            return;
-        }
-        const { params, query, pathname } = location;
-        const { system, tab = 'accounts' } = params;
-        if ((tab !== 'accounts') || !session) return;
+    onDelete(email) {
+        this.table.onDeleteAccount(email, this.isCurrentUser);
+    }
+}
 
-        const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
-        const { compareKey } = columns.find(column => column.name === sortBy);
-        const accountList = Object.values(accounts);
-        const pageStart = Number(page) * this.pageSize;
-        const rowParams = {
-            baseRoute: realizeUri(routes.account, { system }, {}, true),
-            onSelectForDelete: this.onSelectForDelete.bind(this),
-            onDelete: this.onDeleteAccount.bind(this)
-        };
+class AccountsTableViewModel extends ConnectableViewModel {
+    columns = columns;
+    pathname = '';
+    dataReady = ko.observable();
+    filter = ko.observable();
+    sorting = ko.observable();
+    pageSize = paginationPageSize;
+    page = ko.observable();
+    selectedForDelete = ko.observable();
+    accountCount = ko.observable();
+    onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
+    rows = ko.observableArray()
+        .ofType(AccountRowViewModel, { table: this })
 
-        const filteredRows = accountList
-            .filter(account => !filter || account.name.toLowerCase().includes(filter.toLowerCase()));
+    selectState(state) {
+        return [
+            state.accounts,
+            state.location,
+            state.session
+        ];
+    }
 
-        const rows = filteredRows
-            .sort(createCompareFunc(compareKey, order))
-            .slice(pageStart, pageStart + this.pageSize)
-            .map((account, i) => {
-                const row = this.rows.get(i) || new AccountRowViewModel(rowParams);
-                row.onAccount(account, _getAccountRole(account), session.user, selectedForDelete);
-                return row;
+    mapStateToProps(accounts, location, session) {
+        if (!accounts || !session) {
+            ko.assignToProps(this, {
+                dataReady: false
             });
 
-        this.pathname = pathname;
-        this.filter(filter);
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
-        this.accountCount(filteredRows.length);
-        this.rows(rows);
-        this.accountsLoading(false);
+        } else {
+            const { system, tab = 'accounts' } = location.params;
+            if (tab !== 'accounts') {
+                return;
+            }
+
+            const { filter = '', sortBy = 'name', selectedForDelete = '' } = location.query;
+            const page = Number(location.query.page || 0);
+            const order = Number(location.query.order || 0);
+            const { compareKey } = columns.find(column => column.name === sortBy);
+            const compareAccounts = createCompareFunc(compareKey, order);
+            const accountList = Object.values(accounts);
+            const pageStart = page * this.pageSize;
+            const filteredRows = accountList.filter(account =>
+                !filter || account.name.toLowerCase().includes(filter.toLowerCase())
+            );
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                pathname: location.pathname,
+                filter,
+                sorting: { sortBy, order },
+                page,
+                selectedForDelete,
+                accountCount: filteredRows.length,
+                rows: filteredRows
+                    .sort(compareAccounts)
+                    .slice(pageStart, pageStart + this.pageSize)
+                    .map(account => _mapAccountToRow(
+                        account,
+                        session.user,
+                        realizeUri(routes.account, { system }, {}, true),
+                        selectedForDelete
+                    ))
+            });
+        }
     }
 
     onFilter(filter) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            filter: filter || undefined,
-            sortBy: sortBy,
-            order: order,
+        this.onQuery({
+            filter,
             page: 0,
             selectedForDelete: undefined
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
+        });
     }
 
     onSort({ sortBy, order }) {
-        const query = {
-            filter: this.filter() || undefined,
-            sortBy: sortBy,
-            order: order,
+        this.onQuery({
+            sortBy,
+            order,
             page: 0,
             selectedForDelete: undefined
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
+        });
     }
 
     onPage(page) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            filter: this.filter() || undefined,
-            sortBy: sortBy,
-            order: order,
-            page: page,
+        this.onQuery({
+            page,
             selectedForDelete: undefined
-        };
-
-        action$.next(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
+        });
     }
 
     onSelectForDelete(account) {
-        const { sortBy, order } = this.sorting();
-        const query = {
-            filter: this.filter() || undefined,
+        this.onQuery({ selectedForDelete: account });
+    }
+
+    onQuery(query) {
+        const {
+            filter = this.filter(),
+            sortBy = this.sorting().sortBy,
+            order = this.sorting.order,
+            page = this.page(),
+            selectedForDelete = this.selectedForDelete()
+        } = query;
+
+        const uri = realizeUri(this.pathname, {}, {
+            filter: filter || undefined,
             sortBy: sortBy,
             order: order,
-            page: this.page(),
-            selectedForDelete: account || undefined
-        };
+            page: page,
+            selectedForDelete: selectedForDelete || undefined
+        });
 
-        action$.next(requestLocation(
-            realizeUri(this.pathname, {}, query)
-        ));
+        this.dispatch(requestLocation(uri));
     }
 
     onCreateAccount() {
-        action$.next(openCreateAccountModal());
+        this.dispatch(openCreateAccountModal());
     }
 
     onDeleteAccount(email, isCurrentUser) {
-        action$.next(tryDeleteAccount(email, isCurrentUser));
+        this.dispatch(tryDeleteAccount(email, isCurrentUser));
     }
 }
 

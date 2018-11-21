@@ -9,7 +9,7 @@
     </div>
     <button class="btn align-end"
         ko.click="onCreateAccount"
-        ko.disable="accountsLoading"
+        ko.disable="!dataReady()"
     >
         Create Account
     </button>
@@ -19,7 +19,7 @@
     columns: columns,
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
-    loading: accountsLoading,
+    loading: !dataReady(),
     emptyMessage: 'The current filter does not match any account'
 "></data-table>
 

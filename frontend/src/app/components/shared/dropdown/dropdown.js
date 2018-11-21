@@ -174,15 +174,15 @@ class DropdownViewModel {
     onUpdate(args) {
         const {
             subject = 'item',
-            placeholder = subject ? `Select ${pluralize(subject)}` : 'Choose...',
+            multiselect = false,
+            placeholder = multiselect ? `Select ${pluralize(subject)}` : `Choose ${subject}`,
             filter = false,
             filterPlaceholder = `Search ${subject || ''}`,
             filterText = '',
-            multiselect = false,
             disabled = false,
             loading = false,
             error = false,
-            emptyMessage = 'Empty',
+            emptyMessage = stringifyAmount(subject, 0, 'No'),
             errorMessage = 'Ooops... Someting went wrong',
             filterMessage = 'No Match',
             listTooLongMessage = 'List too long to show',

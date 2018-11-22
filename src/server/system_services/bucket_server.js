@@ -1146,9 +1146,9 @@ function _calc_metrics({
         const mirrors_with_enough_nodes = tier_extra_info.mirrors_with_enough_nodes;
 
         info.host_tolerance = Math.min(info.host_tolerance || Infinity,
-            tier_extra_info.host_tolerance);
+            tier_extra_info.host_tolerance, configured_failure_tolerance);
         info.node_tolerance = Math.min(info.node_tolerance || Infinity,
-            tier_extra_info.node_tolerance);
+            tier_extra_info.node_tolerance, configured_failure_tolerance);
         info.writable = mirrors_with_valid_pool > 0;
         if (tier_and_order.tier.mirrors.length > 0) {
             if (mirrors_with_valid_pool === tier_and_order.tier.mirrors.length) has_enough_healthy_nodes_for_tiering = true;

@@ -5,9 +5,8 @@
 update_spillover_tiers();
 
 function update_spillover_tiers() {
-    var has_none_internals = Boolean(db.pools.findOne({ resource_type: { $ne: "INTERNAL" } }));
+    var has_none_internals = Boolean(db.nodes.findOne({ is_mongo_node: { $ne: "true" } }));
     var internal_pool = db.pools.findOne({ resource_type: "INTERNAL" });
-    var has_internal_data = internal_pool.storage_stats > 0;
 
     db.buckets.find().forEach(bucket => {
         var tiering = db.tieringpolicies.findOne({ _id: bucket.tiering });
@@ -22,8 +21,9 @@ function update_spillover_tiers() {
         var t2_m1_s1 = second_tier_first_mirror && second_tier_first_mirror.spread_pools &&
             second_tier_first_mirror.spread_pools[0];
         var is_second_tier_internal = String(t2_m1_s1) === String(internal_pool._id);
+        var chunks_tier;
 
-        if (!has_none_internals && (!second_tier_in_tiering.disabled || (second_tier_in_tiering.disabled && has_internal_data))) {
+        if (!has_none_internals) {
             print('update_spillover_tiers: first tier to become internal');
             db.tiers.remove({ _id: first_tier_in_tiering.tier });
             db.tieringpolicies.updateOne({ _id: tiering._id }, {
@@ -36,10 +36,12 @@ function update_spillover_tiers() {
                     }]
                 }
             });
+            chunks_tier = second_tier_in_tiering.tier;
         } else if (is_second_tier_internal) {
             print('update_spillover_tiers: removing spillover tier');
             db.tiers.remove({ _id: second_tier_in_tiering._id });
             db.tieringpolicies.updateOne({ _id: tiering._id }, { $pop: { tiers: 1 } });
+            chunks_tier = first_tier_in_tiering.tier;
         } else {
             print('update_spillover_tiers: keeping both tiers - spillover => normal 2 tier');
             db.tieringpolicies.updateOne({ _id: tiering._id }, {
@@ -57,6 +59,9 @@ function update_spillover_tiers() {
                     }]
                 }
             });
+            chunks_tier = first_tier_in_tiering.tier;
         }
+        db.datachunks.updateMany({ bucket: bucket._id }, { chunk: chunks_tier });
+        print('update_spillover_tiers: updating all chunks in bucket: ' + bucket.name + ' to tier: ' + chunks_tier);
     });
 }

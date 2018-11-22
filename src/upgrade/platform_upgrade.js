@@ -747,7 +747,11 @@ async function upgrade_mongodb_schemas(params) {
                     return_stdout: true,
                     trim_stdout: true
                 });
-                dbg.log0(`UPGRADE: Finished Mongo Upgrade Script ${script.file}, stdout: ${stdout}`);
+                const lines = stdout.split('\n');
+                dbg.log0(`UPGRADE: Mongo Upgrade Script output:`);
+                for (const line of lines) {
+                    dbg.log0(`UPGRADE: [${script.file}] ${line}`);
+                }
             } catch (err) {
                 dbg.error(`Failed Mongo Upgrade Script ${script.file}`, err);
                 await set_mongo_debug_level(0);

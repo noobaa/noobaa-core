@@ -45,7 +45,7 @@ async function read_object_mappings(obj, start, end, skip, limit, adminfo, locat
     });
     // console.log('TODO GGG read_object_mappings', parts);
     await MDStore.instance().populate_chunks_for_parts(parts);
-    const parts_mappings = await read_parts_mappings({ parts, adminfo, location_info });
+    const parts_mappings = await read_parts_mappings({ parts, adminfo, location_info, same_bucket: true });
     return parts_mappings;
 }
 

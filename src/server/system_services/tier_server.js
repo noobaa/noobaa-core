@@ -500,10 +500,10 @@ function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, h
         const num_valid_nodes_for_minimum = _.isUndefined(info.num_valid_nodes) ? Number.MAX_SAFE_INTEGER : info.num_valid_nodes;
         const potential_new_minimum = info.has_internal_or_cloud_pool ?
             Number.MAX_SAFE_INTEGER : num_valid_nodes_for_minimum;
-        info.num_of_nodes = Math.min(existing_minimum, potential_new_minimum);
+        info.num_of_nodes = info.use_internal ? 0 : Math.min(existing_minimum, potential_new_minimum);
         const potential_new_hosts_minimum = info.has_internal_or_cloud_pool ?
             Number.MAX_SAFE_INTEGER : info.num_valid_hosts;
-        info.num_of_hosts = Math.min(existing_hosts_minimum, potential_new_hosts_minimum);
+        info.num_of_hosts = info.use_internal ? 0 : Math.min(existing_hosts_minimum, potential_new_hosts_minimum);
     });
     info.num_of_nodes = info.num_of_nodes || 0;
     info.num_of_hosts = info.num_of_hosts || 0;

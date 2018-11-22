@@ -118,7 +118,7 @@ function create_account(req) {
                         throw new RpcError('No resources in the system - Can\'t create accounts');
                     }
                     const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
-                    if (pools.length) { // has resources which is not internal - must supply resource
+                    if (pools.length && !req.rpc_params.default_pool) { // has resources which is not internal - must supply resource
                         throw new RpcError('Cannot configure without supplying default pool');
                     }
                     account.default_pool = req.rpc_params.default_pool ?

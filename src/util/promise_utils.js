@@ -287,6 +287,7 @@ function exec(command, options) {
             } else {
                 const err = new Error(command + " exited with error " + error);
                 err.stderr = stderr;
+                err.stdout = stdout;
                 reject(err);
             }
         });

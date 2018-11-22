@@ -5,7 +5,7 @@
 update_spillover_tiers();
 
 function update_spillover_tiers() {
-    var has_none_internals = Boolean(db.nodes.findOne({ is_mongo_node: { $ne: "true" } }));
+    var has_none_internals = Boolean(db.nodes.findOne({ is_mongo_node: { $ne: true } }));
     var internal_pool = db.pools.findOne({ resource_type: "INTERNAL" });
 
     db.buckets.find().forEach(bucket => {
@@ -61,7 +61,7 @@ function update_spillover_tiers() {
             });
             chunks_tier = first_tier_in_tiering.tier;
         }
-        db.datachunks.updateMany({ bucket: bucket._id }, { chunk: chunks_tier });
+        db.datachunks.updateMany({ bucket: bucket._id }, { $set: { tier: chunks_tier } });
         print('update_spillover_tiers: updating all chunks in bucket: ' + bucket.name + ' to tier: ' + chunks_tier);
     });
 }

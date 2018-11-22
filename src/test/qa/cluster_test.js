@@ -633,7 +633,7 @@ async function main() {
         failures_in_test = true;
     }
 
-    report.report();
+    await report.report();
 
     if (failures_in_test) {
         console.error(`Errors during cluster test ${errors}`);

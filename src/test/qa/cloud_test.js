@@ -323,7 +323,11 @@ async function run_dataset() {
             cases_prefix: `${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`
         };
         await dataset.init_parameters({ dataset_params: dataset_params, report_params: report_params });
-        await dataset.run_test();
+        try {
+            await dataset.run_test(true);
+        } catch (e) {
+            throw e;
+        }
     }
 }
 

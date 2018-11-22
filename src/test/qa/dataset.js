@@ -712,7 +712,7 @@ async function upload_new_files() {
     console.timeEnd('dataset upload');
 }
 
-function run_test() {
+function run_test(throw_on_fail) {
     return P.resolve()
         .then(() => log_journal_file(`${CFG_MARKER}${DATASET_NAME}-${JSON.stringify(TEST_CFG)}`))
         .then(() => upload_new_files()
@@ -754,7 +754,11 @@ function run_test() {
             .catch(async err => {
                 await report.report();
                 console.error(`Errors during test`, err);
-                process.exit(4);
+                if (throw_on_fail) {
+                    throw new Error(`dataset failed`);
+                } else {
+                    process.exit(4);
+                }
             }));
 }
 
@@ -828,7 +832,7 @@ async function main() {
         if (argv.replay) {
             await run_replay();
         } else {
-            await run_test();
+            await run_test(false);
         }
         if (!TEST_CFG.no_exit_on_success) process.exit(0);
     } catch (err) {

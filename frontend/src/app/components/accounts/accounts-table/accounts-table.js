@@ -93,6 +93,7 @@ function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
 }
 
 class AccountRowViewModel {
+    table = null;
     name = ko.observable();
     role = ko.observable();
     s3Access = ko.observable();
@@ -108,6 +109,10 @@ class AccountRowViewModel {
         onToggle: this.onSelectForDelete.bind(this),
         onDelete: this.onDelete.bind(this)
     };
+
+    constructor({ table }) {
+        this.table = table;
+    }
 
     onSelectForDelete(email) {
         this.table.onSelectForDelete(email);

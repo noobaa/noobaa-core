@@ -275,6 +275,10 @@ ko.subscribable.fn.eq = function(value) {
     return ko.pureComputed(() => this() === ko.unwrap(value));
 };
 
+ko.subscribable.fn.notEq = function(value) {
+    return ko.pureComputed(() => this() !== ko.unwrap(value));
+};
+
 ko.subscribable.fn.in = function(values) {
     return ko.pureComputed(() => ko.unwrap(values).includes(this()));
 };

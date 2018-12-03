@@ -60,14 +60,16 @@ function get_live_pids {
 #Are non supervised mongos, so we kill them in order to supervise
 function kill_mongo_services {
   # list both mongod and mongo_wrapper processes
-  mongo_ports_procs=$(lsof -i TCP:27017,27000 -s TCP:LISTEN | awk '{print $2}' | grep -v PID)
+  mongo_ports_root_procs=$(lsof -i TCP:27017,27000 -s TCP:LISTEN | awk '{print $2}' | grep -v PID)
+  mongo_ports_mongod_procs=$(su - mongod -s /bin/bash -c "lsof -i TCP:27017,27000 -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
   mongo_wrapper_procs=$(ps -elf | grep "NVA_build/mongo_wrapper" | grep -v $$ | grep -v grep | awk '{print $4}')
-  deploy_log "killing mongo_wrapper and mongod processes ${mongo_ports_procs} ${mongo_wrapper_procs} ${MONGO_PID}"
+  all_mongo_procs="${mongo_ports_root_procs} ${mongo_ports_mongod_procs} ${mongo_wrapper_procs} ${MONGO_PID}"
+  deploy_log "killing mongo_wrapper and mongod processes ${all_mongo_procs}"
   #first attempt to kill using SIGINT. if process are still alive use SIGKILL
-  kill_mongo_services_with_signal -2 ${mongo_ports_procs} ${mongo_wrapper_procs} ${MONGO_PID}
+  kill_mongo_services_with_signal -2 ${all_mongo_procs}
   #sleep for a second and then recheck. if not all mongo\wrappers are dead then wait some more and kill with -9
   sleep 1
-  local live_pids=($(get_live_pids ${mongo_ports_procs} ${mongo_wrapper_procs} ${MONGO_PID}))
+  local live_pids=($(get_live_pids ${all_mongo_procs}))
   if [ ${#live_pids[@]} -ne 0 ]; then
     echo "there are still live mongo services. pids=${live_pids[@]}"
     sleep 5
@@ -125,7 +127,7 @@ function backoff_before_start {
 
 function wait_for_mongo_to_start {
   deploy_log "waiting for mongod (pid=${MONGO_PID}) to start listening on port ${MONGO_PORT}"
-  local mongo_listening_pid=$(lsof -i TCP:${MONGO_PORT} -s TCP:LISTEN | awk '{print $2}' | grep -v PID)
+  local mongo_listening_pid=$(su - mongod -s /bin/bash -c "lsof -i TCP:${MONGO_PORT} -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
   local retries=0
   local MAX_RETRIES=120
   local RETRY_DELAY=5
@@ -137,7 +139,7 @@ function wait_for_mongo_to_start {
       return 1
     fi
     sleep ${RETRY_DELAY}
-    mongo_listening_pid=$(lsof -i TCP:${MONGO_PORT} -s TCP:LISTEN | awk '{print $2}' | grep -v PID)
+    mongo_listening_pid=$(su - mongod -s /bin/bash -c "lsof -i TCP:${MONGO_PORT} -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
   done
   deploy_log "mongod (pid=${MONGO_PID}) is now listening on port ${MONGO_PORT}"
 }

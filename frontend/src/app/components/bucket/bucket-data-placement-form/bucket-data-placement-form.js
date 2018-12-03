@@ -9,7 +9,7 @@ import { formatSize } from 'utils/size-utils';
 import { openAddTierModal, openBucketPlacementSummaryModal } from 'action-creators';
 
 const addTierTooltips = deepFreeze({
-    usingInternal: 'Adding more tiers will be enabled after adding storage resources to the system',
+    usingInternal: 'Adding more tiers will be enabled after adding storage resources to tier 1',
     hasMaxTiers: 'Adding more tiers will be available in the following versions of NooBaa'
 });
 

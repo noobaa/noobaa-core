@@ -11,17 +11,28 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const mapper = require('./mapper');
 const MDStore = require('./md_store').MDStore;
+const Barrier = require('../../util/barrier');
+const Semaphore = require('../../util/semaphore');
 const time_utils = require('../../util/time_utils');
+const size_utils = require('../../util/size_utils');
+const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 const range_utils = require('../../util/range_utils');
 const mongo_utils = require('../../util/mongo_utils');
+const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const map_deleter = require('./map_deleter');
-const map_builder = require('./map_builder');
-const { RpcError } = require('../../rpc');
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 
 // dbg.set_level(5);
 
+const _make_room_serial = new Semaphore(1);
+const ensure_room_barrier = new Barrier({
+    max_length: 10,
+    expiry_ms: 100,
+    process: ensure_room_barrier_process,
+});
 
 /**
  *
@@ -39,8 +50,7 @@ class MapAllocator {
 
     async run_select_tier() {
         await this.prepare_tiering_for_alloc();
-        const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
-        return tier;
+        return this.tier_for_write;
     }
 
     async run_allocate_parts() {
@@ -50,9 +60,7 @@ class MapAllocator {
             this.check_parts();
             await this.prepare_tiering_for_alloc();
             await this.find_dups();
-            while (!this.allocate_blocks()) {
-                await this.prepare_tiering_for_alloc();
-            }
+            await this.do_allocations();
             dbg.log0('MapAllocator: DONE. parts', this.parts.length,
                 'took', time_utils.millitook(millistamp));
             return {
@@ -68,9 +76,7 @@ class MapAllocator {
         const tiering = this.bucket.tiering;
         await node_allocator.refresh_tiering_alloc(this.bucket.tiering);
         this.tiering_status = node_allocator.get_tiering_status(tiering);
-        const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
-        await map_builder.ensure_room_in_tier(tier, this.bucket);
-        this.tiering_status = node_allocator.get_tiering_status(tiering);
+        this.tier_for_write = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
     }
 
     check_parts() {
@@ -113,6 +119,22 @@ class MapAllocator {
             });
     }
 
+    async do_allocations() {
+        let done = false;
+        while (!done) {
+            if (enough_room_in_tier(this.tier_for_write, this.bucket)) {
+                done = this.allocate_blocks();
+            } else {
+                done = await this.preallocate_blocks();
+                dbg.log0('JAJA preallocated on block - continue to next');
+            }
+            if (!done) {
+                await ensure_room_in_tier(this.tier_for_write, this.bucket);
+            }
+            this.tiering_status = node_allocator.get_tiering_status(this.bucket.tiering);
+        }
+    }
+
     allocate_blocks() {
         for (let i = 0; i < this.parts.length; ++i) {
             const part = this.parts[i];
@@ -124,30 +146,30 @@ class MapAllocator {
             const avoid_nodes = [];
             const allocated_hosts = [];
 
-            const saved_frags = chunk.frags;
-            // for (const frag of chunk.frags) {
-            //     frag.blocks = [];
-            // }
+            // const saved_frags = chunk.frags;
+            for (const frag of chunk.frags) {
+                frag.blocks = [];
+            }
 
-            const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
+            // const tier = mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
             // const tier = await this.run_select_tier();
             // await this.prepare_tiering_for_alloc();
             // mapper.select_tier_for_write(this.bucket.tiering, this.tiering_status);
 
             // We must set the tier id for the mapper to get the tier reference
-            chunk.tier = tier._id;
+            chunk.tier = this.tier_for_write._id;
 
-            const mapping = mapper.map_chunk(chunk, tier, this.bucket.tiering, this.tiering_status, this.location_info);
+            const mapping = mapper.map_chunk(chunk, this.tier_for_write, this.bucket.tiering, this.tiering_status, this.location_info);
 
             for (const { frag, pools } of mapping.allocations) {
                 const node = node_allocator.allocate_node(pools, avoid_nodes, allocated_hosts);
                 if (!node) {
-                    dbg.warn(`MapAllocator: no nodes for allocation ` +
+                    dbg.warn(`MapAllocator allocate_blocks: no nodes for allocation ` +
                         `avoid_nodes ${avoid_nodes.join(',')} ` +
                         `pools ${pools.join(',')} ` +
-                        `tier ${tier.name} ` +
+                        `tier_for_write ${this.tier_for_write.name} ` +
                         `tiering_status ${util.inspect(this.tiering_status, { depth: null })} `);
-                    chunk.frags = saved_frags;
+                    // chunk.frags = saved_frags;
                     return false;
                 }
                 const block = {
@@ -168,7 +190,87 @@ class MapAllocator {
                 }
             }
             // We must set the tier name for the reply schema check to pass
-            chunk.tier = tier.name;
+            chunk.tier = this.tier_for_write.name;
+        }
+        return true;
+    }
+
+    async preallocate_blocks() {
+        for (let i = 0; i < this.parts.length; ++i) {
+            const part = this.parts[i];
+            // skip parts that we found dup
+            if (part.chunk_id) continue;
+            const chunk = part.chunk;
+            const avoid_nodes = [];
+            const allocated_hosts = [];
+            for (const frag of chunk.frags) {
+                frag.blocks = [];
+            }
+            // We must set the tier id for the mapper to get the tier reference
+            chunk.tier = this.tier_for_write._id;
+            const mapping = mapper.map_chunk(chunk, this.tier_for_write, this.bucket.tiering, this.tiering_status, this.location_info);
+
+            for (const { frag, pools } of mapping.allocations) {
+                const node = node_allocator.allocate_node(pools, avoid_nodes, allocated_hosts);
+                if (!node) {
+                    dbg.warn(`MapAllocator preallocate_blocks: no nodes for allocation ` +
+                        `avoid_nodes ${avoid_nodes.join(',')} ` +
+                        `pools ${pools.join(',')} ` +
+                        `tier_for_write ${this.tier_for_write.name} ` +
+                        `tiering_status ${util.inspect(this.tiering_status, { depth: null })} `);
+                    return false;
+                }
+                const block = {
+                    _id: MDStore.instance().make_md_id(),
+                };
+                mapper.assign_node_to_block(block, node, this.bucket.system._id);
+                const block_info = mapper.get_block_info(chunk, frag, block);
+                const prealloc_md = { ...block_info.block_md, digest_type: undefined, digest_b64: undefined };
+                try {
+                    await server_rpc.client.block_store.write_block({
+                        block_md: prealloc_md,
+                        [RPC_BUFFERS]: { data: Buffer.alloc(chunk.frag_size) },
+                    }, {
+                        address: prealloc_md.address,
+                        timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
+                        auth_token: auth_server.make_auth_token({
+                            system_id: chunk.system,
+                            role: 'admin',
+                        })
+                    });
+                    // TODO - implement preallocate_block - for now using write of 0s instead
+                    // await server_rpc.client.block_store.preallocate_block({
+                    //     block_md: prealloc_md,
+                    // }, {
+                    //     address: prealloc_md.address,
+                    //     timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
+                    //     auth_token: auth_server.make_auth_token({
+                    //         system_id: chunk.system,
+                    //         role: 'admin',
+                    //     })
+                    // });
+                } catch (err) {
+                    dbg.warn('MapAllocator: preallocate_blocks failed, will retry',
+                        `avoid_nodes ${avoid_nodes.join(',')} ` +
+                        `pools ${pools.join(',')} ` +
+                        `tier_for_write ${this.tier_for_write.name} ` +
+                        `tiering_status ${util.inspect(this.tiering_status, { depth: null })} `);
+                    return false;
+                }
+                // frag.blocks = frag.blocks || [];
+                if (this.location_info && // optimizing local nodes/hosts - so it will be used for write rather than for replication 
+                    (this.location_info.host_id === node.host_id || this.location_info.node_id === String(node._id))) {
+                    frag.blocks.unshift(block_info);
+                } else {
+                    frag.blocks.push(block_info);
+                }
+                if (node.node_type === 'BLOCK_STORE_FS') {
+                    avoid_nodes.push(String(node._id));
+                    allocated_hosts.push(node.host_id);
+                }
+            }
+            // We must set the tier name for the reply schema check to pass
+            chunk.tier = this.tier_for_write.name;
         }
         return true;
     }
@@ -180,6 +282,89 @@ function select_tier_for_write(bucket, obj) {
 
 function allocate_object_parts(bucket, obj, parts, location_info) {
     return new MapAllocator(bucket, obj, parts, location_info).run_allocate_parts();
+}
+
+async function make_room_in_tier(tier_id, bucket_id) {
+    // TODO use tier_id as key for KeyLock instead of global mutex
+    dbg.log0('ZZZZ I got inside make_room_in_tier');
+    return _make_room_serial.surround(async () => {
+        const tier = tier_id && system_store.data.get_by_id(tier_id);
+        const bucket = bucket_id && system_store.data.get_by_id(bucket_id);
+        const tiering = bucket.tiering;
+
+        await node_allocator.refresh_tiering_alloc(tiering);
+        if (enough_room_in_tier(tier, bucket)) return;
+
+        const tiering_status = node_allocator.get_tiering_status(tiering);
+        const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
+        if (!next_tier) {
+            dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
+            return;
+        }
+
+        const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
+        const timestamp3 = Date.now();
+        await server_rpc.client.scrubber.build_chunks({
+            chunk_ids,
+            tier: next_tier._id,
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: bucket.system._id,
+                role: 'admin'
+            })
+        });
+        dbg.log0('ZZZZ make_room_in_tier -> scrubber.build_chunks took', Date.now() - timestamp3);
+        dbg.log0(`make_room_in_tier: moved ${chunk_ids.length} to next tier`);
+
+        // TODO avoid multiple calls, maybe plan how much to move before and refresh after moving enough
+        const timestamp2 = Date.now();
+        await node_allocator.refresh_tiering_alloc(tiering, 'force');
+        dbg.log0('ZZZZ make_room_in_tier -> refresh_tiering_alloc FORCE took', Date.now() - timestamp2);
+    });
+}
+
+async function ensure_room_barrier_process(tiers_and_buckets) {
+    const uniq_tiers_and_buckets = _.uniqBy(tiers_and_buckets, 'tier');
+    await P.map(uniq_tiers_and_buckets, async ({ tier, bucket }) => {
+        dbg.log0('ZZZZ ensure_room_barrier', tier.name, bucket.name);
+        await server_rpc.client.scrubber.make_room_in_tier({
+            tier: tier._id,
+            bucket: bucket._id,
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: bucket.system._id,
+                role: 'admin'
+            })
+        });
+        await node_allocator.refresh_tiering_alloc(bucket.tiering, 'force');
+        enough_room_in_tier(tier, bucket); // calling just to do the log prints
+    });
+}
+
+async function ensure_room_in_tier(tier, bucket) {
+    await node_allocator.refresh_tiering_alloc(bucket.tiering);
+    if (enough_room_in_tier(tier, bucket)) return;
+    await ensure_room_barrier.call({ tier, bucket });
+}
+
+function enough_room_in_tier(tier, bucket) {
+    const tiering = bucket.tiering;
+    const tiering_status = node_allocator.get_tiering_status(tiering);
+    const tier_status = tiering_status[tier._id];
+    const tier_in_tiering = _.find(tiering.tiers, t => String(t.tier._id) === String(tier._id));
+    if (!tier_in_tiering || !tier_status) throw new Error(`Can't find current tier in bucket`);
+    const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
+        'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
+    ));
+    dbg.log0('ZZZZ current place in tier', tier.name, 'is', available_to_upload, tier_status.mirrors_storage);
+    if (available_to_upload && available_to_upload.greater(config.ENOUGH_ROOM_IN_TIER_THRESHOLD)) {
+        dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
+        return true;
+    } else {
+        dbg.log0(`make_room_in_tier: not enough room ${tier.name}:`,
+            `${available_to_upload} < ${config.ENOUGH_ROOM_IN_TIER_THRESHOLD} should move chunks to next tier`);
+        return false;
+    }
 }
 
 /**
@@ -447,3 +632,6 @@ exports.allocate_object_parts = allocate_object_parts;
 exports.finalize_object_parts = finalize_object_parts;
 exports.complete_object_parts = complete_object_parts;
 exports.complete_object_multiparts = complete_object_multiparts;
+exports.ensure_room_in_tier = ensure_room_in_tier;
+exports.enough_room_in_tier = enough_room_in_tier;
+exports.make_room_in_tier = make_room_in_tier;

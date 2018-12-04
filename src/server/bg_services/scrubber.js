@@ -7,6 +7,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
+const map_writer = require('../object_services/map_writer');
 const map_builder = require('../object_services/map_builder');
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
@@ -80,7 +81,7 @@ function build_chunks(req) {
 }
 
 function make_room_in_tier(req) {
-    return map_builder.make_room_in_tier(req.rpc_params.tier, req.rpc_params.bucket);
+    return map_writer.make_room_in_tier(req.rpc_params.tier, req.rpc_params.bucket);
 }
 
 

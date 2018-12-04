@@ -32,6 +32,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         nodeVersion: payload.node_version,
         dnsName: payload.dns_name,
         ipAddress: payload.ip_address,
+        sslPort: Number(ssl_port),
         sslCert: payload.has_ssl_cert ? {} : undefined,
         upgrade: _mapUpgrade(payload),
         remoteSyslog: _mapRemoteSyslog(payload),

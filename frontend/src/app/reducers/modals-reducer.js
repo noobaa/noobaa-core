@@ -1,15 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { pick, last } from 'utils/core-utils';
+import { deepFreeze, pick, last } from 'utils/core-utils';
 import {
     OPEN_MODAL,
     UPDATE_MODAL,
-    REPLACE_MODAL,
-    LOCK_MODAL,
     CLOSE_MODAL,
     UPGRADE_SYSTEM
 } from 'action-types';
+
+const optionList = deepFreeze([
+    'title',
+    'size',
+    'severity',
+    'closeButton',
+    'backdropClose'
+]);
 
 // ------------------------------
 // Initial State
@@ -20,57 +26,21 @@ const initialState = [];
 // Action Handlers
 // ------------------------------
 function onOpenModal(modals, { payload }) {
-    const { component = 'empty', options = {} } = payload;
-    const { name = component, params = {} } = component;
-    const {
-        title = '',
-        size = 'small',
-        severity = '',
-        closeButton = 'visible',
-        backdropClose = true
-    } = options;
-
-    return [
-        ...modals,
-        { component: { name, params }, title, size, severity,
-            backdropClose, closeButton }
-    ];
+    return _openModal(modals, payload);
 }
 
 function onUpdateModal(modals, { payload }) {
     if (modals.length > 0) {
-        const update = pick(payload, [
-            'title',
-            'size',
-            'severity',
-            'closeButton',
-            'backdropClose'
-        ]);
-
         return [
             ...modals.slice(0, -1),
-            { ...last(modals), ...update }
+            {
+                ...last(modals),
+                ...pick(payload, optionList)
+            }
         ];
     } else {
         return modals;
     }
-}
-
-function onReplaceModal(modals, { payload }) {
-    if (modals.length === 0) {
-        return modals;
-    }
-
-    return _openModal(modals.slice(0, -1), payload);
-}
-
-function onLockModal(modals) {
-    const backdropClose = false;
-    const closeButton = 'disabled';
-    return [
-        ...modals.slice(0, -1),
-        { ...last(modals), backdropClose, closeButton }
-    ];
 }
 
 function onCloseModal(modals, { payload }) {
@@ -104,8 +74,14 @@ function _openModal(modals, { component = 'empty', options = {} }) {
 
     return [
         ...modals,
-        { component: { name, params }, title, size, severity,
-            backdropClose, closeButton }
+        {
+            title,
+            size,
+            severity,
+            backdropClose,
+            closeButton,
+            component: { name, params }
+        }
     ];
 }
 
@@ -115,8 +91,6 @@ function _openModal(modals, { component = 'empty', options = {} }) {
 export default createReducer(initialState, {
     [OPEN_MODAL]: onOpenModal,
     [UPDATE_MODAL]: onUpdateModal,
-    [REPLACE_MODAL]: onReplaceModal,
-    [LOCK_MODAL]: onLockModal,
     [CLOSE_MODAL]: onCloseModal,
     [UPGRADE_SYSTEM]: onUpgradeSystem
 });

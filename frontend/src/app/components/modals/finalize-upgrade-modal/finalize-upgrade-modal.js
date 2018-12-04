@@ -1,50 +1,44 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './finalize-upgrade-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
-import { getMany } from 'rx-extensions';
+import ConnectableViewModel from 'components/connectable';
 import {
-    replaceWithAfterUpgradeModal,
-    replaceWithAfterUpgradeFailureModal
+    closeModal,
+    openAfterUpgradeModal,
+    openAfterUpgradeFailureModal
 } from 'action-creators';
 
-class FinalizeUpgradeModalViewModel extends Observer {
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'location',
-                    ['session', 'user'],
-                    'system'
-                )
-            ),
-            this.onState
-        );
+class FinalizeUpgradeModalViewModel extends ConnectableViewModel {
+    selectState(state) {
+        const { location, session = {}, system = {} } = state;
+        return [
+            session.user,
+            system.version,
+            location.query.afterupgrade,
+            system.upgrade && system.upgrade.lastUpgrade,
+            location.pathname
+        ];
     }
 
-    onState([location, user, system]) {
-        if (!user || !system) return;
+    mapStateToProps(user, version, expectedVersion, lastUpgrade, redirectUrl) {
+        if (!user || !version) return;
 
-        const { pathname, query } = location;
-        const { lastUpgrade }  = system.upgrade;
-        const upgradeInitiator = lastUpgrade && lastUpgrade.initiator;
-        const redirectUrl = pathname;
-        const expectedVersion = query.afterupgrade;
+        if (expectedVersion === true || expectedVersion === version) {
+            this.dispatch(
+                closeModal(),
+                openAfterUpgradeModal(
+                    version,
+                    user,
+                    lastUpgrade && lastUpgrade.initiator,
+                    redirectUrl
+                )
+            );
 
-        if (expectedVersion === true || expectedVersion === system.version) {
-            action$.next(replaceWithAfterUpgradeModal(
-                system.version,
-                user,
-                upgradeInitiator,
-                redirectUrl
-            ));
         } else {
-            action$.next(replaceWithAfterUpgradeFailureModal(
-                redirectUrl
-            ));
+            this.dispatch(
+                closeModal(),
+                openAfterUpgradeFailureModal(redirectUrl)
+            );
         }
     }
 }

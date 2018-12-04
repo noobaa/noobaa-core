@@ -11,20 +11,20 @@
         ko.hasFocus="true"
         ko.css="css"
     >
-        <!-- ko if: titleText -->
-        <h1 class="row heading2 modal-heading content-middle" ko.css="titleCss">
+        <!-- ko if: title.text -->
+        <h1 class="row heading2 modal-heading content-middle" ko.css="title.css">
             <svg-icon class="severity-icon"
-                params="name: titleIcon"
-                ko.visible="titleIcon"
-                ko.css="titleCss"
+                params="name: title.icon"
+                ko.visible="title.icon"
+                ko.css="title.css"
             ></svg-icon>
 
-            <span class="greedy push-next" ko.text="titleText"></span>
+            <span class="greedy push-next" ko.text="title.text"></span>
 
             <button class="close-btn icon-btn no-outline highlight"
                 tabindex="-1"
-                ko.visible="isXButtonVisible"
-                ko.disable="isXButtonDisabled"
+                ko.visible="xButton.visible"
+                ko.disable="xButton.disabled"
                 ko.click="onX"
 
             ">

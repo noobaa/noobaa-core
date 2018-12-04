@@ -767,7 +767,7 @@ function get_networking_info() {
 }
 
 function get_all_network_interfaces() {
-    return promise_utils.exec('ifconfig -a | grep ^eth | awk -F":" \'{print $1}\'', {
+    return promise_utils.exec('ip addr | grep "state UP\\|state DOWN" | awk \'{print $2}\' | sed \'s/:/ /g\'', {
             ignore_rc: false,
             return_stdout: true,
         })

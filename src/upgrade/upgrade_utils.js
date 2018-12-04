@@ -453,14 +453,16 @@ async function packages_upgrade() {
             'wget',
             'curl',
             'ntp',
-            'rsyslog',
+            //TODO: if we will need to upgrade the syslog we need this
+            //'rsyslog',
             'cronie',
             'openssh-server',
             'dialog',
             'expect',
             'nc',
             'tcpdump',
-            'iperf',
+            //TODO: if we will need to upgrade the ipref we need this
+            //'iperf', //We might need to remove it as we dont have the proper repo on RHEL7 
             'iperf3',
             'python-setuptools',
             'bind-utils',
@@ -471,7 +473,8 @@ async function packages_upgrade() {
             'net-tools',
             'iptables-services',
             'rng-tools', // random number generator tools
-            'pv', // pipe viewer
+            //TODO: if we will need to upgrade the pv we need this
+            //'pv', // pipe viewer
         ];
         dbg.log0(`install additional packages`);
         const res = await promise_utils.exec(`yum install -y ${packages_to_install.join(' ')}`, {

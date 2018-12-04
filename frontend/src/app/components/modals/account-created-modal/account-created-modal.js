@@ -2,46 +2,43 @@
 
 import template from './account-created-modal.html';
 import accountDetailsMessageTempalte from './account-details-message.html';
-import Observer from 'observer';
-import { state$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { get } from 'rx-extensions';
+import { closeModal } from 'action-creators';
 
-// TODO: Replace with data from the state$ when available.
-import { systemInfo } from 'model';
+class AccountCreatedModalViewModel extends ConnectableViewModel {
+    serverAddress = ko.observable();
+    message = ko.observable();
 
-class AccountCreatedModalViewModel extends Observer {
-    constructor({ onClose, accountName, password }) {
-        super();
-
-        this.onClose = onClose;
-        this.serverAddress = ko.observable();
-        this.password = password;
-        this.message = ko.observable();
-
-        this.observe(
-            state$.pipe(get('accounts', accountName)),
-            this.onAccount
-        );
+    selectState(state, params) {
+        const { accounts, location, system } = state;
+        return [
+            accounts[params.accountName],
+            params.password,
+            location.hostname,
+            system.sslPort
+        ];
     }
 
-    onAccount(account) {
-        const { endpoint, ssl_port } = systemInfo();
+    mapStateToProps(account, password, endpoint, sslPort) {
         const { name, hasLoginAccess, hasS3Access, accessKeys } = account;
-
-        const data = {
-            serverAddress: `https://${endpoint}:${ssl_port}`,
-            username: hasLoginAccess ? name : '',
-            password: hasLoginAccess ? this.password : '',
-            accessKey: hasS3Access ? accessKeys.accessKey : '',
-            secretKey: hasS3Access ? accessKeys.secretKey : ''
-        };
-
-        this.message(
-            ko.renderToString(accountDetailsMessageTempalte, data)
+        const message = ko.renderToString(
+            accountDetailsMessageTempalte,
+            {
+                serverAddress: `https://${endpoint}:${sslPort}`,
+                username: hasLoginAccess ? name : '',
+                password: hasLoginAccess ? password : '',
+                accessKey: hasS3Access ? accessKeys.accessKey : '',
+                secretKey: hasS3Access ? accessKeys.secretKey : ''
+            }
         );
+
+        ko.assignToProps(this, { message });
     }
 
+    onDone() {
+        this.dispatch(closeModal());
+    }
 
 }
 

@@ -1,68 +1,114 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './modal-manager.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
-import Modal from './modal';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { last } from 'utils/core-utils';
-import { get } from 'rx-extensions';
-import { closeModal, updateModal } from 'action-creators';
+import { deepFreeze, last } from 'utils/core-utils';
+import { closeModal } from 'action-creators';
 
-class ModalManagerViewModel extends Observer {
-    constructor() {
-        super();
+const severityMapping = deepFreeze({
+    info: {
+        icon: 'notif-info',
+        css: 'info'
+    },
+    success: {
+        icon: 'notif-success',
+        css: 'success'
+    },
+    warning: {
+        icon: 'problem',
+        css: 'warning'
+    },
+    error: {
+        icon: 'problem',
+        css: 'error'
+    }
+});
 
-        this.modals = ko.observableArray();
-        this.hasModals = ko.observable();
+class ModalViewModel {
+    manager = null;
+    css = ko.observable();
+    title = {
+        text: ko.observable(),
+        css: ko.observable(),
+        icon: ko.observable()
+    };
+    xButton = {
+        visible: ko.observable(),
+        disabled: ko.observable()
+    };
+    component = {
+        name: ko.observable(),
+        params: ko.observable()
+    };
 
-        this.observe(
-            state$.pipe(get('modals')),
-            this.onModals
-        );
+    constructor({ manager }) {
+        this.manager = manager;
     }
 
-    onModals(modals) {
-        const modalParams = {
-            onClose: this.onClose,
-            onUpdateOptions: this.onUpdateOptions
-        };
+    onX() {
+        this.manager.onModalX();
+    }
+}
 
-        this.modals(
-            modals.map(
-                (modalState, i) => {
-                    const modal = this.modals()[i] || new Modal(modalParams);
-                    modal.onState(modalState);
-                    return modal;
-                }
-            )
-        );
+class ModalManagerViewModel extends ConnectableViewModel {
+    hasModals = ko.observable();
+    allowBackdropClose = ko.observable();
+    modals = ko.observableArray()
+        .ofType(ModalViewModel, { manager: this });
 
-        this.hasModals(modals.length > 0);
+    selectState(state) {
+        return [
+            state.modals
+        ];
+    }
+
+    mapStateToProps(modals) {
+        const hasModals = modals.length > 0;
+
+        ko.assignToProps(this, {
+            hasModals,
+            allowBackdropClose: hasModals ? last(modals).backdropClose : false,
+            modals: modals.map((modal, i) => {
+                const { size, title: text, severity, closeButton, component } = modal;
+                const { icon, css } = severityMapping[severity] || {};
+
+                // Updating the component observables will cause a re-rendering
+                // of the modal content so we check that the component changed
+                // before updating the observable.
+                const modalVM = this.modals.peek()[i];
+                const componentChanged = !modalVM || (modalVM.component.name() !== component.name);
+
+                return {
+                    css: `${size ? `modal-${size}` : ''} ${component.name}`,
+                    title: { text, css, icon },
+                    xButton: {
+                        visible: closeButton !== 'hidden',
+                        disabled: closeButton === 'disabled'
+                    },
+                    component: componentChanged ? component : undefined
+                };
+            })
+        });
     }
 
     onBackdrop() {
-        const top = last(this.modals());
-        if (top && top.backdropClose()) {
-            action$.next(closeModal());
+        if (this.allowBackdropClose()) {
+            this.dispatch(closeModal());
         }
     }
 
-    onClose() {
-        action$.next(closeModal());
+    onModalX() {
+        this.dispatch(closeModal());
     }
 
     onKeyDown(_, evt) {
         if (evt.code.toLowerCase() === 'escape') {
-            action$.next(closeModal());
+            this.dispatch(closeModal());
             return false;
         }
 
         return true;
-    }
-
-    onUpdateOptions(options) {
-        action$.next(updateModal(options));
     }
 }
 

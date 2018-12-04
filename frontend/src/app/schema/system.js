@@ -3,9 +3,9 @@
 export default {
     type: 'object',
     required: [
-        'ipAddress',
         'version',
         'nodeVersion',
+        'ipAddress',
         'maintenanceMode',
         'vmTools',
         'p2pSettings',
@@ -26,6 +26,9 @@ export default {
         },
         dnsName: {
             type: 'string'
+        },
+        sslPort: {
+            type: 'integer'
         },
         sslCert: {
             type: 'object'

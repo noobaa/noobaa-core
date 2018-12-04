@@ -32,8 +32,6 @@ export const DROP_FROM = 'DROP_FROM';
 // Modals related actions.
 export const OPEN_MODAL = 'OPEN_MODAL';
 export const UPDATE_MODAL = 'UPDATE_MODAL';
-export const REPLACE_MODAL = 'REPLACE_MODAL';
-export const LOCK_MODAL = 'LOCK_MODAL';
 export const CLOSE_MODAL = 'CLOSE_MODAL';
 
 // Notifications related actions.

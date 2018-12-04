@@ -3,17 +3,24 @@
 import template from './add-resources-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import {
-    replaceWithInstallNodesModal,
-    replaceWithAddCloudResourceModal
+    closeModal,
+    openInstallNodesModal,
+    openAddCloudResourceModal
 } from 'action-creators';
 
 class AddResourcesModalViewModel extends ConnectableViewModel {
     onInstallNodes() {
-        this.dispatch(replaceWithInstallNodesModal());
+        this.dispatch(
+            closeModal(),
+            openInstallNodesModal()
+        );
     }
 
     onAddCloudResource() {
-        this.dispatch(replaceWithAddCloudResourceModal());
+        this.dispatch(
+            closeModal(),
+            openAddCloudResourceModal()
+        );
     }
 }
 

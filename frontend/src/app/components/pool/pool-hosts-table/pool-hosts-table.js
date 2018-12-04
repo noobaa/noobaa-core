@@ -67,10 +67,6 @@ const states = deepFreeze([
 
 function _getStateFilterOptions(all, healthy, issues, offline) {
     return [
-        // {
-        //     value: 'ALL',
-        //     label: `All Nodes (${numeral(all).format('0,0')})`
-        // },
         {
             value: states[0],
             label: `Healthy (${numeral(healthy).format('0,0')})`

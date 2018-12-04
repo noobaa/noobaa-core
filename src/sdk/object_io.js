@@ -20,7 +20,7 @@ const time_utils = require('../util/time_utils');
 const ChunkCoder = require('../util/chunk_coder');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
-const promise_utils = require('../util/promise_utils');
+// const promise_utils = require('../util/promise_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const KeysSemaphore = require('../util/keys_semaphore');
 const CoalesceStream = require('../util/coalesce_stream');
@@ -111,7 +111,7 @@ class ObjectIO {
      * upload the entire source_stream as a new object
      *
      */
-    upload_object(params) {
+    async upload_object(params) {
         const create_params = _.pick(params,
             'bucket',
             'key',
@@ -126,46 +126,40 @@ class ObjectIO {
             'key',
             'md_conditions'
         );
-
-        dbg.log0('upload_object: start upload',
-            util.inspect(create_params, { colors: true, depth: null, breakLength: Infinity }));
-
-        return P.resolve()
-            .then(() => params.client.object.create_object_upload(create_params))
-            .then(create_reply => {
-                params.obj_id = create_reply.obj_id;
-                params.tier = create_reply.tier;
-                params.chunk_split_config = create_reply.chunk_split_config;
-                params.chunk_coder_config = create_reply.chunk_coder_config;
-                complete_params.obj_id = create_reply.obj_id;
-                return params.copy_source ?
-                    this._upload_copy(params, complete_params) :
-                    this._upload_stream(params, complete_params);
-            })
-            .then(() => dbg.log0('upload_object: complete upload', complete_params))
-            .then(() => params.client.object.complete_object_upload(complete_params))
-            .then(complete_result => {
-                if (params.copy_source) {
-                    complete_result.copy_source = params.copy_source;
+        try {
+            dbg.log0('upload_object: start upload',
+                util.inspect(create_params, { colors: true, depth: null, breakLength: Infinity }));
+            const create_reply = await params.client.object.create_object_upload(create_params);
+            params.obj_id = create_reply.obj_id;
+            params.tier = create_reply.tier;
+            params.chunk_split_config = create_reply.chunk_split_config;
+            params.chunk_coder_config = create_reply.chunk_coder_config;
+            complete_params.obj_id = create_reply.obj_id;
+            await (params.copy_source ?
+                this._upload_copy(params, complete_params) :
+                this._upload_stream(params, complete_params)
+            );
+            dbg.log0('upload_object: complete upload', complete_params);
+            const complete_result = await params.client.object.complete_object_upload(complete_params);
+            if (params.copy_source) {
+                complete_result.copy_source = params.copy_source;
+            }
+            return complete_result;
+        } catch (err) {
+            dbg.warn('upload_object: failed upload', complete_params, err);
+            if (params.obj_id) {
+                try {
+                    await params.client.object.abort_object_upload(_.pick(params, 'bucket', 'key', 'obj_id'));
+                    dbg.log0('upload_object: aborted object upload', complete_params);
+                } catch (err2) {
+                    dbg.warn('upload_object: Failed to abort object upload', complete_params, err2);
                 }
-                return complete_result;
-            })
-            .catch(err => {
-                dbg.warn('upload_object: failed upload', complete_params, err);
-                if (!params.obj_id) throw err;
-                return params.client.object.abort_object_upload(_.pick(params, 'bucket', 'key', 'obj_id'))
-                    .then(() => {
-                            dbg.log0('upload_object: aborted object upload', complete_params);
-                            throw err; // still throw to the calling request
-                        },
-                        err2 => {
-                            dbg.warn('upload_object: Failed to abort object upload', complete_params, err2);
-                            throw err; // throw the original error
-                        });
-            });
+            }
+            throw err; // throw the original error
+        }
     }
 
-    upload_multipart(params) {
+    async upload_multipart(params) {
         const create_params = _.pick(params,
             'obj_id',
             'bucket',
@@ -181,27 +175,25 @@ class ObjectIO {
             'key',
             'num'
         );
-
-        dbg.log0('upload_multipart: start upload', complete_params);
-        return P.resolve()
-            .then(() => params.client.object.create_multipart(create_params))
-            .then(multipart_reply => {
-                params.multipart_id = multipart_reply.multipart_id;
-                params.tier = multipart_reply.tier;
-                params.chunk_split_config = multipart_reply.chunk_split_config;
-                params.chunk_coder_config = multipart_reply.chunk_coder_config;
-                complete_params.multipart_id = multipart_reply.multipart_id;
-                return params.copy_source ?
-                    this._upload_copy(params, complete_params) :
-                    this._upload_stream(params, complete_params);
-            })
-            .then(() => dbg.log0('upload_multipart: complete upload', complete_params))
-            .then(() => params.client.object.complete_multipart(complete_params))
-            .catch(err => {
-                dbg.warn('upload_multipart: failed', complete_params, err);
-                // we leave the cleanup of failed multiparts to complete_object_upload or abort_object_upload
-                throw err;
-            });
+        try {
+            dbg.log0('upload_multipart: start upload', complete_params);
+            const multipart_reply = await params.client.object.create_multipart(create_params);
+            params.multipart_id = multipart_reply.multipart_id;
+            params.tier = multipart_reply.tier;
+            params.chunk_split_config = multipart_reply.chunk_split_config;
+            params.chunk_coder_config = multipart_reply.chunk_coder_config;
+            complete_params.multipart_id = multipart_reply.multipart_id;
+            await (params.copy_source ?
+                this._upload_copy(params, complete_params) :
+                this._upload_stream(params, complete_params)
+            );
+            dbg.log0('upload_multipart: complete upload', complete_params);
+            return params.client.object.complete_multipart(complete_params);
+        } catch (err) {
+            dbg.warn('upload_multipart: failed', complete_params, err);
+            // we leave the cleanup of failed multiparts to complete_object_upload or abort_object_upload
+            throw err;
+        }
     }
 
     async _upload_copy(params, complete_params) {
@@ -263,19 +255,21 @@ class ObjectIO {
      * by reading large portions from the stream and call _upload_chunks()
      *
      */
-    _upload_stream(params, complete_params) {
-        return this._io_buffers_sem.surround_count(
+    async _upload_stream(params, complete_params) {
+        try {
+            const res = await this._io_buffers_sem.surround_count(
                 _get_io_semaphore_size(params.size),
                 () => this._upload_stream_internal(params, complete_params)
-            )
-            .catch(err => {
-                this._handle_semaphore_errors(params.client, err);
-                dbg.error('_upload_stream error', err, err.stack);
-                throw err;
-            });
+            );
+            return res;
+        } catch (err) {
+            this._handle_semaphore_errors(params.client, err);
+            dbg.error('_upload_stream error', err, err.stack);
+            throw err;
+        }
     }
 
-    _upload_stream_internal(params, complete_params) {
+    async _upload_stream_internal(params, complete_params) {
 
         params.desc = _.pick(params, 'obj_id', 'num', 'bucket', 'key');
         dbg.log0('UPLOAD:', params.desc, 'streaming to', params.bucket, params.key);
@@ -327,16 +321,15 @@ class ObjectIO {
         });
 
         const pipeline = new Pipeline(params.source_stream);
-        return pipeline
+        await pipeline
             .pipe(splitter)
             .pipe(coder)
             .pipe(coalescer)
             .pipe(uploader)
-            .promise()
-            .then(() => {
-                complete_params.md5_b64 = splitter.md5.toString('base64');
-                if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
-            });
+            .promise();
+
+        complete_params.md5_b64 = splitter.md5.toString('base64');
+        if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
     }
 
 
@@ -348,14 +341,16 @@ class ObjectIO {
      * where data is buffer or array of buffers in memory.
      *
      */
-    _upload_chunks(params, complete_params, chunks, callback) {
-        return P.resolve()
-            .then(() => this._create_parts(params, complete_params, chunks))
-            .then(parts => this._allocate_parts(params, parts))
-            .then(parts => this._write_parts(params, parts))
-            .then(parts => this._finalize_parts(params, parts))
-            .then(() => callback())
-            .catch(err => callback(err));
+    async _upload_chunks(params, complete_params, chunks, callback) {
+        try {
+            const parts = this._create_parts(params, complete_params, chunks);
+            await this._allocate_parts(params, parts);
+            await this._write_parts(params, parts);
+            await this._finalize_parts(params, parts);
+            return callback();
+        } catch (err) {
+            return callback(err);
+        }
     }
 
 
@@ -401,31 +396,29 @@ class ObjectIO {
      * _allocate_parts
      *
      */
-    _allocate_parts(params, parts) {
+    async _allocate_parts(params, parts) {
         const millistamp = time_utils.millistamp();
         dbg.log2('UPLOAD:', params.desc,
             'allocate parts', range_utils.human_range(params.range));
-        return params.client.object.allocate_object_parts({
-                obj_id: params.obj_id,
-                bucket: params.bucket,
-                key: params.key,
-                parts: _.map(parts, part => {
-                    const p = _.pick(part, PART_ATTRS);
-                    p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
-                    p.chunk.frags = _.map(part.chunk.frags, frag => _.pick(frag, FRAG_ATTRS));
-                    return p;
-                }),
-                location_info: this.location_info
-            })
-            .then(res => {
-                dbg.log1('UPLOAD:', params.desc,
-                    'allocate parts', range_utils.human_range(params.range),
-                    'took', time_utils.millitook(millistamp));
-                _.each(parts, (part, i) => {
-                    part.alloc_part = res.parts[i];
-                });
-                return parts;
-            });
+        const res = await params.client.object.allocate_object_parts({
+            obj_id: params.obj_id,
+            bucket: params.bucket,
+            key: params.key,
+            parts: _.map(parts, part => {
+                const p = _.pick(part, PART_ATTRS);
+                p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
+                p.chunk.frags = _.map(part.chunk.frags, frag => _.pick(frag, FRAG_ATTRS));
+                return p;
+            }),
+            location_info: this.location_info
+        });
+        dbg.log1('UPLOAD:', params.desc,
+            'allocate parts', range_utils.human_range(params.range),
+            'took', time_utils.millitook(millistamp)
+        );
+        _.each(parts, (part, i) => {
+            part.alloc_part = res.parts[i];
+        });
     }
 
     /**
@@ -433,22 +426,19 @@ class ObjectIO {
      * _finalize_parts
      *
      */
-    _finalize_parts(params, parts) {
+    async _finalize_parts(params, parts) {
         const millistamp = time_utils.millistamp();
         dbg.log2('UPLOAD:', params.desc,
             'finalize parts', range_utils.human_range(params.range));
-        return params.client.object.finalize_object_parts({
-                obj_id: params.obj_id,
-                bucket: params.bucket,
-                key: params.key,
-                parts: _.map(parts, 'alloc_part')
-            })
-            .then(() => {
-                dbg.log1('UPLOAD:', params.desc,
-                    'finalize parts', range_utils.human_range(params.range),
-                    'took', time_utils.millitook(millistamp));
-                return parts;
-            });
+        await params.client.object.finalize_object_parts({
+            obj_id: params.obj_id,
+            bucket: params.bucket,
+            key: params.key,
+            parts: _.map(parts, 'alloc_part')
+        });
+        dbg.log1('UPLOAD:', params.desc,
+            'finalize parts', range_utils.human_range(params.range),
+            'took', time_utils.millitook(millistamp));
     }
 
     /**
@@ -456,17 +446,14 @@ class ObjectIO {
      * _write_parts
      *
      */
-    _write_parts(params, parts) {
+    async _write_parts(params, parts) {
         const millistamp = time_utils.millistamp();
         dbg.log2('UPLOAD:', params.desc,
             'write parts', range_utils.human_range(params.range));
-        return P.map(parts, part => this._write_part(params, part))
-            .then(() => {
-                dbg.log1('UPLOAD:', params.desc,
-                    'write parts', range_utils.human_range(params.range),
-                    'took', time_utils.millitook(millistamp));
-                return parts;
-            });
+        await P.map(parts, part => this._write_part(params, part));
+        dbg.log1('UPLOAD:', params.desc,
+            'write parts', range_utils.human_range(params.range),
+            'took', time_utils.millitook(millistamp));
     }
 
     /**
@@ -474,26 +461,30 @@ class ObjectIO {
      * write the allocated part fragments to the storage nodes
      *
      */
-    _write_part(params, part) {
+    async _write_part(params, part) {
         if (!part.millistamp) {
             part.millistamp = time_utils.millistamp();
         }
-        if (part.alloc_part.chunk_id) {
-            dbg.log0('UPLOAD:', part.desc, 'CHUNK DEDUP');
-            // nullify the chunk to release the fragments memory buffers
-            // while it's waiting in the finalize queue
-            part.chunk = undefined;
-            return;
-        }
+        let done = false;
+        while (!done) {
+            if (part.alloc_part.chunk_id) {
+                dbg.log0('UPLOAD:', part.desc, 'CHUNK DEDUP');
+                // nullify the chunk to release the fragments memory buffers
+                // while it's waiting in the finalize queue
+                part.chunk = undefined;
+                return;
+            }
 
-        dbg.log1('UPLOAD: _write_part', part.desc, util.inspect(part.alloc_part, true, null, true));
+            dbg.log1('UPLOAD: _write_part', part.desc, util.inspect(part.alloc_part, true, null, true));
 
-        return P.map(part.alloc_part.chunk.frags, (frag, i) => {
-                const buffer = part.chunk.frags[i].block;
-                const desc = _.clone(part.desc);
-                return this._write_frag(params, frag, buffer, desc);
-            })
-            .catch(err => {
+            try {
+                await P.map(part.alloc_part.chunk.frags, (frag, i) => {
+                    const buffer = part.chunk.frags[i].block;
+                    const desc = _.clone(part.desc);
+                    return this._write_frag(params, frag, buffer, desc);
+                });
+                done = true;
+            } catch (err) {
 
                 // handle errors of part write:
                 // we only retry reallocating the entire part
@@ -501,49 +492,63 @@ class ObjectIO {
                 // to add just missing blocks.
 
                 // limit the retries by time since the part began to write
-                if (time_utils.millistamp() - part.millistamp > 10000) {
+                if (time_utils.millistamp() - part.millistamp > config.IO_WRITE_PART_ATTEMPTS_EXHAUSTED) {
                     dbg.error('UPLOAD:', part.desc, 'write part attempts exhausted', err);
                     throw err;
                 }
 
-                dbg.warn('UPLOAD:', part.desc, 'write part retry part on ERROR', err);
-                return this._allocate_parts(params, [part])
-                    .then(() => this._write_part(params, part));
-            });
+                dbg.warn('UPLOAD:', part.desc, 'write part reallocate on ERROR', err);
+                await this._allocate_parts(params, [part]);
+            }
+        }
     }
 
-    _write_frag(params, frag, buffer, desc) {
+    async _write_frag(params, frag, buffer, desc) {
         desc.frag = get_frag_desc(frag);
         const source_block = frag.blocks[0];
         const blocks_to_replicate = frag.blocks.slice(1);
-
-        return P.resolve()
-            .then(() => this._retry_write_block(params, desc, buffer, source_block))
-            .then(() => this._retry_replicate_blocks(params, desc, source_block, blocks_to_replicate));
+        await this._retry_write_block(params, desc, buffer, source_block);
+        await this._retry_replicate_blocks(params, desc, source_block, blocks_to_replicate);
     }
 
     // retry the write operation
     // once retry exhaust we report and throw an error
-    _retry_write_block(params, desc, buffer, source_block) {
-        return promise_utils.retry(
-                config.IO_WRITE_BLOCK_RETRIES,
-                config.IO_WRITE_RETRY_DELAY_MS,
-                () => this._write_block(params, buffer, source_block.block_md, desc)
-            )
-            .catch(err => this._report_error_on_object_upload(params, source_block.block_md, 'write', err));
+    async _retry_write_block(params, desc, buffer, source_block) {
+        let done = false;
+        let retries = 0;
+        while (!done) {
+            try {
+                await this._write_block(params, buffer, source_block.block_md, desc);
+                done = true;
+            } catch (err) {
+                await this._report_error_on_object_upload(params, source_block.block_md, 'write', err);
+                if (err.rpc_code === 'NO_BLOCK_STORE_SPACE') throw err;
+                retries += 1;
+                if (retries > config.IO_WRITE_BLOCK_RETRIES) throw err;
+                await P.delay(config.IO_WRITE_RETRY_DELAY_MS);
+            }
+        }
     }
 
     // retry the replicate operations
     // once any retry exhaust we report and throw an error
-    _retry_replicate_blocks(params, desc, source_block, blocks_to_replicate) {
-        return P.map(blocks_to_replicate, b =>
-            promise_utils.retry(
-                config.IO_REPLICATE_BLOCK_RETRIES,
-                config.IO_REPLICATE_RETRY_DELAY_MS,
-                () => this._replicate_block(params, source_block.block_md, b.block_md, desc)
-            )
-            .catch(err => this._report_error_on_object_upload(params, b.block_md, 'replicate', err))
-        );
+    async _retry_replicate_blocks(params, desc, source_block, blocks_to_replicate) {
+        return P.map(blocks_to_replicate, async b => {
+            let done = false;
+            let retries = 0;
+            while (!done) {
+                try {
+                    await this._replicate_block(params, source_block.block_md, b.block_md, desc);
+                    done = true;
+                } catch (err) {
+                    await this._report_error_on_object_upload(params, b.block_md, 'replicate', err);
+                    if (err.rpc_code === 'NO_BLOCK_STORE_SPACE') throw err;
+                    retries += 1;
+                    if (retries > config.IO_REPLICATE_BLOCK_RETRIES) throw err;
+                    await P.delay(config.IO_REPLICATE_RETRY_DELAY_MS);
+                }
+            }
+        });
     }
 
     /**
@@ -603,8 +608,9 @@ class ObjectIO {
             });
     }
 
-    _report_error_on_object_upload(params, block_md, action, err) {
-        return params.client.object.report_error_on_object({
+    async _report_error_on_object_upload(params, block_md, action, err) {
+        try {
+            await params.client.object.report_error_on_object({
                 action: 'upload',
                 obj_id: params.obj_id,
                 bucket: params.bucket,
@@ -615,18 +621,14 @@ class ObjectIO {
                     rpc_code: err.rpc_code || '',
                     error_message: err.message || '',
                 }]
-            })
-            .catch(reporting_err => {
-                // reporting failed, we don't have much to do with it now
-                // so will drop it, and wait for next failure to retry reporting
-                dbg.warn('_report_error_on_object_upload:',
-                    'will throw original upload error',
-                    'and ignore this reporting error -', reporting_err);
-            })
-            .finally(() => {
-                // throw the original read error, for the convinience of the caller
-                throw err;
             });
+        } catch (reporting_err) {
+            // reporting failed, we don't have much to do with it now
+            // so will drop it, and wait for next failure to retry reporting
+            dbg.warn('_report_error_on_object_upload:',
+                'will throw original upload error',
+                'and ignore this reporting error -', reporting_err);
+        }
     }
 
     _error_injection_on_write() {

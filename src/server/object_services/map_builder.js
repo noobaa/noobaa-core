@@ -14,19 +14,16 @@ const js_utils = require('../../util/js_utils');
 const KeysLock = require('../../util/keys_lock');
 const nb_native = require('../../util/nb_native');
 const server_rpc = require('../server_rpc');
+const map_writer = require('./map_writer');
 const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
-const size_utils = require('../../util/size_utils');
-const Semaphore = require('../../util/semaphore');
-const Barrier = require('../../util/barrier');
 
 const builder_lock = new KeysLock();
 const object_io = new ObjectIO();
-const _load_serial = new Semaphore(1);
 
 // dbg.set_level(5);
 
@@ -44,7 +41,7 @@ class MapBuilder {
 
     async run(chunk_ids, tier) {
         this.tier = tier;
-        dbg.log0('MapBuilder.run:', 'batch start', chunk_ids, 'tier', tier);
+        dbg.log0('MapBuilder.run:', 'batch start', chunk_ids, 'tier', tier && tier.name);
         if (!chunk_ids.length) return;
 
         await builder_lock.surround_keys(_.map(chunk_ids, String), async () => {
@@ -201,14 +198,14 @@ class MapBuilder {
                 throw new Error(`Not all chunks belong to the same bucket`);
             } else if (buckets.length === 1) {
                 const bucket = buckets[0];
-                await ensure_room_in_tier(this.tier, bucket); /* TODO JACKY free_threshold ??? */
+                await map_writer.ensure_room_in_tier(this.tier, bucket); /* TODO JACKY free_threshold ??? */
             }
         } else {
             // This path is for random chunks found by the scrubber or other workers,
             // which might all belong to different buckets/tiers.
             const tiers_and_buckets = populated_chunks.map(chunk => ({ tier: chunk.tier, bucket: chunk.bucket }));
             const uniq_tiers_and_buckets = _.uniqBy(tiers_and_buckets, 'tier');
-            await P.map(uniq_tiers_and_buckets, ({ tier, bucket }) => ensure_room_in_tier(tier, bucket));
+            await P.map(uniq_tiers_and_buckets, ({ tier, bucket }) => map_writer.ensure_room_in_tier(tier, bucket));
         }
     }
 
@@ -308,7 +305,7 @@ class MapBuilder {
         const params = { client: chunk.rpc_client };
         const desc = { chunk: chunk._id, frag };
 
-        dbg.log0('MapBuilder.build_block_from_replicas: replicating to', target, 'from', source, 'chunk', chunk);
+        dbg.log0('MapBuilder.build_block_from_replicas: replicating to', target, 'from', source, 'chunk', util.inspect(chunk, { breakLength: Infinity }));
         return P.resolve()
             .then(() => object_io._replicate_block(params, source, target, desc))
             .then(() => block);
@@ -441,92 +438,6 @@ class MapBuilder {
 
 }
 
-async function make_room_in_tier(tier_id, bucket_id) {
-    // TODO use tier_id as key for KeyLock instead of global mutex
-    return _load_serial.surround(async () => {
-        const tier = tier_id && system_store.data.get_by_id(tier_id);
-        const bucket = bucket_id && system_store.data.get_by_id(bucket_id);
-        const tiering = bucket.tiering;
-
-        await node_allocator.refresh_tiering_alloc(tiering);
-        if (enough_room_in_tier(tier, bucket)) return;
-
-        const tiering_status = node_allocator.get_tiering_status(tiering);
-        const next_tier = mapper.select_tier_for_write(tiering, tiering_status, tier._id);
-        if (!next_tier) {
-            dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
-            return;
-        }
-
-        const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
-        const timestamp3 = Date.now();
-        await server_rpc.client.scrubber.build_chunks({
-            chunk_ids,
-            tier: next_tier._id,
-        }, {
-            auth_token: auth_server.make_auth_token({
-                system_id: bucket.system._id,
-                role: 'admin'
-            })
-        });
-        dbg.log0('ZZZZ make_room_in_tier -> scrubber.build_chunks took', Date.now() - timestamp3);
-        dbg.log0(`make_room_in_tier: moved ${chunk_ids.length} to next tier`);
-
-        // TODO avoid multiple calls, maybe plan how much to move before and refresh after moving enough
-        const timestamp2 = Date.now();
-        await node_allocator.refresh_tiering_alloc(tiering, 'force');
-        dbg.log0('ZZZZ make_room_in_tier -> refresh_tiering_alloc FORCE took', Date.now() - timestamp2);
-    });
-}
-
-const ensure_room_barrier = new Barrier({
-    max_length: 10,
-    expiry_ms: 100,
-    process: async tiers_and_buckets => {
-        const uniq_tiers_and_buckets = _.uniqBy(tiers_and_buckets, 'tier');
-        await P.map(uniq_tiers_and_buckets, async ({ tier, bucket }) => {
-            dbg.log0('ZZZZ ensure_room_barrier', tier.name, bucket.name);
-            await server_rpc.client.scrubber.make_room_in_tier({
-                tier: tier._id,
-                bucket: bucket._id,
-            }, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: bucket.system._id,
-                    role: 'admin'
-                })
-            });
-            await node_allocator.refresh_tiering_alloc(bucket.tiering, 'force');
-            enough_room_in_tier(tier, bucket);
-        });
-    }
-});
-
-async function ensure_room_in_tier(tier, bucket) {
-    await node_allocator.refresh_tiering_alloc(bucket.tiering);
-    if (enough_room_in_tier(tier, bucket)) return;
-    await ensure_room_barrier.call({ tier, bucket });
-}
-
-function enough_room_in_tier(tier, bucket) {
-    const tiering = bucket.tiering;
-    const tiering_status = node_allocator.get_tiering_status(tiering);
-    const tier_status = tiering_status[tier._id];
-    const tier_in_tiering = _.find(tiering.tiers, t => String(t.tier._id) === String(tier._id));
-    if (!tier_in_tiering || !tier_status) throw new Error(`Can't find current tier in bucket`);
-    const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
-        'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
-    ));
-    dbg.log0('ZZZZ current place in tier', tier.name, 'is', available_to_upload, tier_status.mirrors_storage);
-    if (available_to_upload && available_to_upload.greater(config.MIN_TIER_FREE_THRESHOLD * 2)) {
-        dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.MIN_TIER_FREE_THRESHOLD * 2);
-        return true;
-    } else {
-        dbg.log0(`make_room_in_tier: not enough room ${tier.name}:`,
-            `${available_to_upload} < ${config.MIN_TIER_FREE_THRESHOLD * 2} should move chunks to next tier`);
-        return false;
-    }
-}
-
 /**
  * avoid printing rpc_client to logs, it's ugly
  * also avoid infinite recursion and omit inspect function
@@ -541,6 +452,3 @@ function custom_inspect_chunk() {
 }
 
 exports.MapBuilder = MapBuilder;
-exports.ensure_room_in_tier = ensure_room_in_tier;
-exports.enough_room_in_tier = enough_room_in_tier;
-exports.make_room_in_tier = make_room_in_tier;

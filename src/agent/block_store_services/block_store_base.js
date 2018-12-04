@@ -130,7 +130,7 @@ class BlockStoreBase {
 
     async read_block(req) {
         const block_md = req.rpc_params.block_md;
-        dbg.log1('read_block', block_md.id, 'node', this.node_name);
+        dbg.log0('read_block', block_md.id, 'node', this.node_name);
         // must clone before returning to rpc encoding
         // since it mutates the object for encoding buffers
         this.monitoring_stats.inflight_reads += 1;
@@ -207,7 +207,7 @@ class BlockStoreBase {
     }
 
     async write_block_internal(block_md, data) {
-        dbg.log1('write_block', block_md.id, data.length, 'node', this.node_name);
+        dbg.log0('write_block', block_md.id, data.length, block_md.digest_b64, 'node', this.node_name);
         this._check_write_space(data.length);
         this._verify_block(block_md, data);
         this.block_cache.invalidate(block_md);
@@ -248,7 +248,7 @@ class BlockStoreBase {
     async replicate_block(req) {
         const target_md = req.rpc_params.target;
         const source_md = req.rpc_params.source;
-        dbg.log1('replicate_block', target_md.id, 'node', this.node_name);
+        dbg.log0('replicate_block', target_md.id, 'node', this.node_name);
 
         // read from source agent
         const res = await this.client.block_store.read_block({

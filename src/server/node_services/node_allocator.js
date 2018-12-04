@@ -37,7 +37,7 @@ async function refresh_tiering_alloc(tiering, force) {
                 role: 'admin'
             })
         });
-        dbg.log0('ZZZZ refresh_tiering_alloc -> sync_monitor_to_store took', Date.now() - timestamp);
+        dbg.log0('ZZZZ refresh_tiering_alloc -> sync_monitor_storage_info took', Date.now() - timestamp);
     }
     return P.join(
         P.map(pools, pool => refresh_pool_alloc(pool, force)),

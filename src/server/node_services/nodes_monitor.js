@@ -289,18 +289,23 @@ class NodesMonitor extends EventEmitter {
     }
 
     async sync_storage_to_store() {
+        dbg.log0('JAJA sync_storage_to_store start');
         const items = Array.from(this._map_node_id.values());
         for (const item of items) {
+            dbg.log0('JAJA sync_storage_to_store item', item.node.name);
             if (item.node.deleted) continue;
             if (!item.connection) continue;
             if (!item.node_from_store) continue;
+            dbg.log0('JAJA sync_storage_to_store get_agent_storage_info', item.node.name);
             const info = await this.client.agent.get_agent_storage_info(undefined, {
                     connection: item.connection
                 })
                 .timeout(AGENT_RESPONSE_TIMEOUT);
+            dbg.log0('JAJA sync_storage_to_store get_agent_storage_info', item.node.name, info);
             if (info.storage) {
                 item.node.storage = info.storage;
-                dbg.log0('JAJA updated storage from node', item.node.name, item.node.storage);
+                this._set_need_update.add(item);
+                this._update_status(item);
             }
         }
     }
@@ -2014,6 +2019,7 @@ class NodesMonitor extends EventEmitter {
         }
 
         item.io_detention = this._get_item_io_detention(item);
+        if (item.io_detention) dbg.log0('JAJA this node is detentioned', item.node.name);
         item.connectivity = 'TCP';
         item.avg_ping = _.mean(item.node.latency_to_server);
         item.avg_disk_read = _.mean(item.node.latency_of_disk_read);
@@ -3671,7 +3677,7 @@ class NodesMonitor extends EventEmitter {
             list.push(item);
         }
 
-        dbg.log0('JAJAJA items in pool', this._map_node_id, pool_id, list);
+        // dbg.log0('JAJAJA items in pool', this._map_node_id, pool_id, list);
 
         const latency_groups = [];
         // Not all nodes always have the avg_disk_write.
@@ -3733,6 +3739,7 @@ class NodesMonitor extends EventEmitter {
                     block_report);
                 continue;
             }
+            if (block_report.rpc_code === 'NO_BLOCK_STORE_SPACE') continue; // TODO SYNC STORAGE SPACE WITH THE NODE...
             // mark the issue on the node
             item.node.issues_report = item.node.issues_report || [];
             item.node.issues_report.push({
@@ -3755,11 +3762,7 @@ class NodesMonitor extends EventEmitter {
                 'issues_report', item.node.issues_report,
                 'block_report', block_report);
             // disconnect from the node to force reconnect
-            if (block_report.rpc_code === 'NO_BLOCK_STORE_SPACE') {
-                // TODO SYNC STORAGE SPACE WITH THE NODE...
-            } else {
-                this._disconnect_node(item);
-            }
+            this._disconnect_node(item);
         }
     }
 

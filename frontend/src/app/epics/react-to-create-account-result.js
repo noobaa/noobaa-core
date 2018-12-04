@@ -18,7 +18,10 @@ function _replaceModalAfterSuccess(action$) {
             return action$.pipe(
                 ofType(COMPLETE_FETCH_SYSTEM_INFO),
                 take(1),
-                map(() => replaceWithAccountCreatedModal(accountName, password))
+                mergeMap(() => [
+                    closeModal(),
+                    openAccountCreatedModal(accountName, password)
+                ])
             );
         })
     );

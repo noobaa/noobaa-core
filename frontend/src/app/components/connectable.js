@@ -33,6 +33,8 @@ export default class ConnectableViewModel {
     }
 
     onState(state, params) {
+        if (!state) return;
+
         const selection  = this.selectState(state, params);
         if (!_isStateSelectionValid(selection)) {
             throw new Error('Invalid state selection');

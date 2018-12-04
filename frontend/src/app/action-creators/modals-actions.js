@@ -3,8 +3,6 @@
 import {
     OPEN_MODAL,
     UPDATE_MODAL,
-    REPLACE_MODAL,
-    LOCK_MODAL,
     CLOSE_MODAL
 } from 'action-types';
 
@@ -16,7 +14,10 @@ export function updateModal(options) {
 }
 
 export function lockModal() {
-    return { type: LOCK_MODAL };
+    return updateModal({
+        backdropClose: false,
+        closeButton: 'disabled'
+    });
 }
 
 export function closeModal(count = 1) {
@@ -26,9 +27,9 @@ export function closeModal(count = 1) {
     };
 }
 
-export function replaceWithInstallNodesModal() {
+export function openInstallNodesModal() {
     return {
-        type: REPLACE_MODAL,
+        type: OPEN_MODAL,
         payload: {
             component: 'install-nodes-modal',
             options: {
@@ -58,19 +59,6 @@ export function openInstallNodesToPoolModal(targetPool) {
 export function openAddCloudResourceModal() {
     return {
         type: OPEN_MODAL,
-        payload: {
-            component: 'add-cloud-resource-modal',
-            options: {
-                title: 'Add Cloud Resource',
-                size: 'medium'
-            }
-        }
-    };
-}
-
-export function replaceWithAddCloudResourceModal() {
-    return {
-        type: REPLACE_MODAL,
         payload: {
             component: 'add-cloud-resource-modal',
             options: {
@@ -430,9 +418,9 @@ export function openEditBucketQuotaModal(bucketName) {
     };
 }
 
-export function replaceWithAccountCreatedModal(accountName, password) {
+export function openAccountCreatedModal(accountName, password) {
     return {
-        type: REPLACE_MODAL,
+        type: OPEN_MODAL,
         payload: {
             component: {
                 name:'account-created-modal',
@@ -671,9 +659,9 @@ export function openAttachServerModal() {
     };
 }
 
-export function replaceWithPreUpgradeSystemFailedModal() {
+export function openPreUpgradeSystemFailedModal() {
     return {
-        type: REPLACE_MODAL,
+        type: OPEN_MODAL,
         payload: {
             component: 'pre-upgrade-system-failed-modal',
             options: {
@@ -685,9 +673,9 @@ export function replaceWithPreUpgradeSystemFailedModal() {
     };
 }
 
-export function replaceWithUpgradeSystemFailedModal() {
+export function openUpgradeSystemFailedModal() {
     return {
-        type: REPLACE_MODAL,
+        type: OPEN_MODAL,
         payload: {
             component: 'upgrade-system-failed-modal',
             options: {
@@ -712,13 +700,13 @@ export function openFinalizeUpgradeModal() {
     };
 }
 
-export function replaceWithAfterUpgradeModal(version, user, upgradeInitiator, redirectUrl) {
+export function openAfterUpgradeModal(version, user, upgradeInitiator, redirectUrl) {
     const title = user === upgradeInitiator ?
         'Upgrade was Successful' :
         'System was Upgraded by Admin';
 
     return {
-        type: REPLACE_MODAL,
+        type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'after-upgrade-modal',
@@ -735,9 +723,9 @@ export function replaceWithAfterUpgradeModal(version, user, upgradeInitiator, re
     };
 }
 
-export function replaceWithAfterUpgradeFailureModal(redirectUrl) {
+export function openAfterUpgradeFailureModal(redirectUrl) {
     return {
-        type: REPLACE_MODAL,
+        type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'after-upgrade-failure-modal',
@@ -1051,4 +1039,18 @@ export function openAddResourcesModal() {
         }
     };
 }
+
+export function openCreateEmptyPoolModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'create-empty-pool-modal',
+            options: {
+                size: 'small',
+                title: 'Create Pool Resource'
+            }
+        }
+    };
+}
 /** INJECT:actionCreator **/
+

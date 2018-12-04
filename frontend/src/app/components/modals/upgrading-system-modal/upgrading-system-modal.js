@@ -12,8 +12,9 @@ import { stringifyAmount } from 'utils/string-utils';
 import { get } from 'rx-extensions';
 import { tween } from 'shifty';
 import {
-    replaceWithPreUpgradeSystemFailedModal,
-    replaceWithUpgradeSystemFailedModal
+    closeModal,
+    openPreUpgradeSystemFailedModal,
+    openUpgradeSystemFailedModal
 } from 'action-creators';
 
 function _startFakeProgress(stepCallback) {
@@ -87,11 +88,13 @@ class SystemUpgradingModalViewModel extends Observer {
         this.serverRows(serverRows);
 
         if (serverList.some(server => server.upgrade.package.error)) {
-            action$.next(replaceWithPreUpgradeSystemFailedModal());
+            action$.next(closeModal());
+            action$.next(openPreUpgradeSystemFailedModal());
         }
 
         if (serverList.some(server => server.upgrade.error)) {
-            action$.next(replaceWithUpgradeSystemFailedModal());
+            action$.next(closeModal());
+            action$.next(openUpgradeSystemFailedModal());
         }
     }
 

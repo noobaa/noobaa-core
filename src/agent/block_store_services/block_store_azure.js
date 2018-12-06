@@ -118,8 +118,8 @@ class BlockStoreAzure extends BlockStoreBase {
         // update usage optimistically. if delegator will fail it should rollback the change
         // only increment usage if we got data_length
         const usage = data_length ? {
-            size: data_length + encoded_md.length,
-            count: 1
+            size: (block_md.preallocated ? 0 : data_length) + encoded_md.length,
+            count: block_md.preallocated ? 0 : 1
         } : { size: 0, count: 0 };
         if (data_length) {
             this._update_usage(usage);
@@ -157,8 +157,8 @@ class BlockStoreAzure extends BlockStoreBase {
                 if (options && options.ignore_usage) return;
                 // return usage count for the object
                 const usage = {
-                    size: data.length + encoded_md.length,
-                    count: 1
+                    size: (block_md.preallocated ? 0 : data.length) + encoded_md.length,
+                    count: block_md.preallocated ? 0 : 1
                 };
                 return this._update_usage(usage);
             })

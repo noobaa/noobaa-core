@@ -12,7 +12,7 @@ const config = require('../../../config');
 const mapper = require('./mapper');
 const MDStore = require('./md_store').MDStore;
 const Barrier = require('../../util/barrier');
-const Semaphore = require('../../util/semaphore');
+const KeysSemaphore = require('../../util/keys_semaphore');
 const time_utils = require('../../util/time_utils');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -23,11 +23,12 @@ const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const map_deleter = require('./map_deleter');
-const { RpcError, RPC_BUFFERS } = require('../../rpc');
+const { RpcError } = require('../../rpc');
 
 // dbg.set_level(5);
 
-const _make_room_serial = new Semaphore(1);
+// const _make_room_serial = new Semaphore(1);
+const _make_room_semaphore = new KeysSemaphore(1);
 const ensure_room_barrier = new Barrier({
     max_length: 10,
     expiry_ms: 100,
@@ -126,7 +127,6 @@ class MapAllocator {
                 done = this.allocate_blocks();
             } else {
                 done = await this.preallocate_blocks();
-                dbg.log0('JAJA preallocated on block - continue to next');
             }
             if (!done) {
                 await ensure_room_in_tier(this.tier_for_write, this.bucket);
@@ -225,11 +225,10 @@ class MapAllocator {
                 };
                 mapper.assign_node_to_block(block, node, this.bucket.system._id);
                 const block_info = mapper.get_block_info(chunk, frag, block);
-                const prealloc_md = { ...block_info.block_md, digest_type: undefined, digest_b64: undefined };
+                const prealloc_md = { ...block_info.block_md, digest_type: undefined, digest_b64: undefined, size: chunk.frag_size };
                 try {
-                    await server_rpc.client.block_store.write_block({
+                    await server_rpc.client.block_store.preallocate_block({
                         block_md: prealloc_md,
-                        [RPC_BUFFERS]: { data: Buffer.alloc(chunk.frag_size) },
                     }, {
                         address: prealloc_md.address,
                         timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
@@ -238,17 +237,7 @@ class MapAllocator {
                             role: 'admin',
                         })
                     });
-                    // TODO - implement preallocate_block - for now using write of 0s instead
-                    // await server_rpc.client.block_store.preallocate_block({
-                    //     block_md: prealloc_md,
-                    // }, {
-                    //     address: prealloc_md.address,
-                    //     timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
-                    //     auth_token: auth_server.make_auth_token({
-                    //         system_id: chunk.system,
-                    //         role: 'admin',
-                    //     })
-                    // });
+                    block_info.block_md.preallocated = true;
                 } catch (err) {
                     dbg.warn('MapAllocator: preallocate_blocks failed, will retry',
                         `avoid_nodes ${avoid_nodes.join(',')} ` +
@@ -285,9 +274,7 @@ function allocate_object_parts(bucket, obj, parts, location_info) {
 }
 
 async function make_room_in_tier(tier_id, bucket_id) {
-    // TODO use tier_id as key for KeyLock instead of global mutex
-    dbg.log0('ZZZZ I got inside make_room_in_tier');
-    return _make_room_serial.surround(async () => {
+    return _make_room_semaphore.surround_key(String(tier_id), async () => {
         const tier = tier_id && system_store.data.get_by_id(tier_id);
         const bucket = bucket_id && system_store.data.get_by_id(bucket_id);
         const tiering = bucket.tiering;
@@ -301,9 +288,7 @@ async function make_room_in_tier(tier_id, bucket_id) {
             dbg.warn(`make_room_in_tier: No next tier to move data to`, tier.name);
             return;
         }
-
         const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
-        const timestamp3 = Date.now();
         await server_rpc.client.scrubber.build_chunks({
             chunk_ids,
             tier: next_tier._id,
@@ -313,20 +298,16 @@ async function make_room_in_tier(tier_id, bucket_id) {
                 role: 'admin'
             })
         });
-        dbg.log0('ZZZZ make_room_in_tier -> scrubber.build_chunks took', Date.now() - timestamp3);
         dbg.log0(`make_room_in_tier: moved ${chunk_ids.length} to next tier`);
 
         // TODO avoid multiple calls, maybe plan how much to move before and refresh after moving enough
-        const timestamp2 = Date.now();
         await node_allocator.refresh_tiering_alloc(tiering, 'force');
-        dbg.log0('ZZZZ make_room_in_tier -> refresh_tiering_alloc FORCE took', Date.now() - timestamp2);
     });
 }
 
 async function ensure_room_barrier_process(tiers_and_buckets) {
     const uniq_tiers_and_buckets = _.uniqBy(tiers_and_buckets, 'tier');
     await P.map(uniq_tiers_and_buckets, async ({ tier, bucket }) => {
-        dbg.log0('ZZZZ ensure_room_barrier', tier.name, bucket.name);
         await server_rpc.client.scrubber.make_room_in_tier({
             tier: tier._id,
             bucket: bucket._id,
@@ -356,7 +337,6 @@ function enough_room_in_tier(tier, bucket) {
     const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
     ));
-    dbg.log0('ZZZZ current place in tier', tier.name, 'is', available_to_upload, tier_status.mirrors_storage);
     if (available_to_upload && available_to_upload.greater(config.ENOUGH_ROOM_IN_TIER_THRESHOLD)) {
         dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload, '>', config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
         return true;

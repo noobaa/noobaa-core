@@ -28,6 +28,20 @@ module.exports = {
             },
         },
 
+        preallocate_block: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['block_md'],
+                properties: {
+                    // [RPC_BUFFERS].data
+                    block_md: {
+                        $ref: 'common_api#/definitions/block_md'
+                    },
+                },
+            },
+        },
+
         verify_blocks: {
             method: 'POST',
             params: {

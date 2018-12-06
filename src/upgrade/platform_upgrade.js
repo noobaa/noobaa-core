@@ -224,6 +224,25 @@ async function platform_upgrade_2_8_0() {
     await exec('systemctl restart systemd-tmpfiles-clean.service');
 }
 
+async function supervisor_tmp_deletion_rules() {
+    if (process.env.PLATFORM === 'docker') return;
+    dbg.log0('UPGRADE: running supervisor_tmp_deletion_rules');
+    const tmp_conf = await fs.readFileAsync('/usr/lib/tmpfiles.d/tmp.conf').toString();
+    let should_restart = false;
+    if (tmp_conf.indexOf('x /tmp/supervisor*') < 0) {
+        await fs.appendFileAsync('/usr/lib/tmpfiles.d/tmp.conf', 'x /tmp/supervisor*\n');
+        should_restart = true;
+    }
+    if (tmp_conf.indexOf('x /tmp/test') < 0) {
+        await fs.appendFileAsync('/usr/lib/tmpfiles.d/tmp.conf', 'x /tmp/test\n');
+        should_restart = true;
+    }
+    if (should_restart) {
+        // exclude cleaning of supervisor and upgrade files
+        await exec('systemctl restart systemd-tmpfiles-clean.service');
+    }
+}
+
 async function platform_upgrade_2_7_0() {
     dbg.log0('UPGRADE: running platform_upgrade_2_7_0');
     //verify abrt package is removed
@@ -239,6 +258,7 @@ async function platform_upgrade_2_4_0() {
 
 async function platform_upgrade_common(params) {
     await copy_first_install();
+    await supervisor_tmp_deletion_rules();
 }
 
 async function copy_first_install() {

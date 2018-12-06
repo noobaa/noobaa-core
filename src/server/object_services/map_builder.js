@@ -343,7 +343,10 @@ class MapBuilder {
         return P.resolve()
             .then(() => object_io._read_frags(params, part, chunk_info.frags))
             .catch(err => {
-                console.log('MapBuilder.read_entire_chunk: _read_frags ERROR', err);
+                dbg.warn('MapBuilder.read_entire_chunk: _read_frags ERROR',
+                    err.stack || err,
+                    util.inspect(err.chunks, true, null, true)
+                );
                 throw err;
             })
             .then(() => {

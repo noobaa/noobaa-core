@@ -208,7 +208,9 @@ class BlockStoreBase {
 
     async write_block_internal(block_md, data) {
         dbg.log0('write_block', block_md.id, data.length, block_md.digest_b64, 'node', this.node_name);
-        this._check_write_space(data.length);
+        if (!block_md.preallocated) { // no need to verify space
+            this._check_write_space(data.length);
+        }
         this._verify_block(block_md, data);
         this.block_cache.invalidate(block_md);
         this.monitoring_stats.inflight_writes += 1;
@@ -228,6 +230,18 @@ class BlockStoreBase {
         } finally {
             this.monitoring_stats.inflight_writes -= 1;
         }
+    }
+
+    async preallocate_block(req) {
+        const block_md = req.rpc_params.block_md;
+        dbg.log0('preallocate_block', block_md.id, block_md.size, block_md.digest_b64, 'node', this.node_name);
+        this._check_write_space(block_md.size);
+        const block_size = block_md.size;
+        let usage = {
+            size: block_size,
+            count: 1
+        };
+        return this._update_usage(usage);
     }
 
     sample_stats() {

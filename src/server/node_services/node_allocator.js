@@ -30,14 +30,12 @@ async function refresh_tiering_alloc(tiering, force) {
         return tier_pools;
     });
     if (force === 'force') {
-        const timestamp = Date.now();
         await server_rpc.client.node.sync_monitor_storage_info(undefined, {
             auth_token: auth_server.make_auth_token({
                 system_id: tiering.system._id,
                 role: 'admin'
             })
         });
-        dbg.log0('ZZZZ refresh_tiering_alloc -> sync_monitor_storage_info took', Date.now() - timestamp);
     }
     return P.join(
         P.map(pools, pool => refresh_pool_alloc(pool, force)),

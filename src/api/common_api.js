@@ -269,6 +269,7 @@ module.exports = {
                 node_type: {
                     $ref: '#/definitions/node_type'
                 },
+                preallocated: { type: 'boolean' },
             }
         },
 

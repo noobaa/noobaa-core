@@ -920,10 +920,12 @@ class ObjectIO {
         return this._read_frags(params, part, data_frags)
             .catch(err => {
                 // verification mode will error if data fragments cannot be decoded
-                if (this._verification_mode) {
-                    throw err;
-                }
-                dbg.warn('READ _read_part: failed to read data frags, trying all frags', err);
+                if (this._verification_mode) throw err;
+                if (data_frags.length === all_frags.length) throw err;
+                dbg.warn('READ _read_part: failed to read data frags, trying all frags',
+                    err.stack || err,
+                    'err.chunks', util.inspect(err.chunks, true, null, true)
+                );
                 return this._read_frags(params, part, all_frags);
             })
             .then(() => {
@@ -938,7 +940,11 @@ class ObjectIO {
                 }
             })
             .catch(err => {
-                dbg.error('READ _read_part: FAILED', err, part);
+                dbg.error('READ _read_part: FAILED',
+                    err.stack || err,
+                    'part', part,
+                    'err.chunks', util.inspect(err.chunks, true, null, true)
+                );
                 throw err;
             });
     }

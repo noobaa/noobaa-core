@@ -341,13 +341,16 @@ function fix_security_issues {
 
 function setup_supervisors {
 	deploy_log "setup_supervisors start"
-    mkdir -p /tmp/supervisor
+    mkdir -p /var/log/supervisor
     mv /usr/bin/supervisord /usr/bin/supervisord_orig
     # Generate default supervisord config
     echo_supervisord_conf > /etc/supervisord.conf
-    sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
-    sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
+    sed -i 's:logfile=.*:logfile=/var/log/supervisor/supervisord.log:' /etc/supervisord.conf
+    sed -i 's:;childlogdir=.*:childlogdir=/var/log/supervisor/:' /etc/supervisord.conf
     sed -i 's:logfile_backups=.*:logfile_backups=5:' /etc/supervisord.conf
+    sed -i 's:file=/tmp/supervisor.sock.*:file=/var/log/supervisor.sock:' /etc/supervisord.conf
+    sed -i 's:pidfile=/tmp/supervisord.pid.*:pidfile=/var/log/supervisord.pid:' /etc/supervisord.conf
+    sed -i 's:serverurl=unix.*:serverurl=unix\:///var/log/supervisor.sock:' /etc/supervisord.conf
 
     # Autostart supervisor
     deploy_log "setup_supervisors autostart"

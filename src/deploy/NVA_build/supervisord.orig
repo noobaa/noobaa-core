@@ -3,7 +3,7 @@
 # chkconfig: 345 15 15
 
 SUPERVISORD="/usr/bin/supervisord_orig"
-PIDFILE="/tmp/supervisord.pid"
+PIDFILE="/var/log/supervisord.pid"
 
 start() {
     if [ ! -x "$SUPERVISORD" ]; then

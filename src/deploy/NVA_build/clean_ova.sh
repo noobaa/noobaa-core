@@ -136,8 +136,8 @@ rm -f /var/log/*.log
 rm -f /var/log/*-* || true
 rm -f /var/log/noobaa*
 rm -f /var/log/nbfedump/*
-rm -f /tmp/supervisor/*
-rm -f /tmp/supervisord.log
+rm -f /var/log/supervisor/*
+rm -f /var/log/supervisord.log
 rm -rf /etc/mongo_ssl/
 rm -f /usr/bin/mongors
 rm -f /etc/noobaa_network

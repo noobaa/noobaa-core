@@ -1080,7 +1080,7 @@ class Agent {
         const dbg = this.dbg;
         dbg.log0('Recieved set debug req ', req.rpc_params.level);
         dbg.set_level(req.rpc_params.level, 'core');
-        if (this.endpoint_info.s3rver_process) {
+        if (this.endpoint_info && this.endpoint_info.s3rver_process) {
             this.endpoint_info.s3rver_process.send({
                 message: 'set_debug',
                 level: req.rpc_params.level

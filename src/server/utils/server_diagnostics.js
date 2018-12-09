@@ -265,7 +265,7 @@ function collect_supervisor_logs() {
             if (process.platform === 'linux') {
                 // compress supervisor logs to the destination directory with compression level 1 (fastest).
                 // it appears to be faster than copying and then compressing
-                return promise_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /tmp/supervisor/* ', {
+                return promise_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /var/log/supervisor/* ', {
                         ignore_rc: false,
                         return_stdout: false,
                         timeout: LONG_EXEC_TIMEOUT

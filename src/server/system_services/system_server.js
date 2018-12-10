@@ -87,7 +87,7 @@ function _init() {
                 }
             })
             .catch(err => {
-                dbg.log('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
+                dbg.log0('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
                 return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
             })
             .then(() => {
@@ -222,6 +222,7 @@ function new_system_changes(name, owner_account) {
  *
  */
 function create_system(req) {
+    dbg.log0('create_system: got create_system with params:', req.rpc_params);
     if (system_store.data.systems.length > 20) {
         throw new Error('Too many created systems');
     }
@@ -248,13 +249,16 @@ function create_system(req) {
                 system_info: _.omit(req.rpc_params, ['access_keys', 'password']),
                 command: 'perform_activation'
             };
+            dbg.log0('create_system: verifying with license server:', params);
             return _communicate_license_server(params, process.env.PH_PROXY);
         })
         .then(() => {
             // Attempt to resolve DNS name, if supplied
             if (!req.rpc_params.dns_name) {
+                dbg.log0('create_system: dns name not supplied');
                 return;
             }
+            dbg.log0(`create_system: supplied dns name is ${req.rpc_params.dns_name}. try to resolve name`);
             return attempt_server_resolve(_.defaults({
                     rpc_params: {
                         server_name: req.rpc_params.dns_name,
@@ -263,9 +267,11 @@ function create_system(req) {
                 }, req))
                 .then(result => {
                     if (!result.valid) {
+                        dbg.error(`create_system: could not resolve ${req.rpc_params.dns_name}`);
                         throw new Error('Could not resolve ' + req.rpc_params.dns_name +
                             ' Reason ' + result.reason);
                     }
+                    dbg.log0(`create_system: dns name ${req.rpc_params.dns_name} resolved successfuly`);
                 });
         })
         .then(() => P.join(
@@ -277,7 +283,7 @@ function create_system(req) {
         .spread((cluster_info, ntp_server, time_config, dns_config) => {
             if (cluster_info) {
                 if (ntp_server) {
-                    dbg.log0(`ntp server was already configured in first install to ${ntp_server}`);
+                    dbg.log0(`create_system: ntp server was already configured in first install to ${ntp_server}`);
                     ntp_configured = true;
                     cluster_info.ntp = {
                         timezone: time_config.timezone,
@@ -285,7 +291,7 @@ function create_system(req) {
                     };
                 }
                 if (dns_config.dns_servers.length) {
-                    dbg.log0(`DNS servers were already configured in first install to`, dns_config.dns_servers);
+                    dbg.log0(`create_system: DNS servers were already configured in first install to`, dns_config.dns_servers);
                     cluster_info.dns_servers = dns_config.dns_servers;
                 }
                 changes.insert.clusters = [cluster_info];
@@ -300,6 +306,7 @@ function create_system(req) {
             return system_store.make_changes(changes);
         })
         .then(async () => {
+            dbg.log0(`create_system: creating account for ${req.rpc_params.name}, ${req.rpc_params.email}`);
             const response = await server_rpc.client.account.create_account({
                 //Create the owner account
                 name: req.rpc_params.name,
@@ -316,25 +323,31 @@ function create_system(req) {
             });
             reply_token = response.token;
 
+            dbg.log0('create_system: ensuring spillover structure');
             await _ensure_spillover_structure(system_id, default_bucket);
+
 
             //Time config, if supplied
             if (req.rpc_params.time_config &&
-                ntp_configured &&
-                req.rpc_params.time_config.ntp_server) {
+                (!ntp_configured || req.rpc_params.time_config.ntp_server)
+            ) {
                 let time_config = req.rpc_params.time_config;
                 time_config.target_secret = owner_secret;
                 try {
+                    dbg.log0('create_system: updating time config with:', time_config);
                     await server_rpc.client.cluster_server.update_time_config(time_config, {
                         auth_token: reply_token
                     });
                 } catch (err) {
-                    dbg.error('Failed updating time config during create system', err);
+                    dbg.error('create_system: Failed updating time config during create system', err);
                 }
+            } else {
+                dbg.log0(`create_system: skipping time configuration. ntp_configured=${ntp_configured}, time_config=`, req.rpc_params.time_config);
             }
 
             //DNS servers, if supplied
             if (!_.isEmpty(req.rpc_params.dns_servers)) {
+                dbg.log0(`create_system: updating dns servers:`, req.rpc_params.dns_servers);
                 try {
                     await server_rpc.client.cluster_server.update_dns_servers({
                         target_secret: owner_secret,
@@ -343,12 +356,13 @@ function create_system(req) {
                         auth_token: reply_token
                     });
                 } catch (err) {
-                    dbg.error('Failed updating dns server during create system', err);
+                    dbg.error('create_system: Failed updating dns server during create system', err);
                 }
             }
 
             //DNS name, if supplied
             if (req.rpc_params.dns_name) {
+                dbg.log0(`create_system: updating host name to ${req.rpc_params.dns_name}`);
                 try {
                     await server_rpc.client.system.update_hostname({
                         hostname: req.rpc_params.dns_name
@@ -356,33 +370,38 @@ function create_system(req) {
                         auth_token: reply_token
                     });
                 } catch (err) {
-                    dbg.error('Failed updating hostname during create system', err);
+                    dbg.error('create_system: Failed updating hostname during create system', err);
                 }
             }
 
             if (process.env.PH_PROXY) {
                 try {
+                    dbg.log0(`create_system: updating proxy address to ${process.env.PH_PROXY}`);
                     await server_rpc.client.system.update_phone_home_config({
                         proxy_address: process.env.PH_PROXY
                     }, {
                         auth_token: reply_token
                     });
                 } catch (err) {
-                    dbg.error('Failed updating phone home config during create system', err);
+                    dbg.error('create_system: Failed updating phone home config during create system', err);
                 }
             }
         })
         .then(() => _init_system(system_id))
         .then(() => {
-            dbg.log0(`sending first stats to phone home`);
+            dbg.log0(`create_system: sending first stats to phone home`);
             return server_rpc.client.stats.send_stats(null, {
                 auth_token: reply_token
             });
         })
-        .then(() => ({
-            token: reply_token
-        }))
+        .then(() => {
+            dbg.log0('create_system: system created Successfully!');
+            return {
+                token: reply_token
+            };
+        })
         .catch(err => {
+            dbg.error('create_system: got error during create_system', err);
             throw err;
         });
 }
@@ -1184,7 +1203,7 @@ function attempt_server_resolve(req) {
     return P.promisify(dns.resolve)(req.rpc_params.server_name)
         .timeout(30000)
         .then(() => {
-            dbg.log('resolution passed, testing ping');
+            dbg.log0('resolution passed, testing ping');
             if (req.rpc_params.ping) {
                 return net_utils.ping(req.rpc_params.server_name)
                     .catch(err => {
@@ -1197,7 +1216,7 @@ function attempt_server_resolve(req) {
             }
         })
         .then(() => {
-            dbg.log('resolution passed, testing version');
+            dbg.log0('resolution passed, testing version');
             if (req.rpc_params.version_check && !result) {
                 let options = {
                     url: `http://${req.rpc_params.server_name}:${process.env.PORT}/version`,
@@ -1296,6 +1315,7 @@ function log_client_console(req) {
 }
 
 function _init_system(sysid) {
+    dbg.log0('init system - calling init_cluster and collecting first system stats');
     return cluster_server.init_cluster()
         .then(() => stats_collector.collect_system_stats())
         .then(() => Dispatcher.instance().alert(

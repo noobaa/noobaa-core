@@ -35,11 +35,11 @@ Requires:   expect = 5.45
 Requires:   iperf3 = 3.1.7
 Requires:   iptables-services = 1.4.21
 Requires:   python-setuptools = 0.9.8
-Requires:   screen = 4.1.0
 Requires:   curl = 7.29.0
 Requires:   ntp = 4.2.6p5
 Requires:   nc
 Requires:   vim
+Requires:   less
 Requires:   mongodb-org = 3.6.5
 Requires:   mongodb-org-server = 3.6.5
 Requires:   mongodb-org-shell = 3.6.5

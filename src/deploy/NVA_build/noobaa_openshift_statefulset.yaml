@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: noobaa-mng-service
+  labels:
+    app: noobaa
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: mng
+  selector:
+    app: noobaa
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noobaa-s3-service
+  labels:
+    app: noobaa
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    name: s3
+  - port: 443
+    targetPort: 443
+    name: s3-https
+  selector:
+    app: noobaa
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: noobaa
+spec:
+  serviceName: noobaa-mng-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: noobaa
+    spec:
+      containers:
+      - name: noobaa
+        securityContext: 
+          capabilities: {}
+          privileged: true
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+        # change image location before running
+        # image: [image registry]/[image]
+        image: 172.20.80.59:5000/nbimage
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        - containerPort: 8080
+        - containerPort: 8443
+        - containerPort: 8444
+        - containerPort: 60100
+        - containerPort: 60101
+        - containerPort: 60102
+        - containerPort: 60103
+        - containerPort: 60104
+        - containerPort: 60105
+        volumeMounts:
+        - mountPath: /sys/fs/cgroup
+          name: cgroup-volume
+          readOnly: true
+        - mountPath: /run
+          name: run-volume
+        - mountPath: /run/lock
+          name: run-lock-volume
+        - mountPath: /var/lib/mongo
+          name: datadir
+      volumes:
+      - name: cgroup-volume
+        hostPath:
+          # directory location on host
+          path: /sys/fs/cgroup
+          # this field is optional
+          type: Directory
+      - name: run-volume
+        emptyDir: { medium: "Memory"}
+      - name: run-lock-volume
+        emptyDir: { medium: "Memory"}
+  volumeClaimTemplates:
+  # this will provision a dynamic persistent volume (volume is automatically provisioned by a provisioner)
+  # in minikube it is provisioned as hostPath volume under hosts /tmp which is not persistent between 
+  # minkube restarts. if we want it to be persistent between restarts we need to statically provision a 
+  # volume according to this https://kubernetes.io/docs/setup/minikube/#persistent-volumes
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi

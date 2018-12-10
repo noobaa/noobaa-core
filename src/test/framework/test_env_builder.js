@@ -8,8 +8,11 @@ const fs = require('fs');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
 const agent_functions = require('../utils/agent_functions');
+const server_functions = require('../utils/server_functions');
 const AzureFunctions = require('../../deploy/azureFunctions');
 const sanity_build_test = require('../system_tests/sanity_build_test');
+const ssh = require('../utils/ssh_functions');
+
 
 const version_map = 'src/deploy/version_map.json';
 
@@ -37,6 +40,7 @@ const {
     server_secret,
     js_script,
     shell_script,
+    container,
     skip_agent_creation = false,
     skip_server_creation = false,
     skip_configuration = false,
@@ -152,7 +156,7 @@ async function prepare_server() {
         storage,
         vmSize,
         latestRelease: true,
-        createSystem: true,
+        createSystem: true
     };
     if (random_base_version) {
         createServerParams.imagename = await get_random_base_version();
@@ -166,6 +170,11 @@ async function prepare_server() {
             server.ip = await azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
         }
         console.log(`server_info is`, server);
+
+        // for docker\podman we need to copy the upgrade package and build docker image from it
+        if (container) {
+            await prepare_container_env();
+        }
     } catch (err) {
         console.error(`prepare_server failed. server name: ${server.name}`, err);
         throw err;
@@ -173,6 +182,24 @@ async function prepare_server() {
 }
 
 
+
+async function prepare_container_env() {
+    console.log(`creating ssh connection to ${server.ip} with secret ${server.secret}`);
+    const ssh_client = await ssh.ssh_connect({
+        host: server.ip,
+        username: 'noobaaroot',
+        password: server.secret,
+        keepaliveInterval: 5000,
+    });
+    await server_functions.enable_nooba_login(server.ip, server.secret);
+    // copy package to remote server
+    console.log(`uploading package ${upgrade} to server ${server.ip}`);
+    await promise_utils.exec(`scp -o "StrictHostKeyChecking no" ${upgrade} noobaaroot@${server.ip}:/tmp/noobaa-NVA.tar.gz`);
+    ssh.ssh_exec(ssh_client, `sudo supervisorctl stop all`);
+    ssh.ssh_exec(ssh_client, `sudo tar -xzf /tmp/noobaa-NVA.tar.gz -C /root/node_modules/`);
+    ssh.ssh_exec(ssh_client, `sudo cp /tmp/noobaa-NVA.tar.gz /root/node_modules/noobaa-core/`);
+    ssh.ssh_exec(ssh_client, `sudo /root/node_modules/noobaa-core/src/test/framework/prepare_podman_env.sh`);
+}
 
 async function prepare_agents() {
     if (skip_agent_creation) {

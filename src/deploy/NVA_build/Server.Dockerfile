@@ -2,42 +2,15 @@ FROM centos:7
 
 MAINTAINER Jenia The Sloth <jeniawhite92@gmail.com>
 
-#################
-# INSTALLATIONS #
-#################
-
-RUN yum -y update
-RUN yum -y install centos-release-scl
-RUN yum -y install openssl
-RUN yum -y install devtoolset-7
-
-RUN yum -y remove epel-release
-RUN yum -y --enablerepo=extras install epel-release
-
 ##############
 # BASH SETUP #
 ##############
-
-SHELL [ "/bin/bash", "-c" ]
-ENV BASH_ENV '/etc/profile'
 RUN echo '. /etc/profile' >> ~/.bashrc
 
-################
-# NOOBAA SETUP #
-################
-
-RUN mkdir -p /root/node_modules/noobaa-core
-RUN mkdir -p /tmp
-
-COPY ./noobaa-NVA.tar.gz /tmp/noobaa-NVA.tar.gz
-# TOOD: Should be the local deploy_base.sh
-COPY ./src/deploy/NVA_build/deploy_base.sh /tmp/deploy_base.sh
-ENV container docker
 
 #################
 # SYSTEMD SETUP #
 #################
-
 RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done); \
     rm -f /lib/systemd/system/multi-user.target.wants/*;\
     rm -f /etc/systemd/system/*.wants/*;\
@@ -49,10 +22,19 @@ RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == system
 
 VOLUME ["/sys/fs/cgroup"]
 
+
+################
+# NOOBAA SETUP #
+################
+ENV container docker
+COPY ./noobaa.rpm /tmp/noobaa.rpm
+COPY ./install_noobaa.sh /tmp/install_noobaa.sh
+RUN chmod +x /tmp/install_noobaa.sh
+RUN /bin/bash -xc "/tmp/install_noobaa.sh"
+
 ###############
 # PORTS SETUP #
 ###############
-
 EXPOSE 60100-60600
 EXPOSE 80
 EXPOSE 443
@@ -65,6 +47,4 @@ EXPOSE 26050
 ###############
 # EXEC SETUP #
 ###############
-
-RUN chmod +x /tmp/deploy_base.sh
 CMD ["/usr/sbin/init"]

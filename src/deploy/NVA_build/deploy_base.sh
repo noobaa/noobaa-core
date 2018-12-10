@@ -30,8 +30,14 @@ function clean_ifcfg() {
         sudo rm -f /etc/sysconfig/network-scripts/ifcfg-${interface}
     done
     sudo echo -n > /etc/sysconfig/network
-    sudo echo "HOSTNAME=noobaa" > /etc/sysconfig/network
-    sudo echo "DNS1=127.0.0.1" >> /etc/sysconfig/network
+    if [ "${container}" != "docker" ]; then
+        interfaces=$(ifconfig | grep ^eth | awk '{print $1}')
+        for int in ${interfaces//:/}; do
+            sudo rm -f /etc/sysconfig/network-scripts/ifcfg-${int}
+        done
+        sudo echo "HOSTNAME=noobaa" > /etc/sysconfig/network
+        sudo echo "DNS1=127.0.0.1" >> /etc/sysconfig/network
+    fi
 }
 
 function install_platform {
@@ -41,25 +47,24 @@ function install_platform {
     if [ "${container}" != "docker" ]; then
         systemctl disable firewalld
         systemctl disable NetworkManager
+        systemctl enable iptables
     fi 
-    systemctl enable iptables
 
     # make network service run on boot
     systemctl enable network
     # enable random number generator daemon
     # see https://www.certdepot.net/rhel7-get-started-random-number-generator/
     systemctl enable rngd
-    systemctl start rngd
-
-    # Docker does not run this after yum install
-    systemctl enable named
-    systemctl start named
 
 	# make crontab start on boot
 	chkconfig crond on
-	systemctl start crond
+
 
     if [ "${container}" != "docker" ]; then
+        #start services
+        systemctl start rngd
+	    systemctl start crond
+
         # disable grub menu selection
         sed -i 's:GRUB_HIDDEN_TIMEOUT_QUIET.*::' /etc/default/grub
         sed -i 's:GRUB_HIDDEN_TIMEOUT.*::' /etc/default/grub
@@ -202,7 +207,7 @@ function install_noobaa_repos {
     mkdir -p /root/node_modules
     mv /tmp/noobaa-NVA.tar.gz /root/node_modules
     cd /root/node_modules
-    tar -xzvf ./noobaa-NVA.tar.gz
+    tar -xzf ./noobaa-NVA.tar.gz
     cd ~
 
 	# Setup Repos
@@ -223,11 +228,13 @@ function install_mongo {
     # pin mongo version in yum, so it won't auto update
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
     rm -f /etc/init.d/mongod
-    systemctl stop mongod
     systemctl disable mongod
 
-    deploy_log "adding mongo ssl user"
-    add_mongo_ssl_user
+    if [ "${container}" != "docker" ]; then
+        systemctl stop mongod
+        deploy_log "adding mongo ssl user"
+        add_mongo_ssl_user
+    fi
 
     deploy_log "install_mongo done"
 }
@@ -296,7 +303,9 @@ function fix_security_issues {
         sed -i -e 's/#X11Forwarding no/X11Forwarding no/g' /etc/ssh/sshd_config
         #CVE-2010-5107
         sed -i -e 's/#MaxStartups/MaxStartups/g' /etc/ssh/sshd_config
-        /bin/systemctl restart sshd.service
+        if [ "${container}" != "docker" ]; then
+            /bin/systemctl restart sshd.service
+        fi
      fi
 
     #export http_proxy
@@ -365,9 +374,11 @@ function setup_supervisors {
     echo "[include]" >> /etc/supervisord.conf
     echo "files = /etc/noobaa_supervisor.conf" >> /etc/supervisord.conf
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc
-    ${SUPERD} start
-    ${SUPERCTL} reread
-    ${SUPERCTL} update
+    if [ "${container}" != "docker" ]; then
+        ${SUPERD} start
+        ${SUPERCTL} reread
+        ${SUPERCTL} update
+    fi
 
     deploy_log "setup_supervisors done"
 }
@@ -386,10 +397,12 @@ function setup_syslog {
 }
 
 function setup_named {
-    #Configure 127.0.0.1 as the dns server - we will use named as a dns cache server
-    echo "prepend domain-name-servers 127.0.0.1 ;" > /etc/dhclient.conf
-    echo "#NooBaa Configured Search" >> /etc/dhclient.conf
-    echo "nameserver 127.0.0.1" > /etc/resolv.conf
+    if [ "${container}" != "docker" ]; then
+        #Configure 127.0.0.1 as the dns server - we will use named as a dns cache server
+        echo "prepend domain-name-servers 127.0.0.1 ;" > /etc/dhclient.conf
+        echo "#NooBaa Configured Search" >> /etc/dhclient.conf
+        echo "nameserver 127.0.0.1" > /etc/resolv.conf
+    fi
 
     #restore /etc/noobaa_configured_dns.conf
     echo "forwarders { 8.8.8.8; 8.8.4.4; };" > /etc/noobaa_configured_dns.conf
@@ -437,7 +450,7 @@ function runinstall {
     setup_named
     #Make sure the OVA is created with no DHCP or previous IP configuration
     clean_ifcfg
-	deploy_log "runinstall done"
+    deploy_log "runinstall done"
 }
 
 if [ "$1" == "runinstall" ]; then

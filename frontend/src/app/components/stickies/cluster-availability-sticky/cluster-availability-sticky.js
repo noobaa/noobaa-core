@@ -1,36 +1,36 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './cluster-availability-sticky.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { state$ } from 'state';
-import { get } from 'rx-extensions';
 
-class ClusterAvailabilityStickyViewModel extends Observer {
+class ClusterAvailabilityStickyViewModel extends ConnectableViewModel {
     isActive = ko.observable();
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(get('topology', 'servers')),
-            this.onState
-        );
+    selectState(state) {
+        const { topology = {} } = state;
+        return [
+            topology.servers
+        ];
     }
 
-    onState(servers) {
+    mapStateToProps(servers) {
         if (!servers) {
-            this.isActive(false);
-            return;
+            ko.assignToProps(this, {
+                isActive: false
+            });
+
+        } else {
+            const serverList = Object.values(servers);
+            const connected = serverList
+                .filter(server => server.mode === 'CONNECTED')
+                .length;
+            const isActive = connected < Math.floor(serverList.length / 2) + 1;
+
+            ko.assignToProps(this, {
+                isActive
+            });
         }
-
-        const serverList = Object.values(servers);
-        const connected = serverList
-            .filter(server => server.mode === 'CONNECTED')
-            .length;
-        const isActive = connected < Math.floor(serverList.length / 2) + 1;
-
-        this.isActive(isActive);
     }
 }
 

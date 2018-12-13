@@ -32,6 +32,7 @@ import bucketUsageHistory from './bucket-usage-history';
 import accountUsageHistory from './account-usage-history';
 import objectsDistribution from './account-usage-history';
 import cloudUsageStats from './cloud-usage-stats';
+import platform from './platform';
 import state from './state.js';
 
 const schemas = {
@@ -65,6 +66,7 @@ const schemas = {
     accountUsageHistory,
     objectsDistribution,
     cloudUsageStats,
+    platform,
     state
 };
 

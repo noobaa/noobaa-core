@@ -81,6 +81,7 @@ import fetchBucketUsageHistory from './fetch-bucket-usage-history';
 import fetchAccountUsageHistory from './fetch-account-usage-history';
 import fetchObjectsDistribution from './fetch-objects-distribution';
 import fetchCloudUsageStats from './fetch-cloud-usage-stats';
+import updateP2PSettings from './update-p2p-settings';
 
 const generalEpics = [
     handleLocationRequests,
@@ -111,7 +112,8 @@ const systemRelatedEpics = [
     updateRemoteSyslog,
     enterMaintenanceMode,
     leaveMaintenanceMode,
-    installVMTools
+    installVMTools,
+    updateP2PSettings
 ];
 
 const topologyRelatedEpics = [

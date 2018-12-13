@@ -460,7 +460,7 @@ async function remote_syslog(protocol, secret) {
         await check_syslog_status(protocol);
         await report.success(`${protocol}_Remote_Syslog`);
     } catch (e) {
-        //failures_in_test = true;  //TODO: fix the fail and remove the remark 
+        //failures_in_test = true;  //TODO: fix the fail and remove the remark
         await report.fail(`${protocol}_Remote_Syslog`);
     }
 }
@@ -508,9 +508,9 @@ async function set_maintenance_mode_and_check() {
 
 async function update_n2n_config_and_check_single_port(port) {
     await client.system.update_n2n_config({
-        tcp_active: true,
-        tcp_permanent_passive: {
-            port
+        config: {
+            tcp_active: true,
+            tcp_permanent_passive: { port }
         }
     });
     let system_info = await client.system.read_system({});
@@ -528,10 +528,9 @@ async function update_n2n_config_and_check_single_port(port) {
 
 async function update_n2n_config_and_check_range(max, min) {
     await client.system.update_n2n_config({
-        tcp_active: true,
-        tcp_permanent_passive: {
-            max,
-            min
+        config: {
+            tcp_active: true,
+            tcp_permanent_passive: { max, min }
         }
     });
     const system_info = await client.system.read_system({});

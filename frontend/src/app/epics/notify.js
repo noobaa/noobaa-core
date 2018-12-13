@@ -496,6 +496,16 @@ const actionToNotification = deepFreeze({
     [types.FAIL_INSTALL_VM_TOOLS]: () => ({
         message: 'VMWare tools installation has failed',
         severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_P2P_SETTINGS]: () => ({
+        message: 'Peer to peer settings updated successfully',
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_P2P_SETTINGS]: () => ({
+        message: 'Peer to peer settings update failed',
+        severity: 'error'
     })
 });
 

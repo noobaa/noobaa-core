@@ -1,52 +1,70 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './maintenance-sticky.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
-import { get } from 'rx-extensions';
-import { action$, state$ } from 'state';
 import { timeTickInterval } from 'config';
 import { leaveMaintenanceMode, refreshLocation } from 'action-creators';
 
-class MaintenanceModeStickyViewModel extends Observer {
+class MaintenanceModeStickyViewModel extends ConnectableViewModel {
     isActive = ko.observable();
     timeLeft = ko.observable();
-    timeLeftText = ko.observable();
+    formattedTimeLeft = ko.observable();
 
-    constructor() {
-        super();
+    constructor(params, inject) {
+        super(params, inject);
 
-        this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
-
-        this.observe(
-            state$.pipe(get('system', 'maintenanceMode')),
-            this.onState
+        this.ticker = setInterval(
+            () => this.onTick(),
+            timeTickInterval
         );
     }
 
-    onState(maintenanceMode) {
-        if (!maintenanceMode) return;
+    selectState(state) {
+        return [
+            state.system && state.system.maintenanceMode
+        ];
+    }
 
-        const timeLeft = Math.max(maintenanceMode.till - Date.now(), 0);
+    mapStateToProps(maintenanceMode) {
+        if (!maintenanceMode) {
+            ko.assignToProps(this, {
+                isActive: false
+            });
 
-        this.isActive(Boolean(timeLeft));
-        this.timeLeft(timeLeft);
+        } else {
+            const timeLeft = Math.max(maintenanceMode.till - Date.now(), 0);
+            const formattedTimeLeft = formatTimeLeftForMaintenanceMode(timeLeft);
+
+            ko.assignToProps(this, {
+                isActive: Boolean(timeLeft),
+                timeLeft,
+                formattedTimeLeft
+            });
+        }
     }
 
     onTurnMaintenanceOff() {
-        action$.next(leaveMaintenanceMode());
+        this.dispatch(leaveMaintenanceMode());
     }
 
     onTick() {
-        if (!this.timeLeft()) return;
+        if (!this.timeLeft()) {
+            return;
+        }
 
         const timeLeft = Math.max(this.timeLeft() - timeTickInterval, 0);
-        const timeLeftText = timeLeft > 0 ? formatTimeLeftForMaintenanceMode(timeLeft) : '';
+        const formattedTimeLeft = formatTimeLeftForMaintenanceMode(timeLeft);
 
-        this.timeLeft(timeLeft);
-        this.timeLeftText(timeLeftText);
-        timeLeft === 0 && action$.next(refreshLocation());
+        if (timeLeft === 0) {
+            this.dispatch(refreshLocation());
+        }
+
+        ko.assignToProps(this, {
+            timeLeft,
+            formattedTimeLeft
+        });
     }
 
     dispose() {

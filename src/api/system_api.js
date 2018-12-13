@@ -278,7 +278,13 @@ module.exports = {
         update_n2n_config: {
             method: 'POST',
             params: {
-                $ref: 'common_api#/definitions/n2n_config'
+                type: 'object',
+                required: ['config'],
+                properties: {
+                    config: {
+                        $ref: 'common_api#/definitions/n2n_config'
+                    }
+                }
             },
             auth: {
                 system: 'admin',

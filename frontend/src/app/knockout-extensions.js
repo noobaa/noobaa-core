@@ -281,7 +281,6 @@ ko.subscribable.fn.in = function(values) {
 
 ko.subscribable.fn.oneOf = function(...values) {
     return ko.pureComputed(() => values.includes(this()));
-
 };
 
 ko.subscribable.fn.when = function(condition = Boolean) {

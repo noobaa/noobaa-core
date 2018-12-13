@@ -9,14 +9,17 @@
                 Maintenance
             </h2>
             <section class="row" ko.visible="!isExpanded()">
-                <p class="push-next">
+                <p>
                     Maintenance Mode:
                     <span ko.text="stateText"></span>
                 </p>
-                <p ko.visible="timeLeft">
+                <!-- ko if: hasTimeLeft -->
+                <vr class="push-both"></vr>
+                <p>
                     Time left for maintenance:
-                    <span class="text-tech" ko.text="timeLeftText"></span>
+                    <span class="text-tech">{{formattedTime}}</span>
                 </p>
+                <!-- /ko -->
             </section>
             <p ko.visible="isExpanded">
                 Automatically, NooBaa is running data rebuild operations (moving data between different nodes).

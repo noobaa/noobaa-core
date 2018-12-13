@@ -1,99 +1,124 @@
 <!-- Copyright (C) 2016 NooBaa -->
-
-<collapsible-section params="
-    title: 'Peer to Peer Settings',
-    collapsed: isCollapsed
-">
-    <section data-name="collapsed">
-        <span data-bind="text: summaryLabel"></span>
-        <span class="text-tech" data-bind="text: summaryValue"></span>
-    </section>
-
-    <section class="column" data-name="expanded">
-        <p>
-            Transport layer protocols, such as the Transmission Control Protocol (TCP) and User Datagram Protocol (UDP), specify a source and destination port number in their segment headers.
-        </p>
-
-        <div>
-            <editor params="label: 'Configuration Type'">
-                <radio-group params="options: portOptions, selected: portType"></radio-group>
-            </editor>
-
-            <!-- ko if: portType() === 'single' -->
-            <editor params="label: 'Port Number'">
-                <input type="number" min="0" data-bind="textInput: rangeMin"/>
-            </editor>
-            <!-- /ko -->
-
-            <!-- ko if: portType() === 'range' -->
-            <editor params="
-                label: 'Port Range',
-                insertValMessages: false
-            ">
-                <div class="row content-middle">
-                    <input class="field" type="number" min="1" data-bind="
-                        textInput: rangeMin
-                    "/>
-                    <span class="push-both"> - </span>
-                    <input class="field" type="number" data-bind="
-                        textInput: rangeMax,
-                        attr: { min: rangeMin }
-                    "/>
-                </div>
-
-                <span class="val-msg" data-bind="validationMessage: rangeMin">
-                </span>
-                <span class="val-msg" data-bind="validationMessage: rangeMax">
-                </span>
-            </editor>
-            <!-- /ko -->
+<section>
+    <div class="row content-middle cursor-pointer"
+         ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">
+                Peer to Peer Settings
+                <dirty-mark ko.visible="isDirtyMarkerVisible"></dirty-mark>
+            </h2>
+            <p ko.visible="!isExpanded()">
+                {{summary.label}}:
+                <span class="text-tech">{{summary.value}}</span>
+            </p>
+            <p ko.visible="isExpanded">
+                Transport layer protocols, such as the Transmission Control Protocol (TCP) and User Datagram Protocol (UDP),
+                specify a source and destination port number in their segment headers.
+            </p>
         </div>
-
-        <p class="push-both">
-            In order the guarantee node to node communication add the following exception to your Firewall/NAT:
-        </p>
-
-        <div class="alt-bg pad config push-next align-start">
-            <span>
-                <span class="highlight">Source:</span>
-                <output class="text-tech">any</output>
-            </span>
-
-            <span>
-                <span class="highlight">Destination:</span>
-                <output class="text-tech">any</output>
-            </span>
-
-            <span>
-                <span class="highlight">Protocol:</span>
-                <output class="text-tech">TCP</output>
-            </span>
-
-            <span>
-                <span class="highlight">Ports:</span>
-                <output class="text-tech" data-bind="value: summaryValue"></output>
-            </span>
-
-            <span>
-                <span class="highlight">Description:</span>
-                <output class="text-tech">NooBaa</output>
-            </span>
-        </div>
-
-        <div class="push-both remark">
-            <span> Please note </span>
-            <ul class="bullet-list">
-                <li>TCP ports should be manually opened in firewalls/NATs in order to be reachable</li>
-                <li>Connections are secured using SSL</li>
-                <li>In any case if TCP will not be reachable, UDP will be used as fallback, which is capable of bypassing firewalls/NATs, assuming UDP is allowed in your network</li>
-            </ul>
-        </div>
-
-        <button class="btn align-start push-prev" data-bind="
-            click: update,
-            shakeOnClick: errors().length,
+        <svg-icon class="icon-small rotate push-next-half"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded">
+        <managed-form params="
+            name: formName,
+            fields: fields,
+            onValidate: onValidate,
+            onSubmit: onSubmit
         ">
-            Update
-        </button>
-    </section>
-</collapsible-section>
+            <editor params="label: 'Configuration Type'">
+                <radio-group params="
+                    options: portOptions,
+                    selected: $form.rangeType,
+                    disabled: configDisabled
+                "></radio-group>
+            </editor>
+
+            <!-- ko if: $form.rangeType.eq('SINGLE') -->
+            <editor params="label: 'Port Number'">
+                <input type="number"
+                    min="1"
+                    ko.value="$form.rangeStart"
+                    ko.validationCss="$form.rangeStart",
+                    ko.disable="configDisabled"
+                />
+                <validation-message params="field: $form.rangeStart"></validation-message>
+            </editor>
+            <!-- /ko -->
+            <!-- ko if: $form.rangeType.eq('RANGE') -->
+            <editor params="label: 'Port Range'">
+                <div class="row content-middle">
+                    <input type="number"
+                        min="1"
+                        ko.value="$form.rangeStart"
+                        ko.validationCss="$form.rangeStart"
+                        ko.disable="configDisabled"
+                    />
+                    <span class="push-both"> - </span>
+                    <input type="number"
+                        ko.value="$form.rangeEnd"
+                        ko.attr.min="minRangeEnd"
+                        ko.validationCss="$form.rangeEnd"
+                        ko.disable="configDisabled"
+                    />
+                </div>
+                <validation-message params="field: $form.rangeStart"></validation-message>
+                <validation-message
+                    ko.visible="$form.rangeStart.isValid()"
+                    params="field: $form.rangeEnd"
+                ></validation-message>
+            </editor>
+            <!-- /ko -->
+
+            <p class="push-both">
+                In order the guarantee node to node communication add the following exception to your Firewall/NAT:
+            </p>
+
+            <div class="alt-bg pad config push-next align-start">
+                <span>
+                    <span class="highlight">Source:</span>
+                    <output class="text-tech">any</output>
+                </span>
+                <span>
+                    <span class="highlight">Destination:</span>
+                    <output class="text-tech">any</output>
+                </span>
+                <span>
+                    <span class="highlight">Protocol:</span>
+                    <output class="text-tech">TCP</output>
+                </span>
+                <span>
+                    <span class="highlight">Ports:</span>
+                    <output class="text-tech" ko.value="summary.value"></output>
+                </span>
+                <span>
+                    <span class="highlight">Description:</span>
+                    <output class="text-tech">NooBaa</output>
+                </span>
+            </div>
+
+            <div class="push-both remark">
+                <span> Please note </span>
+                <ul class="bullet-list">
+                    <li>TCP ports should be manually opened in firewalls/NATs in order to be reachable</li>
+                    <li>Connections are secured using SSL</li>
+                    <li>In any case if TCP will not be reachable, UDP will be used as fallback, which is capable of bypassing firewalls/NATs, assuming UDP is allowed in your network</li>
+                </ul>
+            </div>
+
+            <div class="align-start push-prev"
+                ko.tooltip="updateButtonTooltip"
+            >
+                <button class="btn"
+                    ko.disable="configDisabled"
+                    ko.shakeOnClick="!$form.isValid()"
+                ">
+                    Update
+                </button>
+            </div>
+        </managed-form>
+    </div>
+</section>

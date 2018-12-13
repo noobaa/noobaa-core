@@ -1,18 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './server-table.html';
-import Observer from 'observer';
-import ko from 'knockout';
-import ServerRowViewModel from './server-row';
+import ConnectableViewModel from 'components/connectable';
 import { createCompareFunc, deepFreeze, throttle } from 'utils/core-utils';
-import { getServerDisplayName } from 'utils/cluster-utils';
-import { toBytes } from 'utils/size-utils';
+import { toBytes, formatSize } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { summarizeServerIssues, getServerDisplayName, getServerStateIcon } from 'utils/cluster-utils';
 import { inputThrottle } from 'config';
-import { action$, state$ } from 'state';
 import * as routes from 'routes';
-import { getMany } from 'rx-extensions';
 import { openAttachServerModal, requestLocation } from 'action-creators';
+import ko from 'knockout';
+import numeral from 'numeral';
+
+const diskUsageErrorBound = .95;
+const diskUsageWarningBound = .85;
 
 const columns = deepFreeze([
     {
@@ -63,10 +64,8 @@ const columns = deepFreeze([
     }
 ]);
 
-const noNtpTooltip = deepFreeze({
-    align: 'end',
-    text: 'NTP must be configured before attaching a new server'
-});
+const noNtpTooltip = 'NTP must be configured before attaching a new server';
+const notSupportedTooltip = 'Clustering capabilities in container environment will be available in the following versions of NooBaa.';
 
 function _matchFilter(server, filter = '') {
     const { addresses, locationTag } = server;
@@ -75,68 +74,163 @@ function _matchFilter(server, filter = '') {
     );
 }
 
-class ServerTableViewModel extends Observer {
+function _getStatus(server, version, serverMinRequirements) {
+    const issues = Object.values(
+        summarizeServerIssues(server, version, serverMinRequirements)
+    );
+
+    if (server.mode === 'CONNECTED' && issues.length) {
+        return {
+            name: 'problem',
+            css: 'warning',
+            tooltip: {
+                text: issues,
+                align: 'start',
+                breakWords: false
+            }
+        };
+    }
+
+    return getServerStateIcon(server);
+}
+
+function _getDiskUsage(server) {
+    if (server.mode === 'DISCONNECTED') {
+        return '---';
+    } else {
+        const total = toBytes(server.storage.total);
+        const free = toBytes(server.storage.free);
+        const used = total - free;
+        const usedRatio = total ? used / total : 0;
+        const text = numeral(usedRatio).format('0%');
+        const tooltip = `Using ${formatSize(used)} out of ${formatSize(total)}`;
+
+        let css = '';
+        if (usedRatio >= diskUsageWarningBound) {
+            css = usedRatio >= diskUsageErrorBound ? 'error' : 'warning';
+        }
+
+        return { text, tooltip, css };
+    }
+}
+
+function _getMemoryUsage(server) {
+    if (server.mode === 'DISCONNECTED') {
+        return '---';
+    } else {
+        const { total, used } = server.memory;
+        const usedRatio = total ? used / total : total;
+        return {
+            text: numeral(usedRatio).format('%'),
+            tooltip: 'Avg. over the last minute'
+        };
+    }
+}
+
+function _getCpuUsage(server) {
+    if (server.mode === 'DISCONNECTED') {
+        return '---';
+    } else {
+        return {
+            text: numeral(server.cpus.usage).format('%'),
+            tooltip: 'Avg. over the last minute'
+        };
+    }
+}
+
+class ServerRowViewModel {
+    baseRoute = '';
+    state = ko.observable();
+    name = ko.observable();
+    address = ko.observable();
+    diskUsage = ko.observable();
+    memoryUsage = ko.observable();
+    cpuUsage = ko.observable();
+    version = ko.observable();
+    location = ko.observable();
+}
+
+class ServerTableViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
     pathname = '';
     columns = columns;
     canAttachServer = ko.observable();
     attachServerTooltip = ko.observable();
     filter = ko.observable();
     sorting = ko.observable();
-    rows = ko.observableArray();
-    isStateLoaded = ko.observable();
+    rows = ko.observableArray()
+        .ofType(ServerRowViewModel, { table: this });
+
     onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'topology',
-                    'system',
-                    'location'
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { topology, system, location, platform } = state;
+        return [
+            topology,
+            system && system.version,
+            location,
+            platform && platform.featureFlags.serverAttachment
+        ];
     }
 
-    onState([topology, system, location]) {
+    mapStateToProps(topology, systemVersion, location, allowServerAttachment) {
         if (!topology) {
-            this.isStateLoaded(false);
-            return;
-        }
-
-        const { params, query, pathname } = location;
-        const { filter = '', sortBy = 'name' } = query;
-        const order = Number(location.query.order) || 1;
-        const { compareKey } = columns.find(column => column.name === sortBy);
-        const serverList = Object.values(topology.servers);
-        const rowParams = {
-            baseRoute: realizeUri(routes.server, { system: params.system }, {}, true)
-        };
-        const master = serverList.find(server => server.isMaster);
-        const canAttachServer = Boolean(master.ntp);
-        const attachServerTooltip = !canAttachServer ? noNtpTooltip : '';
-
-        const filteredRows = serverList
-            .filter(server => _matchFilter(server, filter));
-
-        const rows = filteredRows
-            .sort(createCompareFunc(compareKey, order))
-            .map((server, i) => {
-                const row = this.rows.get(i) || new ServerRowViewModel(rowParams);
-                row.onState(server, system.version, topology.serverMinRequirements);
-                return row;
+            ko.assignToProps(this, {
+                dataReady: false
             });
 
-        this.pathname = pathname;
-        this.filter(filter);
-        this.sorting({ sortBy, order });
-        this.rows(rows);
-        this.canAttachServer(canAttachServer);
-        this.attachServerTooltip(attachServerTooltip);
-        this.isStateLoaded(true);
+        } else {
+            const { params, query, pathname } = location;
+            const { filter = '', sortBy = 'name' } = query;
+            const order = Number(location.query.order) || 1;
+            const { compareKey } = columns.find(column => column.name === sortBy);
+            const serverList = Object.values(topology.servers);
+            const master = serverList.find(server => server.isMaster);
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                pathname,
+                filter,
+                sorting: { sortBy, order },
+                canAttachServer: allowServerAttachment && Boolean(master.ntp),
+                attachServerTooltip: {
+                    align: 'end',
+                    text: (
+                        (!allowServerAttachment && notSupportedTooltip) ||
+                        (!master.ntp && noNtpTooltip) ||
+                        ''
+                    )
+                },
+                rows: serverList
+                    .filter(server => _matchFilter(server, filter))
+                    .sort(createCompareFunc(compareKey, order))
+                    .map(server => {
+                        const { version, locationTag } = server;
+                        const [ address ] = server.addresses;
+
+                        return {
+                            state: _getStatus(
+                                server,
+                                systemVersion,
+                                topology.serverMinRequirements
+                            ),
+                            name: {
+                                text: `${getServerDisplayName(server)} ${server.isMaster ? '(Master)' : ''}`,
+                                href: realizeUri(
+                                    routes.server,
+                                    { system: params.system, server: getServerDisplayName(server) }
+                                )
+                            },
+                            address: address.ip,
+                            diskUsage: _getDiskUsage(server),
+                            memoryUsage: _getMemoryUsage(server),
+                            cpuUsage: _getCpuUsage(server),
+                            version,
+                            location: locationTag || 'not set'
+                        };
+                    })
+            });
+        }
     }
 
     onFilter(filter) {
@@ -160,13 +254,13 @@ class ServerTableViewModel extends Observer {
             order: order
         };
 
-        action$.next(requestLocation(
+        this.dispatch(requestLocation(
             realizeUri(this.pathname, null, query)
         ));
     }
 
     onAttachServerToCluster() {
-        action$.next(openAttachServerModal());
+        this.dispatch(openAttachServerModal());
     }
 }
 

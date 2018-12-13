@@ -28,37 +28,21 @@
         <section class="tab"
             ko.css.selected="selectedTab.eq('settings')"
         >
-            <server-time-form class="pad"
-                params="isCollapsed: sectionToggle('server-time')"
-            ></server-time-form>
-
+            <server-time-form class="pad"></server-time-form>
             <hr />
-
             <system-address-form class="pad"></system-address-form>
-
             <hr />
-
-            <server-dns-settings-form class="pad" params="
-                isCollapsed: sectionToggle('dns-settings')
-            "></server-dns-settings-form>
-
+            <server-dns-settings-form class="pad"></server-dns-settings-form>
             <hr />
-
-            <phone-home-form class="pad" params="
-                isCollapsed: sectionToggle('phone-home')
-            "></phone-home-form>
-
+            <phone-home-form class="pad"
+                params="isCollapsed: sectionToggle('phone-home')"
+            ></phone-home-form>
             <hr />
-
-            <remote-syslog-form class="pad" params="
-                isCollapsed: sectionToggle('remote-syslog')
-            "></remote-syslog-form>
-
+            <remote-syslog-form class="pad"></remote-syslog-form>
             <hr />
-
-            <server-ssl-form class="pad" params="
-                isCollapsed: sectionToggle('server-ssl')
-            "></server-ssl-form>
+            <server-ssl-form class="pad"
+                params="isCollapsed: sectionToggle('server-ssl')">
+            </server-ssl-form>
         </section>
 
         <diagnostics-form class="tab"
@@ -72,21 +56,11 @@
         <section class="tab"
             ko.css.selected="selectedTab.eq('advanced-options')"
         >
-            <maintenance-form class="pad" params="
-                isCollapsed: sectionToggle('maintenance')
-            "></maintenance-form>
-
+            <maintenance-form class="pad"></maintenance-form>
             <hr />
-
-            <p2p-form class="pad" params="
-                isCollapsed: sectionToggle('p2p')
-            "></p2p-form>
-
+            <p2p-form class="pad"></p2p-form>
             <hr />
-
-            <vm-tools-form class="pad" params="
-                isCollapsed: sectionToggle('vmtools')
-            "></vm-tools-form>
+            <vm-tools-form class="pad"></vm-tools-form>
         </section>
     </div>
 </div>

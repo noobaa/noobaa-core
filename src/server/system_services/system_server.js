@@ -436,7 +436,7 @@ function read_system(req) {
             }) : undefined,
 
         funcs: P.resolve()
-            // using default domain - will serve the list_funcs from web_server so if 
+            // using default domain - will serve the list_funcs from web_server so if
             // endpoint is down it will not fail the read_system
             .then(() => server_rpc.client.func.list_funcs({}, {
                 auth_token: req.auth_token,
@@ -897,26 +897,30 @@ function set_last_stats_report_time(req) {
     }).return();
 }
 
-function update_n2n_config(req) {
-    var n2n_config = req.rpc_params;
-    dbg.log0('update_n2n_config', n2n_config);
-    if (n2n_config.tcp_permanent_passive) {
-        if (n2n_config.tcp_permanent_passive.min >= n2n_config.tcp_permanent_passive.max) {
-            throw new Error('Min port range cant be equal or higher to max');
+async function update_n2n_config(req) {
+    const { rpc_params, system, auth_token } = req;
+    const update = rpc_params.config;
+    dbg.log0('update_n2n_config', update);
+
+    if (update.tcp_permanent_passive) {
+        if (update.tcp_permanent_passive.min >= update.tcp_permanent_passive.max) {
+            throw new Error('Min port range cannot be equal or higher then max');
         }
     }
-    return system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: req.system._id,
-                    n2n_config: n2n_config
-                }]
-            }
-        })
-        .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
-            auth_token: req.auth_token
-        }))
-        .return();
+
+    await system_store.make_changes({
+        update: {
+            systems: [{
+                _id: system._id,
+                n2n_config: {
+                    ...system.n2n_config,
+                    ...update
+                }
+            }]
+        }
+    });
+
+    await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
 }
 
 function update_base_address(req) {

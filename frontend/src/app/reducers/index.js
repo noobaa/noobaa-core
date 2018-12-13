@@ -30,6 +30,7 @@ import bucketUsageHistoryReducer from './bucket-usage-history-reducer';
 import accountUsageHistoryReducer from './account-usage-history-reducer';
 import objectsDistributionReducer from './objects-distribution-reducer';
 import cloudUsageStatsReducer  from './cloud-usage-stats-reducer';
+import platformReducer  from './platform-reducer';
 
 export default combineReducers({
     env: envReducer,
@@ -60,5 +61,6 @@ export default combineReducers({
     bucketUsageHistory: bucketUsageHistoryReducer,
     accountUsageHistory: accountUsageHistoryReducer,
     objectsDistribution: objectsDistributionReducer,
-    cloudUsageStats: cloudUsageStatsReducer
+    cloudUsageStats: cloudUsageStatsReducer,
+    platform: platformReducer
 });

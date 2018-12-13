@@ -1,6 +1,8 @@
-<button class="icon-btn no-outline"
-    ko.click="() => $data.onClick(ko.unwrap($data.id))"
-    ko.tooltip="$data.tooltip"
->
-    <svg-icon params="name: $data.icon"></svg-icon>
-</button>
+<div ko.tooltip="$data.tooltip">
+    <button class="icon-btn no-outline"
+        ko.click="() => $data.onClick(ko.unwrap($data.id))"
+        ko.disable="$data.disabled"
+    >
+        <svg-icon params="name: $data.icon"></svg-icon>
+    </button>
+</div>

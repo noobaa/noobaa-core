@@ -13,19 +13,22 @@ class VMToolsFormViewModel extends ConnectableViewModel {
     canInstall = ko.observable();
     isInstalled = ko.observable();
     stateText = ko.observable();
-    buttonTooltip = ko.observable();
+    buttonTooltip = {
+        align: 'start',
+        text: ko.observable()
+    };
     toggleUri = '';
 
     selectState(state) {
-        const { system = {}, location } = state;
-
+        const { platform = {}, system = {}, location } = state;
         return [
+            (platform.featureFlags || {}).vmToolsInstallation,
             system.vmTools,
             location
         ];
     }
 
-    mapStateToProps(vmToolsState, location) {
+    mapStateToProps(allowVMToolInstallation, vmToolsState, location) {
         if (!vmToolsState) {
             ko.assignToProps(this, {
                 dataReady: false,
@@ -39,22 +42,22 @@ class VMToolsFormViewModel extends ConnectableViewModel {
             ko.assignToProps(this, {
                 dataReady: true,
                 isExpanded: isExpanded,
-                canInstall:
-                    vmToolsState !== 'NOT_SUPPORTED' &&
-                    vmToolsState !== 'INSTALLED',
+                canInstall: allowVMToolInstallation && vmToolsState !== 'INSTALLED',
                 isInstalled: vmToolsState === 'INSTALLED',
                 toggleUri: realizeUri(routes.management, {
                     ...location.params,
                     section: isExpanded ? undefined : 'vmtools'
                 }),
                 stateText:
-                    (vmToolsState === 'NOT_SUPPORTED' && 'Not supported by deployment platform') ||
+                    (!allowVMToolInstallation && 'Not supported on installed platform') ||
                     (vmToolsState === 'NOT_INSTALLED' && 'Not installed') ||
                     (vmToolsState === 'INSTALLING' && 'Installing') ||
                     (vmToolsState === 'INSTALLED' && 'Installed'),
-                buttonTooltip: vmToolsState === 'NOT_SUPPORTED' ?
-                    'This operation is not compatible with the deployment platform' :
-                    ''
+                buttonTooltip: {
+                    text: !allowVMToolInstallation ?
+                        'This operation is only supported on ESX environments' :
+                        ''
+                }
             });
         }
     }

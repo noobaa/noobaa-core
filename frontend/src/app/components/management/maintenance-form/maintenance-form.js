@@ -1,12 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './maintenance-form.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { action$, state$ } from 'state';
-import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import { timeTickInterval } from 'config';
 import {
@@ -17,69 +15,83 @@ import {
 
 const sectionName = 'maintenance';
 
-class MaintenanceFormViewModel extends Observer {
-    timeLeft = ko.observable();
+class MaintenanceFormViewModel extends ConnectableViewModel {
+    dataReady = false;
+    toggleUri = '';
     isExpanded = ko.observable();
     stateText = ko.observable();
-    timeLeftText = ko.observable();
     buttonText = ko.observable();
+    timeLeft = 0;
+    hasTimeLeft = ko.observable();
+    formattedTime = ko.observable();
 
-    constructor() {
-        super();
 
-        this.ticker = setInterval(this.onTick.bind(this), timeTickInterval);
+    constructor(params, inject) {
+        super(params, inject);
 
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['system', 'maintenanceMode'],
-                    'location'
-                )
-            ),
-            this.onState
+        this.ticker = setInterval(
+            () => this.onTick(),
+            timeTickInterval
         );
     }
 
-    onState([maintenanceMode, location]) {
-        if (!maintenanceMode) return;
-
-        const timeLeft = Math.max(maintenanceMode.till - Date.now(), 0);
-        const { system, tab, section } = location.params;
-        const toggleSection = section === sectionName ? undefined : sectionName;
-        const toggleUri = realizeUri(
-            routes.management,
-            { system, tab, section: toggleSection }
-        );
-        const stateText = timeLeft !== 0 ? 'On' : 'Off';
-        const buttonText = `Turn maintenance ${timeLeft ? 'off' : 'on'}`;
-
-        this.timeLeft(timeLeft);
-        this.stateText(stateText);
-        this.buttonText(buttonText);
-        this.isExpanded(section === sectionName);
-        this.toggleUri = toggleUri;
+    selectState(state) {
+        const { system, location } = state;
+        return [
+            system && system.maintenanceMode,
+            location
+        ];
     }
 
-    onToggleSection() {
-        action$.next(requestLocation(this.toggleUri));
-    }
+    mapStateToProps(maintenanceMode, location) {
+        if (!maintenanceMode) {
+            ko.assignToProps(this, {
+                dataReady: false
+            });
 
-    onToggleMaintenance() {
-        if (this.timeLeft()) {
-            action$.next(leaveMaintenanceMode());
         } else {
-            action$.next(openStartMaintenanceModal());
+            const timeLeft = Math.max(maintenanceMode.till - Date.now(), 0);
+            const { system, tab, section } = location.params;
+            const toggleSection = section === sectionName ? undefined : sectionName;
+            const toggleUri = realizeUri(routes.management, { system, tab, section: toggleSection });
+            const stateText = timeLeft !== 0 ? 'On' : 'Off';
+            const buttonText = `Turn maintenance ${timeLeft ? 'off' : 'on'}`;
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                toggleUri,
+                isExpanded: section === sectionName,
+                stateText,
+                buttonText,
+                timeLeft,
+                hasTimeLeft: timeLeft > 0,
+                formattedTime: formatTimeLeftForMaintenanceMode(timeLeft)
+            });
         }
     }
 
+    onToggleSection() {
+        this.dispatch(requestLocation(this.toggleUri));
+    }
+
+    onToggleMaintenance() {
+        const action = this.hasTimeLeft() ?
+            leaveMaintenanceMode() :
+            openStartMaintenanceModal();
+
+        this.dispatch(action);
+    }
+
     onTick() {
-        if (!this.timeLeft()) return;
+        if (!this.dataReady && this.timeLeft <= 0) {
+            return;
+        }
 
-        const timeLeft = Math.max(this.timeLeft() - timeTickInterval, 0);
-        const timeLeftText = timeLeft > 0 ? formatTimeLeftForMaintenanceMode(timeLeft) : '';
-
-        this.timeLeft(timeLeft);
-        this.timeLeftText(timeLeftText);
+        const newTimeLeft = Math.max(this.timeLeft - timeTickInterval, 0);
+        ko.assignToProps(this, {
+            timeLeft: newTimeLeft,
+            formattedTime: formatTimeLeftForMaintenanceMode(newTimeLeft)
+        });
     }
 
     dispose() {

@@ -132,7 +132,7 @@ mocha.describe('system_servers', function() {
                 base_address: 'fcall://fcall'
             }))
             .then(() => rpc_client.system.update_n2n_config({
-                tcp_active: true
+                config: {}
             }))
             //.then(() => rpc_client.system.start_debug({level:0}))
             .then(() => rpc_client.cluster_server.update_time_config({

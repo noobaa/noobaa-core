@@ -1,27 +1,25 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './drawer.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { closeDrawer } from 'action-creators';
 import { runAsync } from 'utils/core-utils';
-import { get } from 'rx-extensions';
 
-class DrawerViewModel extends Observer {
-    constructor() {
-        super();
-        this.component = ko.observable();
-        this.params = { onClose: this.close.bind(this) };
-        this.opened = ko.observable();
+class DrawerViewModel extends ConnectableViewModel {
+    component = ko.observable();
+    params = {
+        onClose: this.close.bind(this)
+    };
+    opened = ko.observable();
 
-        this.observe(
-            state$.pipe(get('drawer')),
-            this.onDrawer
-        );
+    selectState(state) {
+        return [
+            state.drawer
+        ];
     }
 
-    onDrawer(drawer) {
+    mapStateToProps(drawer) {
         if (!this.opened() || drawer) {
             this.component(drawer);
         }
@@ -38,7 +36,7 @@ class DrawerViewModel extends Observer {
     }
 
     close() {
-        action$.next(closeDrawer());
+        this.dispatch(closeDrawer());
     }
 }
 

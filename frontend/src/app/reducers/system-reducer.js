@@ -39,6 +39,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
         releaseNotes,
         vmTools: _mapVMTools(payload),
+        p2pSettings: _mapP2PSettings(payload),
         maintenanceMode: {
             till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
         }
@@ -114,11 +115,7 @@ function _mapRemoteSyslog(config) {
 }
 
 function _mapVMTools(payload) {
-    const { platform_restrictions, cluster } = payload;
-    if (platform_restrictions.includes('vmtools')) {
-        return 'NOT_SUPPORTED';
-    }
-
+    const { cluster } = payload;
     const { vmtools_installed } = cluster.shards
         .find(shard =>
             shard.servers.find(server =>
@@ -126,12 +123,17 @@ function _mapVMTools(payload) {
             )
         );
 
-    if (vmtools_installed) {
-        return 'INSTALLED';
-    }
+    return vmtools_installed ? 'INSTALLED' : 'NOT_INSTALLED';
+}
 
-
-    return 'NOT_INSTALLED';
+function _mapP2PSettings(payload) {
+    const { port, min, max } = payload.n2n_config.tcp_permanent_passive;
+    return {
+        tcpPortRange: {
+            start: min || port || 1,
+            end: max || port || 1
+        }
+    };
 }
 
 // ------------------------------

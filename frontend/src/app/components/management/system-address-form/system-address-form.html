@@ -35,7 +35,8 @@
                 <editor params="label: 'System Address'">
                     <radio-group params="
                         selected: $form.addressType,
-                        options: addressOptions
+                        options: addressOptions,
+                        disabled: isUpdateDisabled
                     "></radio-group>
                 </editor>
 
@@ -93,11 +94,16 @@
             </span>
             </p>
 
-            <button class="btn align-start push-prev"
-                ko.shakeOnClick="!$form.isValid()"
+            <div class="align-start push-prev"
+                ko.tooltip="updateButtonTooltip"
             >
-                Update
-            </button>
+                <button class="btn"
+                    ko.disable="isUpdateDisabled"
+                    ko.shakeOnClick="!$form.isValid()"
+                >
+                    Update
+                </button>
+            </div>
         </managed-form>
     </div>
 </section>

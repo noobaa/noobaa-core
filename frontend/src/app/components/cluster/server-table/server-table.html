@@ -21,6 +21,6 @@
     columns: columns,
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
-    loading: !isStateLoaded(),
+    loading: !dataReady(),
     emptyMessage: 'The current filter does not match any server'
 "></data-table>

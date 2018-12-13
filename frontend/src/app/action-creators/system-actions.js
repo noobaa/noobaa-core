@@ -37,7 +37,10 @@ import {
     FAIL_LEAVE_MAINTENANCE_MODE,
     INSTALL_VM_TOOLS,
     COMPLETE_INSTALL_VM_TOOLS,
-    FAIL_INSTALL_VM_TOOLS
+    FAIL_INSTALL_VM_TOOLS,
+    UPDATE_P2P_SETTINGS,
+    COMPLETE_UPDATE_P2P_SETTINGS,
+    FAIL_UPDATE_P2P_SETTINGS
 } from 'action-types';
 
 export function createSystem(
@@ -296,6 +299,24 @@ export function completeInstallVMTools() {
 export function failInstallVMTools(error) {
     return {
         type: FAIL_INSTALL_VM_TOOLS,
+        payload: { error }
+    };
+}
+
+export function updateP2PSettings(tcpPortRange) {
+    return {
+        type: UPDATE_P2P_SETTINGS,
+        payload: { tcpPortRange }
+    };
+}
+
+export function completeUpdateP2PSettings() {
+    return { type: COMPLETE_UPDATE_P2P_SETTINGS };
+}
+
+export function failUpdateP2PSettings(error) {
+    return {
+        type: FAIL_UPDATE_P2P_SETTINGS,
         payload: { error }
     };
 }

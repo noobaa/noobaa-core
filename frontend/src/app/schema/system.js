@@ -6,7 +6,8 @@ export default {
         'ipAddress',
         'version',
         'maintenanceMode',
-        'vmTools'
+        'vmTools',
+        'p2pSettings'
     ],
     properties: {
         version: {
@@ -102,11 +103,37 @@ export default {
         vmTools: {
             type: 'string',
             enum: [
-                'NOT_SUPPORTED',
                 'NOT_INSTALLED',
                 'INSTALLING',
                 'INSTALLED'
             ]
+        },
+        p2pSettings: {
+            type: 'object',
+            required: [
+                'tcpPortRange'
+            ],
+            properties: {
+                tcpPortRange: {
+                    type: 'object',
+                    required: [
+                        'start',
+                        'end'
+                    ],
+                    properties: {
+                        start: {
+                            type: 'integer',
+                            min: 1,
+                            max: 65536
+                        },
+                        end: {
+                            type: 'integer',
+                            min: 1,
+                            max: 65536
+                        }
+                    }
+                }
+            }
         }
     }
 };

@@ -1,5 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { isNumber } from 'utils/core-utils';
+
 export function splitIPRange(range) {
     const sides = range.split('-');
     const start = sides[0].trim();
@@ -98,4 +100,12 @@ export function isUri(str) {
     );
 
     return regExp.test(value);
+}
+
+export function isPortNumber(value) {
+    return (
+        isNumber(value) &&
+        value >= 1 &&
+        value <= 65536
+    );
 }

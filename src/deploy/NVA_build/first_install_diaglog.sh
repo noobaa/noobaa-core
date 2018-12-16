@@ -106,14 +106,14 @@ function configure_interface_ip() {
       dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --infobox "Requesting IP from DHCP server. \nDepending on network connectivity and DHCP server availability, this might take a while." 6 40
     fi
 
-    # Suppressing messages to the console for the cases where DHCP is unreachable.
+    # Surpressing messages to the console for the cases where DHCP is unreachable.
     # In these cases the network service cries to the log like a little bi#@h
     # and we don't want that.
     if [ ! "${dynamic}" -eq "3" ]; then
       sudo dmesg -n 1
       sudo service network restart &> /dev/null
       sudo dmesg -n 3
-      local ifcfg=$(ifconfig | grep -w inet | grep -v 127.0.0.1) # ipv4
+      ifcfg=$(ifconfig | grep -w inet | grep -v 127.0.0.1) # ipv4
       if [[ "${dynamic}" -eq "2" && "${ifcfg}" == "" ]]; then
         dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1ERROR" --msgbox "\Zb\Z1Was unable to get dynamically allocated IP via DHCP" 5 55
       fi
@@ -127,7 +127,7 @@ function configure_interface_ip() {
 }
 
 function configure_ips_dialog {
-    local interfaces=$(ip addr | grep "state UP\|state DOWN" | awk '{print $2}' | sed 's/:/ /g')
+    local interfaces=$(ifconfig -a | grep ^eth | awk '{print $1}')
     interfaces=${interfaces//:/}
     local str=""
     IFS=$'\n'
@@ -212,7 +212,7 @@ function configure_dns_dialog {
         fi
         
         sudo bash -c "echo \"forward only;\" >> /etc/noobaa_configured_dns.conf"
-        sudo dmesg -n 1 # need to restart network to update /etc/resolv.conf - suppressing too much logs
+        sudo dmesg -n 1 # need to restart network to update /etc/resolv.conf - supressing too much logs
         sudo bash -c "${command}" > /dev/null 2>&1
         sudo systemctl restart named &> /dev/null
         sudo /usr/bin/supervisorctl restart all 1> /dev/null
@@ -388,10 +388,10 @@ function update_ips_etc_issue {
 
 function update_noobaa_net {
   sudo bash -c "> ${NOOBAANET}"
-  local interfaces=$(ip addr | grep "state UP\|state DOWN" | awk '{print $2}' | sed 's/:/ /g')
+  interfaces=$(ifconfig -a | grep ^eth | awk '{print $1}')
   interfaces=${interfaces//:/}
-  for interface in ${interfaces}; do
-      sudo bash -c "echo ${interface} >> ${NOOBAANET}"
+  for int in ${interfaces}; do
+      sudo bash -c "echo ${int} >> ${NOOBAANET}"
   done
 }
 

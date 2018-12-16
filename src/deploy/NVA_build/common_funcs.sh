@@ -30,9 +30,9 @@ function set_mongo_cluster_mode {
 
 function update_noobaa_net {
     > ${NOOBAANET}
-    interfaces=$(ip addr | grep "state UP\|state DOWN" | awk '{print $2}' | sed 's/:/ /g')
-    for interface in ${interfaces//:/}; do
-        echo "${interface}" >> ${NOOBAANET}
+    interfaces=$(ifconfig -a | grep ^eth | awk '{print $1}')
+    for int in ${interfaces//:/}; do
+        echo "${int}" >> ${NOOBAANET}
     done
 }
 

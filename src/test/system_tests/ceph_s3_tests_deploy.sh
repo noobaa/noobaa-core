@@ -25,6 +25,7 @@
 logger -p local0.info "ceph_s3_tests_deploy.sh executed."
 DIRECTORY="s3-tests"
 CEPH_LINK="https://github.com/ceph/s3-tests.git"
+TURN_DL="http://turnserver.open-sys.org/downloads/v4.3.1.3/turnserver-4.3.1.3-CentOS6.6-x86_64.tar.gz"
 if [ ! -d $DIRECTORY ]; then
     echo "Remove centos-release-scl..."
     logger -p local0.info "Remove centos-release-scl..."
@@ -68,4 +69,24 @@ if [ ! -d $DIRECTORY ]; then
     touch ./s3tests/tests/__init__.py
     echo "Finished Running Bootstrap..."
     logger -p local0.info "Finished Running Bootstrap..."
+
+    echo "Downloading turnserver package and unpacking..."
+    logger -p local0.info "Downloading turnserver package and unpacking..."
+    cd /tmp
+    curl -sL ${TURN_DL} | tar -xzv
+    echo "Finished Downloading turnserver package and unpacking..."
+    logger -p local0.info "Finished Downloading turnserver package and unpacking..."
+
+    cd /tmp/turnserver-4.3.1.3
+    echo "Installing turnserver..."
+    logger -p local0.info "Installing turnserver..."
+    ./install.sh
+    echo "Finished Installing turnserver..."
+    logger -p local0.info "Finished Installing turnserver..."
+    
+    echo "Starting turnserver..."
+    logger -p local0.info "Starting turnserver..."
+    supervisorctl start STUN
+    echo "Finished Starting turnserver..."
+    logger -p local0.info "Finished Starting turnserver..."
 fi

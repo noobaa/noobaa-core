@@ -2,6 +2,9 @@
 
 export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 
+TURN_VER="4.5.0.6"
+TURN_CENTOS="7.2"
+TURN_DL="http://turnserver.open-sys.org/downloads/v${TURN_VER}/turnserver-${TURN_VER}-CentOS${TURN_CENTOS}-x86_64.tar.gz"
 CORE_DIR="/root/node_modules/noobaa-core"
 ENV_FILE="${CORE_DIR}/.env"
 LOG_FILE="/var/log/noobaa_deploy.log"
@@ -16,24 +19,10 @@ function deploy_log {
     logger -t UPGRADE -p local0.warn "$*"
 }
 
-function verify_noobaa_pre_requirements() {
-    if [ ! -f /tmp/noobaa-NVA.tar.gz ]
-    then
-        echo "There is no noobaa-NVA.tar.gz under /tmp/"
-        exit 1
-    fi
-    eval $(yum repolist | grep repolist | sed 's/: /=/g')
-    if [ ${repolist} -eq 0 ]
-    then
-        echo "yum does not have repolist, pleas add at-list one"
-        exit 1
-    fi
-}
-
 function clean_ifcfg() {
-    local interfaces=$(ip addr | grep "state UP\|state DOWN" | awk '{print $2}' | sed 's/:/ /g')
-    for interface in ${interfaces//:/}; do
-        sudo rm -f /etc/sysconfig/network-scripts/ifcfg-${interface}
+    interfaces=$(ifconfig | grep ^eth | awk '{print $1}')
+    for int in ${interfaces//:/}; do
+        sudo rm -f /etc/sysconfig/network-scripts/ifcfg-${int}
     done
     sudo echo -n > /etc/sysconfig/network
     sudo echo "HOSTNAME=noobaa" > /etc/sysconfig/network
@@ -43,13 +32,12 @@ function clean_ifcfg() {
 function install_platform {
     deploy_log install_platform start
 
-    yum install -y wget || true
-
-    local epel_rpm="epel-release-latest-7.noarch.rpm"
-    wget http://dl.fedoraproject.org/pub/epel/${epel_rpm}
-    yum install -y ${epel_rpm} || true
+    #    wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    #    rpm -Uvh epel-release-latest-7*.rpm || ture
+    yum remove -y epel-release
+    yum --enablerepo=extras install -y epel-release
+    #yum install -y epel-release || true
     yum clean expire-cache
-    yum repolist
 
     yum install -y \
         sudo \
@@ -64,6 +52,7 @@ function install_platform {
         expect \
         nc \
         tcpdump \
+        iperf \
         iperf3 \
         python-setuptools \
         bind-utils \
@@ -74,6 +63,7 @@ function install_platform {
         net-tools \
         iptables-services \
         rng-tools \
+        pv \
         initscripts
 
     # make iptables run on boot instead of firewalld
@@ -107,21 +97,19 @@ function install_platform {
         echo "GRUB_HIDDEN_TIMEOUT=0" >> /etc/default/grub
         echo "GRUB_FORCE_HIDDEN_MENU=true" >> /etc/default/grub
         grub2-mkconfig --output=/boot/grub2/grub.cfg
-        #making sure that we have GRUB_TIMEOUT in the /etc/default/grub
-        set +e
-        grep GRUB_TIMEOUT /etc/default/grub &> /dev/null
-        if [ $? -eq 0 ]
-        then
-                sed -i 's/GRUB_TIMEOUT=5/GRUB_TIMEOUT=0' /etc/default/grub
-        else
-                echo GRUB_TIMEOUT=0 >> /etc/default/grub
-        fi
-        set -e
+        sed -i 's/GRUB_TIMEOUT=5/GRUB_TIMEOUT=0' /etc/default/grub
         grub2-mkconfig –o /boot/grub2/grub.cfg
     fi
 
 	# easy_install is for Supervisord and comes from python-setuptools
 	easy_install supervisor
+
+    # Install STUN/TURN
+    cd /tmp
+    curl -sL ${TURN_DL} | tar -xzv
+    cd /tmp/turnserver-${TURN_VER}
+    /tmp/turnserver-${TURN_VER}/install.sh
+    cd ~
 
     # By Default, NTP is disabled, set local TZ to US Pacific
     echo "#NooBaa Configured NTP Server"     >> /etc/ntp.conf
@@ -201,6 +189,7 @@ function setup_linux_users {
 function install_nodejs {
     deploy_log "install_nodejs start"
 
+    yum remove epel-release-6-8.noarch
     yum -y groupinstall "Development Tools"
     export PATH=$PATH:/usr/local/bin
 
@@ -264,9 +253,22 @@ function install_mongo {
     systemctl stop mongod
     systemctl disable mongod
 
+    # In docker the service doesn't start unlike regular VM Centos
+    if [ "${container}" = "docker" ]; then
+        # This is a hack in order to perform the mongo_ssl_user creation
+        su - mongod -s /bin/bash -c "mongod --dbpath /var/lib/mongo/cluster/shard1 &"
+        # Replace with clever way to wait (for example like wait_for_mongo method that checks status)
+        sleep 10
+    fi
+
     deploy_log "adding mongo ssl user"
     add_mongo_ssl_user
 
+
+    if [ "${container}" = "docker" ]; then
+        local mongod_pid=$(pgrep -lf mongod | awk '{print $1}')
+        kill -2 ${mongod_pid}
+    fi
     deploy_log "install_mongo done"
 }
 
@@ -426,9 +428,15 @@ function setup_supervisors {
 function setup_syslog {
 	deploy_log "setup_syslog start"
 
+    deploy_log "setup_syslog - copy src/deploy/NVA_build/rsyslog.repo to /etc/yum.repos.d/rsyslog.repo"
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/rsyslog.repo /etc/yum.repos.d/rsyslog.repo
+    deploy_log "yum update rsyslog..."
+    yum update rsyslog -y
+
     # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
     cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
+
 
     # setup crontab to run logrotate every 15 minutes.
     echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
@@ -462,20 +470,12 @@ function setup_mongodb {
 }
 
 function add_mongo_ssl_user {
-    su - mongod -s /bin/bash -c "mongod --dbpath /var/lib/mongo/cluster/shard1 &"
-    # Replace with clever way to wait (for example like wait_for_mongo method that checks status)
-    sleep 20
-
-    local client_subject="CN=client,OU=MyClients,O=NOOBAA,L=NYC,ST=NY,C=US"
+    local client_subject=$(openssl x509 -in /etc/mongo_ssl/client.pem -inform PEM -subject -nameopt RFC2253 | grep subject | awk '{sub("subject= ",""); print}')
     /usr/bin/mongo --eval "var param_client_subject='${client_subject}'" ${CORE_DIR}/src/deploy/NVA_build/add_mongo_ssl_user.js
-
-    local mongod_pid=$(pgrep -lf mongod | awk '{print $1}')
-    kill -2 ${mongod_pid}
 }
 
 function runinstall {
     deploy_log "runinstall start"
-    verify_noobaa_pre_requirements
     set -e
 	install_platform
 	setup_linux_users

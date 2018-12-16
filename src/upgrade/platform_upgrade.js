@@ -50,6 +50,11 @@ const EXEC_DEFAULTS = Object.freeze({
 
 // map process name (in ps) to service name (in supervisor.conf)
 const SERVICES_INFO = Object.freeze([{
+        srv: 'STUN',
+        proc: 'turnserver',
+        stop: true,
+    },
+    {
         srv: 'webserver',
         proc: 'web_server',
         stop: true,

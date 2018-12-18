@@ -263,10 +263,10 @@ async function platform_upgrade_common(params) {
 
 async function copy_first_install() {
     if (process.env.PLATFORM === 'docker') return;
-    dbg.log0('UPGRADE: copying first_install_diaglog.sh and setting permissions');
-    await exec(`cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/`);
-    await exec(`chown root:root /etc/profile.d/first_install_diaglog.sh`);
-    await exec(`chmod 4755 /etc/profile.d/first_install_diaglog.sh`);
+    dbg.log0('UPGRADE: copying first_install_dialog.sh and setting permissions');
+    await exec(`cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_dialog.sh /etc/profile.d/`);
+    await exec(`chown root:root /etc/profile.d/first_install_dialog.sh`);
+    await exec(`chmod 4755 /etc/profile.d/first_install_dialog.sh`);
 }
 
 

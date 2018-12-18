@@ -6,7 +6,6 @@ import { mapErrorObject } from 'utils/state-utils';
 import { REMOVE_BUCKET_TRIGGER } from 'action-types';
 import { completeRemoveBucketTrigger, failRemoveBucketTrigger } from 'action-creators';
 
-
 export default function(action$, { api }) {
     return action$.pipe(
         ofType(REMOVE_BUCKET_TRIGGER),

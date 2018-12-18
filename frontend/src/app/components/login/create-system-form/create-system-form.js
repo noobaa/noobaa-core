@@ -4,19 +4,24 @@ import template from './create-system-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { validateActivation, attemptResolveSystemName } from 'actions';
-import { createSystem } from 'action-creators';
+import { resendActivationCode, createSystem } from 'action-creators';
 import { activationState, nameResolutionState, serverInfo } from 'model';
 import moment from 'moment';
 import { deepFreeze } from 'utils/core-utils';
 import { calcPasswordStrength } from 'utils/password-utils';
 import { action$ } from 'state';
+import { sleep } from 'utils/promise-utils';
 
+const activationCodeTooltip = 'An activation code is essential in order to activate your product and can be found in your inbox.  This code would have the following structure: XXXXXX-YYYYYY';
 const activationFaliureReasonMapping = deepFreeze({
     ACTIVATION_CODE_IN_USE: 'Activation code is already in use',
     UNKNOWN_ACTIVATION_CODE: 'Activation code does not exists',
     ACTIVATION_CODE_EMAIL_MISMATCH: 'Email does not match activation code',
     NETWORK_ERROR: 'Could not connect to the license server'
 });
+
+const resendTooltip = 'Resend activation code';
+const sentTooltip = 'Activation code sent';
 
 class CreateSystemFormViewModel extends BaseViewModel {
     constructor() {
@@ -69,6 +74,15 @@ class CreateSystemFormViewModel extends BaseViewModel {
             }
         });
 
+        this.activationCodeTooltip = activationCodeTooltip;
+
+        this.isActivationCodeResendDisabled = ko.pureComputed(() => {
+            const { email } = this;
+            return !email.isValid();
+        });
+
+        this.resendTooltip = ko.observable(resendTooltip);
+
         this.isEmailDisabled = ko.pureComputed(
             () => Boolean(ownerAccount().email)
         );
@@ -110,6 +124,11 @@ class CreateSystemFormViewModel extends BaseViewModel {
                 includesLowercase: true,
                 includesDigit: true
             });
+
+        this.isPasswordInvalid = ko.pureComputed(() => {
+            const { password } = this;
+            return password.isModified() && !password.isValid() && !password.isValidating();
+        });
 
         this.calcPasswordStrength = calcPasswordStrength;
 
@@ -187,6 +206,19 @@ class CreateSystemFormViewModel extends BaseViewModel {
         this.shakeCreateBtn = ko.pureComputed(
             () => this.errorsByStep.some(g => g().length > 0)
         );
+    }
+
+    onResend() {
+        action$.next(resendActivationCode(this.email()));
+        this.resendTooltip(sentTooltip);
+    }
+
+    async onResendEnter() {
+        if (this.resendTooltip() === sentTooltip) {
+            this.resendTooltip(null);
+            await sleep(400);
+            this.resendTooltip(resendTooltip);
+        }
     }
 
     validateStep(step) {

@@ -42,7 +42,28 @@
         display: none;
     }
 
-    .remark {
-        margin-top: auto;
+    .activation-code-field {
+        padding-right: 1.5em;
+
+        > input {
+            padding-right: 4em;
+        }
+
+        button {
+            margin-left: -4em;
+        }
+    }
+
+    .activation-code-remark {
+        .remark();
+        margin-top: -1em;
+        line-height: 1;
+        height: 1em;
+        top: 1.2em;
+        position: relative;
+    }
+
+    .resend-button:disabled {
+        color: @color18;
     }
 }

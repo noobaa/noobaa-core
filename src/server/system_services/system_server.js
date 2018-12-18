@@ -32,6 +32,7 @@ const ssl_utils = require('../../util/ssl_utils');
 const nb_native = require('../../util/nb_native');
 const net_utils = require('../../util/net_utils');
 const zip_utils = require('../../util/zip_utils');
+const { is_email_address } = require('../../util/string_utils');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
@@ -1245,6 +1246,31 @@ function attempt_server_resolve(req) {
         });
 }
 
+async function resend_activation_code(req) {
+    const { email } = req.rpc_params;
+    if (is_email_address(email)) {
+        try {
+            const options = {
+                url: 'https://hooks.zapier.com/hooks/catch/440450/cvnsw5/',
+                method: 'POST',
+                strictSSL: false, // means rejectUnauthorized: false,
+                body: JSON.stringify({ activation_email: email })
+            };
+
+            const { statusCode } = await P.fromCallback(cb => request(options, cb));
+            if (statusCode !== 200) {
+                dbg.warn(`resend_activation_code: Request for ${email}" has failed with status code ${statusCode}`);
+            }
+
+        } catch (err) {
+            dbg.warn(`resend_activation_code: Request for ${email}" has failed with a network error - ${err.message}`);
+        }
+
+        dbg.log0(`resend_activation_code: Request for ${email} dispatched successfully`);
+    } else {
+        dbg.warn(`resend_activation_code: ${email} is not in a valid email format`);
+    }
+}
 
 function validate_activation(req) {
     return P.fcall(function() {
@@ -1432,5 +1458,6 @@ exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;
 exports.set_certificate = set_certificate;
 
+exports.resend_activation_code = resend_activation_code;
 exports.validate_activation = validate_activation;
 exports.get_node_installation_string = get_node_installation_string;

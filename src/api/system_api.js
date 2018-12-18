@@ -409,6 +409,23 @@ module.exports = {
             }
         },
 
+        resend_activation_code: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        },
+
         validate_activation: {
             method: 'GET',
             params: {

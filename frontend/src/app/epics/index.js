@@ -82,6 +82,7 @@ import fetchAccountUsageHistory from './fetch-account-usage-history';
 import fetchObjectsDistribution from './fetch-objects-distribution';
 import fetchCloudUsageStats from './fetch-cloud-usage-stats';
 import updateP2PSettings from './update-p2p-settings';
+import resendActivationCode from './resend-activation-code';
 
 const generalEpics = [
     handleLocationRequests,
@@ -113,7 +114,8 @@ const systemRelatedEpics = [
     enterMaintenanceMode,
     leaveMaintenanceMode,
     installVMTools,
-    updateP2PSettings
+    updateP2PSettings,
+    resendActivationCode
 ];
 
 const topologyRelatedEpics = [

@@ -25,23 +25,6 @@
             >
                 <p class="heading3">Create your owner account</p>
 
-                <editor params="label: 'Activation code'">
-                    <div class="row content-middle"
-                        data-bind="validationOptions: { insertMessages: false }"
-                    >
-                        <input type="text"
-                            ko.disable="isActivationCodeDisabled"
-                            placeholder="Your activation code"
-                            ko.value="activationCode" />
-
-                        <svg-icon class="spin push-prev-half"
-                            ko.visible="isActivationCodeSpinnerVisible"
-                            params="name: 'in-progress'"
-                        ></svg-icon>
-                    </div>
-                    <span class="val-msg" data-bind="validationMessage: activationCode"></span>
-                </editor>
-
                 <editor params="label: 'Email address'">
                     <div class="row content-middle"
                         data-bind="validationOptions: { insertMessages: false }"
@@ -58,11 +41,46 @@
                    <span class="val-msg" data-bind="validationMessage: email"></span>
                 </editor>
 
+                <editor params="
+                    label: 'Activation code',
+                    tooltip: activationCodeTooltip
+                ">
+                    <div class="row content-middle">
+                        <div class="row content-middle activation-code-field"
+                            ko.validationOptions="{ insertMessages: false }"
+                        >
+                            <input type="text"
+                                ko.disable="isActivationCodeDisabled"
+                                placeholder="e.g. XXXXXX-YYYYYY"
+                                ko.value="activationCode" />
+
+                            <button class="icon-btn no-outline"
+                                tabindex="-1"
+                                ko.tooltip="resendTooltip"
+                                ko.enable="email.isValid"
+                                ko.click="onResend"
+                                ko.event.mouseenter="onResendEnter"
+                            >
+                                <svg-icon class="push-next"
+                                    params="name: 'envelope'"
+                                ></svg-icon>
+                            </button>
+                        </div>
+
+                        <svg-icon class="spin push-prev-half"
+                            ko.visible="isActivationCodeSpinnerVisible"
+                            params="name: 'in-progress'"
+                        ></svg-icon>
+                    </div>
+                    <span class="val-msg" data-bind="validationMessage: activationCode"></span>
+                </editor>
+
                 <editor class="push-next" params="
                     label: 'Password',
-                    insertValMessages: false
+                    insertValMessages: false,
+
                 ">
-                    <password-field class="push-next-half" params="
+                    <password-field ko.css.invalid="isPasswordInvalid" params="
                         value: password,
                         placeholder: 'Enter password',
                         strengthCalc: calcPasswordStrength
@@ -102,14 +120,16 @@
                     <p class="hint" ko.visible="serverDNSName.isValid">optional</p>
                 </editor>
 
-                <p class="remark push-prev">
-                    By clicking the Create system button, I accept NooBaa's
-                    <a class="link"
-                        target="_blank"
-                        href="/public/eula">
-                        Terms &amp; Conditions
-                    </a>
-                </p>
+                <div class="greedy row">
+                    <p class="remark align-end">
+                        By clicking the Create system button, I accept NooBaa's
+                        <a class="link"
+                            target="_blank"
+                            href="/public/eula">
+                            Terms &amp; Conditions
+                        </a>
+                    </p>
+                </div>
             </div>
         </div>
 

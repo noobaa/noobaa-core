@@ -40,7 +40,8 @@ import {
     FAIL_INSTALL_VM_TOOLS,
     UPDATE_P2P_SETTINGS,
     COMPLETE_UPDATE_P2P_SETTINGS,
-    FAIL_UPDATE_P2P_SETTINGS
+    FAIL_UPDATE_P2P_SETTINGS,
+    RESEND_ACTIVATION_CODE
 } from 'action-types';
 
 export function createSystem(
@@ -318,5 +319,12 @@ export function failUpdateP2PSettings(error) {
     return {
         type: FAIL_UPDATE_P2P_SETTINGS,
         payload: { error }
+    };
+}
+
+export function resendActivationCode(email) {
+    return {
+        type: RESEND_ACTIVATION_CODE,
+        payload: { email }
     };
 }

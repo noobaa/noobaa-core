@@ -25,7 +25,7 @@ class PasswordFieldViewModel {
             value,
             disabled,
             placeholder = '',
-            hasFocus = false,
+            hasFocus = ko.observable(false),
             strengthCalc
         } = params;
 

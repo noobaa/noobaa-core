@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
-# TODO copied from first_install_diaglog.sh
+# TODO copied from first_install_dialog.sh
 export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
 eval {isAzure,isEsx,isAlyun,isAws,dev}="false"
 platform="on_prem"
@@ -118,9 +118,6 @@ if [ "${platform}" == "on_prem" ]
 then
     usage
 fi
-
-#calling yum upgrade before cleaning the network
-yum upgrade -y
 
 if ! ${isEsx}
 then

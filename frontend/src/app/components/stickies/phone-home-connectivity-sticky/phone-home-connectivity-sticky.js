@@ -1,20 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './phone-home-connectivity-sticky.html';
-import BaseViewModel from 'components/base-view-model';
-import { systemInfo } from 'model';
+import ConnectableViewModel from 'components/connectable';
+import { realizeUri } from 'utils/browser-utils';
 import ko from 'knockout';
+import * as routes from 'routes';
 
-class PhoneHomeConnectivityStickyViewModel extends BaseViewModel {
-    constructor() {
-        super();
+class PhoneHomeConnectivityStickyViewModel extends ConnectableViewModel {
+    isActive = ko.observable();
+    proxySettingsHref = ko.observable();
 
-        this.isActive = ko.pureComputed(
-            () => Boolean(
-                systemInfo() &&
-                systemInfo().phone_home_config.phone_home_unable_comm
-            )
-        );
+    selectState(state) {
+        const { system, location } = state;
+        return [
+            system ? system.phoneHome.reachable : true,
+            location.params.system
+        ];
+    }
+
+    mapStateToProps(isPhoneHomeReachable, system) {
+        ko.assignToProps(this, {
+            isActive: !isPhoneHomeReachable,
+            proxySettingsHref: realizeUri(routes.management, {
+                system,
+                tab: 'settings',
+                section: 'proxy-server'
+            })
+        });
     }
 }
 

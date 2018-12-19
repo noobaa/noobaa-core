@@ -5,10 +5,10 @@ import ko from 'knockout';
 
 class ValidationIndicatorViewModel {
     constructor({ field }) {
-        const { isValid, isValidating } = field;
+        const { isDirty, isValid, isValidating } = field;
 
         this.visible = ko.pureComputed(
-            () => isValid() || isValidating()
+            () => isDirty() && (isValid() || isValidating())
         );
 
         this.icon = ko.pureComputed(

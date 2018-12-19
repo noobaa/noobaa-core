@@ -6,7 +6,10 @@ import {
     COMPLETE_FETCH_SYSTEM_INFO,
     FETCH_VERSION_RELEASE_NOTES,
     COMPLETE_FETCH_VERSION_RELEASE_NOTES,
-    FAIL_FETCH_VERSION_RELEASE_NOTES
+    FAIL_FETCH_VERSION_RELEASE_NOTES,
+    COLLECT_SYSTEM_DIAGNOSTICS,
+    COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
+    FAIL_COLLECT_SYSTEM_DIAGNOSTICS
 } from 'action-types';
 
 // ------------------------------
@@ -14,35 +17,31 @@ import {
 // ------------------------------
 const initialState = undefined;
 
+const diagnosticsInitialState = {
+    collecting: false,
+    error: false,
+    packageUri: ''
+};
+
 // ------------------------------
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
-    const {
-        version,
-        upgrade,
-        dns_name,
-        ip_address,
-        has_ssl_cert,
-        remote_syslog_config,
-        maintenance_mode
-    } = payload;
-
-    const { releaseNotes } = state || {};
-
     return {
-        version,
-        dnsName: dns_name,
-        ipAddress: ip_address,
-        sslCert: has_ssl_cert ? {} : undefined,
-        upgrade: _mapUpgrade(upgrade),
-        remoteSyslog: _mapRemoteSyslog(remote_syslog_config),
-        releaseNotes,
+        version: payload.version,
+        dnsName: payload.dns_name,
+        ipAddress: payload.ip_address,
+        sslCert: payload.has_ssl_cert ? {} : undefined,
+        upgrade: _mapUpgrade(payload),
+        remoteSyslog: _mapRemoteSyslog(payload),
         vmTools: _mapVMTools(payload),
         p2pSettings: _mapP2PSettings(payload),
-        maintenanceMode: {
-            till:  maintenance_mode.state ? timestamp + maintenance_mode.time_left : 0
-        }
+        proxyServer: _mapProxyServer(payload),
+        phoneHome:_mapPhoneHome(payload),
+        debug: _mapDebug(payload, timestamp),
+        maintenanceMode: _mapMaintenanceMode(payload, timestamp),
+        releaseNotes: state && state.releaseNotes,
+        diagnostics: state ? state.diagnostics : diagnosticsInitialState
     };
 }
 
@@ -93,11 +92,44 @@ function onFailFetchVersionReleaseNotes(state, { payload }) {
     };
 }
 
+function onCollectSystemDiagnostics(state) {
+    return {
+        ...state,
+        diagnostics: {
+            collecting: true,
+            error: false,
+            packageUri: ''
+        }
+    };
+}
+
+function onCompleteCollectSystemDiagnostics(state, { payload }) {
+    return {
+        ...state,
+        diagnostics: {
+            collecting: false,
+            error: false,
+            packageUri: payload.packageUri
+        }
+    };
+}
+
+function onFailCollectSystemDiagnostics(state) {
+    return {
+        ...state,
+        diagnostics: {
+            collecting: false,
+            error: true,
+            packageUri: ''
+        }
+    };
+}
+
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _mapUpgrade(upgradeInfo) {
-    const { last_upgrade, can_upload_upgrade_package } = upgradeInfo;
+function _mapUpgrade(payload) {
+    const { last_upgrade, can_upload_upgrade_package } = payload.upgrade;
 
     return {
         lastUpgrade: last_upgrade && {
@@ -108,7 +140,8 @@ function _mapUpgrade(upgradeInfo) {
     };
 }
 
-function _mapRemoteSyslog(config) {
+function _mapRemoteSyslog(payload) {
+    const config = payload.remote_syslog_config;
     if (!config) return;
 
     return pick(config, ['protocol', 'address', 'port']);
@@ -136,6 +169,36 @@ function _mapP2PSettings(payload) {
     };
 }
 
+function _mapProxyServer(payload) {
+    const { proxy_address } = payload.phone_home_config;
+    if (!proxy_address) {
+        return;
+    }
+
+    const url = new URL(proxy_address);
+    return {
+        endpoint: url.hostname,
+        port: Number(url.port) || 80
+    };
+}
+
+function _mapPhoneHome(payload) {
+    const reachable = !payload.phone_home_config.phone_home_unable_comm;
+    return { reachable };
+}
+
+function _mapDebug(payload, timestamp) {
+    const { level, time_left } = payload.debug;
+    const till = time_left ?  timestamp + time_left : 0;
+    return { level, till };
+}
+
+function _mapMaintenanceMode(payload, timestamp) {
+    const { state, time_left } = payload.maintenance_mode;
+    const till = state ? timestamp + time_left : 0;
+    return { till };
+}
+
 // ------------------------------
 // Exported reducer function
 // ------------------------------
@@ -143,5 +206,8 @@ export default createReducer(initialState, {
     [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo,
     [FETCH_VERSION_RELEASE_NOTES]: onFetchVersionReleaseNotes,
     [COMPLETE_FETCH_VERSION_RELEASE_NOTES]: onCompleteFetchVersionReleaseNotes,
-    [FAIL_FETCH_VERSION_RELEASE_NOTES]: onFailFetchVersionReleaseNotes
+    [FAIL_FETCH_VERSION_RELEASE_NOTES]: onFailFetchVersionReleaseNotes,
+    [COLLECT_SYSTEM_DIAGNOSTICS]: onCollectSystemDiagnostics,
+    [COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS]: onCompleteCollectSystemDiagnostics,
+    [FAIL_COLLECT_SYSTEM_DIAGNOSTICS]: onFailCollectSystemDiagnostics
 });

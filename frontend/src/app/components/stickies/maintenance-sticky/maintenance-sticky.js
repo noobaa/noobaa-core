@@ -5,7 +5,7 @@ import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { formatTimeLeftForMaintenanceMode } from 'utils/maintenance-utils';
 import { timeTickInterval } from 'config';
-import { leaveMaintenanceMode, refreshLocation } from 'action-creators';
+import { leaveMaintenanceMode } from 'action-creators';
 
 class MaintenanceModeStickyViewModel extends ConnectableViewModel {
     isActive = ko.observable();
@@ -56,10 +56,6 @@ class MaintenanceModeStickyViewModel extends ConnectableViewModel {
 
         const timeLeft = Math.max(this.timeLeft() - timeTickInterval, 0);
         const formattedTimeLeft = formatTimeLeftForMaintenanceMode(timeLeft);
-
-        if (timeLeft === 0) {
-            this.dispatch(refreshLocation());
-        }
 
         ko.assignToProps(this, {
             timeLeft,

@@ -64,6 +64,26 @@ export const serviceCheckResult = {
 
 export const port = {
     type: 'integer',
-    minimum: 0,
+    minimum: 1,
     maximum: 65535
+};
+
+export const diagnostics = {
+    type: 'object',
+    required: [
+        'collecting',
+        'error',
+        'packageUri'
+    ],
+    properties: {
+        collecting: {
+            type: 'boolean'
+        },
+        error: {
+            type: 'boolean'
+        },
+        packageUri: {
+            type: 'string'
+        }
+    }
 };

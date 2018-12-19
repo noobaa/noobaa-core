@@ -41,7 +41,16 @@ import {
     UPDATE_P2P_SETTINGS,
     COMPLETE_UPDATE_P2P_SETTINGS,
     FAIL_UPDATE_P2P_SETTINGS,
-    RESEND_ACTIVATION_CODE
+    RESEND_ACTIVATION_CODE,
+    UPDATE_PROXY_SERVER_SETTINGS,
+    COMPLETE_UPDATE_PROXY_SERVER_SETTINGS,
+    FAIL_UPDATE_PROXY_SERVER_SETTINGS,
+    SET_SYSTEM_DEBUG_LEVEL,
+    COMPLETE_SET_SYSTEM_DEBUG_LEVEL,
+    FAIL_SET_SYSTEM_DEBUG_LEVEL,
+    COLLECT_SYSTEM_DIAGNOSTICS,
+    COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
+    FAIL_COLLECT_SYSTEM_DIAGNOSTICS
 } from 'action-types';
 
 export function createSystem(
@@ -326,5 +335,60 @@ export function resendActivationCode(email) {
     return {
         type: RESEND_ACTIVATION_CODE,
         payload: { email }
+    };
+}
+
+export function updateProxyServerSettings(address) {
+    return {
+        type: UPDATE_PROXY_SERVER_SETTINGS,
+        payload: { address }
+    };
+}
+export function completeUpdateProxyServerSettings() {
+    return { type: COMPLETE_UPDATE_PROXY_SERVER_SETTINGS };
+}
+
+export function failUpdateProxyServerSettings(error) {
+    return {
+        type: FAIL_UPDATE_PROXY_SERVER_SETTINGS,
+        payload: { error }
+    };
+}
+
+export function setSystemDebugLevel(level) {
+    return {
+        type: SET_SYSTEM_DEBUG_LEVEL,
+        payload: { level }
+    };
+}
+
+export function completeSetSystemDebugLevel(level) {
+    return {
+        type: COMPLETE_SET_SYSTEM_DEBUG_LEVEL,
+        payload: { level }
+    };
+}
+
+export function failSetSystemDebugLevel(level, error) {
+    return {
+        type: FAIL_SET_SYSTEM_DEBUG_LEVEL,
+        payload: { level, error }
+    };
+}
+
+export function collectSystemDiagnostics() {
+    return { type: COLLECT_SYSTEM_DIAGNOSTICS };
+}
+export function completeCollectSystemDiagnostics(packageUri) {
+    return {
+        type: COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
+        payload: { packageUri }
+    };
+}
+
+export function failCollectSystemDiagnostics(error) {
+    return {
+        type: FAIL_COLLECT_SYSTEM_DIAGNOSTICS,
+        payload: { error }
     };
 }

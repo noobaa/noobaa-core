@@ -579,42 +579,6 @@ export function setServerDebugLevel(secret, hostname, level){
         .done();
 }
 
-export function setSystemDebugLevel(level){
-    logAction('setSystemDebugLevel', { level });
-
-    api.cluster_server.set_debug_level({ level })
-        .then(() => action$.next(fetchSystemInfo()))
-        .done();
-}
-
-export async function updatePhoneHomeConfig(proxyAddress) {
-    logAction('updatePhoneHomeConfig', { proxyAddress });
-
-    const { isProxyTestRunning } = model;
-    if (isProxyTestRunning()) return;
-
-    if (proxyAddress) {
-        isProxyTestRunning(true);
-        notify('Checking external services connectivity using configure proxy');
-    }
-
-    try {
-        await api.system.update_phone_home_config({ proxy_address: proxyAddress });
-        notify('Proxy settings updated successfully', 'success');
-
-        action$.next(fetchSystemInfo());
-
-    } catch (error) {
-        const message = error.rpc_code === 'CONNECTIVITY_TEST_FAILED' ?
-            'External services could not be reached using configured proxy' :
-            'Updating Proxy settings failed';
-
-        notify(message, 'error');
-    }
-
-    isProxyTestRunning(false);
-}
-
 export function updateServerDetails(serverSecret, hostname, location) {
     logAction('updateServerDetails', { serverSecret, hostname, location });
 

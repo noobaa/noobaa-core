@@ -52,7 +52,9 @@ export default function(action$) {
             types.COMPLETE_REGENERATE_ACCOUNT_CREDENTIALS,
             types.COMPLETE_ASSIGN_REGION_TO_RESOURCE,
             types.COMPLETE_INSTALL_VM_TOOLS,
-            types.COMPLETE_UPDATE_P2P_SETTINGS
+            types.COMPLETE_UPDATE_P2P_SETTINGS,
+            types.COMPLETE_UPDATE_PROXY_SERVER_SETTINGS,
+            types.COMPLETE_SET_SYSTEM_DEBUG_LEVEL
         ),
         map(() => refreshLocation())
     );

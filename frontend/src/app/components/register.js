@@ -200,7 +200,7 @@ import systemAddressForm from './management/system-address-form/system-address-f
 import versionForm from './management/version-form/version-form';
 import diagnosticsForm from './management/diagnostics-form/diagnostics-form';
 import maintenanceForm from './management/maintenance-form/maintenance-form';
-import phoneHomeForm from './management/phone-home-form/phone-home-form';
+import proxyServerForm from './management/proxy-server-form/proxy-server-form';
 import remoteSyslogForm from './management/remote-syslog-form/remote-syslog-form';
 import serverSslForm from './management/server-ssl-form/server-ssl-form';
 import serverTimeForm from './management/server-time-form/server-time-form';
@@ -515,7 +515,7 @@ export default function register(ko, services) {
         versionForm,
         diagnosticsForm,
         maintenanceForm,
-        phoneHomeForm,
+        proxyServerForm,
         remoteSyslogForm,
         serverSslForm,
         serverTimeForm,

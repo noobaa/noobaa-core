@@ -978,6 +978,13 @@ function update_base_address(req) {
         });
 }
 
+async function verify_phonehome_connectivity(req) {
+    const { proxy_address: proxy } = req.rpc_params;
+    const options = proxy ? { proxy } : undefined;
+    const res = await ph_utils.verify_connection_to_phonehome(options);
+    return Boolean(res === 'CONNECTED');
+}
+
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
 function update_phone_home_config(req) {
     dbg.log0('update_phone_home_config', req.rpc_params);
@@ -1030,7 +1037,6 @@ function update_phone_home_config(req) {
         })
         .return();
 }
-
 
 function configure_remote_syslog(req) {
     let params = req.rpc_params;
@@ -1471,6 +1477,7 @@ exports.log_client_console = log_client_console;
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
 exports.attempt_server_resolve = attempt_server_resolve;
+exports.verify_phonehome_connectivity = verify_phonehome_connectivity;
 exports.update_phone_home_config = update_phone_home_config;
 exports.update_hostname = update_hostname;
 exports.set_maintenance_mode = set_maintenance_mode;

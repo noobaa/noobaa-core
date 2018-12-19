@@ -1,0 +1,78 @@
+<!-- Copyright (C) 2016 NooBaa -->
+<section>
+    <div class="row content-middle cursor-pointer"
+         ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">
+                Proxy Server
+                <dirty-mark ko.visible="isDirtyMarkerVisible"></dirty-mark>
+            </h2>
+            <p ko.visible="!isExpanded()">
+                Server address:
+                <span class="text-tech" ko.text="address"></span>
+            </p>
+            <p ko.visible="isExpanded">
+                If the appliance is not directly connected to the Internet you may need to configure an HTTP proxy to reach external resources and servers
+            </p>
+        </div>
+        <svg-icon class="icon-small rotate push-next-half"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded">
+        <managed-form params="
+            name: formName,
+            fields: formFields,
+            onValidate: onValidate,
+            onValidateSubmit: onValidateSubmit,
+            onSubmit: onSubmit
+        ">
+            <editor params="label: 'Use Proxy'">
+                <toggle-switch params="value: $form.isConfigured"></toggle-switch>
+            </editor>
+             <editor params="
+                label: 'Proxy address',
+                disabled: !$form.isConfigured()
+            ">
+                <input class="push-next-half"
+                    type="text"
+                    placeholder="IP or DNS name"
+                    ko.value="$form.endpoint"
+                    ko.enable="$form.isConfigured"
+                    ko.validationCss="$form.endpoint"
+                "/>
+                <validation-message params="field: $form.endpoint"></validation-message>
+            </editor>
+            <editor params="
+                label: 'Proxy port',
+                disabled: !$form.isConfigured()
+            ">
+                <input class="push-next-half"
+                    type="number"
+                    min="1"
+                    max="65535"
+                    placeholder="Port"
+                    ko.value="$form.port"
+                    ko.enable="$form.isConfigured"
+                    ko.validationCss="$form.port"
+                "/>
+                <validation-message params="field: $form.port"></validation-message>
+           </editor>
+            <p class="remark error">
+                {{globalError}}
+            </p>
+            <working-button class="align-start push-prev"
+                ko.shakeOnClick="!$form.isValid()"
+                params="
+                    click: $form.submit,
+                    working: $form.isSubmitting,
+                    workingLabel: 'Testing...'
+                "
+            >
+                Apply Changes
+            </working-button>
+        </managed-form>
+    </div>
+</section>

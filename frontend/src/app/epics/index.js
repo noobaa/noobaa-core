@@ -83,6 +83,12 @@ import fetchObjectsDistribution from './fetch-objects-distribution';
 import fetchCloudUsageStats from './fetch-cloud-usage-stats';
 import updateP2PSettings from './update-p2p-settings';
 import resendActivationCode from './resend-activation-code';
+import updateProxyServerSettings from './update-proxy-server-settings';
+import setSystemDebugMode from './set-system-debug-mode';
+import collectSystemDiagnostics from './collect-system-diagnostics';
+import scheduleDebugModeRefresh from './schedule-debug-mode-refresh';
+import scheduleMaintenanceModeRefresh from './schedule-maintenance-mode-refresh';
+import scheduleAutoRefresh from './schedule-auto-refresh';
 
 const generalEpics = [
     handleLocationRequests,
@@ -90,7 +96,8 @@ const generalEpics = [
     downloadFile,
     fetchCloudTargets,
     reloadAfterSystemUpgrade,
-    closeModalsOnLocationChange
+    closeModalsOnLocationChange,
+    scheduleAutoRefresh
 ];
 
 const sessionRelatedEpics = [
@@ -115,7 +122,12 @@ const systemRelatedEpics = [
     leaveMaintenanceMode,
     installVMTools,
     updateP2PSettings,
-    resendActivationCode
+    resendActivationCode,
+    updateProxyServerSettings,
+    setSystemDebugMode,
+    collectSystemDiagnostics,
+    scheduleDebugModeRefresh,
+    scheduleMaintenanceModeRefresh
 ];
 
 const topologyRelatedEpics = [

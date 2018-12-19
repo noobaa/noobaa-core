@@ -1,7 +1,11 @@
-import { get as _get, equalItems, ensureArray } from 'utils/core-utils';
+import { get as _get, equalItems, ensureArray, isString } from 'utils/core-utils';
 import { filter, map, distinctUntilChanged } from 'rxjs/operators';
 
 export function ofType(...types) {
+    if (!types.every(isString)) {
+        throw new TypeError('Invalid type constant');
+    }
+
     return source => source.pipe(
         filter(obj => types.includes(obj.type))
     );

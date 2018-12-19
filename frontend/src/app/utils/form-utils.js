@@ -16,8 +16,10 @@ export function getFieldInitialValue(form, field) {
 }
 
 export function getFieldError(form, name) {
-    const { syncErrors, asyncErrors } = form;
-    return syncErrors[name] || asyncErrors[name];
+    const { syncErrors, asyncErrors, submitErrors } = form;
+    return syncErrors[name] ||
+        asyncErrors[name] ||
+        submitErrors[name];
 }
 
 export function getFieldWarning(form, name) {

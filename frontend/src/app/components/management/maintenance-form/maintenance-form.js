@@ -90,6 +90,7 @@ class MaintenanceFormViewModel extends ConnectableViewModel {
         const newTimeLeft = Math.max(this.timeLeft - timeTickInterval, 0);
         ko.assignToProps(this, {
             timeLeft: newTimeLeft,
+            hasTimeLeft: newTimeLeft > 0,
             formattedTime: formatTimeLeftForMaintenanceMode(newTimeLeft)
         });
     }

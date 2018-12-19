@@ -442,23 +442,7 @@ const host = {
             }
         },
         diagnostics: {
-            type: 'object',
-            required: [
-                'collecting',
-                'error',
-                'packageUri'
-            ],
-            properties: {
-                collecting: {
-                    type: 'boolean'
-                },
-                error: {
-                    type: 'boolean'
-                },
-                packageUri: {
-                    type: 'string'
-                }
-            }
+            $ref: '#/def/common/diagnostics'
         }
     }
 };

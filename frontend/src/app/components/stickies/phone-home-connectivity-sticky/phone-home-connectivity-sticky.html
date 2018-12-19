@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="sticky" data-bind="css: { active: isActive }">
+<section class="sticky" ko.css.active="isActive"">
     <div class="sticky-content row content-middle">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
 
@@ -8,13 +8,8 @@
             Phone home option is not available. By enabling conectivity for two weeks you will get an extera 10TB of capacity.
         </span>
 
-        <a class="link alt-colors" data-bind="
-            href: {
-                route: 'management',
-                params: { tab: 'settings' }
-            }
-        ">
-            Check phone home conectivity settings
+        <a class="link alt-colors" ko.attr.href="proxySettingsHref">
+            Check server proxy settings
         </a>
     </div>
 </section>

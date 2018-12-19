@@ -307,6 +307,29 @@ module.exports = {
             }
         },
 
+        verify_phonehome_connectivity: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['proxy_address'],
+                properties: {
+                    proxy_address: {
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'string'
+                        }]
+                    }
+                }
+            },
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_phone_home_config: {
             method: 'POST',
             params: {

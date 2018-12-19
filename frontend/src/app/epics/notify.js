@@ -448,23 +448,13 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_ENTER_MAINTENANCE_MODE]: () => ({
-        message: 'entered maintenance mode successfully',
-        severity: 'success'
-    }),
-
     [types.FAIL_ENTER_MAINTENANCE_MODE]: () => ({
-        message: 'Enter maintenance mode failed',
+        message: 'Entering maintenance mode failed',
         severity: 'error'
     }),
 
-    [types.COMPLETE_LEAVE_MAINTENANCE_MODE]: () => ({
-        message: 'Leaved maintenance mode successfully',
-        severity: 'success'
-    }),
-
     [types.FAIL_LEAVE_MAINTENANCE_MODE]: () => ({
-        message: 'Leave maintenance mode failed',
+        message: 'Leaving maintenance mode failed',
         severity: 'error'
     }),
 
@@ -505,6 +495,29 @@ const actionToNotification = deepFreeze({
 
     [types.FAIL_UPDATE_P2P_SETTINGS]: () => ({
         message: 'Peer to peer settings update failed',
+        severity: 'error'
+    }),
+
+    [types.UPDATE_PROXY_SERVER_SETTINGS]: () => ({
+        message: 'Applying new proxy server configuration, it may take a few seconds',
+        severity: 'info'
+    }),
+
+    [types.COMPLETE_UPDATE_PROXY_SERVER_SETTINGS]: () => ({
+        message: 'Proxy settings updated successfully',
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_PROXY_SERVER_SETTINGS]: ({ error }) => {
+        const message = error.rpc_code === 'CONNECTIVITY_TEST_FAILED' ?
+            'External services could not be reached using configured proxy' :
+            'Updating Proxy settings failed';
+
+        return { message, severity: 'error' };
+    },
+
+    [types.FAIL_SET_SYSTEM_DEBUG_LEVEL]: ({ level }) => ({
+        message: `Setting system debug level to ${level} failed`,
         severity: 'error'
     })
 });

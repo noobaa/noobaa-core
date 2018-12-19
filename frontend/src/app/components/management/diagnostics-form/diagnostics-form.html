@@ -2,7 +2,7 @@
 
 <section class="column push-next">
     <h2 class="heading3 pad alt-bg">Contact Support</h2>
-    <property-sheet class="pad" params="properties: contactSupport"></property-sheet>
+    <property-sheet class="pad" params="properties: contactInfoProps"></property-sheet>
 </section>
 
 <section class="column">
@@ -11,19 +11,32 @@
             <h2 class="heading3 greedy">Diagnostics</h2>
         </div>
 
-        <button class="btn align-start push-next" data-bind="
-            click: toogleDebugMode,
-            text: toogleDebugModeButtonText
+        <button class="btn align-start push-next"
+            ko.click="onToggleDebugMode"
+            ko.text="toggleDebugModeButtonText"
+            ko.enable="dataReady"
         "></button>
         <working-button class="align-start push-next" params="
-            working: isCollectingDiagnostics,
+            working: isCollectDiagButtonLocked,
             workingLabel: 'Collecting Data...',
-            click: downloadDiagnosticPack
+            click: onDownloadDiagnosticPack,
+            disabled: !dataReady()
         ">
             Download Diagnostics
         </working-button>
     </div>
-    <property-sheet class="pad" params="properties: debugModeSheet"></property-sheet>
+    <property-sheet class="pad" params="properties: debugSheet">
+        <template name="stateAndWarning">
+            <p>
+                {{stateText}}
+                <span class="warning"
+                    ko.visible="isWarningVisible"
+                >
+                    (May cause system slowdown)
+                </span>
+            </p>
+        </template>
+    </property-sheet>
 
 </section>
 

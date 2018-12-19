@@ -13,6 +13,7 @@
     "previewContentKey": "previewContent",
     "redirectOverlayDuration": 4000,
     "timeTickInterval": 1000,
+    "autoRefreshInterval": 30000,
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

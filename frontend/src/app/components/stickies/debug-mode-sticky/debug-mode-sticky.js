@@ -1,22 +1,28 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './debug-mode-sticky.html';
-import BaseViewModel from 'components/base-view-model';
-import { systemInfo } from 'model';
-import { setSystemDebugLevel } from 'actions';
+import ConnectableViewModel from 'components/connectable';
+import { setSystemDebugLevel } from 'action-creators';
 import ko from 'knockout';
 
-class DebugModeStickyViewModel extends BaseViewModel {
-    constructor() {
-        super();
+class DebugModeStickyViewModel extends ConnectableViewModel {
+    isActive = ko.observable();
 
-        this.isActive = ko.pureComputed(
-            () => !!systemInfo() && systemInfo().debug.level > 0
-        );
+    selectState(state) {
+        const { system } = state;
+        return [
+            system && system.debug.level
+        ];
     }
 
-    lowerDebugLevel() {
-        setSystemDebugLevel(0);
+    mapStateToProps(debugLevel) {
+        ko.assignToProps(this, {
+            isActive: debugLevel > 0
+        });
+    }
+
+    onTurnOffDebugMode() {
+        this.dispatch(setSystemDebugLevel(0));
     }
 }
 

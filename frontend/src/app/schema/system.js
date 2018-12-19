@@ -7,7 +7,10 @@ export default {
         'version',
         'maintenanceMode',
         'vmTools',
-        'p2pSettings'
+        'p2pSettings',
+        'phoneHome',
+        'debug',
+        'diagnostics'
     ],
     properties: {
         version: {
@@ -89,17 +92,6 @@ export default {
                 }
             }
         },
-        maintenanceMode: {
-            type: 'object',
-            required: [
-                'till'
-            ],
-            properties: {
-                till: {
-                    type: 'integer'
-                }
-            }
-        },
         vmTools: {
             type: 'string',
             enum: [
@@ -122,18 +114,71 @@ export default {
                     ],
                     properties: {
                         start: {
-                            type: 'integer',
-                            min: 1,
-                            max: 65536
+                            $ref: '#/def/common/port'
                         },
                         end: {
-                            type: 'integer',
-                            min: 1,
-                            max: 65536
+                            $ref: '#/def/common/port'
                         }
                     }
                 }
             }
+        },
+        phoneHome: {
+            type: 'object',
+            required: [
+                'reachable'
+            ],
+            properties: {
+                reachable: {
+                    type: 'boolean'
+                }
+            }
+        },
+        proxyServer: {
+            type: 'object',
+            required: [
+                'endpoint',
+                'port'
+            ],
+            properties: {
+                endpoint: {
+                    type: 'string'
+                },
+                port: {
+                    $ref: '#/def/common/port'
+                }
+            }
+        },
+        debug: {
+            type: 'object',
+            required: [
+                'level',
+                'till'
+            ],
+            properties: {
+                level: {
+                    type: 'integer',
+                    minimum: 0,
+                    maximum: 5
+                },
+                till: {
+                    type: 'integer'
+                }
+            }
+        },
+        maintenanceMode: {
+            type: 'object',
+            required: [
+                'till'
+            ],
+            properties: {
+                till: {
+                    type: 'integer'
+                }
+            }
+        },
+        diagnostics: {
+            $ref: '#/def/common/diagnostics'
         }
     }
 };

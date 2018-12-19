@@ -51,8 +51,12 @@ class StartMaintenanceModalViewModel extends Observer {
         const { duration } = values;
         const errors = {};
 
-        if (duration === 0) {
-            errors.duration = 'Duration cannot be set to 00:00';
+        if (!Number.isInteger(duration)) {
+            errors.duration = 'Please enter a whole number';
+
+        } else if (duration <= 0) {
+            errors.duration = 'Please enter a number greater then 0';
+
         }
 
         return errors;

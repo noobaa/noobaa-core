@@ -6,7 +6,7 @@ import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_OBJECT_PARTS } from 'action-types';
 import { completeFetchObjectParts, failFetchObjectParts } from 'action-creators';
 
-export default  function(action$, { api }) {
+export default function(action$, { api }) {
     return action$.pipe(
         ofType(FETCH_OBJECT_PARTS),
         mergeMap(async action => {

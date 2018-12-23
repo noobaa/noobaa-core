@@ -6,7 +6,7 @@ import { mapErrorObject } from 'utils/state-utils';
 import { UPDATE_NAMESPACE_BUCKET_PLACEMENT } from 'action-types';
 import { completeUpdateNamespaceBucketPlacement, failUpdateNamespaceBucketPlacement } from 'action-creators';
 
-export default  function(action$, { api }) {
+export default function(action$, { api }) {
     return action$.pipe(
         ofType(UPDATE_NAMESPACE_BUCKET_PLACEMENT),
         mergeMap(async action => {

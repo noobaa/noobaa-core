@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { from } from 'rxjs';
-import { mergeAll } from 'rxjs/operators';
+import { mergeMap } from 'rxjs/operators';
 import notify from './notify';
 import createSystem from './create-system';
 import restoreSession from './restore-session';
@@ -10,8 +10,8 @@ import signIn from './sign-in';
 import fetchSystemInfo from './fetch-system-info';
 import createAccount from './create-account';
 import refresh from './refresh';
-import showAccountCreatedMessage from './show-account-created-message';
-import closeCreateAccountOnFaliure from './close-create-account-on-faliure';
+import reactToCreateAccountResult from './react-to-create-account-result';
+import reactToResetAccountPasswordResult from './react-to-reset-account-password-result';
 import updateAccountS3Access from './update-account-s3-access';
 import fetchAlerts from './fetch-alerts';
 import updateAlerts from './update-alerts';
@@ -21,6 +21,7 @@ import uploadObjects from './upload-objects';
 import setAccountIpRestrictions from './set-account-ip-restrictions';
 import updateInstallNodesFormCommandsField from './update-install-nodes-form-commands-field';
 import changeAccountPassword from './change-account-password';
+import resetAccountPassword from './reset-account-password';
 import regenerateAccountCredentials from './regenerate-account-credentials';
 import addExternalConnection from './add-external-connection';
 import deleteExternalConnection from './delete-external-connection';
@@ -90,22 +91,21 @@ import scheduleDebugModeRefresh from './schedule-debug-mode-refresh';
 import scheduleMaintenanceModeRefresh from './schedule-maintenance-mode-refresh';
 import scheduleAutoRefresh from './schedule-auto-refresh';
 
-const generalEpics = [
+const epics = [
+    // General epics
     handleLocationRequests,
     notify,
     downloadFile,
     fetchCloudTargets,
     reloadAfterSystemUpgrade,
     closeModalsOnLocationChange,
-    scheduleAutoRefresh
-];
+    scheduleAutoRefresh,
 
-const sessionRelatedEpics = [
+    // Session related epics
     restoreSession,
-    signIn
-];
+    signIn,
 
-const systemRelatedEpics = [
+    // System related epics
     createSystem,
     fetchSystemInfo,
     refresh,
@@ -127,35 +127,32 @@ const systemRelatedEpics = [
     setSystemDebugMode,
     collectSystemDiagnostics,
     scheduleDebugModeRefresh,
-    scheduleMaintenanceModeRefresh
-];
+    scheduleMaintenanceModeRefresh,
 
-const topologyRelatedEpics = [
+    // Topology related epics
     updateServerAddress,
-    attachServerToCluster
-];
+    attachServerToCluster,
 
-const alertsRelatedEpics = [
+    // Alerts related epics
     fetchAlerts,
     updateAlerts,
-    fetchUnreadAlertsCount
-];
+    fetchUnreadAlertsCount,
 
-const accountRelatedEpics = [
+    // Account related epics
     createAccount,
-    showAccountCreatedMessage,
-    closeCreateAccountOnFaliure,
+    reactToCreateAccountResult,
+    reactToResetAccountPasswordResult,
     updateAccountS3Access,
     setAccountIpRestrictions,
     changeAccountPassword,
+    resetAccountPassword,
     regenerateAccountCredentials,
     addExternalConnection,
     tryDeleteAccount,
     signOutDeletedUser,
-    deleteExternalConnection
-];
+    deleteExternalConnection,
 
-const bucketRelatedEpics = [
+    // Bucket related epics
     createBucket,
     updateBucketQuotaPolicy,
     updateBucketSpilloverPolicy,
@@ -169,27 +166,24 @@ const bucketRelatedEpics = [
     updateBucketS3Access,
     addBucketTrigger,
     updateBucketTrigger,
-    removeBucketTrigger
-];
+    removeBucketTrigger,
 
-const objectRelatedEpics = [
+    // Object related epics
     uploadObjects,
     fetchObjects,
     fetchObject,
     deleteObject,
-    fetchObjectParts
-];
+    fetchObjectParts,
 
-const resourceRelatedEpics = [
+    // Resource related epics
     createHostsPool,
     deleteResource,
     assignHostsToPool,
     createCloudResource,
     fetchCloudResourceObjects,
-    assignRegionToResource
-];
+    assignRegionToResource,
 
-const hostRelatedEpics = [
+    // Host related epics
     fetchHosts,
     fetchHostObjects,
     collectHostDiagnostics,
@@ -197,46 +191,27 @@ const hostRelatedEpics = [
     toggleHostServices,
     toggleHostNodes,
     retrustHost,
-    deleteHost
-];
+    deleteHost,
 
-const namespaceRelatedEpics = [
+    // Namespace related epics
     createNamespaceResource,
-    deleteNamespaceResource
-];
+    deleteNamespaceResource,
 
-const lambdaRelatedEpics = [
-    createLambdaFunc
-];
+    // Lambda related epics
+    createLambdaFunc,
 
-const analyticsRelatedEpics = [
+    // Analytics related epics
     fetchBucketUsageHistory,
     fetchAccountUsageHistory,
     fetchObjectsDistribution,
     fetchCloudUsageStats
 ];
 
-// A utility that combine multiple epics into one epic.
-function _combineEpics(epics) {
-    return (action$, injected) => {
-        const observables = epics.map(epic => epic(action$, injected));
-        return from(observables).pipe(mergeAll());
-    };
+
+/// Create the root epic by merging all epics into one.
+export default function (action$, injected) {
+    return from(epics).pipe(
+        mergeMap(epic => epic(action$, injected))
+    );
 }
 
-/// Create the root epic by combining all epics into one.
-export default _combineEpics([
-    ...generalEpics,
-    ...sessionRelatedEpics,
-    ...systemRelatedEpics,
-    ...topologyRelatedEpics,
-    ...alertsRelatedEpics,
-    ...accountRelatedEpics,
-    ...bucketRelatedEpics,
-    ...objectRelatedEpics,
-    ...resourceRelatedEpics,
-    ...hostRelatedEpics,
-    ...namespaceRelatedEpics,
-    ...lambdaRelatedEpics,
-    ...analyticsRelatedEpics
-]);

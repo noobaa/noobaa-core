@@ -6,7 +6,7 @@ import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_NAMESPACE_RESOURCE } from 'action-types';
 import { completeDeleteNamespaceResource, failDeleteNamespaceResource } from 'action-creators';
 
-export default  function(action$, { api }) {
+export default function(action$, { api }) {
     return action$.pipe(
         ofType(DELETE_NAMESPACE_RESOURCE),
         mergeMap(async action => {

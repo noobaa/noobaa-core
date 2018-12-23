@@ -29,3 +29,24 @@ export function validateName(name = '', existing) {
         }
     ];
 }
+
+export function validatePassword(password = '') {
+    return [
+        {
+            valid: password.length >= 5,
+            message: 'At least 5 characters'
+        },
+        {
+            valid: /[A-Z]/.test(password),
+            message: 'At least one uppercased letter'
+        },
+        {
+            valid: /[a-z]/.test(password),
+            message: 'At least one lowercase letter'
+        },
+        {
+            valid: /[0-9]/.test(password),
+            message: 'At least one digit'
+        }
+    ];
+}

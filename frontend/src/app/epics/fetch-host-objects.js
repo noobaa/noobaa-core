@@ -6,7 +6,7 @@ import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_HOST_OBJECTS } from 'action-types';
 import { completeFetchHostObjects, failFetchHostObjects } from 'action-creators';
 
-export default  function(action$, { api }) {
+export default function(action$, { api }) {
     return action$.pipe(
         ofType(FETCH_HOST_OBJECTS),
         mergeMap(async action => {

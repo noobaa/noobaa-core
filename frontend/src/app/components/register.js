@@ -102,6 +102,10 @@ import createFuncModal from './modals/create-func-modal/create-func-modal';
 import afterUpgradeFailureModal from './modals/after-upgrade-failure-modal/after-upgrade-failure-modal';
 import createBucketModal from './modals/create-bucket-modal/create-bucket-modal';
 import assignRegionModal from './modals/assign-region-modal/assign-region-modal';
+import changePasswordModal from './modals/change-password-modal/change-password-modal';
+import resetPasswordModal from './modals/reset-password-modal/reset-password-modal';
+import passwordResetCompletedModal from './modals/password-reset-completed-modal/password-reset-completed-modal';
+import passwordResetFailedModal from './modals/password-reset-failed-modal/password-reset-failed-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -218,12 +222,10 @@ import accountsTable from './accounts/accounts-table/accounts-table';
 // -------------------------------
 // Account page components
 // -------------------------------
-import resetPasswordModal from './account/reset-password-modal/reset-password-modal';
 import accountPanel from './account/account-panel/account-panel';
 import accountDetailsForm from './account/account-details-form/account-details-form';
 import accountS3AccessForm from './account/account-s3-access-form/account-s3-access-form';
 import regenerateAccountCredentialsModal from './account/regenerate-account-credentials-modal/regenerate-account-credentials-modal';
-import changePasswordModal from './account/change-password-modal/change-password-modal';
 import accountConnectionsTable from './account/account-connections-table/account-connections-table';
 /** INJECT:account.import **/
 
@@ -446,6 +448,10 @@ export default function register(ko, services) {
         afterUpgradeFailureModal,
         createBucketModal,
         assignRegionModal,
+        changePasswordModal,
+        resetPasswordModal,
+        passwordResetCompletedModal,
+        passwordResetFailedModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -527,12 +533,10 @@ export default function register(ko, services) {
         accountsTable,
         /** INJECT:accounts.list **/
 
-        resetPasswordModal,
         accountPanel,
         accountDetailsForm,
         accountS3AccessForm,
         regenerateAccountCredentialsModal,
-        changePasswordModal,
         accountConnectionsTable,
         /** INJECT:account.list **/
 

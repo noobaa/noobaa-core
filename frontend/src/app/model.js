@@ -50,7 +50,7 @@ export const ntpResolutionState = ko.observable();
 // Hold diagnostics information
 export const collectDiagnosticsState = ko.observable({});
 
-// Hold last rest password attampt result.
+// Hold last rest password attampt result (only used in change-password-form);
 export const resetPasswordState = ko.observable();
 
 // Hold verification state for attach server oprtations.

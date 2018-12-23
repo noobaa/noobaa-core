@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { randomString } from 'utils/string-utils';
 import {
     CREATE_ACCOUNT,
     COMPLETE_CREATE_ACCOUNT,
@@ -13,6 +14,9 @@ import {
     CHANGE_ACCOUNT_PASSWORD,
     COMPLETE_CHANGE_ACCOUNT_PASSWORD,
     FAIL_CHANGE_ACCOUNT_PASSWORD,
+    RESET_ACCOUNT_PASSWORD,
+    COMPLETE_RESET_ACCOUNT_PASSWORD,
+    FAIL_RESET_ACCOUNT_PASSWORD,
     ADD_EXTERNAL_CONNECTION,
     COMPLETE_ADD_EXTERNAL_CONNECTION,
     FAIL_ADD_EXTERNAL_CONNECTION,
@@ -123,19 +127,13 @@ export function failSetAccountIpRestrictions(accountName, error) {
     };
 }
 
-export function changeAccountPassword(
-    verificationPassword,
-    accountName,
-    password,
-    expireNewPassword = false
-) {
+export function changeAccountPassword(verificationPassword, accountName, password) {
     return {
         type: CHANGE_ACCOUNT_PASSWORD,
         payload: {
             verificationPassword,
             accountName,
-            password,
-            expireNewPassword
+            password
         }
     };
 }
@@ -150,6 +148,33 @@ export function completeChangeAccountPassword(accountName, expireNewPassword) {
 export function failChangeAccountPassword(accountName, error) {
     return {
         type: FAIL_CHANGE_ACCOUNT_PASSWORD,
+        payload: { accountName, error }
+    };
+}
+
+export function resetAccountPassword(verificationPassword, accountName) {
+    const password = randomString();
+
+    return {
+        type: RESET_ACCOUNT_PASSWORD,
+        payload: {
+            verificationPassword,
+            accountName,
+            password
+        }
+    };
+}
+
+export function completeResetAccountPassword(accountName, password) {
+    return {
+        type: COMPLETE_RESET_ACCOUNT_PASSWORD,
+        payload: { accountName, password }
+    };
+}
+
+export function failResetAccountPassword(accountName, error) {
+    return {
+        type: FAIL_RESET_ACCOUNT_PASSWORD,
         payload: { accountName, error }
     };
 }

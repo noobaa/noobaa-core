@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 // ----------------------------------------------------------------------
 // TODO: Bridge between old and new architectures. will be removed after
 // appropriate sections are moved to the new architecture.
@@ -82,15 +84,7 @@ function onChangeAccountPassword() {
     model.resetPasswordState('IN_PROGRESS');
 }
 
-function onCompleteChangeAccountPassword({ accountName, expirePassword }) {
-    const session = model.sessionInfo();
-    if (accountName === session.user) {
-        model.sessionInfo({
-            ...session,
-            passwordExpired: expirePassword
-        });
-    }
-
+function onCompleteChangeAccountPassword() {
     model.resetPasswordState('SUCCESS');
 }
 

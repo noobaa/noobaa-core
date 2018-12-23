@@ -46,36 +46,40 @@ class ManagedFormViewModel extends Observer {
         // Create an observable to hold the loaded form state.
         const state = this._state = ko.observable();
 
-        this.isInitialized = ko.pureComputed(
-            () => Boolean(state())
+        this.isInitialized = ko.pureComputed(() =>
+            Boolean(state())
         );
 
-        this.isValidating = ko.pureComputed(
-            () => Boolean(state() && state().validatingAsync)
+        this.isValidating = ko.pureComputed(() =>
+            Boolean(state() && state().validatingAsync)
         );
 
-        this.isValid = ko.pureComputed(
-            () => Boolean(state()) && isFormValid(state())
+        this.isValid = ko.pureComputed(() =>
+            Boolean(state()) && isFormValid(state())
         );
 
-        this.isDirty = ko.pureComputed(
-            () => Boolean(state()) && isFormDirty(state())
+        this.isDirty = ko.pureComputed(() =>
+            Boolean(state()) && isFormDirty(state())
         );
 
-        this.isSubmitting = ko.pureComputed(
-            () => Boolean(state()) && state().submitting
+        this.isSubmitting = ko.pureComputed(() =>
+            Boolean(state()) && state().submitting
         );
 
-        this.isSubmitted = ko.pureComputed(
-            () => Boolean(state()) && state().submitted
+        this.isSubmittingOrSubmitted = ko.pureComputed(() =>
+            Boolean(state()) && (state().submitting || state().submitted)
         );
 
-        this.warnings = ko.pureComputed(
-            () => state() ? state().warnings : {}
+        this.isSubmitted = ko.pureComputed(() =>
+            Boolean(state()) && state().submitted
         );
 
-        this.errors = ko.pureComputed(
-            () => state() ? {
+        this.warnings = ko.pureComputed(() =>
+            state() ? state().warnings : {}
+        );
+
+        this.errors = ko.pureComputed(() =>
+            state() ? {
                 ...state().syncErrors,
                 ...state().asyncErrors,
                 ...state().submitErrors

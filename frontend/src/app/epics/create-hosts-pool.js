@@ -6,7 +6,7 @@ import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_HOSTS_POOL } from 'action-types';
 import { completeCreateHostsPool, failCreateHostsPool } from 'action-creators';
 
-export default  function(action$, { api }) {
+export default function(action$, { api }) {
     return action$.pipe(
         ofType(CREATE_HOSTS_POOL),
         mergeMap(async action => {

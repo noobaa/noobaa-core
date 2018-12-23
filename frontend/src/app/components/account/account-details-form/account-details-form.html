@@ -5,28 +5,15 @@
         General Information
     </h2>
 
-    <div ko.tooltip="changePasswordButtonTooltip">
+    <div ko.tooltip="button.tooltip">
         <button class="btn"
-            ko.click="showPasswordModal"
-            ko.text="changePasswordButtonLabel"
-            ko.disable="disableChangePasswordButton"
-        ></button>
+            ko.disable="button.isDisabled"
+            ko.click="onChangeOrResetPassword"
+        >
+            {{button.label}}
+        </button>
     </div>
 </div>
 
 <property-sheet class="pad" params="properties: profileInfo">
 </property-sheet>
-
-<!-- ko if: isCurrentUser() && isPasswordModalVisible() -->
-    <change-password-modal params="
-        email: accountName,
-        onClose: hidePasswordModal.bind($data)
-    "></change-password-modal>
-<!-- /ko -->
-
-<!-- ko if: !isCurrentUser() && isPasswordModalVisible() -->
-<reset-password-modal params="
-    email: accountName,
-    onClose: hidePasswordModal.bind($data)
-"></reset-password-modal>
-<!-- /ko -->

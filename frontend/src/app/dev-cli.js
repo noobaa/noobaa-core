@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import * as model from 'model';
 import { action$, state$ } from 'state';
 import * as actionCreators from 'action-creators';

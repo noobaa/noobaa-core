@@ -2,75 +2,85 @@
 
 import template from './account-details-form.html';
 import { deepFreeze } from 'utils/core-utils';
-import { state$ } from 'state';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { getMany } from 'rx-extensions';
+import {
+    openChangePasswordModal,
+    openResetPasswordModal
+} from 'action-creators';
 
 const actionUnavailableTooltip = deepFreeze({
     align: 'end',
     text: 'This action is unavailable for accounts without login access'
 });
 
-class AccountDetailsFormViewModel extends Observer {
-    constructor({ accountName }) {
-        super();
+class AccountDetailsFormViewModel extends ConnectableViewModel {
+    accountName = ko.observable();
+    isCurrentUser = false;
+    button = {
+        label: ko.observable(),
+        tooltip: ko.observable(),
+        isDisabled: ko.observable()
+    };
+    profileInfo = [
+        {
+            label: 'Account Name',
+            value: ko.observable()
+        },
+        {
+            label: 'Role',
+            value: ko.observable()
+        }
+    ];
 
-        this.accountName = ko.observable();
-        this.role = ko.observable();
-        this.isCurrentUser = ko.observable();
-        this.changePasswordButtonLabel = ko.observable();
-        this.disableChangePasswordButton = ko.observable();
-        this.changePasswordButtonTooltip = ko.observable();
+    selectState(state, params) {
+        const { accounts, session } = state;
 
-        this.profileInfo = [
-            {
-                label: 'Account Name',
-                value: this.accountName
-            },
-            {
-                label: 'Role',
-                value: this.role
-            }
+        return [
+            accounts && accounts[params.accountName],
+            session && session.user
         ];
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['accounts', ko.unwrap(accountName)],
-                    ['session', 'user']
-                )
-            ),
-            this.onAccount
-        );
-
-        // TODO: Move the modals into Modal Maneger
-        this.isPasswordModalVisible = ko.observable(false);
     }
 
-    onAccount([ account, currentUser ]) {
-        if (!account) return;
+    mapStateToProps(account, currentUser) {
+        if (!account) {
+            ko.assignToProps(this, {
+                button: {
+                    label: 'Reset Password',
+                    isDisabled: true,
+                    tooltip: ''
+                }
+            });
 
-        const { isOwner } = account;
-        const isCurrentUser = currentUser === account.name;
-        const role  = !isOwner ?
-            (account.hasLoginAccess ? 'Admin' : 'Application') :
-            'Owner';
+        } else {
+            const { isOwner, hasLoginAccess } = account;
+            const isCurrentUser = currentUser === account.name;
+            const role  = !isOwner ?
+                (account.hasLoginAccess ? 'Admin' : 'Application') :
+                'Owner';
 
-        this.accountName(account.name);
-        this.role(role);
-        this.isCurrentUser(isCurrentUser);
-        this.changePasswordButtonLabel(isCurrentUser ? 'Change Password' : 'Reset Password');
-        this.disableChangePasswordButton(!account.hasLoginAccess);
-        this.changePasswordButtonTooltip(!account.hasLoginAccess ? actionUnavailableTooltip : '');
+            ko.assignToProps(this, {
+                accountName: account.name,
+                isCurrentUser,
+                button: {
+                    label: isCurrentUser ? 'Change Password' : 'Reset Password',
+                    isDisabled: !hasLoginAccess,
+                    tooltip: hasLoginAccess ? actionUnavailableTooltip : ''
+                },
+                profileInfo: [
+                    { value: account.name },
+                    { value: role }
+                ]
+            });
+        }
     }
 
-    showPasswordModal() {
-        this.isPasswordModalVisible(true);
-    }
+    onChangeOrResetPassword() {
+        const action = this.isCurrentUser ?
+            openChangePasswordModal(this.accountName()) :
+            openResetPasswordModal(this.accountName());
 
-    hidePasswordModal() {
-        this.isPasswordModalVisible(false);
+        this.dispatch(action);
     }
 }
 

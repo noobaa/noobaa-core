@@ -6,7 +6,7 @@ import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_NAMESPACE_RESOURCE } from 'action-types';
 import { completeCreateNamespaceResource, failCreateNamespaceResource } from 'action-creators';
 
-export default  function(action$, { api }) {
+export default function(action$, { api }) {
     return action$.pipe(
         ofType(CREATE_NAMESPACE_RESOURCE),
         mergeMap(async action => {

@@ -1,3 +1,5 @@
+/* Copyright (C) 2016 NooBaa */
+
 import { get as _get, equalItems, ensureArray, isString } from 'utils/core-utils';
 import { filter, map, distinctUntilChanged } from 'rxjs/operators';
 

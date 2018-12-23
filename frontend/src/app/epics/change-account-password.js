@@ -17,10 +17,10 @@ export default function(action$, { api }) {
                     verification_password: payload.verificationPassword,
                     email: payload.accountName,
                     password: payload.password,
-                    must_change_password: payload.expireNewPassword
+                    must_change_password: false
                 });
 
-                return completeChangeAccountPassword(payload.accountName, payload.expireNewPassword);
+                return completeChangeAccountPassword(payload.accountName);
 
             } catch (error) {
                 return failChangeAccountPassword(

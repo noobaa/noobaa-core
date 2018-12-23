@@ -6,7 +6,7 @@ import { mapErrorObject } from 'utils/state-utils';
 import { FETCH_CLOUD_TARGETS } from 'action-types';
 import { completeFetchCloudTargets, failFetchCloudTargets } from 'action-creators';
 
-export default  function(action$, { api }) {
+export default function(action$, { api }) {
     return action$.pipe(
         ofType(FETCH_CLOUD_TARGETS),
         mergeMap(async action => {

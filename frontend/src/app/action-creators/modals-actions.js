@@ -860,3 +860,69 @@ export function openAssignRegionModal(resourceType, resourceName) {
         }
     };
 }
+
+export function openChangePasswordModal(accountName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'change-password-modal',
+                params: { accountName }
+            },
+            options: {
+                title: 'Change My Account Password',
+                size: 'small'
+            }
+        }
+    };
+}
+
+export function openResetPasswordModal(accountName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'reset-password-modal',
+                params: { accountName }
+            },
+            options: {
+                title: 'Reset Account Password',
+                size: 'xsmall'
+            }
+        }
+    };
+}
+
+export function openPasswordResetCompletedModal(accountName, password) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'password-reset-completed-modal',
+                params: { accountName, password }
+            },
+            options: {
+                title: 'Password Reset Successful',
+                size: 'small',
+                severity: 'success'
+            }
+        }
+    };
+}
+
+export function openPasswordResetFailedModal(accountName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'password-reset-failed-modal',
+                params: { accountName }
+            },
+            options: {
+                title: 'Password Reset Failed',
+                size: 'xsmall',
+                severity: 'error'
+            }
+        }
+    };
+}

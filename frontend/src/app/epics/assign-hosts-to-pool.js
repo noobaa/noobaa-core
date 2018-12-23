@@ -6,7 +6,7 @@ import { mapErrorObject } from 'utils/state-utils';
 import { ASSIGN_HOSTS_TO_POOL } from 'action-types';
 import { completeAssignHostsToPool, failAssignHostsToPool } from 'action-creators';
 
-export default  function(action$, { api }) {
+export default function(action$, { api }) {
     return action$.pipe(
         ofType(ASSIGN_HOSTS_TO_POOL),
         mergeMap(async action => {

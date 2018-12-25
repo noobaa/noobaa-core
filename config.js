@@ -301,7 +301,6 @@ config.central_stats = {
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 2 //TODO: We might want to split between agent and server
 };
-config.central_stats.send_time = 14 * 24 * 60 * 60 * 1000; //14 days
 
 /*
   Clustering Defaults
@@ -355,6 +354,7 @@ config.MIN_MEMORY_FOR_UPGRADE = 1200 * 1024 * 1024;
 //////////////////////////////
 
 config.SEND_EVENTS_REMOTESYS = true;
+config.PROMETHEUS_ENABLED = false;
 
 
 // load a local config file that overwrites some of the config

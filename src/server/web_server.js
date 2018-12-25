@@ -29,11 +29,13 @@ const config = require('../../config.js');
 const license_info = require('./license_info');
 const mongo_client = require('../util/mongo_client');
 const system_store = require('./system_services/system_store').get_instance();
+const prom_reports = require('./analytic_services/prometheus_reporting').PrometheusReporting;
 const SupervisorCtl = require('./utils/supervisor_ctrl');
 const cutil = require('./utils/clustering_utils');
 const system_server = require('./system_services/system_server');
 const account_server = require('./system_services/account_server');
 const auth_server = require('./common_services/auth_server');
+
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -77,7 +79,6 @@ mongo_client.instance().connect();
 //Set KeepAlive to all http/https agents in webserver
 http.globalAgent.keepAlive = true;
 https.globalAgent.keepAlive = true;
-
 
 /////////
 // RPC //
@@ -298,6 +299,21 @@ app.post('/upgrade', function(req, res, next) {
         }); //Async
         res.end('<html><head></head>Upgrade file uploaded successfully');
     });
+
+
+if (prom_reports.instance().enabled()) {
+    app.get('/metrics', function(req, res) {
+        res.set('Content-Type', prom_reports.instance().client().register.contentType);
+        res.end(prom_reports.instance().client().register.metrics());
+    });
+
+    app.get('/metrics/counter', function(req, res) {
+        res.set('Content-Type', prom_reports.instance().client().register.contentType);
+        res.end(prom_reports.instance().export_metrics());
+    });
+
+}
+
 
 //Upgrade from 0.3.X will try to return to this path. We will redirect it.
 app.get('/console', function(req, res) {

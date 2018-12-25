@@ -26,6 +26,7 @@ const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
+const prom_report = require('../analytic_services/prometheus_reporting').PrometheusReporting;
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -1183,7 +1184,7 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-    _handle_agent_response(item, info) {
+    _handle_agent_metrics(item, info) {
         item.agent_info = info;
         // store io stats if any of the values is non zero
         if (info.io_stats && _.values(info.io_stats).reduce(_.add)) {
@@ -1193,6 +1194,15 @@ class NodesMonitor extends EventEmitter {
                 stats: info.io_stats,
                 node_id: item.node._id
             });
+
+            //update prometheus metrics
+            if (this._is_cloud_node(item)) {
+                const endpoint_type = _.get(system_store.data.get_by_id(item.node.pool), 'cloud_pool_info.endpoint_type') || 'OTHER';
+                console.log('NBNB:: updating prom on cloud node', endpoint_type);
+                prom_report.instance().update_cloud_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
+                prom_report.instance().update_cloud_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
+            }
+
         }
         const updates = _.pick(info, AGENT_INFO_FIELDS);
         updates.heartbeat = Date.now();
@@ -1205,6 +1215,12 @@ class NodesMonitor extends EventEmitter {
                 item.node.srv_error = undefined;
             }
         }
+
+        return updates;
+    }
+
+    _handle_agent_response(item, info) {
+        const updates = this._handle_agent_metrics(item, info);
         // node name is set once before the node is created in nodes_store
         // we take the name the agent sent as base, and add suffix if needed
         // to prevent collisions.

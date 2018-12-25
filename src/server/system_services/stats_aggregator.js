@@ -23,9 +23,12 @@ const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
 const size_utils = require('../../util/size_utils');
 const Dispatcher = require('../notifications/dispatcher');
+const prom_report = require('../analytic_services/prometheus_reporting').PrometheusReporting;
 const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
 const { google } = require('googleapis');
 const google_storage = google.storage('v1');
+
+
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
@@ -251,18 +254,21 @@ function get_ops_stats(req) {
 }
 
 function get_bucket_sizes_stats(req) {
-    return P.resolve()
-        .then(() => system_store.data.buckets.map(bucket => {
-            let bins = bucket.storage_stats.objects_hist || [];
-            return {
+    let ret = [];
+    for (const b of system_store.data.buckets) {
+        if (b.storage_stats.objects_hist &&
+            !_.isEmpty(b.storage_stats.objects_hist)) {
+            ret.push({
                 master_label: 'Size',
-                bins: bins.map(bin => ({
+                bins: b.storage_stats.objects_hist.map(bin => ({
                     label: bin.label,
                     count: bin.count,
                     avg: bin.count ? bin.aggregated_sum / bin.count : 0
                 }))
-            };
-        }));
+            });
+        }
+    }
+    return ret;
 }
 
 function get_pool_stats(req) {
@@ -397,11 +403,7 @@ function get_all_stats(req) {
         .then(cloud_pool_stats => {
             stats_payload.cloud_pool_stats = cloud_pool_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Bucket Sizes');
-            return get_bucket_sizes_stats(req)
-                .catch(err => {
-                    dbg.warn('Error in collecting bucket sizes stats, skipping', err.stack, err);
-                    return {};
-                });
+            return get_bucket_sizes_stats(req);
         })
         .then(bucket_sizes_stats => {
             stats_payload.bucket_sizes_stats = bucket_sizes_stats;
@@ -432,6 +434,7 @@ function get_all_stats(req) {
         })
         .then(ops_stats => {
             stats_payload.ops_stats = ops_stats;
+            parse_prometheus_metrics(stats_payload);
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
             return stats_payload;
         })
@@ -439,6 +442,14 @@ function get_all_stats(req) {
             dbg.warn('SYSTEM_SERVER_STATS_AGGREGATOR:', 'ERROR', err.stack);
             throw err;
         });
+}
+
+/*
+ * Prometheus Metrics Parsing, POC grade
+ */
+function parse_prometheus_metrics(payload) {
+    prom_report.instance().set_cloud_types(payload.cloud_pool_stats);
+    prom_report.instance().set_object_sizes(payload.bucket_sizes_stats);
 }
 
 /*

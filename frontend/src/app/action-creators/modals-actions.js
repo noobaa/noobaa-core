@@ -926,3 +926,19 @@ export function openPasswordResetFailedModal(accountName) {
         }
     };
 }
+
+export function openEditFuncConfiguration(funcName, funcVersion) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'func-configuration-modal',
+                params: { funcName, funcVersion }
+            },
+            options: {
+                title: 'Function Configuration',
+                size: 'medium'
+            }
+        }
+    };
+}

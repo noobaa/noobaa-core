@@ -31,8 +31,12 @@ function _mapFunc(func) {
     const {
         name,
         version,
+        handler,
         description,
-        code_size: size,
+        runtime,
+        timeout,
+        memory_size: memorySize,
+        code_size: codeSize,
         last_modified: lastModified,
         exec_account: executor
     } = func.config;
@@ -40,8 +44,12 @@ function _mapFunc(func) {
     return {
         name,
         version,
+        handler,
         description,
-        size,
+        runtime,
+        timeout,
+        memorySize,
+        codeSize,
         lastModified,
         executor
     };

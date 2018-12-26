@@ -1,84 +1,77 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './func-config.html';
-import BaseViewModel from 'components/base-view-model';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
-import { updateFuncConfig } from 'actions';
+import { stringifyAmount } from 'utils/string-utils';
+import { openEditFuncConfiguration } from 'action-creators';
 
-const runtimeOptions = deepFreeze([
-    {
-        value: 'nodejs6'
-    }
-]);
+class FuncConfigViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
+    funcName = ko.observable();
+    funcVersion = '';
+    funcConfig = [
+        {
+            label: 'Runtime',
+            value: ko.observable()
+        },
+        {
+            label: 'Handler',
+            value: ko.observable()
+        },
+        {
+            label: 'Memory Size',
+            value: ko.observable()
+        },
+        {
+            label: 'Timeout',
+            value: ko.observable()
+        },
+        {
+            label: 'Description',
+            value: ko.observable()
+        }
+    ];
 
-const memorySizeOptions = deepFreeze([
-    {
-        value: 128,
-        label: '128 MB'
-    },
-    {
-        value: 256,
-        label: '256 MB'
-    },
-    {
-        value: 512,
-        label: '512 MB'
-    }
-]);
-
-class FuncConfigViewModel extends BaseViewModel {
-    constructor({ func }) {
-        super();
-
-        this.func = func;
-        this.runtimeOptions = runtimeOptions;
-        this.memorySizeOptions = memorySizeOptions;
-
-        this.name = ko.pureComputed(
-            () => func() ? func().name : ''
-        );
-
-        this.version = ko.pureComputed(
-            () => func() ? func().version : ''
-        );
-
-        const config = ko.pureComputed(
-            () => func() ? func().config : {}
-        );
-
-        this.runtime = ko.observableWithDefault(
-            () => config().runtime
-        );
-
-        this.handler = ko.observableWithDefault(
-            () => config().handler
-        );
-
-        this.memorySize = ko.observableWithDefault(
-            () => config().memory_size
-        );
-
-        this.timeout = ko.observableWithDefault(
-            () => config().timeout
-        );
-        this.description = ko.observableWithDefault(
-            () => config().description
-        );
+    selectState(state, params) {
+        const { functions } = state;
+        const { funcName, funcVersion } = params;
+        const id = `${funcName}:${funcVersion}`;
+        return [
+            funcName,
+            functions && functions[id]
+        ];
     }
 
-    applyChanges() {
-        const config = {
-            runtime: this.runtime(),
-            handler: this.handler(),
-            memory_size: this.memorySize(),
-            timeout: parseInt(this.timeout(), 10),
-            description: this.description()
-        };
+    mapStateToProps(funcName, func) {
+        if (!func) {
+            ko.assignToProps(this, {
+                dataReady: false,
+                funcName
+            });
 
-        updateFuncConfig(this.name(), this.version(), config);
+        } else {
+            ko.assignToProps(this, {
+                dataReady: true,
+                funcName,
+                funcVersion: func.version,
+                funcConfig: [
+                    { value: func.runtime },
+                    { value: func.handler },
+                    { value: `${func.memorySize}MB` },
+                    { value: stringifyAmount('second', func.timeout) },
+                    { value: func.description }
+                ]
+            });
+        }
     }
 
+    onEditConfiguration() {
+        this.dispatch(openEditFuncConfiguration(
+            this.funcName(),
+            this.funcVersion
+        ));
+    }
 }
 
 export default {

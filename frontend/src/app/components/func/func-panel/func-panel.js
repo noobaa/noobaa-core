@@ -15,6 +15,7 @@ class FuncPanelViewModel extends Observer {
         this.func = funcInfo;
         this.selectedTab = ko.observable();
         this.baseRoute = '';
+        this.funcName = ko.observable();
 
         this.observe(
             state$.pipe(get('location')),
@@ -27,6 +28,7 @@ class FuncPanelViewModel extends Observer {
 
         this.baseRoute = realizeUri(route, { system, func }, {}, true);
         this.selectedTab(tab);
+        this.funcName(func);
     }
 
     tabHref(tab) {

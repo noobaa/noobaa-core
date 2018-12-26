@@ -6,7 +6,15 @@ export default {
         type: 'object',
         required: [
             'name',
-            'version'
+            'version',
+            'description',
+            'handler',
+            'runtime',
+            'timeout',
+            'memorySize',
+            'codeSize',
+            'lastModified',
+            'executor'
         ],
         properties: {
             name: {
@@ -15,10 +23,22 @@ export default {
             version: {
                 type: 'string'
             },
+            handler: {
+                type: 'string'
+            },
             description: {
                 type: 'string'
             },
-            size: {
+            runtime: {
+                type: 'string'
+            },
+            timeout: {
+                type: 'integer'
+            },
+            memorySize: {
+                type: 'integer'
+            },
+            codeSize: {
                 $ref: '#/def/common/size'
             },
             lastModified: {

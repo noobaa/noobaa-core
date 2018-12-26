@@ -1,43 +1,17 @@
 <!-- Copyright (C) 2016 NooBaa -->
-
-<div class="column greedy pad">
-
-    <editor params="label: 'Runtime'">
-        <dropdown params="
-            options: runtimeOptions,
-            selected: runtime
-        "></dropdown>
-    </editor>
-
-    <editor params="label: 'Handler'">
-        <input type="text" data-bind="
-            value: handler
-        "/>
-    </editor>
-
-    <editor params="label: 'Memory Size'">
-        <dropdown params="
-            options: memorySizeOptions,
-            selected: memorySize
-        "></dropdown>
-    </editor>
-
-    <editor params="label: 'Timeout (seconds)'">
-        <input type="number" data-bind="
-            value: timeout
-        "/>
-    </editor>
-
-    <editor params="label: 'Description'">
-        <textarea data-bind="
-            value: description
-        "></textarea>
-    </editor>
-
-    <div class="row content-middle">
-        <button class="btn" data-bind="click: applyChanges">
-            Apply Changes
-        </button>
-    </div>
-
+<div class="row content-middle alt-bg pad">
+    <h2 class="heading3 greedy">
+        {{funcName}} Current Configuration
+    </h2>
+    <button class="btn"
+        ko.enable="dataReady"
+        ko.click="onEditConfiguration"
+    >
+        Edit Configuration
+    </button>
 </div>
+
+<property-sheet class="pad" params="
+    loading: !dataReady(),
+    properties: funcConfig
+"></property-sheet>

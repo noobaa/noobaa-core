@@ -12,9 +12,15 @@ class [[nameCammelCased]]ViewModel extends ConnectableViewModel {
     }
 
     mapStateToProps() {
-        ko.assignToProps(this, {
-            dataReady: false
-        });
+        if (/* condition*/) {
+            ko.assignToProps(this, {
+                dataReady: false
+            });
+        } else {
+            ko.assignToProps(this, {
+                dataReady: true
+            });
+        }
     }
 }
 

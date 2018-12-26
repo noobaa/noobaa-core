@@ -1,74 +1,56 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './func-summary.html';
-import BaseViewModel from 'components/base-view-model';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { stringifyAmount } from 'utils/string-utils';
+import { formatSize } from 'utils/size-utils';
+import moment from 'moment';
+import { timeShortFormat } from 'config';
 
-class FuncSummaryViewModel extends BaseViewModel {
-    constructor({ func }) {
-        super();
+class FuncSummaryViewModel extends ConnectableViewModel {
+    state = {
+        text: 'Deployed',
+        css: 'success',
+        icon: 'healthy'
+    };
+    name = ko.observable();
+    description = ko.observable();
+    lastModified = ko.observable();
+    runtime = ko.observable();
+    codeSize = ko.observable();
+    memorySize = ko.observable();
 
-        this.name = ko.pureComputed(
-            () => func() ? func().name : ''
-        );
+    selectState(state, params) {
+        const { functions } = state;
+        const { funcName, funcVersion } = params;
+        const id = `${funcName}:${funcVersion}`;
+        return [
+            funcName,
+            functions && functions[id]
+        ];
+    }
 
-        this.version = ko.pureComputed(
-            () => func() ? func().version : ''
-        );
+    mapStateToProps(funcName, func) {
+        if (!func) {
+            ko.assignToProps(this, {
+                name: funcName,
+                description: '',
+                lastModified: '',
+                runtime: '',
+                codeSize: '',
+                memorySize: ''
+            });
 
-        const config = ko.pureComputed(
-            () => func() ? func().config : {}
-        );
-
-        this.state = ko.pureComputed(
-            () => ({
-                text: 'Deployed',
-                css: 'success',
-                icon: 'healthy'
-            })
-        );
-
-        this.description = ko.pureComputed(
-            () => config().description
-        );
-
-        this.runtime = ko.pureComputed(
-            () => config().runtime
-        );
-
-        this.codeSize = ko.pureComputed(
-            () => config().code_size
-        ).extend({
-            formatSize: true
-        });
-
-        this.memorySize = ko.pureComputed(
-            () => (config().memory_size || 0) * 1024 * 1024
-        ).extend({
-            formatSize: true
-        });
-
-        this.lastModified = ko.pureComputed(
-            () => config().last_modified
-        ).extend({
-            formatTime: true
-        });
-
-        this.placementPolicy = ko.pureComputed(
-            () => {
-                let { pools } = config();
-                if (!pools) {
-                    return '';
-                }
-
-                return {
-                    text: `on ${stringifyAmount('pool', pools.length)}`,
-                    tooltip: pools
-                };
-            }
-        );
-
+        } else {
+            ko.assignToProps(this, {
+                name: funcName,
+                description: func.description,
+                lastModified: moment(func.lastModified).format(timeShortFormat),
+                runtime: func.runtime,
+                codeSize: formatSize(func.codeSize),
+                memorySize: `${func.memorySize}MB`
+            });
+        }
     }
 }
 

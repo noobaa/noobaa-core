@@ -147,7 +147,7 @@ class LicenseScanner extends events.EventEmitter {
                 if (e.stat.isDirectory()) return true;
                 if (!e.stat.isFile()) return false;
                 const file_name = path.basename(e.path);
-                if (/^license|^copying/i.test(file_name)) {
+                if ((/^license|^copying/i).test(file_name)) {
                     return this.scan_license_file(e.path);
                 }
                 if (file_name === 'package.json' || file_name === 'bower.json') {
@@ -247,7 +247,7 @@ class LicenseScanner extends events.EventEmitter {
             console.error('GGG', license);
         }
         this.emit('license', license);
-}
+    }
 
 }
 
@@ -264,46 +264,46 @@ function get_license_type(name) {
     // APACHE LICENSE 2.0
     // APACHE LICENSE VERSION 2.0
     // APACHE-2.0-APPENDIX
-    if (/^apache/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^apache/i).test(name)) return PERMISSIVE_TYPE;
     // MIT
     // MIT/X11
-    if (/^mit/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^mit/i).test(name)) return PERMISSIVE_TYPE;
     // BSD
     // BSD-2
     // BSD-2-CLAUSE
     // BSD-3
     // BSD-3-CLAUSE
     // BSD-3-CLAUSE AND MIT
-    if (/^bsd/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^bsd/i).test(name)) return PERMISSIVE_TYPE;
     // ISC
-    if (/^isc$/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^isc$/i).test(name)) return PERMISSIVE_TYPE;
     // Unlicense
-    if (/^unlicense$/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^unlicense$/i).test(name)) return PERMISSIVE_TYPE;
     // MPL-2.0
-    if (/^mpl/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^mpl/i).test(name)) return PERMISSIVE_TYPE;
     // MOZILLA 2.0
-    if (/^mozilla/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^mozilla/i).test(name)) return PERMISSIVE_TYPE;
     // WTF
     // WTFPL
     // WTFPL-2.0
-    if (/^wtf/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^wtf/i).test(name)) return PERMISSIVE_TYPE;
     // ZLIB
-    if (/^zlib/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^zlib/i).test(name)) return PERMISSIVE_TYPE;
     // Public domain
-    if (/^public.*domain/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^public.*domain/i).test(name)) return PERMISSIVE_TYPE;
     // ARTISTIC-2.0
     // ARTISTIC LICENSE 2.0
-    if (/^artistic/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^artistic/i).test(name)) return PERMISSIVE_TYPE;
     // AFL (Academic Free License)
-    if (/^afl/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^afl/i).test(name)) return PERMISSIVE_TYPE;
     // PYTHON-2.0
-    if (/^python/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^python/i).test(name)) return PERMISSIVE_TYPE;
     // W3C
-    if (/^w3c/i.test(name)) return PERMISSIVE_TYPE;
+    if ((/^w3c/i).test(name)) return PERMISSIVE_TYPE;
 
     // GPL
     // LGPL
-    if (/^l?gpl/i.test(name)) return GPL_TYPE;
+    if ((/^l?gpl/i).test(name)) return GPL_TYPE;
 
     // default
     return PROPRIETARY_TYPE;

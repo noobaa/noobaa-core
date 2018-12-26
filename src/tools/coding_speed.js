@@ -63,17 +63,18 @@ function main() {
         watermark: 20,
         concurrency: 20,
         coder: 'enc',
-        chunk_coder_config: Object.assign({
+        chunk_coder_config: {
             digest_type: config.CHUNK_CODER_DIGEST_TYPE,
             frag_digest_type: config.CHUNK_CODER_FRAG_DIGEST_TYPE,
             compress_type: config.CHUNK_CODER_COMPRESS_TYPE,
             cipher_type: config.CHUNK_CODER_CIPHER_TYPE,
             data_frags: 1,
-        }, argv.ec ? {
-            data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
-            parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
-            parity_type: config.CHUNK_CODER_EC_PARITY_TYPE,
-        } : null)
+            ...(argv.ec ? {
+                data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
+                parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
+                parity_type: config.CHUNK_CODER_EC_PARITY_TYPE,
+            } : null)
+        }
     });
 
     const decoder = new ChunkCoder({

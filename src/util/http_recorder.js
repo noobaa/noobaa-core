@@ -34,6 +34,7 @@ class HTTPRecorder extends stream.Writable {
         // eslint-disable-next-line max-params
         this._parser[HTTPParser.kOnHeadersComplete | 0] = (
             versionMajor, versionMinor, headers, method, url,
+            //eslint-disable-next-line max-params
             statusCode, statusMessage, upgrade, shouldKeepAlive) => {
             // console.log('kOnHeadersComplete',
             //     method, url, versionMajor, versionMinor,

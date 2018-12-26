@@ -76,7 +76,7 @@ if (argv.help) {
 }
 
 let TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
-let TEST_STATE = Object.assign({}, TEST_STATE_INITIAL);
+let TEST_STATE = { ...TEST_STATE_INITIAL };
 const s3ops = new S3OPS({ ip: TEST_CFG.server_ip });
 update_dataset_sizes();
 
@@ -695,7 +695,7 @@ async function run_multi_delete(params) {
  * MAIN
  *********/
 function init_parameters({ dataset_params, report_params }) {
-    TEST_STATE = Object.assign({}, TEST_STATE_INITIAL);
+    TEST_STATE = { ...TEST_STATE_INITIAL };
     TEST_CFG = _.defaults(_.pick(dataset_params, _.keys(TEST_CFG)), TEST_CFG);
 
     update_dataset_sizes();

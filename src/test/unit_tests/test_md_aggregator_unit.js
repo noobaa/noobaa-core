@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines-per-function: ["error", 560]*/
 'use strict';
 
 // setup coretest first to prepare the env

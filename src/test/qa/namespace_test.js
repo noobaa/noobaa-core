@@ -96,7 +96,7 @@ const s3opsAWS = new S3OPS({
     system_verify_name: 'AWS',
 });
 
-const connections_mapping = Object.assign({ AZURE: blobops.AzureDefaultConnection }, { AWS: AWSDefaultConnection });
+const connections_mapping = { AZURE: blobops.AzureDefaultConnection, AWS: AWSDefaultConnection };
 
 //variables for using creating namespace resource
 const namespace_mapping = {
@@ -296,9 +296,10 @@ async function upload_via_cloud_check_via_noobaa(type) {
     await isFilesAvailableInNooBaaBucket(namespace_mapping[type].gateway, files_cloud[`files_${type}`], type);
     for (const file of files_cloud[`files_${type}`]) {
         try {
-        await compereMD5betweenCloudAndNooBaa(type, namespace_mapping[type].bucket2, namespace_mapping[type].gateway, file);
+            await compereMD5betweenCloudAndNooBaa(type, namespace_mapping[type].bucket2, namespace_mapping[type].gateway, file);
             report.success(`read via namespace ${type}`);
         } catch (err) {
+            console.log('Failed upload via cloud , check via noobaa');
             throw err;
         }
     }

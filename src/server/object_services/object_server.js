@@ -559,8 +559,9 @@ async function delete_multiple_objects(req) {
     await Promise.all(Object.keys(group_by_key).map(async key => {
         for (const index of group_by_key[key]) {
             const obj = objects[index];
+            let res;
             try {
-                results[index] = await delete_object(
+                res = await delete_object(
                     _.defaults({
                         rpc_params: {
                             bucket: req.bucket.name,
@@ -572,11 +573,12 @@ async function delete_multiple_objects(req) {
             } catch (err) {
                 dbg.error('Multiple delete for obj', obj, 'failed with reason', err);
                 // for now we mapped all errors to internal error
-                results[index] = {
+                res = {
                     err_code: 'InternalError',
                     err_message: err.message || 'InternalError'
                 };
             }
+            results[index] = res;
         }
     }));
     return results;

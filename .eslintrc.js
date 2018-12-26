@@ -67,8 +67,14 @@ module.exports = {
         // TODO eslint max-depth of blocks should be reduced to ~3 instead of 5
         'max-depth': ['error', 5],
 
+        // max classed per file
+        'max-classes-per-file': ['error', 5],
+
         // max file length is 300 by default, we accept longer files
         'max-lines': ['error', 2000],
+
+        // max lines per function, default is 50
+        'max-lines-per-function': ['error', 400],
 
         // prefer small number of params to functions, otherwise send object
         // TODO eslint max-params per function should be reduced to ~4 instead of 6
@@ -175,6 +181,9 @@ module.exports = {
         // Example: /=$/ is not like /\=$/ which the eslint expects
         // This is not a relevant rule, we added it after the signature_utils query parsing errors
         'no-div-regex': 'off',
+
+        //not forcing u. as part of a uniocode regexp handling
+        'require-unicode-regexp': 'off',
 
         'capitalized-comments': 'off',
 

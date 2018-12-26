@@ -326,6 +326,7 @@ async function run_dataset() {
         try {
             await dataset.run_test(true);
         } catch (e) {
+            console.log('Failed running dataset');
             throw e;
         }
     }

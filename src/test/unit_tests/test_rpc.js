@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines-per-function: ["error", 520]*/
 'use strict';
 
 process.env.DEBUG_MODE = true;

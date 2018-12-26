@@ -133,7 +133,7 @@ sudo rm /etc/noobaa_sec
 echo Passw0rd | passwd noobaaroot --stdin
 #Clean log file
 rm -f /var/log/*.log
-rm -f /var/log/*-*
+rm -f /var/log/*-* || true
 rm -f /var/log/noobaa*
 rm -f /var/log/nbfedump/*
 rm -f /tmp/supervisor/*

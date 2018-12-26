@@ -39,7 +39,6 @@ import uploadsIndicator from './main/uploads-indicator/uploads-indicator';
 // -------------------------------
 import debugModeSticky from './stickies/debug-mode-sticky/debug-mode-sticky';
 import maintenanceSticky from './stickies/maintenance-sticky/maintenance-sticky';
-import licenseSticky from './stickies/license-sticky/license-sticky';
 import phoneHomeConnectivitySticky from './stickies/phone-home-connectivity-sticky/phone-home-connectivity-sticky';
 import clusterAvailabilitySticky from './stickies/cluster-availability-sticky/cluster-availability-sticky';
 import preferedBrowsersSticky from './stickies/prefered-browsers-sticky/prefered-browsers-sticky';
@@ -388,7 +387,6 @@ export default function register(ko, services) {
 
         debugModeSticky,
         maintenanceSticky,
-        licenseSticky,
         phoneHomeConnectivitySticky,
         clusterAvailabilitySticky,
         preferedBrowsersSticky,

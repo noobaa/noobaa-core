@@ -33,7 +33,7 @@ function get_nodes_ips() {
     }
     return P.resolve()
         .then(() => mongo_client.instance().connect())
-        .then(() => mongo_client.instance().db.collection('nodes').find({
+        .then(() => mongo_client.instance().collection('nodes').find({
                 deleted: null,
                 is_cloud_node: null,
                 is_mongo_node: null,

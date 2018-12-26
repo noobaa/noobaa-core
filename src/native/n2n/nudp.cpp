@@ -130,29 +130,29 @@ Nudp::_close()
     while (!_messages.empty()) {
         Msg* m = _messages.front();
         v8::Local<v8::Value> argv[] = {NAN_ERR("NUDP CLOSED")};
-        m->callback->Call(1, argv);
+        Nan::Call(*m->callback, 1, argv);
         _messages.pop_front();
         delete m;
     }
     v8::Local<v8::Value> argv[] = {NAN_STR("close")};
-    Nan::MakeCallback(handle(), "emit", 1, argv);
+    NAN_CALLBACK(handle(), "emit", 1, argv);
 }
 
 NAN_METHOD(Nudp::bind)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
-    int port = info[0]->Int32Value();
+    int port = NAN_TO_INT(info[0]);
     Nan::Utf8String address(info[1]);
     self._bind(*address, port);
     v8::Local<v8::Value> args[] = {Nan::Undefined(), NAN_INT(self._local_port)};
-    Nan::MakeCallback(info.This(), info[2].As<v8::Function>(), 2, args);
+    Nan::Call(info[2].As<v8::Function>(), info.This(), 2, args);
     NAN_RETURN(Nan::Undefined());
 }
 
 NAN_METHOD(Nudp::connect)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
-    int port = info[0]->Int32Value();
+    int port = NAN_TO_INT(info[0]);
     Nan::Utf8String address(info[1]);
     struct sockaddr_in sin;
     NAUV_IP4_ADDR(*address, port, &sin);
@@ -168,7 +168,7 @@ NAN_METHOD(Nudp::connect)
     self._setup_socket(NULL); // will create utp socket
     utp_connect(self._utp_socket, reinterpret_cast<struct sockaddr*>(&sin), sizeof(sin));
     v8::Local<v8::Value> args[] = {Nan::Undefined(), NAN_INT(self._local_port)};
-    Nan::MakeCallback(info.This(), info[2].As<v8::Function>(), 2, args);
+    Nan::Call(info[2].As<v8::Function>(), info.This(), 2, args);
     DBG0(
         "Nudp::connect: AFTER"
         << " local_port "
@@ -186,13 +186,13 @@ NAN_METHOD(Nudp::send)
     if (self._closed) {
         DBG5("Nudp::send: closed. thats an error.");
         v8::Local<v8::Value> argv[] = {NAN_ERR("Nudp::send: CLOSED")};
-        Nan::Callback(info[1].As<v8::Function>()).Call(1, argv);
+        Nan::Callback(info[1].As<v8::Function>()).Call(1, argv, 0);
         return;
     }
     if (!self._utp_socket) {
         DBG5("Nudp::send: not connected. thats an error.");
         v8::Local<v8::Value> argv[] = {NAN_ERR("Nudp::send: NOT CONNECTED")};
-        Nan::Callback(info[1].As<v8::Function>()).Call(1, argv);
+        Nan::Callback(info[1].As<v8::Function>()).Call(1, argv, 0);
         return;
     }
     Msg* m = new Msg();
@@ -272,7 +272,7 @@ Nudp::_write_data()
                 << " local_port "
                 << _local_port);
             v8::Local<v8::Value> argv[] = {Nan::Undefined()};
-            m->callback->Call(1, argv);
+            Nan::Call(*m->callback, 1, argv);
             _messages.pop_front();
             delete m;
             continue;
@@ -464,7 +464,7 @@ Nudp::_read_data(const uint8_t* buf, int len)
                     << " local_port "
                     << _local_port);
                 v8::Local<v8::Value> argv[] = {NAN_STR("message"), node_buf};
-                Nan::MakeCallback(handle(), "emit", 2, argv);
+                NAN_CALLBACK(handle(), "emit", 2, argv);
             }
         }
     }
@@ -626,7 +626,7 @@ Nudp::uv_callback_receive(
         // path
         v8::Local<v8::Value> argv[] = {
             NAN_STR("stun"), Nan::NewBuffer(buf->base, nread).ToLocalChecked(), rinfo};
-        Nan::MakeCallback(self.handle(), "emit", 3, argv);
+        NAN_CALLBACK(self.handle(), "emit", 3, argv);
     } else {
         const byte* data = reinterpret_cast<const byte*>(buf->base);
         if (!utp_process_udp(self._utp_ctx, data, nread, addr, sizeof(struct sockaddr))) {
@@ -752,12 +752,12 @@ NAN_METHOD(Nudp::send_outbound)
         // but utp still had queued items, so we just drop them
         DBG5("Nudp::send_outbound: closed. ignoring.");
         v8::Local<v8::Value> argv[] = {NAN_ERR("Nudp::send_outbound: CLOSED")};
-        Nan::Callback(info[3].As<v8::Function>()).Call(1, argv);
+        Nan::Callback(info[3].As<v8::Function>()).Call(1, argv, 0);
         return;
     }
     Msg* m = new Msg();
     v8::Local<v8::Object> buffer = Nan::To<v8::Object>(info[0]).ToLocalChecked();
-    int port = info[1]->Int32Value();
+    int port = NAN_TO_INT(info[1]);
     Nan::Utf8String address(info[2]);
     struct sockaddr_in sin;
     NAUV_IP4_ADDR(*address, port, &sin);
@@ -782,10 +782,10 @@ Nudp::uv_callback_send_outbound(uv_udp_send_t* req, int status)
     Msg* m = reinterpret_cast<Msg*>(req->data);
     if (status) {
         v8::Local<v8::Value> argv[] = {NAN_ERR("Nudp::send_outbound: SEND FAILED")};
-        m->callback->Call(1, argv);
+        Nan::Call(*m->callback, 1, argv);
     } else {
         v8::Local<v8::Value> argv[] = {Nan::Undefined()};
-        m->callback->Call(1, argv);
+        Nan::Call(*m->callback, 1, argv);
     }
     delete m;
     delete req;

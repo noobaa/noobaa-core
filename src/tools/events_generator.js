@@ -124,11 +124,11 @@ function EventsGenerator() {
 EventsGenerator.prototype.init = function() {
     //Init all ObjectIDs of the entities in the system, ndoes and objects don't have to exist
     return mongo_client.instance().connect()
-        .then(() => mongo_client.instance().db.collection('systems').findOne({}, { _id: 1 }))
+        .then(() => mongo_client.instance().collection('systems').findOne({}, { _id: 1 }))
         .then(res => {
             if (res) {
                 sysid = res._id;
-                return mongo_client.instance().db.collection('buckets').findOne({}, { _id: 1 });
+                return mongo_client.instance().collection('buckets').findOne({}, { _id: 1 });
             } else {
                 console.info('No system, aborting...');
                 process.exit(0);
@@ -136,20 +136,20 @@ EventsGenerator.prototype.init = function() {
         })
         .then(bucket => {
             entities.bucket._id = bucket._id;
-            return mongo_client.instance().db.collection('accounts').findOne({}, { _id: 1 });
+            return mongo_client.instance().collection('accounts').findOne({}, { _id: 1 });
         })
         .then(account => {
             entities.account._id = account._id;
-            return mongo_client.instance().db.collection('pools').findOne({}, { _id: 1 });
+            return mongo_client.instance().collection('pools').findOne({}, { _id: 1 });
         })
         .then(pool => {
             entities.resource._id = pool._id;
-            return mongo_client.instance().db.collection('clusters').findOne({});
+            return mongo_client.instance().collection('clusters').findOne({});
         })
         .then(cluster => {
             entities.cluster.hostname = cluster.heartbeat.health.os_info.hostname;
             entities.cluster.secret = cluster.owner_secret;
-            return mongo_client.instance().db.collection('nodes').findOne({}, { _id: 1 });
+            return mongo_client.instance().collection('nodes').findOne({}, { _id: 1 });
         })
         .then(node => {
             if (node) {
@@ -158,7 +158,7 @@ EventsGenerator.prototype.init = function() {
             } else {
                 delete entities.node;
             }
-            return mongo_client.instance().db.collection('objectmds').findOne({}, { _id: 1 });
+            return mongo_client.instance().collection('objectmds').findOne({}, { _id: 1 });
         })
         .then(obj => {
             if (obj) {

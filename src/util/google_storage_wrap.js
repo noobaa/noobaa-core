@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const util = require('@google-cloud/common/src/util');
+const util = require('@google-cloud/common/build/src/util');
 const pkg = require('../../package.json');
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 

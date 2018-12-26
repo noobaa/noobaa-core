@@ -283,9 +283,12 @@ class ObjectIO {
         params.seq = 0;
 
         params.source_stream._readableState.highWaterMark = size_utils.MEGABYTE;
-        params.source_stream.on('readable',
-            () => dbg.log0('UPLOAD: readable', params.desc, 'streaming to', params.bucket, params.key)
-        );
+        //Commeneted out due to changes in node.js v10
+        //stream: 'readable' have precedence over flowing
+        //https://github.com/nodejs/node/commit/cf5f9867ff
+        //params.source_stream.on('readable',
+        //            () => dbg.log0('UPLOAD: readable', params.desc, 'streaming to', params.bucket, params.key)
+        //);
 
         complete_params.size = 0;
         complete_params.num_parts = 0;

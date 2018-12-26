@@ -303,7 +303,7 @@ _nb_x509_verify(napi_env env, napi_callback_info info)
         return 0;
     }
 
-    switch (EVP_PKEY_type(issuer_private_key->type)) {
+    switch (EVP_PKEY_base_id(issuer_private_key)) {
     case EVP_PKEY_RSA:
     case EVP_PKEY_RSA2: {
         RSA* rsa = EVP_PKEY_get1_RSA(issuer_private_key);
@@ -456,7 +456,7 @@ x509_name_to_entries(napi_env env, X509_NAME* x509_name)
         ASN1_OBJECT* o = X509_NAME_ENTRY_get_object(e);
         ASN1_STRING* d = X509_NAME_ENTRY_get_data(e);
         const char* key = OBJ_nid2sn(OBJ_obj2nid(o));
-        const char* val = (const char*)ASN1_STRING_data(d);
+        const char* val = (const char*)ASN1_STRING_get0_data(d);
         napi_value v = 0;
         napi_create_string_utf8(env, val, NAPI_AUTO_LENGTH, &v);
         napi_set_named_property(env, v_entries, key, v);

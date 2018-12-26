@@ -5,8 +5,8 @@ var _ = require('lodash');
 var P = require('../../util/promise');
 
 const promise_utils = require('../../util/promise_utils');
-var google = require('googleapis');
-var compute = google.compute('v1');
+const { google } = require('googleapis');
+const compute = google.compute('v1');
 
 function list_machines(project, authClient, zone, prefix) {
     return P.ninvoke(authClient, 'authorize')

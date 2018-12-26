@@ -17,7 +17,7 @@ const system_store = require('../../server/system_services/system_store').get_in
 
 function _get_wiredtiger_log() {
     return mongo_client.instance().connect()
-        .then(() => mongo_client.instance().db.command({ serverStatus: 1 }))
+        .then(() => mongo_client.instance().db().command({ serverStatus: 1 }))
         .then(res => res.wiredTiger.log);
 }
 
@@ -33,7 +33,7 @@ mocha.describe('system_store', function() {
         // hacky - all the added systems were failing some of the next tests
         // remove all dummy systems
         console.log('cleaning test systems:');
-        return mongo_client.instance().db.collection('systems').remove({
+        return mongo_client.instance().collection('systems').remove({
             name: {
                 $nin: ['demo', 'coretest']
             }

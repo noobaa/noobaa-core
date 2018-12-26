@@ -24,7 +24,7 @@ const VALID_HTTP_METHODS = {
 class RpcSchema {
 
     constructor() {
-        this._ajv = new Ajv({ verbose: true });
+        this._ajv = new Ajv({ verbose: true, schemaId: 'auto' });
         this._ajv.addKeyword('idate', schema_utils.KEYWORDS.idate);
         this._ajv.addKeyword('objectid', schema_utils.KEYWORDS.objectid);
     }

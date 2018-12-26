@@ -83,14 +83,14 @@ Ntcp::_close()
     _reading_persistent.Reset();
     if (*handle()) {
         v8::Local<v8::Value> argv[] = {NAN_STR("close")};
-        Nan::MakeCallback(handle(), "emit", 1, argv);
+        NAN_CALLBACK(handle(), "emit", 1, argv);
     }
 }
 
 NAN_METHOD(Ntcp::bind)
 {
     Ntcp& self = *NAN_UNWRAP_THIS(Ntcp);
-    int port = info[0]->Int32Value();
+    int port = NAN_TO_INT(info[0]);
     Nan::Utf8String address(info[1]);
     self._bind(*address, port);
     NAN_RETURN(NAN_INT(self._local_port));
@@ -124,7 +124,7 @@ Ntcp::_bind(const char* address, int port)
 NAN_METHOD(Ntcp::listen)
 {
     Ntcp& self = *NAN_UNWRAP_THIS(Ntcp);
-    int port = info[0]->Int32Value();
+    int port = NAN_TO_INT(info[0]);
     Nan::Utf8String address(info[1]);
     DBG1("Ntcp::listen: " << *address << ":" << port);
     self._bind(*address, port);
@@ -145,7 +145,7 @@ NAUV_CALLBACK_STATUS(Ntcp::_connection_callback, uv_stream_t* listener)
     conn._local_port = self._local_port;
     conn._accept(listener);
     v8::Local<v8::Value> argv[] = {NAN_STR("connection"), obj};
-    Nan::MakeCallback(self.handle(), "emit", 2, argv);
+    NAN_CALLBACK(self.handle(), "emit", 2, argv);
 }
 
 void
@@ -165,7 +165,7 @@ struct ConnectRequest {
 NAN_METHOD(Ntcp::connect)
 {
     Ntcp& self = *NAN_UNWRAP_THIS(Ntcp);
-    int port = info[0]->Int32Value();
+    int port = NAN_TO_INT(info[0]);
     Nan::Utf8String address(info[1]);
     struct sockaddr_in sin;
     NAUV_IP4_ADDR(*address, port, &sin);
@@ -203,12 +203,12 @@ NAUV_CALLBACK_STATUS(Ntcp::_connect_callback, uv_connect_t* req)
     if (status < 0) {
         DBG0("Ntcp::_connect_callback: ERROR local_port " << self._local_port);
         v8::Local<v8::Value> argv[] = {NAN_ERR("Ntcp::_connect_callback: ERROR")};
-        callback->Call(1, argv);
+        Nan::Call(*callback, 1, argv);
     } else {
         DBG0("Ntcp::_connect_callback: local_port " << self._local_port);
         self._start_reading();
         v8::Local<v8::Value> args[] = {Nan::Undefined(), NAN_INT(self._local_port)};
-        callback->Call(2, args);
+        Nan::Call(*callback, 2, args);
     }
 }
 
@@ -219,13 +219,13 @@ NAN_METHOD(Ntcp::write)
     if (self._closed) {
         DBG5("Ntcp::write: closed. thats an error.");
         v8::Local<v8::Value> argv[] = {NAN_ERR("Ntcp::write: CLOSED")};
-        callback->Call(1, argv);
+        Nan::Call(*callback, 1, argv);
         return;
     }
     // if (!self._local_port) {
     //     DBG5("Ntcp::write: not connected. thats an error.");
     //     v8::Local<v8::Value> argv[] = { NAN_ERR("Ntcp::write: NOT CONNECTED") };
-    //     callback->Call(1, argv);
+    //     Nan::Call(*callback, 1, argv);
     //     return;
     // }
     uv_write_t* write_req = new uv_write_t;
@@ -282,7 +282,7 @@ NAUV_CALLBACK_STATUS(Ntcp::_write_callback, uv_write_t* req)
     m->hdr.decode();
     if (status < 0) {
         v8::Local<v8::Value> argv[] = {NAN_ERR("Ntcp::write: ERROR")};
-        m->callback->Call(1, argv);
+        Nan::Call(*m->callback, 1, argv);
     } else {
         DBG2(
             "Ntcp::_write_callback:"
@@ -290,7 +290,7 @@ NAUV_CALLBACK_STATUS(Ntcp::_write_callback, uv_write_t* req)
             << " len "
             << m->hdr.len);
         v8::Local<v8::Value> args[] = {Nan::Undefined()};
-        m->callback->Call(1, args);
+        Nan::Call(*m->callback, 1, args);
     }
     delete m;
     delete req;
@@ -431,7 +431,7 @@ Ntcp::_read_data(const uv_buf_t* buf, size_t nread)
                 << " local_port "
                 << _local_port);
             v8::Local<v8::Value> argv[] = {NAN_STR("message"), node_buf};
-            Nan::MakeCallback(handle(), "emit", 2, argv);
+            NAN_CALLBACK(handle(), "emit", 2, argv);
         }
     }
 }

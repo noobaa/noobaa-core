@@ -26,6 +26,12 @@ Unmaybe(Nan::MaybeLocal<T> h)
 {
     return h.ToLocalChecked();
 }
+template <class T>
+inline T
+Unmaybe(Nan::Maybe<T> h)
+{
+    return h.ToChecked();
+}
 inline int
 NanKey(int i)
 {
@@ -44,6 +50,7 @@ NanKey(std::string s)
 
 #define NAN_STR(str) (Nan::New(str).ToLocalChecked())
 #define NAN_INT(i) (Nan::New<v8::Integer>(i))
+#define NAN_TO_INT(i) (i->Int32Value(Nan::GetCurrentContext()).ToChecked())
 #define NAN_NEW_OBJ() (Nan::New<v8::Object>())
 #define NAN_NEW_ARR(len) (Nan::New<v8::Array>(len))
 #define NAN_GET(obj, key) (Nan::Get(obj, NanKey(key)).ToLocalChecked())
@@ -52,9 +59,9 @@ NanKey(std::string s)
 #define NAN_GET_UNWRAP(type, obj, key) \
     (Unwrap<type>(Nan::To<v8::Object>(NAN_GET(obj, key)).ToLocalChecked()))
 #define NAN_GET_STR(obj, key) *Nan::Utf8String(NAN_GET(obj, key))
-#define NAN_GET_OBJ(obj, key) (NAN_GET(obj, key)->ToObject())
+#define NAN_GET_OBJ(obj, key) (NAN_GET(obj, key).As<v8::Object>())
 #define NAN_GET_ARR(obj, key) (NAN_GET(obj, key).As<v8::Array>())
-#define NAN_GET_INT(obj, key) (NAN_GET(obj, key)->Int32Value())
+#define NAN_GET_INT(obj, key) (NAN_TO_INT(NAN_GET(obj, key)))
 #define NAN_GET_BUF(obj, key) \
     Buf(node::Buffer::Data(NAN_GET_OBJ(obj, key)), node::Buffer::Length(NAN_GET_OBJ(obj, key)))
 
@@ -77,6 +84,9 @@ NanKey(std::string s)
         info.GetReturnValue().Set(val); \
         return;                         \
     } while (0)
+
+#define NAN_CALLBACK(obj, func_name, argc, argv) \
+    Nan::Call(NAN_GET(obj, func_name).As<v8::Function>(), obj, argc, argv)
 
 #define NAN_MAKE_CTOR_CALL(ctor)                                                             \
     do {                                                                                     \

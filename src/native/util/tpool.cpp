@@ -26,7 +26,7 @@ NAN_METHOD(ThreadPool::new_instance)
         if (!info[0]->IsInt32()) {
             Nan::ThrowError("first argument should be number of threads");
         }
-        nthreads = info[0]->Int32Value();
+        nthreads = NAN_TO_INT(info[0]);
     }
     ThreadPool* obj = new ThreadPool(nthreads);
     obj->Wrap(info.This());
@@ -193,7 +193,7 @@ NAN_GETTER(ThreadPool::nthreads_getter)
 NAN_SETTER(ThreadPool::nthreads_setter)
 {
     ThreadPool& tpool = *NAN_UNWRAP_THIS(ThreadPool);
-    tpool.set_nthreads(value->Int32Value());
+    tpool.set_nthreads(NAN_TO_INT(value));
 }
 
 void

@@ -6,6 +6,7 @@ import BucketRowViewModel from './bucket-row';
 import ko from 'knockout';
 import { deepFreeze, createCompareFunc, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { includesIgnoreCase } from 'utils/string-utils';
 import { state$, action$ } from 'state';
 import { inputThrottle, paginationPageSize } from 'config';
 import { getMany } from 'rx-extensions';
@@ -114,7 +115,7 @@ class NamespaceBucketsTableViewModel extends Observer {
         };
 
         const filteredRows = Object.values(buckets)
-            .filter(bucket => !filter || bucket.name.includes(filter.toLowerCase()));
+            .filter(bucket => includesIgnoreCase(bucket.name, filter));
 
         const rows = filteredRows
             .sort(createCompareFunc(compareKey, order))

@@ -6,7 +6,7 @@ import ConnectableViewModel from 'components/connectable';
 import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap, sumBy } from 'utils/core-utils';
-import { stringifyAmount } from 'utils/string-utils';
+import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
 import { unassignedRegionText, getHostsPoolStateIcon } from 'utils/resource-utils';
 import { summrizeHostModeCounters } from 'utils/host-utils';
 import ko from 'knockout';
@@ -93,10 +93,11 @@ function _getBucketsByPool(buckets) {
 }
 
 function _matchFilter(filter, pool) {
-    const lc = filter && filter.toLowerCase();
-    return !lc ||
-        pool.name.includes(lc) ||
-        (pool.region || '').toLowerCase().includes(lc);
+    const { name, region } = pool;
+    return (
+        includesIgnoreCase(name, filter) ||
+        includesIgnoreCase(region, filter)
+    );
 }
 
 function _mapPoolToRow(

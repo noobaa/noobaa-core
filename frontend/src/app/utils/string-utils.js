@@ -48,6 +48,12 @@ export function equalIgnoreCase(str1, str2) {
     return str1.toLowerCase() === str2.toLowerCase();
 }
 
+export function includesIgnoreCase(str, substr = '') {
+    return str.toLowerCase().includes(
+        substr.toLowerCase()
+    );
+}
+
 export function lastSegment(str = '', delimiter) {
     return str.substr(str.lastIndexOf(delimiter) + 1);
 }

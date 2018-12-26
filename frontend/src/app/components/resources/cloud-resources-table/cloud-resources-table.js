@@ -6,6 +6,7 @@ import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { includesIgnoreCase } from 'utils/string-utils';
 import { inputThrottle, paginationPageSize } from 'config';
 import { action$, state$ } from 'state';
 import { getMany } from 'rx-extensions';
@@ -99,7 +100,7 @@ const resourceTypeOptions = [
     }
 ];
 
-function _matchFilters(resource, typeFilter, nameFilter) {
+function _matchFilters(resource, typeFilter, textFilter) {
     const { type, name, region = '' } = resource;
 
     // Filter by resource type:
@@ -107,14 +108,10 @@ function _matchFilters(resource, typeFilter, nameFilter) {
         return false;
     }
 
-    // Filter by name or region:
-    if (nameFilter) {
-        const lcNameFilter = nameFilter.toLowerCase();
-        return name.includes(lcNameFilter) ||
-            region.toLowerCase().includes(lcNameFilter);
-    }
-
-    return true;
+    return (
+        includesIgnoreCase(name, textFilter) ||
+        includesIgnoreCase(region, textFilter)
+    );
 }
 
 class CloudResourcesTableViewModel extends Observer {

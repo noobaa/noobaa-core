@@ -9,6 +9,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { getBucketStateIcon, getPlacementTypeDisplayName, getVersioningStateText } from 'utils/bucket-utils';
 import { getResourceId } from 'utils/resource-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
+import { includesIgnoreCase } from 'utils/string-utils';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
 import {
@@ -263,7 +264,7 @@ class BucketsTableViewModel extends ConnectableViewModel {
             const { canCreateBuckets = false } = userAccount;
             const createBucketTooltip = canCreateBuckets ? '' : createButtondDisabledTooltip;
             const bucketList = Object.values(buckets)
-                .filter(bucket => !filter || bucket.name.includes(filter.toLowerCase()));
+                .filter(bucket => includesIgnoreCase(bucket.name, filter));
             const rows = bucketList
                 .sort(createCompareFunc(compareKey, order))
                 .slice(page * paginationPageSize, (page + 1) * paginationPageSize)

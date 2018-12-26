@@ -7,6 +7,7 @@ import ko from 'knockout';
 import { state$, action$ } from 'state';
 import { deepFreeze, createCompareFunc, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
+import { includesIgnoreCase } from 'utils/string-utils';
 import { getMany } from 'rx-extensions';
 import { inputThrottle, paginationPageSize } from 'config';
 import {
@@ -114,7 +115,7 @@ class NamespaceResourceTableViewModel extends Observer {
             }, {});
 
         const filteredRows = Object.values(resources)
-            .filter(resource => !filter || resource.name.includes(filter.toLowerCase()));
+            .filter(resource => includesIgnoreCase(resource.name, filter));
 
         const rows = filteredRows
             .sort(createCompareFunc(compareKey, order, connectedBucketsMap))

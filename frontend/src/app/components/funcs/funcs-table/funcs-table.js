@@ -1,36 +1,46 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './funcs-table.html';
-import FuncRowViewModel from './func-row';
-import BaseViewModel from 'components/base-view-model';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
-import { systemInfo } from 'model';
-import { action$ } from 'state';
-import { openCreateFuncModal } from 'action-creators';
+import moment from 'moment';
+import { deepFreeze, createCompareFunc, throttle } from 'utils/core-utils';
+import { formatSize } from 'utils/size-utils';
+import { realizeUri } from 'utils/browser-utils';
+import { includesIgnoreCase } from 'utils/string-utils';
+import * as routes from 'routes';
+import { paginationPageSize, inputThrottle } from 'config';
+import { openCreateFuncModal, requestLocation } from 'action-creators';
 
 const columns = deepFreeze([
     {
         name: 'state',
-        type: 'icon'
+        type: 'icon',
+        sortable: true,
+        compareKey: () => true
+
     },
     {
         name: 'name',
         label: 'function name',
-        type: 'link'
+        type: 'newLink',
+        sortable: true,
+        compareKey: func => func.name
     },
     {
-        name: 'description'
+        name: 'description',
+        sortable: true,
+        compareKey: func => func.description
     },
     {
-        name: 'version',
-        label: 'version'
+        name: 'size',
+        sortable: true,
+        compareKey: func => func.size
     },
     {
-        name: 'codeSize'
-    },
-    {
-        name: 'placementPolicy'
+        name: 'lastModified',
+        sortable: true,
+        compareKey: func => func.lastModified
     },
     {
         name: 'deleteButton',
@@ -40,32 +50,160 @@ const columns = deepFreeze([
     }
 ]);
 
-const createFuncTooltip = {
-    align: 'end',
-    text: 'Create function not available'
-};
+function _mapFunc(func, system, selectedForDelete) {
+    const { name, description, size, lastModified } = func;
+    return {
+        name: {
+            text: name,
+            href: realizeUri(routes.func, { system, func: name }),
+            tooltip: { text: name, breakWords: true }
+        },
+        description,
+        size: formatSize(size),
+        lastModified: moment(lastModified).fromNow(),
+        deleteButton: {
+            id: name,
+            active: name === selectedForDelete
+        }
+    };
+}
 
-class FuncsTableViewModel extends BaseViewModel {
-    constructor() {
-        super();
+class FuncRowViewModel {
+    table = null;
+    state = {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Deployed'
+    };
+    name = ko.observable();
+    description = ko.observable();
+    size = ko.observable();
+    lastModified = ko.observable();
+    deleteButton = {
+        text: 'Delete function',
+        tooltip: 'delete function',
+        id: '',
+        active: ko.observable(),
+        onDelete: name => this.table.onDeleteFunc(name),
+        onToggle: name => this.table.onSelectFuncForDelete(name)
+    };
+}
 
-        this.columns = columns;
-        this.funcs = ko.pureComputed(() =>
-            (systemInfo() ? systemInfo().functions : []).map(func => {
-                const { name, version, ...config } = func.config;
-                return { name, version, config };
-            })
-        );
+class FuncsTableViewModel extends ConnectableViewModel {
+    columns = columns;
+    pageSize = paginationPageSize;
+    dataReady = ko.observable();
+    pathname = '';
+    funcCount = ko.observable();
+    filter = ko.observable();
+    sorting = ko.observable();
+    page = ko.observable();
+    emptyMessage = ko.observable();
+    rows = ko.observableArray()
+        .ofType(FuncRowViewModel, { table: this});
 
-        this.createFuncToolTip = createFuncTooltip;
+    selectState(state) {
+        return [
+            state.functions,
+            state.location
+        ];
     }
 
-    newFuncRow(func) {
-        return new FuncRowViewModel(func);
+    mapStateToProps(funcs, location) {
+        if (!funcs) {
+            ko.assignToProps(this, {
+                dataReady: false
+            });
+
+        } else {
+            const { pathname, params, query } = location;
+            const { filter = '', sortBy = 'name', selectedForDelete = '' } = query;
+            const order = Number(query.order || 1);
+            const page = Number(query.page || 0);
+            const { compareKey } = columns.find(column => column.name === sortBy);
+
+            const funcList = Object.values(funcs);
+            const filtered = funcList
+                .filter(func => includesIgnoreCase(func.name, filter));
+            const rows = filtered
+                .sort(createCompareFunc(compareKey, order))
+                .slice(page * paginationPageSize, (page + 1) * paginationPageSize)
+                .map(func => _mapFunc(func, params.system, selectedForDelete));
+
+            const emptyMessage =
+                (funcList.length === 0 && 'No restless functions configured') ||
+                (filtered.length === 0 && 'The current filter does not match any function') ||
+                '';
+
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                pathname: pathname,
+                funcCount: filtered.length,
+                filter,
+                sorting: { sortBy, order },
+                page,
+                emptyMessage,
+                rows
+            });
+        }
     }
 
     onCreateFunc() {
-        action$.next(openCreateFuncModal());
+        this.dispatch(openCreateFuncModal());
+    }
+
+    onFilter = throttle(filter => {
+        this._query({
+            filter,
+            page: 0,
+            selectedForDelete: null
+        });
+    }, inputThrottle)
+
+    onSort(sorting) {
+        this._query({
+            sortBy: sorting.sortBy,
+            order: sorting.order,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
+    onPage(page) {
+        this._query({
+            page,
+            selectedForDelete: null
+        });
+    }
+
+    onSelectFuncForDelete(funcName = '') {
+        this._query({ selectedForDelete: funcName });
+    }
+
+    onDeleteFunc(funcName) {
+        console.warn('delete', funcName);
+        // this.dispatch(delte(bucketName));
+    }
+
+    _query(query) {
+        const {
+            filter = this.filter(),
+            sortBy = this.sorting().sortBy,
+            order = this.sorting().order,
+            page = this.page(),
+            selectedForDelete = this.selectedForDelete()
+        } = query;
+
+        const queryUrl = realizeUri(this.pathname, null, {
+            filter: filter || undefined,
+            sortBy: sortBy,
+            order: order,
+            page: page,
+            selectedForDelete: selectedForDelete || undefined
+        });
+
+        this.dispatch(requestLocation(queryUrl));
     }
 }
 

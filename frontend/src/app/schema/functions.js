@@ -15,6 +15,15 @@ export default {
             version: {
                 type: 'string'
             },
+            description: {
+                type: 'string'
+            },
+            size: {
+                $ref: '#/def/common/size'
+            },
+            lastModified: {
+                type: 'integer'
+            },
             executor: {
                 type: 'string'
             }

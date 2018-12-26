@@ -20,7 +20,6 @@ const auth_server = require('../common_services/auth_server');
 const node_allocator = require('../node_services/node_allocator');
 const AWS = require('aws-sdk');
 
-
 const FUNC_CONFIG_FIELDS_MUTABLE = [
     'description',
     'role',
@@ -42,45 +41,41 @@ const FUNC_CONFIG_FIELDS_IMMUTABLE = [
     'resource_name',
 ];
 
-function create_func(req) {
-    const func_config = req.params.config;
-    const func_code = req.params.code;
-    const func = _.defaults(
-        _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE),
-        FUNC_CONFIG_DEFAULTS);
-    func._id = func_store.instance().make_func_id();
-    func.system = req.system._id;
-    func.exec_account = req.account._id;
-    func.name = func_config.name;
-    func.version = '$LATEST';
-    func.last_modified = new Date();
-    func.resource_name = `arn:noobaa:lambda:region:${func.system}:function:${func.name}:${func.version}`;
-    if (req.params.config.pools) {
-        func.pools = _.map(req.params.config.pools, pool_name =>
-            req.system.pools_by_name[pool_name]._id);
-    } else {
-        func.pools = [req.account.default_pool._id];
-    }
-    if (!func.pools.length) {
-        throw new Error('No pools');
-    }
+async function create_func(req) {
+    const { config: func_config, code: func_code } = req.params;
+    const { _id: system, pools_by_name } = req.system;
+    const { _id: exec_account } = req.account;
+    const { name, pools: pool_names = [] } = func_config;
+    const version = '$LATEST';
+    const pools = pool_names.map(pool_name => pools_by_name[pool_name]._id);
+    const resource_name = `arn:noobaa:lambda:region:${system}:function:${name}:${version}`;
+    const code_stream = await _get_func_code_stream(req, func_code);
 
-    return P.resolve()
-        .then(() => _get_func_code_stream(req, func_code))
-        .then(code_stream => func_store.instance().create_code_gridfs({
-            system: func.system,
-            name: func.name,
-            version: func.version,
-            code_stream,
-        }))
-        .then(res => {
-            func.code_gridfs_id = res.id;
-            func.code_sha256 = res.sha256;
-            func.code_size = res.size;
-        })
-        .then(() => func_store.instance().create_func(func))
-        .then(() => _load_func(req))
-        .then(() => _get_func_info(req.func));
+    const {
+        id: code_gridfs_id,
+        sha256: code_sha256,
+        size: code_size
+    } = await func_store.instance()
+        .create_code_gridfs({ system, name, version, code_stream });
+
+    await func_store.instance().create_func({
+        ...FUNC_CONFIG_DEFAULTS,
+        ..._.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE),
+        _id: func_store.instance().make_func_id(),
+        system,
+        exec_account,
+        name,
+        version,
+        last_modified: new Date(),
+        resource_name,
+        pools,
+        code_gridfs_id,
+        code_sha256,
+        code_size
+    });
+
+    await _load_func(req);
+    return _get_func_info(req.func);
 }
 
 function update_func(req) {

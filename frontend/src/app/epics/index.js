@@ -73,6 +73,7 @@ import attachServerToCluster from './attach-server-to-cluster';
 import createCloudResource from './create-cloud-resource';
 import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
+import deleteLambdaFunc from './delete-lambda-func';
 import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
 import fetchCloudResourceObjects from './fetch-cloud-resource-objects';
@@ -199,6 +200,7 @@ const epics = [
 
     // Lambda related epics
     createLambdaFunc,
+    deleteLambdaFunc,
 
     // Analytics related epics
     fetchBucketUsageHistory,

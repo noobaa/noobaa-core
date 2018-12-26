@@ -171,19 +171,6 @@ export async function updateFuncCode(name, version, patches) {
     }
 }
 
-export async function deleteFunc(name, version) {
-    logAction('deleteFunc', { name, version });
-
-    try {
-        await api.func.delete_func({ name, version });
-        notify(`Func ${name} deleted successfully`, 'success'),
-        action$.next(fetchSystemInfo());
-
-    } catch (error) {
-        notify(`Func ${name} deletion failed`, 'error');
-    }
-}
-
 // -----------------------------------------------------
 // Information retrieval actions.
 // -----------------------------------------------------

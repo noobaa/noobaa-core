@@ -448,6 +448,16 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
+    [types.COMPLETE_DELETE_LAMBDA_FUNC]: ({ name }) => ({
+        message: `Function ${name} deleted successfully`,
+        severity:'success'
+    }),
+
+    [types.FAIL_DELETE_LAMBDA_FUNC]: ({ name }) => ({
+        message: `Function ${name} deletion failed`,
+        severity: 'error'
+    }),
+
     [types.FAIL_ENTER_MAINTENANCE_MODE]: () => ({
         message: 'Entering maintenance mode failed',
         severity: 'error'

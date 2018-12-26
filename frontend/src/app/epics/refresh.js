@@ -46,6 +46,7 @@ export default function(action$) {
             types.COMPLETE_CREATE_CLOUD_RESOURCE,
             types.COMPLETE_UPDATE_REMOTE_SYSLOG,
             types.COMPLETE_CREATE_LAMBDA_FUNC,
+            types.COMPLETE_DELETE_LAMBDA_FUNC,
             types.COMPLETE_ENTER_MAINTENANCE_MODE,
             types.COMPLETE_LEAVE_MAINTENANCE_MODE,
             types.COMPLETE_CREATE_BUCKET,

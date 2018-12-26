@@ -9,8 +9,12 @@ import { formatSize } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { includesIgnoreCase } from 'utils/string-utils';
 import * as routes from 'routes';
-import { paginationPageSize, inputThrottle } from 'config';
-import { openCreateFuncModal, requestLocation } from 'action-creators';
+import { paginationPageSize, inputThrottle, timeShortFormat } from 'config';
+import {
+    requestLocation,
+    openCreateFuncModal,
+    deleteLambdaFunc
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -51,7 +55,8 @@ const columns = deepFreeze([
 ]);
 
 function _mapFunc(func, system, selectedForDelete) {
-    const { name, description, size, lastModified } = func;
+    const { name, version, description, size, lastModified } = func;
+    const id = `${name}:${version}`;
     return {
         name: {
             text: name,
@@ -60,10 +65,10 @@ function _mapFunc(func, system, selectedForDelete) {
         },
         description,
         size: formatSize(size),
-        lastModified: moment(lastModified).fromNow(),
+        lastModified: moment(lastModified).format(timeShortFormat),
         deleteButton: {
-            id: name,
-            active: name === selectedForDelete
+            id: id,
+            active: id === selectedForDelete
         }
     };
 }
@@ -84,9 +89,13 @@ class FuncRowViewModel {
         tooltip: 'delete function',
         id: '',
         active: ko.observable(),
-        onDelete: name => this.table.onDeleteFunc(name),
-        onToggle: name => this.table.onSelectFuncForDelete(name)
+        onDelete: id => this.table.onDeleteFunc(id),
+        onToggle: id => this.table.onSelectFuncForDelete(id)
     };
+
+    constructor({ table }) {
+        this.table = table;
+    }
 }
 
 class FuncsTableViewModel extends ConnectableViewModel {
@@ -100,7 +109,7 @@ class FuncsTableViewModel extends ConnectableViewModel {
     page = ko.observable();
     emptyMessage = ko.observable();
     rows = ko.observableArray()
-        .ofType(FuncRowViewModel, { table: this});
+        .ofType(FuncRowViewModel, { table: this });
 
     selectState(state) {
         return [
@@ -177,13 +186,13 @@ class FuncsTableViewModel extends ConnectableViewModel {
         });
     }
 
-    onSelectFuncForDelete(funcName = '') {
-        this._query({ selectedForDelete: funcName });
+    onSelectFuncForDelete(id = '') {
+        this._query({ selectedForDelete: id });
     }
 
-    onDeleteFunc(funcName) {
-        console.warn('delete', funcName);
-        // this.dispatch(delte(bucketName));
+    onDeleteFunc(id) {
+        const [name, version] = id.split(':');
+        this.dispatch(deleteLambdaFunc(name, version));
     }
 
     _query(query) {

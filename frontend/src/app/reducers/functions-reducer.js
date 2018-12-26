@@ -28,12 +28,22 @@ function _getFuncId(name, version) {
 }
 
 function _mapFunc(func) {
-    const { name, version, exec_account } = func.config;
+    const {
+        name,
+        version,
+        description,
+        code_size: size,
+        last_modified: lastModified,
+        exec_account: executor
+    } = func.config;
 
     return {
         name,
         version,
-        executor: exec_account
+        description,
+        size,
+        lastModified,
+        executor
     };
 }
 

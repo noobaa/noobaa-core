@@ -1,15 +1,31 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="column pad alt-bg">
-    <button class="btn align-end" ko.click="onCreateFunc">
+<div class="row alt-bg pad content-middle">
+    <div class="greedy push-next">
+        <input type="search"
+            placeholder="Filter by function name"
+            ko.textInput="ko.pc(filter, onFilter)"
+        />
+    </div>
+
+    <button class="btn align-end"
+        ko.click="onCreateFunc"
+        ko.enable="dataReady"
+    >
         Create Function
     </button>
 </div>
 
 <data-table class="greedy" params="
     columns: columns,
-    data: funcs,
-    rowFactory: func => newFuncRow(func),
-    emptyMessage: 'No restless functions configured'
-">
-</data-table>
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !dataReady(),
+    emptyMessage: emptyMessage
+"></data-table>
+
+<paginator params="
+    itemCount: funcCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>

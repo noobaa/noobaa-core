@@ -294,7 +294,7 @@ function get_bucket_namespaces(req) {
  *
  */
 function update_bucket(req) {
-    const new_req = Object.assign({}, req, { rpc_params: [req.rpc_params] });
+    const new_req = { ...req, rpc_params: [req.rpc_params] };
     return update_buckets(new_req);
 }
 
@@ -1021,7 +1021,7 @@ function update_bucket_lambda_trigger(req) {
     if (!trigger) {
         throw new RpcError('NO_SUCH_TRIGGER', 'This trigger does not exists: ' + req.rpc_params._id);
     }
-    const validate_trigger = Object.assign({}, trigger, updates);
+    const validate_trigger = { ...trigger, ...updates };
     return P.resolve()
         .then(() => validate_trigger_update(req, bucket, validate_trigger))
         .then(() => system_store.make_changes({

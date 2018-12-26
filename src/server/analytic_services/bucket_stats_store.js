@@ -34,10 +34,11 @@ class BucketStatsStore {
         const selector = { system, bucket, content_type };
 
         const update = {
-            $set: _.omitBy(Object.assign({
+            $set: _.omitBy({
                 last_write: write_count ? Date.now() : undefined,
                 last_read: read_count ? Date.now() : undefined,
-            }, selector), _.isUndefined),
+                ...selector
+            }, _.isUndefined),
             $inc: _.omitBy({
                 writes: write_count,
                 reads: read_count

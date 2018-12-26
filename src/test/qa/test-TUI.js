@@ -172,6 +172,7 @@ const DELETE = `${END}${BACKSPACE}${BACKSPACE}${BACKSPACE}${BACKSPACE}${BACKSPAC
 
 //clean the TUI from graphics
 function strip_ansi_escape_codes(str) {
+    //eslint-disable-next-line no-control-regex
     const ansi_escape_codes_regexp = /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PRZcf-ntqry=><~]))/g;
     return str
         .replace(ansi_escape_codes_regexp, ' ')

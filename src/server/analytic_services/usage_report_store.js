@@ -71,7 +71,7 @@ class UsageReportStore {
                 $set: selector,
                 $inc: usage_data
             } : {
-                $set: Object.assign({}, selector, usage_data)
+                $set: { ...selector, ...usage_data }
             };
             const res = await this._usage_reports.col().findOneAndUpdate(
                 selector,

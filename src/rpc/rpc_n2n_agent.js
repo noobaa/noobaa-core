@@ -100,7 +100,7 @@ class RpcN2NAgent extends EventEmitter {
             ssl_options: {
                 // we allow self generated certificates to avoid public CA signing:
                 rejectUnauthorized: false,
-                secureContext: tls.createSecureContext(Object.assign({ honorCipherOrder: true }, ssl_utils.generate_ssl_certificate())),
+                secureContext: tls.createSecureContext({ honorCipherOrder: true, ...ssl_utils.generate_ssl_certificate() }),
             },
 
             // callback to create and bind nudp socket
@@ -139,7 +139,7 @@ class RpcN2NAgent extends EventEmitter {
 
     set_ssl_context(secure_context_params) {
         this.n2n_config.ssl_options.secureContext =
-            tls.createSecureContext(Object.assign({ honorCipherOrder: true }, secure_context_params));
+            tls.createSecureContext({ honorCipherOrder: true, ...secure_context_params });
     }
 
     update_n2n_config(n2n_config) {

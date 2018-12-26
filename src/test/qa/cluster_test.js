@@ -805,8 +805,8 @@ async function check_endpoint_status(servers, topic, params = {}) {
     const { grace_period = 30000 } = params;
     console.log(`${YELLOW}=== Checking endpoints status with grace time of ${grace_period / 1000} seconds for test case: "${topic}" ===${NC}`);
     const delay = 5000;
-    const start_time = Date.now();
     let res_time;
+    const start_time = Date.now();
     await P.map(servers, async srv => {
         if (srv.expected_status !== 'CONNECTED') {
             console.log(`server ${srv.name} (${srv.ip}) is not expected to be connected. skipping endpoint check`);
@@ -814,8 +814,8 @@ async function check_endpoint_status(servers, topic, params = {}) {
         }
         let done = false;
         while (!done) {
+            res_time = Date.now();
             try {
-                res_time = Date.now();
                 await verify_s3_server(srv, topic);
                 done = true;
             } catch (err) {

@@ -134,7 +134,7 @@ mocha.describe('signature_utils', function() {
         req.url = parsed_url.pathname;
         req.query = parsed_url.query;
         const virtual_hosted_bucket = req.headers.host.split('.', 1)[0];
-        if (/[a-zA-Z][a-zA-Z0-9]*/.test(virtual_hosted_bucket)) {
+        if ((/[a-zA-Z][a-zA-Z0-9]*/).test(virtual_hosted_bucket)) {
             req.virtual_hosted_bucket = virtual_hosted_bucket;
         }
         res.setHeader('Connection', 'close');

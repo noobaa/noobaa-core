@@ -103,7 +103,7 @@ coretest.describe_mapper_test_case({
     mocha.it('does nothing for good object', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj_before = await make_object();
-        const obj_after = Object.assign({}, obj_before);
+        const obj_after = { ...obj_before };
         const builder = new map_builder.MapBuilder();
         await builder.run(obj_before.chunk_ids);
         await load_chunks(obj_after);

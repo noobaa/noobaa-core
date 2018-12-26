@@ -22,7 +22,7 @@ class RpcTcpServer extends EventEmitter {
         super();
         this.protocol = (tls_options ? 'tls:' : 'tcp:');
         this.server = tls_options ?
-            tls.createServer(Object.assign({ honorCipherOrder: true }, tls_options), tcp_conn => this._on_tcp_conn(tcp_conn)) :
+            tls.createServer({ honorCipherOrder: true, ...tls_options }, tcp_conn => this._on_tcp_conn(tcp_conn)) :
             net.createServer(tcp_conn => this._on_tcp_conn(tcp_conn));
         this.server.on('close', err => {
             dbg.log0('on close:', err);

@@ -33,10 +33,10 @@ function main() {
     const input = new RandStream(argv.size * 1024 * 1024, {
         highWaterMark: 16 * 1024,
     });
-    const chunking_tpool = new (nb_native().ThreadPool)(1);
-    const encode_tpool = new (nb_native().ThreadPool)(1);
+    const chunking_tpool = new(nb_native().ThreadPool)(1);
+    const encode_tpool = new(nb_native().ThreadPool)(1);
     const decode_tpool = encode_tpool;
-    const object_coding = new (nb_native().ObjectCoding)({
+    const object_coding = new(nb_native().ObjectCoding)({
         digest_type: 'sha384',
         compress_type: 'snappy',
         cipher_type: 'aes-256-gcm',
@@ -46,8 +46,8 @@ function main() {
         lrc_frags: 0,
         lrc_parity: 0,
     });
-    const chunker_config = new (nb_native().DedupConfig)(dedup_options);
-    const chunker = new (nb_native().DedupChunker)({
+    const chunker_config = new(nb_native().DedupConfig)(dedup_options);
+    const chunker = new(nb_native().DedupChunker)({
         tpool: chunking_tpool
     }, chunker_config);
     let chunks_size_sum = 0;

@@ -620,9 +620,13 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         storage: _.defaults(size_utils.to_bigint_storage(p_nodes.storage), POOL_STORAGE_DEFAULTS),
         region: pool.region,
         create_time: pool._id.getTimestamp().getTime(),
-        io_stats: Object.assign({ read_count: 0, write_count: 0, read_bytes: 0, write_bytes: 0 },
-            _.pick(p_nodes.io_stats, 'read_count', 'write_count', 'read_bytes', 'write_bytes')
-        )
+        io_stats: {
+            read_count: 0,
+            write_count: 0,
+            read_bytes: 0,
+            write_bytes: 0,
+            ..._.pick(p_nodes.io_stats, 'read_count', 'write_count', 'read_bytes', 'write_bytes')
+        }
     };
     info.data_activities = {
         activities: p_nodes.data_activities || [],

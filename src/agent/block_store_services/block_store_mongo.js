@@ -47,7 +47,7 @@ class BlockStoreMongo extends BlockStoreBase {
 
     _init_chunks_collection() {
         return P.resolve()
-            .then(() => mongo_client.instance().db.createCollection(GRID_FS_BUCKET_NAME_CHUNKS, GRID_FS_CHUNK_COLLECTION_OPTIONS))
+            .then(() => mongo_client.instance().db().createCollection(GRID_FS_BUCKET_NAME_CHUNKS, GRID_FS_CHUNK_COLLECTION_OPTIONS))
             .catch(err => {
                 if (!mongo_utils.is_err_namespace_exists(err)) throw err;
             })

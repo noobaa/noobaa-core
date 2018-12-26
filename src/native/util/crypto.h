@@ -29,12 +29,11 @@ public:
         ASSERT(md, DVAL(digest_name));
         Buf digest(EVP_MD_size(md));
         uint32_t digest_len;
-        EVP_MD_CTX ctx_md;
-        EVP_MD_CTX_init(&ctx_md);
-        EVP_DigestInit_ex(&ctx_md, md, NULL);
-        EVP_DigestUpdate(&ctx_md, buf.data(), buf.length());
-        EVP_DigestFinal_ex(&ctx_md, digest.data(), &digest_len);
-        EVP_MD_CTX_cleanup(&ctx_md);
+        EVP_MD_CTX *ctx_md = EVP_MD_CTX_new();
+        EVP_DigestInit_ex(ctx_md, md, NULL);
+        EVP_DigestUpdate(ctx_md, buf.data(), buf.length());
+        EVP_DigestFinal_ex(ctx_md, digest.data(), &digest_len);
+        EVP_MD_CTX_free(ctx_md);
         digest.slice(0, digest_len);
         return digest;
     }
@@ -48,12 +47,11 @@ public:
         size_t digest_len;
         EVP_PKEY_CTX* pctx = NULL;
         EVP_PKEY* pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, key.data(), key.length());
-        EVP_MD_CTX ctx_md;
-        EVP_MD_CTX_init(&ctx_md);
-        EVP_DigestSignInit(&ctx_md, &pctx, md, NULL, pkey);
-        EVP_DigestSignUpdate(&ctx_md, buf.data(), buf.length());
-        EVP_DigestSignFinal(&ctx_md, digest.data(), &digest_len);
-        EVP_MD_CTX_cleanup(&ctx_md);
+        EVP_MD_CTX *ctx_md = EVP_MD_CTX_new();
+        EVP_DigestSignInit(ctx_md, &pctx, md, NULL, pkey);
+        EVP_DigestSignUpdate(ctx_md, buf.data(), buf.length());
+        EVP_DigestSignFinal(ctx_md, digest.data(), &digest_len);
+        EVP_MD_CTX_free(ctx_md);
         EVP_PKEY_free(pkey);
         digest.slice(0, digest_len);
         return digest;
@@ -65,13 +63,12 @@ public:
         const EVP_CIPHER* cipher = _get_cipher(cipher_name, key, iv);
         int out_len = 0;
         int final_len = 0;
-        EVP_CIPHER_CTX ctx;
-        EVP_CIPHER_CTX_init(&ctx);
-        EVP_EncryptInit_ex(&ctx, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
-        Buf out(buf.length() + EVP_CIPHER_CTX_block_size(&ctx));
-        EVP_EncryptUpdate(&ctx, out.data(), &out_len, buf.data(), buf.length());
-        EVP_EncryptFinal_ex(&ctx, out.data() + out_len, &final_len);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        EVP_EncryptInit_ex(ctx, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
+        Buf out(buf.length() + EVP_CIPHER_CTX_block_size(ctx));
+        EVP_EncryptUpdate(ctx, out.data(), &out_len, buf.data(), buf.length());
+        EVP_EncryptFinal_ex(ctx, out.data() + out_len, &final_len);
+        EVP_CIPHER_CTX_free(ctx);
         out.slice(0, out_len + final_len);
         return out;
     }
@@ -83,12 +80,11 @@ public:
         int out_len = 0;
         int final_len = 0;
         Buf out(buf.length());
-        EVP_CIPHER_CTX ctx;
-        EVP_CIPHER_CTX_init(&ctx);
-        EVP_DecryptInit_ex(&ctx, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
-        EVP_DecryptUpdate(&ctx, out.data(), &out_len, buf.data(), buf.length());
-        EVP_DecryptFinal_ex(&ctx, out.data() + out_len, &final_len);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        EVP_DecryptInit_ex(ctx, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
+        EVP_DecryptUpdate(ctx, out.data(), &out_len, buf.data(), buf.length());
+        EVP_DecryptFinal_ex(ctx, out.data() + out_len, &final_len);
+        EVP_CIPHER_CTX_free(ctx);
         out.slice(0, out_len + final_len);
         return out;
     }

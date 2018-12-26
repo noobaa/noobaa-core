@@ -30,6 +30,8 @@ Splitter::Splitter(
     , _window_pos(0)
     , _chunk_pos(0)
     , _hash(0)
+    , _md5_ctx(0)
+    , _sha256_ctx(0)
 {
     assert(_min_chunk > 0);
     assert(_min_chunk <= _max_chunk);
@@ -37,27 +39,27 @@ Splitter::Splitter(
     nb_buf_init_alloc(&_window, NB_RABIN_WINDOW_LEN);
     memset(_window.data, 0, _window.len);
     if (calc_md5) {
-        EVP_MD_CTX_init(&_md5_ctx);
-        EVP_DigestInit_ex(&_md5_ctx, EVP_md5(), NULL);
+        _md5_ctx = EVP_MD_CTX_new();
+        EVP_DigestInit_ex(_md5_ctx, EVP_md5(), NULL);
     }
     if (calc_sha256) {
-        EVP_MD_CTX_init(&_sha256_ctx);
-        EVP_DigestInit_ex(&_sha256_ctx, EVP_sha256(), NULL);
+        _sha256_ctx = EVP_MD_CTX_new();
+        EVP_DigestInit_ex(_sha256_ctx, EVP_sha256(), NULL);
     }
 }
 
 Splitter::~Splitter()
 {
     nb_buf_free(&_window);
-    if (_calc_md5) EVP_MD_CTX_cleanup(&_md5_ctx);
-    if (_calc_sha256) EVP_MD_CTX_cleanup(&_sha256_ctx);
+    if (_calc_md5) EVP_MD_CTX_free(_md5_ctx);
+    if (_calc_sha256) EVP_MD_CTX_free(_sha256_ctx);
 }
 
 void
 Splitter::push(const uint8_t* data, int len)
 {
-    if (_calc_md5) EVP_DigestUpdate(&_md5_ctx, data, len);
-    if (_calc_sha256) EVP_DigestUpdate(&_sha256_ctx, data, len);
+    if (_calc_md5) EVP_DigestUpdate(_md5_ctx, data, len);
+    if (_calc_sha256) EVP_DigestUpdate(_sha256_ctx, data, len);
     while (_next_point(&data, &len)) {
         _split_points.push_back(_chunk_pos);
         _chunk_pos = 0;
@@ -67,8 +69,8 @@ Splitter::push(const uint8_t* data, int len)
 void
 Splitter::finish(uint8_t* md5, uint8_t* sha256)
 {
-    if (md5 && _calc_md5) EVP_DigestFinal_ex(&_md5_ctx, md5, 0);
-    if (sha256 && _calc_sha256) EVP_DigestFinal_ex(&_sha256_ctx, sha256, 0);
+    if (md5 && _calc_md5) EVP_DigestFinal_ex(_md5_ctx, md5, 0);
+    if (sha256 && _calc_sha256) EVP_DigestFinal_ex(_sha256_ctx, sha256, 0);
 }
 
 bool

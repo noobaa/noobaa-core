@@ -276,13 +276,12 @@ _nb_encode(struct NB_Coder_Chunk* chunk)
 static void
 _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher)
 {
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     struct NB_Buf iv;
     int evp_ret = 0;
 
     // generate random cipher key
     // using iv of zeros since we generate random key per chunk
-    EVP_CIPHER_CTX_init(&ctx);
     const int key_len = EVP_CIPHER_key_length(evp_cipher);
     const int iv_len = EVP_CIPHER_iv_length(evp_cipher);
     nb_buf_init_zeros(&iv, iv_len);
@@ -296,11 +295,11 @@ _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher)
     }
 
     StackCleaner cleaner([&] {
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         nb_buf_free(&iv);
     });
 
-    evp_ret = EVP_EncryptInit_ex(&ctx, evp_cipher, NULL, chunk->cipher_key.data, iv.data);
+    evp_ret = EVP_EncryptInit_ex(ctx, evp_cipher, NULL, chunk->cipher_key.data, iv.data);
     if (!evp_ret) {
         nb_chunk_error(chunk, "Chunk Encoder: cipher encrypt init failed %s", chunk->cipher_type);
         return;
@@ -346,7 +345,7 @@ _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher)
             const int len = avail < needed ? avail : needed;
 
             int out_len = 0;
-            evp_ret = EVP_EncryptUpdate(&ctx, fb->data + frag_pos, &out_len, b->data + pos, len);
+            evp_ret = EVP_EncryptUpdate(ctx, fb->data + frag_pos, &out_len, b->data + pos, len);
             if (!evp_ret) {
                 nb_chunk_error(
                     chunk, "Chunk Encoder: cipher encrypt update failed %s", chunk->cipher_type);
@@ -376,18 +375,18 @@ _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher)
     }
 
     int out_len = 0;
-    evp_ret = EVP_EncryptFinal_ex(&ctx, 0, &out_len);
+    evp_ret = EVP_EncryptFinal_ex(ctx, 0, &out_len);
     if (!evp_ret) {
         nb_chunk_error(chunk, "Chunk Encoder: cipher encrypt final failed %s", chunk->cipher_type);
         return;
     }
     assert(!out_len);
 
-    if (USE_GCM_AUTH_TAG && EVP_CIPHER_CTX_mode(&ctx) == EVP_CIPH_GCM_MODE) {
+    if (USE_GCM_AUTH_TAG && EVP_CIPHER_CTX_mode(ctx) == EVP_CIPH_GCM_MODE) {
         nb_buf_free(&chunk->cipher_auth_tag);
         nb_buf_init_alloc(&chunk->cipher_auth_tag, 16);
         evp_ret = EVP_CIPHER_CTX_ctrl(
-            &ctx, EVP_CTRL_GCM_GET_TAG, chunk->cipher_auth_tag.len, chunk->cipher_auth_tag.data);
+            ctx, EVP_CTRL_GCM_GET_TAG, chunk->cipher_auth_tag.len, chunk->cipher_auth_tag.data);
         if (!evp_ret) {
             nb_chunk_error(
                 chunk, "Chunk Encoder: cipher encrypt get tag failed %s", chunk->cipher_type);
@@ -890,7 +889,7 @@ static void
 _nb_decrypt(
     struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, const EVP_CIPHER* evp_cipher)
 {
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     struct NB_Buf iv;
     int evp_ret = 0;
     bool skip_auth = false;
@@ -902,23 +901,22 @@ _nb_decrypt(
 
     // using iv of zeros since we generate random key per chunk
     nb_buf_init_zeros(&iv, iv_len);
-    EVP_CIPHER_CTX_init(&ctx);
 
     StackCleaner cleaner([&] {
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         nb_buf_free(&iv);
     });
 
-    evp_ret = EVP_DecryptInit_ex(&ctx, evp_cipher, NULL, chunk->cipher_key.data, iv.data);
+    evp_ret = EVP_DecryptInit_ex(ctx, evp_cipher, NULL, chunk->cipher_key.data, iv.data);
     if (!evp_ret) {
         nb_chunk_error(chunk, "Chunk Decoder: cipher decrypt init failed %s", chunk->cipher_type);
         return;
     }
 
-    if (EVP_CIPHER_CTX_mode(&ctx) == EVP_CIPH_GCM_MODE) {
+    if (EVP_CIPHER_CTX_mode(ctx) == EVP_CIPH_GCM_MODE) {
         if (USE_GCM_AUTH_TAG && chunk->cipher_auth_tag.len) {
             evp_ret = EVP_CIPHER_CTX_ctrl(
-                &ctx,
+                ctx,
                 EVP_CTRL_GCM_SET_TAG,
                 chunk->cipher_auth_tag.len,
                 chunk->cipher_auth_tag.data);
@@ -941,7 +939,7 @@ _nb_decrypt(
             struct NB_Buf* fb = nb_bufs_get(&f->block, j);
 
             int out_len = 0;
-            evp_ret = EVP_DecryptUpdate(&ctx, b->data + pos, &out_len, fb->data, fb->len);
+            evp_ret = EVP_DecryptUpdate(ctx, b->data + pos, &out_len, fb->data, fb->len);
             if (!evp_ret) {
                 nb_chunk_error(
                     chunk, "Chunk Decoder: cipher decrypt update failed %s", chunk->cipher_type);
@@ -952,7 +950,7 @@ _nb_decrypt(
     }
 
     int out_len = 0;
-    evp_ret = EVP_DecryptFinal_ex(&ctx, 0, &out_len);
+    evp_ret = EVP_DecryptFinal_ex(ctx, 0, &out_len);
     if (!evp_ret && !skip_auth) {
         nb_chunk_error(chunk, "Chunk Decoder: cipher decrypt final failed %s", chunk->cipher_type);
         return;
@@ -975,22 +973,21 @@ _nb_no_decrypt(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map)
 static void
 _nb_digest(const EVP_MD* md, struct NB_Bufs* data, struct NB_Buf* digest)
 {
-    EVP_MD_CTX ctx_md;
-    EVP_MD_CTX_init(&ctx_md);
-    EVP_DigestInit_ex(&ctx_md, md, NULL);
+    EVP_MD_CTX *ctx_md = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(ctx_md, md, NULL);
 
     struct NB_Buf* b = nb_bufs_get(data, 0);
     for (int i = 0; i < data->count; ++i, ++b) {
-        EVP_DigestUpdate(&ctx_md, b->data, b->len);
+        EVP_DigestUpdate(ctx_md, b->data, b->len);
     }
 
     uint32_t digest_len = EVP_MD_size(md);
     nb_buf_free(digest);
     nb_buf_init_alloc(digest, digest_len);
-    EVP_DigestFinal_ex(&ctx_md, digest->data, &digest_len);
+    EVP_DigestFinal_ex(ctx_md, digest->data, &digest_len);
     assert((int)digest_len == digest->len);
 
-    EVP_MD_CTX_cleanup(&ctx_md);
+    EVP_MD_CTX_free(ctx_md);
 }
 
 static bool

@@ -24,8 +24,8 @@ NAN_METHOD(DedupChunker::new_instance)
 {
     NAN_MAKE_CTOR_CALL(_ctor);
     v8::Local<v8::Object> self = info.This();
-    v8::Local<v8::Object> options = info[0]->ToObject();
-    v8::Local<v8::Object> config_obj = info[1]->ToObject();
+    v8::Local<v8::Object> options = info[0].As<v8::Object>();
+    v8::Local<v8::Object> config_obj = info[1].As<v8::Object>();
     DedupConfig* config = NAN_UNWRAP_OBJ(DedupConfig, config_obj);
     DedupChunker* chunker = new DedupChunker(config);
     chunker->Wrap(self);
@@ -171,7 +171,7 @@ public:
             NAN_SET_BUF_DETACH(arr, i, chunk);
         }
         v8::Local<v8::Value> argv[] = {Nan::Undefined(), arr};
-        _callback->Call(2, argv);
+        Nan::Call(*_callback, 2, argv);
         delete this;
     }
 };
@@ -184,7 +184,7 @@ NAN_METHOD(DedupChunker::push)
     v8::Local<v8::Object> self = info.This();
     DedupChunker& chunker = *NAN_UNWRAP_THIS(DedupChunker);
     ThreadPool& tpool = *NAN_GET_UNWRAP(ThreadPool, self, "tpool");
-    v8::Local<v8::Object> buf_or_bufs = info[0]->ToObject();
+    v8::Local<v8::Object> buf_or_bufs = info[0].As<v8::Object>();
     NanCallbackSharedPtr callback(new Nan::Callback(info[1].As<v8::Function>()));
     Worker* worker = new Worker(chunker, self, buf_or_bufs, callback);
     tpool.submit(worker);

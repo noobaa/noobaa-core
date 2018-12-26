@@ -6,7 +6,7 @@ var P = require('../util/promise');
 var util = require('util');
 var dotenv = require('../util/dotenv');
 var argv = require('minimist')(process.argv);
-var google = require('googleapis');
+var { google } = require('googleapis');
 var compute = google.compute('v1');
 var Semaphore = require('../util/semaphore');
 

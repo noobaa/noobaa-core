@@ -27,7 +27,7 @@ NAN_METHOD(ObjectCoding::new_instance)
 {
     NAN_MAKE_CTOR_CALL(_ctor);
     v8::Local<v8::Object> self = info.This();
-    v8::Local<v8::Object> options = info[0]->ToObject();
+    v8::Local<v8::Object> options = info[0].As<v8::Object>();
     ObjectCoding* coding = new ObjectCoding();
     coding->Wrap(self);
     NAN_COPY_OPTIONS_TO_WRAPPER(self, options);
@@ -233,7 +233,7 @@ public:
             auto err = NAN_ERR("CHUNK COMPRESS ERROR");
             NAN_SET_STR(err, "compress_error", _bad_compress);
             v8::Local<v8::Value> argv[] = {err};
-            _callback->Call(1, argv);
+            Nan::Call(*_callback, 1, argv);
         } else {
             auto obj = NAN_NEW_OBJ();
             NAN_SET_INT(obj, "size", _chunk.length());
@@ -267,7 +267,7 @@ public:
             }
             NAN_SET(obj, "frags", frags);
             v8::Local<v8::Value> argv[] = {Nan::Undefined(), obj};
-            _callback->Call(2, argv);
+            Nan::Call(*_callback, 2, argv);
         }
         delete this;
     }
@@ -424,23 +424,23 @@ public:
                 }
             }
             v8::Local<v8::Value> argv[] = {err};
-            _callback->Call(1, argv);
+            Nan::Call(*_callback, 1, argv);
         } else if (!_bad_decompress.empty()) {
             auto err = NAN_ERR("CHUNK DECOMPRESS FAILED");
             NAN_SET_STR(err, "decompress_error", _bad_decompress);
             v8::Local<v8::Value> argv[] = {err};
-            _callback->Call(1, argv);
+            Nan::Call(*_callback, 1, argv);
         } else if (_bad_chunk_digest.length()) {
             auto err = NAN_ERR("CHUNK DIGEST MISMATCH");
             NAN_SET_STR(err, "bad_chunk_digest_b64", _bad_chunk_digest.base64());
             v8::Local<v8::Value> argv[] = {err};
-            _callback->Call(1, argv);
+            Nan::Call(*_callback, 1, argv);
         } else {
             auto persistent = Nan::New(_persistent);
             auto chunk = NAN_GET_OBJ(persistent, 1);
             NAN_SET_BUF_DETACH(chunk, "data", _chunk);
             v8::Local<v8::Value> argv[] = {Nan::Undefined(), chunk};
-            _callback->Call(2, argv);
+            Nan::Call(*_callback, 2, argv);
         }
         delete this;
     }

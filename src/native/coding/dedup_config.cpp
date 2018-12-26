@@ -22,7 +22,7 @@ NAN_METHOD(DedupConfig::new_instance)
 {
     NAN_MAKE_CTOR_CALL(_ctor);
     v8::Local<v8::Object> self = info.This();
-    v8::Local<v8::Object> options = info[0]->ToObject();
+    v8::Local<v8::Object> options = info[0].As<v8::Object>();
     NAN_COPY_OPTIONS_TO_WRAPPER(self, options);
     int gf_degree = NAN_GET_INT(self, "gf_degree");
     T gf_poly = NAN_GET_INT(self, "gf_poly");

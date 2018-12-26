@@ -101,7 +101,7 @@ x509_name_to_entries(X509_NAME* x509_name)
         ASN1_OBJECT* o = X509_NAME_ENTRY_get_object(e);
         ASN1_STRING* d = X509_NAME_ENTRY_get_data(e);
         const char* key = OBJ_nid2sn(OBJ_obj2nid(o));
-        const char* val = (const char*)ASN1_STRING_data(d);
+        const char* val = (const char*)ASN1_STRING_get0_data(d);
         NAN_SET_STR(entries, key, val);
     }
     return entries;
@@ -123,7 +123,7 @@ NAN_METHOD(Crypto::rsa)
     int bits = 2048;
 
     if (info.Length() > 0 && info[0]->IsObject()) {
-        auto options = info[0]->ToObject();
+        auto options = info[0].As<v8::Object>();
         if (NAN_GET(options, "bits")->IsInt32()) {
             bits = NAN_GET_INT(options, "bits");
         }
@@ -156,7 +156,7 @@ NAN_METHOD(Crypto::x509)
     X509* x509 = NULL;
 
     if (info.Length() > 0 && info[0]->IsObject()) {
-        auto options = info[0]->ToObject();
+        auto options = info[0].As<v8::Object>();
         if (NAN_GET(options, "days")->IsInt32()) {
             days = NAN_GET_INT(options, "days");
         }
@@ -202,7 +202,7 @@ NAN_METHOD(Crypto::x509)
     if (!issuer_private_key && !owner_public_key) {
         int bits = 2048;
         if (info.Length() > 0 && info[0]->IsObject()) {
-            auto options = info[0]->ToObject();
+            auto options = info[0].As<v8::Object>();
             if (NAN_GET(options, "bits")->IsInt32()) {
                 bits = NAN_GET_INT(options, "bits");
             }
@@ -268,7 +268,7 @@ NAN_METHOD(Crypto::x509_verify)
     X509* x509 = NULL;
 
     if (info.Length() > 0 && info[0]->IsObject()) {
-        auto options = info[0]->ToObject();
+        auto options = info[0].As<v8::Object>();
         if (NAN_GET(options, "key")->IsString()) {
             auto private_str = NAN_GET_STR(options, "key");
             BIO* bio = BIO_new_mem_buf(private_str, strlen(private_str));
@@ -299,7 +299,7 @@ NAN_METHOD(Crypto::x509_verify)
         goto cleanup;
     }
 
-    switch (EVP_PKEY_type(issuer_private_key->type)) {
+    switch (EVP_PKEY_base_id(issuer_private_key)) {
     case EVP_PKEY_RSA:
     case EVP_PKEY_RSA2: {
         RSA* rsa = EVP_PKEY_get1_RSA(issuer_private_key);

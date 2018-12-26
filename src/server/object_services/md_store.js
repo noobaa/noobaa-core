@@ -76,7 +76,7 @@ class MDStore {
         }
 
         // Checks if there is a current background operation that creates indexes on objectmds
-        const current_op = await mongo_client.instance().db.admin().command({ currentOp: 1 });
+        const current_op = await mongo_client.instance().db().admin().command({ currentOp: 1 });
         for (const op of current_op.inprog) {
             if (op.command &&
                 op.command.createIndexes === 'objectmds' &&

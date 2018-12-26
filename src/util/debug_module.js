@@ -90,6 +90,10 @@ function formatted_time() {
     return timemsg;
 }
 
+function strip_newlines(msg) {
+    return msg.replace(/(\r\n|\n|\r)/gm, "");
+}
+
 function extract_module(mod, ignore_extension) {
     // the 'core.' prefix is helpful for setting the level for all modules
     const stems = {
@@ -200,66 +204,40 @@ class InternalDebugLogger {
                 throw e;
             }
         }
-        //Define Transports
-        const transports = [new winston.transports.Console({
-            name: 'console_transp',
-            level: 'LAST',
-            showLevel: false,
-            formatter: options => {
-                var proc = '[' + this._proc_name + '/' + this._pid + ']';
-                var formatted_level = ' \x1B[31m';
-                if (this._levels[options.level]) {
-                    formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m' : ' \x1B[36m';
-                }
-                const padded_level = `[${options.level}]`.padStart(7);
-                const prefix = '\x1B[32m' + formatted_time() + '\x1B[35m ' + proc + formatted_level + padded_level + '\x1B[39m ';
-                var message = (options.message || '').replace(/\n/g, `\n${prefix}`);
-                var suffix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
-                // remove newlines from message?
-                // message = message.replace(/(\r\n|\n|\r)/gm, '');
-                return prefix + message + suffix;
-            }
-        })];
+
+        const just_print = winston.format((info, opts) => {
+            info[Symbol.for('message')] = info.message;
+            return info;
+        });
+
+        this._log_console = winston.createLogger({
+            levels: this._levels,
+            format: just_print({}),
+            transports: [new winston.transports.Console({
+                name: 'console_transp',
+                level: 'LAST',
+            })],
+        });
 
         // if not logging to syslog add a file transport
         if (!syslog) {
             const suffix = DEV_MODE ? `_${process.argv[1].split('/').slice(-1)[0]}` : '';
-
-            transports.push(new winston.transports.File({
-                name: 'file_transp',
-                level: 'LAST',
-                showLevel: false,
-                filename: `noobaa${suffix}.log`,
-                dirname: './logs/',
-                json: false,
-                maxsize: (10 * 1024 * 1024),
-                maxFiles: 100,
-                tailable: true,
-                zippedArchive: true,
-                formatter: options => {
-                    //prefix - time, level, module & pid
-                    var proc = '[' + this._proc_name + '/' + this._pid + ']';
-                    var formatted_level = ' \x1B[31m[';
-                    if (this._levels[options.level]) {
-                        formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
-                    }
-                    var prefix = '\x1B[32m' + formatted_time() +
-                        '\x1B[35m ' + proc +
-                        formatted_level +
-                        options.level + ']\x1B[39m ';
-                    var message = options.message || '';
-                    var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
-                    // remove newlines from message
-                    message = message.replace(/(\r\n|\n|\r)/gm, '');
-                    return prefix + message + postfix;
-                }
-            }));
+            this._log_file = winston.createLogger({
+                levels: this._levels,
+                format: just_print({}),
+                transports: [new winston.transports.File({
+                    name: 'file_transp',
+                    level: 'LAST',
+                    filename: `noobaa${suffix}.log`,
+                    dirname: './logs/',
+                    maxsize: (10 * 1024 * 1024),
+                    maxFiles: 100,
+                    tailable: true,
+                    zippedArchive: true,
+                })],
+            });
         }
 
-        this._log = new(winston.Logger)({
-            levels: this._levels,
-            transports
-        });
     }
 
     static instance() {
@@ -353,46 +331,64 @@ class InternalDebugLogger {
         return tmp_mod.__level;
     }
 
-    syslog_formatter(level, args) {
-        let msg = args[1] || '';
-        if (args.length > 2) {
-            msg = util.format.apply(msg, Array.prototype.slice.call(args, 1));
+    message_format(level, args) {
+        let msg;
+        if (args.length > 1) {
+            msg = util.format(...args);
+        } else {
+            msg = args[0] || '';
         }
-        let formmated_level = ' \x1B[31m[';
+
+        //Level coloring
+        let level_color = '\x1B[31m';
         if (this._levels[level]) {
-            formmated_level = this._levels[level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
+            level_color = this._levels[level] === 1 ? '\x1B[33m' : '\x1B[36m';
         }
-        let level_str = formmated_level + level + ']\x1B[39m ';
-        let proc = '[' + this._proc_name + '/' + this._pid + ']';
-        let prefix = '\x1B[32m' + formatted_time() +
-            '\x1B[35m ' + proc;
+
+        //Level String
+        const level_str = level_color + `[${level}]`.padStart(7) + '\x1B[39m';
+
+        const proc = '[' + this._proc_name + '/' + this._pid + '] ';
+        const prefix = '\x1B[32m' + formatted_time() + '\x1B[35m ' + proc;
+        msg = level_str + msg;
+        const msg_oneline = strip_newlines(msg);
+
+        //Browser
+        const browser_args = args.slice(0);
+        if (typeof(browser_args[0]) === 'string') {
+            browser_args[0] = formatted_time() + ' [' + level + '] ' + browser_args[0];
+        } else {
+            browser_args.unshift(formatted_time() + ' [' + level + '] ');
+        }
+
         return {
-            console_prefix: prefix,
-            message: level_str + msg.replace(/(\r\n|\n|\r)/gm, "")
+            level: level,
+            message_console: prefix + msg,
+            message_file: prefix + msg_oneline,
+            message_syslog: msg_oneline,
+            message_browser: browser_args
         };
     }
 
-    log_always(level) {
-        var args = Array.prototype.slice.call(arguments, 1);
+    log_always(level, ...args) {
         if (console_wrapper) {
             console_wrapper.original_console();
         }
 
-        let syslog_msg = this.syslog_formatter(level, arguments);
-        return this.log_internal(level, args, syslog_msg);
+        let msg_info = this.message_format(level, args);
+        return this.log_internal(msg_info);
     }
 
 
-    log_throttled(level) {
-        var args = Array.prototype.slice.call(arguments, 1);
+    log_throttled(level, ...args) {
         if (console_wrapper) {
             console_wrapper.original_console();
         }
 
-        let syslog_msg = this.syslog_formatter(level, arguments);
+        let msg_info = this.message_format(level, args);
         try {
             // get formatted message to use as key for lru
-            const lru_item = this.lru.find_or_add_item(syslog_msg.message);
+            const lru_item = this.lru.find_or_add_item(msg_info.message_syslog);
             if (lru_item.hit_count) {
                 lru_item.hit_count += 1;
                 // the message is already in the lru
@@ -407,8 +403,9 @@ class InternalDebugLogger {
                 const msg_suffix = lru_item.hit_count === 2 ?
                     ` - \x1B[33m[Duplicated message. Suppressing for ${THROTTLING_PERIOD_SEC} seconds]\x1B[39m` :
                     ` - \x1B[33m[message repeated ${lru_item.hit_count} times since ${new Date(lru_item.time)}]\x1B[39m`;
-                syslog_msg.message += msg_suffix;
-                args[args.length - 1] += msg_suffix;
+                msg_info.message_console += msg_suffix;
+                msg_info.message_file += msg_suffix;
+                msg_info.message_syslog += msg_suffix;
             } else {
                 // message not in lru. set hit count to 1
                 lru_item.hit_count = 1;
@@ -417,74 +414,43 @@ class InternalDebugLogger {
             console.log('got error on log suppression:', err.message);
         }
 
-        return this.log_internal(level, args, syslog_msg);
+        return this.log_internal(msg_info);
     }
 
-    log_internal(level, args, syslog_msg) {
-
+    log_internal(msg_info) {
         if (this._file_path) {
             var winston_log = this._logs_by_file[this._file_path.name];
             if (!winston_log) {
                 let winston = require('winston'); // eslint-disable-line no-shadow
                 //Define Transports
-                winston_log = new winston.Logger({
+                winston_log = winston.createLogger({
                     levels: this._levels,
+                    format: winston.format.simple(),
                     transports: [
                         new winston.transports.File({
                             name: 'file_transport',
                             level: 'LAST',
-                            showLevel: false,
                             filename: this._file_path.base,
                             dirname: this._file_path.dir,
-                            json: false,
-                            //maxsize: (10 * 1024 * 1024), //10 MB
-                            //maxFiles: 100,
-                            //tailable: true,
-                            //zippedArchive: true,
-                            formatter: options => {
-                                //prefix - time, level, module & pid
-                                var proc = '[' + this._proc_name + '/' + this._pid + ']';
-                                var formatted_level = ' \x1B[31m[';
-                                if (this._levels[options.level]) {
-                                    formatted_level = this._levels[options.level] === 1 ? ' \x1B[33m[' : ' \x1B[36m[';
-                                }
-                                var prefix = '\x1B[32m' + formatted_time() +
-                                    '\x1B[35m ' + proc +
-                                    formatted_level +
-                                    options.level + ']\x1B[39m ';
-                                var message = options.message || '';
-                                var postfix = (options.meta && Object.keys(options.meta).length ? JSON.stringify(options.meta) : '');
-                                // remove newlines from message
-                                message = message.replace(/(\r\n|\n|\r)/gm, '');
-                                return prefix + message + postfix;
-                            }
                         })
-                    ]
+                    ],
                 });
                 this._logs_by_file[this._file_path.name] = winston_log;
             }
-            args.push("");
-            winston_log[level].apply(winston_log, args);
-        } else if (this._log) {
+            winston_log[msg_info.level](msg_info.message_file);
+        } else if (this._log_console) {
             if (syslog) {
                 // syslog path
-                syslog(this._levels_to_syslog[level], syslog_msg.message, 'LOG_LOCAL0');
+                syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, 'LOG_LOCAL0');
+            } else {
+                // winston path (non browser)
+                this._log_file[msg_info.level](msg_info.message_file);
             }
-            // winston path (non browser)
-            args.push("");
-            this._log[level].apply(this._log, args);
+            this._log_console[msg_info.level](msg_info.message_console);
         } else {
             // browser workaround, don't use winston. Add timestamp and level
-            var logfunc = LOG_FUNC_PER_LEVEL[level] || 'log';
-            if (typeof(args[0]) === 'string') {
-                args[0] = formatted_time() + ' [' + level + '] ' + args[0];
-            } else {
-                args.unshift(formatted_time() + ' [' + level + '] ');
-            }
-            // if (level === 'ERROR' || level === 'WARN') {
-            // logfunc = 'error';
-            // }
-            console[logfunc].apply(console, args);
+            const logfunc = LOG_FUNC_PER_LEVEL[msg_info.level] || 'log';
+            console[logfunc](...msg_info.message_browser);
         }
         if (console_wrapper) {
             console_wrapper.wrapper_console();
@@ -492,14 +458,7 @@ class InternalDebugLogger {
     }
 }
 
-
-
 const int_dbg = InternalDebugLogger.instance();
-
-
-
-
-
 
 /*
  *
@@ -539,19 +498,18 @@ function log_builder(idx, options) {
     /**
      * @this instance of DebugLogger
      */
-    return function() {
+    return function(...args) {
         if (this.should_log(idx)) {
-            var args = Array.prototype.slice.call(arguments);
+            const level = 'L' + idx;
             if (typeof(args[0]) === 'string') { //Keep string formatting if exists
                 args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '');
             } else {
                 args.unshift(" " + this._name + ":: ");
             }
-            args.unshift("L" + idx);
             if (options.throttled) {
-                int_dbg.log_throttled.apply(int_dbg, args);
+                int_dbg.log_throttled(level, ...args);
             } else {
-                int_dbg.log_always.apply(int_dbg, args);
+                int_dbg.log_always(level, ...args);
             }
         }
     };
@@ -565,19 +523,18 @@ function log_bt_builder(idx) {
     /**
      * @this instance of DebugLogger
      */
-    return function() {
+    return function(...args) {
         if (this.should_log(idx)) {
+            const level = 'L' + idx;
             var err = new Error();
             var bt = err.stack.substr(err.stack.indexOf(")") + 1).replace(/(\r\n|\n|\r)/gm, " ");
-            var args = Array.prototype.slice.call(arguments);
             if (typeof(args[0]) === 'string') { //Keep string formatting if exists
                 args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '') + bt;
             } else {
                 args.unshift(" " + this._name + ":: ");
                 args.push(bt);
             }
-            args.unshift("L" + idx);
-            int_dbg.log_throttled.apply(int_dbg, args);
+            int_dbg.log_throttled(level, ...args);
         }
     };
 }
@@ -593,16 +550,14 @@ function log_syslog_builder(syslevel) {
     /**
      * @this instance of DebugLogger
      */
-    return function() {
+    return function(...args) {
         if (this._cur_level.__level < 0) return;
-        var args = Array.prototype.slice.call(arguments);
         if (typeof(args[0]) === 'string') { //Keep string formatting if exists
             args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '');
         } else {
             args.unshift(" " + this._name + ":: ");
         }
-        args.unshift(syslevel.toUpperCase());
-        int_dbg.log_always.apply(int_dbg, args);
+        int_dbg.log_always(syslevel.toUpperCase(), ...args);
     };
 }
 

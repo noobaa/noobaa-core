@@ -6,7 +6,7 @@ import { escapeQuotes } from 'utils/string-utils';
 
 export function createSchemaValidator(schema) {
     // Strictify the schema definitions.
-    const ajv = new Ajv();
+    const ajv = new Ajv({ schemaId: 'auto' });
     const avjValidate = ajv.compile(schema);
 
     return function validate(state) {

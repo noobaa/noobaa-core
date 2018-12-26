@@ -21,9 +21,7 @@ class MongoClient extends EventEmitter {
 
     constructor() {
         super();
-        this.db = null; // will be set once connected
-        this.cfg_db = null; // will be set once a part of a cluster & connected
-        this.admin_db = null;
+        this.mongo_client = null; //Change in mongodb 3.X required operating on the client instead of DBs
         this.should_ignore_connect_timeout = false;
         this.collections = [];
         this.gridfs_buckets = [];
@@ -70,7 +68,7 @@ class MongoClient extends EventEmitter {
             //authSource: 'admin',
         };
 
-        this._ajv = new Ajv({ verbose: true });
+        this._ajv = new Ajv({ verbose: true, schemaId: 'auto' });
         this._ajv.addKeyword('date', schema_utils.KEYWORDS.date);
         this._ajv.addKeyword('idate', schema_utils.KEYWORDS.idate);
         this._ajv.addKeyword('objectid', schema_utils.KEYWORDS.objectid);
@@ -89,7 +87,7 @@ class MongoClient extends EventEmitter {
     }
 
     set_url(url) {
-        if (this.db || this.promise) {
+        if (this.mongo_client || this.promise) {
             throw new Error('trying to set url after already connected...' +
                 ' late for the party? ' + url +
                 ' existing url ' + this.url);
@@ -112,44 +110,44 @@ class MongoClient extends EventEmitter {
 
     _connect(skip_init_db) {
         if (this._disconnected_state) return;
-        if (this.db) return this.db;
-        let db;
+        if (this.mongo_client) return this.mongo_client.db();
+        let client;
         dbg.log0('_connect: called with', this.url);
         this._set_connect_timeout();
         return mongodb.MongoClient.connect(this.url, this.config)
-            .then(db_arg => {
-                db = db_arg;
+            .then(ret_client => {
+                client = ret_client;
             })
-            .then(() => skip_init_db === 'skip_init_db' || this._init_collections(db))
+            .then(() => skip_init_db === 'skip_init_db' || this._init_collections(client.db()))
             .then(() => {
                 dbg.log0('_connect: connected', this.url);
                 this._reset_connect_timeout();
-                this.db = db;
+                this.mongo_client = client;
                 this.gridfs_instances = {};
                 // for now just print the topologyDescriptionChanged. we'll see if it's worth using later
-                db.topology.on('topologyDescriptionChanged', function(event) {
+                this.mongo_client.db().topology.on('topologyDescriptionChanged', function(event) {
                     console.log('received topologyDescriptionChanged', util.inspect(event));
                 });
-                db.on('reconnect', () => {
+                this.mongo_client.db().on('reconnect', () => {
                     dbg.log('got reconnect', this.url);
                     this.emit('reconnect');
                     this._reset_connect_timeout();
                 });
-                db.on('close', () => {
+                this.mongo_client.db().on('close', () => {
                     dbg.warn('got close', this.url);
                     this.emit('close');
                     this._set_connect_timeout();
                 });
                 this.emit('reconnect');
                 dbg.log0(`connected`);
-                return db;
+                return this.mongo_client.db();
             }, err => {
                 // autoReconnect only works once initial connection is created,
                 // so we need to handle retry in initial connect.
                 dbg.error('_connect: initial connect failed, will retry', err.message);
-                if (db) {
-                    db.close();
-                    db = null;
+                if (client) {
+                    client.close();
+                    client = null;
                 }
                 return P.delay(config.MONGO_DEFAULTS.CONNECT_RETRY_INTERVAL)
                     .then(() => this._connect(skip_init_db));
@@ -190,14 +188,9 @@ class MongoClient extends EventEmitter {
         this._disconnected_state = true;
         this.promise = null;
         this.gridfs_instances = {};
-        if (this.db) {
-            this.db.close();
-            this.db = null;
-            this.admin_db = null;
-        }
-        if (this.cfg_db) {
-            this.cfg_db.close();
-            this.cfg_db = null;
+        if (this.mongo_client) {
+            this.mongo_client.close();
+            this.mongo_client = null;
         }
     }
 
@@ -208,7 +201,7 @@ class MongoClient extends EventEmitter {
     }
 
     is_connected() {
-        return Boolean(this.db);
+        return Boolean(this.mongo_client);
     }
 
     define_collection(col) {
@@ -225,15 +218,20 @@ class MongoClient extends EventEmitter {
         col.col = () => this.collection(col.name);
         js_utils.deep_freeze(col);
         this.collections.push(col);
-        if (this.db) {
-            this._init_collection(this.db, col).catch(_.noop); // TODO what is best to do when init_collection fails here?
+        if (this.mongo_client) {
+            this._init_collection(this.mongo_client.db(), col).catch(_.noop); // TODO what is best to do when init_collection fails here?
         }
         return col;
     }
 
+    db() {
+        if (!this.mongo_client) throw new Error('mongo_client not connected');
+        return this.mongo_client.db();
+    }
+
     collection(col_name) {
-        if (!this.db) throw new Error(`mongo_client not connected (collection ${col_name})`);
-        return this.db.collection(col_name);
+        if (!this.mongo_client) throw new Error(`mongo_client not connected (collection ${col_name})`);
+        return this.mongo_client.db().collection(col_name);
     }
 
     define_gridfs(bucket) {
@@ -241,9 +239,9 @@ class MongoClient extends EventEmitter {
             throw new Error('define_gridfs: gridfs bucket already defined ' + bucket.name);
         }
         bucket.gridfs = () => {
-            if (!this.db) throw new Error(`mongo_client not connected (gridfs name ${bucket.name})`);
+            if (!this.mongo_client) throw new Error(`mongo_client not connected (gridfs name ${bucket.name})`);
             if (!this.gridfs_instances[bucket.name]) {
-                this.gridfs_instances[bucket.name] = new mongodb.GridFSBucket(this.db, {
+                this.gridfs_instances[bucket.name] = new mongodb.GridFSBucket(this.mongo_client.db(), {
                     bucketName: bucket.name,
                     chunkSizeBytes: bucket.chunk_size
                 });
@@ -282,7 +280,7 @@ class MongoClient extends EventEmitter {
         };
         dbg.log0('Calling initiate_replica_set', util.inspect(command, false, null));
         if (!is_config_set) { //connect the mongod server
-            return P.resolve(this.db.admin().command(command))
+            return P.resolve(this.mongo_client.db().admin().command(command))
                 .catch(err => {
                     dbg.error('Failed initiate_replica_set', set, members, 'with', err.message);
                     throw err;
@@ -307,7 +305,7 @@ class MongoClient extends EventEmitter {
                     return P.resolve(this._send_command_config_rs(command));
                 } else {
                     //connect the mongod server
-                    return P.resolve(this.db.admin().command(command))
+                    return P.resolve(this.mongo_client.db().admin().command(command))
                         .catch(err => {
                             dbg.error('Failed replica_update_members', set, members, 'with', err.message);
                             throw err;
@@ -323,7 +321,7 @@ class MongoClient extends EventEmitter {
         return P.resolve(this.connect())
             .then(() => {
                 dbg.log0('add_shard connected, calling db.admin addShard{}');
-                return P.resolve(this.db.admin().command({
+                return P.resolve(this.mongo_client.db().admin().command({
                     addShard: host + ':' + port,
                     name: shardname
                 }));
@@ -346,7 +344,7 @@ class MongoClient extends EventEmitter {
     }
 
     get_mongo_rs_status(params) {
-        if (!this.db) {
+        if (!this.mongo_client) {
             throw new Error('db is not initialized');
         }
         let options = params || {};
@@ -363,7 +361,7 @@ class MongoClient extends EventEmitter {
                 if (is_config_set) {
                     return this._send_command_config_rs(command);
                 } else {
-                    return this.db.admin().command(command);
+                    return this.mongo_client.db().admin().command(command);
                 }
             })
             .timeout(COMMAND_TIMEOUT)
@@ -377,16 +375,15 @@ class MongoClient extends EventEmitter {
     }
 
     get_rs_version(is_config_set) {
-        var self = this;
         var command = {
             replSetGetConfig: 1
         };
 
-        return P.fcall(function() {
+        return P.fcall(() => {
                 if (is_config_set) { //connect the server running the config replica set
-                    return P.resolve(self._send_command_config_rs(command));
+                    return P.resolve(this._send_command_config_rs(command));
                 } else { //connect the mongod server
-                    return P.resolve(self.db.admin().command(command))
+                    return P.resolve(this.mongo_client.db().admin().command(command))
                         .catch(err => {
                             dbg.error('Failed get_rs_version with', err.message);
                             throw err;
@@ -400,25 +397,22 @@ class MongoClient extends EventEmitter {
     }
 
     async get_mongo_db_version() {
-        const build_info = await this.db.admin().buildInfo();
+        const build_info = await this.mongo_client.db().admin().buildInfo();
         return build_info.version;
     }
 
-    set_debug_level(level) {
-        var self = this;
+    async set_debug_level(level) {
         var command = {
             setParameter: 1,
             logLevel: level
         };
 
-        return P.fcall(function() {
-            return P.resolve(self.db.admin().command(command))
-                .then(res => dbg.log0(`Recieved ${res} from setParameter/logLevel command (${level})`));
-        });
+        const res = await this.mongo_client.db().admin().command(command);
+        dbg.log0(`Recieved ${res} from setParameter/logLevel command (${level})`);
     }
 
     async is_master(ip) {
-        const is_master_res = await this.db.command({ isMaster: 1 });
+        const is_master_res = await this.mongo_client.db().command({ isMaster: 1 });
         return is_master_res.primary.startsWith(ip);
     }
 
@@ -452,7 +446,7 @@ class MongoClient extends EventEmitter {
                     // eslint-disable-next-line no-unmodified-loop-condition
                     while (db_is_down && !waiting_exhausted) {
                         try {
-                            let stats = this.db && await this.db.stats();
+                            let stats = this.mongo_client && await this.mongo_client.db().stats();
                             db_is_down = _.get(stats, 'ok') !== 1;
                         } catch (err) {
                             dbg.error('db is still down. got error on db.stats():', err.message);
@@ -475,7 +469,7 @@ class MongoClient extends EventEmitter {
             dbg.error('step down called but not in replica set');
             return;
         }
-        await this.db.admin().command({
+        await this.mongo_client.db().admin().command({
             replSetStepDown: duration,
             force
         });
@@ -487,7 +481,7 @@ class MongoClient extends EventEmitter {
         while (retries < MAX_RETRIES) {
             // operation is idempotent. retry on failure
             try {
-                await this.db.admin().command({ setFeatureCompatibilityVersion: version });
+                await this.mongo_client.db().admin().command({ setFeatureCompatibilityVersion: version });
                 return;
             } catch (err) {
                 retries += 1;
@@ -502,18 +496,15 @@ class MongoClient extends EventEmitter {
         }
     }
 
-    force_mongo_sync_journal() {
-        var self = this;
+    async force_mongo_sync_journal() {
         var command = {
             fsync: 1,
             async: false,
 
         };
 
-        return P.fcall(function() {
-            return P.resolve(self.db.admin().command(command))
-                .then(res => dbg.log0(`Recieved ${res} from sforce_mongo_sync_journal command`));
-        });
+        const res = await this.mongo_client.db().admin().command(command);
+        dbg.log0(`Recieved ${res} from sforce_mongo_sync_journal command`);
     }
 
     _update_config_for_replset() {
@@ -557,17 +548,17 @@ class MongoClient extends EventEmitter {
     }
 
     _send_command_config_rs(command) {
-        let cfg_db;
+        let cfg_client;
         return P.resolve()
             .then(() => mongodb.MongoClient.connect(this.cfg_url, this.config))
             .catch(err => {
                 dbg.error('connecting to config rs failed', err.message);
                 throw err;
             })
-            .then(cfg_db_arg => {
-                cfg_db = cfg_db_arg;
+            .then(client_db => {
+                cfg_client = client_db;
             })
-            .then(() => cfg_db.admin().command(command))
+            .then(() => cfg_client.db().admin().command(command))
             .then(res => {
                 dbg.log0('successfully sent command to config rs', util.inspect(command));
                 return res;
@@ -577,9 +568,9 @@ class MongoClient extends EventEmitter {
                 throw err;
             })
             .finally(() => {
-                if (cfg_db) {
-                    cfg_db.close();
-                    cfg_db = null;
+                if (cfg_client) {
+                    cfg_client.close();
+                    cfg_client = null;
                 }
             });
     }

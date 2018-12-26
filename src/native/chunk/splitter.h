@@ -46,8 +46,8 @@ private:
     Points _split_points;
     Point _chunk_pos;
     Rabin::Hash _hash;
-    EVP_MD_CTX _md5_ctx;
-    EVP_MD_CTX _sha256_ctx;
+    EVP_MD_CTX *_md5_ctx;
+    EVP_MD_CTX *_sha256_ctx;
 
     static Rabin _rabin;
 

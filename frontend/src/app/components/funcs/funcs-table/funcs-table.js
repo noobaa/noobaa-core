@@ -55,7 +55,7 @@ const columns = deepFreeze([
 ]);
 
 function _mapFunc(func, system, selectedForDelete) {
-    const { name, version, description, size, lastModified } = func;
+    const { name, version, description, codeSize, lastModified } = func;
     const id = `${name}:${version}`;
     return {
         name: {
@@ -64,7 +64,7 @@ function _mapFunc(func, system, selectedForDelete) {
             tooltip: { text: name, breakWords: true }
         },
         description,
-        size: formatSize(size),
+        size: formatSize(codeSize),
         lastModified: moment(lastModified).format(timeShortFormat),
         deleteButton: {
             id: id,

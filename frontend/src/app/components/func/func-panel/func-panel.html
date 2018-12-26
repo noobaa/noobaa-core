@@ -42,7 +42,10 @@
 
         <func-config class="tab"
             ko.css.selected="selectedTab.eq('config')"
-            params="func: func"
+            params="
+                funcName: funcName,
+                funcVersion: '$LATEST'
+            "
         ></func-config>
 
         <func-invoke class="tab"

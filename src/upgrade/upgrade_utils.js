@@ -453,14 +453,12 @@ async function packages_upgrade() {
             'wget',
             'curl',
             'ntp',
-            'rsyslog',
             'cronie',
             'openssh-server',
             'dialog',
             'expect',
             'nc',
             'tcpdump',
-            'iperf',
             'iperf3',
             'python-setuptools',
             'bind-utils',
@@ -471,7 +469,6 @@ async function packages_upgrade() {
             'net-tools',
             'iptables-services',
             'rng-tools', // random number generator tools
-            'pv', // pipe viewer
         ];
         dbg.log0(`install additional packages`);
         const res = await promise_utils.exec(`yum install -y ${packages_to_install.join(' ')}`, {

@@ -8,7 +8,10 @@
         ko.disable="$data.disabled || false"
         ko.hasFocus="$data.hasFocus"
     />
-    <span class="radio-knob"></span>
+    <svg class="radio-knob">
+        <circle class="outer-circle"></circle>
+        <circle class="inner-circle"></circle>
+    </svg>
     <span class="radio-label"
         ko.text="$data.label || $data.value"
     ></span>

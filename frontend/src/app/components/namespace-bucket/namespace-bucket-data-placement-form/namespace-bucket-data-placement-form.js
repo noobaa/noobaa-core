@@ -1,12 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './namespace-bucket-data-placement-form.html';
-import Observer from 'observer';
-import ResourceRowViewModel from './resource-row';
+import ConnectableViewModel from 'components/connectable';
 import { deepFreeze, pick } from 'utils/core-utils';
 import ko from 'knockout';
-import { getMany } from 'rx-extensions';
-import { state$, action$ } from 'state';
+import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
 import { openEditNamespaceBucketDataPlacementModal } from 'action-creators';
 
 const columns = deepFreeze([
@@ -29,47 +27,58 @@ const columns = deepFreeze([
     }
 ]);
 
-class NamespaceBucketDataPlacementFormViewModel extends Observer {
-    constructor({ bucket }) {
-        super();
+class ResourceRowViewModel {
+    state = ko.observable();
+    type = ko.observable();
+    name = ko.observable();
+    target = ko.observable();
+}
 
-        this.columns = columns;
-        this.bucketName = ko.unwrap(bucket);
-        this.rows = ko.observableArray();
-        this.stateLoaded = ko.observable();
+class NamespaceBucketDataPlacementFormViewModel extends ConnectableViewModel {
+    columns = columns;
+    dataReady = ko.observable();
+    bucketName = '';
+    rows = ko.observableArray()
+        .ofType(ResourceRowViewModel);
 
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['namespaceBuckets', this.bucketName],
-                    'namespaceResources'
-                )
-            ),
-            this.onBucket
-        );
+    selectState(state, params) {
+        const { namespaceBuckets, namespaceResources } = state;
+        return [
+            namespaceBuckets && namespaceBuckets[params.bucket],
+            namespaceResources
+        ];
     }
 
-    onBucket([ bucket, resources ]) {
+    mapStateToProps(bucket, resources) {
         if (!bucket || !resources) {
-            this.stateLoaded(false);
-            return;
-        }
-
-        const { readFrom, writeTo } = bucket.placement;
-        const rows = Object.values(pick(resources, readFrom))
-            .map((resource, i) => {
-                const row = this.rows.get(i) || new ResourceRowViewModel();
-                row.onResource(resource, resource.name === writeTo);
-                return row;
+            ko.assignToProps(this, {
+                dataReady: false
             });
 
-        this.rows(rows);
-        this.stateLoaded(true);
+        } else {
+            const { readFrom, writeTo } = bucket.placement;
+            const resourceList = Object.values(pick(resources, readFrom));
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                bucketName: bucket.name,
+                rows: resourceList.map(resource => ({
+                    state: getNamespaceResourceStateIcon(resource),
+                    type: getNamespaceResourceTypeIcon(resource),
+                    name: {
+                        name: resource.name,
+                        rule: resource.name === writeTo ? 'Read & Write' : 'Read'
+                    },
+                    target: resource.target
+                }))
+            });
+        }
     }
 
     onEditPlacement() {
-        const action = openEditNamespaceBucketDataPlacementModal(this.bucketName);
-        action$.next(action);
+        this.dispatch(openEditNamespaceBucketDataPlacementModal(
+            this.bucketName
+        ));
     }
 }
 

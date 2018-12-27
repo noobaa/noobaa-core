@@ -1,23 +1,40 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<modal class="modal-xsmall" params="
-    title: 'Edit Server Details',
-    onClose: () => cancel()
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
 ">
-    <div class="greedy">
+    <div class="column greedy pad">
         <editor params="label: 'Hostname'">
             <input type="text"
-                ko.value="hostname"
+                ko.value="$form.hostname"
+                ko.validationCss="$form.hostname"
                 ko.hasFocus="true"
             />
+            <validation-message params="field: $form.hostname">
+            </validation-message>
         </editor>
         <editor params="label: 'Location Tag'">
-            <input type="text" ko.value="locationTag"/>
+            <input type="text"
+                ko.value="$form.locationTag"
+            />
             <p class="hint">optional</p>
         </editor>
     </div>
-    <div class="row content-middle align-end">
-        <button class="link alt-colors push-next" ko.click="cancel">Cancel</button>
-        <button class="btn" ko.click="save">save</button>
+    <div class="column pad content-box">
+        <div class="row content-middle align-end">
+            <button class="link alt-colors push-next"
+                ko.click="onCancel"
+            >
+                Cancel
+            </button>
+            <button class="btn"
+                ko.shakeOnClick="!$form.isValid()"
+            >
+                save
+            </button>
+        </div>
     </div>
-</modal>
+</managed-form>

@@ -1,61 +1,65 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="config row content-middle push-next">
-    <radio-group class="greedy push-next" params="
-        selected: selectedTests,
-        options: testTypeOptions,
-        hasFocus: true
-    "></radio-group>
-    <button class="btn run-btn" data-bind="
-        click: runTest,
-        disable: testing
-    ">
-        Run
-    </button>
+<div class="column greedy pad push-next">
+    <div class="config row content-middle push-next">
+        <radio-group class="greedy push-next" params="
+            selected: selectedTests,
+            options: testTypeOptions,
+            hasFocus: true
+        "></radio-group>
+        <button class="btn run-btn" data-bind="
+            click: runTest,
+            disable: testing
+        ">
+            Run
+        </button>
+    </div>
+
+    <data-table class="column greedy content-box" params="
+        columns: columns,
+        rowFactory: test => createTestRow(test),
+        data: results,
+        emptyMessage: 'Click on the run button to start the test'
+    "></data-table>
+    <hr>
+    <section class="content-box summary row content-middle">
+        <!-- ko if:summary -->
+        <span class="row success push-next content-middle">
+            <svg-icon params="name: 'healthy'" class="success icon-small">
+            </svg-icon>
+            <span>
+                Completed
+                <span data-bind="text: summary().completed"></span>
+            </span>
+        </span>
+
+        <span class="row content-middle error push-both">
+            <svg-icon params="name: 'problem'" class="error icon-small"></svg-icon>
+            <span>
+                Failed
+                <span data-bind="text: summary().failed"></span>
+            </span>
+
+        </span>
+
+        <span class="row content-middle push-prev" data-bind="
+            visible: summary().inProcess
+        ">
+            <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
+            <span>
+                In Process
+                <span data-bind="text: summary().inProcess"></span>
+            </span>
+        </span>
+        <!-- /ko -->
+    </section>
 </div>
 
-<data-table class="column greedy" params="
-    columns: columns,
-    rowFactory: test => createTestRow(test),
-    data: results,
-    emptyMessage: 'Click on the run button to start the test'
-"></data-table>
-
-<section class="alt-bg summary row content-middle">
-    <!-- ko if:summary -->
-    <span class="row success push-next content-middle">
-        <svg-icon params="name: 'healthy'" class="success icon-small">
-        </svg-icon>
-        <span>
-            Completed
-            <span data-bind="text: summary().completed"></span>
-        </span>
-    </span>
-
-    <span class="row content-middle error push-both">
-        <svg-icon params="name: 'problem'" class="error icon-small"></svg-icon>
-        <span>
-            Failed
-            <span data-bind="text: summary().failed"></span>
-        </span>
-
-    </span>
-
-    <span class="row content-middle push-prev" data-bind="
-        visible: summary().inProcess
+<div class="column pad content-box">
+    <button class="action btn align-end" data-bind="
+        click: close,
+        text: closeBtnText
     ">
-        <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
-        <span>
-            In Process
-            <span data-bind="text: summary().inProcess"></span>
-        </span>
-    </span>
-    <!-- /ko -->
-</section>
-
-<button class="action btn align-end push-prev" data-bind="
-    click: close,
-    text: closeBtnText
-">
-    Close
-</button>
+        Close
+    </button>
+</div>

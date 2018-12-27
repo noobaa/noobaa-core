@@ -1,12 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-versioning-policy-form.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { state$, action$ } from 'state';
 import ko from 'knockout';
-import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     requestLocation,
@@ -75,67 +73,77 @@ const modeMapping = deepFreeze({
     }
 });
 
-class BucketVersioningPolicyFormViewModel extends Observer {
+class BucketVersioningPolicyFormViewModel extends ConnectableViewModel {
     isExpanded = ko.observable();
+    toggleUri = '';
     bucketName = '';
-    mode = ko.observable();
-    stateIcon = ko.observable();
+    toggleBtn = {
+        text: ko.observable(),
+        updateTo: ''
+    };
+    stateIcon = {
+        name: ko.observable(),
+        css: ko.observable(),
+        tooltip: ko.observable()
+    };
     summary = ko.observable();
-    toggleBtnText = ko.observable();
-    details = [
-        {
-            label: 'Object versioning state',
-            template: 'styled-text',
-            value: ko.observable()
+    details = [{
+        label: 'Object versioning state',
+        template: 'styled-text',
+        value: {
+            text: ko.observable(),
+            css: ko.observable()
         }
-    ];
+    }];
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'buckets',
-                    'location'
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { location, buckets } = state;
+        const { bucket: bucketName } = location.params;
+        return [
+            location,
+            buckets && buckets[bucketName]
+        ];
     }
 
-    onState([buckets, location]) {
-        if (location.route !== routes.bucket) {
-            return;
+    mapStateToProps(location, bucket) {
+        if (!bucket || location.route !== routes.bucket) {
+            ko.assignToProps(this, {
+                isExpanded: false
+            });
+        } else {
+            const { system, tab = 'data-policies', section } = location.params;
+            const toggleSection = section === policyName ? undefined : policyName;
+            const {
+                icon,
+                summary,
+                toggleBtn,
+                state
+            } = modeMapping[bucket.versioning.mode];
+
+            ko.assignToProps(this, {
+                isExpanded: section === policyName,
+                toggleUri: realizeUri(
+                    routes.bucket,
+                    { system, bucket: bucket.name, tab, section: toggleSection }
+                ),
+                bucketName: bucket.name,
+                toggleBtn,
+                stateIcon: icon,
+                summary,
+                details: [{ value: state }]
+            });
         }
-
-        const { system, bucket: bucketName, tab = 'data-policies', section } = location.params;
-        const bucket = buckets && buckets[bucketName];
-        const mode = bucket ? bucket.versioning.mode : 'DISABLED';
-        const { icon, summary, toggleBtn, state } = modeMapping[mode];
-        const toggleSection = section === policyName ? undefined : policyName;
-        const toggleUri = realizeUri(
-            routes.bucket,
-            { system, bucket: bucketName, tab, section: toggleSection }
-        );
-
-        this.isExpanded(section === policyName);
-        this.bucketName = bucketName;
-        this.mode = mode;
-        this.stateIcon(icon);
-        this.summary(summary);
-        this.toggleBtnText(toggleBtn.text);
-        this.details[0].value(state);
-        this.toggleUri = toggleUri;
     }
 
     onToggleSection() {
-        action$.next(requestLocation(this.toggleUri));
+        this.dispatch(requestLocation(this.toggleUri));
     }
 
     onToggleVersioning() {
-        const { updateTo } = modeMapping[this.mode].toggleBtn;
-        action$.next(updateBucketVersioningPolicy(this.bucketName, updateTo));
+        this.dispatch(updateBucketVersioningPolicy(
+            this.bucketName,
+            this.toggleBtn.updateTo
+        ));
     }
 }
 

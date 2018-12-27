@@ -33,7 +33,7 @@ class PreferedBrowsersStickyViewModel extends ConnectableViewModel {
 
     }
 
-    onClose() {
+    onIgnore() {
         this.dispatch(dismissBrowserSticky());
     }
 }

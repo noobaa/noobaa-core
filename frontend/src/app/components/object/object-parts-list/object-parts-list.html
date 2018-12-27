@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row content-middle alt-bg pad">
+<div class="row content-middle card-shadow pad">
     <div class="column greedy push-next">
         <h3 class="heading3">
             Part count for this object:
@@ -8,7 +8,7 @@
         </h3>
         <span class="row">
             Data resiliency type: {{resilinecySummary}}
-            <vr class="vr-light push-both-half"></vr>
+            <vr class="push-both-half"></vr>
             Number of resources: {{resourceCount}}
         </span>
     </div>
@@ -31,48 +31,41 @@
     </div>
 </div>
 
-<loading-indicator class="align-middle greedy push-prev"
-    ko.visible="!dataReady()"
-></loading-indicator>
-
-<div class="row greedy no-overflow"
-    ko.css.expanded="isPaneExpanded"
-    ko.visible="dataReady"
+<list-details class="greedy"
+    params="
+        loading: !dataReady(),
+        rows: rows,
+        selected: ko.pc(selectedPart, onSelectPart, $component),
+        idSelector: row => row.seq,
+        buttonLabel: 'More Details'
+    "
 >
-    <ul class="part-list greedy list-no-style column" ko.foreach="rows">
-        <li class="row content-middle border-bottom part-row"
-            ko.css.selected="isSelected"
-            ko.click="onMoreDetails"
-        >
-            <div class="row content-middle part-summary">
-                <svg-icon class="push-next-half"
-                    ko.css="state().css"
-                    ko.tooltip="state().tooltip"
-                    params="name: state().name"
-                ></svg-icon>
-                <span class="greedy" ko.text="summary"></span>
-                <a class="link alt-colors more-details-btn" href="#">
-                    More Details
-                </a>
-            </div>
-        </li>
-    </ul>
+    <template name="row">
+        <div class="row content-middle">
+            <svg-icon class="push-next-half"
+                ko.css="$item.state().css"
+                ko.tooltip="$item.state().tooltip"
+                params="name: $item.state().name"
+            ></svg-icon>
+            {{$item.summary}}
+        </div>
+    </template>
 
-    <section class="column details-pane">
+    <template name="details">
         <div class="column greedy hpad no-wrap" ko.with="partDetails">
             <div class="row content-middle">
                 <h2 class="heading3 greedy push-next">Part {{partSeq}} Distribution Details</h2>
-                <button class="icon-btn no-outline" ko.click="onX">
+                <button class="icon-btn no-focus-ring" ko.click="onX">
                     <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
                 </button>
             </div>
-            <hr />
-            <div class="greedy block-tables"
-                ko.css.fade="fade"
+            <hr class="push-next-half"/>
+            <div class="greedy pad-right block-tables"
+                ko.css.fade-in="fade"
                 ko.event.animationend="onAnimationEnd"
                 ko.foreach="blockTables"
             >
-                <section class="column">
+                <section class="column vpad">
                     <div class="row content-middle push-next-half">
                         <p class="row greedy push-next content-middle">
                             <span class="highlight push-next-half">{{label}}:</span>
@@ -84,17 +77,17 @@
                             <!-- ko with: resources -->
                             on
                             <!-- ko if: $data.href -->
-                            <a class="box row content-middle cursor-pointer"
+                            <a class="tag link no-focus-ring row content-middle cursor-pointer push-prev-half"
                                 ko.attr.href="href"
                             >
-                                <svg-icon class="icon-small highlight push-next-half" params="
-                                    name: icon
-                                "></svg-icon>
+                                <svg-icon class="icon-small highlight push-next-half"
+                                    params="name: icon"
+                                ></svg-icon>
                                 {{text}}
                             </a>
                             <!-- /ko -->
                             <!-- ko ifnot: $data.href -->
-                            <span class="box" ko.tooltip="tooltip">
+                            <span class="tag push-prev-half" ko.tooltip="tooltip">
                                 {{text}}
                             </span>
                             <!-- /ko -->
@@ -108,13 +101,13 @@
                         <!-- /ko -->
                     </div>
 
-                    <data-table class="alt-bg" params="
+                    <data-table class="content-box" params="
                         columns: columns,
                         visibleColumns: visibleColumns,
                         data: rows,
                     ">
                         <template name="marking">
-                            <span class="box"
+                            <span class="tag"
                                 ko.text="$data().text"
                                 ko.tooltip="$data().tooltip"
                             ></span>
@@ -123,9 +116,9 @@
                 </section>
             </div>
         </div>
-    </section>
-</div>
-
+    </template>
+</list-details>
+<hr>
 <paginator params="
     page: ko.pc(page, onPage.bind($component)),
     itemCount: partCount,

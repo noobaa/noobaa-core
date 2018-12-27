@@ -3,7 +3,7 @@
 import { from } from 'rxjs';
 import { mergeMap, take, map } from 'rxjs/operators';
 import { ofType } from 'rx-extensions';
-import { replaceWithAccountCreatedModal, closeModal } from 'action-creators';
+import { openAccountCreatedModal, closeModal } from 'action-creators';
 import {
     COMPLETE_CREATE_ACCOUNT,
     COMPLETE_FETCH_SYSTEM_INFO,

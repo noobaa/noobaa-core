@@ -14,7 +14,12 @@ export function restoreSession() {
     return { type: RESTORE_SESSION };
 }
 
-export function completeRestoreSession(token, sessionInfo, persistent = false) {
+export function completeRestoreSession(
+    token,
+    sessionInfo,
+    persistent = false,
+    uiTheme
+) {
     const { account, system } = sessionInfo;
     return {
         type: COMPLETE_RESTORE_SESSION,
@@ -23,7 +28,8 @@ export function completeRestoreSession(token, sessionInfo, persistent = false) {
             user: account.email,
             system: system.name,
             passwordExpired: Boolean(account.must_change_password),
-            persistent: persistent
+            persistent: persistent,
+            uiTheme
         }
     };
 }
@@ -43,7 +49,12 @@ export function signIn(email, password, persistent = false) {
     };
 }
 
-export function completeSignIn(token, sessionInfo, persistent) {
+export function completeSignIn(
+    token,
+    sessionInfo,
+    persistent,
+    uiTheme
+) {
     const { account, system } = sessionInfo;
     return {
         type: COMPLETE_SIGN_IN,
@@ -52,7 +63,8 @@ export function completeSignIn(token, sessionInfo, persistent) {
             user: account.email,
             system: system.name,
             passwordExpired: Boolean(account.must_change_password),
-            persistent: persistent
+            persistent: persistent,
+            uiTheme
         }
     };
 }

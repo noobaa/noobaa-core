@@ -95,7 +95,7 @@ export function openS3AccessDetailsModal(endpoint, accessKey, secretKey) {
             },
             options: {
                 title: 'Connection Details',
-                size: 'xsmall'
+                size: 'small'
             }
         }
     };
@@ -382,7 +382,8 @@ export function openUpdateSystemNameModal(name) {
             },
             options: {
                 size: 'xsmall',
-                title: 'Updating System Name'
+                title: 'Updating System Name',
+                severity: 'info'
             }
         }
     };

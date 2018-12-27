@@ -1,42 +1,44 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<p class="push-next">
-    Sorry for the hold up. We had some trouble completing the upgrade process.
-    Please try solving the following issues and then retry.
-</p>
-
-<section class="column greedy push-next">
-    <h2 class="heading3 push-next-half">Upgrade failure details:</h2>
-    <data-table class="alt-bg greedy issues-table" params="
-        columns: columns,
-        data: rows
-    ">
-        <template name="issueDetails">
-            <p>
-                {{$data().message}}
-                <a class="link no-outline"
-                    ko.visible="$data().reportHref"
-                    ko.attr.href="$data().reportHref"
-                >
-                    Send report
-                </a>
-            </p>
-        </template>
-    </data-table>
-</section>
-
-<div class="row">
-    <p class="greedy push-next remark">
-        If the problem doesn't resolve please contact
-        <a class="link" ko.attr.href="supportEmail">NooBaa support</a>
-        <br />
-        We will assist you to get things done.
+<div class="column greedy pad">
+    <p class="push-next">
+        Sorry for the hold up. We had some trouble completing the upgrade process.
+        Please try solving the following issues and then retry.
     </p>
-    <button class="btn"
-        ko.click="onClose"
-        ko.hasFocus="true"
-    >
-        close
-    </button>
-</div>
 
+    <section class="column greedy push-next">
+        <h2 class="heading3 push-next-half">Upgrade failure details:</h2>
+        <data-table class="content-box greedy issues-table" params="
+            columns: columns,
+            data: rows
+        ">
+            <template name="issueDetails">
+                <p>
+                    {{$data().message}}
+                    <a class="link"
+                        ko.visible="$data().reportHref"
+                        ko.attr.href="$data().reportHref"
+                    >
+                        Send report
+                    </a>
+                </p>
+            </template>
+        </data-table>
+    </section>
+</div>
+<div class="column pad content-box">
+    <div class="row">
+        <p class="greedy push-next remark">
+            If the problem doesn't resolve please contact
+            <a class="link" ko.attr.href="supportEmail">NooBaa support</a>
+            <br />
+            We will assist you to get things done.
+        </p>
+        <button class="btn"
+            ko.click="onClose"
+            ko.hasFocus="true"
+        >
+            close
+        </button>
+    </div>
+</div>

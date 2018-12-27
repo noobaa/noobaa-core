@@ -1,12 +1,12 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="fill row" ko.visible="!hostLoaded()">
+<div class="fill row" ko.visible="!dataReady()">
     <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
 </div>
 
-<div class="row summary" ko.css.visible="hostLoaded">
-    <section class="c3 borders pad column">
-        <div class="row">
+<div class="row summary" ko.css.visible="dataReady">
+    <section class="c3 card column">
+        <div class="row hpad pad-half">
             <span class="greedy remark">Services:</span>
             <span class="service-state-indicator"
                 ko.css="storageServiceState().css"
@@ -22,7 +22,7 @@
             </span>
         </div>
         <hr />
-        <div class="row content-middle">
+        <div class="row hpad greedy content-middle">
             <svg-icon class="push-next"
                 ko.css="stateIcon().css"
                 params="name: stateIcon().name"
@@ -30,7 +30,7 @@
             <span class="greedy">{{stateIcon().tooltip}}</span>
         </div>
         <hr />
-        <div class="row content-middle">
+        <div class="row hpad greedy content-middle">
             <svg-icon class="push-next"
                 ko.css="trustIcon().css"
                 params="name: trustIcon().name"
@@ -39,7 +39,7 @@
             <more-info-icon params="tooltip: trustTooltip"></more-info-icon>
         </div>
         <hr />
-        <div class="row content-middle">
+        <div class="row hpad greedy content-middle">
             <svg-icon class="push-next"
                 ko.css="accessibilityIcon().css"
                 params="name: accessibilityIcon().name"
@@ -64,20 +64,20 @@
         </div>
     </section>
 
-    <section class="c3 borders pad column">
-        <h3 class="heading3">{{activitiesTitle}}</h3>
+    <section class="c3 card column">
+        <h3 class="hpad pad-half heading3">{{activitiesTitle}}</h3>
         <hr>
-        <p class="remark push-next">{{activityText}}</p>
+        <p class="remark hpad pad-half push-next">{{activityText}}</p>
         <!-- ko if: hasActivities -->
-        <bar class="push-next-half" params="
-            values: activityBar.values,
-            markers: hasActivities() ? [activityBar.marker] : []
-        "></bar>
-        <p class="remark align-end">ETA: {{activityEta}}</p>
+        <progress-bar class="hpad push-both-quarter" params="
+            progress: activityProgress,
+            marker: true
+        "></progress-bar>
+        <p class="remark align-end pad-right">ETA: {{activityEta}}</p>
 
         <!-- ko if: hasAdditionalActivities -->
-            <hr>
-            <p class="align-start"
+            <hr class="push-prev-half">
+            <p class="hpad pad-half align-start"
                 ko.text="additionalActivitiesMessage"
                 ko.tooltip="additionalActivitiesTooltip"
             ></p>

@@ -6,11 +6,7 @@ import { getServerDisplayName } from 'utils/cluster-utils';
 import { formatEmailUri } from 'utils/browser-utils';
 import { support } from 'config';
 
-const issueIcon = deepFreeze({
-    name: 'problem',
-    css: 'error',
-    tooltip: 'Failure'
-});
+const issueIcon = deepFreeze();
 
 export default class IssueRowViewModel {
     constructor() {

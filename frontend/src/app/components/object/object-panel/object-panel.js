@@ -1,59 +1,78 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './object-panel.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import { realizeUri } from 'utils/browser-utils';
 import { getObjectId } from 'utils/object-utils';
-import { get } from 'rx-extensions';
-import { state$, action$ } from 'state';
 import { fetchObject, fetchObjectParts, dropObjectsView } from 'action-creators';
 import { paginationPageSize } from 'config';
 import ko from 'knockout';
 
-class ObjectPanelViewModel extends Observer {
+class ObjectPanelViewModel extends ConnectableViewModel {
     viewName = this.constructor.name;
-    baseRoute = '';
+    baseRoute = ko.observable();
     objectId = ko.observable();
     selectedTab = ko.observable();
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(get('location')),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.location
+        ];
     }
 
-    onState(location) {
+    mapStateToProps(location) {
         const { route, params, query, hostname } = location;
         const { system, bucket, object, version, tab = 'properties' } = params;
         if (!object) return;
 
-        this.baseRoute = realizeUri(route, { system, bucket, object, version }, {}, true);
-        this.selectedTab(tab);
-        this.objectId(getObjectId(bucket, object, version));
+        ko.assignToProps(this, {
+            baseRoute: realizeUri(route, { system, bucket, object, version }, {}, true),
+            selectedTab: tab,
+            objectId: getObjectId(bucket, object, version)
+        });
 
-        // Load/update the object data.
-        action$.next(fetchObject(this.viewName, bucket, object, version, hostname));
 
-        // Load/update object parts data.
-        action$.next(fetchObjectParts({
+        // Load/update the object/object parts info.
+        this._fetchObjectInfo(
             bucket,
-            key: object,
+            object,
             version,
-            skip: (Number(query.page) || 0) * paginationPageSize,
-            limit: paginationPageSize
-        }));
+            hostname,
+            Number(query.page || 0)
+        );
     }
 
     tabHref(tab) {
-        return realizeUri(this.baseRoute, { tab });
+        const route = this.baseRoute();
+        return route ? realizeUri(route, { tab }) : '';
     }
 
     dispose() {
-        action$.next(dropObjectsView(this.viewName));
+        this.dispatch(dropObjectsView(this.viewName));
         super.dispose();
+    }
+
+    _fetchObjectInfo(bucket, object, version, hostname, page) {
+        const fetchObjectAction = fetchObject(
+            this.viewName,
+            bucket,
+            object,
+            version,
+            hostname,
+        );
+
+        const fetchObjectPartsAction = fetchObjectParts({
+            bucket,
+            key: object,
+            version,
+            skip: page * paginationPageSize,
+            limit: paginationPageSize
+        });
+
+        this.dispatch(
+            fetchObjectAction,
+            fetchObjectPartsAction
+        );
     }
 }
 

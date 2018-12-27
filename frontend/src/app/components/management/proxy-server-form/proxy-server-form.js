@@ -37,7 +37,8 @@ class ProxyServerFormViewModel extends ConnectableViewModel {
     mapStateToProps(systemLoaded, proxy, location, form) {
         if (!systemLoaded) {
             ko.assignToProps(this,{
-                dataReady: false
+                dataReady: false,
+                address: ''
             });
 
         } else {
@@ -49,7 +50,7 @@ class ProxyServerFormViewModel extends ConnectableViewModel {
                 dataReady: true,
                 isExpanded: section === sectionName,
                 toggleUri: realizeUri(location.route, { system, tab, section: toggleSection }),
-                address: proxy ? `${proxy.endpoint}:${proxy.port}` : 'not set',
+                address: proxy ? `${proxy.endpoint}:${proxy.port}` : 'Not set',
                 globalError:  globalError || '',
                 isDirtyMarkerVisible: form ? isFormDirty(form) : false,
                 formFields: !form ? {

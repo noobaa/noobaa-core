@@ -55,7 +55,8 @@ class SystemAddressFormViewModel extends ConnectableViewModel {
     mapStateToProps(system, location, form, allowAddressChange) {
         if (!system) {
             ko.assignToProps(this, {
-                isDirtyMarkerVisible: false
+                isDirtyMarkerVisible: false,
+                systemAddress: ''
             });
 
         } else {

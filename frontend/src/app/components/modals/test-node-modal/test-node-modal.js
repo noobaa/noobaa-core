@@ -7,6 +7,8 @@ import ko from 'knockout';
 import { nodeTestInfo } from 'model';
 import { testNode, abortNodeTest } from 'actions';
 import { deepFreeze } from 'utils/core-utils';
+import { action$ } from 'state';
+import { closeModal } from 'action-creators';
 import moment from 'moment';
 
 const testTypes = Object.freeze([
@@ -36,10 +38,9 @@ const columns = deepFreeze([
 ]);
 
 class TestNodeModalViewModel extends BaseViewModel {
-    constructor({ nodeRpcAddress, onClose }) {
+    constructor({ nodeRpcAddress }) {
         super();
 
-        this.onClose = onClose;
         this.columns = columns;
 
         this.testTypeOptions = testTypes.map(
@@ -108,7 +109,8 @@ class TestNodeModalViewModel extends BaseViewModel {
         if (this.testing()) {
             abortNodeTest();
         }
-        this.onClose();
+
+        action$.next(closeModal());
     }
 }
 

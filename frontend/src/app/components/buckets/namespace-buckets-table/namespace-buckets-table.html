@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="column alt-bg pad">
+<div class="column pad">
     <div class="row content-middle push-next">
         <div class="greedy">
             <input type="search"
@@ -10,7 +10,7 @@
         </div>
         <button class="btn push-next"
             ko.click="onConnectApplication"
-            ko.enable="bucketsLoaded"
+            ko.enable="dataReady"
         >
             Connect Application
         </button>
@@ -32,7 +32,7 @@
     columns: columns,
     sorting: ko.pc(sorting, onSort, $component),
     data: rows,
-    loading: !bucketsLoaded(),
+    loading: !dataReady(),
     emptyMessage: 'System does not contain any namespace buckets'
 "></data-table>
 

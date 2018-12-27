@@ -1,31 +1,34 @@
 <!-- Copyright (C) 2016 NooBaa -->
-<p class="push-next">
-    Disabling this node’s storage will start an evacuation of all the data stored on this node and the data will be restored on other nodes. This node will no longer contribute storage to its pool.
-</p>
+<div class="column greedy pad">
+    <p class="push-next">
+        Disabling this node’s storage will start an evacuation of all the data stored on this node and the data will be restored on other nodes. This node will no longer contribute storage to its pool.
+    </p>
 
-<p class="greedy push-next">
-    Would you like to disable this node's storage?
-</p>
+    <p class="greedy push-next">
+        Would you like to disable this node's storage?
+    </p>
 
-<p class="row remark push-both" ko.visible="isLastService">
-    <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
-    <span class="greedy">
-        Disabling all services on this node (storage and S3 endpoint) will start a deactivation process for the node.
-        This may cause some performance issues.
-    </span>
-</p>
-
-<div class="row content-middle align-end">
-    <button class="btn alt-colors push-next"
-        ko.click="onBack"
-        ko.hasFocus="true"
-    >
-        Back to Edit Drives
-    </button>
-    <button class="btn"
-        ko.click="onApprove"
-    >
-        Yes, Disable This Node's Storage
-    </button>
+    <p class="row remark push-both" ko.visible="isLastService">
+        <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+        <span class="greedy">
+            Disabling all services on this node (storage and S3 endpoint) will start a deactivation process for the node.
+            This may cause some performance issues.
+        </span>
+    </p>
 </div>
 
+<div class="column content-box pad">
+    <div class="row content-middle align-end">
+        <button class="btn alt-colors push-next"
+            ko.click="onBack"
+            ko.hasFocus="true"
+        >
+            Back to Edit Drives
+        </button>
+        <button class="btn"
+            ko.click="onApprove"
+        >
+            Yes, Disable This Node's Storage
+        </button>
+    </div>
+</div>

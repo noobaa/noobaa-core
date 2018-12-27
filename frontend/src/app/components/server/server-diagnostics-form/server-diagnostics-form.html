@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="column">
-    <div class="row content-middle pad alt-bg ">
+    <div class="row content-middle pad card-shadow">
         <h2 class="greedy heading3  push-next">
             Server Diagnostics
         </h2>
@@ -18,5 +18,14 @@
             Download Diagnostics
         </working-button>
     </div>
-    <property-sheet class="pad push-next" params="properties: debugModeSheet"></property-sheet>
+    <property-sheet class="pad push-next" params="properties: debugModeSheet">
+        <template name="textWithWarning">
+            <p class="content-middle">
+                {{text}}
+                <span class="warning" ko.visible="warning">
+                    ({{warning}})
+                </span>
+            </p>
+        </template>
+    </property-sheet>
 </section>

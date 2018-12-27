@@ -6,27 +6,30 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <p class="push-next">
-        This node will be permanently deactivated and deleted from it's pool.
-        The deactivation process will include a total data wiping and the NooBaa's daemon
-        will be safely removed from the machine.
-    </p>
+    <div class="column greedy pad">
+        <p class="push-next">
+            This node will be permanently deactivated and deleted from it's pool.
+            The deactivation process will include a total data wiping and the NooBaa's daemon
+            will be safely removed from the machine.
+        </p>
 
-    <editor class="greedy" params="label: fieldLabel">
-        <input type="text"
-            ko.value="$form.confirmText",
-            ko.validationCss="$form.confirmText"
-            ko.hasFocus="true"
-        />
-        <validation-message params="field: $form.confirmText"></validation-message>
-    </editor>
-
-    <div class="row content-middle align-end">
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
-            Cancel
-        </button>
-        <button class="btn" ko.shakeOnClick="!$form.isValid()">
-            Start Node Deletion
-        </button>
+        <editor class="greedy" params="label: fieldLabel">
+            <input type="text"
+                ko.value="$form.confirmText",
+                ko.validationCss="$form.confirmText"
+                ko.hasFocus="true"
+            />
+            <validation-message params="field: $form.confirmText"></validation-message>
+        </editor>
+    </div>
+    <div class="column pad content-box">
+        <div class="row content-middle align-end">
+            <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+                Cancel
+            </button>
+            <button class="btn" ko.shakeOnClick="!$form.isValid()">
+                Start Node Deletion
+            </button>
+        </div>
     </div>
 </managed-form>

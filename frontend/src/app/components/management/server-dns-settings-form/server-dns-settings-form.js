@@ -48,12 +48,16 @@ class ServerRowViewModel {
         id: '',
         icon: 'edit-small',
         disabled: ko.observable(),
-        onClick: () => this.onEdit,
+        onClick: this.onEdit.bind(this),
         tooltip: {
             align: 'end',
             text: ko.observable()
         }
     };
+
+    constructor({ table }) {
+        this.table = table;
+    }
 
     onEdit(serverSecret) {
         this.table.onEditServerDNS(serverSecret);
@@ -65,8 +69,14 @@ class ServerDnsSettingsFormViewModel extends ConnectableViewModel {
     isExpanded = ko.observable();
     toggleUri = '';
     dataReady = ko.observable();
-    masterPrimaryDNS = ko.observable();
-    masterSecondaryDNS = ko.observable();
+    masterPrimaryDNS = {
+        text: ko.observable(),
+        css: ko.observable()
+    };
+    masterSecondaryDNS = {
+        text: ko.observable(),
+        css: ko.observable()
+    };
     rows = ko.observableArray()
         .ofType(ServerRowViewModel, { table: this });
 
@@ -96,15 +106,18 @@ class ServerDnsSettingsFormViewModel extends ConnectableViewModel {
             );
             const serversList = Object.values(servers);
             const master = serversList.find(server => server.isMaster);
-            const [
-                masterPrimaryDNS = 'Not Set' ,
-                masterSecondaryDNS = 'Not Set'
-            ] = master.dns.servers.list;
+            const [masterPrimaryDNS, masterSecondaryDNS] = master.dns.servers.list;
 
             ko.assignToProps(this, {
                 dataReady: true,
-                masterPrimaryDNS,
-                masterSecondaryDNS,
+                masterPrimaryDNS: {
+                    text: masterPrimaryDNS || 'Not set',
+                    css: masterPrimaryDNS ? 'tech-text' : ''
+                },
+                masterSecondaryDNS: {
+                    text: masterSecondaryDNS || 'Not set',
+                    css: masterSecondaryDNS ? 'tech-text' : ''
+                },
                 isExpanded: section === sectionName,
                 toggleUri,
                 rows: serversList.map(server => {

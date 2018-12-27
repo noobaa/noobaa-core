@@ -5,73 +5,78 @@
     fields: fields,
     onSubmit: onSubmit,
 ">
-    <div class="row push-next content-middle">
-        <input type="search"
-            class="push-next"
-            placeholder="Filter by node name or IP"
-            ko.textInput="ko.pc($form.nameFilter, onNameFilter)"
-            ko.hasFocus="true"
-        />
+    <div class="column greedy pad">
+        <div class="row push-next content-middle">
+            <input type="search"
+                class="push-next"
+                placeholder="Filter by node name or IP"
+                ko.textInput="ko.pc($form.nameFilter, onNameFilter)"
+                ko.hasFocus="true"
+            />
 
-        <dropdown class="push-next" params="
-            filter: true,
-            subject: 'pool',
-            multiselect: true,
-            options: poolOptions,
-            selected: $form.selectedPools
-        "></dropdown>
+            <dropdown class="push-next" params="
+                filter: true,
+                subject: 'pool',
+                multiselect: true,
+                options: poolOptions,
+                selected: $form.selectedPools
+            "></dropdown>
 
-        <dropdown class="push-next" params="
-            subject: 'state',
-            multiselect: true,
-            options: stateOptions,
-            selected: $form.selectedStates
-        "></dropdown>
-    </div>
+            <dropdown class="push-next" params="
+                subject: 'state',
+                multiselect: true,
+                options: stateOptions,
+                selected: $form.selectedStates
+            "></dropdown>
+        </div>
 
-     <div class="row content-middle">
-        <h2 class="heading3 greedy">
-            Select nodes you wish to move into this pool
-        </h2>
+         <div class="row content-middle">
+            <h2 class="heading3 greedy">
+                Select nodes you wish to move into this pool
+            </h2>
 
-        <div>
-            <button type="button" class="link alt-colors" ko.click="onSelectAll">
-                Select all
+            <div>
+                <button type="button" class="link alt-colors" ko.click="onSelectAll">
+                    Select all
+                </button>
+                |
+                <button type="button" class="link alt-colors" ko.click="onClearAll">
+                    Clear all
+                </button>
+            </div>
+        </div>
+
+        <data-table class="greedy host-table content-box" params="
+            columns: columns,
+            data: rows,
+            loading: fetching,
+            sorting: $form.sorting,
+            emptyMessage: emptyMessage
+        "></data-table>
+
+        <hr>
+
+        <div class="row content-middle content-box ">
+            <span class="selection-text push-prev" ko.text="selectedMessage"></span>
+            <span class="push-both-half">|</span>
+            <button type="button" class="link alt-colors" ko.click="onClearSelection">
+                Clear
             </button>
-            |
-            <button type="button" class="link alt-colors" ko.click="onClearAll">
-                Clear all
-            </button>
+            <paginator class="greedy push-prev" params="
+                itemCount: filteredHostCount,
+                pageSize: pageSize,
+                page: $form.page
+            "></paginator>
         </div>
     </div>
-
-    <data-table class="greedy host-table" params="
-        columns: columns,
-        data: rows,
-        loading: fetching,
-        sorting: $form.sorting,
-        emptyMessage: emptyMessage
-    "></data-table>
-
-    <div class="row content-middle alt-bg push-next">
-        <span class="selection-text push-prev" ko.text="selectedMessage"></span>
-        <span class="push-both-half">|</span>
-        <button type="button" class="link alt-colors" ko.click="onClearSelection">
-            Clear
-        </button>
-        <paginator class="greedy push-prev" params="
-            itemCount: filteredHostCount,
-            pageSize: pageSize,
-            page: $form.page
-        "></paginator>
-    </div>
-
-    <div class="row align-end ">
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
-            Cancel
-        </button>
-        <button class="btn">
-            Assign
-        </button>
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+                Cancel
+            </button>
+            <button class="btn">
+                Assign
+            </button>
+        </div>
     </div>
 </managed-form>

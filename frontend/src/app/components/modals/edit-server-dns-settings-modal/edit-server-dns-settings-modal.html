@@ -1,63 +1,84 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<p class="push-next">
-    Setup the server to use the following DNS servers for name resolution
-</p>
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
+    <div class="column greedy pad">
+        <p class="push-next">
+            Setup the server to use the following DNS servers for name resolution
+        </p>
 
-<section class="column greedy">
-    <editor params="
-        label: 'Primary DNS'
-    ">
-        <input type="text"
-            ko.value="primaryDNS"
-            ko.hasFocus="true"
-        />
-    </editor>
-    <editor params="
-        label: 'Secondary DNS',
-        disabled: hasNoPrimaryDNS
-    ">
-        <input type="text"
-            ko.value="secondaryDNS"
-            ko.disable="hasNoPrimaryDNS"
-        />
-    </editor>
+        <editor params="
+            label: 'Primary DNS'
+        ">
+            <input type="text"
+                ko.value="$form.primaryDNS"
+                ko.validationCss="$form.primaryDNS"
+                ko.hasFocus="true"
+            />
+            <validation-message params="field: $form.primaryDNS">
+            </validation-message>
+        </editor>
+        <editor params="
+            label: 'Secondary DNS',
+            disabled: hasNoPrimaryDNS
+        ">
+            <input type="text"
+                ko.value="$form.secondaryDNS"
+                ko.validationCss="$form.secondaryDNS"
+                ko.disable="hasNoPrimaryDNS"
+            />
+            <validation-message params="field: $form.secondaryDNS">
+            </validation-message>
+        </editor>
 
-    <editor class="greedy" params="
-        label: 'Search Domains',
-        disabled: hasNoPrimaryDNS,
-        insertValMessages: false
-    ">
-        <div class="row greedy">
-            <token-field params="
-                disabled: hasNoPrimaryDNS,
-                placeholder: 'E.g., noobaa.com and click enter ⏎',
-                tokens: searchDomains,
-                validator: tokenValidator
-            "></token-field>
-           <more-info-icon class="push-prev-half" params="
-                tooltip: searchDomainTooltip,
-                disabled: hasNoPrimaryDNS
-            "></more-info-icon>
+        <editor class="greedy" params="
+            label: 'Search Domains',
+            disabled: hasNoPrimaryDNS,
+            insertValMessages: false,
+            tooltip: searchDomainTooltip
+        ">
+            <div class="row greedy">
+                <token-field
+                    ko.validationCss="$form.searchDomains"
+                    params="
+                        disabled: hasNoPrimaryDNS,
+                        placeholder: 'E.g., noobaa.com and click enter ⏎',
+                        tokens: $form.searchDomains,
+                        validator: tokenValidator,
+                    "
+                ></token-field>
+            </div>
+            <validation-message params="field: $form.searchDomains">
+            </validation-message>
+            <span class="remark"
+                  ko.css.disabled="hasNoPrimaryDNS"
+                  ko.visibility="$form.searchDomains.isValid"
+            >
+                Optional. Click enter after each domain name
+            </span>
+
+        </editor>
+    </div>
+    <div class="column pad content-box">
+        <div class="row content-middle align-end">
+            <button class="link push-next alt-colors"
+                ko.click="onCancel"
+            >
+                Cancel
+            </button>
+            <button class="btn"
+                ko.shakeOnClick="!$form.isValid()"
+            >
+                Update
+            </button>
         </div>
-        <span class="remark"
-              ko.css.disabled="hasNoPrimaryDNS"
-              ko.visible="searchDomains.isValid"
-        >
-            Optional. Click enter after each domain name
-        </span>
-        <span class="val-msg" ko.validationMessage="searchDomains"></span>
-    </editor>
-</section>
+    </div>
+</managed-form>
 
-<div class="row content-middle align-end push-prev">
-    <button class="link push-next alt-colors"
-        ko.click="cancel"
-    >
-        Cancel
-    </button>
 
-    <button class="btn" ko.shakeOnClick="errors().length" ko.click="update">
-        Update
-    </button>
-</div>
+
+

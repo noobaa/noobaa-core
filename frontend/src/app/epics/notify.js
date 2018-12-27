@@ -127,12 +127,12 @@ const actionToNotification = deepFreeze({
             })
             .map(pair => {
                 const [ service, state ] = pair;
-                const hostName = getHostDisplayName(host);
+                const hostname = getHostDisplayName(host);
                 const serviceName = getHostServiceDisplayName(service).toLowerCase();
                 const action = state ? 'enabled' : 'disabled';
 
                 return {
-                    message: `${hostName} ${serviceName} service ${action} successfully`,
+                    message: `${hostname} ${serviceName} service ${action} successfully`,
                     severity: 'success'
                 };
             });
@@ -146,12 +146,12 @@ const actionToNotification = deepFreeze({
             })
             .map(pair => {
                 const [ service, state ] = pair;
-                const hostName = getHostDisplayName(host);
+                const hostname = getHostDisplayName(host);
                 const serviceName = getHostServiceDisplayName(service).toLowerCase();
                 const action = state ? 'enabling' : 'disabling';
 
                 return {
-                    message: `${action} ${hostName} ${serviceName} service failed`,
+                    message: `${action} ${hostname} ${serviceName} service failed`,
                     severity: 'error'
                 };
             });
@@ -265,7 +265,8 @@ const actionToNotification = deepFreeze({
     }),
 
     [types.FAIL_ADD_BUCKET_TIER]: ({ bucket }) => ({
-        message: `Adding a tier to bucket ${bucket} failed`
+        message: `Adding a tier to bucket ${bucket} failed`,
+        severity: 'error'
     }),
 
     [types.COMPLETE_DELETE_BUCKET]: ({ bucket }) => ({
@@ -346,7 +347,7 @@ const actionToNotification = deepFreeze({
     }),
 
     [types.FAIL_DELETE_HOST]: ({ host }) => ({
-        message: `Host ${host} deletion failed`,
+        message: `Node ${host} deletion failed`,
         severity: 'error'
     }),
 
@@ -582,6 +583,36 @@ const actionToNotification = deepFreeze({
 
     [types.FAIL_SET_SYSTEM_DEBUG_LEVEL]: ({ level }) => ({
         message: `Setting system debug level to ${level} failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_SERVER_DNS_SETTINGS]: ({ hostname }) => ({
+        message: `${hostname} DNS settings updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_SERVER_DNS_SETTINGS]: ({ hostname }) => ({
+        message: `Updating ${hostname} DNS setting failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_SERVER_DETAILS]: ({ hostname }) => ({
+        message: `${hostname} details updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_SERVER_DETAILS]: ({ hostname }) => ({
+        message: `Updating ${hostname} details failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_SERVER_TIME_SETTINGS]: ({ hostname }) => ({
+        message: `${hostname} time settings updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_SERVER_TIME_SETTINGS]: ({ hostname }) => ({
+        message: `Updating ${hostname} time settings failed`,
         severity: 'error'
     })
 });

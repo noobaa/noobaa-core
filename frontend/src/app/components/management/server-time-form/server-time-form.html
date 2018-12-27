@@ -7,8 +7,7 @@
         <div class="column greedy">
             <h2 class="heading3 greedy">Date &amp; Time</h2>
             <p ko.visible="!isExpanded()">
-                Master server time:
-                <span class="text-tech" ko.text="formattedMasterTime"></span>
+                Master server time: {{formattedMasterTime}}
             </p>
             <p ko.visible="isExpanded">
                 Servers date and time has to be configured separately for each server
@@ -20,7 +19,7 @@
         ></svg-icon>
     </div>
     <div ko.expand="isExpanded" class="column greedy">
-        <data-table class="servers-table push-next alt-bg push-prev" params="
+        <data-table class="servers-table push-next content-box push-prev" params="
             columns: columns,
             data: rows
         "></data-table>

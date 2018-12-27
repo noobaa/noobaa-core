@@ -13,7 +13,9 @@ export default {
         if (expanded()) {
             classList.add('expanded');
         } else {
-            element.style.maxHeight = '0px';
+            const { style } = element;
+            style.maxHeight = '0px';
+            style.display = 'none';
         }
 
         let sub = expanded.subscribe(
@@ -21,6 +23,7 @@ export default {
                 const { style } = element;
                 if (expand) {
                     classList.add('expanding');
+                    style.removeProperty('display');
                     style.removeProperty('max-height');
                     let height = element.offsetHeight;
                     style.maxHeight = '0px';
@@ -41,6 +44,8 @@ export default {
                     if (expanded()) {
                         classList.add('expanded');
                         element.style.removeProperty('max-height');
+                    } else {
+                        element.style.display = 'none';
                     }
                 }
             }),

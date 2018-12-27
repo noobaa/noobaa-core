@@ -9,7 +9,7 @@
     </section>
 
     <section class="column" data-name="expanded">
-        <p class="paragraph push-next">            
+        <p class="paragraph push-next">
             Please upload a zip containing only two files without any folders, certificate (.cert) and private key (.key) in pem format.
         </p>
 
@@ -20,7 +20,7 @@
         "></file-selector>
 
         <p data-bind="if: uploading">
-            <svg-icon class="icon-small spin" params="name: uploadIcon"></svg-icon>
+            <svg-icon class="icon-small match-theme spin" params="name: 'in-progress'"></svg-icon>
             <span data-bind="text: uploadText"></span>
         </p>
     </section>

@@ -10,6 +10,7 @@ import { registerForAlerts } from 'actions';
 import * as routes from 'routes';
 import routeMapping from './route-mapping';
 import { get, getMany } from 'rx-extensions';
+import { logo } from 'config';
 import {
     fetchSystemInfo,
     openFinalizeUpgradeModal,
@@ -77,6 +78,7 @@ class MainLayoutViewModel extends Observer {
     constructor() {
         super();
 
+        this.logo = logo;
         this.logoHref = ko.observable();
         this.navItems = navItems.map(_mapNavItem);
         this.breadcrumbs = ko.observableArray();

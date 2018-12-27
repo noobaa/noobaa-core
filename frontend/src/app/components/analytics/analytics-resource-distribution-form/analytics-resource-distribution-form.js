@@ -9,7 +9,7 @@ import { formatSize } from 'utils/size-utils';
 import { getCloudResourceTypeIcon, getUsageDistribution } from 'utils/resource-utils';
 import { requestLocation } from 'action-creators';
 import ko from 'knockout';
-import style from 'style';
+import themes from 'themes';
 import moment from 'moment';
 import numeral from 'numeral';
 
@@ -50,7 +50,6 @@ const options = deepFreeze({
                 display: false
             },
             ticks: {
-                fontColor: style['color6'],
                 callback: label => label.text
             }
         }]
@@ -77,16 +76,11 @@ const compareDistributionRecords = createCompareFunc(
 
 function _getResourceIcon(resource) {
     if (resource.type == 'HOSTS') {
-        return {
-            icon: hostsIcon
-        };
+        return { icon: hostsIcon };
 
     } else if (resource.type === 'CLOUD') {
         const { name: icon } = getCloudResourceTypeIcon({ type: resource.cloudType });
-        return {
-            icon: `${icon}-dark`,
-            selectedIcon: `${icon}-colored`
-        };
+        return { icon: `${icon}` };
     }
 
 }
@@ -187,7 +181,7 @@ class AnalyticsPanelViewModel extends ConnectableViewModel {
     });
 
     selectState(state) {
-        const { location, hostPools, cloudResources, buckets } = state;
+        const { location, hostPools, cloudResources, buckets, session } = state;
         const resources = this.selectResources(hostPools, cloudResources);
         const first = resources && resources[0];
         const {
@@ -210,11 +204,12 @@ class AnalyticsPanelViewModel extends ConnectableViewModel {
             resources,
             resourceId,
             distribution,
-            location.pathname
+            location.pathname,
+            themes[session.uiTheme]
         ];
     }
 
-    mapStateToProps(resources, selectedResource, distribution, pathname) {
+    mapStateToProps(resources, selectedResource, distribution, pathname, theme) {
         if (!resources || !distribution) {
             ko.assignToProps(this, {
                 dataReady: false
@@ -238,8 +233,7 @@ class AnalyticsPanelViewModel extends ConnectableViewModel {
                 barsData: {
                     labels: bars.map(bar => bar.label),
                     datasets: [{
-                        backgroundColor: style['color14'],
-                        hoverBackgroundColor: style['color8'],
+                        backgroundColor: theme.color20,
                         data: bars.map(bar => bar.value)
                     }]
                 }

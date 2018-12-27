@@ -75,6 +75,7 @@ export default class AppViewModel {
     stateDiff = ko.observable();
     selectedStateTab = ko.observable();
     isAttached = ko.observable();
+    lastSelected = null;
 
     constructor() {
         this.sub = state$
@@ -83,11 +84,11 @@ export default class AppViewModel {
 
     onState(state) {
         const { messages, filter, targetId, stateView } = state;
-        const upperCasedFilter = state.filter.toUpperCase();
+        const filters = state.filter.toUpperCase().split(' ');
         const filteredMessages = state.messages
             .filter(message => {
                 const actionType = message.action.type;
-                return actionType.includes(upperCasedFilter);
+                return filters.every(filter => actionType.includes(filter));
             });
         const hiddenCount = messages.length - filteredMessages.length;
         const selected = filteredMessages.find(message => message.id === state.selectedMessage);
@@ -102,17 +103,22 @@ export default class AppViewModel {
         this.isAttached(Boolean(targetId));
 
         if (selected) {
-            const { payload } = selected.action;
-            this.isMessageSelected(true);
-            this.actionPayload(payload ? buildHtmlTree(payload) : '[No Payload]');
-            this.fullState(buildHtmlTree(selected.state));
+            if (this.lastSelected !== selected) {
+                const { payload } = selected.action;
+                this.lastSelected = selected;
+                this.isMessageSelected(true);
+                this.actionPayload(payload ? buildHtmlTree(payload) : '[No Payload]');
+                this.fullState(buildHtmlTree(selected.state));
 
-            const prevIndex = messages.findIndex(message => message === selected) - 1;
-            const prev = messages[prevIndex] || {};
-            const diffResult = diff(selected.state, prev.state);
-            this.stateDiff(diffResult.length && _formatDiff(diffResult));
+                const prevIndex = messages.findIndex(message => message === selected) - 1;
+                const prev = messages[prevIndex] || {};
+                const diffResult = diff(selected.state, prev.state);
+                this.stateDiff(diffResult.length && _formatDiff(diffResult));
+            }
+
 
         } else {
+            this.lastSelected = null;
             this.isMessageSelected(false);
             this.actionPayload('');
             this.fullState('');

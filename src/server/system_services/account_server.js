@@ -39,6 +39,10 @@ const demo_access_keys = Object.freeze({
 
 const check_connection_timeout = 15 * 1000;
 
+const default_account_preferences = {
+    ui_theme: 'DARK'
+};
+
 /**
  *
  * CREATE_ACCOUNT
@@ -80,51 +84,50 @@ function create_account(req) {
         })
         .then(() => {
             if (req.rpc_params.s3_access) {
-                if (req.rpc_params.allowed_buckets) {
-                    const full_permission = Boolean(req.rpc_params.allowed_buckets.full_permission);
-                    const permission_list = req.rpc_params.allowed_buckets.permission_list;
-                    const allowed_buckets = {
-                        full_permission: full_permission
-                    };
-                    if (!full_permission) {
-                        if (!permission_list) {
-                            throw new RpcError('Cannot configure without permission_list when explicit permissions');
-                        }
-                        allowed_buckets.permission_list = _.map(permission_list, bucket =>
-                            req.system.buckets_by_name[bucket.unwrap()]._id);
-                    }
-                    account.allowed_buckets = allowed_buckets;
-                }
-
-                account.allow_bucket_creation = _.isUndefined(req.rpc_params.allow_bucket_creation) ?
-                    true : req.rpc_params.allow_bucket_creation;
-
                 if (req.rpc_params.new_system_parameters) {
-                    const full_permission = Boolean(req.rpc_params.new_system_parameters.allowed_buckets.full_permission);
-                    const permission_list = req.rpc_params.new_system_parameters.allowed_buckets.permission_list;
-                    const allowed_buckets = {
-                        full_permission: full_permission
-                    };
-                    if (!full_permission) {
-                        if (!permission_list) {
-                            throw new RpcError('Cannot configure without permission_list when explicit permissions');
-                        }
-                        allowed_buckets.permission_list = _.map(permission_list, bucket =>
-                            mongo_utils.make_object_id(bucket));
-                    }
-                    account.allowed_buckets = allowed_buckets;
                     account.default_pool = mongo_utils.make_object_id(req.rpc_params.new_system_parameters.default_pool);
+
+                    const { full_permission, permission_list } = req.rpc_params.new_system_parameters.allowed_buckets;
+                    if (full_permission) {
+                        account.allowed_buckets = {
+                            full_permission: true,
+                        };
+                    } else {
+                        account.allowed_buckets = {
+                            full_permission: false,
+                            permission_list: _.map(
+                                permission_list,
+                                bucket => mongo_utils.make_object_id(bucket.unwrap())
+                            ),
+                        };
+                    }
+
+                    account.allow_bucket_creation = true;
+
                 } else {
-                    if (req.system.pools_by_name === 0) {
-                        throw new RpcError('No resources in the system - Can\'t create accounts');
-                    }
-                    const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
-                    if (pools.length && !req.rpc_params.default_pool) { // has resources which is not internal - must supply resource
-                        throw new RpcError('Cannot configure without supplying default pool');
-                    }
-                    account.default_pool = req.rpc_params.default_pool ?
+                   account.default_pool = req.rpc_params.default_pool ?
                         req.system.pools_by_name[req.rpc_params.default_pool]._id :
-                        req.system.pools_by_name[0]._id; // only pool is internal
+                        Object.values(req.system.pools_by_name)[0]._id; // only pool is internal
+
+                    if (req.rpc_params.allowed_buckets) {
+                        const { full_permission, permission_list } = req.rpc_params.allowed_buckets;
+                        if (full_permission) {
+                            account.allowed_buckets = {
+                                full_permission: true
+                            };
+                        } else {
+                            account.allowed_buckets = {
+                                full_permission: false,
+                                permission_list: _.map(
+                                    permission_list,
+                                    bucket => req.system.buckets_by_name[bucket.unwrap()]._id
+                                )
+                            };
+                        }
+                    }
+
+                    account.allow_bucket_creation = _.isUndefined(req.rpc_params.allow_bucket_creation) ?
+                        true : req.rpc_params.allow_bucket_creation;
                 }
             }
 
@@ -392,7 +395,8 @@ function update_account(req) {
         name: params.name,
         email: params.new_email,
         next_password_change: params.must_change_password === true ? new Date() : undefined,
-        allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined
+        allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined,
+        preferences: _.isUndefined(params.preferences) ? undefined : params.preferences
     };
 
     let removals = {
@@ -405,7 +409,7 @@ function update_account(req) {
     if (params.new_email && params.new_email !== params.email) {
         event_desc += `Email address changed from ${params.email} to ${params.new_email}. `;
     }
-    if (account.allowed_ips !== params.ips) {
+    if (!_.isUndefined(params.ips) && account.allowed_ips !== params.ips) {
         if (params.ips === null) {
             event_desc += `Restriction for IPs were removed`;
         } else {
@@ -1011,6 +1015,11 @@ function get_account_info(account, include_connection_cache) {
         external_connections.connections = [];
     }
     info.external_connections = external_connections;
+    info.preferences = {
+        ...default_account_preferences,
+        ...account.preferences
+    };
+
     return info;
 }
 
@@ -1080,15 +1089,41 @@ function validate_create_account_params(req) {
     }
 
     if (req.rpc_params.s3_access) {
-        if (!req.rpc_params.new_system_parameters &&
-            (!req.rpc_params.allowed_buckets || !req.rpc_params.default_pool)) {
-            throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing allowed_buckets/default_pool');
+        if (!req.rpc_params.new_system_parameters) {
+            if (req.system.pools_by_name === 0) {
+                throw new RpcError('No resources in the system - Can\'t create accounts');
+            }
+
+            if (!req.rpc_params.default_pool) {
+                const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
+                if (pools.length) { // has resources which is not internal - must supply resource
+                    throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_pool');
+                }
+            }
+
+            if (!req.rpc_params.allowed_buckets) {
+                throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing allowed_buckets');
+            }
+
+            const { full_permission, permission_list } = req.rpc_params.allowed_buckets;
+            if (!full_permission && !permission_list) {
+                throw new RpcError('BAD_REQUEST', 'Cannot configure without permission_list when explicit permissions');
+            }
+
         }
 
-        if (req.rpc_params.new_system_parameters &&
-            (!req.rpc_params.new_system_parameters.allowed_buckets || !req.rpc_params.new_system_parameters.default_pool)) {
-            throw new RpcError('BAD_REQUEST',
-                'Creating new system with enabled S3 access for owner requires providing allowed_buckets/default_pool');
+        if (req.rpc_params.new_system_parameters) {
+            if (!req.rpc_params.new_system_parameters.allowed_buckets || !req.rpc_params.new_system_parameters.default_pool) {
+                throw new RpcError(
+                    'BAD_REQUEST',
+                    'Creating new system with enabled S3 access for owner requires providing allowed_buckets/default_pool'
+                );
+            }
+
+            const { full_permission, permission_list } = req.rpc_params.new_system_parameters.allowed_buckets;
+            if (!full_permission && !permission_list) {
+                throw new RpcError('BAD_REQUEST', 'Cannot configure without permission_list when explicit permissions');
+            }
         }
     }
 

@@ -1,13 +1,13 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="column">
-    <div class="column pad alt-bg push-next">
+    <div class="column pad card-shadow push-next">
         <h2 class="heading3">Internal Cluster Communication</h2>
         <p>Testing communication between this server and other members of the cluster</p>
     </div>
     <div class="pad column">
         <p class="push-next">Communication tests run automatically every single minute</p>
-        <data-table class="communication-table alt-bg" params="
+        <data-table class="communication-table content-box" params="
             columns: columns,
             data: otherServers,
             rowFactory: server => createServerRow(server),

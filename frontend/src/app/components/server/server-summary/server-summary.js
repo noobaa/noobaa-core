@@ -3,10 +3,8 @@
 import template from './server-summary.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { deepFreeze, makeArray } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
 import { summarizeServerIssues } from 'utils/cluster-utils';
-import style from 'style';
-import numeral from 'numeral';
 import {
     healthyIcon,
     errorIcon,
@@ -31,23 +29,7 @@ const statusMapping = deepFreeze({
     }
 });
 
-const notConnectedBars = deepFreeze({
-    options: { background: style['color15'] },
-    values: [
-        {
-            label: 'CPU: -',
-            parts:[{ value: 0 }]
-        },
-        {
-            label: 'Disk: -',
-            parts:[{ value: 0 }]
-        },
-        {
-            label: 'Memory: -',
-            parts:[{ value: 0 }]
-        }
-    ]
-});
+
 
 function _getIssues(server, minRequirements, version) {
     if (server.mode !== 'CONNECTED') {
@@ -95,36 +77,10 @@ function _getIssues(server, minRequirements, version) {
     }
 }
 
-function _getBars(server) {
-    if (server.mode !== 'CONNECTED') {
-        return notConnectedBars;
-    }
-
-    const { cpus, storage, memory } = server;
-    const diskUsage = 1 - (storage.free / storage.total);
-    const memoryUsage = memory.used / memory.total;
-    return {
-        options: { background: true  },
-        values: [
-            {
-                label: `CPU: ${numeral(cpus.usage).format('%')}`,
-                parts:[{ value: cpus.usage / cpus.count }]
-            },
-            {
-                label: `Disk: ${numeral(diskUsage).format('%')}`,
-                parts:[{ value: diskUsage }]
-            },
-            {
-                label: `Disk: ${numeral(memoryUsage).format('%')}`,
-                parts:[{ value: memoryUsage }]
-            }
-        ]
-    };
-}
-
 class ServerSummaryViewModel2 extends ConnectableViewModel {
     dataReady = ko.observable();
     isConnected = ko.observable();
+    firstRender = true;
     status = {
         text: ko.observable(),
         icon: {
@@ -140,24 +96,9 @@ class ServerSummaryViewModel2 extends ConnectableViewModel {
             tooltip: ko.observable()
         }
     };
-    bars = {
-        options: {
-            values: false,
-            labels: true,
-            underline: true,
-            format: 'percentage',
-            spacing: 50,
-            scale: 1,
-            background: ko.observable()
-        },
-        values: makeArray(3, () => ({
-            label: ko.observable(),
-            parts: [{
-                color: style['color13'],
-                value: ko.observable()
-            }]
-        }))
-    };
+    cpuUsage = ko.observable();
+    diskUsage = ko.observable();
+    memoryUsage = ko.observable()
 
     selectState(state, params) {
         const { topology = {}, system } = state;
@@ -176,12 +117,22 @@ class ServerSummaryViewModel2 extends ConnectableViewModel {
             });
 
         } else {
+            const { cpus, storage, memory } = server;
+            const cpuUsage = cpus.usage / cpus.count;
+            const diskUsage = 1 - (storage.free / storage.total);
+            const memoryUsage = memory.used / memory.total;
+
+
             ko.assignToProps(this, {
                 dataReady: true,
+                firstRender: false,
                 isConnected: server.mode === 'CONNECTED',
                 status: statusMapping[server.mode],
                 issues: _getIssues(server, minRequirements, systemVersion),
-                bars: _getBars(server)
+                cpuUsage,
+                diskUsage,
+                memoryUsage
+
             });
         }
     }

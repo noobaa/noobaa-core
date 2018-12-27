@@ -17,7 +17,7 @@ class AnalyticsPanelViewModel extends ConnectableViewModel {
 
     mapStateToProps(location) {
         const { route, params } = location;
-        const { system, tab = 'utilization' } = params;
+        const { system, tab = 'traffic' } = params;
 
         ko.assignToProps(this, {
             baseRoute: realizeUri(route, { system }, {}, true),

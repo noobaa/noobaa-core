@@ -1,16 +1,17 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="column greedy">
-    <p class="heading3 push-next">
+<section class="column greedy pad">
+    <p class="heading3 push-next-half">
         {{welcomeMessage}}
         <br />
         You are now using NooBaa version <span ko.text="version"></span>
     </p>
-    <svg-icon class="icon-xxbig align-middle highlight push-prev" params="name: 'upgrade'"></svg-icon>
+    <svg-icon class="icon-xxbig align-middle highlight" params="name: 'upgrade'"></svg-icon>
 </section>
-
-<a class="btn align-end" ko.click="onDone">
-    Done
-</a>
+<div class="column pad content-box">
+    <a class="btn align-end" ko.click="onDone">
+        Done
+    </a>
+</div>
 
 

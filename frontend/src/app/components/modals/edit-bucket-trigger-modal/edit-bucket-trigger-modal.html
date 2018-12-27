@@ -6,71 +6,72 @@
     onValidateSubmit: values => onValidateSubmit(values, existingTriggers),
     onSubmit: onSubmit
 ">
-    <p>Triggers will automatically invoke the selected function.</p>
+    <div class="column greedy pad">
+        <p>Triggers will automatically invoke the selected function.</p>
 
-    <!-- ko if: funcName -->
-    <editor params="label: 'Bucket'">
-        <dropdown params="
-                options: bucketOptions,
-                selected: $form.bucket,
-                placeholder: 'Choose Bucket',
-                hasFocus: true
-            "
-            ko.validationCss="$form.bucket"
-        ></dropdown>
-        <validation-message params="field: $form.bucket"></validation-message>
-    </editor>
-    <!-- /ko -->
+        <!-- ko if: funcName -->
+        <editor params="label: 'Bucket'">
+            <dropdown params="
+                    options: bucketOptions,
+                    selected: $form.bucket,
+                    placeholder: 'Choose Bucket',
+                    hasFocus: true
+                "
+                ko.validationCss="$form.bucket"
+            ></dropdown>
+            <validation-message params="field: $form.bucket"></validation-message>
+        </editor>
+        <!-- /ko -->
 
-    <!-- ko ifnot: funcName -->
-    <editor params="label: 'Function'">
-        <dropdown params="
-                options: funcOptions,
-                actions: funcActions,
-                selected: $form.func,
-                placeholder: 'Choose Function',
-                hasFocus: true
-            "
-            ko.validationCss="$form.func"
-        ></dropdown>
-        <validation-message params="field: $form.func"></validation-message>
-    </editor>
-    <!-- /ko -->
+        <!-- ko ifnot: funcName -->
+        <editor params="label: 'Function'">
+            <dropdown params="
+                    options: funcOptions,
+                    actions: funcActions,
+                    selected: $form.func,
+                    placeholder: 'Choose Function',
+                    hasFocus: true
+                "
+                ko.validationCss="$form.func"
+            ></dropdown>
+            <validation-message params="field: $form.func"></validation-message>
+        </editor>
+        <!-- /ko -->
 
-    <editor params="label: 'Event Type'">
-        <dropdown params="
-                options: eventOptions,
-                selected: $form.event,
-                placeholder: 'Choose Event'
-            "
-            ko.validationCss="$form.event"
-        ></dropdown>
-        <validation-message params="field: $form.event"></validation-message>
-    </editor>
+        <editor params="label: 'Event Type'">
+            <dropdown params="
+                    options: eventOptions,
+                    selected: $form.event,
+                    placeholder: 'Choose Event'
+                "
+                ko.validationCss="$form.event"
+            ></dropdown>
+            <validation-message params="field: $form.event"></validation-message>
+        </editor>
 
-    <editor params="label: 'Prefix'">
-        <input type="text"
-            placeholder="e.g. Images/"
-            ko.value="$form.prefix"
-            ko.validationCss="$form.prefix"
-        />
-        <p class="hint">optional</p>
-    </editor>
+        <editor params="label: 'Prefix'">
+            <input type="text"
+                placeholder="e.g. Images/"
+                ko.value="$form.prefix"
+                ko.validationCss="$form.prefix"
+            />
+            <p class="hint">optional</p>
+        </editor>
 
-    <editor params="label: 'Suffix'">
-        <input type="text"
-            placeholder="e.g. .jpg"
-            ko.value="$form.suffix"
-            ko.validationCss="$form.suffix"
-        />
-        <p class="hint">optional</p>
-    </editor>
+        <editor params="label: 'Suffix'">
+            <input type="text"
+                placeholder="e.g. .jpg"
+                ko.value="$form.suffix"
+                ko.validationCss="$form.suffix"
+            />
+            <p class="hint">optional</p>
+        </editor>
 
-    <editor params="label: 'Trigger Active'">
-        <toggle-switch params="value: $form.active"></toggle-switch>
-    </editor>
-
-    <div class="row content-middle">
+        <editor params="label: 'Trigger Active'">
+            <toggle-switch params="value: $form.active"></toggle-switch>
+        </editor>
+    </div>
+    <div class="row content-middle pad content-box">
         <div class="row content-middle greedy push-next remark">
             <!-- ko if: $form.errors().global -->
             <svg-icon class="error icon-small push-next-half" params="name: 'problem'"></svg-icon>

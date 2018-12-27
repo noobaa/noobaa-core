@@ -79,6 +79,8 @@ function start_all() {
                 update_virtual_host_suffix(params.base_address);
             } else if (params.message === 'location_info') {
                 update_location_info(params.location_info);
+            } else if (params.message === 'set_debug') {
+                dbg.set_level(params.level, 'core');
             } else if (params.message === 'run_server') {
                 update_virtual_host_suffix(params.base_address);
                 if (!waiting) {

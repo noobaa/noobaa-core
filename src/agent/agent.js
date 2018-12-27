@@ -1078,12 +1078,24 @@ class Agent {
 
     set_debug_node(req) {
         const dbg = this.dbg;
+        dbg.log0('Recieved set debug req ', req.rpc_params.level);
         dbg.set_level(req.rpc_params.level, 'core');
-        dbg.log1('Recieved set debug req ', req.rpc_params.level);
+        if (this.endpoint_info.s3rver_process) {
+            this.endpoint_info.s3rver_process.send({
+                message: 'set_debug',
+                level: req.rpc_params.level
+            });
+        }
         if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
             promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD)
                 .then(() => {
                     dbg.set_level(0, 'core');
+                    if (this.endpoint_info.s3rver_process) {
+                        this.endpoint_info.s3rver_process.send({
+                            message: 'set_debug',
+                            level: 0
+                        });
+                    }
                 });
         }
     }

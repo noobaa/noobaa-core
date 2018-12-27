@@ -161,7 +161,7 @@ class CreateNamespaceResourceModalViewModel extends Observer {
     }
 
     onResourceName(resourceName) {
-        action$.updateForm(this.formName, { resourceName });
+        action$.next(updateForm(this.formName, { resourceName }));
     }
 
     onValidate(values, existingNames) {

@@ -164,9 +164,11 @@ class CloudResourcesTableViewModel extends Observer {
         const nameFilter = filter.trim().toLowerCase();
         const filteredRows = cloudResourceList
             .filter(resource => _matchFilters(resource, typeFilter, nameFilter));
-        const emptyMessage = filteredRows.length > 0 ?
-            'The current filter does not match any cloud resource' :
-            'System does not contain any cloud resources';
+        const emptyMessage =
+            (filteredRows.length > 0 && 'The current filter does not match any cloud resource') ||
+            (typeFilter === 'ALL' && 'System does not contain any cloud resources') ||
+            `System does not contain any ${resourceTypeOptions.find(t => t.value == typeFilter).label} resources`;
+
 
         const rows = filteredRows
             .sort(createCompareFunc(compareKey, Number(order)))

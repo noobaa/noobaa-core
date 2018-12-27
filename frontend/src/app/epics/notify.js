@@ -387,13 +387,13 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_ATTACH_SERVER_TO_CLUSTER]: ({ secret, hostname }) => ({
-        message: `Attaching ${getServerDisplayName({ secret, hostname })} to the cluster, this might take a few moments`,
+    [types.COMPLETE_ATTACH_SERVER_TO_CLUSTER]: ({ secret }) => ({
+        message: `Attaching a new server (secret: ${secret}) to the cluster, this might take a few moments`,
         severity: 'info'
     }),
 
-    [types.FAIL_ATTACH_SERVER_TO_CLUSTER]: ({ secret, hostname }) => ({
-        message: `Attaching ${getServerDisplayName({ secret, hostname })} to cluster failed`,
+    [types.FAIL_ATTACH_SERVER_TO_CLUSTER]: ({ secret }) => ({
+        message: `Attaching a new server (secret: ${secret}) to the cluster failed`,
         severity: 'error'
     }),
 

@@ -17,11 +17,12 @@ export default function(action$, { api }) {
 
             try {
                 await await api.func.delete_func({ name, version });
-                return completeDeleteLambdaFunc(name);
+                return completeDeleteLambdaFunc(name, version);
 
             } catch (error) {
                 return failDeleteLambdaFunc(
                     name,
+                    version,
                     mapErrorObject(error)
                 );
             }

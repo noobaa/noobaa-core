@@ -8,6 +8,7 @@ import { readFileAsArrayBuffer, toObjectUrl, openInNewTab } from 'utils/browser-
 import { shortString, stringifyAmount } from 'utils/string-utils';
 import { unitsInBytes, formatSize } from 'utils/size-utils';
 import { getFormValues, isFieldValid, isFormValid } from 'utils/form-utils';
+import { memorySizeOptions } from 'utils/func-utils';
 import { getMany } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import { bufferStore } from 'services';
@@ -24,7 +25,7 @@ import {
 const steps = deepFreeze([
     'Basic Configuration',
     'Function Code',
-    'Runtime Settings'
+    'Configuration'
 ]);
 
 const codeFormatOptions = deepFreeze([
@@ -37,22 +38,6 @@ const codeFormatOptions = deepFreeze([
         label: 'Upload a code package (zip file)'
     }
 ]);
-
-const memorySizeOptions = deepFreeze([
-    {
-        value: 128,
-        label: '128 MB'
-    },
-    {
-        value: 256,
-        label: '256 MB'
-    },
-    {
-        value: 512,
-        label: '512 MB'
-    }
-]);
-
 
 const pkgSizeLimit = unitsInBytes.MEGABYTE * 100;
 const inlineCodeHandlerFile = 'main';

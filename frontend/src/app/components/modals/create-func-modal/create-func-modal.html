@@ -199,10 +199,7 @@
                     />
                     <span>Sec</span>
                 </div>
-                <validation-message params="field: $form.timeoutMinutes"></validation-message>
-                <validation-message ko.visible="$form.timeoutMinutes.isValid"
-                    params="field: $form.timeoutSeconds"
-                ></validation-message>
+                <span class="val-msg">{{timeoutError}}</span>
             </editor>
             <div class="row content-middle">
                 <p class="remark greedy push-next">

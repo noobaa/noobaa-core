@@ -6,6 +6,7 @@ export default {
         type: 'object',
         required: [
             'name',
+            'creationTime',
             'mode',
             'activities',
             'associatedAccounts',
@@ -21,9 +22,13 @@ export default {
             name: {
                 type: 'string'
             },
+            creationTime: {
+                type: 'integer'
+            },
             mode: {
                 type: 'string',
                 enum: [
+                    'BEING_CREATED',
                     'HAS_NO_NODES',
                     'ALL_NODES_OFFLINE',
                     'NO_CAPACITY',

@@ -18,30 +18,22 @@
             <p class="push-next">
                 Each installed node has to be assigned to a nodes pool according to the administrator reflection on specific characteristics of these nodes. Nodes can be re-assigned later on.
             </p>
-            <editor class="greedy" params="label: 'Target Pool'">
+            <editor class="greedy"
+                params="label: 'Target Pool'"
+            >
                 <dropdown params="
                         filter: true,
+                        actions: poolActions,
                         options: poolOptions,
                         selected: $form.targetPool,
-                        placeholder: 'Choose pool...',
+                        subject: 'pool',
                         hasFocus: true
                     "
                     ko.validationCss="$form.targetPool"
                 ></dropdown>
                 <validation-message params="field: $form.targetPool"></validation-message>
             </editor>
-            <div class="row content-middle">
-                <p class="remark greedy push-next">
-                    <svg-icon class="icon-small valign-bottom"
-                        params="name: 'notif-info'"
-                    ></svg-icon>
-                    To create a new pool go to Resources &gt;
-                    <a class="link" ko.attr.href="hostPoolsHref">
-                        Node Pools
-                    </a>
-                </p>
-                <wizard-controls></wizard-controls>
-            </div>
+            <wizard-controls class="align-end"></wizard-controls>
         </section>
 
         <section class="column greedy push-prev">

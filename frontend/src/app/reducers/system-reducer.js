@@ -43,7 +43,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         maintenanceMode: _mapMaintenanceMode(payload, timestamp),
         releaseNotes: state && state.releaseNotes,
         diagnostics: state ? state.diagnostics : diagnosticsInitialState,
-        internalStorage: _mapInternalStorage(pools.find(pool =>
+        internalStorage: _mapInternalStorage(payload.pools.find(pool =>
             pool.resource_type === 'INTERNAL'
         ))
     };

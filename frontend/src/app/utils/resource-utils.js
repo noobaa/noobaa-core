@@ -9,6 +9,11 @@ import numeral from 'numeral';
 const GB = Math.pow(1024, 3);
 
 const hostsPoolModeToStateIcon = deepFreeze({
+    BEING_CREATED: {
+        tooltip: 'Creating pool...',
+        css: 'warning',
+        name: 'working'
+    },
     HAS_NO_NODES: {
         tooltip: 'Pool is empty',
         css: 'error',

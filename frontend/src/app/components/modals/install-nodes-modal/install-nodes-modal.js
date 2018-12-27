@@ -1,18 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './install-nodes-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { deepFreeze } from 'utils/core-utils';
-import { getFieldValue, isFormValid } from 'utils/form-utils';
+import { deepFreeze, createCompareFunc } from 'utils/core-utils';
+import { getFormValues, isFormValid } from 'utils/form-utils';
 import { realizeUri } from 'utils/browser-utils';
 import * as routes from 'routes';
-import { getMany } from 'rx-extensions';
 import { installNodes as learnMoreHref } from 'knowledge-base-articles';
 import {
     updateForm,
     touchForm,
+    openCreateEmptyPoolModal,
     fetchNodeInstallationCommands,
     closeModal
 } from 'action-creators';
@@ -39,14 +38,19 @@ const osTypes = deepFreeze([
 const drivesInputPlaceholder =
     `e.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
 
+const _compareByCreationTime = createCompareFunc(pool => pool.creationTime, -1);
 
-class InstallNodeModalViewModel extends Observer {
+class InstallNodeModalViewModel extends ConnectableViewModel {
     learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     steps = steps;
     osTypes = osTypes;
     drivesInputPlaceholder = drivesInputPlaceholder;
-    poolOptions = ko.observable();
+    poolActions = [{
+        label: 'Create new pool',
+        onClick: this.onCreateNewPool.bind(this)
+    }];
+    poolOptions = ko.observableArray();
     osHint = ko.observable();
     hostPoolsHref = ko.observable();
     targetPool = '';
@@ -55,6 +59,7 @@ class InstallNodeModalViewModel extends Observer {
     fields = {
         step: 0,
         targetPool: '',
+        poolName: '',
         excludeDrives: false,
         excludedDrives: [],
         selectedOs: 'LINUX',
@@ -64,35 +69,48 @@ class InstallNodeModalViewModel extends Observer {
         }
     };
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(getMany(
-                'hostPools',
-                ['forms', this.formName],
-                ['location', 'params', 'system']
-            )),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.hostPools,
+            state.forms[this.formName],
+            state.location.params.system
+        ];
     }
 
-    onState([hostPools, form, system]) {
+    mapStateToProps(hostPools, form, system) {
         if (!hostPools || !form) {
             return;
         }
 
-        const selectedOs = getFieldValue(form, 'selectedOs');
+        const { targetPool, selectedOs, excludedDrives } =  getFormValues(form);
         const { hint } = this.osTypes.find(os => os.value === selectedOs);
-        const poolOptions = Object.keys(hostPools);
         const hostPoolsHref = realizeUri(routes.resources, { system, tab: 'pools' });
+        const poolOptions = Object.values(hostPools)
+            .sort(_compareByCreationTime)
+            .map(pool => {
+                if (pool.mode === 'BEING_CREATED') {
+                    return {
+                        value: pool.name,
+                        label: `Creating pool (${pool.name})`,
+                        icon: 'in-progress',
+                        disabled: true
+                    };
+                } else {
+                    return {
+                        value: pool.name,
+                        icon: 'nodes-pool'
+                    };
+                }
+            });
 
-        this.osHint(hint);
-        this.poolOptions(poolOptions);
-        this.targetPool = getFieldValue(form, 'targetPool');
-        this.excludedDrives = getFieldValue(form, 'excludedDrives');
-        this.isStepValid = isFormValid(form);
-        this.hostPoolsHref(hostPoolsHref);
+        ko.assignToProps(this, {
+            osHint: hint,
+            poolOptions,
+            targetPool,
+            excludedDrives,
+            isStepValid: isFormValid(form),
+            hostPoolsHref
+        });
     }
 
     onValidate(values) {
@@ -110,27 +128,32 @@ class InstallNodeModalViewModel extends Observer {
 
     onBeforeStep(step) {
         if (!this.isStepValid) {
-            action$.next(touchForm(this.formName, ['targetPool']));
+            this.dispatch(touchForm(this.formName, ['targetPool', 'poolName']));
             return false;
-        }
 
-        if (step === 1) {
-            // If moving to last step, fetch the intallation commands.
-            action$.next(fetchNodeInstallationCommands(
-                this.targetPool,
-                this.excludedDrives
-            ));
-        }
+        } else {
+            if (step === 1) {
+                // If moving to last step, fetch the intallation commands.
+                this.dispatch(fetchNodeInstallationCommands(
+                    this.targetPool,
+                    this.excludedDrives
+                ));
+            }
 
-        return true;
+            return true;
+        }
+    }
+
+    onCreateNewPool() {
+        this.dispatch(openCreateEmptyPoolModal());
     }
 
     onTab(osType) {
-        action$.next(updateForm(this.formName, { selectedOs: osType }));
+        this.dispatch(updateForm(this.formName, { selectedOs: osType }));
     }
 
     onDone() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

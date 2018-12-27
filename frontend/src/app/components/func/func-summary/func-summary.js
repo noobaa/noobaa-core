@@ -7,14 +7,37 @@ import { formatSize } from 'utils/size-utils';
 import moment from 'moment';
 import { timeShortFormat } from 'config';
 
+function _getDescText(description) {
+    const descText = description
+        .split('\n')[0]
+        .slice(0, 30);
+
+    return descText === description ?
+        descText :
+        `${descText}...`;
+}
+
+function _getDescTooltip(description) {
+    if (description.length <= 30 && !description.includes('\n')) {
+        return '';
+    }
+
+    return {
+        template: 'preserveWhitespaces',
+        text: description
+    };
+}
+
 class FuncSummaryViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
     state = {
         text: 'Deployed',
         css: 'success',
         icon: 'healthy'
     };
     name = ko.observable();
-    description = ko.observable();
+    descText = ko.observable();
+    descTooltip = ko.observable();
     lastModified = ko.observable();
     runtime = ko.observable();
     codeSize = ko.observable();
@@ -33,18 +56,15 @@ class FuncSummaryViewModel extends ConnectableViewModel {
     mapStateToProps(funcName, func) {
         if (!func) {
             ko.assignToProps(this, {
-                name: funcName,
-                description: '',
-                lastModified: '',
-                runtime: '',
-                codeSize: '',
-                memorySize: ''
+                dataReady: false
             });
 
         } else {
             ko.assignToProps(this, {
+                dataReady: true,
                 name: funcName,
-                description: func.description,
+                descText: _getDescText(func.description),
+                descTooltip: _getDescTooltip(func.description),
                 lastModified: moment(func.lastModified).format(timeShortFormat),
                 runtime: func.runtime,
                 codeSize: formatSize(func.codeSize),

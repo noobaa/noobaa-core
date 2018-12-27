@@ -1,6 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row">
+<div class="fill row" ko.visible="!dataReady()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
+
+<div class="summary greedy row" ko.css.visible="dataReady">
 
     <section class="c6 column pad borders push-next-half">
         <div class="greedy row content-middle">
@@ -13,10 +17,10 @@
         <hr />
         <div class="greedy row content-middle">
             <span class="c6 highlight push-next">{{name}}</span>
-            <span class="c6 text-right no-wrap"
-                ko.tooltip="description"
-            >
-                {{description}}
+            <span class="c6 text-right">
+                <span ko.tooltip="descTooltip">
+                    {{descText}}
+                </span>
             </span>
         </div>
         <hr />

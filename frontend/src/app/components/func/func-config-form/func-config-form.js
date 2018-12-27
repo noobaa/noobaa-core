@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './func-config.html';
+import template from './func-config-form.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { stringifyAmount } from 'utils/string-utils';
-import { openEditFuncConfiguration } from 'action-creators';
+import { openEditFuncConfigModal } from 'action-creators';
 
-class FuncConfigViewModel extends ConnectableViewModel {
+class FuncConfigFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     funcName = ko.observable();
     funcVersion = '';
@@ -29,6 +29,7 @@ class FuncConfigViewModel extends ConnectableViewModel {
         },
         {
             label: 'Description',
+            template: 'desc',
             value: ko.observable()
         }
     ];
@@ -67,7 +68,7 @@ class FuncConfigViewModel extends ConnectableViewModel {
     }
 
     onEditConfiguration() {
-        this.dispatch(openEditFuncConfiguration(
+        this.dispatch(openEditFuncConfigModal(
             this.funcName(),
             this.funcVersion
         ));
@@ -75,6 +76,6 @@ class FuncConfigViewModel extends ConnectableViewModel {
 }
 
 export default {
-    viewModel: FuncConfigViewModel,
+    viewModel: FuncConfigFormViewModel,
     template: template
 };

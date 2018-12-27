@@ -1,5 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 
+import { deepFreeze } from './core-utils';
+
+export const memorySizeOptions = deepFreeze([
+    {
+        value: 128,
+        label: '128 MB'
+    },
+    {
+        value: 256,
+        label: '256 MB'
+    },
+    {
+        value: 512,
+        label: '512 MB'
+    }
+]);
+
 export function getFunctionOption(func, accounts, bucket) {
     const { name, version } = func;
     const value = { name, version };

@@ -47,6 +47,7 @@ export default function(action$) {
             types.COMPLETE_UPDATE_REMOTE_SYSLOG,
             types.COMPLETE_CREATE_LAMBDA_FUNC,
             types.COMPLETE_DELETE_LAMBDA_FUNC,
+            types.COMPLETE_UPDATE_LAMBDA_FUNC_CONFIG,
             types.COMPLETE_ENTER_MAINTENANCE_MODE,
             types.COMPLETE_LEAVE_MAINTENANCE_MODE,
             types.COMPLETE_CREATE_BUCKET,
@@ -55,7 +56,7 @@ export default function(action$) {
             types.COMPLETE_INSTALL_VM_TOOLS,
             types.COMPLETE_UPDATE_P2P_SETTINGS,
             types.COMPLETE_UPDATE_PROXY_SERVER_SETTINGS,
-            types.COMPLETE_SET_SYSTEM_DEBUG_LEVEL
+            types.COMPLETE_SET_SYSTEM_DEBUG_LEVEL,
         ),
         map(() => refreshLocation())
     );

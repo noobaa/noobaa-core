@@ -927,12 +927,12 @@ export function openPasswordResetFailedModal(accountName) {
     };
 }
 
-export function openEditFuncConfiguration(funcName, funcVersion) {
+export function openEditFuncConfigModal(funcName, funcVersion) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
-                name: 'func-configuration-modal',
+                name: 'edit-func-config-modal',
                 params: { funcName, funcVersion }
             },
             options: {

@@ -1,4 +1,5 @@
 <!-- Copyright (C) 2016 NooBaa -->
+
 <div class="row content-middle alt-bg pad">
     <h2 class="heading3 greedy">
         {{funcName}} Current Configuration
@@ -14,4 +15,8 @@
 <property-sheet class="pad" params="
     loading: !dataReady(),
     properties: funcConfig
-"></property-sheet>
+">
+    <template name="desc">
+        <p class="preserve-whitespaces" ko.text="$data"></p>
+    </template>
+</property-sheet>

@@ -458,6 +458,16 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
+    [types.COMPLETE_UPDATE_LAMBDA_FUNC_CONFIG]: ({ name }) => ({
+        message: `${name} configuration updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_LAMBDA_FUNC_CONFIG]: ({ name }) => ({
+        message: `Updating ${name} configuration failed`,
+        severity: 'error'
+    }),
+
     [types.FAIL_ENTER_MAINTENANCE_MODE]: () => ({
         message: 'Entering maintenance mode failed',
         severity: 'error'

@@ -14,7 +14,7 @@ export default function(action$, { api, bufferStore }) {
             const {
                 name,
                 version,
-                desc,
+                description,
                 runtime,
                 handlerFile,
                 handlerFunc,
@@ -27,7 +27,7 @@ export default function(action$, { api, bufferStore }) {
                 const config = {
                     name,
                     version,
-                    description: desc,
+                    description,
                     runtime,
                     handler: `${handlerFile}.${handlerFunc}`,
                     memory_size: memorySize,
@@ -41,11 +41,12 @@ export default function(action$, { api, bufferStore }) {
                     [api.RPC_BUFFERS]: { zipfile: buffer }
                 });
 
-                return completeCreateLambdaFunc(name);
+                return completeCreateLambdaFunc(name, version);
 
             } catch (error) {
                 return failCreateLambdaFunc(
                     name,
+                    version,
                     mapErrorObject(error)
                 );
             }

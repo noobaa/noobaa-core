@@ -1,0 +1,64 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
+    <editor params="label: 'Runtime'">
+        <input type="text"
+            disabled
+            ko.value="$form.runtime"
+        />
+    </editor>
+
+    <editor params="label: 'Memory Size'">
+        <dropdown params="
+            options: memorySizeOptions,
+            selected: $form.memorySize
+        "></dropdown>
+    </editor>
+
+    <editor params="label: 'Timeout'">
+        <div class="row">
+            <input type="number"
+                min="0"
+                class="push-next-half"
+                ko.value="$form.timeoutMinutes"
+                ko.validationCss="$form.timeoutMinutes"
+            />
+            <span class="push-next">Min</span>
+            <input type="number"
+                min="0"
+                class="push-next-half"
+                ko.value="$form.timeoutSeconds"
+                ko.validationCss="$form.timeoutSeconds"
+            />
+            <span>Sec</span>
+        </div>
+        <span class="val-msg">{{timeoutError}}</span>
+    </editor>
+
+    <editor class="greedy" params="label: 'Description'">
+        <textarea class="desc-field"
+            ko.value="$form.description"
+            ko.validationCss="$form.description"
+        ></textarea>
+        <p class="hint" ko.visible="$form.description.isValid">Up to 256 characters</p>
+        <validation-message params="field: $form.description"></validation-message>
+    </editor>
+
+    <div class="row align-end">
+        <button class="link alt-colors push-next"
+            ko.click="onCancel"
+        >
+            Cancel
+        </button>
+        <button class="btn"
+            ko.shakeOnClick="!$form.isValid()"
+        >
+            Save
+        </button>
+    </div>
+</managed-form>

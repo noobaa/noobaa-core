@@ -10,7 +10,6 @@ function _mapProperty(prop, templates) {
         value,
         visible = true,
         disabled = false,
-        multiline = false,
         allowCopy = false,
         template: templateName
     } = ko.deepUnwrap(prop);
@@ -23,7 +22,7 @@ function _mapProperty(prop, templates) {
     };
 
     return { labelText, value, css, visible, disabled,
-        multiline, allowCopy, template};
+        allowCopy, template};
 }
 
 class PropertySheetViewModel {

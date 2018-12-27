@@ -133,6 +133,11 @@ function extract_module(mod, ignore_extension) {
     return name;
 }
 
+const just_print = winston && winston.format((info, opts) => {
+    info[Symbol.for('message')] = info.message;
+    return info;
+});
+
 var LOG_FUNC_PER_LEVEL = {
     LOG: 'log',
     INFO: 'info',
@@ -204,11 +209,6 @@ class InternalDebugLogger {
                 throw e;
             }
         }
-
-        const just_print = winston.format((info, opts) => {
-            info[Symbol.for('message')] = info.message;
-            return info;
-        });
 
         this._log_console = winston.createLogger({
             levels: this._levels,
@@ -349,16 +349,17 @@ class InternalDebugLogger {
         const level_str = level_color + `[${level}]`.padStart(7) + '\x1B[39m';
 
         const proc = '[' + this._proc_name + '/' + this._pid + '] ';
-        const prefix = '\x1B[32m' + formatted_time() + '\x1B[35m ' + proc;
+        const ftime = formatted_time();
+        const prefix = '\x1B[32m' + ftime + '\x1B[35m ' + proc;
         msg = level_str + msg;
         const msg_oneline = strip_newlines(msg);
 
         //Browser
         const browser_args = args.slice(0);
         if (typeof(browser_args[0]) === 'string') {
-            browser_args[0] = formatted_time() + ' [' + level + '] ' + browser_args[0];
+            browser_args[0] = ftime + ' [' + level + '] ' + browser_args[0];
         } else {
-            browser_args.unshift(formatted_time() + ' [' + level + '] ');
+            browser_args.unshift(ftime + ' [' + level + '] ');
         }
 
         return {
@@ -425,7 +426,7 @@ class InternalDebugLogger {
                 //Define Transports
                 winston_log = winston.createLogger({
                     levels: this._levels,
-                    format: winston.format.simple(),
+                    format: just_print({}),
                     transports: [
                         new winston.transports.File({
                             name: 'file_transport',
@@ -617,7 +618,7 @@ DebugLogger.prototype.set_log_to_file = function(log_file) {
 };
 
 DebugLogger.prototype.set_console_output = function(is_enabled) {
-    int_dbg._log.transports.console_transp.silent = !is_enabled;
+    int_dbg._log_console.silent = !is_enabled;
 };
 
 DebugLogger.prototype.original_console = function() {

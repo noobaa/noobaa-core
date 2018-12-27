@@ -405,7 +405,7 @@ class TestRunner {
             });
     }
 
-    _restart_services(testrun) {
+    async _restart_services(testrun) {
         if (os.type() === 'Darwin') return;
         console.log('Restarting services with TESTRUN arg to', testrun);
         var command;
@@ -416,15 +416,27 @@ class TestRunner {
             command = "sed -i 's/\\(.*web_server.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
             command += " ; sed -i 's/\\(.*bg_workers.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
         }
-        return promise_utils.exec(command)
-            .then(function() {
-                return promise_utils.exec('supervisorctl reload');
-            })
-            .delay(5000)
-            .then(function() {
-                return promise_utils.exec('supervisorctl restart webserver bg_workers');
-            })
-            .delay(5000);
+        await promise_utils.exec(command);
+        let retries = 0;
+        const MAX_RETRIES = 3;
+        while (retries < MAX_RETRIES) {
+            try {
+                await promise_utils.exec('supervisorctl update');
+                await P.delay(5000);
+                await promise_utils.exec('supervisorctl restart webserver bg_workers');
+                retries = MAX_RETRIES;
+            } catch (err) {
+                retries += 1;
+                if (retries < MAX_RETRIES) {
+                    console.error('failed restarting services. retry..', err);
+                    await P.delay(5000);
+                } else {
+                    console.error(`failed restarting services for ${MAX_RETRIES} retries. aborting`, err);
+                    throw err;
+                }
+            }
+        }
+        await P.delay(5000);
     }
 }
 

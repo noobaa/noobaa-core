@@ -2,14 +2,14 @@
 
 <nav class="column">
     <!-- ko foreach: items -->
-    <a class="nav-link link row alt-colors no-outline pad content-middle"
+    <a class="nav-link row pad content-middle"
         ko.attr.href="url"
         ko.css="{
             selected: $component.isSelected(name),
             'preview-only': $data.preview
         }"
     ">
-        <svg-icon class="highlight" params="name: icon" ko.css="{ 'beta-tag': $data.beta }"></svg-icon>
+        <svg-icon params="name: icon" ko.css.beta-tag="beta"></svg-icon>
         <span class="pad" ko.text="label"></span>
     </a>
     <!-- /ko -->

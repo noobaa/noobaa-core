@@ -5,38 +5,41 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <div class="warning-msg warning row pad alt-bg content-middle">
-        <svg-icon class="push-next warning" params="name: 'notif-warning'">
-        </svg-icon>
-        Performance and functionality issues may occur while the system is in maintenance mode
+    <div class="column greedy pad">
+        <div class="warning-box warning row pad content-middle push-next">
+            <svg-icon class="push-next warning" params="name: 'notif-warning'">
+            </svg-icon>
+            Performance and functionality issues may occur while the system is in maintenance mode
+        </div>
+
+        <div class="greedy">
+            <editor params="label: 'Maintenance duration'">
+                <div class="row">
+                    <input class="push-next"
+                        type="number"
+                        min="0"
+                        ko.value="$form.duration"
+                        ko.hasFocus="true"
+                        ko.validationCss="$form.duration"
+                    />
+
+                    <dropdown class="duration-unit" params="
+                        options: durationUnitOptions,
+                        selected: $form.durationUnit
+                    "></dropdown>
+                </div>
+                <validation-message params="field: $form.duration"></validation-message>
+            </editor>
+        </div>
     </div>
-
-    <div class="greedy push-both">
-        <editor params="label: 'Maintenance duration'">
-            <div class="row">
-                <input class="push-next"
-                    type="number"
-                    min="0"
-                    ko.value="$form.duration"
-                    ko.hasFocus="true"
-                    ko.validationCss="$form.duration"
-                />
-
-                <dropdown class="duration-unit" params="
-                    options: durationUnitOptions,
-                    selected: $form.durationUnit
-                "></dropdown>
-            </div>
-            <validation-message params="field: $form.duration"></validation-message>
-        </editor>
-    </div>
-
-    <div class="row content-middle align-end">
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
-            Cancel
-        </button>
-        <button class="btn" ko.shakeOnClick="!$form.isValid()">
-            Start maintenance
-        </button>
+    <div class="column pad content-box">
+        <div class="row content-middle align-end">
+            <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+                Cancel
+            </button>
+            <button class="btn" ko.shakeOnClick="!$form.isValid()">
+                Start maintenance
+            </button>
+        </div>
     </div>
 </managed-form>

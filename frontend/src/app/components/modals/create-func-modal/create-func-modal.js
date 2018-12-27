@@ -7,7 +7,7 @@ import { deepFreeze, pick } from 'utils/core-utils';
 import { readFileAsArrayBuffer, toObjectUrl, openInNewTab } from 'utils/browser-utils';
 import { shortString, stringifyAmount } from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
-import { getFormValues, isFieldValid, isFormValid } from 'utils/form-utils';
+import { getFormValues, isFieldValid, isFormValid, getFieldError } from 'utils/form-utils';
 import { bufferStore } from 'services';
 import JSZip from 'jszip';
 import { createFunction as learnMoreHref } from 'knowledge-base-articles';
@@ -101,6 +101,7 @@ class CreateFuncModalViewModel extends ConnectableViewModel {
     handlerFileOptions = ko.observableArray();
     selectedFileInfo = null;
     isStepValid = false;
+    timeoutError = ko.observable();
     fields = {
         step: 0,
         funcName: '',
@@ -169,7 +170,8 @@ class CreateFuncModalViewModel extends ConnectableViewModel {
             handlerFileOptions: handlerFileOptions,
             handlerFileFilterPlaceholder: handlerFileFilterPlaceholder,
             selectedFileInfo: selectedFileInfo,
-            isStepValid: isFormValid(form)
+            isStepValid: isFormValid(form),
+            timeoutError: getFieldError(form, 'timeout') || ''
         });
     }
 
@@ -234,23 +236,16 @@ class CreateFuncModalViewModel extends ConnectableViewModel {
 
             case 2: {
                 const { timeoutSeconds, timeoutMinutes } = values;
+                const isTimeoutValid =
+                    Number.isInteger(timeoutMinutes) &&
+                    Number.isInteger(timeoutSeconds) &&
+                    timeoutMinutes >= 0 &&
+                    timeoutSeconds >= 0 &&
+                    (timeoutMinutes + timeoutSeconds) > 0;
 
-                if (!Number.isInteger(timeoutMinutes)) {
-                    errors.timeoutMinutes = 'Please enter a valid timeout';
-
-                } else if (timeoutMinutes < 0) {
-                    errors.timeoutMinutes = 'Please enter a timeout greater then 0';
-                }
-
-                if (!Number.isInteger(timeoutSeconds)) {
-                    errors.timeoutSeconds = 'Please enter a valid timeout';
-
-                } else if (timeoutSeconds < 0) {
-                    errors.timeoutSeconds = 'Please enter a timeout greater then 0';
-                }
-
-                if (timeoutMinutes === 0 && timeoutSeconds === 0) {
-                    errors.timeoutMinutes = 'Please enter a timeout greater then 0';
+                if (!isTimeoutValid) {
+                    errors.timeoutMinutes = errors.timeoutSeconds = '';
+                    errors.timeout = 'Please enter a timeout greater then 0';
                 }
 
                 break;

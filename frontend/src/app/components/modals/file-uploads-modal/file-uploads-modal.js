@@ -1,17 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './file-uploads-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
-import UploadRowViewModel from './upload-row';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { formatSize } from 'utils/size-utils';
 import numeral from 'numeral';
-import { getMany } from 'rx-extensions';
-import { clearCompletedObjectUploads } from 'action-creators';
-import style from 'style';
+import { clearCompletedObjectUploads, closeModal } from 'action-creators';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
 
 const columns = deepFreeze([
     {
@@ -23,77 +21,124 @@ const columns = deepFreeze([
     'progress'
 ]);
 
-class FileUploadsModalViewModel extends Observer {
-    constructor({ onClose }) {
-        super();
+const errorCodeToProgressText = deepFreeze({
+    NoSuchUpload: 'ABORTED'
+});
 
-        this.onClose = onClose;
-        this.columns = columns;
-        this.countText = ko.observable();
-        this.uploaded = ko.observable();
-        this.failed = ko.observable();
-        this.uploading = ko.observable();
-        this.progress = ko.observable();
-        this.progressText = ko.observable();
-        this.rows = ko.observableArray();
-        this.barValues = [
-            {
-                value: this.progress,
-                color: style['color8']
-            },
-            {
-                value: ko.pureComputed(() => 1 - this.progress()),
-                color: style['color7']
-            }
-        ];
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'objectUploads',
-                    ['location', 'params', 'system']
-                )
-            ),
-            this.onUploads
-        );
+function _getUploadProgressSummary(stats) {
+    const { uploading, batchSize, batchLoaded } = stats;
+    if (uploading === 0) {
+        return '';
     }
 
-    onUploads([objectUploads, system]) {
-        const { stats, objects } = objectUploads;
-        const progressText = this._getCurrentUploadProgressText(stats);
+    return `Uploading ${
+        formatSize(batchLoaded)
+    } of ${
+        formatSize(batchSize)
+    } (${
+        numeral(batchLoaded/batchSize).format('%')
+    })`;
+}
 
-        this.countText(stringifyAmount('file', stats.count));
-        this.uploading(stats.uploading);
-        this.failed(stats.failed);
-        this.uploaded(stats.uploaded);
-        this.progress(stats.batchLoaded / stats.batchSize);
-        this.progressText(progressText);
-        this.rows(Array.from(objects)
-            .reverse()
-            .map((obj, i) => {
-                const row = this.rows()[i] || new UploadRowViewModel();
-                row.update(obj, system);
-                return row;
-            })
-        );
+function _getUploadProgress(upload) {
+    const { completed, error, size, loaded } = upload;
+
+    if (completed) {
+        if (error) {
+            return {
+                text: errorCodeToProgressText[error.code] || 'FAILED',
+                tooltip: error.message,
+                css: 'error'
+            };
+        } else {
+            return {
+                text: 'COMPLETED',
+                css: 'success'
+            };
+        }
+    } else {
+        return {
+            text: (size > 0 ? numeral(loaded/size).format('%') : 0)
+        };
+    }
+}
+
+function _mapUploadToRow(upload, system) {
+    const { name, bucket, versionId, completed, error, size } = upload;
+    const fileNameData = {
+        text: name,
+        tooltip: {
+            text: name,
+            breakWords: true
+        }
+    };
+
+    if (completed && !error) {
+        fileNameData.href = realizeUri(routes.object, {
+            system,
+            bucket,
+            object: name,
+            version: versionId
+        });
+    }
+
+    return {
+        fileName: fileNameData,
+        bucketName: bucket,
+        size: formatSize(size),
+        progress: _getUploadProgress(upload)
+    };
+}
+
+class UploadRowViewModel {
+   fileName = ko.observable();
+   bucketName = ko.observable();
+   size = ko.observable();
+   progress = ko.observable();
+}
+
+
+class FileUploadsModalViewModel extends ConnectableViewModel {
+    columns = columns;
+    countText = ko.observable();
+    uploaded = ko.observable();
+    failed = ko.observable();
+    uploading = ko.observable();
+    progress = ko.observable();
+    progressText = ko.observable();
+    rows = ko.observableArray()
+        .ofType(UploadRowViewModel)
+
+    selectState(state) {
+        const { objectUploads, location } = state;
+        return [
+            objectUploads,
+            location.params.system
+        ];
+    }
+
+    mapStateToProps(objectUploads, system) {
+        const { stats, objects } = objectUploads;
+
+        ko.assignToProps(this, {
+            countText: stringifyAmount('file', stats.count),
+            uploading: stats.uploading,
+            failed: stats.failed,
+            uploaded: stats.uploaded,
+            progress: stats.batchLoaded / stats.batchSize,
+            progressText: _getUploadProgressSummary(stats),
+            rows: Array.from(objects)
+                .reverse()
+                .map(upload => _mapUploadToRow(upload, system))
+        });
     }
 
     onClearCompeleted() {
-        action$.next(clearCompletedObjectUploads());
+        this.dispatch(clearCompletedObjectUploads());
     }
 
-    _getCurrentUploadProgressText({ uploading, batchSize, batchLoaded }) {
-        if (uploading === 0) {
-            return '';
-        }
-
-        return `Uploading ${
-            formatSize(batchLoaded)
-        } of ${
-            formatSize(batchSize)
-        } (${
-            numeral(batchLoaded/batchSize).format('%')
-        })`;
+    onClose() {
+        this.dispatch(closeModal());
     }
 }
 

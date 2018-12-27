@@ -110,7 +110,7 @@ ko.fromRx = function(stream$) {
 // Smart and fast assign of values to view model props.
 // Take into account observables, observable arrays, typed observables
 // and typed observable arrays.
-ko.assignToProps = (ko => {
+Object.assign(ko, (ko => {
     const updateFuncs = new WeakMap();
 
     const templates = deepFreeze({
@@ -231,11 +231,14 @@ ko.assignToProps = (ko => {
         return update;
     }
 
-    return function(vm, values) {
-        const update = _getUpdateFunc(vm);
-        update(vm, values, utils);
+    return {
+        getAssignToPropHelper: _getUpdateFunc,
+        assignToProps: function(vm, values) {
+            const update = _getUpdateFunc(vm);
+            update(vm, values, utils);
+        }
     };
-})(ko);
+})(ko));
 
 // -----------------------------------------
 // Knockout subscribable extnesions
@@ -540,13 +543,3 @@ ko.bindingHandlers[magicBindingName] = {
         magicBindings.delete(key);
     }
 };
-
-global.ko = ko;
-
-
-// Add lowercased copies of build-in bindings (to support the ko.<binding> attribute notation).
-// Object.entries(ko.bindingHandlers)
-//     .forEach(([name, binding]) => {
-//         const lcName = name.toLowerCase();
-//         if (lcName !== name) ko.bindingHandlers[lcName] = binding;
-//     });

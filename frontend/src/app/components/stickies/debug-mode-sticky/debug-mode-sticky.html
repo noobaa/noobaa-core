@@ -1,17 +1,19 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="sticky" ko.css.active="isActive"">
-    <div class="sticky-content row content-middle">
-        <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+<section class="sticky sticky-warning" ko.css.active="isActive"">
+    <p class="sticky-content row content-middle">
+        <svg-icon class="icon-small push-next-half"
+            params="name: 'problem'"
+        ></svg-icon>
 
         <span class="greedy">
             System is in debug mode and might exhibit temporary performance degradation
         </span>
 
-        <button class="link alt-colors"
+        <button class="sticky-action"
             ko.click="onTurnOffDebugMode"
         >
             Turn off debug mode
         </button>
-    </div>
+    </p>
 </section>

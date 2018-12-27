@@ -414,6 +414,7 @@ class ObjectIO {
                 const p = _.pick(part, PART_ATTRS);
                 p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
                 p.chunk.frags = _.map(part.chunk.frags, frag => _.pick(frag, FRAG_ATTRS));
+                p.chunk.tier = part.chunk.tier.unwrap();
                 return p;
             }),
             location_info: this.location_info

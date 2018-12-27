@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="column push-next">
-    <div class="row pad alt-bg content-middle">
+    <div class="row pad card-shadow content-middle">
         <h3 class="greedy heading3">Diagnostics</h3>
 
         <div class="push-next" ko.tooltip="actionsTooltip().text">
@@ -26,7 +26,7 @@
 
     <property-sheet class="pad" params="
         properties: debugDetails,
-        loading: !hostLoaded()
+        loading: !dataReady()
     ">
         <template name="debugMode">
             <p ko.visible="$data">
@@ -36,9 +36,9 @@
         </template>
     </property-sheet>
 </section>
-
-<section class="column push-prev">
-    <div class="row pad alt-bg content-middle">
+<hr class="push-prev">
+<section class="column">
+    <div class="row pad card-shadow content-middle">
         <h3 class="greedy heading3">Node's connectivity</h3>
 
         <div ko.tooltip="actionsTooltip">
@@ -51,7 +51,7 @@
         </div>
     </div>
 
-    <p class="pad" ko.css.disabled="!hostLoaded()">
+    <p class="pad" ko.css.disabled="!dataReady()">
         Testing a node allows you the verify peer to peer connectivity and bandwidth between this node and several of its peers
     </p>
 </section>

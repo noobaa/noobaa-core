@@ -1,48 +1,60 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<modal class="modal-small" params="
-    title: 'Edit Server Time Settings',
-    onClose: () => cancel()
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onValidate: onValidate,
+    onValidateAsync: onValidateAsync,
+    asyncTriggers: asyncTriggers,
+    onSubmit: onSubmit
 ">
-    <!-- ko if: isFormReady -->
-    <editor params="label: 'Config type'">
-        <radio-group params="
-            options: configTypes,
-            selected: selectedConfigType,
-            hasFocus: true
-        "></radio-group>
-    </editor>
+    <div class="column greedy hpad">
+        <editor params="label: 'Configuration type'">
+            <radio-group params="
+                options: configTypes,
+                selected: $form.configType,
+                hasFocus: true
+            "></radio-group>
+        </editor>
 
-    <timezone-chooser params="timezone: timezone"></timezone-chooser>
+        <timezone-chooser params="timezone: $form.timezone">
+        </timezone-chooser>
 
-    <div class="forms row push-next greedy">
-        <date-time-chooser params="time: time, timezone: timezone"
-            class="manual-form" ko.visible="usingManualTime">
-        </date-time-chooser>
+        <date-time-chooser
+            ko.visible="$form.configType.eq('MANUAL')"
+            params="
+                time: ko.pc(time, $form.time),
+                timezone: $form.timezone
+            "
+        ></date-time-chooser>
 
-        <editor class="ntp-form" params="label: 'NTP Server'" ko.visible="usingNTP">
-            <div class="row content-middle"
-                 data-bind="validationOptions: { insertMessages: false }"
-            >
-                <input type="text" placeholder="IP or DNS name" ko.value="ntpServer" />
-                <svg-icon class="spin push-prev-half"
-                    ko.visible="ntpServer.isValidating"
-                    params="name: 'in-progress'"></svg-icon>
+        <editor params="label: 'NTP Server'"
+            ko.visible="$form.configType.eq('NTP')"
+        >
+            <div class="row content-middle">
+                <input type="text"
+                    class="push-next-half"
+                    placeholder="IP or DNS name"
+                    ko.value="$form.ntpServer"
+                    ko.validationCss="$form.ntpServer"
+                />
+                <validation-indicator params="field: $form.ntpServer"></validation-indicator>
             </div>
-            <span class="val-msg" data-bind="validationMessage: ntpServer"></span>
+            <validation-message params="field: $form.ntpServer"></validation-message>
         </editor>
     </div>
-
-    <div class="row content-middle align-end push-prev">
-        <button class="link push-next alt-colors" ko.click="cancel">
-            Cancel
-        </button>
-        <button class="btn"
-            ko.click="save"
-            ko.shakeOnClick="!isValid()"
-        ">
-            save
-        </button>
+    <div class="column pad content-box">
+         <div class="row content-middle align-end">
+            <button class="link push-next alt-colors"
+                ko.click="onCancel"
+            >
+                Cancel
+            </button>
+            <button class="btn"
+                ko.shakeOnClick="!$form.isValid()"
+            ">
+                save
+            </button>
+        </div>
     </div>
-    <!-- /ko -->
-</modal>
+</managed-form>

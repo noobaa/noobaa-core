@@ -6,34 +6,37 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <p class="push-next">
-        Execute your function, replace the event below with an event that matches the function.
-    </p>
+    <div class="column greedy pad">
+        <p class="push-next">
+            Execute your function, replace the event below with an event that matches the function.
+        </p>
 
-    <h2 class="heading3 push-next-half">
-        Event
-    </h2>
+        <h2 class="heading3 push-next-half">
+            Event
+        </h2>
 
-    <textarea class="greedy align-stretch event-field"
-        ko.value="$form.event"
-        ko.validationCss="$form.event"
-        ko.hasFocus="true"
-    ></textarea>
-    <validation-message
-        class="push-next"
-        params="field: $form.event"
-    ></validation-message>
-
-    <div class="row align-end">
-        <button class="link alt-colors push-next"
-            ko.click="onCancel"
-        >
-            Cancel
-        </button>
-        <button class="btn"
-            ko.shakeOnClick="!$form.isValid()"
-        >
-            Set and Invoke
-        </button>
+        <textarea class="greedy align-stretch event-field"
+            ko.value="$form.event"
+            ko.validationCss="$form.event"
+            ko.hasFocus="true"
+        ></textarea>
+        <validation-message
+            class="push-next"
+            params="field: $form.event"
+        ></validation-message>
+    </div>
+    <div class="column pad content-box">
+        <div class="row content-middle align-end">
+            <button class="link alt-colors push-next"
+                ko.click="onCancel"
+            >
+                Cancel
+            </button>
+            <button class="btn"
+                ko.shakeOnClick="!$form.isValid()"
+            >
+                Set and Invoke
+            </button>
+        </div>
     </div>
 </managed-form>

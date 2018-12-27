@@ -7,12 +7,14 @@
     <div class="pages column greedy" ko.forEach="stepTemplate">
         <div class="page column greedy" ko.template="{
             nodes: [$data],
-            data: $parents[1],
+            data: $parents[1]
         }"></div>
     </div>
 
     <!-- ko if: renderControls -->
-    <wizard-controls class="align-end hpad">
-    </wizard-controls>
+    <div class="column content-box pad">
+        <wizard-controls class="align-end">
+        </wizard-controls>
+    </div>
     <!-- /ko -->
 </section>

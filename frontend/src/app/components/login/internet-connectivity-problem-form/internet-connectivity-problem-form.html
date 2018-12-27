@@ -1,0 +1,83 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko ifnot: serverInfoLoaded -->
+<p class="heading1 push-next text-center">
+    Checking connectivity...
+</p>
+<svg-icon class="loading-icon icon-big match-theme spin align-middle"
+    params="name: 'in-progress'"
+></svg-icon>
+<!-- /ko -->
+
+<!-- ko if: serverInfoLoaded -->
+<section class="row">
+    <div class="row pad left-box push-next">
+        <div class="column align-middle">
+            <svg-icon class="logo icon-xbig align-middle"
+                params="name: 'logo'"
+            ></svg-icon>
+            <h1 class="heading1">Welcome to NooBaa</h1>
+        </div>
+    </div>
+
+    <form class="right-box column"
+        ko.trapFocus="true"
+    >
+        <h1 class="heading1 push-next pad content-box">
+            We couldn't find an internet connection...
+        </h1>
+
+        <div class="hpad">
+            <h2 class="heading3">
+                Does the NooBaa server has internet connectivity?
+            </h2>
+            <radio-group params="
+                options: hasConnectivityOptions,
+                selected: useProxy,
+                hasFocus: true
+            "></radio-group>
+
+            <editor params="
+                label: 'Proxy Address',
+                disabled: !useProxy()
+            ">
+                <input type="text" data-bind="
+                    value: proxyAddress,
+                    disable: !useProxy()
+                " />
+            </editor>
+
+            <editor params="
+                label: 'Proxy Port',
+                disabled: !useProxy()
+            ">
+                <input type="number" data-bind="
+                    value: proxyPort,
+                    disable: !useProxy()
+                " />
+            </editor>
+        </div>
+
+        <p class="remark greedy pad" data-bind="visibility: faliureReason">
+            <span class="error">
+                Cannot connect to NooBaa's phonehome services.
+                <br>
+            </span>
+            <span data-bind="html: faliureReason"></span>
+            <button type="button" class="link" tabindex="-1"
+                data-bind="click: onMoreDetails">
+                More details
+            </button>
+        </p>
+
+        <div class="column content-box pad content-end">
+            <button type="button" class="btn" data-bind="
+                click: onCheckConnection
+            ">
+                Check Connection
+            </button>
+        </div>
+    </form>
+</section>
+<!-- /ko -->
+

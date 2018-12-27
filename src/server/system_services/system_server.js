@@ -572,8 +572,9 @@ function read_system(req) {
                         func_configs,
                         bucket_stats: stats_by_bucket[bucket.name]
                     });
-                    if (deletable_buckets[bucket.name]) {
-                        b.undeletable = deletable_buckets[bucket.name];
+                    const bucket_name = bucket.name.unwrap();
+                    if (deletable_buckets[bucket_name]) {
+                        b.undeletable = deletable_buckets[bucket_name];
                     }
                     return b;
                 }),

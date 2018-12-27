@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<p class="greedy">
+<p class="greedy pad">
     Sorry... for some reason, the NooBaa management console has crashed.
     If this error re-occurs, please contact our support team via
     <a class="link"
@@ -9,10 +9,11 @@
         {{emailInfo.text}}
     </a>
 </p>
-
-<button class="btn align-end"
-    ko.click="onReload"
-    ko.hasFocus="true"
->
-    Reload Management Console
-</button>
+<div class="column pad content-box">
+    <button class="btn align-end"
+        ko.click="onReload"
+        ko.hasFocus="true"
+    >
+        Reload Management Console
+    </button>
+</div>

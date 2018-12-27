@@ -16,26 +16,28 @@
         renderControls: false
     ">
         <section class="column greedy">
-            <editor params="label: 'Function Name'">
-                <input type="text"
-                    ko.value="$form.funcName"
-                    ko.hasFocus="true"
-                    ko.validationCss="$form.funcName"
-                />
-                <validation-message params="field: $form.funcName"></validation-message>
-            </editor>
-            <editor params="label: 'Description'">
-                <textarea class="desc-field"
-                    ko.value="$form.funcDesc"
-                    ko.validationCss="$form.funcDesc"
-                ></textarea>
-                <p class="hint" ko.visible="$form.funcDesc.isValid">Up to 256 characters</p>
-                <validation-message params="field: $form.funcDesc"></validation-message>
-            </editor>
-            <editor class="greedy" params="label: 'Runtime', tooltip: runtimeTooltip">
-                <input type="text" disabled ko.value="runtime" />
-            </editor>
-            <div class="row content-middle">
+            <div class="column greedy pad">
+                <editor params="label: 'Function Name'">
+                    <input type="text"
+                        ko.value="$form.funcName"
+                        ko.hasFocus="true"
+                        ko.validationCss="$form.funcName"
+                    />
+                    <validation-message params="field: $form.funcName"></validation-message>
+                </editor>
+                <editor params="label: 'Description'">
+                    <textarea class="desc-field"
+                        ko.value="$form.funcDesc"
+                        ko.validationCss="$form.funcDesc"
+                    ></textarea>
+                    <p class="hint" ko.visible="$form.funcDesc.isValid">Up to 256 characters</p>
+                    <validation-message params="field: $form.funcDesc"></validation-message>
+                </editor>
+                <editor class="greedy" params="label: 'Runtime', tooltip: runtimeTooltip">
+                    <input type="text" disabled ko.value="runtime" />
+                </editor>
+            </div>
+            <div class="row content-middle pad content-box">
                 <p class="remark greedy push-next">
                     <svg-icon class="icon-small valign-bottom"
                         params="name: 'notif-info'"
@@ -48,160 +50,167 @@
                         Serverless Functions
                     </a>
                 </p>
-                <wizard-controls></wizard-controls>
+                <wizard-controls class="align-end"></wizard-controls>
             </div>
         </section>
 
         <section class="column greedy">
-            <radio-group params="
-                options: codeFormatOptions,
-                selected: $form.codeFormat,
-                hasFocus: true
-            "></radio-group>
-
-            <textarea class="greedy align-stretch alt-bg code-field"
-                placeholder="Type your code here"
-                ko.visible="$form.codeFormat.eq('TEXT')"
-                ko.value="$form.inlineCode"
-                ko.hasFocus="true"
-                ko.validationCss="$form.inlineCode"
-            ></textarea>
-            <validation-message params="field: $form.inlineCode"></validation-message>
-
-            <div class="column greedy push-next"
-                ko.visible="$form.codeFormat.eq('PACKAGE')"
-            >
-                <drop-area class="greedy"
-                    ko.validationCss="$form.codePackage"
-                    params="onDrop: onDropPackage "
-                >
-                    <!-- ko ifnot: $form.codePackage -->
-                    <p class="push-next-half">
-                        Drag a zip file here or
-                    </p>
-                    <label class="btn alt-colors">
-                        Browse
-                        <input type="file"
-                            class="hide"
-                            ko.attr.accept="'.zip'",
-                            ko.event.change="onSelectPackage"
-                        />
-                    </label>
-                    <!-- /ko -->
-
-                    <!-- ko if: $form.codePackage -->
-                   <p class="row content-middle push-next-half">
-                        <!-- ko if: $form.codePackage.isInvalid -->
-                        <svg-icon class="icon-small error push-next-half" params="
-                            name: 'problem'
-                        "></svg-icon>
-                        {{$form.codePackage().name}} upload failed
-                        <!-- /ko -->
-
-                        <!-- ko if: $form.codePackage.isValid -->
-                        <svg-icon class="icon-small success push-next-half" params="
-                            name: 'healthy'
-                        "></svg-icon>
-                        {{$form.codePackage().name}} uploaded
-                        <!-- /ko -->
-                    </p>
-                    <label class="link alt-colors">
-                        Change File
-                        <input type="file"
-                            class="hide"
-                            ko.attr.accept="'.zip'",
-                            ko.event.change="onSelectPackage"
-                        />
-                    </label>
-                    <!-- /ko -->
-                </drop-area>
-                <p class="remark" ko.visible="!$form.codePackage.isInvalidTouched()">
-                    Maximum upload size: {{formattedPkgSizeLimit}}
-                </p>
-                <validation-message params="field: $form.codePackage"></validation-message>
-            </div>
-
-            <editor params="label: 'Execution File', tooltip: handlerFileTooltip"
-                ko.visible="$form.codeFormat.eq('PACKAGE')"
-            >
-                <div class="row content-middle">
-                    <dropdown class="push-next-half"
-                        ko.validationCss="$form.handlerFile"
-                        params="
-                            placeholder: 'Choose file...',
-                            filter: true,
-                            filterPlaceholder: handlerFileFilterPlaceholder,
-                            options: handlerFileOptions,
-                            selected: $form.handlerFile,
-                            disabled: isHandlerSelectionDisabled
-                        "
-                    ></dropdown>
-                    <button class="icon-btn"
-                        ko.disable="isShowFileContentBtnDisabled"
-                        ko.click="onShowFileContent"
-                        ko.tooltip="'Open file content in new tab'"
-                    >
-                        <svg-icon class="icon-small" params="name: 'expand'"></svg-icon>
-                    </button>
-                </div>
-                <validation-message params="field: $form.handlerFile"></validation-message>
-            </editor>
-
-            <editor params="label: 'Execution Function', tooltip: handlerFuncTooltip">
-                <input type="text"
-                    placeholder="Function name"
-                    ko.value="$form.handlerFunc"
-                    ko.validationCss="$form.handlerFunc"
-                    ko.disable="isHandlerSelectionDisabled"
-                />
-                <validation-message params="field: $form.handlerFunc"></validation-message>
-            </editor>
-
-            <div class="row content-middle">
-                <p class="remark greedy push-next">
-                    <svg-icon class="icon-small valign-bottom"
-                        params="name: 'notif-info'"
-                    ></svg-icon>
-                    Learn more about
-                    <a class="link"
-                        target="_blank"
-                        ko.attr.href="learnMoreHref"
-                    >
-                        Serverless Functions
-                    </a>
-                </p>
-                <wizard-controls></wizard-controls>
-            </div>
-        </section>
-
-        <section class="column greedy">
-            <editor params="label: 'Memory Size'">
-                <dropdown params="
-                    options: memorySizeOptions,
-                    selected: $form.memorySize,
+            <div class="column greedy pad">
+                <radio-group params="
+                    options: codeFormatOptions,
+                    selected: $form.codeFormat,
                     hasFocus: true
-                "></dropdown>
-            </editor>
-            <editor class="greedy" params="label: 'Timeout'">
-                <div class="row">
-                    <input type="number"
-                        min="0"
-                        class="push-next-half"
-                        ko.value="$form.timeoutMinutes"
-                        ko.validationCss="$form.timeoutMinutes"
-                    />
-                    <span class="push-next">Min</span>
-                    <input type="number"
-                        min="0"
-                        class="push-next-half"
-                        ko.value="$form.timeoutSeconds"
-                        ko.validationCss="$form.timeoutSeconds"
-                    />
-                    <span>Sec</span>
+                "></radio-group>
+
+                <textarea class="greedy align-stretch content-box code-field"
+                    placeholder="Type your code here"
+                    ko.visible="$form.codeFormat.eq('TEXT')"
+                    ko.value="$form.inlineCode"
+                    ko.hasFocus="true"
+                    ko.validationCss="$form.inlineCode"
+                ></textarea>
+                <validation-message params="field: $form.inlineCode"></validation-message>
+
+                <div class="column greedy push-next"
+                    ko.visible="$form.codeFormat.eq('PACKAGE')"
+                >
+                    <drop-area class="greedy"
+                        ko.validationCss="$form.codePackage"
+                        params="onDrop: onDropPackage "
+                    >
+                        <!-- ko ifnot: $form.codePackage -->
+                        <p class="push-next-half">
+                            Drag a zip file here or
+                        </p>
+                        <label class="btn alt-colors"
+                            tabindex="0"
+                            ko.keysToClicks="['space', 'enter']"
+                        >
+                            Browse
+                            <input type="file"
+                                tabindex="-1"
+                                class="hide"
+                                ko.attr.accept="'.zip'",
+                                ko.event.change="onSelectPackage"
+                            />
+                        </label>
+                        <!-- /ko -->
+
+                        <!-- ko if: $form.codePackage -->
+                       <p class="row content-middle push-next-half">
+                            <!-- ko if: $form.codePackage.isInvalid -->
+                            <svg-icon class="icon-small error push-next-half" params="
+                                name: 'problem'
+                            "></svg-icon>
+                            {{$form.codePackage().name}} upload failed
+                            <!-- /ko -->
+
+                            <!-- ko if: $form.codePackage.isValid -->
+                            <svg-icon class="icon-small success push-next-half" params="
+                                name: 'healthy'
+                            "></svg-icon>
+                            {{$form.codePackage().name}} uploaded
+                            <!-- /ko -->
+                        </p>
+                        <label class="link alt-colors">
+                            Change File
+                            <input type="file"
+                                class="hide"
+                                ko.attr.accept="'.zip'",
+                                ko.event.change="onSelectPackage"
+                            />
+                        </label>
+                        <!-- /ko -->
+                    </drop-area>
+                    <p class="remark" ko.visible="!$form.codePackage.isInvalidTouched()">
+                        Maximum upload size: {{formattedPkgSizeLimit}}
+                    </p>
+                    <validation-message params="field: $form.codePackage"></validation-message>
                 </div>
-                <span class="val-msg">{{timeoutError}}</span>
-            </editor>
-            <div class="row content-middle">
+
+                <editor params="label: 'Execution File', tooltip: handlerFileTooltip"
+                    ko.visible="$form.codeFormat.eq('PACKAGE')"
+                >
+                    <div class="row content-middle">
+                        <dropdown class="push-next-half"
+                            ko.validationCss="$form.handlerFile"
+                            params="
+                                placeholder: 'Choose file...',
+                                filter: true,
+                                filterPlaceholder: handlerFileFilterPlaceholder,
+                                options: handlerFileOptions,
+                                selected: $form.handlerFile,
+                                disabled: isHandlerSelectionDisabled
+                            "
+                        ></dropdown>
+                        <button class="icon-btn"
+                            ko.disable="isShowFileContentBtnDisabled"
+                            ko.click="onShowFileContent"
+                            ko.tooltip="'Open file content in new tab'"
+                        >
+                            <svg-icon class="icon-small" params="name: 'expand'"></svg-icon>
+                        </button>
+                    </div>
+                    <validation-message params="field: $form.handlerFile"></validation-message>
+                </editor>
+
+                <editor params="label: 'Execution Function', tooltip: handlerFuncTooltip">
+                    <input type="text"
+                        placeholder="Function name"
+                        ko.value="$form.handlerFunc"
+                        ko.validationCss="$form.handlerFunc"
+                        ko.disable="isHandlerSelectionDisabled"
+                    />
+                    <validation-message params="field: $form.handlerFunc"></validation-message>
+                </editor>
+            </div>
+            <div class="row content-middle pad content-box">
+                <p class="remark greedy push-next">
+                    <svg-icon class="icon-small valign-bottom"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    Learn more about
+                    <a class="link"
+                        target="_blank"
+                        ko.attr.href="learnMoreHref"
+                    >
+                        Serverless Functions
+                    </a>
+                </p>
+                <wizard-controls></wizard-controls>
+            </div>
+        </section>
+
+        <section class="column greedy">
+            <div class="column greedy pad">
+                <editor params="label: 'Memory Size'">
+                    <dropdown params="
+                        options: memorySizeOptions,
+                        selected: $form.memorySize,
+                        hasFocus: true
+                    "></dropdown>
+                </editor>
+                <editor class="greedy" params="label: 'Timeout'">
+                    <div class="row">
+                        <input type="number"
+                            min="0"
+                            class="push-next-half"
+                            ko.value="$form.timeoutMinutes"
+                            ko.validationCss="$form.timeoutMinutes"
+                        />
+                        <span class="push-next">Min</span>
+                        <input type="number"
+                            min="0"
+                            class="push-next-half"
+                            ko.value="$form.timeoutSeconds"
+                            ko.validationCss="$form.timeoutSeconds"
+                        />
+                        <span>Sec</span>
+                    </div>
+                    <span class="val-msg">{{timeoutError}}</span>
+                </editor>
+            </div>
+            <div class="row content-middle pad content-box">
                 <p class="remark greedy push-next">
                     <svg-icon class="icon-small valign-bottom"
                         params="name: 'notif-info'"

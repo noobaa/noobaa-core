@@ -1,11 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="column alt-bg pad">
+<div class="column card-shadow pad">
     <div class="row content-middle push-next">
         <input type="search"
            class="push-next"
            placeholder="Filter by name or region"
-           ko.textInput="ko.pc(filter, onFilterThrottled)" />
+           ko.textInput="ko.pc(filter, onFilter)" />
         <div class="greedy push-next row content-middle">
             <dropdown params="
                 options: resourceTypeOptions,

@@ -1,18 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './host-storage-form.html';
-import Observer from 'observer';
-import StorageNodeRowViewModel from './storage-node-row';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { openEditHostStorageDrivesModal } from 'action-creators';
 import { paginationPageSize } from 'config';
 import ko from 'knockout';
+import numeral from 'numeral';
 import { deepFreeze, createCompareFunc } from 'utils/core-utils';
-import { getStorageServiceStateIcon } from 'utils/host-utils';
 import { toBytes } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { requestLocation } from 'action-creators';
-import { getMany } from 'rx-extensions';
+import {
+    getStorageServiceStateIcon,
+    getActivityName,
+    getActivityStageName,
+    getStorageNodeStateIcon,
+    getNodeOrHostCapacityBarValues
+} from 'utils/host-utils';
 
 const operationsDisabledTooltip = deepFreeze({
     align: 'end',
@@ -55,13 +59,55 @@ const columns = deepFreeze([
     }
 ]);
 
-class HostStorageFormViewModel extends Observer {
+function _getActivityString(activity) {
+    if (!activity) return 'No activity';
+
+    const { kind, progress, stage } = activity;
+    const name = getActivityName(kind);
+    const percentage = numeral(progress).format('%');
+    const stageName = getActivityStageName(stage);
+    return `${name} (${percentage}) | ${stageName}`;
+}
+
+function _formatLatencyValue(latency) {
+    const format = true &&
+        (latency > 99 && '0,0') ||
+        (latency > 9 && '0.0') ||
+        '0.00';
+
+    return numeral(latency).format(format);
+}
+
+function _mapNodeToRow(node) {
+    const { mode, mount, readLatency, writeLatency, activity } = node;
+    return {
+        state: getStorageNodeStateIcon(node),
+        mount,
+        readLatency: `${_formatLatencyValue(readLatency)} ms`,
+        writeLatency: `${_formatLatencyValue(writeLatency)} ms`,
+        dataActivity: _getActivityString(activity),
+        capacity: getNodeOrHostCapacityBarValues(node),
+        isDisabled: mode === 'DECOMMISSIONED'
+    };
+}
+
+class StorageNodeRowViewModel {
+    state = ko.observable();
+    mount = ko.observable();
+    readLatency = ko.observable();
+    writeLatency = ko.observable();
+    capacity = ko.observable();
+    dataActivity = ko.observable();
+    isDisabled = ko.observable();
+}
+
+class HostStorageFormViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
     hostName = '';
     columns = columns;
     pageSize = paginationPageSize;
     pathname = '';
     itemCount = ko.observable();
-    hostLoaded = ko.observable();
     driveCount = ko.observable();
     page = ko.observable();
     sorting = ko.observable();
@@ -69,60 +115,56 @@ class HostStorageFormViewModel extends Observer {
     os = ko.observable();
     isEditDrivesDisabled = ko.observable();
     editDrivesTooltip = ko.observable();
-    rows = ko.observableArray();
+    rows = ko.observableArray()
+        .ofType(StorageNodeRowViewModel);
 
-    constructor({ name }) {
-        super();
-
-        this.hostName = ko.unwrap(name);
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['hosts', 'items', this.hostName],
-                    'location'
-                )
-            ),
-            this.onHost
-        );
+    selectState(state, params) {
+        const { hosts, location } = state;
+        return [
+            params.name,
+            hosts && hosts.items[params.name],
+            location
+        ];
     }
 
-    onHost([host, location]) {
+    mapStateToProps(hostName, host, location) {
         if (!host) {
-            this.isEditDrivesDisabled(true);
-            return;
-        }
-
-        const { nodes } = host.services.storage;
-        const enabledNodesCount = nodes.filter(node => node.mode !== 'DECOMMISSIONED').length;
-        const isHostBeingDeleted = host.mode === 'DELETING';
-        const editDrivesTooltip = isHostBeingDeleted ? operationsDisabledTooltip : '';
-        const page = Number(location.query.page) || 0;
-        const order = Number(location.query.order) || 1;
-        const sortBy = location.query.sortBy || 'state';
-        const pageStart = page * this.pageSize;
-        const { compareKey } = this.columns.find(column => column.name === sortBy);
-
-        const rows =  Array.from(nodes)
-            .sort(createCompareFunc(compareKey, order))
-            .slice(pageStart, pageStart + this.pageSize)
-            .map((node, i) => {
-                const row = this.rows.get(i) || new StorageNodeRowViewModel();
-                row.onNode(node);
-                return row;
+            ko.assignToProps(this, {
+                hostName,
+                dataReady: false,
+                isEditDrivesDisabled: true
             });
 
-        this.pathname = location.pathname;
-        this.page(page);
-        this.sorting({ sortBy, order });
-        this.mode(getStorageServiceStateIcon(host));
-        this.driveCount(`${enabledNodesCount} of ${nodes.length}`);
-        this.itemCount(nodes.length);
-        this.os(host.os);
-        this.isEditDrivesDisabled(isHostBeingDeleted);
-        this.editDrivesTooltip(editDrivesTooltip);
-        this.rows(rows);
-        this.hostLoaded(true);
+        } else {
+            const { nodes } = host.services.storage;
+            const enabledNodesCount = nodes.filter(node => node.mode !== 'DECOMMISSIONED').length;
+            const isHostBeingDeleted = host.mode === 'DELETING';
+            const editDrivesTooltip = isHostBeingDeleted ? operationsDisabledTooltip : '';
+            const { pathname, query } = location;
+            const page = Number(query.page) || 0;
+            const order = Number(query.order) || 1;
+            const sortBy = query.sortBy || 'state';
+            const pageStart = page * this.pageSize;
+            const { compareKey } = this.columns.find(column => column.name === sortBy);
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                hostName,
+                pathname,
+                page,
+                sorting: { sortBy, order },
+                mode: getStorageServiceStateIcon(host),
+                driveCount: `${enabledNodesCount} of ${nodes.length}`,
+                itemCount: nodes.length,
+                os: host.os,
+                isEditDrivesDisabled: isHostBeingDeleted,
+                editDrivesTooltip,
+                rows: Array.from(nodes)
+                    .sort(createCompareFunc(compareKey, order))
+                    .slice(pageStart, pageStart + this.pageSize)
+                    .map(_mapNodeToRow)
+            });
+        }
     }
 
     onSort(sorting) {
@@ -151,13 +193,13 @@ class HostStorageFormViewModel extends Observer {
             page: page || undefined
         };
 
-        action$.next(requestLocation(
+        this.dispatch(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }
 
     onEditDrives() {
-        action$.next(openEditHostStorageDrivesModal(this.hostName));
+        this.dispatch(openEditHostStorageDrivesModal(this.hostName));
     }
 }
 

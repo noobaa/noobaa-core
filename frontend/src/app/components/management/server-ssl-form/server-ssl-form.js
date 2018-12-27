@@ -25,10 +25,6 @@ class SSLFormViewModel extends BaseViewModel {
             () => uploadStatus() && uploadStatus().state === 'IN_PROGRESS'
         );
 
-        this.uploadIcon = ko.pureComputed(
-            () => this.uploading() ? 'in-progress' : ''
-        );
-
         this.uploadText = ko.pureComputed(
             () => this.uploading && `Uploading cartificate ${
                 numeral(uploadStatus().progress).format('0%')

@@ -89,6 +89,16 @@ module.exports = {
                     },
                 }
             }
+        },
+
+        preferences: {
+            type: 'object',
+            properties: {
+                ui_theme: {
+                    type: 'string',
+                    enum: ['DARK', 'LIGHT']
+                }
+            }
         }
     }
 };

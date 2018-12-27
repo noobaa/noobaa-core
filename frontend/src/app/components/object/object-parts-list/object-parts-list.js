@@ -17,7 +17,6 @@ import ko from 'knockout';
 import * as routes from 'routes';
 import {
     deepFreeze,
-    isUndefined,
     mapValues,
     groupBy,
     countBy,
@@ -177,10 +176,9 @@ function _formatBlockTypeCounters(counters, seperator = ', ') {
     return parts.join(seperator);
 }
 
-function _mapPartToRow(part, index, selectIndex) {
-    const seq = numeral(part.seq + 1).format(',');
+function _mapPartToRow(part) {
+    const formattedSeq = numeral(part.seq + 1).format(',');
     const size = formatSize(part.size);
-
     const distribution = _formatBlockTypeCounters(
         countBy(part.blocks, block =>
             block.mode.startsWith('WAITING') ? 'IN_PROCESS' : block.kind
@@ -188,10 +186,9 @@ function _mapPartToRow(part, index, selectIndex) {
     );
 
     return {
-        index: index,
-        isSelected: index === selectIndex,
+        seq: String(part.seq),
         state: partModeToState[part.mode],
-        summary: `Part ${seq} | ${size} | ${distribution}`
+        summary: `Part ${formattedSeq} | ${size} | ${distribution}`
     };
 }
 
@@ -375,7 +372,6 @@ function _mapBlockToRow(block, system) {
 
 function _mapBlocksToTables(blocks, placement, cloudTypeMapping, system) {
     const groups = groupBy(blocks, _getBlockGroupId);
-
     return Object.entries(groups)
         .sort(_compareGroupIds)
         .map(([groupId, blocks], i) => {
@@ -418,20 +414,9 @@ function _mapPartDetails(part, placement, cloudTypeMapping, system) {
 }
 
 class PartRowViewModel {
-    list = null;
-    index = -1;
-    css = ko.observable();
+    seq = '';
     state = ko.observable();
     summary = ko.observable();
-    isSelected = ko.observable();
-
-    constructor({ list }) {
-        this.list = list;
-    }
-
-    onMoreDetails() {
-        this.list.onSelectRow(this.index);
-    }
 }
 
 class BlockRowViewModel {
@@ -478,7 +463,7 @@ class PartDetailsViewModel {
 class ObjectPartsListViewModel extends ConnectableViewModel {
     pageSize = paginationPageSize;
     pathname = '';
-    selectedRow = -1;
+    selectedPart = ko.observable();
     dataReady = ko.observable();
     page = ko.observable();
     s3SignedUrl = ko.observable();
@@ -494,7 +479,7 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
     partDetails = ko.observable()
         .ofType(PartDetailsViewModel, { list: this });
     rows = ko.observableArray()
-        .ofType(PartRowViewModel, { list: this });
+        .ofType(PartRowViewModel);
 
     selectState(state, params) {
         const { bucket: bucketName } = splitObjectId(params.objectId);
@@ -534,8 +519,7 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
         } else {
             const { params, query, protocol, pathname } = location;
             const httpsNoCert = protocol === 'https' && !sslCert;
-            const selectedRow = isUndefined(query.row) ? -1 : Number(query.row);
-            const selectedPart = selectedRow > -1 ? parts[selectedRow] : null;
+            const selectedPart = query.part || '';
             const cloudTypeMapping = mapValues(cloudResources, res => res.type);
             const resourceCount = bucket.placement.tiers.reduce(
                 (count, tier) => count + (tier.mirrorSets || []).reduce(
@@ -554,11 +538,10 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
                 previewTooltip: _getActionsTooltip(user.isOwner, httpsNoCert, 'preview', 'end'),
                 page: Number(query.page || 0),
                 areActionsAllowed: user.isOwner && !httpsNoCert,
-                selectedRow: selectedRow,
-                rows: parts.map((part, i) => _mapPartToRow(part, i, selectedRow)),
-                isPaneExpanded: Boolean(selectedPart),
+                rows: parts.map(_mapPartToRow),
+                selectedPart: selectedPart,
                 partDetails: _mapPartDetails(
-                    selectedPart,
+                    parts.find(part => selectedPart === String(part.seq)),
                     bucket.placement,
                     cloudTypeMapping,
                     params.system
@@ -577,24 +560,28 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
         return this.areActionsAllowed();
     }
 
-    onSelectRow(row) {
-        if (row === this.selectedRow) {
-            return;
-        }
-
-        this._query({ page: this.page(), row });
+    onSelectPart(part) {
+        this._query({ part });
     }
 
     onPage(page) {
-        this._query({ page });
+        this._query({ page, part: '' });
     }
 
     onCloseDetails() {
-        this._query({ page: this.page() });
+        this._query({ part: '' });
     }
 
     _query(query) {
-        const url = realizeUri(this.pathname, null, query);
+        const {
+            part = this.selectedPart(),
+            page = this.page()
+        } = query;
+
+        const url = realizeUri(this.pathname, null, {
+            part: part !== '' ? part : undefined,
+            page: page
+        });
         this.dispatch(requestLocation(url));
     }
 }

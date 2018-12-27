@@ -1,34 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './resources-panel.html';
-import Observer  from 'observer';
-import { state$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import  { realizeUri } from 'utils/browser-utils';
-import { get } from 'rx-extensions';
 
-class ResourcesPanelViewModel extends Observer  {
-    constructor() {
-        super();
+class ResourcesPanelViewModel extends ConnectableViewModel  {
+    baseRoute = ko.observable();
+    selectedTab = ko.observable();
 
-        this.selectedTab = ko.observable();
-        this.baseRoute = '';
-
-        this.observe(
-            state$.pipe(get('location')),
-            this.onLocation
-        );
+    selectState(state) {
+        return [
+            state.location
+        ];
     }
 
-    onLocation({ route, params }) {
-        const { system, tab = 'pools' } = params;
+    mapStateToProps(location) {
+        const { system, tab = 'pools' } = location.params;
 
-        this.baseRoute = realizeUri(route, { system }, {}, true);
-        this.selectedTab(tab);
+        ko.assignToProps(this, {
+            baseRoute: realizeUri(location.route, { system }, {}, true),
+            selectedTab: tab
+        });
     }
 
     tabHref(tab) {
-        return realizeUri(this.baseRoute, { tab });
+        const route = this.baseRoute();
+        return route ? realizeUri(route, { tab }) : '';
     }
 }
 

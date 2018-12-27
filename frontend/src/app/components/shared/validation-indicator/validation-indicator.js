@@ -18,6 +18,7 @@ class ValidationIndicatorViewModel {
         this.css = ko.pureComputed(
             () => ({
                 success: isValid(),
+                'match-theme': isValidating,
                 spin: isValidating
             })
         );

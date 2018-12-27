@@ -10,18 +10,18 @@
                 <span>
                     Master server DNS settings
                 </span>
-                <vr class="vr-light push-both"></vr>
+                <vr class="push-both"></vr>
                 <span>
                     Primary DNS:
-                    <span ko.css="{ 'text-tech': masterPrimaryDNS }"
-                        ko.text="masterPrimaryDNS"
+                    <span ko.css="masterPrimaryDNS.css"
+                        ko.text="masterPrimaryDNS.text"
                     ></span>
                 </span>
-                <vr class="vr-light push-both"></vr>
+                <vr class="push-both"></vr>
                 <span>
                     Secondary DNS:
-                    <span ko.css="{ 'text-tech': masterSecondaryDNS }"
-                        ko.text="masterSecondaryDNS"
+                    <span ko.css="masterSecondaryDNS.css"
+                        ko.text="masterSecondaryDNS.text"
                     ></span>
                 </span>
             </p>
@@ -35,7 +35,7 @@
         ></svg-icon>
     </div>
     <div ko.expand="isExpanded" class="column greedy">
-        <data-table class="servers-table push-next alt-bg push-prev" params="
+        <data-table class="servers-table push-next content-box push-prev" params="
             columns: columns,
             data: rows
         "></data-table>

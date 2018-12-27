@@ -4,34 +4,37 @@
     name: formName,
     fields: fields
 ">
-    <h2 class="heading3">
-        Choose an account to connect with
-    </h2>
+    <div class="column greedy pad">
+        <h2 class="heading3">
+            Choose an account to connect with
+        </h2>
 
-    <dropdown class="push-next" params="
-        filter: true,
-        actions: accountActions,
-        options: accountOptions,
-        selected: $form.selectedAccount,
-        placeholder: 'Select account',
-        hasFocus: true
-    "></dropdown>
+        <dropdown params="
+            filter: true,
+            actions: accountActions,
+            options: accountOptions,
+            selected: $form.selectedAccount,
+            placeholder: 'Select account',
+            hasFocus: true
+        "></dropdown>
 
-    <h2 class="heading3 push-prev">
-        Use the following infromation to config your application
-    </h2>
+        <h2 class="heading3 push-prev">
+            Use the following infromation to config your application
+        </h2>
 
-    <div class="alt-bg pad greedy push-next">
-        <property-sheet class="greedy" params="properties: details">
-        </property-sheet>
+        <div class="content-box pad greedy push-next">
+            <property-sheet class="greedy" params="properties: details">
+            </property-sheet>
+        </div>
     </div>
-
-    <div class="row align-end content-middle">
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
-            Cancel
-        </button>
-        <button class="btn" ko.click="onSubmit">
-            Done
-        </button>
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+                Cancel
+            </button>
+            <button class="btn" ko.click="onSubmit">
+                Done
+            </button>
+        </div>
     </div>
 </managed-form>

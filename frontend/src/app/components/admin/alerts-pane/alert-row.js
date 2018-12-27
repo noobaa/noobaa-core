@@ -33,7 +33,7 @@ export default class AlertRowViewModel {
         this.text(alert);
         this.time(moment(time).format(timeShortFormat));
         this.read(read);
-        this.css(`${read ? 'read' : 'unread'} ${severity.toLowerCase()} alert-${severity.toLowerCase()}`);
+        this.css(`${read ? 'read' : 'unread'} alert-${severity.toLowerCase()}`);
         this.icon(severityIconMapping[severity]);
 
         // Ensure that the visual updating indicator is visible for at least

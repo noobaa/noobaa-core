@@ -1,48 +1,44 @@
 /* Copyright (C) 2017 NooBaa */
 
 import template from './change-cluster-connectivity-ip-modal.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import { isIP } from 'utils/net-utils';
-import { get } from 'rx-extensions';
 import ko from 'knockout';
 import { updateServerAddress, closeModal } from 'action-creators';
-import { action$, state$ } from 'state';
 import { api } from 'services';
 
-class ChangeClusterConnectivityIpModalViewModel extends Observer {
+class ChangeClusterConnectivityIpModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
-    fields = { newAddress: '' };
+    fields = ko.observable();
     asyncTriggers = [ 'newAddress' ];
     secret = '';
     hostname = '';
     oldAddress = ko.observable();
-    isServerLoaded = ko.observable();
 
-    constructor({ secret }) {
-        super();
-
-        this.secret = ko.unwrap(secret);
-
-        this.observe(
-            state$.pipe(get('topology', 'servers', this.secret)),
-            this.onState
-        );
+    selectState(state, params) {
+        const { topology, forms } = state;
+        return [
+            topology && state.topology.servers[params.secret],
+            forms[this.formName]
+        ];
     }
 
-    onState(server) {
-        if (!server) {
-            this.isServerLoaded(false);
-            return;
+    mapStateToProps(server, form) {
+        if (server) {
+            const { secret, hostname, addresses } = server;
+
+            ko.assignToProps(this, {
+                secret,
+                hostname,
+                oldAddress: addresses.length > 0 ? addresses[0].ip : '',
+                fields: !form ? { newAddress: '' } : undefined
+            });
         }
-        const address = server.addresses[0].ip;
-
-        this.hostname = server.hostname;
-        this.oldAddress(address);
-        this.isServerLoaded(true);
     }
 
-    onValidate({ newAddress }) {
+    onValidate(values) {
         const errors = {};
+        const { newAddress } = values;
 
         if (!isIP(newAddress)) {
             errors.newAddress = 'Please enter a valid IP';
@@ -74,18 +70,18 @@ class ChangeClusterConnectivityIpModalViewModel extends Observer {
     }
 
     onSubmit(values) {
-        action$.next(
+        this.dispatch(
+            closeModal(),
             updateServerAddress(
                 this.secret,
                 values.newAddress,
                 this.hostname
             )
         );
-        action$.next(closeModal());
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

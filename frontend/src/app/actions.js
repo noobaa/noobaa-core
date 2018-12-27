@@ -13,8 +13,7 @@ import { action$ } from 'state';
 import {
     fetchSystemInfo,
     showNotification,
-    requestLocation,
-    refreshLocation
+    requestLocation
 } from 'action-creators';
 
 // Use preconfigured hostname or the addrcess of the serving computer.
@@ -421,56 +420,6 @@ export function setServerDebugLevel(secret, hostname, level){
         .done();
 }
 
-export function updateServerDetails(serverSecret, hostname, location) {
-    logAction('updateServerDetails', { serverSecret, hostname, location });
-
-    const name = `${hostname}-${serverSecret}`;
-    api.cluster_server.update_server_conf({
-        target_secret: serverSecret,
-        hostname: hostname,
-        location: location
-    })
-        .then(
-            notify(`${name} details updated successfully`, 'success'),
-            err => {
-                notify(`Updating ${name} details failed`, 'error');
-                throw err;
-            }
-        )
-        .then(() => action$.next(fetchSystemInfo()))
-        .then(
-            () => {
-                const { servers } = model.systemInfo().cluster.shards[0];
-                const server = servers.find(
-                    ({ secret }) => secret === serverSecret
-                );
-
-                if (server.hostname !== hostname) {
-                    redirectTo(routes.server, { server: name });
-                }
-            }
-        )
-        .done();
-}
-
-export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS, searchDomains) {
-    logAction('updateServerDNSSettings', { serverSecret, primaryDNS, secondaryDNS , searchDomains});
-
-    api.cluster_server.update_dns_servers({
-        target_secret: serverSecret,
-        dns_servers: [primaryDNS, secondaryDNS].filter(Boolean),
-        search_domains: searchDomains
-    })
-        .then(() => {
-            notify('DNS server settings updated successfully', 'success');
-            action$.next(refreshLocation());
-        })
-        .catch(() => {
-            notify('Updating server DNS setting failed, Please try again later', 'error');
-        })
-        .done();
-}
-
 export function loadServerTime(serverSecret) {
     logAction('loadServerTime', { serverSecret });
 
@@ -480,54 +429,6 @@ export function loadServerTime(serverSecret) {
                 server: serverSecret,
                 time: time
             })
-        )
-        .done();
-}
-
-export function updateServerClock(serverSecret, hostname, timezone, epoch) {
-    logAction('updateServerClock', { serverSecret, hostname, timezone, epoch });
-
-    const name = `${hostname}-${serverSecret}`;
-    api.cluster_server.update_time_config({
-        target_secret: serverSecret,
-        timezone: timezone,
-        epoch: epoch
-    })
-        .then(
-            () => notify(`${name} time settings updated successfully`, 'success'),
-            () => notify(`Updating ${name} time settings failed`, 'error')
-        )
-        .then(() => action$.next(fetchSystemInfo()))
-        .done();
-}
-export function updateServerNTPSettings(serverSecret, hostname, timezone, ntpServerAddress) {
-    logAction('updateServerNTP', { serverSecret, hostname, timezone, ntpServerAddress });
-
-    const name = `${hostname}-${serverSecret}`;
-    api.cluster_server.update_time_config({
-        target_secret: serverSecret,
-        timezone: timezone,
-        ntp_server: ntpServerAddress
-    })
-        .then(
-            () => notify(`${name} time settings updated successfully`, 'success'),
-            () => notify(`Updating ${name} time settings failed`, 'error')
-        )
-        .then(() => action$.next(fetchSystemInfo()))
-        .done();
-}
-
-export function attemptResolveNTPServer(ntpServerAddress, serverSecret) {
-    logAction('attemptResolveNTPServer', { ntpServerAddress });
-
-    api.system.attempt_server_resolve({
-        server_name: ntpServerAddress
-    })
-        .then(
-            reply => sleep(500, reply)
-        )
-        .then(
-            ({ valid, reason }) => model.ntpResolutionState({ name, valid, reason, serverSecret })
         )
         .done();
 }

@@ -384,7 +384,7 @@ export function validatePlacementPolicy(policy, errors = {}) {
         );
 
         if (others.some(type => type !== first)) {
-            errors.selectedResources = 'Configuring nodes pools combined with cloud resource as spread is not allowed';
+            errors.selectedResources = 'Configuring pools combined with cloud resource as spread is not allowed';
         }
     }
 

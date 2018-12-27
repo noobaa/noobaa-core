@@ -20,7 +20,8 @@ export default {
                 'serverAttachment',
                 'p2pSettingsChange',
                 'serverDetailsChange',
-                'clusterConnectivityIpChange'
+                'clusterConnectivityIpChange',
+                'toggleEndpointAgent'
             ],
             properties: {
                 vmToolsInstallation: {
@@ -45,6 +46,9 @@ export default {
                     type: 'boolean'
                 },
                 clusterConnectivityIpChange: {
+                    type: 'boolean'
+                },
+                toggleEndpointAgent: {
                     type: 'boolean'
                 }
             }

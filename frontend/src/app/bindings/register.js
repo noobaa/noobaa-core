@@ -26,6 +26,7 @@ import trapFocus from './trap-focus';
 import keysToClicks from './keys-to-clicks';
 import keyboardNavigation from './keyboard-navigation';
 import hidden from './hidden';
+import globalCss from './global-css';
 
 export default function register(ko) {
     function registerHandler([name, handler]) {
@@ -58,6 +59,7 @@ export default function register(ko) {
         trapFocus,
         keysToClicks,
         keyboardNavigation,
-        hidden
+        hidden,
+        globalCss
     }).forEach(registerHandler);
 }

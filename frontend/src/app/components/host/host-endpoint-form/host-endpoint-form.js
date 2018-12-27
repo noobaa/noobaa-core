@@ -26,6 +26,7 @@ class HostEndpointFormViewModel extends ConnectableViewModel {
     isLastService = false;
     dataReady = ko.observable();
     isDisabled = ko.observable();
+    isToggleEndpointVisible = ko.observable();
     isToggleEndpointDisabled = ko.observable();
     toggleEndpointTooltip = ko.observable();
     toggleEndpointButtonText = ko.observable();
@@ -66,7 +67,7 @@ class HostEndpointFormViewModel extends ConnectableViewModel {
     ];
 
     selectState(state, params) {
-        const { topology, hosts, hostPools = {} } = state;
+        const { topology, hosts, hostPools = {}, platform } = state;
         const host = hosts.items[params.name];
         const master =  topology && Object.values(topology.servers)
             .find(server => server.isMaster);
@@ -74,15 +75,18 @@ class HostEndpointFormViewModel extends ConnectableViewModel {
         return [
             host,
             host && hostPools[host.pool],
-            master && master.timezone
+            master && master.timezone,
+            platform && platform.featureFlags.toggleEndpointAgent
+
         ];
     }
 
-    mapStateToProps(host, pool, timezone) {
+    mapStateToProps(host, pool, timezone, allowToggleEndpointAgent) {
         if (!host || !pool || !timezone) {
             ko.assignToProps(this, {
                 dataReady: false,
                 isDisabled: true,
+                isToggleEndpointVisible: false,
                 isToggleEndpointDisabled: true,
                 toggleEndpointButtonText: 'Disable S3 Endpoint'
             });
@@ -107,6 +111,7 @@ class HostEndpointFormViewModel extends ConnectableViewModel {
                 hostName: host.name,
                 isLastService: storage.mode === 'DECOMMISSIONED' || storage.mode === 'DECOMMISSIONING',
                 wasUsed: Boolean(usage && (usage.lastWrite || usage.lastRead)),
+                isToggleEndpointVisible: allowToggleEndpointAgent,
                 isToggleEndpointDisabled: isHostBeingDeleted,
                 toggleEndpointTooltip: isHostBeingDeleted ? operationsDisabledTooltip : '',
                 toggleEndpointButtonText: `${isDisabled ? 'Enable' : 'Disable'} S3 Endpoint`,

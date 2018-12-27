@@ -41,14 +41,8 @@ export const activationState = ko.observable();
 // Hold system name resolution attempt
 export const nameResolutionState = ko.observable();
 
-// Hold ntp server resolution attempt
-export const ntpResolutionState = ko.observable();
-
 // Hold diagnostics information
 export const collectDiagnosticsState = ko.observable({});
 
 // Hold last rest password attampt result (only used in change-password-form);
 export const resetPasswordState = ko.observable();
-
-// Hold verification state for attach server oprtations.
-export const serverVerificationState = ko.observable();

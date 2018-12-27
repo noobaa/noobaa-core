@@ -1,15 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './namespace-buckets-table.html';
-import Observer from 'observer';
-import BucketRowViewModel from './bucket-row';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, createCompareFunc, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { includesIgnoreCase } from 'utils/string-utils';
-import { state$, action$ } from 'state';
+import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
+import { getNamespaceBucketStateIcon } from 'utils/bucket-utils';
 import { inputThrottle, paginationPageSize } from 'config';
-import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     openCreateNamespaceBucketModal,
@@ -55,7 +53,57 @@ const createButtonTooltips = deepFreeze({
     NO_RESOURCES: 'At least one namespace resoruce is needed. Please create a namespace resource in the resources section.'
 });
 
-class NamespaceBucketsTableViewModel extends Observer {
+function _mapBucketToRow(bucket, selectedForDelete, system) {
+    const { name: bucketName, placement } = bucket;
+    const { readFrom, writeTo } = placement;
+    const name = {
+        text: bucketName,
+        href: realizeUri(routes.namespaceBucket, { system, bucket: bucketName })
+    };
+    const readPolicy = {
+        text: stringifyAmount('namespace resource', readFrom.length, 'No'),
+        tooltip: {
+            template: 'list',
+            text: readFrom
+        }
+    };
+
+    return {
+        name,
+        state: getNamespaceBucketStateIcon(bucket),
+        readPolicy,
+        writePolicy: writeTo,
+        deleteButton: {
+            id: bucketName,
+            active: selectedForDelete === bucketName
+        }
+
+    };
+}
+
+class BucketRowViewModel {
+    table = null;
+    state = ko.observable();
+    name = ko.observable();
+    objectCount = ko.observable();
+    readPolicy = ko.observable();
+    writePolicy = ko.observable();
+    deleteButton = {
+        text: 'Delete bucket',
+        id: ko.observable(),
+        active: ko.observable(),
+        tooltip: 'Delete Bucket',
+        onToggle: id => this.table.onSelectForDelete(id),
+        onDelete: id => this.table.onDeleteBucket(id)
+    };
+
+    constructor({ table }) {
+        this.table = table;
+    }
+}
+
+class NamespaceBucketsTableViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
     pageSize = paginationPageSize;
     columns = columns;
     pathname = '';
@@ -66,76 +114,65 @@ class NamespaceBucketsTableViewModel extends Observer {
     page = ko.observable();
     selectedForDelete = ko.observable();
     bucketCount = ko.observable();
-    rows = ko.observableArray();
-    bucketsLoaded = ko.observable();
-    rowParams = {
-        onSelectForDelete: this.onSelectForDelete.bind(this),
-        onDelete: this.onDeleteBucket.bind(this)
-    };
+    rows = ko.observableArray()
+        .ofType(BucketRowViewModel, { table: this });
+
 
     onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'namespaceBuckets',
-                    'location',
-                    'namespaceResources',
-                    'accounts',
-                    ['session', 'user']
-                )
-            ),
-            this.onBuckets
-        );
+    selectState(state) {
+        return [
+            state.namespaceBuckets,
+            state.location,
+            state.namespaceResources,
+            state.accounts,
+            state.session && state.session.user
+        ];
     }
 
-    onBuckets([ buckets, location, resources, accounts, user ]) {
-        const { pathname, params, query } = location;
-        if (!buckets || !accounts || params.tab !== 'namespace-buckets') {
-            this.allowCreateBucket(false);
-            this.bucketsLoaded(Boolean(buckets));
-            return;
-        }
-
-        const systemHasResources = Object.keys(resources).length > 0;
-        const { filter, sortBy = 'name', order = 1, page = 0, selectedForDelete } = query;
-        const pageStart = Number(page) * this.pageSize;
-        const { compareKey } = columns.find(column => column.name == sortBy);
-        const bucketRoute = realizeUri(routes.namespaceBucket, { system: params.system }, {}, true);
-        const { canCreateBuckets } = accounts[user];
-        const createButtonTooltip = {
-            align: 'end',
-            text: true &&
-                (!canCreateBuckets && createButtonTooltips.MISSING_PERMISSIONS) ||
-                (!systemHasResources && createButtonTooltips.NO_RESOURCES) ||
-                ''
-        };
-
-        const filteredRows = Object.values(buckets)
-            .filter(bucket => includesIgnoreCase(bucket.name, filter));
-
-        const rows = filteredRows
-            .sort(createCompareFunc(compareKey, order))
-            .slice(pageStart, pageStart + this.pageSize)
-            .map((bucket, i) => {
-                const row = this.rows()[i] || new BucketRowViewModel(this.rowParams);
-                row.onBucket(bucket, bucketRoute, selectedForDelete);
-                return row;
+    mapStateToProps(buckets, location, resources, accounts, user) {
+        if (!buckets || !accounts || location.params.tab !== 'namespace-buckets') {
+            ko.assignToProps(this, {
+                dataReady: false ,
+                allowCreateBucket: false
             });
 
-        this.pathname = pathname;
-        this.allowCreateBucket(canCreateBuckets && systemHasResources);
-        this.createButtonTooltip(createButtonTooltip);
-        this.filter(filter);
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
-        this.bucketCount(filteredRows.length);
-        this.selectedForDelete = selectedForDelete;
-        this.rows(rows);
-        this.bucketsLoaded(true);
+        } else {
+            const { pathname, params, query } = location;
+            const systemHasResources = Object.keys(resources).length > 0;
+            const { filter, sortBy = 'name', selectedForDelete } = query;
+            const order = Number(query.order) || 1;
+            const page = Number(query.page) || 0;
+            const pageStart = page * this.pageSize;
+            const { compareKey } = columns.find(column => column.name == sortBy);
+            const { canCreateBuckets } = accounts[user];
+            const createButtonTooltip = {
+                align: 'end',
+                text: true &&
+                    (!canCreateBuckets && createButtonTooltips.MISSING_PERMISSIONS) ||
+                    (!systemHasResources && createButtonTooltips.NO_RESOURCES) ||
+                    ''
+            };
+            const filteredRows = Object.values(buckets)
+                .filter(bucket => includesIgnoreCase(bucket.name, filter));
+            const rows = filteredRows
+                .sort(createCompareFunc(compareKey, order))
+                .slice(pageStart, pageStart + this.pageSize)
+                .map(bucket => _mapBucketToRow(bucket, selectedForDelete, params.system));
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                pathname,
+                allowCreateBucket: canCreateBuckets && systemHasResources,
+                createButtonTooltip,
+                filter,
+                sorting: { sortBy, order },
+                page,
+                bucketCount: filteredRows.length,
+                selectedForDelete,
+                rows
+            });
+        }
     }
 
     onFilter(filter) {
@@ -166,15 +203,15 @@ class NamespaceBucketsTableViewModel extends Observer {
     }
 
     onCreate() {
-        action$.next(openCreateNamespaceBucketModal());
+        this.dispatch(openCreateNamespaceBucketModal());
     }
 
     onConnectApplication() {
-        action$.next(openConnectAppModal());
+        this.dispatch(openConnectAppModal());
     }
 
     onDeleteBucket(bucket) {
-        action$.next(deleteNamespaceBucket(bucket));
+        this.dispatch(deleteNamespaceBucket(bucket));
     }
 
     _query({
@@ -192,7 +229,7 @@ class NamespaceBucketsTableViewModel extends Observer {
         };
 
         const url = realizeUri(this.pathname, {}, query);
-        action$.next(requestLocation(url));
+        this.dispatch(requestLocation(url));
     }
 
 }

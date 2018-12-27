@@ -69,7 +69,8 @@ const notSupportedTooltip = 'Clustering capabilities in container environment wi
 
 function _matchFilter(server, filter = '') {
     const { addresses, locationTag } = server;
-    return [`${getServerDisplayName(server)}`, addresses[0].ip, locationTag].some(
+    const { ip } = addresses.length > 0 ? addresses[0] : '';
+    return [`${getServerDisplayName(server)}`, ip, locationTag].some(
         key => key.toLowerCase().includes(filter.toLowerCase())
     );
 }
@@ -206,7 +207,7 @@ class ServerTableViewModel extends ConnectableViewModel {
                     .sort(createCompareFunc(compareKey, order))
                     .map(server => {
                         const { version, locationTag } = server;
-                        const [ address ] = server.addresses;
+                        const [ address = {} ] = server.addresses;
 
                         return {
                             state: _getStatus(
@@ -221,7 +222,7 @@ class ServerTableViewModel extends ConnectableViewModel {
                                     { system: params.system, server: getServerDisplayName(server) }
                                 )
                             },
-                            address: address.ip,
+                            address: address.ip || 'Not Available',
                             diskUsage: _getDiskUsage(server),
                             memoryUsage: _getMemoryUsage(server),
                             cpuUsage: _getCpuUsage(server),

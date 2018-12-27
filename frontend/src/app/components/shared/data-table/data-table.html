@@ -1,9 +1,14 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<table ko.css="tableCss" ko.scroll="scroll" ko.dataTable="rows">
+<table ko.css="tableCss"
+    ko.scroll="scroll"
+    ko.dataTable="rows"
+>
     <thead>
         <tr class="header-row" ko.foreach="columns">
-            <th ko.css="css" ko.visible="$component.isColumnVisible(name)">
+            <th ko.css="css"
+                ko.visible="$component.isColumnVisible(name)"
+            >
                 <span ko.text="label"
                     ko.css="sortCss"
                     ko.click="sortBy"
@@ -34,9 +39,13 @@
     </tbody>
 </table>
 
-<loading-indicator class="align-middle pad" ko.visible="loading"></loading-indicator>
+<loading-indicator class="align-middle pad"
+    ko.visible="loading"
+></loading-indicator>
 
-<div class="empty-message" ko.visible="emptyMessage">
+<div class="empty-message"
+    ko.visible="emptyMessage"
+>
     {{emptyMessage}}
 </div>
 

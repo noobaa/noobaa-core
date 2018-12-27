@@ -1,6 +1,9 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="row toggle-options" ko.foreach="options">
+    <!-- ko if: $index() -->
+    <vr></vr>
+    <!-- /ko -->
     <label class="toggle-option">
         <input type="radio"
             ko.attr.name="$component.group"

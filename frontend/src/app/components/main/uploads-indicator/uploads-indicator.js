@@ -1,54 +1,40 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './uploads-indicator.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import style from 'style';
-import { get } from 'rx-extensions';
 import { openFileUploadsModal } from 'action-creators';
 
-class UploadsIndicatorViewModel extends Observer {
-    constructor() {
-        super();
+class UploadsIndicatorViewModel extends ConnectableViewModel {
+    uploadCount = ko.observable();
+    lastUploadTime = ko.observable();
+    uploadProgress = ko.observable();
+    animatedCount = ko.observable();
 
-        this.uploadCount = ko.observable(0);
-        this.uploadProgress = ko.observable(0);
-        this.animatedCount = ko.observable(0);
-        this.uploadBarValues = [
-            {
-                value: this.uploadProgress,
-                color: style['color8']
-            },
-            {
-                value: ko.pureComputed(() => 1 - this.uploadProgress()),
-                color: style['color6']
-            }
+    selectState(state) {
+        return [
+            state.objectUploads
         ];
-
-        this.lastUploadTime = ko.observable();
-
-        this.observe(
-            state$.pipe(get('objectUploads')),
-            this.onUploads
-        );
     }
 
-    onUploads(objectUploads) {
+    mapStateToProps(objectUploads) {
         const { stats, lastUpload } = objectUploads;
-        this.uploadCount(stats.uploading);
-        this.uploadProgress(stats.batchLoaded / stats.batchSize);
+        const { batchSize, batchLoaded } = stats;
+        const shouldUpdateAnimatedCount = (!lastUpload.time || lastUpload.time > this.lastUploadTime());
+        const progress = batchSize !== 0 ? batchLoaded / batchSize : 0;
 
-        if (!lastUpload.time || lastUpload.time > this.lastUploadTime()) {
-            this.animatedCount(lastUpload.objectCount);
-        }
-
-        // Save the last upload for the next state update.
-        this.lastUploadTime(lastUpload.time);
+        ko.assignToProps(this, {
+            uploadCount: stats.uploading,
+            lastUploadTime: lastUpload.time,
+            uploadProgress: progress,
+            animatedCount: shouldUpdateAnimatedCount ?
+                lastUpload.objectCount :
+                undefined
+        });
     }
 
     onClick() {
-        action$.next(openFileUploadsModal());
+        this.dispatch(openFileUploadsModal());
     }
 
     onUploadAnimationEnd() {

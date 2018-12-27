@@ -7,7 +7,6 @@ import { deepFreeze, flatMap, mapValues, sumBy } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { isSizeZero, formatSize, toBytes, sumSize } from 'utils/size-utils';
 import ko from 'knockout';
-import style from 'style';
 import moment from 'moment';
 import numeral from 'numeral';
 import {
@@ -50,7 +49,7 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources
         }
         case 'NOT_ENOUGH_RESOURCES': {
             const { desc, driveCount } = _summrizeResiliencyPolicy(bucket.resiliency);
-            return `The bucket’s configured data resiliency is set to ${desc} In order to meet that requirement, each tier must have at least ${driveCount} in their nodes pools or a cloud resource in it\'s placement policy`;
+            return `The bucket’s configured data resiliency is set to ${desc} In order to meet that requirement, each tier must have at least ${driveCount} in their pools or a cloud resource in it\'s placement policy`;
         }
         case 'NOT_ENOUGH_HEALTHY_RESOURCES': {
             return 'Some resources are not healthy and the bucket data allocation cannot be completed. Try fixing problematic resources or change the bucket’s placement policy.';
@@ -107,7 +106,7 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources
             return 'Bucket doesn\’t have any connected resources in it’s tier. Currently the system is using the internal VM disk capacity to store data which is not recommended. Add resources to the bucket’s tier placement policy.';
         }
         case 'RISKY_TOLERANCE': {
-            return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the nodes pools and distribute drives over the different nodes';
+            return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the pools and distribute drives over the different nodes';
         }
         case 'APPROUCHING_QUOTA': {
             const quota = formatSize(getQuotaValue(bucket.quota));
@@ -139,19 +138,6 @@ function _getDataPlacementText(placement) {
     }`;
 }
 
-function _getQuotaMarkers(quota) {
-    if (!quota) return [];
-
-    const value = getQuotaValue(quota);
-    const placement = toBytes(value);
-    const label = `Quota: ${formatSize(value)}`;
-    return [{ placement, label }];
-}
-
-function _formatAvailablityLimits(val) {
-    return val === 0 ? '0' : formatSize(val);
-}
-
 function _getBucketStateInfo(bucket, dataBreakdown, hostPools, cloudResources) {
     const { name, css, tooltip: { text } } = getBucketStateIcon(bucket);
     const tooltip = _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources);
@@ -172,68 +158,75 @@ class BucketSummrayViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     state = ko.observable();
     dataPlacement = ko.observable();
-    availablityLimitsFormatter = _formatAvailablityLimits;
-    availablityMarkers = ko.observableArray();
     availablityTime = ko.observable();
-    availablity = [
-        {
-            label: 'Used Data',
-            color: style['color8'],
-            value: ko.observable(),
-            tooltip: 'The total amount of data uploaded to this bucket. does not include data optimization or data resiliency'
-        },
-        {
-            label: 'Overused',
-            color: style['color10'],
-            value: ko.observable(),
-            visible: ko.observable(),
-            tooltip: 'Data that was written and exceeded the bucket configured quota'
-        },
-        {
-            label: 'Available According to Policies',
-            color: style['color15'],
-            value: ko.observable(),
-            tooltip: 'The actual free space on this bucket for data writes taking into account the current configured bucket policies'
-        },
-        {
-            label: 'Available on Internal Storage',
-            color: style['color18'],
-            value: ko.observable(),
-            visible: ko.observable(),
-            tooltip: 'The current available storage from the system internal storage disks, will be used only in the case of no available storage resources on this bucket.'
-        },
-        {
-            label: 'Overallocated',
-            color: style['color11'],
-            value: ko.observable(),
-            visible: ko.observable(),
-            tooltip: 'Overallocation happens when configuring a higher quota than this bucket assigned resources can store'
-        }
-    ];
+    availablityBar = {
+        format: ko.observable(),
+        values: [
+            {
+                label: 'Used Data',
+                color: 'rgb(var(--color20))',
+                value: ko.observable(0),
+                tooltip: 'The total amount of data uploaded to this bucket. does not include data optimization or data resiliency'
+            },
+            {
+                label: 'Available According to Policies',
+                color: 'rgb(var(--color07))',
+                value: ko.observable(0),
+                tooltip: 'The actual free space on this bucket for data writes taking into account the current configured bucket policies'
+            },
+            {
+                label: 'Available on Internal Storage',
+                color: 'rgb(var(--color02))',
+                value: ko.observable(0),
+                visible: ko.observable(),
+                tooltip: 'The current available storage from the system internal storage disks, will be used only in the case of no available storage resources on this bucket.'
+            },
+            {
+                label: 'Overallocated',
+                color: 'rgb(var(--color31))',
+                value: ko.observable(0),
+                visible: ko.observable(),
+                tooltip: 'Overallocation happens when configuring a higher quota than this bucket assigned resources can store'
+            },
+            {
+                label: 'Overused',
+                color: 'rgb(var(--color26))',
+                value: ko.observable(0),
+                visible: ko.observable(),
+                tooltip: 'Data that was written and exceeded the bucket configured quota'
+            }
+        ],
+        markers: [
+            {
+                visible: ko.observable(),
+                text: ko.observable(),
+                position: 4
+            }
+        ]
+    };
     dataOptimization = ko.observable();
     dataUsageTooltip = dataUsageTooltip;
     dataUsage = [
         {
             label: 'Original Data Size',
-            color: style['color7'],
+            color: 'rgb(var(--color11))',
             value: ko.observable()
         },
         {
             label: 'After Optimizations',
-            color: style['color13'],
+            color: 'rgb(var(--color20))',
             value: ko.observable()
         }
     ];
     dataUsageChart = {
-        width: 60,
-        height: 60,
         draw: this.onDrawBars.bind(this),
         disabled: ko.observable(),
-        bars: this.dataUsage.map(item => ({
-            color: item.color,
+        bars: this.dataUsage.map((item, i) => ({
+            x: 1/9 * (1 + 4 * i),
+            y: ko.observable(),
+            width: 1/3,
             height: ko.observable(),
-            animate: ko.observable()
-                .extend({ tween: { delay: 350 } })
+            fill: item.color
         })),
         tooltip: {
             maxWidth: 280,
@@ -246,25 +239,25 @@ class BucketSummrayViewModel extends ConnectableViewModel {
     };
     rawUsageLabel = ko.observable();
     rawUsageTooltip = rawUsageTooltip;
-    rawUsage = [
+    rawUsageValues = [
         {
             label: 'Available from Resources',
-            color: style['color5'],
-            value: ko.observable()
+            color: 'rgb(var(--color13))',
+            value: ko.observable(0)
         },
         {
             label: 'Raw Usage',
-            color: style['color13'],
-            value: ko.observable()
+            color: 'rgb(var(--color20))',
+            value: ko.observable(0)
         },
         {
             label: 'Shared Resources Usage',
-            color: style['color14'],
-            value: ko.observable()
+            color: 'rgb(var(--color29))',
+            value: ko.observable(0)
         }
     ];
     rawUsageChart = {
-        values: this.rawUsage,
+        values: this.rawUsageValues,
         silhouetteColor: ko.observable(),
         disabled: ko.observable(),
         tooltip: {
@@ -273,7 +266,7 @@ class BucketSummrayViewModel extends ConnectableViewModel {
             text: {
                 caption: ko.observable(),
                 updateTime: ko.observable(),
-                values: this.rawUsage
+                values: this.rawUsageValues
             }
         }
     };
@@ -306,36 +299,51 @@ class BucketSummrayViewModel extends ConnectableViewModel {
             const reducedRatio = hasSize ? Math.min(data.sizeReduced / data.size, 1) : 0;
             const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
             const storageUsed = storage.used + storage.usedOther;
+            const isInOveruse = toBytes(dataBreakdown.overused) > 0;
 
             ko.assignToProps(this, {
                 dataReady: true,
                 state: _getBucketStateInfo(bucket, dataBreakdown, hostPools, cloudResources),
                 dataPlacement: _getDataPlacementText(placement),
-                availablity: [
-                    {
-                        value: dataBreakdown.used
-                    },
-                    {
-                        value: dataBreakdown.overused,
-                        visible: !isSizeZero(dataBreakdown.overused)
-                    },
-                    {
-                        value: !usingInternalStorage ?
-                            dataBreakdown.availableForUpload :
-                            0
-                    },
-                    {
-                        value: usingInternalStorage ?
-                            dataBreakdown.availableForUpload :
-                            0,
-                        visible: usingInternalStorage
-                    },
-                    {
-                        value: dataBreakdown.overallocated,
-                        visible: !isSizeZero(dataBreakdown.overallocated)
-                    }
-                ],
-                availablityMarkers: _getQuotaMarkers(quota),
+                availablityBar: {
+                    format: val => (
+                        (val === 0 && '0') ||
+                        (quota && !isInOveruse && `Quota: ${formatSize(val)}`) ||
+                        formatSize(val)
+                    ),
+                    values: [
+                        {
+                            value: dataBreakdown.used
+                        },
+                        {
+                            value: !usingInternalStorage ?
+                                dataBreakdown.availableForUpload :
+                                0
+                        },
+                        {
+                            value: usingInternalStorage ?
+                                dataBreakdown.availableForUpload :
+                                0,
+                            visible: usingInternalStorage
+                        },
+                        {
+                            value: dataBreakdown.overallocated,
+                            visible: !isSizeZero(dataBreakdown.overallocated)
+                        },
+                        {
+                            value: dataBreakdown.overused,
+                            visible: !isSizeZero(dataBreakdown.overused)
+                        }
+                    ],
+                    markers: [
+                        {
+                            visible: Boolean(quota) && isInOveruse,
+                            text: quota ?
+                                `Quota: ${formatSize(getQuotaValue(quota))}` :
+                                ''
+                        }
+                    ]
+                },
                 availablityTime: dataLastUpdateTime,
                 dataOptimization: dataOptimization,
                 dataUsage: [
@@ -346,12 +354,12 @@ class BucketSummrayViewModel extends ConnectableViewModel {
                     disabled: !hasSize,
                     bars: [
                         {
-                            height: 1,
-                            aniamte: hasSize
+                            y: 0,
+                            height: 1
                         },
                         {
-                            height: hasSize ? reducedRatio : 1,
-                            animate: hasSize
+                            y: hasSize ? (1 - reducedRatio) : 0,
+                            height: hasSize ? reducedRatio : 1
                         }
                     ],
                     tooltip: {
@@ -360,12 +368,12 @@ class BucketSummrayViewModel extends ConnectableViewModel {
                         }
                     }
                 },
-                rawUsage: [
+                rawUsageLabel: rawUsageLabel,
+                rawUsageValues: [
                     { value: storage.free },
                     { value: storage.used },
                     { value: storage.usedOther }
                 ],
-                rawUsageLabel: rawUsageLabel,
                 rawUsageChart: {
                     disabled: storageUsed === 0,
                     tooltip: {

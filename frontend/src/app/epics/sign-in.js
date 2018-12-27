@@ -17,8 +17,10 @@ export default function(action$, { api }) {
                 const { systems } = await api.system.list_systems();
                 const { name: system } = systems[0];
                 const { token, info } = await api.create_auth_token({ system, email, password });
+                const account = await api.account.read_account({ email: info.account.email });
 
-                return completeSignIn(token, info, persistent);
+                const theme = account.preferences.ui_theme.toLowerCase();
+                return completeSignIn(token, info, persistent, theme);
 
             } catch (error) {
                 return failSignIn(

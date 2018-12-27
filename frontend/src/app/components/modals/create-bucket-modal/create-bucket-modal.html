@@ -18,18 +18,20 @@
         renderControls: false
     ">
         <section class="column greedy">
-             <editor class="push-prev greedy" params="label: 'Bucket Name'">
-                <input type="text"
-                        class="push-next-half"
-                        placeholder="Type here"
-                        ko.textInput="$form.bucketName"
-                        ko.hasFocus="true"
-                />
-                <ul class="name-validation-list" ko.foreach="nameRestrictionList">
-                    <li ko.text="label" ko.css="css"></li>
-                </ul>
-            </editor>
-            <div class="row content-middle page-footer">
+            <div class="column greedy pad">
+                 <editor params="label: 'Bucket Name'">
+                    <input type="text"
+                            class="push-next-half"
+                            placeholder="Type here"
+                            ko.textInput="$form.bucketName"
+                            ko.hasFocus="true"
+                    />
+                    <ul class="restriction-list" ko.foreach="nameRestrictionList">
+                        <li ko.text="label" ko.css="css"></li>
+                    </ul>
+                </editor>
+            </div>
+            <div class="row content-middle page-footer pad content-box">
                 <p class="remark greedy">
                     <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
                     <span>The bucket name cannot be changed after creation</span>
@@ -39,20 +41,21 @@
         </section>
 
         <section class="column greedy">
-            <placement-policy-toggle class="push-next" params="
-                selectedPolicy: $form.policyType,
-                hasFocus: true
-            "></placement-policy-toggle>
-            <resources-selection-table class="column greedy" params="
-                title: 'Resources in Policy',
-                hostPools: hostPools,
-                cloudResources: cloudResources,
-                selected: $form.selectedResources
-            "></resources-selection-table>
-            <validation-message class="push-next" params="
-                field: $form.selectedResources
-            "></validation-message>
-            <div class="row content-middle page-footer">
+            <div class="column greedy pad">
+                <placement-policy-toggle class="push-next-half" params="
+                    selectedPolicy: $form.policyType,
+                    hasFocus: true
+                "></placement-policy-toggle>
+                <resources-selection-table class="column greedy" params="
+                    title: 'Resources in Policy',
+                    hostPools: hostPools,
+                    cloudResources: cloudResources,
+                    selected: $form.selectedResources
+                "></resources-selection-table>
+                <validation-message params="field: $form.selectedResources">
+                </validation-message>
+            </div>
+            <div class="row content-middle page-footer pad content-box">
                 <p class="remark greedy">
                     <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
                     <span>To create a new resource go to ></span>

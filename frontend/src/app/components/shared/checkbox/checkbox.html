@@ -6,7 +6,10 @@
         ko.checkedValue="$data.value"
         ko.disable="$data.disabled || false"
     "/>
-    <span class="checkbox-box"></span>
+    <svg class="checkbox-box">
+        <rect class="outer-rect"></rect>
+        <path class="inner-path"></path>
+    </svg>
     <span class="checkbox-label no-wrap"
         ko.text="$data.label || $data.value"
         ko.tooltip="$data.tooltip"

@@ -1,34 +1,42 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<form class="sign-in-from row">
-    <section class="row alt-bg double-pad push-next">
+<form class="sign-in-from row"
+    ko.trapFocus="true"
+>
+    <section class="row left-box pad push-next">
         <h1 class="heading1 column align-middle content-middle">
             <svg-icon class="icon-xbig" params="name: 'logo'"></svg-icon>
             Welcome to NooBaa
         </h1>
     </section>
 
-    <section class="column alt-bg double-pad">
-        <h3 class="heading3 push-next">
+    <section class="column right-box">
+        <h2 class="heading1 push-next pad content-box">
+            Sign in to NooBaa
+        </h2>
+
+        <h3 class="heading3 hpad">
             Hello, please use your NooBaa account to sign in
         </h3>
 
-        <editor params="label: 'Email Address'">
-            <input type="text" data-bind="value: email"/>
-        </editor>
+        <div class="hpad">
+            <editor params="label: 'Email Address'">
+                <input type="text" data-bind="value: email, hasFocus: true"/>
+            </editor>
 
-        <editor params="label: 'Password'">
-            <password-field params="value: password"></password-field>
-        </editor>
+            <editor params="label: 'Password'">
+                <password-field params="value: password"></password-field>
+            </editor>
 
-        <checkbox params="label: 'Keep me signed in', checked: keepSessionAlive">
-        </checkbox>
+            <checkbox params="label: 'Keep me signed in', checked: keepSessionAlive">
+            </checkbox>
 
-        <p class="error push-next" data-bind="css: { visible: showInvalidMessage() }">
-            Invalid email address or password
-        </p>
+            <p class="error push-next" data-bind="css: { visible: showInvalidMessage() }">
+                Invalid email address or password
+            </p>
+        </div>
 
-        <div class="row content-middle">
+        <div class="row content-middle pad content-box">
             <p class="remark greedy push-next">
                 Forgot your password? <br> Ask your system owner for a password reset
             </p>

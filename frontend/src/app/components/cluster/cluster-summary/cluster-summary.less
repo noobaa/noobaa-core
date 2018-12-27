@@ -2,13 +2,23 @@
 
 cluster-summary {
     .column();
+    position: relative;
     height: 180px;
+
+    .summary  {
+        opacity: 0;
+
+        &.visible {
+            opacity: 1;
+            transition: opacity 250ms ease-out;
+        }
+    }
 
     .status-label {
         margin-right: .5em;
     }
 
-    .cluster-graph {
-        width: 100%;
+    .servers-bar .bar-line {
+        height: 4px;
     }
 }

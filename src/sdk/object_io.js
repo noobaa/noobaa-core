@@ -81,7 +81,7 @@ class ObjectIO {
         this._block_replicate_sem_agent = new KeysSemaphore(config.IO_REPLICATE_CONCURRENCY_AGENT);
         this._block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT);
         dbg.log0(`ObjectIO Configurations:: location_info:${util.inspect(location_info)},
-            totalmem:${os.totalmem()}, ENDPOINT_FORKS_COUNT:${config.ENDPOINT_FORKS_COUNT}, 
+            totalmem:${os.totalmem()}, ENDPOINT_FORKS_COUNT:${config.ENDPOINT_FORKS_COUNT},
             IO_SEMAPHORE_CAP:${config.IO_SEMAPHORE_CAP}`);
         this._io_buffers_sem = new Semaphore(config.IO_SEMAPHORE_CAP, {
             timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
@@ -135,7 +135,7 @@ class ObjectIO {
             params.chunk_split_config = create_reply.chunk_split_config;
             params.chunk_coder_config = create_reply.chunk_coder_config;
             complete_params.obj_id = create_reply.obj_id;
-            await (params.copy_source ?
+            await(params.copy_source ?
                 this._upload_copy(params, complete_params) :
                 this._upload_stream(params, complete_params)
             );
@@ -183,7 +183,7 @@ class ObjectIO {
             params.chunk_split_config = multipart_reply.chunk_split_config;
             params.chunk_coder_config = multipart_reply.chunk_coder_config;
             complete_params.multipart_id = multipart_reply.multipart_id;
-            await (params.copy_source ?
+            await(params.copy_source ?
                 this._upload_copy(params, complete_params) :
                 this._upload_stream(params, complete_params)
             );

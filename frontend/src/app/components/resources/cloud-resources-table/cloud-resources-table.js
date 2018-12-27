@@ -169,7 +169,6 @@ class CloudResourcesTableViewModel extends Observer {
             (typeFilter === 'ALL' && 'System does not contain any cloud resources') ||
             `System does not contain any ${resourceTypeOptions.find(t => t.value == typeFilter).label} resources`;
 
-
         const rows = filteredRows
             .sort(createCompareFunc(compareKey, Number(order)))
             .slice(pageStart, pageStart + this.pageSize)

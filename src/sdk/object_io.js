@@ -137,7 +137,7 @@ class ObjectIO {
             params.chunk_split_config = create_reply.chunk_split_config;
             params.chunk_coder_config = create_reply.chunk_coder_config;
             complete_params.obj_id = create_reply.obj_id;
-            await (params.copy_source ?
+            await(params.copy_source ?
                 this._upload_copy(params, complete_params) :
                 this._upload_stream(params, complete_params)
             );
@@ -185,7 +185,7 @@ class ObjectIO {
             params.chunk_split_config = multipart_reply.chunk_split_config;
             params.chunk_coder_config = multipart_reply.chunk_coder_config;
             complete_params.multipart_id = multipart_reply.multipart_id;
-            await (params.copy_source ?
+            await(params.copy_source ?
                 this._upload_copy(params, complete_params) :
                 this._upload_stream(params, complete_params)
             );

@@ -105,7 +105,7 @@ class HostPartsTableViewModel extends ConnectableViewModel {
             ko.assignToProps(this, {
                 dataReady: true,
                 subject: subject,
-                emptyMessage: `No object parts are stored on the ${subject}`,
+                emptyMessage: `No object parts are stored on this ${subject}`,
                 pathname: location.pathname,
                 page: page,
                 partCount: partCount,

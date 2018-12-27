@@ -3,16 +3,57 @@
 import { keyByProperty } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import { mapApiStorage } from 'utils/state-utils';
-import { COMPLETE_FETCH_SYSTEM_INFO } from 'action-types';
+import {
+    CREATE_HOSTS_POOL,
+    COMPLETE_FETCH_SYSTEM_INFO
+} from 'action-types';
 
 // ------------------------------
 // Initial State
 // ------------------------------
 const initialState = undefined;
 
+const beingCreatedPoolState = {
+    mode: 'BEING_CREATED',
+    activities: {
+        hostCount: 0,
+        list: []
+    },
+    associatedAccounts: [],
+    hostCount: 0,
+    hostsByMode: {},
+    storageNodeCount: 0,
+    storageNodesByMode: {},
+    endpointNodeCount: 0,
+    endpointNodesByMode: {},
+    storage: {
+        total: 0,
+        free: 0,
+        unavailableFree: 0,
+        used: 0,
+        usedOther: 0,
+        unavailableUsed: 0,
+        reserved: 0
+    }
+};
+
 // ------------------------------
 // Action Handlers
 // ------------------------------
+function onCreateHostsPool(state, { payload }) {
+    const { name } = payload;
+    if (state[name]) return state;
+
+    return {
+        [name]: {
+            ...beingCreatedPoolState,
+            name,
+            creationTime: Date.now()
+        },
+        ...state
+    };
+}
+
 function onCompleteFetchSystemInfo(state, { payload }) {
     const { pools } = payload;
     const nodePools = pools.filter(pool => pool.resource_type === 'HOSTS');
@@ -33,6 +74,7 @@ function _mapPool(pool) {
 
     return {
         name: pool.name,
+        creationTime: pool.create_time,
         mode: pool.mode,
         storage: mapApiStorage(pool.storage),
         associatedAccounts: pool.associated_accounts,
@@ -54,5 +96,6 @@ function _mapPool(pool) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
+    [CREATE_HOSTS_POOL]: onCreateHostsPool,
     [COMPLETE_FETCH_SYSTEM_INFO]: onCompleteFetchSystemInfo
 });

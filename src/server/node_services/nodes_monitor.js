@@ -3558,7 +3558,7 @@ class NodesMonitor extends EventEmitter {
                     level: 'info',
                     event: 'dbg.set_debug_node',
                     actor: req.account && req.account._id,
-                    host: host_nodes[0].node._id,
+                    node: host_nodes[0].node._id,
                     desc: `${name} debug level was raised by ${req.account && req.account.email}`,
                 });
                 dbg.log1('set_debug_node was successful for host', name, 'level', level);

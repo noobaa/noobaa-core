@@ -218,7 +218,7 @@ mocha.describe('RPC', function() {
                 _.each(PARAMS, function(param, name) {
                     assert.deepEqual(param, req.rpc_params[name]);
                 });
-                assert.deepStrictEqual(PARAMS, req.rpc_params);
+                assert.deepStrictEqual(PARAMS, _.omit(req.rpc_params, RPC_BUFFERS));
                 if (server.throw) throw new RpcError(ERROR_CODE, ERROR_MESSAGE);
                 return _.cloneDeep(REPLY);
             },

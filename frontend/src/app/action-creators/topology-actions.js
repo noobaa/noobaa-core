@@ -36,16 +36,16 @@ export function attachServerToCluster(secret, address, hostname, location) {
     };
 }
 
-export function completeAttachServerToCluster(secret, hostname) {
+export function completeAttachServerToCluster(secret) {
     return {
         type: COMPLETE_ATTACH_SERVER_TO_CLUSTER,
-        payload: { secret, hostname }
+        payload: { secret }
     };
 }
 
-export function failAttachServerToCluster(secret, hostname, error) {
+export function failAttachServerToCluster(secret, error) {
     return {
         type: FAIL_ATTACH_SERVER_TO_CLUSTER,
-        payload: { secret, hostname, error }
+        payload: { secret, error }
     };
 }

@@ -25,9 +25,9 @@ export default function(action$, { api }) {
                     location: location,
                     new_hostname: hostname
                 });
-                return completeAttachServerToCluster(secret, hostname);
+                return completeAttachServerToCluster(secret);
             } catch (error) {
-                return failAttachServerToCluster(secret, hostname, error);
+                return failAttachServerToCluster(secret, error);
             }
         })
     );

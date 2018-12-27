@@ -7,7 +7,7 @@ import { formatSize, sumSize } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { getFormValues, isFormValid, getFieldValue, isFieldTouched } from 'utils/form-utils';
 import { unassignedRegionText } from 'utils/resource-utils';
-import { validatedName } from 'utils/validation-utils';
+import { validateName } from 'utils/validation-utils';
 import { paginationPageSize, inputThrottle } from 'config';
 import ko from 'knockout';
 import numeral from 'numeral';
@@ -275,7 +275,7 @@ class CreatePoolModalViewModel extends ConnectableViewModel {
             const isPoolNameTouched = form ? isFieldTouched(form, 'poolName') : false;
             const poolList = Object.values(pools);
             const poolNames = poolList.map(pool => pool.name);
-            const validationResults = form ? validatedName(poolName, poolNames) : [];
+            const validationResults = form ? validateName(poolName, poolNames) : [];
             const hostCount = sumBy(poolList, pool => pool.hostCount);
 
             ko.assignToProps(this, {
@@ -329,7 +329,7 @@ class CreatePoolModalViewModel extends ConnectableViewModel {
         const errors = {};
 
         if (step === 0) {
-            const hasNameErrors = validatedName(poolName, this.poolNames)
+            const hasNameErrors = validateName(poolName, this.poolNames)
                 .some(({ valid }) => !valid);
 
             if (hasNameErrors) {

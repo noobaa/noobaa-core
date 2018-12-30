@@ -25,9 +25,9 @@ export function sleep(miliseconds, wakeValue) {
     );
 }
 
-export function promisify(func) {
-    return (...args) => new Promise((resolve, reject) => func(
-        ...args,
-        (err, result) => err ? reject(err) : resolve(result)
-    ));
+export function promisify(func, owner = null) {
+    return (...args) => new Promise((resolve, reject) => {
+        const cb = (err, result) => err ? reject(err) : resolve(result);
+        func.call(owner, ...args, cb);
+    });
 }

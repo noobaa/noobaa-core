@@ -46,13 +46,13 @@ export default class OptionRowViewModel {
 
     onUpdate(option, multiselect, selectedValues, focus) {
         const {
-            value = option,
-            label = value,
-            remark = '',
+            value,
+            label,
+            remark,
             icon,
-            selectedIcon = icon,
+            selectedIcon,
             css,
-            disabled = false
+            disabled
         } = option;
 
         const isSelected = selectedValues.includes(value);

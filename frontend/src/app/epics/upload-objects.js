@@ -6,7 +6,7 @@ import { ofType } from 'rx-extensions';
 import { UPLOAD_OBJECTS } from 'action-types';
 import { deepFreeze } from 'utils/core-utils';
 import { mapErrorObject } from 'utils/state-utils';
-import { createS3Client } from 'utils/s3-utils';
+import { createS3Client } from 'utils/aws-utils';
 import { unitsInBytes } from 'utils/size-utils';
 import { updateObjectUpload, completeObjectUpload, failObjectUpload } from 'action-creators';
 
@@ -15,13 +15,12 @@ const s3UploadOptions = deepFreeze({
     queueSize: 4
 });
 
-export default function(action$, { S3 }) {
+export default function(action$, { AWS }) {
     return action$.pipe(
         ofType(UPLOAD_OBJECTS),
         mergeMap(action => {
             const { objects, connection } = action.payload;
-            const { endpoint, accessKey, secretKey } = connection;
-            const s3 = createS3Client(S3, endpoint, accessKey, secretKey);
+            const s3 = createS3Client(AWS, connection);
             const uploadEvent$ = new Subject();
 
             let uploading = objects.length;

@@ -74,7 +74,10 @@ import createCloudResource from './create-cloud-resource';
 import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
 import updateLambdaFuncConfig from './update-lambda-func-config';
+import updateLambdaFuncCode from './update-lambda-func-code';
 import deleteLambdaFunc from './delete-lambda-func';
+import loadLambdaFuncCode from './load-lambda-func-code';
+import invokeLambdaFunc from './invoke-lambda-func';
 import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
 import fetchCloudResourceObjects from './fetch-cloud-resource-objects';
@@ -82,6 +85,7 @@ import assignRegionToResource from './assign-region-to-resource';
 import installVMTools from './install-vm-tools';
 import fetchBucketUsageHistory from './fetch-bucket-usage-history';
 import fetchAccountUsageHistory from './fetch-account-usage-history';
+import fetchLambdaFuncUsageHistory from './fetch-lambda-func-usage-history';
 import fetchObjectsDistribution from './fetch-objects-distribution';
 import fetchCloudUsageStats from './fetch-cloud-usage-stats';
 import updateP2PSettings from './update-p2p-settings';
@@ -203,10 +207,14 @@ const epics = [
     createLambdaFunc,
     deleteLambdaFunc,
     updateLambdaFuncConfig,
+    updateLambdaFuncCode,
+    loadLambdaFuncCode,
+    invokeLambdaFunc,
 
     // Analytics related epics
     fetchBucketUsageHistory,
     fetchAccountUsageHistory,
+    fetchLambdaFuncUsageHistory,
     fetchObjectsDistribution,
     fetchCloudUsageStats
 ];

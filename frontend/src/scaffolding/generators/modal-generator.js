@@ -1,7 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
+/* global __dirname */
 'use strict';
 const ComponentGenerator = require('./component-generator');
+const Path = require('path');
+const { inject, toPascalCase } = require('../utils');
+
+const modalActionsPath = Path.join(__dirname, '../../app/action-creators/modals-actions.js');
 
 class ModalGenerator extends ComponentGenerator {
     get displayName() {
@@ -13,7 +18,13 @@ class ModalGenerator extends ComponentGenerator {
     }
 
     prompt() {
-        return super.prompt().concat([
+        return [
+            {
+                type: 'input',
+                name: 'name',
+                message: 'What is the name of the new modal:',
+                validate: this.validateName
+            },
             {
                 type: 'list',
                 name: 'size',
@@ -36,38 +47,63 @@ class ModalGenerator extends ComponentGenerator {
                 name: 'action',
                 message: 'Select a main action for the modal:',
                 choices: [
-                    'save',
-                    'create',
-                    'configure',
-                    'done',
+                    'Configure',
+                    'Create',
+                    'Done',
+                    'Invoke',
+                    'Save',
+                    'Set',
                     { value: null, name: '- Custom action -' }
                 ]
-            },
-            {
-                type: 'input',
-                name: 'action',
-                when: answers => !answers.action,
-                message: 'Give the custom action a label:'
             }
-        ]);
+        ];
     }
 
     preprocess(answers) {
-        const actionMethodName = answers.action
-            .toLowerCase()
-            .replace(/\s*/, m => m && m[1].toUpperCase());
+        return {
+            ...super.preprocess({
+                area: 'modals',
+                name: `${answers.name}-modal`
+            }),
+            size: answers.size,
+            title: answers.title,
+            action: answers.action,
+            acName: `open${toPascalCase(answers.name)}Modal`
+        };
+    }
 
-        return Object.assign(
-            super.preprocess(answers),
-            {
-                name: answers.name,
-                size: answers.size,
-                title: answers.title,
-                action: actionMethodName,
-                actionLabel: answers.action,
-                folderName: `${answers.name}-modal`
-            }
+    async generate(params) {
+        super.generate(params);
+
+        await inject(
+            modalActionsPath,
+            'actionCreator',
+            this.generateActionCreator(params),
+            false
         );
+
+        return true;
+    }
+
+    generateActionCreator(params) {
+        const { acName, tagName, title, size } = params;
+        return `
+export function ${acName}() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: '${tagName}',
+                params: { }
+            },
+            options: {
+                title: '${title}',
+                size: '${size}'
+            }
+        }
+    };
+}
+`;
     }
 }
 

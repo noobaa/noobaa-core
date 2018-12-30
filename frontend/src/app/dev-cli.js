@@ -4,7 +4,7 @@ import * as model from 'model';
 import { action$, state$ } from 'state';
 import * as actionCreators from 'action-creators';
 import schema from 'schema';
-import api from 'services/api';
+import { api } from 'services';
 import { mapValues } from 'utils/core-utils';
 import {
     toObjectUrl,

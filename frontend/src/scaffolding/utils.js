@@ -48,7 +48,17 @@ function inject(src, tag, text, allowDuplicates) {
 }
 
 function toCammelCase(str) {
-    return ('-' + str).replace(/-\w/g, match => match[1].toUpperCase());
+    return str.replace(
+        /-\w/g,
+        match => match[1].toUpperCase()
+    );
+}
+
+function toPascalCase(str) {
+    return ('-' + str).replace(
+        /-\w/g,
+        match => match[1].toUpperCase()
+    );
 }
 
 function listSubDirectiories(base) {
@@ -71,5 +81,6 @@ function _streamToPromise(stream) {
 exports.scaffold = scaffold;
 exports.inject = inject;
 exports.toCammelCase = toCammelCase;
+exports.toPascalCase = toPascalCase;
 exports.listSubDirectiories = listSubDirectiories;
 exports.pathExists = pathExists;

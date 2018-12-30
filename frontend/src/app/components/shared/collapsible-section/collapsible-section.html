@@ -1,31 +1,27 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row content-middle cursor-pointer" data-bind="
-    click: () => intent.toggle()
-">
-    <h2 class="greedy heading3" data-bind="text: title">
-    </h2>
+<div class="row content-middle cursor-pointer"
+    ko.click="() => intent.toggle()"
+>
+    <h2 class="greedy heading3" ko.text="title"></h2>
 
     <button class="btn-flat expand-btn no-outline" >
         <svg-icon class="icon-small rotate"
             params="name: 'chevron'"
-            data-bind="css: { 'deg-90': intent() }">
-        </svg-icon>
+            ko.css.deg-90="intent"
+        ></svg-icon>
     </button>
 </div>
 
 <!-- ko if: collapsedTemplate.length -->
-<div class="collapsed-wrapper" data-bind="
-    css: { show: intent },
-    template: { nodes: collapsedTemplate, data: $parent }
-">
-</div>
+<div class="collapsed-wrapper"
+    ko.css.show="intent"
+    ko.template="{ nodes: collapsedTemplate, data: $parent }"
+></div>
 <!-- /ko -->
 
-<div data-bind="
-    expand: !intent(),
-    template: { nodes: expandedTemplate, data: $parent }
-">
-</div>
+<div ko.expand="!intent()"
+    ko.template="{ nodes: expandedTemplate, data: $parent }"
+></div>
 
 

@@ -20,7 +20,7 @@ const columns = deepFreeze([
     {
         name: 'name',
         label: 'account name',
-        type: 'newLink',
+        type: 'link',
         sortable: true,
         compareKey: account => account.name
     },

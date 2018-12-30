@@ -12,13 +12,14 @@ function _getColor(color) {
 }
 
 class CounterViewModel  {
-    constructor({ label, color, value, format }) {
+    constructor(params) {
+        const { label, color = '', value, format, tween = true } = params;
         const formatter = getFormatter(format);
         const pureValue = ko.pureComputed(() =>
             ko.unwrap(value) || 0
-        ).extend({
+        ).extend(tween ? {
             tween: { useDiscreteValues: true }
-        });
+        } : {});
 
         this.label = label;
         this.color = ko.pureComputed(() =>

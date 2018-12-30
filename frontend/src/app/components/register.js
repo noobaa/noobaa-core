@@ -106,6 +106,8 @@ import resetPasswordModal from './modals/reset-password-modal/reset-password-mod
 import passwordResetCompletedModal from './modals/password-reset-completed-modal/password-reset-completed-modal';
 import passwordResetFailedModal from './modals/password-reset-failed-modal/password-reset-failed-modal';
 import editFuncConfigModal from './modals/edit-func-config-modal/edit-func-config-modal';
+import invokeFuncModal from './modals/invoke-func-modal/invoke-func-modal';
+import editFuncCodeModal from './modals/edit-func-code-modal/edit-func-code-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -259,10 +261,10 @@ import funcsTable from './funcs/funcs-table/funcs-table';
 // -------------------------------
 import funcPanel from './func/func-panel/func-panel';
 import funcSummary from './func/func-summary/func-summary';
-import funcCode from './func/func-code/func-code';
-import funcInvoke from './func/func-invoke/func-invoke';
 import funcConfigForm from './func/func-config-form/func-config-form';
 import funcMonitoring from './func/func-monitoring/func-monitoring';
+import funcCodeForm from './func/func-code-form/func-code-form';
+import funcMonitoringForm from './func/func-monitoring-form/func-monitoring-form';
 /** INJECT:func.import **/
 
 // -------------------------------
@@ -338,6 +340,8 @@ import resourceDistributionTable from './shared/resource-distribution-table/reso
 import resourceDistributionChart from './shared/resource-distribution-chart/resource-distribution-chart';
 import hostPartsTable from './shared/host-parts-table/host-parts-table';
 import counter from './shared/counter/counter';
+import listDetails from './shared/list-details/list-details';
+import codeViewer from './shared/code-viewer/code-viewer';
 /** INJECT:shared.import **/
 
 // Register the components with knockout component container.
@@ -452,6 +456,8 @@ export default function register(ko, services) {
         passwordResetCompletedModal,
         passwordResetFailedModal,
         editFuncConfigModal,
+        invokeFuncModal,
+        editFuncCodeModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -558,10 +564,10 @@ export default function register(ko, services) {
 
         funcPanel,
         funcSummary,
-        funcCode,
-        funcInvoke,
         funcConfigForm,
         funcMonitoring,
+        funcCodeForm,
+        funcMonitoringForm,
         /** INJECT:func.list **/
 
         analyticsPanel,
@@ -628,6 +634,8 @@ export default function register(ko, services) {
         resourceDistributionChart,
         hostPartsTable,
         counter,
+        listDetails,
+        codeViewer,
         /** INJECT:shared.list **/
 
         // An empty component used for app/data loading periods

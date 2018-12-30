@@ -8,13 +8,17 @@ export default {
             'name',
             'version',
             'description',
-            'handler',
+            'execFile',
+            'execFunc',
             'runtime',
             'timeout',
             'memorySize',
-            'codeSize',
             'lastModified',
-            'executor'
+            'lastModifier',
+            'executor',
+            'codeSize',
+            'codeHash',
+            'codeBuffer'
         ],
         properties: {
             name: {
@@ -23,7 +27,10 @@ export default {
             version: {
                 type: 'string'
             },
-            handler: {
+            execFile: {
+                type: 'string'
+            },
+            execFunc: {
                 type: 'string'
             },
             description: {
@@ -38,14 +45,39 @@ export default {
             memorySize: {
                 type: 'integer'
             },
-            codeSize: {
-                $ref: '#/def/common/size'
-            },
             lastModified: {
                 type: 'integer'
             },
+            lastModifier: {
+                type: 'string'
+            },
             executor: {
                 type: 'string'
+            },
+            codeHash: {
+                type: 'string'
+            },
+            codeSize: {
+                $ref: '#/def/common/size'
+            },
+            codeBuffer: {
+                type: 'object',
+                required: [
+                    'loading',
+                    'error',
+                    'handle'
+                ],
+                properties: {
+                    loading: {
+                        type: 'boolean'
+                    },
+                    error : {
+                        type: 'boolean'
+                    },
+                    handle: {
+                        $ref: '#/def/common/bufferKey'
+                    }
+                }
             }
         }
     }

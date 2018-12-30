@@ -30,6 +30,8 @@ import {
     getWindowName
 } from 'utils/browser-utils';
 
+
+
 function configureKnockout(ko) {
     const injectedServices = {
         api,
@@ -74,7 +76,7 @@ function registerSideEffects(action$, state$) {
         localStorage: localStorage,
         sessionStorage: sessionStorage,
         fetch: fetch,
-        S3: AWS.S3,
+        AWS: AWS,
         api: api,
         router: page,
         browser: borwser,

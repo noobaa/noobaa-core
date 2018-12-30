@@ -16,10 +16,6 @@ class FuncConfigFormViewModel extends ConnectableViewModel {
             value: ko.observable()
         },
         {
-            label: 'Handler',
-            value: ko.observable()
-        },
-        {
             label: 'Memory Size',
             value: ko.observable()
         },
@@ -58,7 +54,6 @@ class FuncConfigFormViewModel extends ConnectableViewModel {
                 funcVersion: func.version,
                 funcConfig: [
                     { value: func.runtime },
-                    { value: func.handler },
                     { value: `${func.memorySize}MB` },
                     { value: stringifyAmount('second', func.timeout) },
                     { value: func.description }

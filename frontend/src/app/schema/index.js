@@ -30,6 +30,7 @@ import hosts from './hosts';
 import functions from './functions';
 import bucketUsageHistory from './bucket-usage-history';
 import accountUsageHistory from './account-usage-history';
+import lambdaUsageHistory from './lambda-usage-history';
 import objectsDistribution from './account-usage-history';
 import cloudUsageStats from './cloud-usage-stats';
 import platform from './platform';
@@ -64,6 +65,7 @@ const schemas = {
     functions,
     bucketUsageHistory,
     accountUsageHistory,
+    lambdaUsageHistory,
     objectsDistribution,
     cloudUsageStats,
     platform,

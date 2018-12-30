@@ -7,7 +7,7 @@ prelaod process (the process must be self contained);
 ------------------------------------------------------ */
 
 const base = '/fe/assets';
-const iconsSvg ='icons.svg';
+const iconsSvg = 'icons.svg';
 const images = [
     'loader.gif',
     'stars.jpg',

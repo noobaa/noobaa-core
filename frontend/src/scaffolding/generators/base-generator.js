@@ -4,12 +4,10 @@
 const inquirer = require('inquirer');
 
 class Generator {
-    execute() {
-        return Promise.resolve()
-            .then(() => this.prompt())
-            .then(inquirer.prompt)
-            .then(answers => this.preprocess(answers))
-            .then(params => this.generate(params));
+    async execute() {
+        const answers = await inquirer.prompt(this.prompt());
+        const params = await this.preprocess(answers);
+        return await this.generate(params);
     }
 
     // Return an inquirer prompt configuration.
@@ -17,14 +15,15 @@ class Generator {
         return [];
     }
 
-    confirmOverwrite(message) {
-        return inquirer.prompt([{
+    async confirmOverwrite(message) {
+        const answer = await inquirer.prompt([{
             type: 'confirm',
             name: 'overwrite',
             message: message,
             default: false
-        }])
-            .then(answer => answer.overwrite);
+        }]);
+
+        return answer.overwrite;
     }
 
     // Preprocess the ansers into a param object to be served to execute.

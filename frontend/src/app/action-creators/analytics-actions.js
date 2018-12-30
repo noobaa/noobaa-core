@@ -16,7 +16,11 @@ import {
     FETCH_CLOUD_USAGE_STATS,
     COMPLETE_FETCH_CLOUD_USAGE_STATS,
     FAIL_FETCH_CLOUD_USAGE_STATS,
-    DROP_CLOUD_USAGE_STATS
+    DROP_CLOUD_USAGE_STATS,
+    FETCH_LAMBDA_FUNC_USAGE_HISTORY,
+    COMPLETE_FETCH_LAMBDA_FUNC_USAGE_HISTORY,
+    FAIL_FETCH_LAMBDA_FUNC_USAGE_HISTORY,
+    DROP_LAMBDA_FUNC_USAGE_HISTORY
 } from 'action-types';
 
 export function fetchBucketUsageHistory(buckets, duration) {
@@ -114,4 +118,32 @@ export function failFetchCloudUsageStats(query, error) {
 
 export function dropCloudUsageStats() {
     return { type: DROP_CLOUD_USAGE_STATS };
+}
+
+export function fetchLambdaFuncUsageHistory(name, version, timespan, step) {
+    return {
+        type: FETCH_LAMBDA_FUNC_USAGE_HISTORY,
+        payload: { name, version, timespan, step }
+    };
+}
+
+export function completeFetchLambdaFuncUsageHistory(query, usage) {
+    return {
+        type: COMPLETE_FETCH_LAMBDA_FUNC_USAGE_HISTORY,
+        payload: { query, usage }
+    };
+}
+
+export function failFetchLambdaFuncUsageHistory(query, error) {
+    return {
+        type: FAIL_FETCH_LAMBDA_FUNC_USAGE_HISTORY,
+        payload: { query, error }
+    };
+}
+
+export function dropLambdaFuncUsageHistory(name, version) {
+    return {
+        type: DROP_LAMBDA_FUNC_USAGE_HISTORY,
+        payload: { name, version }
+    };
 }

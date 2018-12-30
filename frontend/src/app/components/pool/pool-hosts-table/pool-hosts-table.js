@@ -31,7 +31,7 @@ const columns = deepFreeze([
         name: 'hostname',
         label: 'node name',
         sortable: 'name',
-        type: 'newLink'
+        type: 'link'
     },
     {
         name: 'ip',

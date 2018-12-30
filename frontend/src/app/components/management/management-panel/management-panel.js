@@ -23,7 +23,7 @@ class ManagementPanelViewModel extends ConnectableViewModel {
         ko.assignToProps(this, {
             baseRoute: realizeUri(location.route, { system }, {}, true),
             selectedTab: tab,
-            selectedSection: section
+            selectedSection: section || ''
         });
     }
 
@@ -45,7 +45,7 @@ class ManagementPanelViewModel extends ConnectableViewModel {
     sectionToggle(section) {
         return ko.pureComputed({
             read: () => this.selectedSection() !== section,
-            write: val => this.onSection(val ? null : section)
+            write: val => this.onSection(val ? '' : section)
         });
     }
 }

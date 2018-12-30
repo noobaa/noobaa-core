@@ -4,10 +4,16 @@
 'use strict';
 const Path = require('path');
 const Generator = require('./base-generator');
-const { scaffold, pathExists } = require('../utils');
+const {
+    scaffold,
+    inject,
+    pathExists,
+    toCammelCase
+} = require('../utils');
 
 const reducerTemplate = Path.join(__dirname, '../templates/reducer');
 const reducersPath = Path.join(__dirname, '../../app/reducers');
+const reducerRegistery = Path.join(reducersPath, 'index.js');
 
 class ReducerGenerator extends Generator {
     prompt() {
@@ -24,18 +30,51 @@ class ReducerGenerator extends Generator {
             'Name must start and end with a lowercased letter and may contain only dashes and lowercase letters';
     }
 
-    generate(params) {
+    preprocess(answers) {
+        const { name } = answers;
+        return {
+            key: toCammelCase(name),
+            importName: `${toCammelCase(name)}Reducer`,
+            filename: `${name}-reducer`
+        };
+    }
+
+    async generate(params) {
         const src = reducerTemplate;
         const dest = reducersPath;
-        const reducerFile = Path.join(dest, `${params.name}-reducer.js`);
+        const reducerFile = Path.join(dest, `${params.filename}.js`);
+        const exists = await pathExists(reducerFile);
+        const execute = !exists || await this.confirmOverwrite('A reducer with the same name already exists, overwrite:');
+        if (execute) {
+            await scaffold(src, dest, params);
 
-        return pathExists(reducerFile)
-            .then(exists => !exists || this.confirmOverwrite(
-                'A reducer with the same name already exists, overwrite:'
-            ))
-            .then(execute => execute && scaffold(src, dest, params))
-            .then(() => true);
+            await inject(
+                reducerRegistery,
+                'import',
+                this.generateImportLine(params),
+                false
+            );
 
+            await inject(
+                reducerRegistery,
+                'list',
+                this.generateListLine(params),
+                false
+            );
+
+        }
+
+        return true;
+    }
+
+    generateImportLine(params) {
+        const { importName, filename } = params;
+        return `import ${importName} from './${filename}';\n`;
+    }
+
+    generateListLine(params) {
+        const { key, importName } = params;
+        return `${key}: ${importName},\n    `;
     }
 }
 

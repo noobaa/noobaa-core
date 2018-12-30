@@ -9,7 +9,6 @@ import value from './value-ex';
 // Import new handlers
 import _let from './let';
 import visibility from './visibility';
-import href from './href';
 import scroll from './scroll';
 import canvas from './canvas';
 import expand from './expand';
@@ -31,11 +30,9 @@ import hidden from './hidden';
 export default function register(ko) {
     function registerHandler([name, handler]) {
         ko.bindingHandlers[name] = handler;
-        ko.bindingHandlers[name.toLowerCase()] = handler;
 
         if (handler.allowOnVirtualElements) {
             ko.virtualElements.allowedBindings[name] = true;
-            ko.virtualElements.allowedBindings[name.toLowerCase()] = true;
         }
     }
 
@@ -45,7 +42,6 @@ export default function register(ko) {
         value,
         let: _let,
         visibility,
-        href,
         scroll,
         canvas,
         expand,

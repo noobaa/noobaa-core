@@ -1,9 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="bar" data-bind="foreach: values">
-    <div class="value" data-bind="
-        visible: value !== 0,
-        style: { width: $component.percentageFor(value), backgroundColor: color, color: color },
-        attr: { 'data-value': label }
+<div class="bar" ko.foreach="values">
+    <div class="value"
+        ko.visible="value !== 0"
+        ko.style.width="$component.percentageFor(value)"
+        ko.style.backgroundColor="color"
+        ko.style.color="color",
+        ko.attr.data-value="label"
     "></div>
 </div>

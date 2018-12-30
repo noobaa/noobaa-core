@@ -1,10 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
- <nav class="row content-middle" data-bind="foreach: crumbs">
-     <a class="crumb" data-bind="
-        attr: { href: url },
-        tooltip: label
+ <nav class="row content-middle" ko.foreach="crumbs">
+     <a class="crumb"
+        ko.attr.href="url"
+        ko.tooltip="label"
     ">
-        <span class="no-wrap" data-bind="text: label"></span>
+        <span class="no-wrap" ko.text="label"></span>
     </a>
 </nav>

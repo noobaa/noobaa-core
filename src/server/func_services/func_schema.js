@@ -14,6 +14,7 @@ module.exports = {
         'runtime',
         'handler',
         'last_modified',
+        'last_modifier',
         'code_size',
         'code_sha256',
         'code_gridfs_id',
@@ -70,6 +71,9 @@ module.exports = {
         },
         last_modified: {
             date: true
+        },
+        last_modifier: {
+            objectid: true
         },
         resource_name: {
             type: 'string'

@@ -5,31 +5,43 @@
     ko.css.open="isOpen"
 ">
     <div class="menu-header row hpad content-middle no-outline text-left cursor-pointer">
-        <span class="push-next user-email no-wrap" ko.text="userEmail"></span>
+        <span class="push-next user-email no-wrap">
+            {{accountName}}
+        </span>
         <svg-icon params="name: 'account'"></svg-icon>
     </div>
 
     <ul class="menu-items list-no-style">
         <hr />
         <li>
-            <a class="menu-item highlight" ko.href="profileHref">
+            <a class="menu-item highlight"
+                ko.attr.href="accountPageHref"
+            >
                 My Account
             </a>
         </li>
         <li>
-            <a class="menu-item highlight" ko.attr.href="supportEmailUri">
+            <a class="menu-item highlight"
+                ko.attr.href="supportEmailHref"
+            >
                 Contact Us
             </a>
         </li>
         <li>
-            <a class="menu-item highlight" target="_blank" ko.attr.href="helpDeskUri">
+            <a class="menu-item highlight"
+                target="_blank"
+                ko.attr.href="helpDeskHref"
+            >
                 Support Center
             </a>
         </li>
         <hr>
         <li>
             <!-- workaround using target black to allow the link to resolve even so the upper div loses the focus -->
-            <a class="menu-item highlight" href="javascript:void(0)" ko.click="onSignOut">
+            <a class="menu-item highlight"
+                href="javascript:void(0)"
+                ko.click="onSignOut"
+            >
                 Sign Out
             </a>
         </li>

@@ -7,7 +7,7 @@
 import * as model from 'model';
 import * as routes from 'routes';
 import { redirectTo } from 'actions';
-import api from 'services/api';
+import { api } from 'services';
 import page from 'page';
 import { deepFreeze } from 'utils/core-utils';
 import {

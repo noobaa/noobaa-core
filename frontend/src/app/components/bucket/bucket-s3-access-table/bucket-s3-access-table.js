@@ -14,7 +14,7 @@ import { requestLocation, openBucketS3AccessModal } from 'action-creators';
 const columns = deepFreeze([
     {
         name: 'name',
-        type: 'newLink',
+        type: 'link',
         sortable: true,
         compareKey: account => account.name
     },

@@ -32,7 +32,7 @@ const columns = deepFreeze([
     {
         name: 'key',
         label: 'Object Name',
-        type: 'newLink',
+        type: 'link',
         sortable: true
     },
     {

@@ -26,13 +26,47 @@ function _toArray(value) {
     return [];
 }
 
-function _summarizeSelected(subject, labels, placeholder, optionCount) {
-    const count = labels.length;
-    return false ||
-        (count === 0 && placeholder) ||
-        (count === 1 && labels[0]) ||
-        (count === optionCount && `All ${subject}s selected`) ||
-        `${stringifyAmount(subject, count)} selected`;
+function _normalizeOptions(options) {
+    return options.map(option => {
+        const {
+            value = option,
+            label = value,
+            remark = '',
+            icon,
+            selectedIcon = icon,
+            css,
+            disabled = false
+        } = option;
+
+        return {
+            value,
+            label,
+            remark,
+            icon,
+            selectedIcon,
+            css,
+            disabled
+        };
+    });
+}
+
+function _summarizeSelected(subject, values, placeholder, options) {
+    const count = values.length;
+    if (count == 0) {
+        return placeholder;
+    }
+
+    if (count === 1) {
+        const [first] = values;
+        const selected = options.find(opt => opt.value === first);
+        return selected && selected.label;
+    }
+
+    if (count === options.length) {
+        return `All ${subject}s selected`;
+    }
+
+    return `${stringifyAmount(subject, count)} selected`;
 }
 
 function _getEmptyMessage(
@@ -82,8 +116,7 @@ function _getEmptyMessage(
 }
 
 function _matchOption(option, filter) {
-    const { value = option, label = value } = option;
-    const text = label.toString().toLowerCase();
+    const text = option.label.toString().toLowerCase();
     return !filter || text.includes(filter);
 }
 
@@ -188,7 +221,7 @@ class DropdownViewModel {
             listTooLongMessage = 'List too long to show',
             selectAllLabel = 'Select All',
             actions = [],
-            options = [],
+            options: rawOptions = [],
             selected,
             focus,
             active
@@ -204,6 +237,7 @@ class DropdownViewModel {
             return;
         }
 
+        const options = _normalizeOptions(rawOptions);
         const isFilterVisible = filter && !loading && !error && options.length > 0;
         const isSelectAllVisible = multiselect && !filterText;
         const selectedValues = _toArray(selected);
@@ -253,10 +287,6 @@ class DropdownViewModel {
             .filter(option => !option.disabled)
             .map(option => isObject(option) ? option.value : option);
 
-        const selectedLabels = optionRows
-            .filter(row => row.selected())
-            .map(row => row.label());
-
         const firstItemFocusId = _findFirstFocusId(
             isFilterVisible,
             actionRows,
@@ -275,7 +305,7 @@ class DropdownViewModel {
         this.selectAllValue(selectAllValue);
         this.loading(loading);
         this.tabIndex(tabIndex);
-        this.summary(_summarizeSelected(subject, selectedLabels, placeholder, options.length));
+        this.summary(_summarizeSelected(subject, selectedValues, placeholder, options));
         this.usingPlacholderText(usingPlacholderText);
         this.emptyMessage(emptyMessageInfo);
         this.actionRows(actionRows);

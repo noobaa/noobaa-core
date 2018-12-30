@@ -9,6 +9,10 @@ import { empty } from 'rxjs';
 import { mergeMap } from 'rxjs/operators';
 import * as types from 'action-types';
 
+// Used to decide if we should show a notifcation indicating that
+// a package upload will take some time.
+const largeUploadSizeThreshold = 10 * unitsInBytes.MEGABYTE;
+
 const actionToNotification = deepFreeze({
     [types.FAIL_CREATE_ACCOUNT]: ({ accountName }) => ({
         message: `Creating account ${accountName} failed`,
@@ -428,7 +432,7 @@ const actionToNotification = deepFreeze({
     }),
 
     [types.CREATE_LAMBDA_FUNC]: ({ codeBufferSize }) => {
-        if (codeBufferSize < 10 * unitsInBytes.MEGABYTE) {
+        if (codeBufferSize < largeUploadSizeThreshold) {
             return;
         }
 
@@ -465,6 +469,47 @@ const actionToNotification = deepFreeze({
 
     [types.FAIL_UPDATE_LAMBDA_FUNC_CONFIG]: ({ name }) => ({
         message: `Updating ${name} configuration failed`,
+        severity: 'error'
+    }),
+
+    [types.COMPLETE_INVOKE_LAMBDA_FUNC]: ({ name, error, result }) => {
+        if (error) {
+            return {
+                message: `${name} invoked but returned error: ${error.message}`,
+                severity: 'warning'
+            };
+
+        } else {
+            return {
+                message: `${name} invoked successfully result: ${JSON.stringify(result)}`,
+                severity: 'success'
+            };
+        }
+    },
+
+    [types.UPDATE_LAMBDA_FUNC_CODE]: ({ bufferHandle, bufferSize }) => {
+        if (bufferHandle === null || bufferSize < largeUploadSizeThreshold) {
+            return;
+        }
+
+        return {
+            message: 'Uploading a large function package, it may take a few moments',
+            severity: 'info'
+        };
+    },
+
+    [types.COMPLETE_UPDATE_LAMBDA_FUNC_CODE]: ({ name }) => ({
+        message: `${name} code updated successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_LAMBDA_FUNC_CODE]: ({ name }) => ({
+        message: `Updating ${name} code  updated failed`,
+        severity: 'error'
+    }),
+
+    [types.FAIL_INVOKE_LAMBDA_FUNC]: ({ name  }) => ({
+        message: `${name} invocation failed`,
         severity: 'error'
     }),
 

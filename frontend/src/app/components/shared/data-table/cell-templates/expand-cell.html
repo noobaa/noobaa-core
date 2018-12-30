@@ -1,8 +1,8 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<button class="no-outline btn-flat rotate" data-bind="
-    click: () => $row.isExpanded.toggle(),
-    css: { 'deg-90': !$row.isExpanded() }
+<button class="no-outline btn-flat rotate"
+    ko.click="() => $row.isExpanded.toggle()"
+    ko.css.deg-90="!$row.isExpanded()"
 ">
     <svg-icon class="icon-small" params="name: 'chevron'"></svg-icon>
 </button>

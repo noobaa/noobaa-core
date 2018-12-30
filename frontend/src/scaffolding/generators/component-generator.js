@@ -4,8 +4,14 @@
 'use strict';
 const Path = require('path');
 const Generator = require('./base-generator');
-const { listSubDirectiories, toCammelCase, scaffold, inject,
-    pathExists } = require('../utils');
+const {
+    listSubDirectiories,
+    toCammelCase,
+    toPascalCase,
+    scaffold,
+    inject,
+    pathExists
+} = require('../utils');
 
 const templatesPath = Path.join(__dirname, '../templates');
 const componentsPath = Path.join(__dirname, '../../app/components');
@@ -48,15 +54,17 @@ class ComponentGenerator extends Generator {
     preprocess(answers) {
         return {
             area: answers.area,
-            name: answers.name,
-            nameCammelCased: toCammelCase(answers.name),
-            folderName: answers.name
+            filename: answers.name,
+            folder: answers.name,
+            tagName: answers.name,
+            viewModelName: `${toPascalCase(answers.name)}ViewModel`,
+            importName: toCammelCase(answers.name)
         };
     }
 
     async generate(params) {
         const src = Path.join(templatesPath, this.template);
-        const dest = Path.join(componentsPath, params.area, params.folderName);
+        const dest = Path.join(componentsPath, params.area, params.folder);
 
         const exists = await pathExists(dest);
         if (!exists || this.confirmOverwrite(`A component at ${dest} already exists, overwrite:`)) {
@@ -87,12 +95,12 @@ class ComponentGenerator extends Generator {
     }
 
     generateImportLine(params) {
-        const { area, name, nameCammelCased, folderName } = params;
-        return `import ${nameCammelCased} from './${area}/${folderName}/${name}';\n`;
+        const { area, importName, folder, filename } = params;
+        return `import ${importName} from './${area}/${folder}/${filename}';\n`;
     }
 
     generateListLine(params) {
-        return `${params.nameCammelCased},\n        `;
+        return `${params.importName},\n        `;
     }
 }
 

@@ -942,3 +942,36 @@ export function openEditFuncConfigModal(funcName, funcVersion) {
         }
     };
 }
+
+export function openInvokeFuncModal(funcName, funcVersion) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'invoke-func-modal',
+                params: { funcName, funcVersion }
+            },
+            options: {
+                title: 'Set Event and Invoke',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function openEditFuncCodeModal(funcName, funcVersion) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-func-code-modal',
+                params: { funcName, funcVersion }
+            },
+            options: {
+                title: 'Edit Function Code',
+                size: 'medium'
+            }
+        }
+    };
+}
+/** INJECT:actionCreator **/

@@ -2,48 +2,58 @@
 
 import template from './account-menu.html';
 import ko from 'knockout';
-import { sessionInfo } from 'model';
+import ConnectableViewModel from 'components/connectable';
+import { realizeUri, formatEmailUri } from 'utils/browser-utils';
 import { support } from 'config';
-import { action$ } from 'state';
 import { signOut } from 'action-creators';
+import * as routes from 'routes';
 
-const supportEmailUri = `mailto:${support.email}`;
+class AccountMenuViewModel extends ConnectableViewModel {
+    isOpen = ko.observable(false);
+    isLocalClick = ko.observable(false);
+    accountName = ko.observable();
+    accountPageHref = ko.observable();
+    supportEmailHref = formatEmailUri(support.email);
+    helpDeskHref = support.helpDesk;
 
-class AccountMenuViewModel {
-    constructor() {
-        this.isOpen = ko.observable(false);
-        this.isLocalClick = ko.observable(false);
+    selectState(state) {
+        const { session, location } = state;
+        return [
+            location.params.system,
+            session && state.session.user
+        ];
+    }
 
-        // TODO: A workaroun for rece between pureComputed that is depended on
-        // sessionInfo and state$ updates.
-        this.userEmail = ko.pureComputed(
-            () => sessionInfo() ? sessionInfo().user : 'WORKAROUND'
-        );
+    mapStateToProps(system, account) {
+        if (!account) {
+            return;
+        }
 
-        this.profileHref = {
-            route: 'account',
-            params: { account: this.userEmail, tab: null }
-        };
-
-        this.supportEmailUri = supportEmailUri;
-        this.helpDeskUri = support.helpDesk;
+        ko.assignToProps(this, {
+            accountName: account,
+            accountPageHref: realizeUri(
+                routes.account,
+                { system, account }
+            )
+        });
     }
 
     onLocalClick() {
-        this.isOpen.toggle();
-        this.isLocalClick(true);
+        ko.assignToProps(this, {
+            isOpen: !this.isOpen(),
+            isLocalClick: true
+        });
     }
 
     onGlobalClick() {
-        if (!this.isLocalClick()) {
-            this.isOpen(false);
-        }
-
-        this.isLocalClick(false);
+        ko.assignToProps(this, {
+            isOpen: this.isLocalClick() && this.isOpen(),
+            isLocalClick: false
+        });
     }
 
     onSignOut() {
-        action$.next(signOut());
+        this.dispatch(signOut());
     }
 }
 

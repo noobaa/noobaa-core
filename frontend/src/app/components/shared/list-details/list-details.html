@@ -1,0 +1,34 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<loading-indicator class="align-middle ld-loading-indicator"
+    ko.visible="loading"
+></loading-indicator>
+
+<section class="row no-overflow ld-wrapper"
+    ko.css.ld-expanded="selected"
+    ko.visible="!ko.unwrap(loading)"
+>
+    <ul class="list-no-style column greedy ld-list "
+        ko.foreach="rows"
+    >
+        <li class="row content-middle border-bottom ld-row"
+            ko.css.ld-row-selected="$component.selected.eq($data)"
+            ko.click="item => $component.onToggleItem(item)"
+        >
+            <div class="no-wrap greedy push-next" ko.template="{
+                html: $component.rowTemplate,
+                data: $parents[1],
+                let: { $item: $data }
+            }"></div>
+            <button class="link alt-colors no-outline ld-details-btn">
+                {{$component.buttonLabel}}
+            </button>
+        </li>
+    </ul>
+
+    <div class="column ld-details-pane" ko.template="{
+        html: $component.detailsTemplate,
+        data: $parent,
+        let: { $item: selected }
+    }"></div>
+</section>

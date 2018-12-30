@@ -14,6 +14,6 @@
 </span>
 <div class="editor-content column"
     ko.template="{ nodes: $componentTemplateNodes, data: $parent }"
-    data-bind="validationOptions: { insertMessages: insertValMessages }"
+    ko.validationOptions.insertMessages="insertValMessages"
 ></div>
 <!-- /ko -->

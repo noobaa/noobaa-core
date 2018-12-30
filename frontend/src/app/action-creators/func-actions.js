@@ -9,7 +9,17 @@ import {
     FAIL_DELETE_LAMBDA_FUNC,
     UPDATE_LAMBDA_FUNC_CONFIG,
     COMPLETE_UPDATE_LAMBDA_FUNC_CONFIG,
-    FAIL_UPDATE_LAMBDA_FUNC_CONFIG
+    FAIL_UPDATE_LAMBDA_FUNC_CONFIG,
+    UPDATE_LAMBDA_FUNC_CODE,
+    COMPLETE_UPDATE_LAMBDA_FUNC_CODE,
+    FAIL_UPDATE_LAMBDA_FUNC_CODE,
+    LOAD_LAMBDA_FUNC_CODE,
+    COMPLETE_LOAD_LAMBDA_FUNC_CODE,
+    FAIL_LOAD_LAMBDA_FUNC_CODE,
+    DROP_LAMBDA_FUNC_CODE,
+    INVOKE_LAMBDA_FUNC,
+    COMPLETE_INVOKE_LAMBDA_FUNC,
+    FAIL_INVOKE_LAMBDA_FUNC
 } from 'action-types';
 
 
@@ -112,3 +122,86 @@ export function failUpdateLambdaFuncConfig(name, version, error) {
     };
 }
 
+export function updateLambdaFuncCode(
+    name,
+    version,
+    handlerFile,
+    handlerFunc,
+    bufferHandle,
+    bufferSize
+) {
+    return {
+        type: UPDATE_LAMBDA_FUNC_CODE,
+        payload: {
+            name,
+            version,
+            handlerFile,
+            handlerFunc,
+            bufferHandle,
+            bufferSize
+        }
+    };
+}
+
+export function completeUpdateLambdaFuncCode(name, version) {
+    return {
+        type: COMPLETE_UPDATE_LAMBDA_FUNC_CODE,
+        payload: { name, version }
+    };
+}
+
+export function failUpdateLambdaFuncCode(name, version, error) {
+    return {
+        type: FAIL_UPDATE_LAMBDA_FUNC_CODE,
+        payload: { name, version, error }
+    };
+}
+
+export function loadLambdaFuncCode(name, version) {
+    return {
+        type: LOAD_LAMBDA_FUNC_CODE,
+        payload: { name, version }
+    };
+}
+
+export function completeLoadLambdaFuncCode(name, version, codeHash, bufferHandle) {
+    return {
+        type: COMPLETE_LOAD_LAMBDA_FUNC_CODE,
+        payload: { name, version, codeHash, bufferHandle }
+    };
+}
+
+export function failLoadLambdaFuncCode(name, version, error) {
+    return {
+        type: FAIL_LOAD_LAMBDA_FUNC_CODE,
+        payload: { name, version, error }
+    };
+}
+
+export function dropLambdaFuncCode(name, version) {
+    return {
+        type: DROP_LAMBDA_FUNC_CODE,
+        payload: { name, version }
+    };
+}
+
+export function invokeLambdaFunc(name, version, event) {
+    return {
+        type: INVOKE_LAMBDA_FUNC,
+        payload: { name, version, event }
+    };
+}
+
+export function completeInvokeLambdaFunc (name, version, error, result) {
+    return {
+        type: COMPLETE_INVOKE_LAMBDA_FUNC,
+        payload: { name, version, error, result }
+    };
+}
+
+export function failInvokeLambdaFunc(name, version, error) {
+    return {
+        type: FAIL_INVOKE_LAMBDA_FUNC,
+        payload: { name, version, error }
+    };
+}

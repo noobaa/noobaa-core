@@ -2,7 +2,7 @@
 
 <func-summary class="push-next" params="
     funcName: funcName,
-    funcVersion: '$LATEST'
+    funcVersion: funcVersion
 "></func-summary>
 
 <div class="tabs greedy">
@@ -24,36 +24,31 @@
         >
             Configuration
         </a>
-
-        <a ko.css.selected="selectedTab.eq('invoke')"
-            ko.attr.href="tabHref('invoke')"
-        >
-            Invoke
-        </a>
     </nav>
 
     <div class="tabs-row">
-        <func-monitoring class="tab"
+        <func-monitoring-form class="tab column greedy"
             ko.css.selected="selectedTab.eq('monitoring')"
-            params="func: func"
-        ></func-monitoring>
+            params="
+                funcName: funcName,
+                funcVersion: funcVersion
+            "
+        ></func-monitoring-form>
 
-        <func-code class="tab"
+        <func-code-form class="tab column greedy"
             ko.css.selected="selectedTab.eq('code')"
-            params="func: func"
-        ></func-code>
+            params="
+                funcName: funcName,
+                funcVersion: funcVersion
+            "
+        ></func-code-form>
 
         <func-config-form class="tab"
             ko.css.selected="selectedTab.eq('config')"
             params="
                 funcName: funcName,
-                funcVersion: '$LATEST'
+                funcVersion: funcVersion
             "
         ></func-config-form>
-
-        <func-invoke class="tab"
-            ko.css.selected="selectedTab.eq('invoke')"
-            params="func: func"
-        ></func-invoke>
     </div>
 </div>

@@ -3,28 +3,19 @@
 import { mergeMap } from 'rxjs/operators';
 import { ofType } from 'rx-extensions';
 import { Subject } from 'rxjs';
+import { createS3Client } from 'utils/aws-utils';
 import { mapErrorObject } from 'utils/state-utils';
 import { DELETE_OBJECT } from 'action-types';
 import { completeDeleteObject, failDeleteObject } from 'action-creators';
 
-export default function(action$, { S3 }) {
+export default function(action$, { AWS }) {
     return action$.pipe(
         ofType(DELETE_OBJECT),
         mergeMap(action => {
             const { objId, accessData } = action.payload;
             const { bucket, key, version, uploadId } = objId;
-            const { endpoint, accessKey, secretKey } = accessData;
-            const s3 = new S3({
-                endpoint: endpoint,
-                credentials: {
-                    accessKeyId: accessKey,
-                    secretAccessKey: secretKey
-                },
-                s3ForcePathStyle: true,
-                sslEnabled: false
-            });
+            const s3 = createS3Client(AWS, accessData);
             const deleteEvent$ = new Subject();
-
 
             if (uploadId) {
                 const params = {

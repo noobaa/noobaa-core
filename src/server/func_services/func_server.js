@@ -37,9 +37,17 @@ const FUNC_CONFIG_DEFAULTS = {
 const FUNC_CONFIG_FIELDS_IMMUTABLE = [
     'code_size',
     'code_sha256',
-    'last_modified',
     'resource_name',
 ];
+
+const FUNC_STATS_DEFAULTS = {
+    invoked: 0,
+    fulfilled: 0,
+    rejected: 0,
+    aggr_response_time: 0,
+    max_response_time: 0,
+    avg_response_time: 0,
+};
 
 async function create_func(req) {
     const { config: func_config, code: func_code } = req.params;
@@ -67,6 +75,7 @@ async function create_func(req) {
         name,
         version,
         last_modified: new Date(),
+        last_modifier: exec_account,
         resource_name,
         pools,
         code_gridfs_id,
@@ -78,39 +87,41 @@ async function create_func(req) {
     return _get_func_info(req.func);
 }
 
-function update_func(req) {
-    const func_config = req.params.config;
+async function update_func(req) {
+    await _load_func(req);
+
+    const { func, params, system } = req;
+    const func_config = params.config;
     const config_updates = _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE);
     if (func_config.pools) {
-        config_updates.pools = _.map(func_config.pools, pool_name =>
-            req.system.pools_by_name[pool_name]._id);
+        config_updates.pools = _.map(
+            func_config.pools,
+            pool_name => system.pools_by_name[pool_name]._id
+        );
     }
-    return _load_func(req)
-        .then(() => {
-            const func = req.func;
-            const func_code = req.params.code;
-            if (!func_code) return;
-            return P.resolve()
-                .then(() => func_store.instance().delete_code_gridfs(func.code_gridfs_id))
-                .then(() => _get_func_code_stream(req, func_code))
-                .then(code_stream => func_store.instance().create_code_gridfs({
-                    system: func.system,
-                    name: func.name,
-                    version: func.version,
-                    code_stream,
-                }))
-                .then(res => {
-                    config_updates.code_gridfs_id = res.id;
-                    config_updates.code_sha256 = res.sha256;
-                    config_updates.code_size = res.size;
-                });
-        })
-        .then(() => func_store.instance().update_func(
-            req.func._id,
-            config_updates
-        ))
-        .then(() => _load_func(req))
-        .then(() => _get_func_info(req.func));
+
+    const func_code = params.code;
+    if (func_code) {
+        await func_store.instance().delete_code_gridfs(func.code_gridfs_id);
+        const code_stream = await _get_func_code_stream(req, func_code);
+        const res = await func_store.instance().create_code_gridfs({
+            system: func.system,
+            name: func.name,
+            version: func.version,
+            code_stream,
+        });
+
+        config_updates.code_gridfs_id = res.id;
+        config_updates.code_sha256 = res.sha256;
+        config_updates.code_size = res.size;
+    }
+
+    config_updates.last_modified = new Date();
+    config_updates.last_modifier = req.account._id;
+
+    await func_store.instance().update_func(func._id, config_updates);
+    await _load_func(req);
+    return _get_func_info(func);
 }
 
 function delete_func(req) {
@@ -119,81 +130,74 @@ function delete_func(req) {
         .then(() => func_store.instance().delete_func(req.func._id));
 }
 
-function read_func(req) {
-    return _load_func(req)
-        .then(() => _get_func_info(req.func))
-        .then(reply => {
-            if (!req.params.read_code) return reply;
-            return func_store.instance().read_code_gridfs(req.func.code_gridfs_id)
-                .then(zipfile => {
-                    reply[RPC_BUFFERS] = { zipfile };
-                    return reply;
-                });
-        })
-        .then(reply => {
-            if (!req.params.read_stats) return reply;
-            const MINUTE = 60 * 1000;
-            const HOUR = 60 * MINUTE;
-            const DAY = 24 * HOUR;
-            const now = Date.now();
-            const last_10_minutes = now - (10 * MINUTE);
-            const last_hour = now - HOUR;
-            const last_day = now - DAY;
-            return func_stats_store.instance().sample_func_stats({
-                    system: req.func.system,
-                    func: req.func._id,
-                    since_time: new Date(last_day),
-                    sample_size: 1000,
-                })
-                .then(stats => {
-                    const stats_sorted_by_took =
-                        _.chain(stats)
-                        .reject('error')
-                        .sortBy('took')
-                        .value();
-                    reply.stats = {
-                        response_time_last_10_minutes: _calc_percentiles(
-                            _.filter(stats_sorted_by_took,
-                                s => s.time >= last_10_minutes),
-                            'took'),
-                        response_time_last_hour: _calc_percentiles(
-                            _.filter(stats_sorted_by_took,
-                                s => s.time >= last_hour),
-                            'took'),
-                        response_time_last_day: _calc_percentiles(
-                            stats_sorted_by_took, 'took'),
-                        requests_over_time: _.chain(stats)
-                            .groupBy(s => Math.ceil(s.time.getTime() / MINUTE))
-                            .map((g, t) => ({
-                                time: t * MINUTE,
-                                requests: g.length,
-                                errors: _.filter(g, 'error').length
-                            }))
-                            .value()
-                    };
-                    return reply;
-                });
-        });
+async function read_func(req) {
+    await _load_func(req);
+    const reply = await _get_func_info(req.func);
+    if (req.params.read_code) {
+        const zipfile = await func_store.instance().read_code_gridfs(req.func.code_gridfs_id);
+        reply[RPC_BUFFERS] = { zipfile };
+    }
+    return reply;
 }
 
-function _calc_percentiles(list, prop) {
-    const percentiles = list.length ?
-        _.map([
-            0, 10, 20, 30, 40,
-            50, 60, 70, 80, 90,
-            95, 99, 99.9, 100
-        ], i => ({
-            percent: i,
-            value: list[Math.min(
-                list.length - 1,
-                Math.floor(list.length * i * 0.01)
-            )][prop]
-        })) : [];
-    return {
-        count: list.length,
-        percentiles: percentiles,
-    };
+async function read_func_stats(req) {
+    // Load the function into the request.
+    await _load_func(req);
 
+    const {
+        since,
+        till = Date.now(),
+        step,
+        percentiles = [0.5, 0.9, 0.99],
+        max_samples = 10000
+    } = req.params;
+
+    if (till <= since) {
+        throw new Error('read_func_stats: Invalid time range');
+    }
+
+    if (!step || step <= 0) {
+        throw new Error('read_func_stats: Invalid step value');
+    }
+
+    const normalized_since = Math.floor(since / step) * step;
+    const normalized_till = Math.ceil(till / step) * step;
+    const by_key = _.fromPairs(await func_stats_store.instance()
+        .query_func_stats({
+            system: req.system._id,
+            func: req.func._id,
+            since: new Date(normalized_since),
+            till: new Date(normalized_till),
+            step,
+            percentiles,
+            max_samples
+        }));
+
+    const emptyPercentilesArray = percentiles.map(percentile => {
+        const value = 0;
+        return { percentile, value };
+    });
+
+    return {
+        stats: {
+            ...FUNC_STATS_DEFAULTS,
+            since: normalized_since,
+            till: normalized_till,
+            response_percentiles: emptyPercentilesArray,
+            ...by_key[-1]
+        },
+        slices: _.range(
+            normalized_since,
+            normalized_till,
+            step
+        ).map(since_time => ({
+            ...FUNC_STATS_DEFAULTS,
+            since: since_time,
+            till: since + step,
+            response_percentiles: emptyPercentilesArray,
+            ...by_key[since_time]
+        }))
+    };
 }
 
 function list_funcs(req) {
@@ -348,6 +352,8 @@ function _get_func_info(func) {
         FUNC_CONFIG_FIELDS_MUTABLE,
         FUNC_CONFIG_FIELDS_IMMUTABLE);
     config.last_modified = func.last_modified.getTime();
+    const account = system_store.data.get_by_id(func.last_modifier);
+    config.last_modifier = account ? account.email : '';
     config.pools = _.map(func.pools, pool => {
         if (pool.name) return pool.name;
         return system_store.data.get_by_id(pool).name;
@@ -402,6 +408,7 @@ exports.create_func = create_func;
 exports.update_func = update_func;
 exports.delete_func = delete_func;
 exports.read_func = read_func;
+exports.read_func_stats = read_func_stats;
 exports.list_funcs = list_funcs;
 exports.list_func_versions = list_func_versions;
 exports.invoke_func = invoke_func;

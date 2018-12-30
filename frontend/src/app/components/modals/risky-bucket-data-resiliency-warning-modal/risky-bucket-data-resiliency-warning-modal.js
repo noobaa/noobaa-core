@@ -5,7 +5,7 @@ import Observer from 'observer';
 import { action$ } from 'state';
 import { updateBucketResiliencyPolicy, closeModal } from 'action-creators';
 import { all, sleep } from 'utils/promise-utils';
-import api from 'services/api';
+import { api } from 'services';
 import ko from 'knockout';
 
 class RiskyBucketDataResiliencyWarningModalViewModel extends Observer {

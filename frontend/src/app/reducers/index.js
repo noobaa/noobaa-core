@@ -28,10 +28,13 @@ import functionsReducer from './functions-reducer';
 import storageHistoryReducer from './storage-history-reducer';
 import bucketUsageHistoryReducer from './bucket-usage-history-reducer';
 import accountUsageHistoryReducer from './account-usage-history-reducer';
+import lambdaUsageHistoryReducer from './lambda-usage-history-reducer';
 import objectsDistributionReducer from './objects-distribution-reducer';
 import cloudUsageStatsReducer  from './cloud-usage-stats-reducer';
 import platformReducer  from './platform-reducer';
+/** INJECT:import **/
 
+/* eslint-disable comma-dangle */
 export default combineReducers({
     env: envReducer,
     location: locationReducer,
@@ -60,7 +63,9 @@ export default combineReducers({
     storageHistory: storageHistoryReducer,
     bucketUsageHistory: bucketUsageHistoryReducer,
     accountUsageHistory: accountUsageHistoryReducer,
+    lambdaUsageHistory: lambdaUsageHistoryReducer,
     objectsDistribution: objectsDistributionReducer,
     cloudUsageStats: cloudUsageStatsReducer,
-    platform: platformReducer
+    platform: platformReducer,
+    /** INJECT:list **/
 });

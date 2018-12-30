@@ -1,0 +1,83 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row content-middle pad alt-bg">
+    <h2 class="heading3 greedy push-next">
+        Function Statistics
+    </h2>
+    <toggle-group params="
+        options: durationOptions,
+        selected: ko.pc(selectedDuration, onDuration, $component)
+    "></toggle-group>
+</div>
+
+<div class="charts greedy push-both-half auto-overflow">
+    <section class="column pad">
+        <h3 class="heading3">
+            Response Time
+        </h3>
+        <div class="row push-both">
+            <div class="row content-middle greedy">
+                <counter class="push-next" params="
+                    label: 'Precentile',
+                    color: style['color8'],
+                    value: '99th',
+                    tween: false
+                "></counter>
+                <counter class="push-both" params="
+                    label: 'Precentile',
+                    color: style['color16'],
+                    value: '90th',
+                    tween: false
+                "></counter>
+                <counter class="push-prev" params="
+                    label: 'Precentile',
+                    color: style['color6'],
+                    value: '50th',
+                    tween: false
+                "></counter>
+            </div>
+             <div class="row content-middle">
+                <counter class="push-next" params="
+                    label: 'Max Response Time',
+                    format: formatMiliseconds,
+                    value: maxResponseTime
+                "></counter>
+                <counter class="push-prev" params="
+                    label: 'Avg Response Time',
+                    format: formatMiliseconds,
+                    value: avgResponseTime
+                "></counter>
+            </div>
+        </div>
+        <chartjs class="push-prev" params="
+            type: 'line',
+            options: responseTimeChart.options,
+            data: responseTimeChart.data
+        "></chartjs>
+    </section>
+    <hr class="push-both" />
+    <section class="column pad">
+        <h3 class="heading3">
+            Request and Error Count Over Time
+        </h3>
+        <div class="row push-both">
+            <counter class="push-next" params="
+                label: 'Total Successes',
+                color: style['color12'],
+                value: totalFulfilled,
+                format: 'number'
+            "></counter>
+            <counter class="push-prev" params="
+                label: 'Total Errors',
+                color: style['color10'],
+                value: totalRejected,
+                format: 'number'
+            "></counter>
+        </div>
+        <chartjs class="push-prev" params="
+            type: 'bar',
+            options: invocationsChart.options,
+            data: invocationsChart.data
+        "></chartjs>
+    </section>
+</div>

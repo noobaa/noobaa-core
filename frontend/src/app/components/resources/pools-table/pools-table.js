@@ -24,7 +24,7 @@ const columns = deepFreeze([
     {
         name: 'name',
         label: 'pool name',
-        type: 'newLink',
+        type: 'link',
         sortable: true,
         compareKey: pool => pool.name
     },

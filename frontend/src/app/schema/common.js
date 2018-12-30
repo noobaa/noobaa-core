@@ -87,3 +87,83 @@ export const diagnostics = {
         }
     }
 };
+
+export const bufferKey = {
+    oneOf: [
+        {
+            type: 'null'
+        },
+        {
+            type: 'object',
+            required: [
+                'key'
+            ],
+            properties: {
+                key: {
+                    type: 'string'
+                }
+            }
+        }
+    ]
+};
+
+export const lambdaFuncStats = {
+    type: 'object',
+    required: [
+        'since',
+        'till',
+        'invoked',
+        'fulfilled',
+        'rejected',
+        'aggrResponseTime',
+        'maxResponseTime',
+        'avgResponseTime',
+        'responsePercentiles'
+    ],
+    properties: {
+        since: {
+            type: 'integer'
+        },
+        till: {
+            type: 'integer'
+        },
+        invoked: {
+            type: 'integer'
+        },
+        fulfilled: {
+            type: 'integer'
+        },
+        rejected: {
+            type: 'integer'
+        },
+        aggrResponseTime: {
+            type: 'integer'
+        },
+        maxResponseTime: {
+            type: 'integer'
+        },
+        avgResponseTime: {
+            type: 'integer'
+        },
+        responsePercentiles: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: [
+                    'percentile',
+                    'value'
+                ],
+                properties: {
+                    percentile: {
+                        type: 'number',
+                        minimum: 0,
+                        maximum: 1
+                    },
+                    value: {
+                        type: 'integer'
+                    }
+                }
+            }
+        }
+    }
+};

@@ -1,10 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="steps" data-bind="
-    style: { transform: transform },
-    foreach: (slides || $componentTemplateNodes).filter(elm => elm.nodeType !== 3)
+<section class="steps"
+    ko.style.transform="transform"
+    ko.foreach="slides || $componentTemplateNodes).filter(elm => elm.nodeType !== 3)"
 ">
-    <div class="step" data-bind="
-        css: { current: $component.isCurrent($index) },
-        template: { nodes: [$data], data: $parents[1] }"></div>
+    <div class="step"
+        ko.css.current="$component.isCurrent($index)"
+        ko.template="{ nodes: [$data], data: $parents[1] }"
+    ></div>
 </section>

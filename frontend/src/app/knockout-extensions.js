@@ -393,30 +393,61 @@ ko.validation.group = function(obj, options) {
     );
 };
 
+import { equalIgnoreCase } from 'utils/string-utils';
+
 // -----------------------------------------
 // Binding syntax extentions
 // -----------------------------------------
 const bindPrefix = 'ko.';
 const magicBindingName = '@';
 const magicBindings = new Map();
-const bindingHandlers = new Map();
+const bindingNameMapping = new Map();
 const origGetBindingHandler = ko.getBindingHandler;
 const copyrightsIdentifiers = deepFreeze([
     'copyright',
     'noobaa'
 ]);
+
 const preprocessByNodeType = deepFreeze({
     [Node.ELEMENT_NODE]: preprocessElement,
     [Node.TEXT_NODE]: preprocessTextNode,
     [Node.COMMENT_NODE]: preprocessComment
 });
 
+function getCanonicalBindingName(name) {
+    if (ko.bindingHandlers.hasOwnProperty(name)) {
+        return name;
+    }
+
+    if (bindingNameMapping.has(name)) {
+        return bindingNameMapping.get(name);
+    }
+
+    const canonicalName = Object.keys(ko.bindingHandlers)
+        .find(other => equalIgnoreCase(name, other));
+
+    if (canonicalName) {
+        bindingNameMapping.set(name, canonicalName);
+        return canonicalName;
+    }
+
+    return null;
+}
+
 function preprocessElement(node) {
     const { attributes, dataset } = node;
 
     const bindings = Array.from(attributes)
         .filter(({ name }) => name.startsWith(bindPrefix))
-        .map(({ name, value }) => [ name.substr(bindPrefix.length), value ]);
+        .map(({ name, value }) => {
+            const [key, subKey] = name
+                .substr(bindPrefix.length)
+                .split('.');
+
+            const canonicalKey = getCanonicalBindingName(key);
+            const bindingName = subKey ? `${canonicalKey}.${subKey}` : canonicalKey;
+            return [bindingName, value];
+        });
 
 
     if (bindings.length > 0) {
@@ -457,6 +488,7 @@ function preprocessTextNode(node) {
 }
 
 function preprocessComment(comment) {
+    // Remove copyright comments from templates.
     const text = comment.nodeValue.toLowerCase();
     if (copyrightsIdentifiers.every(identifier => text.includes(identifier))) {
         comment.parentNode.removeChild(comment);
@@ -481,13 +513,17 @@ ko.bindingProvider.instance.preprocessNode = function(node) {
 };
 
 ko.getBindingHandler = function(name) {
-    let handler = bindingHandlers.get(name);
+    let handler = origGetBindingHandler(name);
     if (handler) return handler;
 
-    const [ binding, key ] = name.split('.');
-    handler = origGetBindingHandler(binding);
-    handler = key ? subclassBindingHandler(key, handler) : handler;
-    bindingHandlers.set(name, handler);
+    const [key, subKey] = name.split('.');
+    if (subKey) {
+        handler = origGetBindingHandler(key);
+        if (handler) {
+            handler = subclassBindingHandler(subKey, handler);
+            ko.bindingHandlers[name] = handler;
+        }
+    }
 
     return handler;
 };
@@ -501,9 +537,12 @@ ko.bindingHandlers[magicBindingName] = {
     }
 };
 
+global.ko = ko;
+
+
 // Add lowercased copies of build-in bindings (to support the ko.<binding> attribute notation).
-Object.entries(ko.bindingHandlers)
-    .forEach(([name, binding]) => {
-        const lcName = name.toLowerCase();
-        if (lcName !== name) ko.bindingHandlers[lcName] = binding;
-    });
+// Object.entries(ko.bindingHandlers)
+//     .forEach(([name, binding]) => {
+//         const lcName = name.toLowerCase();
+//         if (lcName !== name) ko.bindingHandlers[lcName] = binding;
+//     });

@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
-export function createS3Client(S3, endpoint, accessKey, secretKey) {
-    return new S3({
+export function createS3Client(AWS, connection) {
+    const { endpoint, accessKey, secretKey } = connection;
+    return new AWS.S3({
         endpoint: endpoint,
         credentials: {
             accessKeyId: accessKey,

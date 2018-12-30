@@ -84,6 +84,9 @@ export default {
         accountUsageHistory: {
             $ref: '#/def/accountUsageHistory'
         },
+        lambdaUsageHistory: {
+            $ref: '#/def/lambdaUsageHistory'
+        },
         objectsDistribution: {
             ref: '#/def/objectsDistribution'
         },

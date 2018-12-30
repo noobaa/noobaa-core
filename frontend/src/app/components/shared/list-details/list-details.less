@@ -1,0 +1,79 @@
+/* Copyright (C) 2016 NooBaa */
+
+list-details {
+    display: block;
+    overflow: hidden;
+
+    .ld-wrapper {
+        min-height: 100%;
+        max-height: 100%;
+    }
+
+    .ld-loading-indicator {
+        margin-top: @gutter;
+    }
+
+    .ld-list {
+        width: 420px;
+        margin: (@gutter/2 - 4px) 0;
+        overflow: auto;
+
+        .ld-row {
+            @height: 44px;
+
+            box-sizing: content-box;
+            padding: 0 @gutter;
+            min-height: @height;
+            cursor: @cursor-pointer;
+
+            > div {
+                width: 100%;
+                white-space: nowrap;
+            }
+
+
+            &.ld-row-selected {
+                color: @color6;
+                background-color: fadeout(@color6, 95%);
+            }
+
+            > .ld-details-btn {
+                display: none;
+            }
+
+            &:hover {
+                background-color: fadeout(@color6, 91%);
+
+                > .ld-details-btn {
+                    display: block;
+                }
+            }
+        }
+    }
+
+    .ld-details-pane {
+        width: calc(~"100% - 420px");
+        margin-right: calc(~"420px - 100%");
+        transition: margin 750ms ease;
+
+        > div {
+            margin: @gutter/2;
+        }
+    }
+
+    .ld-expanded {
+        .ld-row:hover > .ld-details-btn {
+            display: none;
+        }
+
+        .ld-row > div {
+            width: 380px;
+            white-space: normal;
+        }
+
+        .ld-details-pane {
+            .border-left();
+            margin-right: 0;
+        }
+    }
+}

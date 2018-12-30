@@ -21,7 +21,9 @@
         <template name="internal-storage">
             <p class="row content-middle">
                 Using {{used}} of {{total}} (by bucket spillover)
-                <a class="link push-prev-half" ko.href="href">See internal resource</a>
+                <a class="link push-prev-half" ko.attr.href="href">
+                    See internal resource
+                </a>
             </p>
         </template>
     </property-sheet>

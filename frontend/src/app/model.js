@@ -35,9 +35,6 @@ export const sslCertificateUploadStatus = ko.observable();
 // Used to replay read server time events.
 export const serverTime = ko.observable();
 
-// Hold funcs information
-export const funcInfo = ko.observable();
-
 // Hold system activation information.
 export const activationState = ko.observable();
 

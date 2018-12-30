@@ -1,14 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import * as model from 'model';
-import api from 'services/api';
+import { api } from 'services';
 import config from 'config';
 import * as routes from 'routes';
-import JSZip from 'jszip';
 import { last, makeArray } from 'utils/core-utils';
-import { all, sleep, execInOrder } from 'utils/promise-utils';
+import { sleep, execInOrder } from 'utils/promise-utils';
 import { realizeUri, downloadFile, httpRequest, toFormData } from 'utils/browser-utils';
-import { Buffer } from 'buffer';
 
 // Action dispathers from refactored code.
 import { action$ } from 'state';
@@ -38,13 +36,6 @@ function logAction(action, payload) {
 // -----------------------------------------------------
 // Navigation actions
 // -----------------------------------------------------
-export function navigateTo(route = model.routeContext().pathname, params = {},  query = {}) {
-    logAction('navigateTo', { route, params, query });
-
-    const uri = realizeUri(route, Object.assign({}, model.routeContext().params, params), query);
-    action$.next(requestLocation(uri));
-}
-
 export function redirectTo(route = model.routeContext().pathname, params = {}, query = {}) {
     logAction('redirectTo', { route, params, query });
 
@@ -59,116 +50,6 @@ export function reloadTo(route = model.routeContext().pathname, params = {},  qu
     window.location.href = realizeUri(
         route, Object.assign({}, model.routeContext().params, params), query
     );
-}
-
-// -----------------------------------------------------
-// High level UI update actions.
-// -----------------------------------------------------
-
-export function showFunc() {
-    logAction('showFunc');
-
-    const ctx = model.routeContext();
-    const { func } = ctx.params;
-
-    loadFunc(func);
-}
-
-export async function loadFunc(name, version = '$LATEST') {
-    logAction('loadFunc', { name, version });
-
-    const reply = await api.func.read_func({
-        name,
-        version,
-        read_code: true,
-        read_stats: true
-    });
-
-    const codeFiles = [];
-    const { zipfile } = reply[api.RPC_BUFFERS] || {};
-    if (zipfile) {
-        const zip = await JSZip.loadAsync(zipfile);
-        const { handler } = reply.config;
-        const handlerFile = handler.slice(0, handler.lastIndexOf('.'));
-        const file = zip.files[handlerFile + '.js'];
-
-        if (file) {
-            codeFiles.push({
-                path: file.name,
-                size: file._data.uncompressedSize, // hacky
-                dir: file.dir,
-                content: await file.async('string')
-            });
-        }
-    }
-
-    const { name: _, version: __, ...config } = reply.config;
-    const stats = reply.stats;
-    model.funcInfo({ name, version, config, codeFiles, stats });
-}
-
-export async function invokeFunc(name, version, event = '') {
-    logAction('invokeFunc', { name, version, event });
-
-    try {
-        const eventObj = JSON.parse(String(event));
-        const { result, error } = await api.func.invoke_func({
-            name: name,
-            version: version,
-            event: eventObj
-        });
-
-        error ?
-            notify(`Func ${name} invoked but returned error: ${error.message}`, 'warning') :
-            notify(`Func ${name} invoked successfully result: ${JSON.stringify(result)}`, 'success');
-
-    } catch (error) {
-        notify(`Func ${name} invocation failed`, 'error');
-    }
-}
-
-export async function updateFuncConfig(name, version, config) {
-    logAction('updateFuncConfig', { name, version, config });
-
-    try {
-        await api.func.update_func({
-            config: { name, version, ...config }
-        });
-        notify(`Func ${name} updated successfully`, 'success');
-        loadFunc(name);
-
-    } catch (error) {
-        notify(`Func ${name} update failed`, 'error');
-    }
-}
-
-export async function updateFuncCode(name, version, patches) {
-    logAction('updateFuncCode', { name, version });
-
-    try {
-        const reply = await api.func.read_func({
-            name,
-            version,
-            read_code: true
-        });
-        const { zipfile } = reply[api.RPC_BUFFERS];
-        if (zipfile) {
-            const zip = await JSZip.loadAsync(zipfile);
-            await all(patches.map(({ path, content }) => zip.file(path, content)));
-            const update = Buffer.from(await zip.generateAsync({ type: 'uint8array' }));
-
-            await api.func.update_func({
-                config: { name, version },
-                code: {},
-                [api.RPC_BUFFERS]: { zipfile: update }
-            });
-        }
-
-        notify(`Func ${name} code updated successfully`, 'success');
-
-    } catch (error) {
-        notify(`Func ${name} code update failed`, 'error');
-    }
 }
 
 // -----------------------------------------------------
@@ -513,32 +394,6 @@ export function downloadServerDiagnosticPack(secret, hostname) {
             url => {
                 downloadFile(url);
                 model.collectDiagnosticsState.assign({ [key]: false });
-            }
-        )
-        .done();
-}
-
-export function downloadSystemDiagnosticPack() {
-    logAction('downloadSystemDiagnosticPack');
-
-    if (model.collectDiagnosticsState['system'] === true) {
-        return;
-    }
-
-    model.collectDiagnosticsState.assign({ system: true });
-
-    api.cluster_server.diagnose_system({})
-        .catch(
-            err => {
-                notify('Packing system diagnostic file failed', 'error');
-                model.collectDiagnosticsState.assign({ system: false });
-                throw err;
-            }
-        )
-        .then(
-            url => {
-                downloadFile(url);
-                model.collectDiagnosticsState.assign({ system: false });
             }
         )
         .done();

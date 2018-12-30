@@ -6,14 +6,20 @@ import ko from 'knockout';
 import { deepFreeze, pick } from 'utils/core-utils';
 import { readFileAsArrayBuffer, toObjectUrl, openInNewTab } from 'utils/browser-utils';
 import { shortString, stringifyAmount } from 'utils/string-utils';
-import { unitsInBytes, formatSize } from 'utils/size-utils';
+import { formatSize } from 'utils/size-utils';
 import { getFormValues, isFieldValid, isFormValid } from 'utils/form-utils';
-import { memorySizeOptions } from 'utils/func-utils';
 import { getMany } from 'rx-extensions';
 import { action$, state$ } from 'state';
 import { bufferStore } from 'services';
 import JSZip from 'jszip';
 import { createFunction as learnMoreHref } from 'knowledge-base-articles';
+import {
+    memorySizeOptions,
+    handlerFileSuffix,
+    funcSizeLimit,
+    isValidFuncName,
+    isValidHandlerFuncName
+} from 'utils/func-utils';
 import {
     updateForm,
     touchForm,
@@ -39,12 +45,7 @@ const codeFormatOptions = deepFreeze([
     }
 ]);
 
-const pkgSizeLimit = unitsInBytes.MEGABYTE * 100;
-const inlineCodeHandlerFile = 'main';
-const handlerFileSuffix = '.js';
-const funcNameRegExp = /^[a-zA-Z0-9-_]+$/;
-const handlerFuncNameRegExp = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
-
+const inlineCodeHandlerFile = 'main.js';
 const runtimeTooltip = 'The runtime environment for the function you are uploading. Currently, nodejs6 is the only available environment in NooBaa.';
 const handlerFileTooltip = 'The name of the file which the handler function is written in';
 const handlerFuncTooltip = 'The function within your code that will initiate the execution. The name should match to the function name in the selected file';
@@ -58,9 +59,8 @@ const fieldsByStep = deepFreeze({
 async function _selectCode(codeFormat, inlineCode, codePackage) {
     switch (codeFormat) {
         case 'TEXT': {
-            const handlerFileName = `${inlineCodeHandlerFile}${handlerFileSuffix}`;
             const zip = new JSZip();
-            zip.file(handlerFileName, inlineCode);
+            zip.file(inlineCodeHandlerFile, inlineCode);
             const uint8 = await zip.generateAsync({
                 type: 'uint8array',
                 compression: 'DEFLATE',
@@ -80,7 +80,6 @@ async function _selectCode(codeFormat, inlineCode, codePackage) {
             return null;
         }
     }
-
 }
 
 class CreateFuncModalViewModel extends Observer {
@@ -88,7 +87,7 @@ class CreateFuncModalViewModel extends Observer {
     formName = this.constructor.name;
     steps = steps;
     runtime = 'nodejs6';
-    formattedPkgSizeLimit = formatSize(pkgSizeLimit);
+    formattedPkgSizeLimit = formatSize(funcSizeLimit);
     codeFormatOptions = codeFormatOptions;
     memorySizeOptions = memorySizeOptions;
     runtimeTooltip = runtimeTooltip;
@@ -181,7 +180,7 @@ class CreateFuncModalViewModel extends Observer {
                 if (!funcName) {
                     errors.funcName = 'Name must contain at least one character';
 
-                } else if (!funcNameRegExp.test(funcName)) {
+                } else if (!isValidFuncName(funcName)) {
                     errors.funcName = 'Please use only alphanumeric characters, hyphens or underscores';
 
                 } else if (existingNames.includes(funcName)) {
@@ -208,7 +207,7 @@ class CreateFuncModalViewModel extends Observer {
                         errors.codePackage = 'Please upload a code package';
 
                     } else if (codePackage.oversized) {
-                        errors.codePackage= `Package size exceeds ${formatSize(pkgSizeLimit)}. Please use AWS API to complete the upload`;
+                        errors.codePackage= `Package size exceeds ${formatSize(funcSizeLimit)}. Please use AWS API to complete the upload`;
 
                     } else if (codePackage.files.length === 0) {
                         errors.codePackage = 'Package does not contain execution files';
@@ -222,7 +221,7 @@ class CreateFuncModalViewModel extends Observer {
                     if (!handlerFunc) {
                         errors.handlerFunc = 'Please enter the name of the requested execution function';
 
-                    } else if (!handlerFuncNameRegExp.test(handlerFunc)) {
+                    } else if (!isValidHandlerFuncName(handlerFunc)) {
                         errors.handlerFunc = 'Please enter a valid javascript function name';
                     }
                 }
@@ -295,7 +294,7 @@ class CreateFuncModalViewModel extends Observer {
         const { bufferKey, size } = await _selectCode(codeFormat, inlineCode, codePackage);
         const selectedHandlerFile = codeFormat === 'TEXT' ?
             inlineCodeHandlerFile :
-            handlerFile.slice(0, -handlerFileSuffix.length);
+            handlerFile;
 
         action$.next(createLambdaFunc(
             funcName,
@@ -328,7 +327,7 @@ class CreateFuncModalViewModel extends Observer {
 
     async _onCodePackage(pkg) {
         const { name, size } = pkg;
-        if (size > pkgSizeLimit) {
+        if (size > funcSizeLimit) {
             const codePackage = { name, size, oversized: true };
             action$.next(updateForm(this.formName, { codePackage }));
 

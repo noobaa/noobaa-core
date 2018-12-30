@@ -238,13 +238,13 @@ class ServerDetailsFormViewModel extends BaseViewModel {
                     .map(pool => pool.storage)[0];
 
                 const { used = 0, total = 0 } = storage || {};
+                const href = systemInfo() ?
+                    realizeUri(routes.resources, { system: systemInfo().name, tab: 'internal' }) :
+                    '';
                 return {
                     used: formatSize(used),
                     total: formatSize(total),
-                    href: {
-                        route: 'resources',
-                        params: { tab: 'internal' }
-                    }
+                    href: href
                 };
             }
         );

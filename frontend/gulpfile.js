@@ -87,6 +87,10 @@ const libs = [
     {
         name: 'big-integer',
         module: 'BigInteger.min.js'
+    },
+    {
+        name: 'prism',
+        module: 'prism.js'
     }
 ];
 
@@ -197,7 +201,7 @@ gulp.task('build-debug', ['lint-debug'], () => {
 });
 
 gulp.task('compile-styles', () => {
-    return gulp.src(['src/app/**/*.less'], { base: '.' })
+    return gulp.src('src/app/**/*.less', { base: '.' })
         .pipe($.lessImport('styles.less'))
         .pipe($.sourcemaps.init())
         .pipe($.less())

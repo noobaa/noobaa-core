@@ -26,7 +26,7 @@ const columns = deepFreeze([
     {
         name: 'funcName',
         label: 'Function Name',
-        type: 'newLink',
+        type: 'link',
         sortable: true,
         compareKey: trigger => trigger.func.name
     },

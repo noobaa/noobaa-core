@@ -1,7 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { deepFreeze } from './core-utils';
+import { unitsInBytes } from 'utils/size-utils';
 
+const funcNameRegExp = /^[a-zA-Z0-9-_]+$/;
+const handlerFuncNameRegExp = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+
+export const funcSizeLimit = unitsInBytes.MEGABYTE * 100;
+export const handlerFileSuffix = '.js';
 export const memorySizeOptions = deepFreeze([
     {
         value: 128,
@@ -34,4 +40,19 @@ export function getFunctionOption(func, accounts, bucket) {
     }
 
     return { value, icon, label, disabled, tooltip };
+}
+export function isValidFuncName(name){
+    return funcNameRegExp.test(name);
+}
+
+export function isValidHandlerFuncName(name) {
+    return handlerFuncNameRegExp.test(name);
+}
+
+export function getFullHandlerName(handlerFile, handlerFunc) {
+    return `${
+        handlerFile.slice(0, -handlerFileSuffix.length)
+    }.${
+        handlerFunc
+    }`;
 }

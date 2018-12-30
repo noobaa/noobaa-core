@@ -7,13 +7,11 @@
             placeholder: 'month',
             selected: month
         "></dropdown>
-
         <dropdown class="text-center push-next" params="
             options: dayOptions,
             placeholder: 'day',
             selected: day
         "></dropdown>
-
         <dropdown class="text-center" params="
             options: yearOptions,
             placeholder: 'year',
@@ -24,13 +22,25 @@
 
 <editor params="label: 'Time', insertValMessages: false">
     <div class="row editor-row">
-        <input type="number" class="push-next" min="0" max="23"
-            placeholder="hours" data-bind="textInput: hour"/>
-
-        <input type="number" class="push-next" min="0" max="59"
-            placeholder="minutes" data-bind="textInput: minute"/>
-
-        <input type="number" min="0" max="59"
-            placeholder="seconds" data-bind="textInput: second"/>
+        <input type="number"
+            class="push-next"
+            min="0"
+            max="23"
+            placeholder="hours"
+            ko.textInput="hour"
+        />
+        <input type="number"
+            class="push-next"
+            min="0"
+            max="59"
+            placeholder="minutes"
+            ko.textInput="minute"
+        />
+        <input type="number"
+            min="0"
+            max="59"
+            placeholder="seconds"
+            ko.textInput="second"
+        />
     </div>
 </editor>

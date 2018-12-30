@@ -17,11 +17,11 @@ const columns = deepFreeze([
     },
     {
         name: 'object',
-        type: 'newLink'
+        type: 'link'
     },
     {
         name: 'bucket',
-        type: 'newLink'
+        type: 'link'
     },
     {
         name: 'start'

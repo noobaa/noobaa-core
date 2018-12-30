@@ -1,14 +1,14 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <label class="row">
-    <input type="checkbox" data-bind="
-        checked: $data.checked,
-        checkedValue: $data.value,
-        disable: $data.disabled || false,
+    <input type="checkbox"
+        ko.checked="$data.checked"
+        ko.checkedValue="$data.value"
+        ko.disable="$data.disabled || false"
     "/>
     <span class="checkbox-box"></span>
-    <span class="checkbox-label no-wrap" data-bind="
-        text: $data.label || $data.value,
-        tooltip: $data.tooltip
+    <span class="checkbox-label no-wrap"
+        ko.text="$data.label || $data.value"
+        ko.tooltip="$data.tooltip"
     "></span>
 </label>

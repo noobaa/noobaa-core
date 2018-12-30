@@ -1,8 +1,8 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<ol data-bind="foreach: steps">
-    <li class="stepper-step" data-bind="css: { selected: selected }">
+<ol ko.foreach="steps">
+    <li class="stepper-step" ko.css.selected="selected">
         <span class="step-bullet"></span>
-        <span class="step-label" data-bind="text: name"></span>
+        <span class="step-label" ko.text="name"></span>
     </li>
 </ol>

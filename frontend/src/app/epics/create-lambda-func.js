@@ -3,6 +3,7 @@
 import { mergeMap } from 'rxjs/operators';
 import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
+import { getFullHandlerName } from 'utils/func-utils';
 import { CREATE_LAMBDA_FUNC } from 'action-types';
 import { completeCreateLambdaFunc, failCreateLambdaFunc } from 'action-creators';
 import { Buffer }  from 'buffer';
@@ -24,12 +25,13 @@ export default function(action$, { api, bufferStore }) {
             } = action.payload;
 
             try {
+                const handler = getFullHandlerName(handlerFile, handlerFunc);
                 const config = {
                     name,
                     version,
                     description,
                     runtime,
-                    handler: `${handlerFile}.${handlerFunc}`,
+                    handler,
                     memory_size: memorySize,
                     timeout
                 };

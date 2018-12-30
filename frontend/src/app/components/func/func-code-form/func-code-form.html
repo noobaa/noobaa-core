@@ -1,0 +1,99 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="column greedy"
+    ko.css.blur="isZipStale"
+>
+    <div class="row content-middle alt-bg pad">
+        <div class="column greedy push-next">
+            <h3 class="heading3">
+                Function Code: {{formattedFileCount}}
+            </h3>
+            <p class="row">
+                <span class="no-wrap handler-summary">
+                    Execution File: {{execFile}}
+                </span>
+                <vr class="push-both-half"></vr>
+                <span class="no-wrap handler-summary">
+                    Execution Function: {{execFunc}}
+                </span>
+            </p>
+        </div>
+
+<!--         <button class="btn push-next"
+            ko.click="onDownloadCode"
+            ko.enable="areActionsEnabled"
+        >
+            Download Code
+        </button> -->
+        <button class="btn push-next"
+            ko.click="onEditCode"
+            ko.enable="areActionsEnabled"
+        >
+            Edit Code
+        </button>
+        <button class="btn"
+            ko.click="onSetEventAndInvoke"
+            ko.enable="areActionsEnabled"
+        >
+            Set Event and Invoke
+        </button>
+    </div>
+
+    <!-- ko if: isFuncOversized -->
+    <p class="empty-message">
+        Stored function code is too big to preview
+    </p>
+    <!-- /ko -->
+
+    <!-- ko ifnot: isFuncOversized -->
+    <list-details class="greedy"
+        params="
+            loading: !isZipLoaded(),
+            rows: rows,
+            selected: ko.pc(selectedFile, onSelectFile, $component),
+            buttonLabel: 'Display Content'
+        "
+    >
+        <template name ="details">
+            <div class="column greedy no-wrap" ko.visible="$item">
+                <div class="row content-middle hpad">
+                    <h2 class="heading3 greedy push-next">{{$item}}</h2>
+                    <button class="icon-btn no-outline"
+                        ko.click="onX"
+                    >
+                        <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
+                    </button>
+                </div>
+                <hr />
+                <loading-indicator class="align-middle push-prev-half"
+                    ko.visible="isFileContentLoading"
+                ></loading-indicator>
+
+                <code-viewer class="greedy"
+                    ko.visible="fileContent"
+                    params="lang: fileLang, code: fileContent"
+                ></code-viewer>
+            </div>
+        </template>
+    </list-details>
+
+    <paginator params="
+        page: ko.pc(page, onPage, $component),
+        itemCount: fileCount,
+        pageSize: pageSize
+    "></paginator>
+    <!-- /ko -->
+</div>
+
+<div class="fill row" ko.visible="isZipStale">
+    <div class="fill stale-backdrop"></div>
+    <p class="heading1 align-middle text-center greedy">
+        This function was updated by another account
+        <br>
+        <button class="btn alt-colors"
+            ko.click="onRefresh"
+        >
+            Refresh
+        </button>
+    </p>
+</div>

@@ -1,9 +1,8 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="text-cell" data-bind="tooltip: ko.unwrap($data).tooltip">
-    <span data-bind="
-        text: ko.unwrap($data).text || $data,
-        css: ko.unwrap($data).css
+<div class="text-cell" ko.tooltip="ko.unwrap($data).tooltip">
+    <span ko.text="ko.unwrap($data).text || $data"
+        ko.css="ko.unwrap($data).css"
     "></span>
 </div>
 

@@ -4,7 +4,6 @@ import template from './collapsible-section.html';
 
 class CollapsibleSectionViewModel {
     constructor(params, collapsedTemplate, expandedTemplate) {
-
         let { title, collapsed } = params;
 
         this.title = title;

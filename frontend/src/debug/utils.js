@@ -85,7 +85,7 @@ export function buildHtmlTree(value, prefix = '') {
         wrap(prefix, 'prefix')
     ];
 
-    if (value !== null && typeof value === 'object') {
+    if (_isObject(value)) {
         parts.push(Array.isArray(value) ? 'array' : 'object');
     }
 
@@ -118,8 +118,8 @@ export function diff(curr, prev, diffs = [], path = '') {
             });
         }
 
-    } else if (typeof curr === 'object'){
-        if (typeof prev === 'object') {
+    } else if (_isObject(curr)){
+        if (_isObject(prev)) {
             const keys = new Set([
                 ...Object.keys(curr),
                 ...Object.keys(prev)

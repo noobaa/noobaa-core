@@ -92,10 +92,7 @@ module.exports = {
                     },
                     read_code: {
                         type: 'boolean'
-                    },
-                    read_stats: {
-                        type: 'boolean'
-                    },
+                    }
                 },
             },
             reply: {
@@ -110,14 +107,73 @@ module.exports = {
                     },
                     code: {
                         $ref: '#/definitions/func_code'
-                    },
-                    stats: {
-                        $ref: '#/definitions/func_stats'
                     }
                 }
             },
             auth: {
                 system: ['admin', 'agent']
+            }
+        },
+
+        read_func_stats: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name',
+                    'version',
+                    'since',
+                    'step'
+                ],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    version: {
+                        type: 'string'
+                    },
+                    since: {
+                        idate: true
+                    },
+                    till: {
+                        idate: true
+                    },
+                    step: {
+                        type: 'integer'
+                    },
+                    percentiles: {
+                        type: 'array',
+                        items: {
+                            type: 'number',
+                            minimum: 0,
+                            maximum: 1
+                        }
+                    },
+                    max_samples: {
+                        type: 'integer'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [
+                    'stats',
+                    'slices'
+                ],
+                properties: {
+                    stats: {
+                        $ref: '#/definitions/func_stats'
+                    },
+                    slices: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/func_stats'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -278,6 +334,9 @@ module.exports = {
                 last_modified: {
                     idate: true
                 },
+                last_modifier: {
+                    type: 'string'
+                },
                 resource_name: {
                     type: 'string'
                 },
@@ -363,69 +422,62 @@ module.exports = {
         func_stats: {
             type: 'object',
             required: [
-                'response_time_last_10_minutes',
-                'response_time_last_hour',
-                'response_time_last_day',
-                'requests_over_time',
+                'since',
+                'till',
+                'invoked',
+                'fulfilled',
+                'rejected',
+                'aggr_response_time',
+                'max_response_time',
+                'avg_response_time',
+                'response_percentiles'
             ],
             properties: {
-                response_time_last_10_minutes: {
-                    $ref: '#/definitions/percentiles'
+                since: {
+                    idate: true
                 },
-                response_time_last_hour: {
-                    $ref: '#/definitions/percentiles'
+                till: {
+                    idate: true
                 },
-                response_time_last_day: {
-                    $ref: '#/definitions/percentiles'
-                },
-                requests_over_time: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            time: {
-                                idate: true
-                            },
-                            requests: {
-                                type: 'integer'
-                            },
-                            errors: {
-                                type: 'integer'
-                            },
-                        }
-                    }
-                },
-            }
-        },
-
-        percentiles: {
-            type: 'object',
-            required: [
-                'count',
-                'percentiles',
-            ],
-            properties: {
-                count: {
+                invoked: {
                     type: 'integer'
                 },
-                percentiles: {
+                fulfilled: {
+                    type: 'integer'
+                },
+                rejected: {
+                    type: 'integer'
+                },
+                aggr_response_time: {
+                    type: 'integer'
+                },
+                max_response_time: {
+                    type: 'integer'
+                },
+                avg_response_time: {
+                    type: 'integer'
+                },
+                response_percentiles: {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['percent', 'value'],
+                        required: [
+                            'percentile',
+                            'value'
+                        ],
                         properties: {
-                            percent: {
-                                type: 'number'
+                            percentile: {
+                                type: 'number',
+                                minimum: 0,
+                                maximum: 1
                             },
                             value: {
-                                type: 'number'
-                            },
+                                type: 'integer'
+                            }
                         }
                     }
                 }
             }
-        },
-
+        }
     }
-
 };

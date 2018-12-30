@@ -25,7 +25,7 @@ const columns = deepFreeze([
     {
         name: 'name',
         label: 'server name',
-        type: 'newLink',
+        type: 'link',
         sortable: true,
         compareKey: server => getServerDisplayName(server)
     },

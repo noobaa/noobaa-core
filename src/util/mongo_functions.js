@@ -15,16 +15,6 @@
  *
  */
 
-module.exports = {
-    map_aggregate_objects: map_aggregate_objects,
-    map_aggregate_chunks: map_aggregate_chunks,
-    map_aggregate_blocks: map_aggregate_blocks,
-    map_key_with_prefix_delimiter: map_key_with_prefix_delimiter,
-    reduce_sum: reduce_sum,
-    reduce_noop: reduce_noop,
-    map_common_prefixes: map_common_prefixes,
-    reduce_common_prefixes: reduce_common_prefixes,
-};
 
 // declare names that these functions expect to have in scope
 // so that lint tools will not give warnings.
@@ -145,3 +135,105 @@ function reduce_sum(key, values) {
 }
 
 function reduce_noop() { /* Empty Func */ }
+
+const func_stats_exports = (function() {
+    // The following vars are defined here in order to simulate scope variables inside
+    // the map/reduce/finalize function below and prevent lint errors.
+    let step;
+    let max_samples;
+    let percentiles;
+
+    /**
+     * @this mongodb doc being mapped
+     */
+    function map() {
+        const key = Math.floor(this.time.valueOf() / step) * step;
+        const res = this.error ? {
+            invoked: 1,
+            fulfilled: 0,
+            rejected: 1,
+            aggr_response_time: 0,
+            max_response_time: 0,
+            completed_response_times: []
+        } : {
+            invoked: 1,
+            fulfilled: 1,
+            rejected: 0,
+            aggr_response_time: this.took,
+            max_response_time: this.took,
+            completed_response_times: [this.took]
+        };
+
+        emit(-1, res);
+        emit(key, res);
+    }
+
+    function reduce(key, values) {
+        const reduced = values.reduce((bin, other) => {
+            bin.invoked += other.invoked;
+            bin.fulfilled += other.fulfilled;
+            bin.rejected += other.rejected;
+            bin.aggr_response_time += other.aggr_response_time;
+            bin.max_response_time = Math.max(
+                bin.max_response_time,
+                other.max_response_time
+            );
+            bin.completed_response_times = [
+                ...bin.completed_response_times,
+                ...other.completed_response_times
+            ];
+
+            return bin;
+        });
+
+        // Reduce the sample size to max_samples
+        const response_times = reduced.completed_response_times;
+        if (response_times.length > max_samples) {
+            reduced.completed_response_times = Array.from(
+                { length: max_samples },
+                () => response_times[
+                    Math.floor(Math.random() * response_times.length)
+                ]
+            );
+        }
+
+        return reduced;
+    }
+
+    function finalize(key, bin) {
+        const response_times = bin.completed_response_times
+            .sort((a, b) => a - b);
+
+        return {
+            invoked: bin.invoked,
+            fulfilled: bin.fulfilled,
+            rejected: bin.rejected,
+            max_response_time: bin.max_response_time,
+            aggr_response_time: bin.aggr_response_time,
+            avg_response_time: bin.fulfilled > 0 ?
+                Math.round(bin.aggr_response_time / bin.fulfilled) :
+                0,
+            response_percentiles: percentiles.map(percentile => {
+                const index = Math.floor(response_times.length * percentile);
+                const value = response_times[index] || 0;
+                return { percentile, value };
+            })
+        };
+    }
+
+    return { map, reduce, finalize };
+}());
+
+module.exports = {
+    map_aggregate_objects: map_aggregate_objects,
+    map_aggregate_chunks: map_aggregate_chunks,
+    map_aggregate_blocks: map_aggregate_blocks,
+    map_key_with_prefix_delimiter: map_key_with_prefix_delimiter,
+    reduce_sum: reduce_sum,
+    reduce_noop: reduce_noop,
+    map_common_prefixes: map_common_prefixes,
+    reduce_common_prefixes: reduce_common_prefixes,
+    map_func_stats: func_stats_exports.map,
+    reduce_func_stats: func_stats_exports.reduce,
+    finalize_func_stats: func_stats_exports.finalize
+};

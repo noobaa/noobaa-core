@@ -26,7 +26,7 @@ const columns = deepFreeze([
     },
     {
         name: 'resourceName',
-        type: 'newLink'
+        type: 'link'
     },
     {
         name: 'region'

@@ -22,7 +22,8 @@
     "jszip": "Stuk/jszip#3.1.3",
     "chart.js": "^2.4.0",
     "rxjs": "^4.1.0",
-    "big-integer": "^1.6.17"
+    "big-integer": "^1.6.17",
+    "prism": "^1.15.0"
   },
   "resolutions": {
     "knockout": "~3.4.0"

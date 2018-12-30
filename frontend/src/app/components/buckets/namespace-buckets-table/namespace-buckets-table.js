@@ -28,7 +28,7 @@ const columns = deepFreeze([
     {
         name: 'name',
         label: 'bucket name',
-        type: 'newLink',
+        type: 'link',
         sortable: true,
         compareKey: bucket => bucket.name
     },

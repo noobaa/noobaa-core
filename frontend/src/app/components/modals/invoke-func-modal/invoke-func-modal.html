@@ -1,0 +1,39 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
+    <p class="push-next">
+        Execute your function, replace the event below with an event that match the function.
+    </p>
+
+    <h2 class="heading3 push-next-half">
+        Event
+    </h2>
+
+    <textarea class="greedy align-stretch event-field"
+        ko.value="$form.event"
+        ko.validationCss="$form.event"
+        ko.hasFocus="true"
+    ></textarea>
+    <validation-message
+        class="push-next"
+        params="field: $form.event"
+    ></validation-message>
+
+    <div class="row align-end">
+        <button class="link alt-colors push-next"
+            ko.click="onCancel"
+        >
+            Cancel
+        </button>
+        <button class="btn"
+            ko.shakeOnClick="!$form.isValid()"
+        >
+            Set and Invoke
+        </button>
+    </div>
+</managed-form>

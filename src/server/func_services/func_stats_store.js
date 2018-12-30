@@ -9,6 +9,11 @@ const P = require('../../util/promise');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
 const func_stats_schema = require('./func_stats_schema');
+const {
+    map_func_stats,
+    reduce_func_stats,
+    finalize_func_stats
+} = require('../../util/mongo_functions');
 
 class FuncStatsStore {
 
@@ -68,6 +73,37 @@ class FuncStatsStore {
             .toArray();
     }
 
+    async query_func_stats(params) {
+        const records = await this._func_stats.col()
+            .mapReduce(
+                map_func_stats,
+                reduce_func_stats,
+                {
+                    finalize: finalize_func_stats,
+                    query: {
+                        system: params.system,
+                        func: params.func,
+                        time: {
+                            $gte: params.since,
+                            $lt: params.till
+                        }
+                    },
+                    scope: {
+                        step: params.step,
+                        percentiles: params.percentiles,
+                        max_samples: params.max_samples
+                    },
+                    out: {
+                        inline: 1
+                    }
+                }
+            );
+
+        return records.map(record => [
+            record._id,
+            record.value
+        ]);
+    }
 }
 
 

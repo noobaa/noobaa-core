@@ -71,7 +71,7 @@ const blocksTableColumns = deepFreeze([
     },
     {
         name: 'resource',
-        type: 'newLink',
+        type: 'link',
         label: 'resource'
     }
 ]);

@@ -1,9 +1,6 @@
 noobaa-core
 ===========
 
-Build [![Build Status](http://noobaa-jenkins.westus2.cloudapp.azure.com:8080/buildStatus/icon?job=Build/job/Build-Package-Master)](http://noobaa-jenkins.westus2.cloudapp.azure.com:8080/job//Build/job/Build-Package-Master/)
-Vitaly Smoke Testing [![Build Status](http://noobaa-jenkins.westus2.cloudapp.azure.com:8080/buildStatus/icon?job=Test/job/Test-Vitaly-Master)]((http://noobaa-jenkins.westus2.cloudapp.azure.com:8080/job/Test/job/Test-Vitaly-Master/)
-
 
 ###Utils Table of Contents:
 

@@ -1,8 +1,8 @@
 noobaa-core
 ===========
 
-MDServer [![Build Status](http://13.66.231.72:8080/buildStatus/icon?job=MDserver)](http://13.66.231.72:8080/job/MDserver/)
-Vitaly [![Build Status](http://13.66.231.72:8080/buildStatus/icon?job=vitaly)](http://13.66.231.72:8080/job/vitaly/)
+Build [![Build Status](http://noobaa-jenkins.westus2.cloudapp.azure.com:8080/buildStatus/icon?job=MDserver)](http://13.66.231.72:8080/job/MDserver/)
+Vitaly Smoke Testing [![Build Status](http://noobaa-jenkins.westus2.cloudapp.azure.com:8080//buildStatus/icon?job=vitaly)](http://13.66.231.72:8080/job/vitaly/)
 
 
 ###Utils Table of Contents:

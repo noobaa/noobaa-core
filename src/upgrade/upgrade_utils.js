@@ -2,7 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const ini = require('ini');
+//const ini = require('ini');
 
 const pkg = require('../../package.json');
 const fs = require('fs');
@@ -24,7 +24,7 @@ const NEW_TMP_ROOT = `${EXTRACTION_PATH}/noobaa-core`;
 const PACKAGE_FILE_NAME = 'new_version.tar.gz';
 const SPAWN_SCRIPT = `${NEW_TMP_ROOT}/src/deploy/NVA_build/two_step_upgrade_checkups_spawn.sh`;
 const ERRORS_PATH = `${TMP_PATH}/new_tests_errors.json`;
-const EPEL_REPO_PATH = '/etc/yum.repos.d/epel.repo';
+//const EPEL_REPO_PATH = '/etc/yum.repos.d/epel.repo';
 
 const ERROR_MAPPING = {
     COULD_NOT_COPY_PACKAGE: 'Failed to prepare the package for extraction, try to re-download the upgrade package and upload again.',
@@ -296,7 +296,7 @@ function new_pre_upgrade() {
     return P.resolve()
         .then(() => extract_new_pre_upgrade_params())
         .then(params => new_pre_upgrade_checkups(params))
-        .then(() => packages_upgrade())
+        //.then(() => packages_upgrade())
         .timeout(20 * 60 * 1000, 'PACKAGE_INSTALLATION_TIMEOUT');
 }
 
@@ -363,6 +363,7 @@ function new_pre_upgrade_checkups(params) {
     );
 }
 
+/*
 async function do_yum_update() {
     try {
         dbg.log0('UPGRADE: do_yum_update: Called');
@@ -417,8 +418,8 @@ async function do_yum_update() {
 
     }
 }
-
-
+*/
+/*
 async function fix_epel_repo() {
     const epel_repo_content = (await fs.readFileAsync(EPEL_REPO_PATH)).toString();
     let write_file = false;
@@ -441,7 +442,9 @@ async function fix_epel_repo() {
         await fs.writeFileAsync(EPEL_REPO_PATH, epel_repo_data);
     }
 }
+*/
 
+/*
 async function packages_upgrade() {
     try {
 
@@ -493,6 +496,7 @@ async function packages_upgrade() {
 
 
 }
+*/
 
 function extract_package() {
     dbg.log0('extract_package: Called');

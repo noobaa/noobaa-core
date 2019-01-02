@@ -374,8 +374,8 @@ async function update_node_version() {
     let old_nodever;
     let nodever;
     try {
-        nodever = (await fs.readFileAsync(`${EXTRACTION_PATH}/noobaa-core/.nvmrc`)).toString();
-        old_nodever = (await fs.readFileAsync(`${CORE_DIR}/.nvmrc`)).toString();
+        nodever = (await fs.readFileAsync(`${EXTRACTION_PATH}/noobaa-core/.nvmrc`)).toString().trim();
+        old_nodever = (await fs.readFileAsync(`${CORE_DIR}/.nvmrc`)).toString().trim();
         dbg.log0(`UPGRADE: old node version is ${old_nodever}. new node version is ${nodever}`);
         if (nodever === old_nodever) {
             dbg.log0(`UPGRADE: node version is not changed. skip node update`);
@@ -411,7 +411,7 @@ async function update_node_version() {
         await set_new_node_version(old_nodever);
         throw err;
     }
-    dbg.log0('UPGRADE: pre_upgrade: Succeess');
+    dbg.log0('UPGRADE: pre_upgrade: Success');
 }
 
 async function platform_upgrade_init() {

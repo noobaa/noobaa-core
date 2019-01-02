@@ -20,7 +20,7 @@ function prepare_ifcfg() {
   sudo bash -c "echo 'ONBOOT=yes'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
   sudo bash -c "echo 'DNS1=127.0.0.1'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
   sudo bash -c "echo 'DOMAIN=\"\"'>> /etc/sysconfig/network-scripts/ifcfg-${interface}"
-  sudo ifconfig ${interface} up
+  sudo ip link set dev ${interface} up
 }
 
 function validate_mask() {
@@ -35,7 +35,7 @@ function check_not_dup() {
 
 function configure_interface_ip() {
     local interface=$1
-    local current_ip=$(ifconfig ${interface} | grep -w 'inet' | awk '{print $2}')
+    local current_ip=$(ip addr show ${interface} | grep -w 'inet' | awk '{print $2}' | awk -F "/" '{print $1}')
 
     dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Current IP for \Z4\Zb${interface}\Z : \Z4\Zb${current_ip}\Zn .\nChoose IP Assignment (Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 3 1 "Static IP" 2 "Dynamic IP" 3 "Exit" 2> choice
 
@@ -113,13 +113,14 @@ function configure_interface_ip() {
       sudo dmesg -n 1
       sudo service network restart &> /dev/null
       sudo dmesg -n 3
-      local ifcfg=$(ifconfig | grep -w inet | grep -v 127.0.0.1) # ipv4
+      local current_ip=$(ip addr show ${interface} | grep -w 'inet' | awk '{print $2}' | awk -F "/" '{print $1}')
+      local ifcfg=$(ip addr show | grep -w inet | grep -v 127.0.0.1) # ipv4
       if [[ "${dynamic}" -eq "2" && "${ifcfg}" == "" ]]; then
         dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1ERROR" --msgbox "\Zb\Z1Was unable to get dynamically allocated IP via DHCP" 5 55
       fi
     fi
 
-    local new_ip=$(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}')
+    local new_ip=$(ip addr show | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}' | awk -F "/" '{print $1}')
     if [ "${new_ip}" != "${current_ip}" ] && [ ps -ef | grep mongod | grep -q "\-\-replSet" ]; then
       dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1WARNING" --msgbox "\Zb\Z1\nThe interface IP was changed and this server is part of cluster!\n
       if the is the IP you use for your cluster - Go to cluster screen - find this server and change its IP in Change IP action" 7 55
@@ -381,7 +382,7 @@ function update_ips_etc_issue {
   ips=""
   while read line ; do
     ips="${ips}, ${line}"
-  done < <(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}')
+  done < <(ip addr show | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}' | awk -F "/" '{print $1}')
   ips=${ips##,} # removing last comma
   sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${ips}\x1b[0m:" /etc/issue
 }
@@ -428,7 +429,7 @@ is a short first install wizard to help configure \n\Z5\ZbNooBaa\Zn to best suit
 }
 
 function end_wizard {
-  local current_ip=$(ifconfig | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
+  local current_ip=$(ip addr show | grep -w 'inet' | grep -v 127.0.0.1 | awk '{print $2}' | awk -F "/" '{print $1}' | head -n 1)
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use.\nYou can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 72
   date | sudo tee -a ${FIRST_INSTALL_MARK} &> /dev/null
   update_noobaa_net

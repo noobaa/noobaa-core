@@ -8,6 +8,7 @@ const api = require('../../api');
 const crypto = require('crypto');
 const P = require('../../util/promise');
 const Report = require('../framework/report');
+const config = require('../../../config');
 const ssh_functions = require('../utils/ssh_functions');
 const promise_utils = require('../../util/promise_utils');
 const agent_functions = require('../utils/agent_functions');
@@ -150,78 +151,79 @@ function check_arguments_and_update() {
 }
 
 /*
- * Recieve expected upgrade status and failed condition, read_system until either one is met and fail/success 
+ * Receive expected upgrade status and failed condition, read_system until either one is met and fail/success 
  * according to which one was reached
  */
-function _verify_upgrade_status(expected, failed, message, topic) {
+async function _verify_upgrade_status(expected, failed, message, topic) {
     let reachedEndState = false;
     let success = true;
     let upgrade_status;
-    return promise_utils.pwhile(() => !reachedEndState,
-            () => rpc_client.system.read_system()
-            .then(res => {
-                upgrade_status = res.cluster.shards[0].servers[0].upgrade;
-                if (upgrade_status.status === failed) {
-                    reachedEndState = true;
-                    success = false;
-                } else if (upgrade_status.status === expected) {
-                    reachedEndState = true;
-                }
-            })
-            .delay(2000))
-        .then(() => {
-            console.log(`Verify Upgrade Status: Case "${message}", expected state ${expected} failure condition ${failed} recieved status ${util.inspect(upgrade_status)}`);
-            if (success) {
-                report.success(topic);
-                return upgrade_status;
-            } else {
-                report.fail(topic);
-                throw new Error(`Verify Upgrade Status ${message}`);
+    while (!reachedEndState) {
+        const read_system = await rpc_client.system.read_system();
+        upgrade_status = read_system.cluster.shards[0].servers[0].upgrade;
+        if (upgrade_status.status === failed) {
+            reachedEndState = true;
+            success = false;
+        } else if (upgrade_status.status === expected) {
+            reachedEndState = true;
+        }
+        await P.delay(2 * 1000);
+    }
+    console.log(`Verify Upgrade Status: Case "${message}", expected state ${expected} failure condition ${failed} received status ${util.inspect(upgrade_status)}`);
+    if (success) {
+        report.success(topic);
+        return upgrade_status;
+    } else {
+        report.fail(topic);
+        throw new Error(`Verify Upgrade Status ${message}`);
+    }
+}
+
+async function _check_free_space_under_threshold() {
+    let updated = false;
+    let retries = 0;
+    while (!updated) {
+        const system_read = await rpc_client.system.read_system();
+        const current_free_space = system_read.cluster.shards[0].servers[0].storage.free;
+        if (current_free_space < config.MIN_MEMORY_FOR_UPGRADE) {
+            console.log(`Current free space is ${current_free_space}`);
+            updated = true;
+        } else {
+            retries += 1;
+            if (retries === 18) {
+                console.error(`Current free space is ${current_free_space}, Expected less then ${config.MIN_MEMORY_FOR_UPGRADE}`);
+                throw new Error("For some reason local disk could not get filled! - stopping test");
             }
-        });
+        }
+        await P.delay(5 * 1000);
+    }
 }
 
 /*
  * Fill local disk of the server to reach just below the min threshold for upgrade
  */
-function _fill_local_disk() {
-    const MIN_MEMORY_FOR_UPGRADE_MB = 1200 * 1024 * 1024;
-    return rpc_client.system.read_system()
-        .then(res => {
-            const free_server_space = res.cluster.shards[0].servers[0].storage.free;
-            let size_to_write;
-            if (free_server_space - MIN_MEMORY_FOR_UPGRADE_MB > 0) {
-                size_to_write = (free_server_space - MIN_MEMORY_FOR_UPGRADE_MB) / 1024 / 1024; //Reach threshold
-                size_to_write += 200; //Go over the threshold a little bit
-                size_to_write = Math.floor(size_to_write);
-            } else {
-                //Already under the threshold
-                size_to_write = 1;
-            }
-            const params = {
-                ip: TEST_CFG.ip,
-                secret: TEST_CFG.secret,
-                sizeMB: size_to_write
-            };
-            console.log(`Filling ${(size_to_write / 1024).toFixed(2)}GB of server's local fisk`);
-            return agent_functions.manipulateLocalDisk(params);
-        })
-        .delay(10000)
-        .then(() => {
-            let updated = false;
-            let retries = 0;
-            promise_utils.pwhile(() => !updated, () => rpc_client.system.read_system()
-                .then(res => {
-                    if (res.cluster.shards[0].servers[0].storage.free < MIN_MEMORY_FOR_UPGRADE_MB) {
-                        updated = true;
-                    } else {
-                        retries += 1;
-                        if (retries === 5) throw new Error("For some reason local disk could not get filled! - stopping test");
-                    }
-                })
-                .delay(5000)
-            );
-        });
+async function _fill_local_disk() {
+    const read_system = await rpc_client.system.read_system();
+    const free_server_space = read_system.cluster.shards[0].servers[0].storage.free;
+    let size_to_write;
+    if (free_server_space - config.MIN_MEMORY_FOR_UPGRADE > 0) {
+        size_to_write = (free_server_space - config.MIN_MEMORY_FOR_UPGRADE) / 1024 / 1024; //Reach threshold
+        size_to_write += 200; //Go over the threshold a little bit
+        size_to_write = Math.floor(size_to_write);
+    } else {
+        //Already under the threshold
+        size_to_write = 1;
+    }
+    const params = {
+        ip: TEST_CFG.ip,
+        secret: TEST_CFG.secret,
+        sizeMB: size_to_write
+    };
+    console.log(`Filling ${(size_to_write / 1024).toFixed(2)}GB of server's local fisk, server reported disk free size is ${
+        (free_server_space / 1024 / 1024 / 1024).toFixed(2)}GB`);
+    await agent_functions.manipulateLocalDisk(params);
+    await P.delay(10 * 1000);
+    await _check_free_space_under_threshold();
 }
 
 /*
@@ -332,6 +334,7 @@ async function test_first_step() {
     await _fill_local_disk();
     await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
     await _verify_upgrade_status('FAILED', 'CAN_UPGRADE', 'Verifying failure on not enough disk space', `disk space`);
+    console.log('clean local disk');
     await agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret });
     await P.delay(10000);
 
@@ -350,7 +353,7 @@ async function test_first_step() {
         timezone: "Asia/Jerusalem",
         ntp_server: "time.windows.com"
     });
-    await P.delay(25000);
+    await P.delay(65 * 1000);
 
     console.log('Verified all pre-condition tests, uploading package with optimal server state');
     await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
@@ -359,40 +362,45 @@ async function test_first_step() {
     rpc.enable_validation();
 }
 
-function test_second_step() {
+async function test_second_step() {
     rpc.disable_validation();
     //TODO:: missing phone home connectivity test
-    return P.resolve()
-        .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
-        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before local disk', `stage package`))
-        .then(() => _fill_local_disk() //Full local disk & verify failure
-            .delay(25000)
-            .then(() => _call_upgrade())
-            .then(() => _verify_upgrade_status('FAILED', 'SUCCESS', '2nd step of upgrade, verify failure on not enough local disk', `disk space 2nd step`))
-            .then(() => agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
-            .delay(10000)) //clean local disk
-        .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
-        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before time skew', `stage package`))
-        //verify fail on time skew
-        .then(() => rpc_client.cluster_server.update_time_config({
-                target_secret: TEST_CFG.secret,
-                timezone: "Asia/Jerusalem",
-                epoch: 1514798132
-            })
-            .then(() => _call_upgrade())
-            .then(() => _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew', `time skew 2nd step`))
-            //Reset time back to normal
-            .then(() => rpc_client.cluster_server.update_time_config({
-                target_secret: TEST_CFG.secret,
-                timezone: "Asia/Jerusalem",
-                ntp_server: "time.windows.com"
-            }))
-            .delay(65000)) //time update restarts the services
-        .then(() => server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package))
-        .then(() => _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time', `preconditions met 2nd step`))
-        .then(() => _call_upgrade())
-        .then(() => rpc.enable_validation());
-    //NBNB need to wait for server and verify upgrade was successfull
+    await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
+    await _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before local disk', `stage package`);
+
+    console.log('Full local disk & verify failure 2nd step');
+    await _fill_local_disk();
+    await P.delay(25 * 1000);
+    await _call_upgrade();
+    await _verify_upgrade_status('FAILED', 'SUCCESS', '2nd step of upgrade, verify failure on not enough local disk', `disk space 2nd step`);
+
+    console.log('clean local disk 2nd step');
+    await agent_functions.manipulateLocalDisk({ ip: TEST_CFG.ip, secret: TEST_CFG.secret });
+    await P.delay(10 * 1000);
+    await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
+    await _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package before time skew', `stage package`);
+
+    console.log('verify fail on time skew 2nd step');
+    await rpc_client.cluster_server.update_time_config({
+        target_secret: TEST_CFG.secret,
+        timezone: "Asia/Jerusalem",
+        epoch: 1514798132
+    });
+    await _call_upgrade();
+    await _verify_upgrade_status('FAILED', 'CAN_UPGRADE', '2nd step of upgrade, Verifying failure on time skew', `time skew 2nd step`);
+    console.log('Reset time back to normal 2nd step');
+    await rpc_client.cluster_server.update_time_config({
+        target_secret: TEST_CFG.secret,
+        timezone: "Asia/Jerusalem",
+        ntp_server: "time.windows.com"
+    });
+    //time update restarts the services
+    await P.delay(65 * 1000);
+    await server_function.upload_upgrade_package(TEST_CFG.ip, TEST_CFG.upgrade_package);
+    await _verify_upgrade_status('CAN_UPGRADE', 'FAILED', 'Staging package, final time', `preconditions met 2nd step`);
+    await _call_upgrade();
+    rpc.enable_validation();
+    //NBNB need to wait for server and verify upgrade was successful
 }
 
 function run_test() {
@@ -408,6 +416,8 @@ function run_test() {
         })
         .then(() => init_clients())
         .then(() => test_first_step()) //Upload package, package validation & preconditions
+        .tap(() => console.log(`Cleaning pre upgrade leftovers`))
+        .then(() => server_function.clean_pre_upgrade_leftovers({ ip: TEST_CFG.ip, secret: TEST_CFG.secret }))
         .then(() => test_second_step()) //preconditions changed & upgrade itself
         .then(async () => {
             await report.report();

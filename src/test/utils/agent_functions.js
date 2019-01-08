@@ -96,9 +96,9 @@ async function list_optimal_agents(server_ip, suffix = '') {
 }
 
 // Creates agent using map [agentName,agentOs]
-async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives = [], agentmap) {
+async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives = [], agent_map) {
     const created_agents = [];
-    const agents_to_create = Array.from(agentmap.keys());
+    const agents_to_create = Array.from(agent_map.keys());
     const agentConf = await getAgentConf(server_ip, exclude_drives);
     await P.map(agents_to_create, async name => {
         let retryCreate = true;
@@ -106,7 +106,7 @@ async function createAgentsFromMap(azf, server_ip, storage, vnet, exclude_drives
         const MAX_RETRIES = 5;
         while (retryCreate) {
             try {
-                const os = agentmap.get(name);
+                const os = agent_map.get(name);
                 const { hasImage } = await azf.getImagesfromOSname(os);
                 if (hasImage) {
                     console.log(`Creating ${name} using createAgentFromImage`);
@@ -490,13 +490,13 @@ async function startOfflineAgents(azf, server_ip, oses) {
 }
 
 async function createRandomAgents(azf, server_ip, storage, resource_vnet, amount, suffix, oses) {
-    const agentmap = new Map();
+    const agent_map = new Map();
     const createdAgents = getRandomOsesFromList(amount, oses);
     for (let i = 0; i < createdAgents.length; i++) {
-        agentmap.set(suffix + i, createdAgents[i]);
+        agent_map.set(suffix + i, createdAgents[i]);
     }
     try {
-        await createAgentsFromMap(azf, server_ip, storage, resource_vnet, [], agentmap);
+        await createAgentsFromMap(azf, server_ip, storage, resource_vnet, [], agent_map);
     } catch (e) {
         throw new Error('createAgentsFromMap::' + e);
     }
@@ -504,7 +504,7 @@ async function createRandomAgents(azf, server_ip, storage, resource_vnet, amount
     const node_number_after_create = listNodes.length;
     console.log(`${Yellow}Num nodes after create is: ${node_number_after_create}${NC}`);
     console.warn(`Node names are ${listNodes.map(node => node.name)}`);
-    return agentmap;
+    return agent_map;
 }
 
 /*

@@ -31,7 +31,7 @@ function init_reporter(report_params) {
 }
 
 //will enable noobaa user login via ssh
-async function enable_nooba_login(server_ip, secret) {
+async function enable_noobaa_login(server_ip, secret) {
     const client_ssh = await ssh.ssh_connect({
         host: server_ip,
         //  port: 22,
@@ -279,7 +279,7 @@ async function add_server_to_cluster(master_ip, slave_ip, slave_secret, slave_na
         client.redirector.register_for_alerts();
     });
 
-    // 2 minutes timeout for add_memeber
+    // 2 minutes timeout for add_member
     const ADD_MEMBER_TIMEOUT = 120 * 1000;
     return P.resolve()
         .then(async () => {
@@ -307,8 +307,17 @@ async function add_server_to_cluster(master_ip, slave_ip, slave_secret, slave_na
         });
 }
 
+async function clean_pre_upgrade_leftovers(params) {
+    const ssh_client = await ssh.ssh_connect({
+        host: params.ip,
+        username: 'noobaaroot',
+        password: params.secret,
+        keepaliveInterval: 5000,
+    });
+    await ssh.ssh_exec(ssh_client, `sudo bash -c "rm -rf /tmp/test/ /tmp/new_version.tar.gz /tmp/nb_upgrade_*"`);
+}
 
-exports.enable_nooba_login = enable_nooba_login;
+exports.enable_noobaa_login = enable_noobaa_login;
 exports.set_first_install_mark = set_first_install_mark;
 exports.clean_ova = clean_ova;
 exports.wait_server_reconnect = wait_server_reconnect;
@@ -320,3 +329,4 @@ exports.upgrade_server = upgrade_server;
 exports.init_reporter = init_reporter;
 exports.add_server_to_cluster = add_server_to_cluster;
 exports.remove_swap_on_azure = remove_swap_on_azure;
+exports.clean_pre_upgrade_leftovers = clean_pre_upgrade_leftovers;

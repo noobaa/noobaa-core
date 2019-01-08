@@ -477,7 +477,7 @@ async function main() {
             ]
         });
         await server_ops.set_first_install_mark(server_ip, secret);
-        await server_ops.enable_nooba_login(server_ip, secret);
+        await server_ops.enable_noobaa_login(server_ip, secret);
         //will loop twice, one with system and the other without.
         for (let cycle = 0; cycle < cycles; ++cycle) {
             console.log(`${YELLOW}Starting cycle number: ${cycle}${NC}`);

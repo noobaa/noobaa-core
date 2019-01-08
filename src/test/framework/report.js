@@ -133,7 +133,7 @@ Didn't Run: ${JSON.stringify(
         let retries = 5;
         while (retries) {
             try {
-                this._db = await mongodb.MongoClient.connect(REMOTE_MONGO_URL, REMOTE_MONGO_CONFIG);
+                this._mongo_client = await mongodb.MongoClient.connect(REMOTE_MONGO_URL, REMOTE_MONGO_CONFIG);
                 break;
             } catch (err) {
                 retries -= 1;
@@ -146,10 +146,10 @@ Didn't Run: ${JSON.stringify(
             }
         }
 
-        this._db.on('reconnect', () => {
+        this._mongo_client.db().on('reconnect', () => {
             console.log('got reconnect on mongo connection');
         });
-        this._db.on('close', () => {
+        this._mongo_client.db().on('close', () => {
             console.warn('got close on mongo connection');
         });
     }
@@ -159,7 +159,7 @@ Didn't Run: ${JSON.stringify(
             const payload = this._prepare_report_payload();
             if (this._remote_mongo) {
                 await this._connect_to_mongo();
-                await this._db.collection('reports').insert(payload);
+                await this._mongo_client.db().collection('reports').insert(payload);
                 console.info('report sent to remote mongo');
             } else if (process.env.SEND_REPORT) {
                 var options = {

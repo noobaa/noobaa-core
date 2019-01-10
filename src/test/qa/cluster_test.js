@@ -248,7 +248,7 @@ async function set_ntp_config(server) {
                     timezone: configured_timezone,
                     ntp_server: configured_ntp
                 });
-                console.log('Reading configuratition');
+                console.log('Reading configuration');
                 const result = await client.cluster_server.read_server_config({});
                 let ntp = result.ntp_server;
                 if (ntp === configured_ntp) {
@@ -351,7 +351,7 @@ async function verify_s3_server(server, topic) {
 
 // test that adding a member is failing when preconditions are not met
 async function test_cluster_preconditions_failure() {
-    console.log(`${RED}<======= test that add_member is failing when preconditons are not met =======>${NC}`);
+    console.log(`${RED}<======= test that add_member is failing when preconditions are not met =======>${NC}`);
     try {
         await add_member(cluster_servers[0], cluster_servers[1]);
     } catch (err) {
@@ -727,7 +727,7 @@ async function check_cluster_status(servers, params = {}) {
 
             verify_checks_preconditions(servers);
 
-            // check servers status retruned by each member
+            // check servers status returned by each member
             for (const srv of servers) {
                 if (srv.expected_status === 'CONNECTED') {
                     cluster_checks_results.push(verify_servers_status(servers, srv));
@@ -835,15 +835,14 @@ async function check_endpoint_status(servers, topic, params = {}) {
 
 
 async function end_test(is_successful) {
-    try {
-        await clean_env();
-    } catch (err) {
-        console.error('Failed cleaning environment:', err);
-    }
-
     await report.report();
 
     if (is_successful) {
+        try {
+            await clean_env(); //We will clean the env only if the test was successful
+        } catch (err) {
+            console.error('Failed cleaning environment:', err);
+        }
         console.log(`Cluster test was successful!`);
         process.exit(0);
     } else {

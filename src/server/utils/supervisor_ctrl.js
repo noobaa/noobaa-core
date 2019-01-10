@@ -181,8 +181,8 @@ class SupervisorCtrl {
             }, false)
             .delay(5000) //TODO:: Better solution
             .catch(function(err) {
-                console.error('failed to restart superisor daemon');
-                throw new Error('failed to restart superisor daemon ' + err);
+                console.error('failed to restart supervisor daemon');
+                throw new Error('failed to restart supervisor daemon ' + err);
             });
     }
 

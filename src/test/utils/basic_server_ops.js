@@ -118,16 +118,16 @@ function upload_and_upgrade(ip, upgrade_pack, dont_verify_version) {
         })
         .then(() => client.system.read_system())
         .then(res => {
-            // make sure that upgrade is succesful by checking it is marked as completed
+            // make sure that upgrade is successful by checking it is marked as completed
             const upgrade_successful = res.cluster.shards[0].servers.every(server => server.upgrade.status === 'COMPLETED');
             if (!upgrade_successful) {
                 console.error('some servers did not reach to upgrade COMPLETED status:',
                     res.cluster.shards[0].servers.map(server => server.upgrade));
-                throw new Error('not all servers completed upgrade successfuly');
+                throw new Error('not all servers completed upgrade successfully');
             }
             //Server is up, check returned version to verify the server was upgraded
             if (dont_verify_version) {
-                console.warn('Skipping version check - probably upgrading to the same version intensionly');
+                console.warn('Skipping version check - probably upgrading to the same version intentionally');
                 return;
             }
             if (res.version === previous_srv_version) {

@@ -190,8 +190,8 @@ class UpgradeManager {
     async upgrade_mongodb_version_stage() {
         const mongo_version = await this.get_mongo_db_version();
         this.upgrade_mongodb = platform_upgrade.version_compare(mongo_version, REQUIRED_MONGODB_VERSION) < 0;
-        dbg.log0(`UPGRADE: current mongodb version is ${mongo_version}, requiered mongodb version is ${REQUIRED_MONGODB_VERSION}`,
-            this.upgrade_mongodb ? 'upgrading to requiered version' : 'upgrade is not required');
+        dbg.log0(`UPGRADE: current mongodb version is ${mongo_version}, required mongodb version is ${REQUIRED_MONGODB_VERSION}`,
+            this.upgrade_mongodb ? 'upgrading to required version' : 'upgrade is not required');
         await platform_upgrade.upgrade_mongodb_version({
             should_upgrade_mongodb: this.upgrade_mongodb,
             required_mongodb_version: REQUIRED_MONGODB_VERSION,
@@ -225,7 +225,7 @@ class UpgradeManager {
                 try {
                     dbg.log0(`UPGRADE: running upgrade stage - ${stage.name}`);
                     await stage.func();
-                    dbg.log0(`UPGRADE: succesfully completed upgrade stage - ${stage.name}`);
+                    dbg.log0(`UPGRADE: successfully completed upgrade stage - ${stage.name}`);
                     if (i < this.UPGRADE_STAGES.length - 1) {
                         // if we are not in the last stage - advance to next stage
                         const next_stage = this.UPGRADE_STAGES[i + 1].name;

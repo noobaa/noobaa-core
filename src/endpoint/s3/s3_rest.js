@@ -12,6 +12,7 @@ const S3Error = require('./s3_errors').S3Error;
 const js_utils = require('../../util/js_utils');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
+const s3_utils = require('./s3_utils');
 const net = require('net');
 const signature_utils = require('../../util/signature_utils');
 
@@ -149,7 +150,7 @@ function check_headers(req, res) {
             if (key.startsWith('x-amz-meta-')) {
                 throw new S3Error(S3Error.InvalidArgument);
             }
-            if (key !== 'expect') {
+            if (key !== 'expect' && key !== 'user-agent') {
                 throw new S3Error(S3Error.AccessDenied);
             }
         }
@@ -169,6 +170,8 @@ function check_headers(req, res) {
     if (req.headers['content-length'] === '') {
         throw new S3Error(S3Error.BadRequestWithoutCode);
     }
+
+    if (req.method === 'POST' || req.method === 'PUT') s3_utils.parse_content_length(req);
 
     const content_md5_b64 = req.headers['content-md5'];
     if (typeof content_md5_b64 === 'string') {
@@ -193,6 +196,11 @@ function check_headers(req, res) {
     const req_time =
         time_utils.parse_amz_date(req.headers['x-amz-date'] || req.query['X-Amz-Date']) ||
         time_utils.parse_http_header_date(req.headers.date);
+
+    if (req_time < 0 || (isNaN(req_time) && !req.query['Expires'])) {
+        throw new S3Error(S3Error.AccessDenied);
+    }
+
     if (Math.abs(Date.now() - req_time) > config.AMZ_DATE_MAX_TIME_SKEW_MILLIS) {
         throw new S3Error(S3Error.RequestTimeTooSkewed);
     }
@@ -208,7 +216,11 @@ function authenticate_request(req, res) {
         signature_utils.check_request_expiry(req);
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
-        throw new S3Error(S3Error.AccessDenied);
+        if (err.code) {
+            throw err;
+        } else {
+            throw new S3Error(S3Error.AccessDenied);
+        }
     }
 }
 

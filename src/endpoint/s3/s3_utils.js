@@ -48,6 +48,61 @@ function parse_etag(etag, err) {
     return etag;
 }
 
+
+function parse_sse_c(req) {
+    const sse_c_key_md5 = req.headers['x-amz-server-side-encryption-customer-key-md5'];
+    const sse_c_algo = req.headers['x-amz-server-side-encryption-customer-algorithm'];
+    const sse_c_key = req.headers['x-amz-server-side-encryption-customer-key'];
+
+    if (!sse_c_key_md5 && !sse_c_algo && !sse_c_key) return;
+
+    return {
+        key_md5: _parse_sse_c_key_md5(sse_c_key_md5),
+        key: _parse_sse_c_key(sse_c_key),
+        algo: _parse_sse_c_algo(sse_c_algo)
+    };
+}
+
+function parse_sse(req) {
+    const sse_enc = req.headers['x-amz-server-side-encryption'];
+    const sse_key = req.headers['x-amz-server-side-encryption-aws-kms-key-id'];
+
+    if (!sse_enc) return;
+
+    return {
+        key_md5: _parse_sse_key_md5(sse_key_md5),
+        key: _parse_sse_key(sse_key),
+        sse_enc: _parse_sse_enc(sse_enc)
+    };
+}
+
+
+function _parse_sse_c_key_md5(md5) {
+    // TODO: More suitable error and better check
+    const md5_regex = new RegExp('/^[a-f0-9]{32}$/');
+    if (md5 === '' || !md5_regex.test(md5)) throw new S3Error(S3Error.InvalidDigest);
+    return md5;
+}
+
+function _parse_sse_c_key(sse_c_key) {
+    // TODO: More suitable error and better check
+    const base64_regex = new RegExp('^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$');
+    if (sse_c_key === '' || !base64_regex.test(sse_c_key)) throw new S3Error(S3Error.InvalidDigest);
+    return sse_c_key;
+}
+
+function _parse_sse_c_algo(sse_c_algo) {
+    // TODO: More suitable error and better check
+    if (sse_c_algo === '' || sse_c_algo !== 'AES256') throw new S3Error(S3Error.InvalidDigest);
+    return sse_c_algo;
+}
+
+function _parse_sse_enc(sse_enc) {
+    // TODO: More suitable error and better check
+    if (sse_enc === '' || (sse_enc !== 'AES256' && sse_enc !== 'aws:kms')) throw new S3Error(S3Error.InvalidDigest);
+    return sse_enc;
+}
+
 function parse_content_length(req) {
     const size = Number(req.headers['content-length']);
     if (!Number.isInteger(size) || size < 0) {
@@ -112,3 +167,5 @@ exports.parse_part_number = parse_part_number;
 exports.parse_copy_source = parse_copy_source;
 exports.format_copy_source = format_copy_source;
 exports.set_response_object_md = set_response_object_md;
+exports.parse_sse_c = parse_sse_c;
+// exports.parse_sse = parse_sse;

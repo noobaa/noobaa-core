@@ -7,6 +7,7 @@ const dbg = require('../util/debug_module')(__filename);
 const url = require('url');
 const path = require('path');
 const crypto = require('crypto');
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 
 ///////////////////////////////////////
@@ -30,7 +31,7 @@ function _authenticate_header_v4(req) {
     );
     if (!v4) {
         dbg.warn('Could not match AWS V4 Authorization:', req.headers.authorization);
-        return;
+        throw new S3Error(S3Error.InvalidArgument);
     }
     const credentials = v4[1].split('/', 5);
     const signed_headers = v4[2];
@@ -142,7 +143,7 @@ function _authenticate_header_s3(req) {
     );
     if (!s3) {
         dbg.warn('Could not match AWS S3 Authorization:', req.headers.authorization);
-        return;
+        throw new S3Error(S3Error.InvalidArgument);
     }
     return {
         access_key: s3[1],

@@ -1,13 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-let _ = require('lodash');
-let P = require('../../util/promise');
-let config = require('../../../config.js');
-let promise_utils = require('../../util/promise_utils');
+const _ = require('lodash');
+const P = require('../../util/promise');
+const config = require('../../../config.js');
+const promise_utils = require('../../util/promise_utils');
+const os = require('os');
 
 
-let api = require('../../api');
+const api = require('../../api');
 let rpc = api.new_rpc();
 
 let client = rpc.new_client({
@@ -254,7 +255,7 @@ module.exports = {
 
 async function deploy_ceph() {
     console.info('Starting Deployment Of Ceph Tests...');
-    let command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} > /tmp/ceph_deploy.log`;
+    let command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} ${os.platform() === 'darwin' ? 'mac' : ''} > /tmp/ceph_deploy.log`;
     try {
         let res = await promise_utils.exec(command, {
             ignore_rc: false,

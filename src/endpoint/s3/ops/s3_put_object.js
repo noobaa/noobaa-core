@@ -2,7 +2,6 @@
 'use strict';
 
 const dbg = require('../../../util/debug_module')(__filename);
-// const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
 
@@ -11,7 +10,8 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectCOPY.html
  */
 async function put_object(req, res) {
-
+    // TODO: Use the sse_c_params in the future for encryption
+    const sse_c_params = s3_utils.parse_sse_c(req);
     const copy_source = s3_utils.parse_copy_source(req);
 
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,

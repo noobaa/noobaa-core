@@ -23,6 +23,7 @@ class UpgradeManager {
     constructor(options) {
         this.cluster = options.cluster;
         this.old_version = options.old_version;
+        this.unmanaged_upgrade = options.unmanaged_upgrade;
     }
 
     async init() {
@@ -33,17 +34,20 @@ class UpgradeManager {
         this.UPGRADE_STAGES = Object.freeze([{
                 // stop services
                 name: 'START_UPGRADE',
-                func: () => this.start_upgrade_stage()
+                func: () => this.start_upgrade_stage(),
+                should_run_unmanaged: false
             }, {
                 name: 'COPY_NEW_CODE',
                 func: () => this.copy_new_code_stage(),
-                rollback_on_error: true
+                rollback_on_error: true,
+                should_run_unmanaged: false
             }, {
                 // from this stage forward rollback is not trivial since we are changing platform components, services,
                 // DB version (possibly) and DB schemas. 
                 // TODO: better handling of failures in this stage. currently just log and set to DB.
                 name: 'UPGRADE_PLATFORM',
-                func: () => this.upgrade_platform_stage()
+                func: () => this.upgrade_platform_stage(),
+                should_run_unmanaged: false
             },
             // currently upgrade is being run serially on all cluster members so running
             // UPDATE_SERVICES and UPGRADE_MONGODB_VER does not need synchronization here.
@@ -51,17 +55,25 @@ class UpgradeManager {
             // and only sync the next 2 stages to run serially.
             {
                 name: 'UPDATE_SERVICES',
-                func: () => this.update_services_stage()
+                func: () => this.update_services_stage(),
+                should_run_unmanaged: true
             }, {
                 name: 'UPGRADE_MONGODB_VER',
-                func: () => this.upgrade_mongodb_version_stage()
+                func: () => this.upgrade_mongodb_version_stage(),
+                should_run_unmanaged: false
             }, {
                 name: 'UPGRADE_MONGODB_SCHEMAS',
-                func: () => this.upgrade_mongodb_schemas_stage()
+                func: () => this.upgrade_mongodb_schemas_stage(),
+                should_run_unmanaged: true
+            }, {
+                name: 'UPDATE_DATA_VERSION',
+                func: () => this.update_data_version(),
+                should_run_unmanaged: true
             }, {
                 name: 'CLEANUP',
                 func: () => this.cleanup_stage(),
-                ignore_errors: true
+                ignore_errors: true,
+                should_run_unmanaged: false
             },
         ]);
     }
@@ -95,8 +107,14 @@ class UpgradeManager {
         } catch (err) {
             dbg.error('UPGRADE: failed updating DB with UPGRADE_COMPLETED');
         }
-        dbg.log0('UPGRADE: starting services');
+        dbg.log0('UPGRADE: setting services to autostart');
+
+        const srv_to_stop = await platform_upgrade.stopped_services_during_upgrade();
+        await supervisor.update_services_autostart(srv_to_stop, true);
+        await supervisor.apply_changes();
+
         await platform_upgrade.start_services();
+
         dbg.log0('UPGRADE: removing upgrade_manager from supervisor config');
         await supervisor.remove_program('upgrade_manager');
         dbg.log0('UPGRADE: applying supervisor conf changes. upgrade manager should exit now');
@@ -213,6 +231,10 @@ class UpgradeManager {
         });
     }
 
+    async update_data_version() {
+        await platform_upgrade.update_data_version();
+    }
+
     async cleanup_stage() {
         await platform_upgrade.after_upgrade_cleanup();
     }
@@ -223,9 +245,13 @@ class UpgradeManager {
             const stage = this.UPGRADE_STAGES[i];
             if (this.upgrade_info.stage === stage.name) {
                 try {
-                    dbg.log0(`UPGRADE: running upgrade stage - ${stage.name}`);
-                    await stage.func();
-                    dbg.log0(`UPGRADE: successfully completed upgrade stage - ${stage.name}`);
+                    if (!this.unmanaged_upgrade || stage.should_run_unmanaged) {
+                        dbg.log0(`UPGRADE: running upgrade stage - ${stage.name}`);
+                        await stage.func();
+                        dbg.log0(`UPGRADE: succesfully completed upgrade stage - ${stage.name}`);
+                    } else {
+                        dbg.log0(`UPGRADE: skipping stage in unmanaged upgrade - ${stage.name}`);
+                    }
                     if (i < this.UPGRADE_STAGES.length - 1) {
                         // if we are not in the last stage - advance to next stage
                         const next_stage = this.UPGRADE_STAGES[i + 1].name;
@@ -266,7 +292,8 @@ async function main() {
     dbg.log0('UPGRADE: Started upgrade manager with arguments:', argv);
     const upgrade_manager = new UpgradeManager({
         cluster: argv.cluster_str === 'cluster',
-        old_version: argv.old_version
+        old_version: argv.old_version,
+        unmanaged_upgrade: argv.unmanaged === 'true',
     });
 
     await upgrade_manager.do_upgrade();

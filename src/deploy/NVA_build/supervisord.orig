@@ -5,14 +5,80 @@
 SUPERVISORD="/usr/bin/supervisord_orig"
 PIDFILE="/var/log/supervisord.pid"
 
+NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
+NOOBAA_DATA_VERSION="/data/noobaa_version"
+NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"
+
+update_services_autostart() {
+  local programs=(webserver bg_workers hosted_agents s3rver)
+  local will_replace=false
+    while read line; do
+      if [[ ${line} =~ "program" ]]; then
+        for program in ${programs[@]}; do
+          if [[ ${line} =~ ${program} ]]; then
+            will_replace=true
+          fi
+        done
+      fi
+
+      if [[ ${line} =~ "autostart" ]] && ${will_replace}; then
+        echo ${line//true/false} >> ${NOOBAA_SUPERVISOR}.tmp
+      else
+        echo ${line} >> ${NOOBAA_SUPERVISOR}.tmp
+      fi
+
+      if [ "${line}" == "#endprogram" ]; then
+        will_replace=false
+      fi
+    done < ${NOOBAA_SUPERVISOR}
+
+  rm -rf ${NOOBAA_SUPERVISOR}
+  mv ${NOOBAA_SUPERVISOR}.tmp ${NOOBAA_SUPERVISOR}
+}
+
+handle_unmanaged_upgrade() {
+    #Container specific logic
+    if grep -q PLATFORM=docker /root/node_modules/noobaa-core/.env; then
+        code_version=$(grep version ${NOOBAA_PACKAGE_PATH} | awk -F'["|"]' '{print $4}')
+        if [ ! -f ${NOOBAA_DATA_VERSION} ]; then 
+            #New system, update data version file
+            echo ${code_version} > ${NOOBAA_DATA_VERSION}
+        else
+            data_version=$(cat ${NOOBAA_DATA_VERSION})
+            #verify if we need to start an un-managed upgrade
+            if [ "${code_version}" != "${data_version}" ]; then
+                logger -p local0.warn -t Superd "Code version ${code_version} differs from data version ${data_version}, initiating unmanaged upgrade"
+
+                #code version differs from data version, need to initiate un-managed upgrade
+                update_services_autostart
+                cat >> ${NOOBAA_SUPERVISOR} << EOF
+
+[program:upgrade_manager]
+stopsignal=KILL
+priority=1
+autostart=true
+user=root
+directory=/root/node_modules/noobaa-core/
+stderr_logfile_backups=3
+stdout_logfile_backups=3
+command=/usr/local/bin/node src/upgrade/upgrade_manager.js --old_version ${data_version} --unmanaged true
+#endprogram
+EOF
+            fi
+        fi
+    fi
+}
+
 start() {
+    handle_unmanaged_upgrade
+
     if [ ! -x "$SUPERVISORD" ]; then
         echo "$SUPERVISORD is not executable."
-        logger -p local0.info "$SUPERVISORD is not executable."
+        logger -p local0.info -t Superd "$SUPERVISORD is not executable."
         exit 1
     fi
     echo "Starting ..."
-    logger -p local0.info "Starting ..."
+    logger -p local0.info -t Superd "Starting ..."
     ulimit -n 102400; $SUPERVISORD --pidfile $PIDFILE
 
     return $?
@@ -20,35 +86,35 @@ start() {
 
 stop() {
     echo "Stopping ..."
-    logger -p local0.info "Stopping ..."
+    logger -p local0.info -t Superd "Stopping ..."
     local supervisord_orig_pid=$(pgrep -lf $SUPERVISORD | awk '{print $1}')
     echo "supervisord_orig_pid=$supervisord_orig_pid"
-    logger -p local0.info "supervisord_orig_pid=$supervisord_orig_pid"
+    logger -p local0.info -t Superd "supervisord_orig_pid=$supervisord_orig_pid"
     kill -9 ${supervisord_orig_pid}
 
     local web_server_pid=$(pgrep -lf web_server.js | awk '{print $1}')
     echo "web_server_pid=$web_server_pid"
-    logger -p local0.info "web_server_pid=$web_server_pid"
+    logger -p local0.info -t Superd "web_server_pid=$web_server_pid"
     kill -9 ${web_server_pid}
 
     local bg_workers_pid=$(pgrep -lf bg_workers.js | awk '{print $1}')
     echo "bg_workers_pid=$bg_workers_pid"
-    logger -p local0.info "bg_workers_pid=$bg_workers_pid"
+    logger -p local0.info -t Superd "bg_workers_pid=$bg_workers_pid"
     kill -9 ${bg_workers_pid}
 
     local hosted_agents_starter_pid=$(pgrep -lf hosted_agents_starter.js | awk '{print $1}')
     echo "hosted_agents_starter_pid=$hosted_agents_starter_pid"
-    logger -p local0.info "hosted_agents_starter_pid=$hosted_agents_starter_pid"
+    logger -p local0.info -t Superd "hosted_agents_starter_pid=$hosted_agents_starter_pid"
     kill -9 ${hosted_agents_starter_pid}
 
     local s3rver_starter_pids=$(pgrep -lf s3rver_starter.js | awk '{print $1}')
     echo "s3rver_starter_pids=$s3rver_starter_pids"
-    logger -p local0.info "s3rver_starter_pids=$s3rver_starter_pids"
+    logger -p local0.info -t Superd "s3rver_starter_pids=$s3rver_starter_pids"
     kill -9 ${s3rver_starter_pids}
 
     local mongo_pids=$(pgrep -lf mongo | awk '{print $1}')
     echo "mongo_pids=$mongo_pids"
-    logger -p local0.info "mongo_pids=$mongo_pids"
+    logger -p local0.info -t Superd "mongo_pids=$mongo_pids"
     kill -2 ${mongo_pids}
 
     local p=$(cat $PIDFILE)

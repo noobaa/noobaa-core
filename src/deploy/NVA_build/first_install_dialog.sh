@@ -203,11 +203,9 @@ function configure_dns_dialog {
             continue
         fi
         if [ -n ${dns2} ]; then
-          echo "updating both" >> /tmp/dns #NBNB
           sudo bash -c "echo \"forwarders { ${dns1}; ${dns2}; };\" > /etc/noobaa_configured_dns.conf"
           command="${MONGO_SHELL} --eval 'var update_dns=\"true\", dns_primary=\"${dns1}\", dns_secondary=\"${dns2}\", secret=\"${secret}\"' /root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_update_config.js"
         else
-          echo "updating one" >> /tmp/dns #NBNB
           sudo bash -c "echo \"forwarders { ${dns1}; };\" > /etc/noobaa_configured_dns.conf"
           command="${MONGO_SHELL} --eval 'var update_dns=\"true\", dns_primary=\"${dns1}\", secret=\"${secret}\"' /root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_update_config.js"
         fi

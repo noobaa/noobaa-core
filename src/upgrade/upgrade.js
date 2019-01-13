@@ -52,8 +52,6 @@ async function start_upgrade_manager() {
     // add new version upgrade agent to the supervisor.conf
     const upgrade_prog = {};
     const args = [
-        '--do_upgrade', 'true',
-        '--fsuffix', argv.fsuffix,
         '--cluster_str', argv.cluster_str,
         '--old_version', OLD_VER
     ];

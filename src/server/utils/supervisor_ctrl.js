@@ -130,6 +130,14 @@ class SupervisorCtrl {
         }
     }
 
+    async update_services_autostart(services, value) {
+        if (value !== true && value !== false) throw new Error('autostart supports true/false only');
+        for (const srv of services) {
+            const program = this._programs.find(prog => prog.name === srv);
+            program.autostart = `${value}`;
+        }
+    }
+
     get_mongo_services() {
         let mongo_progs = [];
         return P.resolve()

@@ -87,7 +87,7 @@ const SERVICES_INFO = Object.freeze([{
 ]);
 
 
-async function services_to_stop() {
+async function stopped_services_during_upgrade() {
     const supervised_list = await supervisor.list();
     dbg.log0('UPGRADE: current services list is', supervised_list);
 
@@ -101,8 +101,10 @@ async function services_to_stop() {
 async function stop_services() {
     // first stop all services in supervisor conf except those required for upgrade
     dbg.log0('UPGRADE: stopping services before upgrade');
-    const srv_to_stop = await services_to_stop();
+    const srv_to_stop = await stopped_services_during_upgrade();
     dbg.log0('UPGRADE: stopping services:', srv_to_stop);
+    await supervisor.update_services_autostart(srv_to_stop, false);
+    await supervisor.apply_changes();
     await supervisor.stop(srv_to_stop);
 
     // now make sure that all the services to stop are actually stopped
@@ -125,7 +127,7 @@ async function stop_services() {
 }
 
 async function start_services() {
-    const stopped_services = await services_to_stop();
+    const stopped_services = await stopped_services_during_upgrade();
     dbg.log0('UPGRADE: starting services:', stopped_services);
     await supervisor.start(stopped_services);
 }
@@ -455,7 +457,6 @@ async function copy_new_code() {
 // make sure that all the file which are required by the new version (.env, etc.) are in the new dir
 async function prepare_new_dir() {
     await _build_dotenv();
-    await _create_packages_md5();
 }
 
 // build .env file in new version by taking all required env vars from old version
@@ -471,15 +472,6 @@ async function _build_dotenv() {
 
     await fs.writeFileAsync(`${NEW_VERSION_DIR}/.env`, dotenv.stringify(new_env));
 }
-
-async function _create_packages_md5() {
-    const linux_md5_string = await fs_utils.get_md5_of_file(path.join(NEW_VERSION_DIR, 'build/public/noobaa-setup-' + pkg.version));
-    await fs.writeFileAsync(path.join(NEW_VERSION_DIR, 'build/public/noobaa-setup-' + pkg.version + '.md5'), linux_md5_string);
-    const win_md5_string = await fs_utils.get_md5_of_file(path.join(NEW_VERSION_DIR, 'build/public/noobaa-setup-' + pkg.version + '.exe'));
-    await fs.writeFileAsync(path.join(NEW_VERSION_DIR, 'build/public/noobaa-setup-' + pkg.version + '.exe.md5'), win_md5_string);
-    dbg.log0(`UPGRADE: creating a hash file for both linux/windows upgrade packs: ${linux_md5_string}/${win_md5_string}`);
-}
-
 
 // TODO: make sure that update_services is synchronized between all cluster members 
 // (currently all members are upgraded serially, so we're good)
@@ -763,6 +755,12 @@ async function upgrade_mongodb_schemas(params) {
     dbg.log0('UPGRADE: upgrade_mongodb_schemas: Success');
 }
 
+async function update_data_version() {
+    const DATA_VERSION_PATH = '/data/noobaa_version';
+    dbg.log0(`UPGRADE: updating data version to ${pkg.version}`);
+    await fs.writeFileAsync(DATA_VERSION_PATH, pkg.version);
+}
+
 async function after_upgrade_cleanup() {
     dbg.log0(`UPGRADE: deleting ${EXTRACTION_PATH}`);
     await fs_utils.folder_delete(`${EXTRACTION_PATH}`);
@@ -829,7 +827,9 @@ exports.prepare_new_dir = prepare_new_dir;
 exports.update_services = update_services;
 exports.upgrade_mongodb_version = upgrade_mongodb_version;
 exports.upgrade_mongodb_schemas = upgrade_mongodb_schemas;
+exports.update_data_version = update_data_version;
 exports.after_upgrade_cleanup = after_upgrade_cleanup;
+exports.stopped_services_during_upgrade = stopped_services_during_upgrade;
 exports.stop_services = stop_services;
 exports.start_services = start_services;
 exports.version_compare = version_compare;

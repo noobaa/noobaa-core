@@ -17,8 +17,8 @@ const server_rpc = require('../server_rpc');
 /**
  *
  */
-function load_system_store(req) {
-    return system_store.load().return();
+async function load_system_store(req) {
+    await system_store.load();
 }
 
 function update_mongo_connection_string(req) {

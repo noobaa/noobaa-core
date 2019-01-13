@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const util = require('util');
 const js_utils = require('./js_utils');
-const crypto = require('crypto');
 
 const KEYWORDS = js_utils.deep_freeze({
 
@@ -133,53 +132,6 @@ const KEYWORDS = js_utils.deep_freeze({
 
 });
 
-class SensitiveString {
-    constructor(val) {
-        const type = typeof val;
-        if (val instanceof SensitiveString) {
-            this.md5 = val.md5;
-            this.val = val.unwrap();
-        } else if (type === 'string') {
-            this.val = val;
-            this.md5 = crypto.createHash('md5').update(this.val).digest('hex');
-        } else if (type === 'undefined') {
-            this.val = undefined;
-            this.md5 = 'undefined';
-        } else {
-            throw new TypeError(`SensitiveString should be a string, got ${type}`);
-        }
-    }
-
-    [util.inspect.custom]() {
-        return 'SENSITIVE-' + this.md5;
-    }
-
-    toString() {
-        return 'SENSITIVE-' + this.md5;
-    }
-
-    toJSON() {
-        return this.val;
-    }
-
-    toBSON() {
-        return this.val;
-    }
-
-    valueOf() {
-        return this.val;
-    }
-
-    unwrap() {
-        return this.val;
-    }
-
-    static can_wrap(val) {
-        return typeof val === 'string';
-    }
-
-}
-
 const COMMON_SCHEMA_KEYWORDS = ['doc', 'id'];
 
 function strictify(schema, options, base) {
@@ -281,6 +233,5 @@ function empty_schema_validator(json) {
 }
 
 exports.KEYWORDS = KEYWORDS;
-exports.SensitiveString = SensitiveString;
 exports.strictify = strictify;
 exports.empty_schema_validator = empty_schema_validator;

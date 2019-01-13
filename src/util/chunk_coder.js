@@ -48,9 +48,8 @@ class ChunkCoder extends stream.Transform {
     // - We return the chunk coder promise so that the semaphores will wait for it.
     _transform(chunk, encoding, callback) {
         this.stream_sem.surround(() => ChunkCoder.global_sem.surround(() => {
-                chunk.coder = this.coder;
                 chunk.chunk_coder_config = chunk.chunk_coder_config || this.chunk_coder_config;
-                const chunk_promise = P.fromCallback(cb => nb_native().chunk_coder(chunk, cb));
+                const chunk_promise = P.fromCallback(cb => nb_native().chunk_coder(this.coder, chunk, cb));
                 this.stream_promise = P.join(chunk_promise, this.stream_promise).then(() => this.push(chunk));
                 callback();
                 return chunk_promise;
@@ -64,5 +63,7 @@ class ChunkCoder extends stream.Transform {
             .catch(err => this.emit('error', err));
     }
 }
+
+ChunkCoder.global_sem = undefined;
 
 module.exports = ChunkCoder;

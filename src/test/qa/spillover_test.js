@@ -179,16 +179,16 @@ async function checkFileInPool(file_name, pool) {
     while (keep_run) {
         try {
             console.log(`Checking file ${file_name} is available and contains exactly in pool ${pool}`);
-            const object_mappings = await client.object.read_object_mappings({
+            const { chunks } = await client.object.read_object_mapping_admin({
                 bucket,
                 key: file_name,
                 adminfo: true
             });
-            chunkAvailable = object_mappings.parts.filter(chunk => chunk.chunk.adminfo.health === 'available');
+            chunkAvailable = chunks.filter(chunk => chunk.adminfo.health === 'available');
             const chunkAvailablelength = chunkAvailable.length;
-            const partsInPool = object_mappings.parts.filter(chunk =>
-                chunk.chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
-            const chunkNum = object_mappings.parts.length;
+            const partsInPool = chunks.filter(chunk =>
+                chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
+            const chunkNum = chunks.length;
             if (chunkAvailablelength === chunkNum) {
                 console.log(`Available chunks: ${chunkAvailablelength}/${chunkNum} for ${file_name}`);
             } else {

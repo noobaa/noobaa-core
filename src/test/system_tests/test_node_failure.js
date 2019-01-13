@@ -151,23 +151,22 @@ function upload_file() {
 
 function read_mappings() {
     console.log(`read objects mapping for file ${TEST_CTX.key}`);
-    return client.object.read_object_mappings({
+    return client.object.read_object_mapping_admin({
             bucket: TEST_CTX.bucket,
             key: TEST_CTX.key,
-            adminfo: true
         })
         .then(reply => {
-            TEST_CTX.parts = reply.parts.map((part, i) => ({
+            TEST_CTX.chunks = reply.chunks.map((chunk, i) => ({
                 part: i,
-                blocks: part.chunk.frags[0].blocks.map(block => block.adminfo)
+                blocks: chunk.frags[0].blocks.map(block => block.adminfo)
             }));
-            TEST_CTX.parts_by_nodes = {};
-            _.each(TEST_CTX.parts, part => {
+            TEST_CTX.chunks_by_nodes = {};
+            _.each(TEST_CTX.chunks, part => {
                 _.each(part.blocks, block => {
-                    if (!TEST_CTX.parts_by_nodes[block.node_name]) {
-                        TEST_CTX.parts_by_nodes[block.node_name] = [];
+                    if (!TEST_CTX.chunks_by_nodes[block.node_name]) {
+                        TEST_CTX.chunks_by_nodes[block.node_name] = [];
                     }
-                    TEST_CTX.parts_by_nodes[block.node_name].push(block);
+                    TEST_CTX.chunks_by_nodes[block.node_name].push(block);
                 });
             });
         });
@@ -175,13 +174,13 @@ function read_mappings() {
 
 // test that each part has at least 3 online blocks.
 function validate_mappings() {
-    _.each(TEST_CTX.parts, part => {
-        if (part.blocks.length < 3) {
+    _.each(TEST_CTX.chunks, ({ blocks }) => {
+        if (blocks.length < 3) {
             console.log('not enough replicas, wait and retry');
             throw new Error('part has less than 3 blocks');
         }
         let num_online = 0;
-        _.each(part.blocks, block => {
+        _.each(blocks, block => {
             if (block.online) {
                 num_online += 1;
             }
@@ -196,7 +195,7 @@ function validate_mappings() {
 
 function test_node_fail_replicate() {
     // kill first node in the nodes array, and then test it's blocks
-    let node = _.keys(TEST_CTX.parts_by_nodes)[0];
+    let node = _.keys(TEST_CTX.chunks_by_nodes)[0];
     return client.hosted_agents.remove_agent({
             name: node
         })

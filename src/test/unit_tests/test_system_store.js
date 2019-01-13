@@ -55,9 +55,9 @@ mocha.describe('system_store', function() {
                 return promise_utils.loop(LOOP_CYCLES, cycle => system_store.make_changes({
                     insert: {
                         systems: [{
-                            _id: system_store.generate_id(),
+                            _id: system_store.new_system_store_id(),
                             name: `JenTheMajesticSlothSystemStoreLoop-${cycle}`,
-                            owner: system_store.generate_id()
+                            owner: system_store.new_system_store_id()
                         }]
                     }
                 }));
@@ -82,9 +82,9 @@ mocha.describe('system_store', function() {
                 return P.map(new Array(PARALLEL_CHANGES), (x, i) => system_store.make_changes({
                     insert: {
                         systems: [{
-                            _id: system_store.generate_id(),
+                            _id: system_store.new_system_store_id(),
                             name: `JenTheMajesticSlothSystemStoreParallel-${i}`,
-                            owner: system_store.generate_id()
+                            owner: system_store.new_system_store_id()
                         }]
                     }
                 }));

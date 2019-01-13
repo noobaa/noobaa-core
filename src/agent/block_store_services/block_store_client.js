@@ -109,7 +109,7 @@ class BlockStoreClient {
                     })
                     .then(info => {
                         const noobaablockmd = info.metadata.noobaablockmd || info.metadata.noobaa_block_md;
-                        const store_block_md = JSON.parse(Buffer.from(noobaablockmd, 'base64'));
+                        const store_block_md = JSON.parse(Buffer.from(noobaablockmd, 'base64').toString());
                         return {
                             [RPC_BUFFERS]: { data: buffer_utils.join(writable.buffers, writable.total_length) },
                             block_md: store_block_md,
@@ -217,7 +217,7 @@ class BlockStoreClient {
                         const data = await s3.getObject(read_params).promise();
                         const noobaablockmd = data.Metadata.noobaablockmd || data.Metadata.noobaa_block_md;
                         const store_block_md = disable_metadata ? params.block_md :
-                            JSON.parse(Buffer.from(noobaablockmd, 'base64'));
+                            JSON.parse(Buffer.from(noobaablockmd, 'base64').toString());
                         return {
                             [RPC_BUFFERS]: { data: data.Body },
                             block_md: store_block_md,
@@ -235,16 +235,16 @@ class BlockStoreClient {
                             req_options.proxy = proxy;
                         }
 
-                        const [res, body] = await P.fromCallback(callback => request(req_options, callback), {
-                            multiArgs: true
-                        });
+                        const [res, body] = await new Promise((resolve, reject) =>
+                            request(req_options, (err, res1, body1) => (err ? reject(err) : resolve([res1, body1])))
+                        );
 
                         if (res.statusCode === 200) {
                             const noobaablockmd =
                                 res.headers['x-amz-meta-noobaablockmd'] ||
                                 res.headers['x-amz-meta-noobaa_block_md'];
                             const store_block_md = disable_metadata ? params.block_md :
-                                JSON.parse(Buffer.from(noobaablockmd, 'base64'));
+                                JSON.parse(Buffer.from(noobaablockmd, 'base64').toString());
                             const ret = {
                                 [RPC_BUFFERS]: { data: body },
                                 block_md: store_block_md,
@@ -290,8 +290,9 @@ class BlockStoreClient {
                 throw err;
             });
     }
-
-
 }
+
+/** @type {BlockStoreClient} */
+BlockStoreClient._instance = undefined;
 
 exports.instance = BlockStoreClient.instance;

@@ -845,9 +845,7 @@ function foreach_region(func) {
 // print object with deep levels
 function console_inspect(desc, obj) {
     console.log(desc);
-    console.log(util.inspect(obj, {
-        depth: null
-    }));
+    console.log(util.inspect(obj, { depth: null }));
 }
 
 function load_aws_config_env() {

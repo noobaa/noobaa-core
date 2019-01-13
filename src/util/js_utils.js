@@ -155,10 +155,10 @@ class PackedObject {
  * dbg.log2(inspect_lazy(very_deep_object, { depth: null, colors: true }));
  * 
  */
-function inspect_lazy(...inspect_args) {
+function inspect_lazy(obj, ...inspect_args) {
     return {
         [util.inspect.custom]() {
-            return util.inspect(...inspect_args);
+            return util.inspect(obj, ...inspect_args);
         }
     };
 }

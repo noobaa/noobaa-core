@@ -277,9 +277,7 @@ function report() {
         if (heapdiff) {
             memwatch.gc();
             const diff = heapdiff.end();
-            dbg.log('HEAPDIFF', util.inspect(diff, {
-                depth: null
-            }));
+            dbg.log('HEAPDIFF', util.inspect(diff, { depth: null }));
         }
         process.exit(0);
     }

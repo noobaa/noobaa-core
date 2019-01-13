@@ -58,8 +58,8 @@ class BlockStoreMem extends BlockStoreBase {
             usage.count -= 1;
         }
         this._blocks.set(block_id, { data, block_md });
-        usage.size += block_md.preallocated ? 0 : data.length;
-        usage.count += block_md.preallocated ? 0 : 1;
+        usage.size += block_md.is_preallocated ? 0 : data.length;
+        usage.count += block_md.is_preallocated ? 0 : 1;
         this._update_usage(usage);
     }
 

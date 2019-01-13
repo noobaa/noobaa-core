@@ -7,7 +7,8 @@ const Ajv = require('ajv');
 const util = require('util');
 const BSON = require('bson');
 const assert = require('assert');
-const { SensitiveString, KEYWORDS } = require('../../util/schema_utils');
+const { KEYWORDS } = require('../../util/schema_utils');
+const SensitiveString = require('../../util/sensitive_string');
 
 mocha.describe('SensitiveString', function() {
     const ajv = new Ajv({

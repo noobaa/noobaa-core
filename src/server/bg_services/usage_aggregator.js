@@ -8,7 +8,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
 const system_store = require('../system_services/system_store').get_instance();
 const size_utils = require('../../util/size_utils');
-const { SensitiveString } = require('../../util/schema_utils');
+const SensitiveString = require('../../util/sensitive_string');
 
 
 

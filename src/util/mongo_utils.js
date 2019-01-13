@@ -1,11 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {typeof import('../sdk/nb')} nb */
+
 const _ = require('lodash');
 const util = require('util');
 const mongodb = require('mongodb');
 
-const P = require('./promise');
 const { RpcError } = require('../rpc');
 
 /* exported constants */
@@ -72,30 +73,27 @@ function uniq_ids(docs, doc_path) {
 
 /**
  * populate a certain doc path which contains object ids to another collection
+ * @template {{}} T
+ * @param {T[]} docs
+ * @param {string} doc_path
+ * @param {mongodb.Collection<T>} collection
+ * @param {Object} [fields]
+ * @returns {Promise<T[]>}
  */
-function populate(docs, doc_path, collection, fields) {
+async function populate(docs, doc_path, collection, fields) {
     const docs_list = _.isArray(docs) ? docs : [docs];
     const ids = uniq_ids(docs_list, doc_path);
-    collection = collection.collection || collection;
     if (!ids.length) return docs;
-    return P.resolve(collection.find({
-            _id: {
-                $in: ids
-            }
-        }, {
-            fields: fields
-        }).toArray())
-        .then(items => {
-            const idmap = _.keyBy(items, '_id');
-            _.each(docs_list, doc => {
-                const id = _.get(doc, doc_path);
-                if (id) {
-                    const item = idmap[String(id)];
-                    _.set(doc, doc_path, item);
-                }
-            });
-            return docs;
-        });
+    const items = await collection.find({ _id: { $in: ids } }, { projection: fields }).toArray();
+    const idmap = _.keyBy(items, '_id');
+    _.each(docs_list, doc => {
+        const id = _.get(doc, doc_path);
+        if (id) {
+            const item = idmap[String(id)];
+            _.set(doc, doc_path, item);
+        }
+    });
+    return docs;
 }
 
 
@@ -103,7 +101,7 @@ function resolve_object_ids_recursive(idmap, item) {
     _.each(item, (val, key) => {
         if (val instanceof mongodb.ObjectId) {
             if (key !== '_id') {
-                const obj = idmap[val];
+                const obj = idmap[val.toHexString()];
                 if (obj) {
                     item[key] = obj;
                 }
@@ -136,15 +134,26 @@ function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
     return item;
 }
 
-function make_object_id(id_str) {
-    return new mongodb.ObjectId(id_str);
+/**
+ * @returns {nb.ID}
+ */
+function new_object_id() {
+    return new mongodb.ObjectId();
+}
+
+/**
+ * @param {string} id_str
+ * @returns {nb.ID}
+ */
+function parse_object_id(id_str) {
+    return new mongodb.ObjectId(String(id_str || undefined));
 }
 
 function fix_id_type(doc) {
     if (_.isArray(doc)) {
         _.each(doc, d => fix_id_type(d));
     } else if (doc && doc._id) {
-        doc._id = make_object_id(doc._id);
+        doc._id = new mongodb.ObjectId(doc._id);
     }
     return doc;
 }
@@ -207,7 +216,8 @@ exports.uniq_ids = uniq_ids;
 exports.populate = populate;
 exports.resolve_object_ids_recursive = resolve_object_ids_recursive;
 exports.resolve_object_ids_paths = resolve_object_ids_paths;
-exports.make_object_id = make_object_id;
+exports.new_object_id = new_object_id;
+exports.parse_object_id = parse_object_id;
 exports.fix_id_type = fix_id_type;
 exports.is_object_id = is_object_id;
 exports.is_err_duplicate_key = is_err_duplicate_key;

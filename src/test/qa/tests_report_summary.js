@@ -56,7 +56,7 @@ class ReportsSummarizer {
     async init() {
         this._db = await mongodb.MongoClient.connect(this.connection_string);
         this._reports = this._db.collection('reports');
-        debug(`reports collection has ${await this._reports.count()} documents`);
+        debug(`reports collection has ${await this._reports.countDocuments()} documents`);
     }
 
     init_params(params) {

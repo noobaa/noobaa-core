@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const { SensitiveString } = require('../util/schema_utils');
+const SensitiveString = require('../util/sensitive_string');
 
 /**
  *
@@ -292,10 +292,8 @@ module.exports = {
                 size: { type: 'integer' },
                 digest_type: { $ref: '#/definitions/digest_type' },
                 digest_b64: { type: 'string' },
-                node_type: {
-                    $ref: '#/definitions/node_type'
-                },
-                preallocated: { type: 'boolean' },
+                node_type: { $ref: '#/definitions/node_type' },
+                is_preallocated: { type: 'boolean' },
             }
         },
 

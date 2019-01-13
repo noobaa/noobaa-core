@@ -3,8 +3,7 @@
 
 const _ = require('lodash');
 const url = require('url');
-const RPC = require('../rpc/rpc');
-const RpcSchema = require('../rpc/rpc_schema');
+const { RPC, RPC_BUFFERS, RpcSchema } = require('../rpc');
 
 // registring all api's on the same RpcSchema object
 // so they share the schema namespace
@@ -37,23 +36,75 @@ api_schema.register_api(require('./func_api'));
 api_schema.register_api(require('./func_node_api'));
 api_schema.compile();
 
-/**
- * extend the rpc client prototype with convinient methods
- */
-RPC.Client.prototype.create_auth_token = function(params) {
-    return this.auth.create_auth(params)
-        .then(res => {
-            this.options.auth_token = res.token;
-            return res;
+class APIClient {
+
+    constructor(rpc, default_options) {
+        this.rpc = rpc;
+        this.options = _.create(default_options);
+        this.RPC_BUFFERS = RPC_BUFFERS;
+
+        // define the client properties
+        this.auth = undefined;
+        this.account = undefined;
+        this.system = undefined;
+        this.tier = undefined;
+        this.node = undefined;
+        this.host = undefined;
+        this.bucket = undefined;
+        this.events = undefined;
+        this.object = undefined;
+        this.agent = undefined;
+        this.block_store = undefined;
+        this.stats = undefined;
+        this.scrubber = undefined;
+        this.debug = undefined;
+        this.redirector = undefined;
+        this.tiering_policy = undefined;
+        this.pool = undefined;
+        this.cluster_server = undefined;
+        this.cluster_internal = undefined;
+        this.upgrade = undefined;
+        this.server_inter_process = undefined;
+        this.hosted_agents = undefined;
+        this.frontend_notifications = undefined;
+        this.func = undefined;
+        this.func_node = undefined;
+
+        _.each(rpc.schema, api => {
+            if (!api || !api.id || api.id[0] === '_') return;
+            const name = api.id.replace(/_api$/, '');
+            if (name === 'rpc' || name === 'options') throw new Error('ILLEGAL API ID');
+            this[name] = {};
+            _.each(api.methods, (method_api, method_name) => {
+                this[name][method_name] = (params, options) => {
+                    options = _.create(this.options, options);
+                    return rpc._request(api, method_api, params, options);
+                };
+            });
         });
-};
-RPC.Client.prototype.create_access_key_auth = function(params) {
-    return this.auth.create_access_key_auth(params)
-        .then(res => {
-            this.options.auth_token = res.token;
-            return res;
-        });
-};
+    }
+
+    /**
+     * extend the rpc client prototype with convinient methods
+     */
+    create_auth_token(params) {
+        return this.auth.create_auth(params)
+            .then(res => {
+                this.options.auth_token = res.token;
+                return res;
+            });
+    }
+
+    create_access_key_auth(params) {
+        return this.auth.create_access_key_auth(params)
+            .then(res => {
+                this.options.auth_token = res.token;
+                return res;
+            });
+    }
+
+}
+
 
 function get_base_port(base_port) {
     // the default 5443 port is for development
@@ -98,6 +149,7 @@ function new_router(base_address, master_base_address) {
 
 function new_rpc(base_address) {
     let rpc = new RPC({
+        APIClient,
         schema: api_schema,
         router: new_router(base_address),
         api_routes: {

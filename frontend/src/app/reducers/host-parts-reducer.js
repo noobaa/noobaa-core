@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { flatMap } from 'utils/core-utils';
 import {
     FETCH_HOST_OBJECTS,
     COMPLETE_FETCH_HOST_OBJECTS,
@@ -43,30 +42,36 @@ function onFetchHostObjects(state, { payload }) {
 
 function onCompleteFetchHostObjects(state, { payload }) {
     const { query, response } = payload;
-    if (!_queryMatching(query, state))  return state;
+    const { total_chunks, chunks, objects } = response;
+    if (!_queryMatching(query, state)) return state;
 
-    const parts = flatMap(response.objects, obj => {
-        return obj.parts.map(part => ({
-            mode: part.chunk.adminfo.health.toUpperCase(),
+    const parts = chunks.map(chunk => {
+        const part = chunk.parts[0];
+        const obj = objects.find(it => it.obj_id === part.obj_id);
+        const mode =
+            ((chunk.is_building_blocks || chunk.is_building_frags) && 'BUILDING') ||
+            (chunk.is_accessible ? 'AVAILABLE' : 'UNAVAILABLE');
+        return {
+            mode,
             bucket: obj.bucket,
             object: obj.key,
             version: obj.version_id,
             start: part.start,
             end: part.end
-        }));
+        };
     });
 
     return {
         ...state,
         parts,
-        partCount: response.total_count,
+        partCount: total_chunks,
         fetching: false,
         error: false
     };
 }
 
 function onFailFetchHostObjects(state, { payload }) {
-    if (!_queryMatching(payload.query, state))  return state;
+    if (!_queryMatching(payload.query, state)) return state;
 
     return {
         ...state,

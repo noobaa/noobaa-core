@@ -93,10 +93,10 @@ export function fetchObjectParts(query) {
     };
 }
 
-export function completeFetchObjectParts(query, parts) {
+export function completeFetchObjectParts(query, chunks) {
     return {
         type: COMPLETE_FETCH_OBJECT_PARTS,
-        payload: { query, parts }
+        payload: { query, chunks }
     };
 }
 

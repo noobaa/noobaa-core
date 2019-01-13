@@ -42,7 +42,7 @@ class AlertsLogStore {
     get_unread_alerts_count(sysid) {
         let severities = ['CRIT', 'MAJOR', 'INFO'];
         let unread_alerts = {};
-        return P.map(severities, sev => this._alertslogs.col().count({
+        return P.map(severities, sev => this._alertslogs.col().countDocuments({
                     system: sysid,
                     severity: sev,
                     read: false

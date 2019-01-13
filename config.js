@@ -55,6 +55,8 @@ config.CLOUD_AGENTS_N2N_PORT = 60100;
 // TODO: Should check what PORT we are interested in taking
 config.MONGO_AGENTS_N2N_PORT = 60100;
 
+config.N2N_OFFER_INTERNAL = false;
+
 /////////////////////
 // ENDPOINT CONFIG //
 /////////////////////
@@ -120,6 +122,9 @@ config.IO_SEMAPHORE_CAP = Math.floor(
         os.totalmem() / config.IO_MEM_SEMAPHORE / config.ENDPOINT_FORKS_COUNT)
 );
 
+config.ERROR_INJECTON_ON_WRITE = 0;
+config.ERROR_INJECTON_ON_READ = 0;
+
 /////////////////////
 //NODES MONITORING //
 /////////////////////
@@ -162,7 +167,7 @@ config.REBUILD_NODE_BATCH_DELAY = 50;
 // TODO: Temporary using the same number but later on they will be different cellings
 config.MIN_TIER_FREE_THRESHOLD = 100 * 1024 * 1024;
 config.MAX_TIER_FREE_THRESHOLD = 100 * 1024 * 1024;
-config.ENOUGH_ROOM_IN_TIER_THRESHOLD = 100 * 1024 * 1024;
+config.ENOUGH_ROOM_IN_TIER_THRESHOLD = 200 * 1024 * 1024;
 
 config.CHUNK_MOVE_LIMIT = 10;
 

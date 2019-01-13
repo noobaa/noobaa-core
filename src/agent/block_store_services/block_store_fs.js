@@ -147,8 +147,8 @@ class BlockStoreFs extends BlockStoreBase {
                         md_overwrite_stat.size : 0);
                     overwrite_count = 1;
                 }
-                let size = (block_md.preallocated ? 0 : data.length) + block_md_data.length - overwrite_size;
-                let count = (block_md.preallocated ? 0 : 1) - overwrite_count;
+                let size = (block_md.is_preallocated ? 0 : data.length) + block_md_data.length - overwrite_size;
+                let count = (block_md.is_preallocated ? 0 : 1) - overwrite_count;
                 if (size || count) this._update_usage({ size, count });
             });
     }

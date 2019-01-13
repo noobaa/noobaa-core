@@ -97,14 +97,7 @@ async function clean_nodes_store(last_date_to_remove) {
             $lt: last_date_to_remove
         },
     };
-    const options = {
-        limit: config.DB_CLEANER.DOCS_LIMIT,
-        fields: {
-            _id: 1,
-            deleted: 1
-        }
-    };
-    const nodes = await nodes_store.find_nodes(query, options);
+    const nodes = await nodes_store.find_nodes(query, config.DB_CLEANER.DOCS_LIMIT, { _id: 1, deleted: 1 });
     const node_ids = await mongo_utils.uniq_ids(nodes, '_id');
     dbg.log2('DB_CLEANER: list nodes:', node_ids);
     const filtered_nodes = node_ids.filter(node => true); // place holder - should verify the agents are really deleted

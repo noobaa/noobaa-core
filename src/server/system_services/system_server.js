@@ -119,7 +119,7 @@ function _initialize_debug_level(system) {
 
 function new_system_defaults(name, owner_account_id) {
     var system = {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         name: name,
         owner: owner_account_id,
 
@@ -171,12 +171,12 @@ function new_system_changes(name, owner_account) {
     const mongo_pool = pool_server.new_pool_defaults(internal_pool_name, system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
     mongo_pool.mongo_pool_info = {};
     const default_chunk_config = {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         system: system._id,
         chunk_coder_config: chunk_config_utils.new_chunk_code_config_defaults(),
     };
     const ec_chunk_config = {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         system: system._id,
         chunk_coder_config: chunk_config_utils.new_chunk_code_config_defaults({
             data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
@@ -185,7 +185,7 @@ function new_system_changes(name, owner_account) {
     };
     system.default_chunk_config = default_chunk_config._id;
     const tier_mirrors = [{
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         spread_pools: [mongo_pool._id]
     }];
     const tier = tier_server.new_tier_defaults(
@@ -230,7 +230,7 @@ function create_system(req) {
         throw new Error('Too many created systems');
     }
     const account = {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         name: req.rpc_params.name,
         email: req.rpc_params.email,
         password: req.rpc_params.password,
@@ -789,7 +789,7 @@ function add_role(req) {
     return system_store.make_changes({
         insert: {
             roles: [{
-                _id: system_store.generate_id(),
+                _id: system_store.new_system_store_id(),
                 account: account._id,
                 system: req.system._id,
                 role: req.rpc_params.role,
@@ -877,7 +877,7 @@ function get_node_installation_string(req) {
                     }
                     dbg.log0(`creating new installation string for pool_id:${pool._id} exclude_drives:${exclude_drives} roles:${roles}`);
                     // create new configuration with the required settings
-                    let _id = system_store.generate_id();
+                    let _id = system_store.new_system_store_id();
                     return system_store.make_changes({
                         insert: {
                             agent_configs: [{
@@ -913,15 +913,15 @@ function get_node_installation_string(req) {
 }
 
 
-function set_last_stats_report_time(req) {
+async function set_last_stats_report_time(req) {
     var updates = {};
     updates._id = req.system._id;
     updates.last_stats_report = req.rpc_params.last_stats_report;
-    return system_store.make_changes({
+    await system_store.make_changes({
         update: {
             systems: [updates]
         }
-    }).return();
+    });
 }
 
 async function update_n2n_config(req) {

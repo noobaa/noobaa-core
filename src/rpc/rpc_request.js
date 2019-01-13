@@ -26,6 +26,9 @@ class RpcRequest {
 
     constructor() {
         this.ts = time_utils.millistamp();
+        this.connection = undefined;
+        this._response_defer = undefined;
+        this._server_promise = undefined;
     }
 
     // rpc_params is a synonyms to params.

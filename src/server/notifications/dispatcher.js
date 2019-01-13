@@ -15,7 +15,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const nodes_store = require('../node_services/nodes_store').NodesStore.instance();
 const func_store = require('../func_services/func_store').FuncStore.instance();
 const nodes_client = require('../node_services/nodes_client');
-const { SensitiveString } = require('../../util/schema_utils');
+const SensitiveString = require('../../util/sensitive_string');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL0 = 'LOG_LOCAL0';
@@ -170,7 +170,7 @@ class Dispatcher {
     _resolve_activity_item(log_item, l) {
         return P.resolve()
             .then(() => nodes_client.instance().populate_nodes(
-                log_item.system, log_item, 'node', NODE_POPULATE_FIELDS, true))
+                log_item.system, log_item, 'node', 'node', NODE_POPULATE_FIELDS, true))
             .then(() => MDStore.instance().populate_objects(
                 log_item, 'obj', OBJECT_POPULATE_FIELDS))
             .then(() => {

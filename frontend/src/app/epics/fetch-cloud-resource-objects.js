@@ -22,7 +22,7 @@ export default function(action$, { api }) {
                     }
                 });
 
-                const response = await api.object.read_node_mappings({
+                const response = await api.object.read_node_mapping({
                     name: node.name,
                     skip: skip,
                     limit: limit,

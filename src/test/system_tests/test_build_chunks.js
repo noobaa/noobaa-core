@@ -118,7 +118,7 @@ function verify_object_health(expected_num_blocks, bucket_name, pool_names, clou
             }
         })
         .then(node_list => promise_utils.pwhile(() => obj_is_invalid || !obj_is_verified,
-            () => client.object.read_object_mappings({
+            () => client.object.read_object_mapping({
                 bucket: bucket_name,
                 key: TEST_CTX.object_key,
                 adminfo: Boolean(cloud_pool)
@@ -191,7 +191,7 @@ function verify_object_health(expected_num_blocks, bucket_name, pool_names, clou
         })
         .then(() => {
             console.log('object health verified');
-            return client.object.read_object_mappings({
+            return client.object.read_object_mapping({
                 bucket: bucket_name,
                 key: TEST_CTX.object_key,
                 adminfo: Boolean(cloud_pool)

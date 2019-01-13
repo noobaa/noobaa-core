@@ -81,7 +81,7 @@ function compare_bigint(bigint_a, bigint_b) {
 
 /**
  * @param {BigInteger[]} free_list Array of free storage per node
- * @param {Integer} num_blocks_per_chunk The number of blocks including replicas and parity in the tier policy
+ * @param {number} num_blocks_per_chunk The number of blocks including replicas and parity in the tier policy
  */
 function _calculate_spread_free(free_list, num_blocks_per_chunk) {
     free_list.sort(compare_bigint);

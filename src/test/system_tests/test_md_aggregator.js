@@ -199,7 +199,7 @@ function calculate_expected_storage_stats_for_buckets(buckets_array, storage_rea
         };
 
         return P.each(bucket.file_names, function(file_name) {
-                return client.object.read_object_mappings({
+                return client.object.read_object_mapping({
                         bucket: bucket.bucket_name,
                         key: file_name,
                         adminfo: true

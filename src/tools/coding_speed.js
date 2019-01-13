@@ -96,7 +96,7 @@ function main() {
         allowHalfOpen: false,
         highWaterMark: 50,
         transform(chunk, encoding, callback) {
-            if (argv.verbose) console.log(chunk);
+            if (argv.verbose) console.log({ ...chunk, data: 'ommitted' });
             if (argv.compare && chunk.original_data) {
                 assert(Buffer.concat(chunk.original_data).equals(chunk.data));
             }

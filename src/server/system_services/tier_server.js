@@ -20,7 +20,7 @@ const chunk_config_utils = require('../utils/chunk_config_utils');
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors) {
     return {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         name: name,
         system: system_id,
         chunk_config,
@@ -31,7 +31,7 @@ function new_tier_defaults(name, system_id, chunk_config, mirrors) {
 
 function new_policy_defaults(name, system_id, chunk_split_config, tiers_orders) {
     return {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         name: name,
         system: system_id,
         tiers: tiers_orders,
@@ -57,7 +57,7 @@ function create_tier(req) {
     const chunk_config = chunk_config_utils.resolve_chunk_config(
         req.rpc_params.chunk_coder_config, req.account, req.system);
     if (!chunk_config._id) {
-        chunk_config._id = system_store.generate_id();
+        chunk_config._id = system_store.new_system_store_id();
         changes.insert.chunk_configs = [chunk_config];
     }
 
@@ -112,12 +112,12 @@ function _convert_pools_to_data_placement_structure(pool_ids, data_placement) {
     let mirrors = [];
     if (data_placement === 'MIRROR') {
         _.forEach(pool_ids, pool_id => mirrors.push({
-            _id: system_store.generate_id(),
+            _id: system_store.new_system_store_id(),
             spread_pools: [pool_id]
         }));
     } else {
         mirrors.push({
-            _id: system_store.generate_id(),
+            _id: system_store.new_system_store_id(),
             spread_pools: pool_ids
         });
     }
@@ -150,7 +150,7 @@ function update_tier(req) {
         const chunk_config = chunk_config_utils.resolve_chunk_config(
             req.rpc_params.chunk_coder_config, req.account, req.system);
         if (!chunk_config._id) {
-            chunk_config._id = system_store.generate_id();
+            chunk_config._id = system_store.new_system_store_id();
             changes.insert.chunk_configs = [chunk_config];
         }
         if (chunk_config !== tier.chunk_config) {
@@ -302,7 +302,7 @@ function update_chunk_config_for_bucket(req) { // please remove when CCC is per 
     const chunk_config = chunk_config_utils.resolve_chunk_config(
         req.rpc_params.chunk_coder_config, req.account, req.system);
     if (!chunk_config._id) {
-        chunk_config._id = system_store.generate_id();
+        chunk_config._id = system_store.new_system_store_id();
         changes.insert.chunk_configs = [chunk_config];
     }
     changes.update.tiers = policy.tiers.map(t => ({

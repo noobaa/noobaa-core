@@ -39,21 +39,25 @@ coretest.describe_mapper_test_case({
 
     // TODO test_map_reader
 
-    mocha.it('read_object_mappings', function() {
+    mocha.it('read_object_mapping', function() {
         const obj = { size: 100, _id: new mongodb.ObjectId() };
         const start = 0;
         const end = 100;
-        const skip = 0;
-        const limit = 0;
-        const adminfo = true;
-        return map_reader.read_object_mappings(obj, start, end, skip, limit, adminfo);
+        return map_reader.read_object_mapping(obj, start, end);
     });
 
-    mocha.it('read_node_mappings', function() {
+    mocha.it('read_object_mapping_admin', function() {
+        const obj = { size: 100, _id: new mongodb.ObjectId() };
+        const skip = 0;
+        const limit = 100;
+        return map_reader.read_object_mapping_admin(obj, skip, limit);
+    });
+
+    mocha.it('read_node_mapping', function() {
         const node_ids = [];
         const skip = 0;
         const limit = 0;
-        return map_reader.read_node_mappings(node_ids, skip, limit);
+        return map_reader.read_node_mapping(node_ids, skip, limit);
     });
 
 });

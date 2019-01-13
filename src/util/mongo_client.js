@@ -53,7 +53,7 @@ class MongoClient extends EventEmitter {
             bufferMaxEntries: 0,
 
             // replset
-            keepAlive: 1,
+            keepAlive: true,
             connectTimeoutMS: 30000,
             socketTimeoutMS: 0,
 
@@ -82,6 +82,9 @@ class MongoClient extends EventEmitter {
 
     }
 
+    /**
+     * @returns {MongoClient}
+     */
     static instance() {
         if (!MongoClient._instance) MongoClient._instance = new MongoClient();
         return MongoClient._instance;
@@ -101,58 +104,58 @@ class MongoClient extends EventEmitter {
      * mongodb_url is optional and by default takes from env or local db.
      * connect to the "real" mongodb and not the config mongo
      */
-    connect(skip_init_db) {
+    async connect(skip_init_db) {
         this._disconnected_state = false;
         if (this.promise) return this.promise;
         dbg.log0('connect called, current url', this.url);
-        this.promise = P.resolve().then(() => this._connect(skip_init_db));
+        this.promise = this._connect(skip_init_db);
         return this.promise;
     }
 
-    _connect(skip_init_db) {
-        if (this._disconnected_state) return;
-        if (this.mongo_client) return this.mongo_client.db();
+    async _connect(skip_init_db) {
         let client;
-        dbg.log0('_connect: called with', this.url);
-        this._set_connect_timeout();
-        return mongodb.MongoClient.connect(this.url, this.config)
-            .then(ret_client => {
-                client = ret_client;
-            })
-            .then(() => skip_init_db === 'skip_init_db' || this._init_collections(client.db()))
-            .then(() => {
-                dbg.log0('_connect: connected', this.url);
-                this._reset_connect_timeout();
-                this.mongo_client = client;
-                this.gridfs_instances = {};
-                // for now just print the topologyDescriptionChanged. we'll see if it's worth using later
-                this.mongo_client.db().topology.on('topologyDescriptionChanged', function(event) {
-                    console.log('received topologyDescriptionChanged', util.inspect(event));
-                });
-                this.mongo_client.db().on('reconnect', () => {
-                    dbg.log('got reconnect', this.url);
-                    this.emit('reconnect');
-                    this._reset_connect_timeout();
-                });
-                this.mongo_client.db().on('close', () => {
-                    dbg.warn('got close', this.url);
-                    this.emit('close');
-                    this._set_connect_timeout();
-                });
-                this.emit('reconnect');
-                dbg.log0(`connected`);
-                return this.mongo_client.db();
-            }, err => {
-                // autoReconnect only works once initial connection is created,
-                // so we need to handle retry in initial connect.
-                dbg.error('_connect: initial connect failed, will retry', err.message);
-                if (client) {
-                    client.close();
-                    client = null;
-                }
-                return P.delay(config.MONGO_DEFAULTS.CONNECT_RETRY_INTERVAL)
-                    .then(() => this._connect(skip_init_db));
+        try {
+            if (this._disconnected_state) return;
+            if (this.mongo_client) return this.mongo_client.db();
+            dbg.log0('_connect: called with', this.url);
+            this._set_connect_timeout();
+            client = await mongodb.MongoClient.connect(this.url, this.config);
+            if (skip_init_db !== 'skip_init_db') {
+                await this._init_collections(client.db());
+            }
+            dbg.log0('_connect: connected', this.url);
+            this._reset_connect_timeout();
+            this.mongo_client = client;
+            this.gridfs_instances = {};
+            // for now just print the topologyDescriptionChanged. we'll see if it's worth using later
+            this.mongo_client.db().topology.on('topologyDescriptionChanged', function(event) {
+                console.log('received topologyDescriptionChanged', util.inspect(event));
             });
+            this.mongo_client.db().on('reconnect', () => {
+                dbg.log('got reconnect', this.url);
+                this.emit('reconnect');
+                this._reset_connect_timeout();
+            });
+            this.mongo_client.db().on('close', () => {
+                dbg.warn('got close', this.url);
+                this.emit('close');
+                this._set_connect_timeout();
+            });
+            this.emit('reconnect');
+            dbg.log0(`connected`);
+            return this.mongo_client.db();
+        } catch (err) {
+            // autoReconnect only works once initial connection is created,
+            // so we need to handle retry in initial connect.
+            dbg.error('_connect: initial connect failed, will retry', err.message);
+            if (client) {
+                client.close();
+                client = null;
+                this.mongo_client = null;
+            }
+            await P.delay(config.MONGO_DEFAULTS.CONNECT_RETRY_INTERVAL);
+            return this._connect(skip_init_db);
+        }
     }
 
     _init_collections(db) {
@@ -582,7 +585,8 @@ class MongoClient extends EventEmitter {
                 dbg.error('Connection closed for more ', config.MONGO_DEFAULTS.CONNECT_MAX_WAIT,
                     ', quitting');
                 process.exit(1);
-            }, config.MONGO_DEFAULTS.CONNECT_MAX_WAIT).unref();
+            }, config.MONGO_DEFAULTS.CONNECT_MAX_WAIT);
+            this.connect_timeout.unref();
         }
     }
 
@@ -596,6 +600,8 @@ class MongoClient extends EventEmitter {
         this.connect_timeout = null;
     }
 }
+
+MongoClient._instance = undefined;
 
 // EXPORTS
 exports.MongoClient = MongoClient;

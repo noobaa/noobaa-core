@@ -185,7 +185,7 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .then(node_ids => node_ids.map(node_id => mongo_utils.make_object_id(node_id)));
+            .then(node_ids => node_ids.map(node_id => mongo_utils.parse_object_id(node_id)));
     }
 
     delete_node_by_name(system_id, node_name) {
@@ -222,10 +222,18 @@ class NodesClient {
             .tap(res => res.latency_groups.forEach(group => mongo_utils.fix_id_type(group.nodes)));
     }
 
-    // TODO: Fields doesn't seem to filter and work
-    populate_nodes(system_id, docs, doc_path, fields) {
+    /**
+     * TODO: Fields doesn't seem to filter and work
+     * @template {{}} T
+     * @param {nb.ID} system_id
+     * @param {T[]} docs
+     * @param {string} doc_id_path
+     * @param {string} doc_path
+     * @param {Object} fields
+     */
+    populate_nodes(system_id, docs, doc_id_path, doc_path, fields) {
         const docs_list = docs && !_.isArray(docs) ? [docs] : docs;
-        const ids = mongo_utils.uniq_ids(docs_list, doc_path);
+        const ids = mongo_utils.uniq_ids(docs_list, doc_id_path);
         if (!ids.length) return P.resolve(docs);
         const params = {
             query: {
@@ -249,7 +257,7 @@ class NodesClient {
             .then(res => {
                 const idmap = _.keyBy(res.nodes, '_id');
                 _.each(docs_list, doc => {
-                    const id = _.get(doc, doc_path);
+                    const id = _.get(doc, doc_id_path);
                     const node = idmap[String(id)];
                     if (node) {
                         mongo_utils.fix_id_type(node);
@@ -267,8 +275,15 @@ class NodesClient {
             });
     }
 
-    populate_nodes_for_map(system_id, docs, doc_path) {
-        return this.populate_nodes(system_id, docs, doc_path, NODE_FIELDS_FOR_MAP);
+    /**
+     * @template T
+     * @param {nb.ID} system_id
+     * @param {T[]} docs
+     * @param {string} doc_id_path
+     * @param {string} doc_path
+     */
+    populate_nodes_for_map(system_id, docs, doc_id_path, doc_path) {
+        return this.populate_nodes(system_id, docs, doc_id_path, doc_path, NODE_FIELDS_FOR_MAP);
     }
 
     async report_error_on_node_blocks(system_id, blocks_report, bucket_name) {
@@ -297,7 +312,7 @@ class NodesClient {
         }
     }
 
-
+    /** @returns {NodesClient} */
     static instance() {
         if (!NodesClient._instance) {
             NodesClient._instance = new NodesClient();
@@ -306,6 +321,8 @@ class NodesClient {
     }
 
 }
+
+NodesClient._instance = undefined;
 
 exports.NodesClient = NodesClient;
 exports.instance = NodesClient.instance;

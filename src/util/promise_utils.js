@@ -345,7 +345,7 @@ function auto(tasks) {
             defer: P.defer()
         };
     });
-    all_obj(_.mapValues(tasks_info, function(task, name) {
+    map_values(_.mapValues(tasks_info, function(task, name) {
         return P.all(_.map(task.deps, function(dep) {
                 return tasks_info[dep].defer.promise;
             }))
@@ -360,7 +360,7 @@ function auto(tasks) {
  * like P.all but for objects.
  * returns new object with all values resolved, or reject if any failed.
  */
-function all_obj(obj, func) {
+function map_values(obj, func) {
     var new_obj = {};
     func = func || ((val, key) => val);
     return P.all(_.map(obj, (val, key) => P.try(() => func(val, key))
@@ -393,6 +393,6 @@ exports.exec = exec;
 exports.wait_for_event = wait_for_event;
 exports.pwhile = pwhile;
 exports.auto = auto;
-exports.all_obj = all_obj;
+exports.map_values = map_values;
 exports.fork = fork;
 exports.conditional_timeout = conditional_timeout;

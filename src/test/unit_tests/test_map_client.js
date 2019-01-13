@@ -1,23 +1,26 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {typeof import('../../sdk/nb')} nb */
+
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
 coretest.setup();
 
-const _ = require('lodash');
-const util = require('util');
+// const _ = require('lodash');
+// const util = require('util');
 const mocha = require('mocha');
-const assert = require('assert');
+// const assert = require('assert');
 
 // const P = require('../../util/promise');
-const MDStore = require('../../server/object_services/md_store').MDStore;
-const map_writer = require('../../server/object_services/map_writer');
+// const MDStore = require('../../server/object_services/md_store').MDStore;
+const { MapClient, Chunk } = require('../../sdk/mapper/map_client');
 const system_store = require('../../server/system_services/system_store').get_instance();
+const { new_object_id } = require('../../util/mongo_utils');
 
 coretest.describe_mapper_test_case({
-    name: 'map_writer',
-    bucket_name_prefix: 'test-map-writer',
+    name: 'map_client',
+    bucket_name_prefix: 'test-map-client',
 }, ({
     test_name,
     bucket_name,
@@ -33,8 +36,64 @@ coretest.describe_mapper_test_case({
 }) => {
 
     // TODO we need to create more nodes and pools to support all MAPPER_TEST_CASES
-    if (data_placement !== 'SPREAD' || num_pools !== 1 || total_blocks > 10) return;
+    if (data_placement !== 'SPREAD' || num_pools !== 1 || total_blocks !== 1) return;
 
+    const { rpc_client, SYSTEM } = coretest;
+
+    /** @type {nb.System} */
+    let system;
+    /** @type {nb.Bucket} */
+    let bucket;
+    /** @type {nb.NodeAPI[]} */
+    const nodes = [];
+    /** @type {{ [node_id: string]: nb.NodeAPI }} */
+    const nodes_by_id = {};
+
+    mocha.before(async function() {
+        await system_store.load();
+        system = system_store.data.systems_by_name[SYSTEM];
+        bucket = system.buckets_by_name[bucket_name];
+        const res = await rpc_client.node.list_nodes({});
+        for (const node of res.nodes) {
+            nodes.push(node);
+            nodes_by_id[node._id] = node;
+        }
+    });
+
+    mocha.it('works ok', async function() {
+        const chunk = Chunk
+            .from_api({
+                bucket_id: String(bucket._id),
+                tier_id: String(bucket.tiering.tiers[0].tier._id),
+                chunk_coder_config: { replicas: 3 },
+                size: 1,
+                compress_size: 1,
+                frag_size: 1,
+                // digest_b64: '',
+                // cipher_key_b64: '',
+                // cipher_iv_b64: '',
+                // cipher_auth_tag_b64: '',
+                frags: [{
+                    data_index: 1,
+                    blocks: [{
+                        block_md: {
+                            id: new_object_id(),
+                            node: nodes[0]._id,
+                            pool: system.pools_by_name[nodes[0].pool]._id,
+                        }
+                    }]
+                }]
+            })
+            .populate(system_store, nodes_by_id);
+        const mc = new MapClient({
+            chunks: [chunk],
+            rpc_client,
+        });
+        await mc.run();
+    });
+
+
+    /*
     mocha.describe('select_tier_for_write', function() {
         mocha.it('works', function() {
             const bucket = system_store.data.systems[0].buckets_by_name[bucket_name];
@@ -153,5 +212,7 @@ coretest.describe_mapper_test_case({
             return map_writer.complete_object_parts(obj, multiparts_req);
         });
     });
+
+    */
 
 });

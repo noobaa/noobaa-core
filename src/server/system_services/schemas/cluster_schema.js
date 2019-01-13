@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const { SensitiveString } = require('../../../util/schema_utils');
+const SensitiveString = require('../../../util/sensitive_string');
 
 module.exports = {
     id: 'cluster_schema',

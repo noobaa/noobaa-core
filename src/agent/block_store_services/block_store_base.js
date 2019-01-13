@@ -130,7 +130,7 @@ class BlockStoreBase {
 
     async read_block(req) {
         const block_md = req.rpc_params.block_md;
-        dbg.log0('read_block', block_md.id, 'node', this.node_name);
+        dbg.log1('read_block', block_md.id, 'node', this.node_name);
         // must clone before returning to rpc encoding
         // since it mutates the object for encoding buffers
         this.monitoring_stats.inflight_reads += 1;
@@ -149,6 +149,9 @@ class BlockStoreBase {
         }
     }
 
+    /**
+     * @param {nb.BlockMD} block_md
+     */
     async _read_block_and_verify(block_md) {
         const block = await this._read_block(block_md);
         this._update_read_stats(block.data.length);
@@ -161,6 +164,9 @@ class BlockStoreBase {
         await P.map(verify_blocks, block_md => this.verify_block(block_md), { concurrency: 10 });
     }
 
+    /**
+     * @param {nb.BlockMD} block_md
+     */
     async verify_block(block_md) {
         try {
             const [block_from_store, block_from_cache] = await Promise.all([
@@ -185,6 +191,9 @@ class BlockStoreBase {
         }
     }
 
+    /**
+     * @param {nb.BlockMD} block_md
+     */
     async _read_block_md(block_md) {
         const block = this._read_block(block_md);
         if (block.data) this._update_read_stats(block.data.length);
@@ -193,7 +202,6 @@ class BlockStoreBase {
 
     _check_write_space(data_length) {
         const required_space = data_length + (1024 * 1024); // require some spare space
-        dbg.log0('ZZZZ write_block', this.usage_limit, '-', this._usage.size, '<', required_space);
         if (this.usage_limit - this._usage.size < required_space) {
             throw new RpcError('NO_BLOCK_STORE_SPACE', 'used space exceeded the total capacity of ' +
                 this.usage_limit + ' bytes');
@@ -206,9 +214,13 @@ class BlockStoreBase {
         await this.write_block_internal(block_md, data);
     }
 
+    /**
+     * @param {nb.BlockMD} block_md
+     * @param {Buffer} data 
+     */
     async write_block_internal(block_md, data) {
-        dbg.log0('write_block', block_md.id, data.length, block_md.digest_b64, 'node', this.node_name);
-        if (!block_md.preallocated) { // no need to verify space
+        dbg.log1('write_block', block_md.id, data.length, block_md.digest_b64, 'node', this.node_name);
+        if (!block_md.is_preallocated) { // no need to verify space
             this._check_write_space(data.length);
         }
         this._verify_block(block_md, data);
@@ -262,7 +274,7 @@ class BlockStoreBase {
     async replicate_block(req) {
         const target_md = req.rpc_params.target;
         const source_md = req.rpc_params.source;
-        dbg.log0('replicate_block', target_md.id, 'node', this.node_name);
+        dbg.log1('replicate_block', target_md.id, 'node', this.node_name);
 
         // read from source agent
         const res = await this.client.block_store.read_block({
@@ -283,6 +295,11 @@ class BlockStoreBase {
         );
     }
 
+    /**
+     * @param {nb.BlockMD} block_md
+     * @param {Buffer} data
+     * @param {nb.BlockMD} block_md_from_store
+     */
     _verify_block(block_md, data, block_md_from_store) {
         // verify block md from store match
         if (block_md_from_store) {
@@ -383,10 +400,16 @@ class BlockStoreBase {
         return reply;
     }
 
+    /**
+     * @param {nb.BlockMD} block_md
+     */
     _encode_block_md(block_md) {
         return Buffer.from(JSON.stringify(block_md)).toString('base64');
     }
 
+    /**
+     * @param {string} noobaablockmd
+     */
     _decode_block_md(noobaablockmd) {
         return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
     }

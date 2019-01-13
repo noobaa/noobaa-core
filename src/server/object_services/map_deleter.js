@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {typeof import('../../sdk/nb')} nb */
+
 const _ = require('lodash');
 
 const dbg = require('../../util/debug_module')(__filename);
@@ -8,11 +10,12 @@ const config = require('../../../config');
 const MDStore = require('./md_store').MDStore;
 const server_rpc = require('../server_rpc');
 const mongo_utils = require('../../util/mongo_utils');
-
+const nodes_client = require('../node_services/nodes_client');
+const { BlockDB } = require('./map_db_types');
 /**
  *
  * delete_object_mappings
- *
+ * @param {nb.ObjectMD} obj
  */
 async function delete_object_mappings(obj) {
     if (!obj || obj.delete_marker) return;
@@ -24,6 +27,9 @@ async function delete_object_mappings(obj) {
     await delete_chunks_if_unreferenced(chunk_ids);
 }
 
+/**
+ * @param {nb.ID[]} chunk_ids 
+ */
 async function delete_chunks_if_unreferenced(chunk_ids) {
     if (!chunk_ids || !chunk_ids.length) return;
     dbg.log2('delete_chunks_if_unreferenced: chunk_ids', chunk_ids);
@@ -31,27 +37,35 @@ async function delete_chunks_if_unreferenced(chunk_ids) {
     await delete_chunks(unreferenced_chunk_ids);
 }
 
+/**
+ * @param {nb.ID[]} chunk_ids 
+ */
 async function delete_chunks(chunk_ids) {
     if (!chunk_ids || !chunk_ids.length) return;
     dbg.log2('delete_chunks: chunk_ids', chunk_ids);
-    const [blocks] = await Promise.all([
+    const [blocks_db] = await Promise.all([
         MDStore.instance().find_blocks_of_chunks(chunk_ids),
         MDStore.instance().delete_blocks_of_chunks(chunk_ids),
         MDStore.instance().delete_chunks_by_ids(chunk_ids),
     ]);
+    const blocks = blocks_db.map(block_db => new BlockDB(block_db));
+    if (blocks.length) {
+        await nodes_client.instance().populate_nodes_for_map(blocks[0].system._id, blocks, 'node_id', 'node');
+    }
     await delete_blocks_from_nodes(blocks);
 }
 
-/*
+/**
  * delete_blocks_from_agents
  * send delete request for the deleted DataBlocks to the agents
+ * @param {nb.Block[]} blocks
  */
 async function delete_blocks_from_nodes(blocks) {
     if (!blocks || !blocks.length) return;
     try {
         const blocks_by_node = _.values(_.groupBy(blocks, block => String(block.node._id)));
         const succeeded_block_ids = await Promise.all(blocks_by_node.map(delete_blocks_from_node));
-        const block_ids = _.flatten(succeeded_block_ids).map(block_id => mongo_utils.make_object_id(block_id));
+        const block_ids = _.flatten(succeeded_block_ids).map(block_id => mongo_utils.parse_object_id(block_id));
         // In case we have a bug which calls delete_blocks_from_nodes several times
         // We will advance the reclaimed and it will have different values
         // This is not critical like deleted which alters the md_aggregator calculations
@@ -61,6 +75,9 @@ async function delete_blocks_from_nodes(blocks) {
     }
 }
 
+/**
+ * @param {nb.Block[]} blocks
+ */
 async function builder_delete_blocks(blocks) {
     if (!blocks || !blocks.length) return;
     try {
@@ -75,9 +92,10 @@ async function builder_delete_blocks(blocks) {
     }
 }
 
-/*
+/**
  * delete_blocks_from_node
  * calls the agent with the delete API
+ * @param {nb.Block[]} blocks
  */
 async function delete_blocks_from_node(blocks) {
     if (!blocks || !blocks.length) return;

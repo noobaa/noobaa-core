@@ -173,10 +173,9 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
             },
             function() {
                 blocks_correct = true;
-                return client.object.read_object_mappings({
+                return client.object.read_object_mapping_admin({
                         bucket: bucket_name,
                         key: object_key,
-                        adminfo: true
                     })
                     .then(function(obj_mapping_arg) {
                         let blocks_by_cloud_pool_name = {
@@ -194,9 +193,8 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
                         });
 
                         if (blocks_correct && blocks_by_cloud_pool_name.blocks.length === obj_mapping_arg.parts.length) {
-                            console.log('verify_object_parts_on_cloud_nodes blocks found:', util.inspect(blocks_by_cloud_pool_name, {
-                                depth: null
-                            }));
+                            console.log('verify_object_parts_on_cloud_nodes blocks found:',
+                                util.inspect(blocks_by_cloud_pool_name, { depth: null }));
                             blocks_to_return = blocks_by_cloud_pool_name;
                         } else {
                             if (first_iteration) {

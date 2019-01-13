@@ -7,6 +7,7 @@ const coretest = require('./coretest');
 coretest.no_setup();
 
 const _ = require('lodash');
+const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
 const mongodb = require('mongodb');
@@ -139,10 +140,10 @@ coretest.describe_mapper_test_case({
     mocha.describe('allocations', function() {
 
         mocha.it('should allocate from first_tier', function() {
-            const chunk = {
+            const chunk = make_chunk({
                 frags,
                 chunk_coder_config,
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status);
             assert(!mapping.accessible, '!accessible');
@@ -153,10 +154,10 @@ coretest.describe_mapper_test_case({
         });
 
         mocha.it('should allocate from first_tier even if it has no space', function() {
-            const chunk = {
+            const chunk = make_chunk({
                 frags,
                 chunk_coder_config,
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, first_mirror_no_space_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, first_mirror_no_space_tiering_status);
             assert(!mapping.accessible, '!accessible');
@@ -167,10 +168,10 @@ coretest.describe_mapper_test_case({
         });
 
         mocha.it('should allocate from second_tier when first is not valid', function() {
-            const chunk = {
+            const chunk = make_chunk({
                 frags,
                 chunk_coder_config,
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, first_mirror_not_valid_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, first_mirror_not_valid_tiering_status);
             assert(!mapping.accessible, '!accessible');
@@ -186,14 +187,15 @@ coretest.describe_mapper_test_case({
     mocha.describe('deletions', function() {
 
         mocha.it('should do nothing when chunk is good', function() {
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: make_blocks(),
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status);
+            console.log('JAJA ', util.inspect(mapping, { depth: null }));
             assert(mapping.accessible, 'accessible');
             assert.strictEqual(mapping.allocations, undefined);
             assert.strictEqual(mapping.deletions, undefined);
@@ -201,12 +203,12 @@ coretest.describe_mapper_test_case({
 
         mocha.it('should remove blocks from pools not in the tier', function() {
             const external_blocks = make_blocks({ pool: external_pools[0] });
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: _.concat(make_blocks(), external_blocks),
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status);
             assert(mapping.accessible, 'accessible');
@@ -217,12 +219,12 @@ coretest.describe_mapper_test_case({
 
         mocha.it('should delete inaccessible block', function() {
             const inaccessible_blocks = make_blocks({ count: 1, readable: false });
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: _.concat(make_blocks(), inaccessible_blocks),
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status);
             assert(mapping.accessible, 'accessible');
@@ -237,12 +239,12 @@ coretest.describe_mapper_test_case({
     mocha.describe('rebuild', function() {
 
         mocha.it('should replicate from single block', function() {
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: make_blocks({ count: total_frags }),
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status);
             assert(mapping.accessible, 'accessible');
@@ -257,7 +259,7 @@ coretest.describe_mapper_test_case({
         });
 
         mocha.it('should first allocate missing and only then delete inaccessible block', function() {
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
@@ -265,7 +267,7 @@ coretest.describe_mapper_test_case({
                     make_blocks({ count: 1, readable: false }),
                     make_blocks({ count: total_frags })
                 ),
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status);
             assert(mapping.accessible, 'accessible');
@@ -293,12 +295,12 @@ coretest.describe_mapper_test_case({
             // TODO separate to 3 cases - only parity, only data, mix
             const avail_frags = _.sampleSize(frags, data_frags);
             const missing_frags = _.difference(frags, avail_frags);
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: make_blocks({ count: data_frags * total_replicas, frags: avail_frags }),
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status);
             assert(mapping.accessible, 'accessible');
@@ -330,12 +332,12 @@ coretest.describe_mapper_test_case({
     // mocha.describe('spillover', function() {
 
     //     mocha.it('should spillover on non writable nodes', function() {
-    //         const chunk = {
+    //         const chunk = make_chunk({
     //             _id: 1,
     //             frags,
     //             chunk_coder_config,
     //             blocks: make_blocks({ writable: false }),
-    //         };
+    //         });
     //         const mapping = mapper.map_chunk(chunk, tiering, spillover_tiering_status);
     //         assert(mapping.accessible, 'accessible');
     //         assert.strictEqual(mapping.allocations.length, total_blocks);
@@ -344,12 +346,12 @@ coretest.describe_mapper_test_case({
     //     });
 
     //     mocha.it('should spillover on non policy pools', function() {
-    //         const chunk = {
+    //         const chunk = make_chunk({
     //             _id: 1,
     //             frags,
     //             chunk_coder_config,
     //             blocks: make_blocks({ pool: external_pools[0] }),
-    //         };
+    //         });
     //         const mapping = mapper.map_chunk(chunk, tiering, spillover_tiering_status);
     //         assert(mapping.accessible, 'accessible');
     //         assert.strictEqual(mapping.allocations.length, total_blocks);
@@ -358,12 +360,12 @@ coretest.describe_mapper_test_case({
     //     });
 
     //     mocha.it('should spillback', function() {
-    //         const chunk = {
+    //         const chunk = make_chunk({
     //             _id: 1,
     //             frags,
     //             chunk_coder_config,
     //             blocks: make_blocks({ tier: spillover_tier }),
-    //         };
+    //         });
     //         const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
     //         assert(mapping.accessible, 'accessible');
     //         assert.strictEqual(mapping.allocations.length, total_blocks);
@@ -372,7 +374,7 @@ coretest.describe_mapper_test_case({
     //     });
 
     //     mocha.it('should delete unneeded blocks from spillover', function() {
-    //         const chunk = {
+    //         const chunk = make_chunk({
     //             _id: 1,
     //             frags,
     //             chunk_coder_config,
@@ -380,7 +382,7 @@ coretest.describe_mapper_test_case({
     //                 make_blocks({ tier: first_tier }),
     //                 make_blocks({ tier: spillover_tier })
     //             ),
-    //         };
+    //         });
     //         const mapping = mapper.map_chunk(chunk, tiering, default_tiering_status);
     //         assert(mapping.accessible, 'accessible');
     //         assert.strictEqual(mapping.allocations, undefined);
@@ -395,12 +397,12 @@ coretest.describe_mapper_test_case({
             const location_info = {
                 pool_id: String(first_pools[0]._id)
             };
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: first_pools.length > 1 ? make_blocks({ pools: first_pools.slice(1) }) : [],
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status, location_info);
             const should_rebuild = mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info);
@@ -418,12 +420,12 @@ coretest.describe_mapper_test_case({
             const location_info = {
                 region: 'REGION-X'
             };
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: first_pools.length > 1 ? make_blocks({ pools: first_pools.slice(1) }) : [],
-            };
+            });
             if (data_placement === 'MIRROR' && first_pools.length > 1) {
                 first_pools[0].region = 'REGION-X';
             }
@@ -444,12 +446,12 @@ coretest.describe_mapper_test_case({
             const location_info = {
                 region: 'REGION-X'
             };
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: first_pools.length > 1 ? make_blocks({ pools: first_pools.slice(1) }) : [],
-            };
+            });
             if (data_placement === 'MIRROR' && first_pools.length > 1) {
                 first_pools[0].region = 'REGION-X';
             }
@@ -470,12 +472,12 @@ coretest.describe_mapper_test_case({
             const location_info = {
                 region: 'REGION-Y'
             };
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: first_pools.length > 1 ? make_blocks({ pools: first_pools.slice(1) }) : [],
-            };
+            });
             if (data_placement === 'MIRROR' && first_pools.length > 1) {
                 first_pools[0].region = 'REGION-X';
             }
@@ -488,13 +490,13 @@ coretest.describe_mapper_test_case({
             const location_info = {
                 pool_id: String(first_pools[0]._id)
             };
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: first_pools.length > 1 ?
                     make_blocks({ pools: first_pools.slice(0, first_pools.length - 1) }) : make_blocks({ pool: first_pools[0] }),
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status, location_info);
             assert.strictEqual(mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info), false);
@@ -520,13 +522,13 @@ coretest.describe_mapper_test_case({
             const location_info = {
                 pool_id: String(first_pools[0]._id)
             };
-            const chunk = {
+            const chunk = make_chunk({
                 _id: 1,
                 frags,
                 chunk_coder_config,
                 blocks: first_pools.length > 1 ? // will put blocks only on last pool - should allocate only to the empty pool, or none - pool[0] doesn't suppose to appear
                     make_blocks({ pools: first_pools.slice(first_pools.length - 1) }) : [],
-            };
+            });
             const selected_tier = mapper.select_tier_for_write(tiering, first_mirror_not_valid_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, first_mirror_not_valid_tiering_status, location_info);
             const should_rebuild = mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info);
@@ -584,7 +586,7 @@ coretest.describe_mapper_test_case({
                     mocha.it(chunk_test, function() {
                         const expected_tier = map_result === SECOND ? second_tier : first_tier;
                         const unexpected_tier = map_result === SECOND ? first_tier : second_tier;
-                        const chunk = {
+                        const chunk = make_chunk({
                             _id: 1,
                             frags,
                             chunk_coder_config,
@@ -598,7 +600,7 @@ coretest.describe_mapper_test_case({
                                     chunk_test === 'only_second_tier_has_chunk'
                                 ) ? make_blocks({ tier: second_tier }) : []
                             ),
-                        };
+                        });
                         const selected_tier = mapper.select_tier_for_write(tiering, tiering_status);
                         const mapping = mapper.map_chunk(chunk, selected_tier, tiering, tiering_status);
                         assert_allocations_in_tier(mapping.allocations, expected_tier);
@@ -609,6 +611,12 @@ coretest.describe_mapper_test_case({
         });
 
     });
+
+    function make_chunk(chunk) {
+        chunk.bucket = { _id: 'bucket-id-mock' };
+        chunk.tier = { _id: 'tier-id-mock' };
+        return mapper.get_chunk_info(chunk);
+    }
 
     function make_blocks(params = {}) {
         if (params.allocations) {

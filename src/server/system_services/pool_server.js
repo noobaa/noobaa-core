@@ -48,7 +48,7 @@ const LOW_CAPACITY_HARD_LIMIT = 30 * Math.pow(1024, 3); // 30GB
 function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
     let now = Date.now();
     return {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         system: system_id,
         name: name,
         resource_type: resource_type,
@@ -62,7 +62,7 @@ function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
 
 function new_namespace_resource_defaults(name, system_id, account_id, connection) {
     return {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         system: system_id,
         account: account_id,
         name,

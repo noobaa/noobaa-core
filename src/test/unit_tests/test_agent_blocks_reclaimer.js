@@ -140,7 +140,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             .then(() => upload_object(obj_key, obj_data, obj_size))
             .then(id => {
                 obj_id = id;
-                return MDStore.instance().find_parts_chunk_ids({ _id: mongo_utils.make_object_id(id) });
+                return MDStore.instance().find_parts_chunk_ids({ _id: mongo_utils.parse_object_id(id) });
             })
             .then(chunk_ids => MDStore.instance().find_blocks_of_chunks(chunk_ids))
             .then(blocks => {
@@ -201,18 +201,20 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             .then(() => object_io.upload_object(params))
             .then(() => verify_read_data(key, data, params.obj_id))
             .then(() => verify_read_mappings(key, size))
-            .then(() => verify_nodes_mappings())
+            .then(() => verify_nodes_mapping())
             .then(() => params.obj_id);
     }
 
     function verify_read_mappings(key, size) {
         const total_frags = 1;
         const replicas = 3;
-        return rpc_client.object.read_object_mappings({ bucket, key, adminfo: true })
-            .then(({ parts }) => {
+        return rpc_client.object.read_object_mapping_admin({ bucket, key })
+            .then(({ chunks }) => {
                 let pos = 0;
-                parts.forEach(part => {
-                    const { start, end, chunk: { frags } } = part;
+                chunks.forEach(chunk => {
+                    const part = chunk.parts[0];
+                    const { frags } = chunk;
+                    const { start, end } = part;
                     assert.strictEqual(start, pos);
                     pos = end;
                     assert.strictEqual(frags.length, total_frags);
@@ -237,15 +239,16 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             });
     }
 
-    function verify_nodes_mappings() {
+    function verify_nodes_mapping() {
         return P.all(_.map(nodes_list, node => P.join(
-            rpc_client.object.read_node_mappings({
+            rpc_client.object.read_node_mapping({
                 name: node.name,
-                adminfo: true
+                adminfo: true,
             }),
-            rpc_client.object.read_host_mappings({
+            rpc_client.object.read_node_mapping({
                 name: `${node.os_info.hostname}#${node.host_seq}`,
-                adminfo: true
+                by_host: true,
+                adminfo: true,
             })
         )));
     }

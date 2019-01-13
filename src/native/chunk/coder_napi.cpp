@@ -10,7 +10,7 @@
 namespace noobaa
 {
 
-#define CODER_JS_SIGNATURE "function chunk_coder(chunk/s, callback?)"
+#define CODER_JS_SIGNATURE "function chunk_coder('enc'|'dec', chunk/s, callback?)"
 
 struct CoderAsync {
     struct NB_Coder_Chunk* chunks;
@@ -39,22 +39,38 @@ chunk_coder_napi(napi_env env, napi_value exports)
 static napi_value
 _nb_chunk_coder(napi_env env, napi_callback_info info)
 {
-    size_t argc = 2;
-    napi_value argv[] = { 0, 0 };
+    size_t argc = 3;
+    napi_value argv[] = { 0, 0, 0 };
     napi_get_cb_info(env, info, &argc, argv, 0, 0);
 
-    napi_value v_chunks = argv[0];
-    napi_value v_callback = argv[1];
+    napi_value v_coder = argv[0];
+    napi_value v_chunks = argv[1];
+    napi_value v_callback = argv[2];
     napi_value v_async_resource_name = 0;
     napi_value v_null = 0;
     napi_valuetype typeof_chunks = napi_undefined;
     napi_valuetype typeof_callback = napi_undefined;
     bool is_chunks_array = false;
     uint32_t chunks_len = 1;
+    char coder_str[8];
+    NB_Coder_Type coder_type = NB_Coder_Type::ENCODER;
 
     napi_get_null(env, &v_null);
     napi_typeof(env, v_chunks, &typeof_chunks);
     napi_typeof(env, v_callback, &typeof_callback);
+
+    napi_get_value_string_utf8(env, v_coder, coder_str, sizeof(coder_str), 0);
+    if (strncmp(coder_str, "enc", sizeof(coder_str)) == 0) {
+        coder_type = NB_Coder_Type::ENCODER;
+    } else if (strncmp(coder_str, "dec", sizeof(coder_str)) == 0) {
+        coder_type = NB_Coder_Type::DECODER;
+    } else {
+        napi_throw_type_error(
+            env,
+            0,
+            "1st argument should be coder type 'enc' or 'dec' - " CODER_JS_SIGNATURE);
+        return 0;
+    }
 
     if (typeof_chunks == napi_object && v_chunks != v_null) {
         napi_is_array(env, v_chunks, &is_chunks_array);
@@ -65,14 +81,14 @@ _nb_chunk_coder(napi_env env, napi_callback_info info)
         napi_throw_type_error(
             env,
             0,
-            "1st argument should be chunk (Object) or chunks (Object[]) - " CODER_JS_SIGNATURE);
+            "2nd argument should be chunk (Object) or chunks (Object[]) - " CODER_JS_SIGNATURE);
         return 0;
     }
     if (typeof_callback != napi_function && typeof_callback != napi_undefined) {
         napi_throw_type_error(
             env,
             0,
-            "2nd argument should be callback (Function) or undefined - " CODER_JS_SIGNATURE);
+            "3rd argument should be callback (Function) or undefined - " CODER_JS_SIGNATURE);
         return 0;
     }
 
@@ -83,6 +99,8 @@ _nb_chunk_coder(napi_env env, napi_callback_info info)
             struct NB_Coder_Chunk chunk;
             napi_value v_chunk = v_chunks;
             if (is_chunks_array) napi_get_element(env, v_chunks, i, &v_chunk);
+            nb_chunk_init(&chunk);
+            chunk.coder = coder_type;
             _nb_coder_load_chunk(env, v_chunk, &chunk);
             nb_chunk_coder(&chunk);
             _nb_coder_update_chunk(env, v_chunk, &v_err, &chunk);
@@ -105,6 +123,8 @@ _nb_chunk_coder(napi_env env, napi_callback_info info)
             struct NB_Coder_Chunk* chunk = async->chunks + i;
             napi_value v_chunk = v_chunks;
             if (is_chunks_array) napi_get_element(env, v_chunks, i, &v_chunk);
+            nb_chunk_init(chunk);
+            chunk->coder = coder_type;
             _nb_coder_load_chunk(env, v_chunk, chunk);
         }
 
@@ -121,21 +141,7 @@ _nb_chunk_coder(napi_env env, napi_callback_info info)
 static void
 _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk* chunk)
 {
-    char coder[8];
     napi_value v_config;
-
-    nb_chunk_init(chunk);
-
-    nb_napi_get_str(env, v_chunk, "coder", coder, sizeof(coder));
-    if (strncmp(coder, "enc", sizeof(coder)) == 0) {
-        chunk->coder = NB_Coder_Type::ENCODER;
-    } else if (strncmp(coder, "dec", sizeof(coder)) == 0) {
-        chunk->coder = NB_Coder_Type::DECODER;
-    } else {
-        nb_chunk_error(chunk, "Unknown coder type %s", coder);
-        return;
-    }
-
     napi_get_named_property(env, v_chunk, "chunk_coder_config", &v_config);
     nb_napi_get_str(
         env, v_config, "digest_type", chunk->digest_type, sizeof(chunk->digest_type));
@@ -191,7 +197,7 @@ _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk* ch
                 nb_napi_get_int(env, v_frag, "data_index", &f->data_index);
                 nb_napi_get_int(env, v_frag, "parity_index", &f->parity_index);
                 nb_napi_get_int(env, v_frag, "lrc_index", &f->lrc_index);
-                nb_napi_get_bufs(env, v_frag, "block", &f->block);
+                nb_napi_get_bufs(env, v_frag, "data", &f->block);
                 nb_napi_get_buf_b64(env, v_frag, "digest_b64", &f->digest);
             }
         }
@@ -308,7 +314,7 @@ _nb_coder_update_chunk(
             if (f->data_index >= 0) nb_napi_set_int(env, v_frag, "data_index", f->data_index);
             if (f->parity_index >= 0) nb_napi_set_int(env, v_frag, "parity_index", f->parity_index);
             if (f->lrc_index >= 0) nb_napi_set_int(env, v_frag, "lrc_index", f->lrc_index);
-            nb_napi_set_bufs(env, v_frag, "block", &f->block);
+            nb_napi_set_bufs(env, v_frag, "data", &f->block);
             if (chunk->frag_digest_type[0]) {
                 nb_napi_set_buf_b64(env, v_frag, "digest_b64", &f->digest);
             }

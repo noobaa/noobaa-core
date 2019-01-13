@@ -169,7 +169,7 @@ mocha.describe('nb_native chunk_coder', function() {
                             const b = f.block;
                             b.writeUInt8((b.readUInt8(0) + 1) % 256, 0);
                         }
-                        call_chunk_coder_must_succeed(chunk);
+                        call_chunk_coder_must_succeed('dec', chunk);
 
                         // corrupt another fragment - now decode should fail
                         for (let i = chunk_coder_config.parity_frags; i < chunk_coder_config.parity_frags + 1; ++i) {
@@ -177,7 +177,7 @@ mocha.describe('nb_native chunk_coder', function() {
                             const b = f.block;
                             b.writeUInt8((b.readUInt8(0) + 1) % 256, 0);
                         }
-                        call_chunk_coder_must_fail(chunk);
+                        call_chunk_coder_must_fail('dec', chunk);
                         assert(chunk.errors[0].startsWith('Chunk Decoder: missing data frags'),
                             'expected error: missing data frags. got: ' + chunk.errors[0]);
                     });
@@ -196,7 +196,7 @@ mocha.describe('nb_native chunk_coder', function() {
                                 f.digest_b64 = crypto.createHash(chunk_coder_config.frag_digest_type).update(b).digest('base64');
                             }
                         }
-                        call_chunk_coder_must_fail(chunk);
+                        call_chunk_coder_must_fail('dec', chunk);
                         if (!chunk_coder_config.compress_type) {
                             assert(chunk.errors[0].startsWith('Chunk Decoder: chunk digest mismatch') ||
                                 chunk.errors[0].startsWith('Chunk Decoder: cipher decrypt final failed'),
@@ -218,18 +218,18 @@ mocha.describe('nb_native chunk_coder', function() {
                                 .digest('base64');
                         }
                     }
-                    call_chunk_coder_must_succeed(chunk);
+                    call_chunk_coder_must_succeed('dec', chunk);
                 });
 
                 mocha.it('encodes-consistent-parity-frags', function() {
                     const chunk = prepare_chunk(chunk_coder_config);
-                    call_chunk_coder_must_succeed(chunk);
+                    call_chunk_coder_must_succeed('dec', chunk);
                     const frags_by_index = _.keyBy(chunk.frags, _frag_index);
                     const max_parity_frags = 32;
                     for (let i = 0; i < max_parity_frags; ++i) {
                         const chunk_coder_config2 = _.defaults({ parity_frags: i, parity_type: 'isa-c1' }, chunk_coder_config);
                         const chunk2 = prepare_chunk(chunk_coder_config2, chunk);
-                        call_chunk_coder_must_succeed(chunk2);
+                        call_chunk_coder_must_succeed('dec', chunk2);
                         chunk2.frags.forEach(frag2 => {
                             const frag_index = _frag_index(frag2);
                             const frag = frags_by_index[frag_index];
@@ -315,21 +315,21 @@ function test_stream({ erase, decode, generator, input_size, chunk_split_config,
     return p.promise().catch(throw_chunk_err);
 }
 
-function call_chunk_coder_must_succeed(chunk) {
+function call_chunk_coder_must_succeed(coder, chunk) {
     try {
-        nb_native().chunk_coder(chunk);
+        nb_native().chunk_coder(coder, chunk);
     } catch (err) {
         throw_chunk_err(err);
     }
-    if (chunk.coder === 'dec') {
+    if (coder === 'dec') {
         assert.strictEqual(Buffer.compare(chunk.original, chunk.data), 0);
     }
 }
 
-function call_chunk_coder_must_fail(chunk) {
+function call_chunk_coder_must_fail(coder, chunk) {
     var err;
     try {
-        nb_native().chunk_coder(chunk);
+        nb_native().chunk_coder(coder, chunk);
     } catch (err1) {
         err = err1;
     }
@@ -356,7 +356,6 @@ function prepare_chunk(chunk_coder_config, copy_from_chunk) {
     original.copy(data);
 
     const chunk = {
-        coder: 'enc',
         data,
         original,
         size: data.length,
@@ -367,12 +366,11 @@ function prepare_chunk(chunk_coder_config, copy_from_chunk) {
         chunk.cipher_key_b64 = copy_from_chunk.cipher_key_b64;
     }
 
-    call_chunk_coder_must_succeed(chunk);
+    call_chunk_coder_must_succeed('enc', chunk);
 
     assert.strictEqual(chunk.frags.length, chunk_coder_config.data_frags + chunk_coder_config.parity_frags);
     assert.strictEqual(chunk.errors, undefined);
 
-    chunk.coder = 'dec';
     chunk.data = null;
     return chunk;
 }

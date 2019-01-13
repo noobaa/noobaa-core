@@ -685,11 +685,12 @@ function background_worker() {
 
 async function _notify_latest_version() {
     try {
-        const results = await P.fromCallback(callback => google_storage.objects.list({
+        const results = await google_storage.objects.list({
             bucket: 'noobaa-fe-assets',
             prefix: 'release-notes/',
             delimiter: '/',
-        }, callback));
+        });
+
         const items = results.data.items;
         const [current_major, current_minor, current_patch] = pkg.version.split('-')[0].split('.').map(str => Number(str));
         const current_val = (current_major * 10000) + (current_minor * 100) + current_patch;
@@ -729,8 +730,10 @@ async function _notify_latest_version() {
             same_major_latest_val = (major * 10000) + (minor * 100) + patch;
         }
 
-        const is_same_major_latest_alpha = same_major_latest && same_major_latest.split('-').length > 1 && same_major_latest.split('-')[1] === 'alpha';
-        const is_latest_version_alpha = latest_version && latest_version.split('-').length > 1 && latest_version.split('-')[1] === 'alpha';
+        const is_same_major_latest_alpha = same_major_latest &&
+            same_major_latest.split('-').length > 1 &&
+            same_major_latest.split('-')[1] === 'alpha';
+        const is_latest_version_alpha = latest_version.split('-').length > 1 && latest_version.split('-')[1] === 'alpha';
 
         if (!is_same_major_latest_alpha && same_major_latest && current_val < same_major_latest_val) {
             Dispatcher.instance().alert('INFO',

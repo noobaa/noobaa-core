@@ -20,11 +20,13 @@ function _init() {
     original_monitor = new nodes_monitor.NodesMonitor();
     monitor = original_monitor;
     // start nodes_monitor if this is master, or this is not part of a rplica set
-    if (system_store.is_cluster_master || !process.env.MONGO_RS_URL) {
+    if (!system_store.is_cluster_master && process.env.MONGO_RS_URL) {
+        dbg.log0('this is not master. nodes_monitor is not started');
+    } else if (process.env.CORETEST_MONGODB_URL) {
+        dbg.log0('nodes_monitor will start manually by coretest');
+    } else {
         dbg.log0('this is master. starting nodes_monitor');
         return monitor.start();
-    } else {
-        dbg.log0('this is not master. nodes_monitor is not started');
     }
 }
 

@@ -106,6 +106,8 @@ class FuncStatsStore {
     }
 }
 
+/** @type {FuncStatsStore} */
+FuncStatsStore._instance = undefined;
 
 // EXPORTS
 exports.FuncStatsStore = FuncStatsStore;

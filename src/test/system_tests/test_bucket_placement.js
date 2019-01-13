@@ -72,7 +72,6 @@ async function perform_placement_tests() {
     // Used in order to get the nodes of the system
     var sys_hosts;
     // Used in order to get the key of the file
-    var fkey = null;
 
 
     sys_hosts = await get_hosts_auth();
@@ -106,49 +105,51 @@ async function perform_placement_tests() {
         tiering: 'tiering1',
     });
 
-
-    fkey = await upload_random_file();
-    let mappings = await client.object.read_object_mappings({
-        bucket: TEST_BUCKET_NAME,
-        key: fkey,
-        adminfo: true
-    });
-    _.each(mappings.parts, part => {
-        _.each(part.chunk.frags, frag => {
-            if (frag.blocks.length !== 3) {
-                console.error('SPREAD NOT CORRECT!');
-                throw new Error("SPREAD NOT CORRECT!");
-            }
+    {
+        const fkey = await upload_random_file();
+        const { chunks } = await client.object.read_object_mapping_admin({
+            bucket: TEST_BUCKET_NAME,
+            key: fkey,
         });
-    });
+        _.each(chunks, chunk => {
+            _.each(chunk.frags, frag => {
+                if (frag.blocks.length !== 3) {
+                    console.error('SPREAD NOT CORRECT!');
+                    throw new Error("SPREAD NOT CORRECT!");
+                }
+            });
+        });
+    }
+
     await client.tier.update_tier({
         name: 'tier1',
         data_placement: 'MIRROR'
     });
 
-    fkey = await upload_random_file();
-    mappings = await client.object.read_object_mappings({
-        bucket: TEST_BUCKET_NAME,
-        key: fkey,
-        adminfo: true
-    });
-    _.each(mappings.parts, part => {
-        var pool1_count = 0;
-        var pool2_count = 0;
-        _.each(part.chunk.frags, frag => {
-            _.each(frag.blocks, block => {
-                if (block.adminfo.pool_name === 'pool1') {
-                    pool1_count += 1;
-                } else {
-                    pool2_count += 1;
-                }
-            });
+    {
+        const fkey = await upload_random_file();
+        const { chunks } = await client.object.read_object_mapping_admin({
+            bucket: TEST_BUCKET_NAME,
+            key: fkey,
         });
-        if (pool1_count !== 3 && pool2_count !== 3) {
-            console.error('MIRROR NOT CORRECT!');
-            throw new Error("MIRROR NOT CORRECT!");
-        }
-    });
+        _.each(chunks, chunk => {
+            var pool1_count = 0;
+            var pool2_count = 0;
+            _.each(chunk.frags, frag => {
+                _.each(frag.blocks, block => {
+                    if (block.adminfo.pool_name === 'pool1') {
+                        pool1_count += 1;
+                    } else {
+                        pool2_count += 1;
+                    }
+                });
+            });
+            if (pool1_count !== 3 && pool2_count !== 3) {
+                console.error('MIRROR NOT CORRECT!');
+                throw new Error("MIRROR NOT CORRECT!");
+            }
+        });
+    }
 }
 
 async function perform_quota_tests() {

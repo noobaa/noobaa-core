@@ -3,11 +3,10 @@
 
 const _ = require('lodash');
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
-const map_writer = require('../object_services/map_writer');
+const map_server = require('../object_services/map_server');
 const map_builder = require('../object_services/map_builder');
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
@@ -18,10 +17,10 @@ const system_utils = require('../utils/system_utils');
  *
  * background worker that scans chunks and builds them according to their blocks status
  *
- * @this worker instance
+ * @this {Object} worker instance
  *
  */
-function background_worker() {
+async function background_worker() {
     if (!system_store.is_finished_initial_load) {
         dbg.log0('SCRUBBER: system_store did not finish initial load');
         return;
@@ -33,29 +32,30 @@ function background_worker() {
         dbg.log0('SCRUBBER:', 'BEGIN');
     }
 
-    return MDStore.instance().iterate_all_chunks(this.marker, config.SCRUBBER_BATCH_SIZE)
-        .then(res => {
-            // update the marker for next time
-            this.marker = res.marker;
-            if (!res.chunk_ids.length) return;
-            dbg.log0('SCRUBBER:', 'WORKING ON', res.chunk_ids.length, 'CHUNKS');
+    try {
+        const { chunk_ids, marker } = await MDStore.instance().iterate_all_chunks(this.marker, config.SCRUBBER_BATCH_SIZE);
+        // update the marker for next time
+        this.marker = marker;
+        if (chunk_ids.length) {
+            dbg.log0('SCRUBBER:', 'WORKING ON', chunk_ids.length, 'CHUNKS');
             const builder = new map_builder.MapBuilder();
-            return builder.run(res.chunk_ids);
-        })
-        .then(() => {
-            // return the delay before next batch
-            if (this.marker) {
-                dbg.log0('SCRUBBER:', 'CONTINUE', this.marker, this.marker.getTimestamp());
-                return config.SCRUBBER_BATCH_DELAY;
-            }
+            await builder.run(chunk_ids);
+        }
+
+        // return the delay before next batch
+        if (this.marker) {
+            dbg.log0('SCRUBBER:', 'CONTINUE', this.marker, this.marker.getTimestamp());
+            return config.SCRUBBER_BATCH_DELAY;
+        } else {
             dbg.log0('SCRUBBER:', 'END');
             return config.SCRUBBER_RESTART_DELAY;
-        })
-        .catch(err => {
-            // return the delay before next batch
-            dbg.error('SCRUBBER:', 'ERROR', err, err.stack);
-            return config.SCRUBBER_ERROR_DELAY;
-        });
+        }
+
+    } catch (err) {
+        // return the delay before next batch
+        dbg.error('SCRUBBER:', 'ERROR', err, err.stack);
+        return config.SCRUBBER_ERROR_DELAY;
+    }
 }
 
 /**
@@ -69,19 +69,15 @@ function background_worker() {
  * to prevent concurrent rebuild of the same chunk in concurrency.
  * 
  */
-function build_chunks(req) {
-    return P.resolve()
-        .then(() => {
-            const chunk_ids = _.map(req.rpc_params.chunk_ids, id => MDStore.instance().make_md_id(id));
-            const tier = req.rpc_params.tier && system_store.data.get_by_id(req.rpc_params.tier);
-            const builder = new map_builder.MapBuilder();
-            return builder.run(chunk_ids, tier);
-        })
-        .return();
+async function build_chunks(req) {
+    const chunk_ids = _.map(req.rpc_params.chunk_ids, id => MDStore.instance().make_md_id(id));
+    const tier = req.rpc_params.tier && system_store.data.get_by_id(req.rpc_params.tier);
+    const builder = new map_builder.MapBuilder();
+    await builder.run(chunk_ids, tier);
 }
 
-function make_room_in_tier(req) {
-    return map_writer.make_room_in_tier(req.rpc_params.tier, req.rpc_params.bucket);
+async function make_room_in_tier(req) {
+    return map_server.make_room_in_tier(req.rpc_params.tier, req.rpc_params.bucket);
 }
 
 

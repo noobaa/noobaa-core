@@ -283,9 +283,7 @@ function describe_instance(instance_id) {
 // print object with deep levels
 function console_inspect(desc, obj) {
     console.log(desc);
-    console.log(util.inspect(obj, {
-        depth: null
-    }));
+    console.log(util.inspect(obj, { depth: null }));
 }
 
 function print_instances(instances) {

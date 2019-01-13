@@ -584,9 +584,7 @@ function test() {
                 attr.attr,
                 '0x' + attr.type.toString(16),
                 '[len ' + attr.length + ']',
-                util.inspect(attr.value, {
-                    depth: null
-                }));
+                util.inspect(attr.value, { depth: null }));
         });
         var method = get_method_field(buffer);
         if (method === stun.METHODS.REQUEST) {

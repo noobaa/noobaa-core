@@ -6,7 +6,7 @@ const coretest = require('./coretest');
 coretest.setup();
 
 const _ = require('lodash');
-// const util = require('util');
+const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
 const crypto = require('crypto');
@@ -45,8 +45,12 @@ coretest.describe_mapper_test_case({
     chunk_coder_config,
 }) => {
 
+    // TODO REMOVE ME
+    if (data_placement !== 'SPREAD' || num_pools !== 1 || replicas !== 1 || data_frags !== 4 || parity_frags !== 2) return;
+
     // TODO we need to create more nodes and pools to support all MAPPER_TEST_CASES
     if (data_placement !== 'SPREAD' || num_pools !== 1 || total_blocks > 10) return;
+
 
     // UNCOMMENT FOR MANUAL TEST OF EC ONLY:
     // if (data_frags !== 4 || parity_frags !== 2 || replicas !== 1) return;
@@ -61,8 +65,7 @@ coretest.describe_mapper_test_case({
     // TESTS //
     ///////////
 
-
-    mocha.it('builds missing frags', async function() {
+    mocha.it.only('builds missing frags', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj = await make_object();
         await delete_blocks_keep_minimal_frags(obj);
@@ -158,7 +161,13 @@ coretest.describe_mapper_test_case({
         const { chunks } = obj;
         const blocks_to_delete = [];
         _.forEach(chunks, chunk => {
-            console.log('Keeping minimal frags in chunk', chunk);
+            console.log('Keeping minimal frags in chunk', {
+                ...chunk,
+                frags: chunk.frags.map(frag => ({
+                    ...frag,
+                    blocks: frag.blocks && frag.blocks.map(block => _.omit(block, 'node'))
+                }))
+            });
             const frags_by_id = _.keyBy(chunk.frags, '_id');
             const frags_to_delete = new Set(_.sampleSize(chunk.frags, parity_frags));
             _.forEach(chunk.blocks, block => {
@@ -215,8 +224,9 @@ coretest.describe_mapper_test_case({
                 }]
             ));
             chunk.chunk_coder_config = chunk_coder_config;
+            const chunk_info = mapper.get_chunk_info(chunk);
             const select_tier = mapper.select_tier_for_write(tiering, tiering_status);
-            const mapping = mapper.map_chunk(chunk, select_tier, tiering, tiering_status);
+            const mapping = mapper.map_chunk(chunk_info, select_tier, tiering, tiering_status);
             console.log('Chunk mapping', mapping);
             assert.strictEqual(mapping.allocations, undefined);
             assert.strictEqual(mapping.deletions, undefined);

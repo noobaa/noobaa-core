@@ -1,31 +1,33 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {typeof import('../../sdk/nb')} nb */
+
 const _ = require('lodash');
+// const util = require('util');
 
-const P = require('../../util/promise');
-const dbg = require('../../util/debug_module')(__filename);
+// const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-const mapper = require('./mapper');
-const util = require('util');
 const MDStore = require('./md_store').MDStore;
-const node_allocator = require('../node_services/node_allocator');
-const system_store = require('../system_services/system_store').get_instance();
-const system_utils = require('../utils/system_utils');
-const server_rpc = require('../server_rpc');
-const auth_server = require('../common_services/auth_server');
-
+const map_server = require('./map_server');
+const mongo_utils = require('../../util/mongo_utils');
+const { ChunkDB } = require('./map_db_types');
 
 /**
  *
- * read_object_mappings
+ * read_object_mapping
  *
  * query the db for existing parts and blocks which intersect the requested range,
  * return the blocks inside each part (part.fragments) like the api format
  * to make it ready for replying and simpler to iterate
  *
+ * @param {nb.ObjectMD} obj
+ * @param {number} [start]
+ * @param {number} [end]
+ * @param {nb.LocationInfo} [location_info]
+ * @returns {Promise<nb.Chunk[]>}
  */
-async function read_object_mappings(obj, start, end, skip, limit, adminfo, location_info) {
+async function read_object_mapping(obj, start, end, location_info) {
     // check for empty range
     const rng = sanitize_object_range(obj, start, end);
     if (!rng) return [];
@@ -40,135 +42,127 @@ async function read_object_mappings(obj, start, end, skip, limit, adminfo, locat
         start_gte: rng.start - config.MAX_OBJECT_PART_SIZE,
         start_lt: rng.end,
         end_gt: rng.start,
+    });
+    // console.log('TODO GGG read_object_mapping', parts);
+    const chunks = await read_parts_mapping(parts);
+    return chunks;
+}
+
+
+/**
+ *
+ * read_object_mapping
+ *
+ * query the db for existing parts and blocks which intersect the requested range,
+ * return the blocks inside each part (part.fragments) like the api format
+ * to make it ready for replying and simpler to iterate
+ *
+ * @param {nb.ObjectMD} obj
+ * @param {number} [skip]
+ * @param {number} [limit]
+ * @returns {Promise<nb.Chunk[]>}
+ */
+async function read_object_mapping_admin(obj, skip, limit) {
+    const parts = await MDStore.instance().find_parts_sorted_by_start({
+        obj_id: obj._id,
         skip,
         limit,
     });
-    // console.log('TODO GGG read_object_mappings', parts);
-    await MDStore.instance().populate_chunks_for_parts(parts);
-    const parts_mappings = await read_parts_mappings({ parts, adminfo, location_info, same_bucket: true });
-    return parts_mappings;
+    const chunks = await read_parts_mapping(parts);
+    return chunks;
+}
+
+/**
+ * @param {nb.ID[]} node_ids
+ * @param {number} [skip]
+ * @param {number} [limit]
+ * @returns {Promise<nb.Chunk[]>}
+ */
+async function read_node_mapping(node_ids, skip, limit) {
+    const chunk_ids = await MDStore.instance().find_blocks_chunks_by_node_ids(node_ids, skip, limit);
+    const parts = await MDStore.instance().find_parts_by_chunk_ids(chunk_ids);
+    const chunks = await read_parts_mapping(parts);
+    return chunks;
 }
 
 
 /**
- *
- * read_node_mappings
- *
+ * 
+ * @param {nb.PartSchemaDB[]} parts
+ * @returns {Promise<nb.Chunk[]>}
  */
-function read_node_mappings(node_ids, skip, limit) {
-    return MDStore.instance().iterate_multi_nodes_chunks({
-            node_ids,
-            skip: skip || 0,
-            limit: limit || 0,
-        })
-        .then(res => MDStore.instance().find_parts_by_chunk_ids(res.chunk_ids))
-        .then(parts => P.join(
-            MDStore.instance().populate_chunks_for_parts(parts),
-            MDStore.instance().populate_objects(parts, 'obj')
-        ).return(parts))
-        .then(parts => read_parts_mappings({ parts, adminfo: true, set_obj: true }))
-        .then(parts => {
-            const objects_by_id = {};
-            const parts_per_obj_id = _.groupBy(parts, part => {
-                var obj = part.obj;
-                delete part.obj;
-                objects_by_id[obj._id] = obj;
-                return obj._id;
-            });
-            const objects_reply = _.map(objects_by_id, (obj, obj_id) => ({
-                obj_id,
-                upload_started: obj.upload_started ? obj.upload_started.getTimestamp().getTime() : undefined,
-                key: obj.key,
-                version_id: MDStore.instance().get_object_version_id(obj),
-                bucket: system_store.data.get_by_id(obj.bucket).name,
-                parts: parts_per_obj_id[obj_id],
-            }));
-            return objects_reply;
-        });
-}
-
-
-/**
- *
- * read_parts_mappings
- *
- * parts should have populated chunks
- *
- * @params: parts, set_obj, adminfo
- */
-async function read_parts_mappings({ parts, adminfo, set_obj, location_info, same_bucket }) {
-    const chunks = _.map(parts, 'chunk');
-    const tiering_status_by_bucket_id = {};
-
-    await _load_chunk_mappings(chunks, tiering_status_by_bucket_id);
-
-
-    if (same_bucket && !adminfo) {
-        const chunks_to_scrub = [];
-        try {
-            const bucket = system_store.data.get_by_id(chunks[0].bucket);
-            const tiering_status = tiering_status_by_bucket_id[bucket._id];
-            const selected_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status);
-            for (const chunk of chunks) {
-                system_utils.prepare_chunk_for_mapping(chunk);
-                if (!chunk.tier._id || !_.isEqual(chunk.tier._id, selected_tier._id)) {
-                    dbg.log0('Chunk with low tier will be sent for rebuilding', chunk);
-                    chunks_to_scrub.push(chunk);
-                } else if (location_info) {
-                    const mapping = mapper.map_chunk(chunk, chunk.tier, bucket.tiering, tiering_status, location_info);
-                    if (mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info)) {
-                        dbg.log2('Chunk with following mapping will be sent for rebuilding', chunk, mapping);
-                        chunks_to_scrub.push(chunk);
-                    }
-                }
-            }
-            if (chunks_to_scrub.length) {
-                dbg.log1('Chunks wasn\'t found in local pool - the following will be rebuilt:', util.inspect(chunks_to_scrub));
-                await server_rpc.client.scrubber.build_chunks({
-                    chunk_ids: _.map(chunks_to_scrub, '_id'),
-                    tier: selected_tier._id,
-                }, {
-                    auth_token: auth_server.make_auth_token({
-                        system_id: chunks_to_scrub[0].system,
-                        role: 'admin'
-                    })
-                });
-            }
-        } catch (err) {
-            dbg.warn('Chunks failed to rebuilt - skipping');
+async function read_parts_mapping(parts) {
+    const chunks_db = await MDStore.instance().find_chunks_by_ids(mongo_utils.uniq_ids(parts, 'chunk'));
+    await MDStore.instance().load_blocks_for_chunks(chunks_db);
+    const chunks_db_by_id = _.keyBy(chunks_db, '_id');
+    const chunks = parts.map(part => {
+        const chunk_db = chunks_db_by_id[part.chunk.toHexString()];
+        if (chunk_db.parts) {
+            chunk_db.parts.push(part);
+        } else {
+            chunk_db.parts = [part];
         }
-        if (chunks_to_scrub.length) {
-            await _load_chunk_mappings(chunks, tiering_status_by_bucket_id);
-        }
-    }
-
-    return _.map(parts, part => {
-        system_utils.prepare_chunk_for_mapping(part.chunk);
-        const part_info = mapper.get_part_info(
-            part, adminfo, tiering_status_by_bucket_id[part.chunk.bucket], location_info
-        );
-        if (set_obj) {
-            part_info.obj = part.obj;
-        }
-        return part_info;
+        const chunk = new ChunkDB(chunk_db);
+        return chunk;
     });
+    await map_server.prepare_chunks({ chunks });
+    return chunks;
 }
 
-async function _load_chunk_mappings(chunks, tiering_status_by_bucket_id) {
-    const chunks_buckets = _.uniq(_.map(chunks, chunk => String(chunk.bucket)));
-    return P.join(
-        MDStore.instance().load_blocks_for_chunks(chunks),
-        P.map(chunks_buckets, async bucket_id => {
-            const bucket = system_store.data.get_by_id(bucket_id);
-            if (!bucket) {
-                console.error(`read_parts_mappings: Bucket ${bucket_id} does not exist`);
-                return;
-            }
-            await node_allocator.refresh_tiering_alloc(bucket.tiering);
-            tiering_status_by_bucket_id[bucket_id] = node_allocator.get_tiering_status(bucket.tiering);
-        })
-    );
-}
+
+// /**
+//  * @param {nb.Chunk[]} chunks
+//  * @param {nb.LocationInfo} [location_info]
+//  */
+// async function update_chunks_on_read(chunks, location_info) {
+//     const chunks = _.map(parts, 'chunk');
+//     const tiering_status_by_bucket_id = {};
+
+//     for (const chunk of chunks) {
+//         map_server.populate_chunk(chunk);
+//     }
+
+//     await _load_chunk_mappings(chunks, tiering_status_by_bucket_id);
+
+//     const chunks_to_scrub = [];
+//     try {
+//         const bucket = system_store.data.get_by_id(chunks[0].bucket);
+//         const tiering_status = tiering_status_by_bucket_id[bucket._id];
+//         const selected_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status);
+//         for (const chunk of chunks) {
+//             map_server.populate_chunk(chunk);
+//             if (!chunk.tier._id || !_.isEqual(chunk.tier._id, selected_tier._id)) {
+//                 dbg.log0('Chunk with low tier will be sent for rebuilding', chunk);
+//                 chunks_to_scrub.push(chunk);
+//             } else if (location_info) {
+//                 const chunk_info = mapper.get_chunk_info(chunk);
+//                 const mapping = mapper.map_chunk(chunk_info, chunk.tier, bucket.tiering, tiering_status, location_info);
+//                 if (mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info)) {
+//                     dbg.log2('Chunk with following mapping will be sent for rebuilding', chunk, mapping);
+//                     chunks_to_scrub.push(chunk);
+//                 }
+//             }
+//         }
+//         if (chunks_to_scrub.length) {
+//             dbg.log1('Chunks wasn\'t found in local pool - the following will be rebuilt:', util.inspect(chunks_to_scrub));
+//             await server_rpc.client.scrubber.build_chunks({
+//                 chunk_ids: _.map(chunks_to_scrub, '_id'),
+//                 tier: selected_tier._id,
+//             }, {
+//                 auth_token: auth_server.make_auth_token({
+//                     system_id: chunks_to_scrub[0].system,
+//                     role: 'admin'
+//                 })
+//             });
+//         }
+//     } catch (err) {
+//         dbg.warn('Chunks failed to rebuilt - skipping');
+//     }
+//     if (chunks_to_scrub.length) {
+//         // mismatch type...
+//         await MDStore.instance().load_blocks_for_chunks(chunks);
+//     }
+// }
 
 // sanitizing start & end: we want them to be integers, positive, up to obj.size.
 function sanitize_object_range(obj, start, end) {
@@ -197,5 +191,6 @@ function sanitize_object_range(obj, start, end) {
 }
 
 // EXPORTS
-exports.read_object_mappings = read_object_mappings;
-exports.read_node_mappings = read_node_mappings;
+exports.read_object_mapping = read_object_mapping;
+exports.read_object_mapping_admin = read_object_mapping_admin;
+exports.read_node_mapping = read_node_mapping;

@@ -14,97 +14,6 @@ module.exports = {
 
     methods: {
 
-        put_object_tagging: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: [
-                    'tagging',
-                    'key',
-                    'bucket'
-                ],
-                properties: {
-                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    key: {
-                        type: 'string',
-                    },
-                    tagging: {
-                        $ref: 'common_api#/definitions/tagging'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                properties: {
-                    version_id: { type: 'string' },
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
-        delete_object_tagging: {
-            method: 'DELETE',
-            params: {
-                type: 'object',
-                required: [
-                    'key',
-                    'bucket'
-                ],
-                properties: {
-                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    key: {
-                        type: 'string',
-                    },
-                    version_id: {
-                        type: 'string'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                properties: {
-                    version_id: { type: 'string' },
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
-        get_object_tagging: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: [
-                    'key',
-                    'bucket'
-                ],
-                properties: {
-                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    key: {
-                        type: 'string',
-                    },
-                    version_id: {
-                        type: 'string'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                properties: {
-                    tagging: {
-                        $ref: 'common_api#/definitions/tagging'
-                    },
-                    version_id: { type: 'string' }
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
         create_object_upload: {
             method: 'POST',
             params: {
@@ -141,14 +50,13 @@ module.exports = {
                 required: ['obj_id', 'chunk_split_config', 'chunk_coder_config'],
                 properties: {
                     obj_id: { objectid: true },
-                    tier: { $ref: 'common_api#/definitions/tier_name' },
+                    bucket_id: { objectid: true },
+                    tier_id: { objectid: true },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         complete_object_upload: {
@@ -209,9 +117,7 @@ module.exports = {
                     version_id: { type: 'string' },
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         abort_object_upload: {
@@ -233,9 +139,7 @@ module.exports = {
                     },
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         create_multipart: {
@@ -275,14 +179,13 @@ module.exports = {
                 required: ['multipart_id', 'chunk_split_config', 'chunk_coder_config'],
                 properties: {
                     multipart_id: { objectid: true },
-                    tier: { $ref: 'common_api#/definitions/tier_name' },
+                    bucket_id: { objectid: true },
+                    tier_id: { objectid: true },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         complete_multipart: {
@@ -342,9 +245,7 @@ module.exports = {
                     },
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         list_multiparts: {
@@ -413,12 +314,10 @@ module.exports = {
                     }
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
-        get_mapping_instructions: {
+        get_mapping: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -426,10 +325,11 @@ module.exports = {
                 properties: {
                     chunks: {
                         type: 'array',
-                        items: { $ref: '#/definitions/chunks_info' }
+                        items: { $ref: '#/definitions/chunk_info' }
                     },
                     location_info: { $ref: 'common_api#/definitions/location_info' },
-                    move_to_tier: { type: 'string' },
+                    move_to_tier: { objectid: true },
+                    check_dups: { type: 'boolean' },
                 },
             },
             reply: {
@@ -442,226 +342,149 @@ module.exports = {
                     }
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
-        finalize_object_parts: {
+        put_mapping: {
             method: 'PUT',
             params: {
                 type: 'object',
+                required: ['chunks'],
+                properties: {
+                    chunks: {
+                        type: 'array',
+                        items: { $ref: '#/definitions/chunk_info' }
+                    },
+                    location_info: { $ref: 'common_api#/definitions/location_info' },
+                    move_to_tier: { objectid: true },
+                },
+            },
+            auth: { system: ['admin', 'user'] }
+        },
+
+        copy_object_mapping: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['obj_id', 'copy_source'],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: { type: 'string' },
+                    obj_id: { objectid: true },
+                    multipart_id: { objectid: true },
+                    copy_source: {
+                        type: 'object',
+                        required: ['obj_id'],
+                        properties: {
+                            obj_id: { objectid: true },
+                            start: { type: 'integer' },
+                            end: { type: 'integer' },
+                        }
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['object_md', 'num_parts'],
+                properties: {
+                    object_md: { $ref: '#/definitions/object_info' },
+                    num_parts: { type: 'integer' },
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        },
+
+        read_object_mapping: {
+            method: 'GET',
+            params: {
+                type: 'object',
                 required: [
+                    'bucket',
+                    'key',
                     'obj_id',
-                    'bucket',
-                    'key',
-                    'parts'
                 ],
                 properties: {
-                    obj_id: {
-                        objectid: true
-                    },
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    key: {
-                        type: 'string',
-                    },
-                    parts: {
-                        type: 'array',
-                        items: {
-                            $ref: '#/definitions/part_info'
-                        }
-                    }
+                    key: { type: 'string' },
+                    obj_id: { objectid: true },
+                    start: { type: 'integer' },
+                    end: { type: 'integer' },
+                    location_info: { $ref: 'common_api#/definitions/location_info' },
                 },
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            reply: {
+                type: 'object',
+                required: ['object_md', 'chunks'],
+                properties: {
+                    object_md: { $ref: '#/definitions/object_info' },
+                    chunks: {
+                        type: 'array',
+                        items: { $ref: '#/definitions/chunk_info' },
+                    },
+                }
+            },
+            auth: { system: ['admin', 'user', 'viewer'] }
         },
 
-        read_object_mappings: {
+        read_object_mapping_admin: {
             method: 'GET',
             params: {
                 type: 'object',
                 required: [
-                    // 'obj_id',
                     'bucket',
                     'key',
                 ],
                 properties: {
-                    obj_id: {
-                        objectid: true
-                    },
-                    version_id: { type: 'string' },
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    key: {
-                        type: 'string',
-                    },
-                    start: {
-                        type: 'integer',
-                    },
-                    end: {
-                        type: 'integer',
-                    },
-                    skip: {
-                        type: 'integer',
-                    },
-                    limit: {
-                        type: 'integer',
-                    },
-                    location_info: {
-                        $ref: 'common_api#/definitions/location_info'
-                    },
-                    adminfo: {
-                        type: 'boolean',
-                    },
+                    key: { type: 'string' },
+                    version_id: { type: 'string' },
+                    skip: { type: 'integer' },
+                    limit: { type: 'integer' },
                 },
             },
             reply: {
                 type: 'object',
-                required: ['object_md', 'parts'],
+                required: ['object_md', 'chunks'],
                 properties: {
-                    object_md: {
-                        $ref: '#/definitions/object_info'
-                    },
-                    parts: {
+                    object_md: { $ref: '#/definitions/object_info' },
+                    chunks: {
                         type: 'array',
-                        items: {
-                            $ref: '#/definitions/part_info'
-                        },
+                        items: { $ref: '#/definitions/chunk_info' },
                     },
-                    total_parts: {
-                        type: 'integer'
-                    }
                 }
             },
-            auth: {
-                system: ['admin', 'user', 'viewer']
-            }
+            auth: { system: 'admin' }
         },
 
-        read_node_mappings: {
+        read_node_mapping: {
             method: 'GET',
             params: {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    skip: {
-                        type: 'integer'
-                    },
-                    limit: {
-                        type: 'integer'
-                    },
-                    adminfo: {
-                        type: 'boolean'
-                    }
+                    name: { type: 'string' },
+                    skip: { type: 'integer' },
+                    limit: { type: 'integer' },
+                    by_host: { type: 'boolean' },
+                    adminfo: { type: 'boolean' },
                 }
             },
             reply: {
                 type: 'object',
-                required: ['objects'],
+                required: ['chunks', 'objects'],
                 properties: {
+                    total_chunks: { type: 'number' },
+                    chunks: {
+                        type: 'array',
+                        items: { $ref: '#/definitions/chunk_info' }
+                    },
                     objects: {
                         type: 'array',
-                        items: {
-                            type: 'object',
-                            // required: [],
-                            properties: {
-                                obj_id: {
-                                    objectid: true
-                                },
-                                upload_started: {
-                                    idate: true
-                                },
-                                key: {
-                                    type: 'string'
-                                },
-                                version_id: {
-                                    type: 'string'
-                                },
-                                bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                                parts: {
-                                    type: 'array',
-                                    items: {
-                                        $ref: '#/definitions/part_info'
-                                    }
-                                }
-                            }
-                        }
+                        items: { $ref: '#/definitions/object_info' }
                     },
-                    total_count: {
-                        type: 'number'
-                    }
                 }
             },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-
-        read_host_mappings: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    skip: {
-                        type: 'integer'
-                    },
-                    limit: {
-                        type: 'integer'
-                    },
-                    adminfo: {
-                        type: 'boolean'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['objects'],
-                properties: {
-                    objects: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            // required: [],
-                            properties: {
-                                obj_id: {
-                                    objectid: true
-                                },
-                                upload_started: {
-                                    idate: true
-                                },
-                                key: {
-                                    type: 'string'
-                                },
-                                version_id: {
-                                    type: 'string'
-                                },
-                                bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                                parts: {
-                                    type: 'array',
-                                    items: {
-                                        $ref: '#/definitions/part_info'
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    total_count: {
-                        type: 'number'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
+            auth: { system: 'admin' }
         },
 
         read_object_md: {
@@ -674,23 +497,15 @@ module.exports = {
                     'key',
                 ],
                 properties: {
-                    obj_id: {
-                        objectid: true
-                    },
+                    obj_id: { objectid: true },
                     version_id: { type: 'string' },
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    key: {
-                        type: 'string',
-                    },
-                    md_conditions: {
-                        $ref: '#/definitions/md_conditions',
-                    },
+                    key: { type: 'string' },
+                    md_conditions: { $ref: '#/definitions/md_conditions' },
                     adminfo: {
                         type: 'object',
                         properties: {
-                            signed_url_endpoint: {
-                                type: 'string'
-                            },
+                            signed_url_endpoint: { type: 'string' },
                         }
                     },
                 }
@@ -698,9 +513,7 @@ module.exports = {
             reply: {
                 $ref: '#/definitions/object_info'
             },
-            auth: {
-                system: ['admin', 'user', 'viewer']
-            }
+            auth: { system: ['admin', 'user', 'viewer'] }
         },
 
         update_object_md: {
@@ -712,24 +525,14 @@ module.exports = {
                     'key'
                 ],
                 properties: {
-                    obj_id: {
-                        objectid: true
-                    },
+                    obj_id: { objectid: true },
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    key: {
-                        type: 'string',
-                    },
-                    content_type: {
-                        type: 'string',
-                    },
-                    xattr: {
-                        $ref: '#/definitions/xattr',
-                    },
+                    key: { type: 'string' },
+                    content_type: { type: 'string' },
+                    xattr: { $ref: '#/definitions/xattr' },
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         dispatch_triggers: {
@@ -749,9 +552,7 @@ module.exports = {
                     event_name: { $ref: 'common_api#/definitions/bucket_trigger_event' }
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         delete_object: {
@@ -779,9 +580,7 @@ module.exports = {
                     created_delete_marker: { type: 'boolean' },
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         delete_multiple_objects: {
@@ -824,9 +623,7 @@ module.exports = {
                     }
                 }
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         list_objects: {
@@ -874,9 +671,7 @@ module.exports = {
                     }
                 }
             },
-            auth: {
-                system: ['admin', 'user', 'viewer']
-            }
+            auth: { system: ['admin', 'user', 'viewer'] }
         },
 
         list_object_versions: {
@@ -930,9 +725,7 @@ module.exports = {
                     }
                 }
             },
-            auth: {
-                system: ['admin', 'user', 'viewer']
-            }
+            auth: { system: ['admin', 'user', 'viewer'] }
         },
 
         list_uploads: {
@@ -986,9 +779,7 @@ module.exports = {
                     }
                 }
             },
-            auth: {
-                system: ['admin', 'user', 'viewer']
-            }
+            auth: { system: ['admin', 'user', 'viewer'] }
         },
 
         list_objects_admin: {
@@ -1080,9 +871,7 @@ module.exports = {
                     }
                 }
             },
-            auth: {
-                system: 'admin'
-            }
+            auth: { system: 'admin' }
         },
 
         report_error_on_object: {
@@ -1117,9 +906,7 @@ module.exports = {
                     },
                 },
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         report_endpoint_problems: {
@@ -1142,9 +929,7 @@ module.exports = {
                     }
                 },
             },
-            auth: {
-                system: ['admin', 'user']
-            }
+            auth: { system: ['admin', 'user'] }
         },
 
         add_endpoint_usage_report: {
@@ -1256,9 +1041,92 @@ module.exports = {
                     }
                 }
             },
-            auth: {
-                system: 'admin'
-            }
+            auth: { system: 'admin' }
+        },
+
+        put_object_tagging: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'tagging',
+                    'key',
+                    'bucket'
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: {
+                        type: 'string',
+                    },
+                    tagging: {
+                        $ref: 'common_api#/definitions/tagging'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    version_id: { type: 'string' },
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        },
+
+        delete_object_tagging: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'key',
+                    'bucket'
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: {
+                        type: 'string',
+                    },
+                    version_id: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    version_id: { type: 'string' },
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        },
+
+        get_object_tagging: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'key',
+                    'bucket'
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: {
+                        type: 'string',
+                    },
+                    version_id: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    tagging: {
+                        $ref: 'common_api#/definitions/tagging'
+                    },
+                    version_id: { type: 'string' }
+                }
+            },
+            auth: { system: ['admin', 'user'] }
         },
 
     },
@@ -1311,30 +1179,17 @@ module.exports = {
             type: 'object',
             required: [
                 'start',
-                'end'
+                'end',
+                'seq',
             ],
             properties: {
-                start: {
-                    type: 'integer',
-                },
-                end: {
-                    type: 'integer',
-                },
-                seq: {
-                    type: 'integer',
-                },
-                multipart_id: {
-                    objectid: true
-                },
-                chunk_offset: {
-                    type: 'integer',
-                },
-                chunk: {
-                    $ref: '#/definitions/chunk_info',
-                },
-                chunk_id: {
-                    objectid: true
-                },
+                chunk_id: { objectid: true },
+                obj_id: { objectid: true },
+                multipart_id: { objectid: true },
+                start: { type: 'integer' },
+                end: { type: 'integer' },
+                seq: { type: 'integer' },
+                chunk_offset: { type: 'integer' },
             }
         },
 
@@ -1345,7 +1200,10 @@ module.exports = {
                 'frags'
             ],
             properties: {
-                tier: { type: 'string' },
+                _id: { objectid: true },
+                bucket_id: { objectid: true },
+                tier_id: { objectid: true },
+                dup_chunk: { objectid: true },
                 chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 size: { type: 'integer' },
                 frag_size: { type: 'integer' },
@@ -1356,26 +1214,22 @@ module.exports = {
                 cipher_auth_tag_b64: { type: 'string' },
                 frags: {
                     type: 'array',
-                    items: {
-                        $ref: '#/definitions/frag_info',
-                    }
+                    items: { $ref: '#/definitions/frag_info' }
                 },
-                adminfo: {
-                    type: 'object',
-                    required: ['health'],
-                    properties: {
-                        health: {
-                            enum: ['available', 'building', 'unavailable'],
-                            type: 'string'
-                        }
-                    }
+                parts: {
+                    type: 'array',
+                    items: { $ref: '#/definitions/part_info' }
                 },
+                is_accessible: { type: 'boolean' },
+                is_building_blocks: { type: 'boolean' },
+                is_building_frags: { type: 'boolean' },
             }
         },
 
         frag_info: {
             type: 'object',
             properties: {
+                _id: { objectid: true },
                 data_index: { type: 'integer' },
                 parity_index: { type: 'integer' },
                 lrc_index: { type: 'integer' },
@@ -1384,18 +1238,11 @@ module.exports = {
                     type: 'array',
                     items: { $ref: '#/definitions/block_info' }
                 },
-                deletions: {
-                    type: 'array',
-                    items: { $ref: '#/definitions/deletion_info' }
-                },
-                future_deletions: {
-                    type: 'array',
-                    items: { $ref: '#/definitions/deletion_info' }
-                },
                 allocations: {
                     type: 'array',
-                    items: { $ref: '#/definitions/alloc_info' }
+                    items: { $ref: '#/definitions/allocation_info' }
                 },
+                is_accessible: { type: 'boolean' },
             }
         },
 
@@ -1403,59 +1250,34 @@ module.exports = {
             type: 'object',
             required: ['block_md'],
             properties: {
-                block_md: {
-                    $ref: 'common_api#/definitions/block_md'
-                },
-                accessible: {
-                    type: 'boolean'
-                },
+                block_md: { $ref: 'common_api#/definitions/block_md' },
+                is_accessible: { type: 'boolean' },
+                is_deletion: { type: 'boolean' },
+                is_future_deletion: { type: 'boolean' },
                 adminfo: {
                     type: 'object',
-                    required: ['pool_name', 'node_name', 'node_ip', 'online'],
+                    required: ['mirror_group', 'pool_name', 'node_name', 'node_ip', 'online'],
                     properties: {
-                        node_name: {
-                            type: 'string',
-                        },
-                        host_name: {
-                            type: 'string',
-                        },
-                        mount: {
-                            type: 'string',
-                        },
-                        pool_name: {
-                            type: 'string'
-                        },
-                        node_ip: {
-                            type: 'string',
-                        },
-                        online: {
-                            type: 'boolean'
-                        },
-                        in_cloud_pool: {
-                            type: 'boolean'
-                        },
-                        in_mongo_pool: {
-                            type: 'boolean'
-                        },
-                        mirror_group: { type: 'string' }
+                        mirror_group: { type: 'string' },
+                        pool_name: { type: 'string' },
+                        node_name: { type: 'string' },
+                        node_ip: { type: 'string' },
+                        host_name: { type: 'string' },
+                        mount: { type: 'string' },
+                        online: { type: 'boolean' },
+                        in_cloud_pool: { type: 'boolean' },
+                        in_mongo_pool: { type: 'boolean' },
                     }
                 }
             }
         },
 
-        deletion_info: {
+        allocation_info: {
             type: 'object',
-            required: ['block_id'],
-            properties: {
-                block_id: { objectid: true }
-            }
-        },
-
-        alloc_info: {
-            type: 'object',
+            required: ['mirror_group', 'block_md'],
             properties: {
                 mirror_group: { type: 'string' },
-                block: { $ref: '#/definitions/block_info' },
+                block_md: { $ref: 'common_api#/definitions/block_md' },
             }
         },
 
@@ -1510,20 +1332,13 @@ module.exports = {
                 properties: {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     access_key: { $ref: 'common_api#/definitions/access_key' },
-                    read_bytes: {
-                        type: 'integer',
-                    },
-                    write_bytes: {
-                        type: 'integer',
-                    },
-                    read_count: {
-                        type: 'integer',
-                    },
-                    write_count: {
-                        type: 'integer',
-                    },
+                    read_bytes: { type: 'integer' },
+                    write_bytes: { type: 'integer' },
+                    read_count: { type: 'integer' },
+                    write_count: { type: 'integer' },
                 }
             }
-        }
+        },
+
     },
 };

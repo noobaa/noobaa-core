@@ -13,8 +13,9 @@ export default function(action$, { api }) {
             const { host, skip, limit } = action.payload;
 
             try {
-                const response = await api.object.read_host_mappings({
+                const response = await api.object.read_node_mapping({
                     name: host,
+                    by_host: true,
                     skip: skip,
                     limit: limit,
                     adminfo: true

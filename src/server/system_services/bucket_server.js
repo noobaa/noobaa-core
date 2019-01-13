@@ -46,7 +46,7 @@ const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
     let now = Date.now();
     return {
-        _id: system_store.generate_id(),
+        _id: system_store.new_system_store_id(),
         name: name,
         tag: js_utils.default_value(tag, ''),
         system: system_id,
@@ -101,12 +101,12 @@ async function create_bucket(req) {
         const chunk_config = chunk_config_utils.resolve_chunk_config(
             req.rpc_params.chunk_coder_config, req.account, req.system);
         if (!chunk_config._id) {
-            chunk_config._id = system_store.generate_id();
+            chunk_config._id = system_store.new_system_store_id();
             changes.insert.chunk_configs = [chunk_config];
         }
         const bucket_with_suffix = req.rpc_params.name.unwrap() + '#' + Date.now().toString(36);
         const mirrors = [{
-            _id: system_store.generate_id(),
+            _id: system_store.new_system_store_id(),
             spread_pools: [default_pool._id]
         }];
         const tier = tier_server.new_tier_defaults(
@@ -904,7 +904,7 @@ function add_bucket_lambda_trigger(req) {
         .then(() => validate_trigger_update(req, bucket, new_trigger))
         .then(() => {
             const trigger = _.omitBy({
-                _id: system_store.generate_id(),
+                _id: system_store.new_system_store_id(),
                 event_name: new_trigger.event_name,
                 func_name: new_trigger.func_name,
                 func_version: new_trigger.func_version,

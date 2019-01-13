@@ -38,7 +38,7 @@ function onFetchObjectParts(state, { payload }) {
 }
 
 function onCompleteFetchObjectParts(state, { payload }) {
-    const { query, parts } = payload;
+    const { query, chunks } = payload;
     if (!_queryMatch(state.query, query)) {
         return state;
     }
@@ -47,7 +47,7 @@ function onCompleteFetchObjectParts(state, { payload }) {
         ...state,
         fetching: false,
         error: false,
-        items: parts.map(_mapPart)
+        items: chunks.map(_mapPart)
     };
 }
 
@@ -77,54 +77,47 @@ function _queryMatch(q1, q2) {
         q1.key === q2.key &&
         q1.version === q2.version &&
         q1.limit === q2.limit &&
-        q1.skip  === q2.skip;
+        q1.skip === q2.skip;
 }
 
-function _mapPart(part) {
-    const { chunk_coder_config: config } = part.chunk;
-    const mode = part.chunk.adminfo.health.toUpperCase();
+function _mapPart(chunk) {
+    const { chunk_coder_config: config } = chunk;
+    const part = chunk.parts[0];
+    const mode =
+        ((chunk.is_building_blocks || chunk.is_building_frags) && 'BUILDING') ||
+        (chunk.is_accessible ? 'AVAILABLE' : 'UNAVAILABLE');
+
     const resiliency = config.parity_frags > 0 ? 'ERASURE_CODING' : 'REPLICATION';
     return {
         seq: part.seq,
         size: part.end - part.start,
-        mode: mode,
-        blocks: _mapPartBlocks(part, resiliency)
+        mode,
+        blocks: _mapPartBlocks(chunk, resiliency)
     };
 }
 
-function _mapPartBlocks(part, resiliency) {
-    return flatMap(part.chunk.frags, frag => {
+function _mapPartBlocks(chunk, resiliency) {
+    return flatMap(chunk.frags, frag => {
         const [kind, seq] = _getBlockKindAndSeq(resiliency, frag);
-
-        const { deletions = [], future_deletions = [] } = frag;
-        const deletionsSet = new Set(
-            [ ...deletions, ...future_deletions ].map(del => del.block_id)
-        );
-
-        const allocations = frag.allocations.map(alloc => {
-            const mode = 'WAITING_FOR_ALLOCATION';
-            const storage = notAllocatedStorage;
-            const mirrorSet = alloc.mirror_group;
-            return { mode, kind, seq, storage, mirrorSet };
-        });
-
-        const blocks = frag.blocks.map(block => {
-            const toBeRemoved = deletionsSet.has(block.block_md.id);
+        const blocks = frag.blocks ? frag.blocks.map(block => {
+            const toBeRemoved = block.is_deletion || block.is_future_deletion;
             const mode =
-                (toBeRemoved && block.accessible && 'WAITING_FOR_DELETE') ||
-                (toBeRemoved && !block.accessible && 'CANNOT_BE_DELETED') ||
-                (block.accessible && 'HEALTHY') ||
+                (toBeRemoved && block.is_accessible && 'WAITING_FOR_DELETE') ||
+                (toBeRemoved && !block.is_accessible && 'CANNOT_BE_DELETED') ||
+                (block.is_accessible && 'HEALTHY') ||
                 'NOT_ACCESSIBLE';
 
             const storage = _mapBlockStorage(block);
             const mirrorSet = block.adminfo.mirror_group;
             return { mode, kind, seq, mirrorSet, storage };
-        });
-
-        return [
-            ...allocations,
-            ...blocks
-        ];
+        }) : [];
+        const allocations = frag.allocations ? frag.allocations.map(alloc => {
+            const mode = 'WAITING_FOR_ALLOCATION';
+            const storage = notAllocatedStorage;
+            const mirrorSet = alloc.mirror_group;
+            return { mode, kind, seq, mirrorSet, storage };
+        }) : [];
+        return [...blocks, ...allocations];
     });
 }
 

@@ -1483,7 +1483,7 @@ function _add_new_shard_on_server(shardname, ip, params) {
             if (!params.first_shard) {
                 //Write back old topology, was lost on transition to new shard server
                 dbg.log0('Writing back old topology, for owner_secret reference', cutil.pretty_topology(current_topology));
-                current_topology._id = system_store.generate_id();
+                current_topology._id = system_store.new_system_store_id();
                 return system_store.make_changes({
                     insert: {
                         clusters: [current_topology]
@@ -1601,7 +1601,7 @@ function _add_new_server_to_replica_set(params) {
             os_utils.get_dns_and_search_domains(),
             (ntp_server, time_config, dns_config) => {
                 // insert an entry for this server in clusters collection.
-                new_topology._id = system_store.generate_id();
+                new_topology._id = system_store.new_system_store_id();
                 // get dns and ntp settings configured in the os
                 if (ntp_server) {
                     dbg.log0(`_add_new_server_to_replica_set: using existing ntp configuration: ${ntp_server}, ${time_config.timezone}`);

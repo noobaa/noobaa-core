@@ -13,16 +13,15 @@ export default function(action$, { api }) {
             const query = action.payload;
 
             try {
-                const { parts } = await api.object.read_object_mappings({
+                const { chunks } = await api.object.read_object_mapping_admin({
                     bucket: query.bucket,
                     key: query.key,
                     version_id: query.version,
                     skip: query.skip,
-                    limit: query.limit,
-                    adminfo: true
+                    limit: query.limit
                 });
 
-                return completeFetchObjectParts(query, parts);
+                return completeFetchObjectParts(query, chunks);
 
             } catch (error) {
                 return failFetchObjectParts(

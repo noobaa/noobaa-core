@@ -1,9 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {typeof import('../../sdk/nb')} nb */
+
 const _ = require('lodash');
 const util = require('util');
-const mongodb = require('mongodb');
 const EventEmitter = require('events').EventEmitter;
 const system_schema = require('./schemas/system_schema');
 const cluster_schema = require('./schemas/cluster_schema');
@@ -26,6 +27,7 @@ const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
+const { RpcError } = require('../../rpc');
 
 const COLLECTIONS = [{
     name: 'clusters',
@@ -216,11 +218,37 @@ class SystemStoreData {
 
     constructor(data) {
         this.time = Date.now();
+
+        // define the properties of collections and mem_indexes for type checks
+        this.clusters = undefined;
+        this.cluster_by_server = undefined;
+        this.namespace_resources = undefined;
+        /** @type {nb.System[]} */
+        this.systems = undefined;
+        /** @type {{ [name: string]: nb.System }} */
+        this.systems_by_name = undefined;
+        this.roles = undefined;
+        /** @type {nb.Account[]} */
+        this.accounts = undefined;
+        /** @type {{ [email: string]: nb.Account }} */
+        this.accounts_by_email = undefined;
+        /** @type {nb.Bucket[]} */
+        this.buckets = undefined;
+        /** @type {nb.Tiering[]} */
+        this.tieringpolicies = undefined;
+        /** @type {nb.Tier[]} */
+        this.tiers = undefined;
+        /** @type {nb.Pool[]} */
+        this.pools = undefined;
+        /** @type {nb.ChunkConfig[]} */
+        this.chunk_configs = undefined;
+        this.agent_configs = undefined;
     }
 
     /**
      * If id is falsy return undefined, because it should mean there is no entity to resolve.
      * Otherwise lookup the id in the map, and if not found return null to indicate the id is not found.
+     * @param {string|nb.ID} id
      */
     get_by_id(id) {
         if (!id) return undefined;
@@ -351,9 +379,7 @@ class SystemStoreData {
             if (!index.val_array) {
                 let existing = map && map[key];
                 if (existing && String(existing._id) !== String(item._id)) {
-                    let err = new Error(index.name + ' collision on key ' + key);
-                    err.rpc_code = 'CONFLICT';
-                    throw err;
+                    throw new RpcError('CONFLICT', index.name + ' collision on key ' + key);
                 }
             }
         });
@@ -399,6 +425,8 @@ class SystemStore extends EventEmitter {
         this.initial_load();
     }
 
+    [util.inspect.custom]() { return 'SystemStore'; }
+
     initial_load() {
         mongo_client.instance().on('reconnect', () => this.load());
         P.delay(100)
@@ -410,59 +438,55 @@ class SystemStore extends EventEmitter {
             .catch(_.noop);
     }
 
-    refresh() {
-        return P.fcall(() => {
-            let load_time = 0;
-            if (this.data) {
-                load_time = this.data.time;
-            }
-            let since_load = Date.now() - load_time;
-            if (since_load < this.START_REFRESH_THRESHOLD) {
-                return this.data;
-            } else if (since_load < this.FORCE_REFRESH_THRESHOLD) {
-                this.load().catch(_.noop);
-                return this.data;
-            } else {
-                return this.load();
-            }
-        });
+    async refresh() {
+        let load_time = 0;
+        if (this.data) {
+            load_time = this.data.time;
+        }
+        let since_load = Date.now() - load_time;
+        if (since_load < this.START_REFRESH_THRESHOLD) {
+            return this.data;
+        } else if (since_load < this.FORCE_REFRESH_THRESHOLD) {
+            this.load().catch(_.noop);
+            return this.data;
+        } else {
+            return this.load();
+        }
     }
 
-    load() {
+    async load() {
         // serializing load requests since we have to run a fresh load after the previous one will finish
         // because it might not see the latest changes if we don't reload right after make_changes.
-        return this._load_serial.surround(() => {
-            dbg.log3('SystemStore: loading ...');
-            let new_data = new SystemStoreData();
-            let millistamp = time_utils.millistamp();
-            return P.resolve()
-                .then(() => this._register_for_changes())
-                .then(() => this._read_data_from_db(new_data))
-                .then(() => os_utils.read_server_secret())
-                .then(secret => {
-                    this._server_secret = secret;
-                    dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
-                    dbg.log1('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
-                    dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
-                        depth: 4
-                    }));
-                    millistamp = time_utils.millistamp();
-                    new_data.rebuild();
-                    dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
-                    this.data = new_data;
-                    this.emit('load');
-                    this.is_finished_initial_load = true;
-                    return this.data;
-                })
-                .catch(err => {
-                    dbg.error('SystemStore: load failed', err.stack || err);
-                    throw err;
-                });
+        return this._load_serial.surround(async () => {
+            try {
+                dbg.log3('SystemStore: loading ...');
+                let new_data = new SystemStoreData();
+                let millistamp = time_utils.millistamp();
+                await this._register_for_changes();
+                await this._read_data_from_db(new_data);
+                const secret = await os_utils.read_server_secret();
+                this._server_secret = secret;
+                dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
+                dbg.log1('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
+                dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
+                    depth: 4
+                }));
+                millistamp = time_utils.millistamp();
+                new_data.rebuild();
+                dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
+                this.data = new_data;
+                this.emit('load');
+                this.is_finished_initial_load = true;
+                return this.data;
+            } catch (err) {
+                dbg.error('SystemStore: load failed', err.stack || err);
+                throw err;
+            }
         });
     }
 
 
-    _register_for_changes() {
+    async _register_for_changes() {
         if (this.is_standalone) {
             dbg.log0('system_store is running in standalone mode. skip _register_for_changes');
             return;
@@ -503,12 +527,12 @@ class SystemStore extends EventEmitter {
         return mongo_client.instance().validate(col.name, item, warn);
     }
 
-    generate_id() {
-        return new mongodb.ObjectId();
+    new_system_store_id() {
+        return mongo_utils.new_object_id();
     }
 
-    make_system_id(id_str) {
-        return new mongodb.ObjectId(id_str);
+    parse_system_store_id(id_str) {
+        return mongo_utils.parse_object_id(id_str);
     }
 
     has_same_id(obj1, obj2) {
@@ -577,9 +601,14 @@ class SystemStore extends EventEmitter {
      *      systems: [123, 789],
      *   }
      * })
-     *
+     * 
+     * @param {Object} changes
+     * @property {Object} [insert]
+     * @property {Object} [update]
+     * @property {Object} [remove]
+     * 
      */
-    make_changes(changes) {
+    async make_changes(changes) {
         const bulk_per_collection = {};
         const now = new Date();
         dbg.log0('SystemStore.make_changes:', util.inspect(changes, {
@@ -600,96 +629,94 @@ class SystemStore extends EventEmitter {
             return bulk;
         };
 
-        return P.resolve(this.refresh())
-            .then(data => {
+        const data = await this.refresh();
 
-                _.each(changes.insert, (list, name) => {
-                    const col = get_collection(name);
-                    _.each(list, item => {
-                        this._check_schema(col, item);
-                        data.check_indexes(col, item);
-                        get_bulk(name).insert(item);
-                    });
-                });
-                _.each(changes.update, (list, name) => {
-                    const col = get_collection(name);
-                    _.each(list, item => {
-                        data.check_indexes(col, item);
-                        let updates = _.omit(item, '_id', '$find');
-                        let finds = item.$find || _.pick(item, '_id');
-                        if (_.isEmpty(updates)) return;
-                        let keys = _.keys(updates);
+        _.each(changes.insert, (list, name) => {
+            const col = get_collection(name);
+            _.each(list, item => {
+                this._check_schema(col, item);
+                data.check_indexes(col, item);
+                get_bulk(name).insert(item);
+            });
+        });
+        _.each(changes.update, (list, name) => {
+            const col = get_collection(name);
+            _.each(list, item => {
+                data.check_indexes(col, item);
+                let updates = _.omit(item, '_id', '$find');
+                let finds = item.$find || _.pick(item, '_id');
+                if (_.isEmpty(updates)) return;
+                let keys = _.keys(updates);
 
-                        if (_.first(keys)[0] === '$') {
-                            for (const key of keys) {
-                                // Validate that all update keys are mongo operators.
-                                if (!mongo_utils.mongo_operators.has(key)) {
-                                    throw new Error(`SystemStore: make_changes invalid mix of operators and bare value: ${key}`);
-                                }
-
-                                // Delete operators with empty value to comply with
-                                // mongo specification.
-                                if (_.isEmpty(updates[key])) {
-                                    delete updates[key];
-                                }
-                            }
-                        } else {
-                            updates = {
-                                $set: updates
-                            };
+                if (_.first(keys)[0] === '$') {
+                    for (const key of keys) {
+                        // Validate that all update keys are mongo operators.
+                        if (!mongo_utils.mongo_operators.has(key)) {
+                            throw new Error(`SystemStore: make_changes invalid mix of operators and bare value: ${key}`);
                         }
 
-                        // TODO how to _check_schema on update?
-                        // if (updates.$set) {
-                        //     this._check_schema(col, updates.$set, 'warn');
-                        // }
-                        get_bulk(name)
-                            .find(finds)
-                            .updateOne(updates);
-                    });
-                });
-                _.each(changes.remove, (list, name) => {
-                    get_collection(name);
-                    _.each(list, id => {
-                        get_bulk(name)
-                            .find({
-                                _id: id
-                            })
-                            .updateOne({
-                                $set: {
-                                    deleted: now
-                                }
-                            });
-                    });
-                });
-
-                _.each(changes.db_delete, (list, name) => {
-                    get_collection(name);
-                    _.each(list, id => {
-                        get_bulk(name)
-                            .find({
-                                _id: id,
-                                deleted: { $exists: true }
-                            })
-                            .removeOne();
-                    });
-                });
-
-                return P.all(_.map(bulk_per_collection,
-                    bulk => bulk.length && P.resolve(bulk.execute({ j: true }))));
-            })
-            .then(() => {
-                if (this.is_standalone) {
-                    return this.load();
+                        // Delete operators with empty value to comply with
+                        // mongo specification.
+                        if (_.isEmpty(updates[key])) {
+                            delete updates[key];
+                        }
+                    }
                 } else {
-                    // notify all the cluster (including myself) to reload
-                    return server_rpc.client.redirector.publish_to_cluster({
-                        method_api: 'server_inter_process_api',
-                        method_name: 'load_system_store',
-                        target: ''
-                    });
+                    updates = {
+                        $set: updates
+                    };
                 }
+
+                // TODO how to _check_schema on update?
+                // if (updates.$set) {
+                //     this._check_schema(col, updates.$set, 'warn');
+                // }
+                get_bulk(name)
+                    .find(finds)
+                    .updateOne(updates);
             });
+        });
+        _.each(changes.remove, (list, name) => {
+            get_collection(name);
+            _.each(list, id => {
+                get_bulk(name)
+                    .find({
+                        _id: id
+                    })
+                    .updateOne({
+                        $set: {
+                            deleted: now
+                        }
+                    });
+            });
+        });
+
+        _.each(changes.db_delete, (list, name) => {
+            get_collection(name);
+            _.each(list, id => {
+                get_bulk(name)
+                    .find({
+                        _id: id,
+                        deleted: { $exists: true }
+                    })
+                    .removeOne();
+            });
+        });
+
+        await Promise.all(Object.values(bulk_per_collection).map(
+            bulk => bulk.length && bulk.execute({ j: true })
+        ));
+
+        if (this.is_standalone) {
+            await this.load();
+        } else {
+            // notify all the cluster (including myself) to reload
+            await server_rpc.client.redirector.publish_to_cluster({
+                method_api: 'server_inter_process_api',
+                method_name: 'load_system_store',
+                target: ''
+            });
+        }
     }
 
     make_changes_in_background(changes) {
@@ -739,7 +766,7 @@ class SystemStore extends EventEmitter {
         };
         return collection.find(query, {
                 limit: Math.min(limit, 1000),
-                fields: {
+                projection: {
                     _id: 1,
                     deleted: 1
                 }
@@ -749,10 +776,11 @@ class SystemStore extends EventEmitter {
 
     count_total_docs(name) {
         const collection = mongo_client.instance().collection(name);
-        return collection.count({});
+        return collection.countDocuments({}); // maybe estimatedDocumentCount()
     }
 }
 
+SystemStore._instance = undefined;
 
 // EXPORTS
 exports.SystemStore = SystemStore;

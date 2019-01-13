@@ -161,6 +161,7 @@ class FuncStore {
 
 }
 
+FuncStore._instance = undefined;
 
 // EXPORTS
 exports.FuncStore = FuncStore;

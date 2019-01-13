@@ -47,6 +47,8 @@ module.exports = {
         // arrow function styling is not a real error but should be consistent
         'arrow-parens': ['error', 'as-needed'],
 
+        'brace-style': ['error', '1tbs', { allowSingleLine: true }],
+
         // maximum number of code paths in a function
         // TODO eslint complexity should be reduced to ~10 instead of 30
         'complexity': ['error', 35],
@@ -68,7 +70,7 @@ module.exports = {
         'max-depth': ['error', 5],
 
         // max classed per file
-        'max-classes-per-file': ['error', 5],
+        'max-classes-per-file': 'off',
 
         // max file length is 300 by default, we accept longer files
         'max-lines': ['error', 2000],
@@ -145,8 +147,6 @@ module.exports = {
         // instead of expression (foo = function() {})
         'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
 
-        'lines-between-class-members': ['error', 'always', { exceptAfterSingleLine: true }],
-
         // use only x|0 for int casting, but avoid other bitwise operators
         'no-bitwise': ['error', { int32Hint: true }],
 
@@ -221,6 +221,8 @@ module.exports = {
 
         // directive means 'use strict', we don't enforce lines around
         'lines-around-directive': 'off',
+        'lines-around-comment': 'off',
+        'lines-between-class-members': 'off',
 
         // we don't enforce comments to above/after the line, both work ok
         'line-comment-position': 'off',

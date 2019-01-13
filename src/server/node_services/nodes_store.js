@@ -162,8 +162,14 @@ class NodesStore {
     // queries //
     /////////////
 
-    find_nodes(query, options) {
-        return this._nodes.col().find(query, options)
+    /**
+     * 
+     * @param {Object} query 
+     * @param {number} [limit]
+     * @param {Object} [fields] 
+     */
+    find_nodes(query, limit, fields) {
+        return this._nodes.col().find(query, { limit, projection: fields })
             .toArray()
             .then(nodes => this._validate_all(nodes, 'warn'));
     }
@@ -186,11 +192,13 @@ class NodesStore {
     }
 
     count_total_nodes() {
-        return this._nodes.col().count({});
+        return this._nodes.col().countDocuments({}); // maybe estimatedDocumentCount()
     }
 
 }
 
+/** @type {NodesStore} */
+NodesStore._instance = undefined;
 
 // EXPORTS
 exports.NodesStore = NodesStore;

@@ -34,12 +34,9 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
     while (has_more) {
         const range = await find_next_range({ target_now, system_store });
         const update = range && await range_md_aggregator({ md_store, system_store, range });
-        dbg.log0('JAJA still in loop', update, range, delay);
         if (update) {
             await system_store.make_changes({ update });
-            dbg.log0('JAJA still in loop - after make changes');
             await P.delay(delay);
-            dbg.log0('JAJA still in loop - after delay');
         } else {
             has_more = false;
         }

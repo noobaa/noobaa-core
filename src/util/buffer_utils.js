@@ -1,15 +1,24 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('./promise');
 const stream = require('stream');
 
 const EMPTY_BUFFER = Buffer.allocUnsafeSlow(0);
 
+/**
+ * @param {Buffer} buf1
+ * @param {Buffer} buf2
+ * @returns {boolean}
+ */
 function eq(buf1, buf2) {
     return buf1 ? buf1.equals(buf2) : !buf2;
 }
 
+/**
+ * @param {Buffer} buf1
+ * @param {Buffer} buf2
+ * @returns {boolean}
+ */
 function neq(buf1, buf2) {
     return !eq(buf1, buf2);
 }
@@ -20,8 +29,8 @@ function neq(buf1, buf2) {
  * In that case we simply return that buffer and avoid a memory copy
  * that concat will always make.
  *
- * @param {[Buffer]} buffers list of buffers to join
- * @param {Number} total_length number of bytes to pass to concat
+ * @param {Buffer[]} buffers list of buffers to join
+ * @param {Number} [total_length] number of bytes to pass to concat
  * @returns {Buffer} concatenated buffer
  */
 function join(buffers, total_length) {
@@ -33,9 +42,9 @@ function join(buffers, total_length) {
  * extract() is like Buffer.slice() but for array of buffers
  * Removes len bytes from the beginning of the array, or less if not available
  *
- * @param {[Buffer]} buffers array of buffers to update
+ * @param {Buffer[]} buffers array of buffers to update
  * @param {Number} len number of bytes to extract
- * @returns {[Buffer]} array of buffers with total length of len or less
+ * @returns {Buffer[]} array of buffers with total length of len or less
  */
 function extract(buffers, len) {
     const res = [];
@@ -55,31 +64,49 @@ function extract(buffers, len) {
     return res;
 }
 
+/**
+ * @param {Buffer[]} buffers
+ * @param {number} len
+ * @returns {Buffer}
+ */
 function extract_join(buffers, len) {
     return join(extract(buffers, len), len);
 }
 
-function read_stream(readable) {
+/**
+ * @param {stream.Readable} readable
+ * @returns {Promise<{ buffers:Buffer[], total_length:number }>}
+ */
+async function read_stream(readable) {
     const res = {
         buffers: [],
         total_length: 0,
     };
-    return new P((resolve, reject) => readable
-            .on('data', data => {
-                res.buffers.push(data);
-                res.total_length += data.length;
-            })
-            .once('error', reject)
-            .once('end', resolve)
-        )
-        .return(res);
+    await new Promise((resolve, reject) =>
+        readable
+        .on('data', data => {
+            res.buffers.push(data);
+            res.total_length += data.length;
+        })
+        .once('error', reject)
+        .once('end', resolve)
+    );
+    return res;
 }
 
-function read_stream_join(readable) {
-    return read_stream(readable)
-        .then(res => join(res.buffers, res.total_length));
+/**
+ * @param {stream.Readable} readable
+ * @returns {Promise<Buffer>}
+ */
+async function read_stream_join(readable) {
+    const res = await read_stream(readable);
+    return join(res.buffers, res.total_length);
 }
 
+/**
+ * @param {Buffer} buf
+ * @returns {stream.Readable}
+ */
 function buffer_to_read_stream(buf) {
     return new stream.Readable({
         read(size) {
@@ -89,19 +116,32 @@ function buffer_to_read_stream(buf) {
     });
 }
 
+class WritableBuffers extends stream.Writable {
+
+    constructor() {
+        super();
+        /** @type {Buffer[]} */
+        this.buffers = [];
+        this.total_length = 0;
+    }
+
+    _write(data, encoding, callback) {
+        this.buffers.push(data);
+        this.total_length += data.length;
+        callback();
+    }
+}
+/**
+ * @returns {WritableBuffers}
+ */
 function write_stream() {
-    const writable = new stream.Writable({
-        write(data, encoding, callback) {
-            this.buffers.push(data);
-            this.total_length += data.length;
-            callback();
-        }
-    });
-    writable.buffers = [];
-    writable.total_length = 0;
-    return writable;
+    return new WritableBuffers();
 }
 
+/**
+ * @param {Buffer[]} buffers
+ * @returns {number}
+ */
 function count_length(buffers) {
     var l = 0;
     for (var i = 0; i < buffers.length; ++i) {

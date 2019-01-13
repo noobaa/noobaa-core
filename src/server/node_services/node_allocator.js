@@ -15,11 +15,38 @@ const auth_server = require('../common_services/auth_server');
 
 const ALLOC_REFRESH_MS = 10000;
 
+const report_error_on_node_alloc_symbol = Symbol('report_error_on_node_alloc_symbol');
+const nodes_alloc_round_robin_symbol = Symbol('nodes_alloc_round_robin_symbol');
+
+/**
+ * @typedef {Object} PoolAllocGroup
+ * @property {number} last_refresh
+ * @property {Promise|P} promise
+ * @property {nb.NodeAPI[]} nodes
+ * @property {{nodes:nb.NodeAPI[]}[]} latency_groups
+ * 
+ * @typedef {Object} PoolSetAllocGroup
+ * @property {{nodes:nb.NodeAPI[]}[]} latency_groups
+ * 
+ * @typedef {Object} TieringAllocGroup
+ * @property {number} last_refresh
+ * @property {Promise|P} promise
+ * @property {{ [tier_id: string]: nb.MirrorStatus[] }} mirrors_storage_by_tier_id
+ * 
+ */
+
+/** @type {{ [pool_id: string]: PoolAllocGroup }} */
 let alloc_group_by_pool = {};
+/** @type {{ [pool_set: string]: PoolSetAllocGroup }} */
 let alloc_group_by_pool_set = {};
+/** @type {{ [tiering_id: string]: TieringAllocGroup }} */
 let alloc_group_by_tiering = {};
 
-
+/**
+ * @param {nb.Tiering} tiering 
+ * @param {'force'} [force]
+ * @returns {Promise<void>}
+ */
 async function refresh_tiering_alloc(tiering, force) {
     const pools = _.flatMap(tiering.tiers, ({ tier }) => {
         let tier_pools = [];
@@ -37,20 +64,28 @@ async function refresh_tiering_alloc(tiering, force) {
             })
         });
     }
-    return P.join(
-        P.map(pools, pool => refresh_pool_alloc(pool, force)),
+    await P.join(
+        P.map(pools, pool => refresh_pool_alloc(pool, force)).then(() => { /*void*/ }),
         refresh_tiers_alloc(tiering, force),
     );
 }
 
-function refresh_pool_alloc(pool, force) {
-    let group = alloc_group_by_pool[pool._id];
+/**
+ * @param {nb.Pool} pool 
+ * @param {'force'} [force]
+ * @returns {Promise<void>}
+ */
+async function refresh_pool_alloc(pool, force) {
+    const pool_id_str = pool._id.toHexString();
+    let group = alloc_group_by_pool[pool_id_str];
     if (!group) {
         group = {
+            promise: undefined,
             last_refresh: 0,
             nodes: [],
+            latency_groups: undefined,
         };
-        alloc_group_by_pool[pool._id] = group;
+        alloc_group_by_pool[pool_id_str] = group;
     }
 
     dbg.log2('refresh_pool_alloc: checking pool', pool._id, 'group', group);
@@ -58,7 +93,7 @@ function refresh_pool_alloc(pool, force) {
     if (force !== 'force') {
         // cache the nodes for some time before refreshing
         if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
-            return P.resolve();
+            return;
         }
     }
 
@@ -88,15 +123,21 @@ function refresh_pool_alloc(pool, force) {
 }
 
 
-function refresh_tiers_alloc(tiering, force) {
-
-    let group = alloc_group_by_tiering[tiering._id];
+/**
+ * @param {nb.Tiering} tiering 
+ * @param {'force'} [force]
+ * @returns {Promise<void>}
+ */
+async function refresh_tiers_alloc(tiering, force) {
+    const tiering_id_str = tiering._id.toHexString();
+    let group = alloc_group_by_tiering[tiering_id_str];
     if (!group) {
         group = {
+            promise: undefined,
             last_refresh: 0,
-            mirrors_storage_by_tier_id: {}
+            mirrors_storage_by_tier_id: {},
         };
-        alloc_group_by_tiering[tiering._id] = group;
+        alloc_group_by_tiering[tiering_id_str] = group;
     }
 
     dbg.log1('refresh_tier_alloc: checking tiering', tiering._id, 'group', group);
@@ -104,7 +145,7 @@ function refresh_tiers_alloc(tiering, force) {
     if (force !== 'force') {
         // cache the nodes for some time before refreshing
         if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
-            return P.resolve();
+            return;
         }
     }
 
@@ -127,10 +168,18 @@ function refresh_tiers_alloc(tiering, force) {
     return group.promise;
 }
 
-
+/**
+ * @param {nb.Tiering} tiering 
+ * @returns {nb.TieringStatus}
+ */
 function get_tiering_status(tiering) {
-    let tiering_status_by_tier = {};
+    /** @type {nb.TieringStatus} */
+    const tiering_status_by_tier = {};
+    const tiering_id_str = tiering._id.toHexString();
+    const alloc_group = alloc_group_by_tiering[tiering_id_str];
     _.each(tiering.tiers, ({ tier }) => {
+        const tier_id_str = tier._id.toHexString();
+        const mirrors_storage = alloc_group && alloc_group.mirrors_storage_by_tier_id[tier_id_str];
         let tier_pools = [];
         // Inside the Tier, pools are unique and we don't need to filter afterwards
         _.each(tier.mirrors, mirror_object => {
@@ -139,16 +188,22 @@ function get_tiering_status(tiering) {
 
         const ccc = _.get(tier, 'chunk_config.chunk_coder_config');
         const required_valid_nodes = ccc ? (ccc.data_frags + ccc.parity_frags) * ccc.replicas : config.NODES_MIN_COUNT;
-        tiering_status_by_tier[tier._id] = {
+        tiering_status_by_tier[tier_id_str] = {
             pools: _get_tier_pools_status(tier_pools, required_valid_nodes),
-            mirrors_storage: _.get(alloc_group_by_tiering, `${tiering._id}.mirrors_storage_by_tier_id.${tier._id}`),
+            mirrors_storage,
         };
     });
     return tiering_status_by_tier;
 }
 
+/**
+ * @param {nb.Pool[]} pools
+ * @param {number} required_valid_nodes
+ * @returns {nb.PoolsStatus}
+ */
 function _get_tier_pools_status(pools, required_valid_nodes) {
-    let pools_status_by_id = {};
+    /** @type {nb.PoolsStatus} */
+    const pools_status_by_id = {};
     _.each(pools, pool => {
         let valid_for_allocation = true;
         let alloc_group = alloc_group_by_pool[String(pool._id)];
@@ -164,7 +219,7 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
         } else if (num_nodes < required_valid_nodes) {
             valid_for_allocation = false;
         }
-        pools_status_by_id[pool._id] = {
+        pools_status_by_id[pool._id.toHexString()] = {
             valid_for_allocation,
             num_nodes,
             resource_type: pool.resource_type
@@ -176,13 +231,12 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
 
 
 /**
- *
- * allocate_node
- *
- * @param avoid_nodes array of node ids to avoid
- *
+ * @param {nb.Pool[]} pools
+ * @param {string[]} avoid_nodes array of node ids to avoid
+ * @param {string[]} allocated_hosts array of node ids to avoid
+ * @returns {nb.NodeAPI}
  */
-function allocate_node(pools, avoid_nodes, allocated_hosts) {
+function allocate_node(pools = [], avoid_nodes, allocated_hosts) {
     let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
     let alloc_group = alloc_group_by_pool_set[pool_set];
 
@@ -198,7 +252,7 @@ function allocate_node(pools, avoid_nodes, allocated_hosts) {
         // Since we will merge the two groups we will eventually have two average groups
         // This is bad since we will have two groups with each having fast and slow drives
         pools.forEach(pool => {
-            let group = alloc_group_by_pool[pool._id];
+            let group = alloc_group_by_pool[pool._id.toHexString()];
             if (group && group.latency_groups) {
                 group.latency_groups.forEach((value, index) => {
                     if (pools_latency_groups[index]) {
@@ -250,11 +304,17 @@ function allocate_node(pools, avoid_nodes, allocated_hosts) {
 }
 
 
+/**
+ * @param {nb.NodeAPI[]} nodes
+ * @param {string[]} avoid_nodes array of node ids to avoid
+ * @param {string[]} allocated_hosts array of node ids to avoid
+ * @param {Object} options
+ */
 function allocate_from_list(nodes, avoid_nodes, allocated_hosts, options) {
     for (var i = 0; i < nodes.length; ++i) {
         var node = get_round_robin(nodes);
         if (Boolean(options.use_nodes_with_errors) ===
-            Boolean(node.report_error_on_node_alloc) &&
+            Boolean(node[report_error_on_node_alloc_symbol]) &&
             !_.includes(avoid_nodes, String(node._id)) &&
             (!_.includes(allocated_hosts, node.host_id) || !options.unique_hosts)) {
             dbg.log1('allocate_node: allocated node', node.name,
@@ -264,20 +324,25 @@ function allocate_from_list(nodes, avoid_nodes, allocated_hosts, options) {
     }
 }
 
+/**
+ * @param {nb.NodeAPI[]} nodes
+ * @returns {nb.NodeAPI}
+ */
 function get_round_robin(nodes) {
-    var rr = (nodes.rr || 0) % nodes.length;
-    nodes.rr = rr + 1;
+    var rr = (nodes[nodes_alloc_round_robin_symbol] || 0) % nodes.length;
+    nodes[nodes_alloc_round_robin_symbol] = rr + 1;
     return nodes[rr];
 }
 
 /**
  * find the node in the memory groups and mark the error time
+ * @param {nb.ID} node_id
  */
 function report_error_on_node_alloc(node_id) {
     _.each(alloc_group_by_pool, (group, pool_id) => {
         _.each(group.nodes, node => {
             if (String(node._id) === String(node_id)) {
-                node.report_error_on_node_alloc = new Date();
+                node[report_error_on_node_alloc_symbol] = new Date();
             }
         });
     });

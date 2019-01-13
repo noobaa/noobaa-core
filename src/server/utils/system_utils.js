@@ -22,7 +22,6 @@ function system_in_maintenance(system_id) {
 }
 
 
-
 // returns the percent of quota used by the bucket
 function get_bucket_quota_usage_percent(bucket, bucket_quota) {
     if (!bucket_quota) return 0;
@@ -33,15 +32,6 @@ function get_bucket_quota_usage_percent(bucket, bucket_quota) {
     return used_percent.valueOf();
 }
 
-function prepare_chunk_for_mapping(chunk) {
-    if (chunk.tier && !chunk.tier.chunk_config) {
-        chunk.tier = system_store.data.get_by_id(chunk.tier);
-    }
-    if (!chunk.chunk_coder_config) {
-        chunk.chunk_coder_config = system_store.data.get_by_id(chunk.chunk_config).chunk_coder_config;
-    }
-}
 
 exports.system_in_maintenance = system_in_maintenance;
 exports.get_bucket_quota_usage_percent = get_bucket_quota_usage_percent;
-exports.prepare_chunk_for_mapping = prepare_chunk_for_mapping;

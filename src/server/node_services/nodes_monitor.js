@@ -300,7 +300,6 @@ class NodesMonitor extends EventEmitter {
                 .timeout(AGENT_RESPONSE_TIMEOUT);
             if (info.storage) {
                 item.node.storage = info.storage;
-                dbg.log0('JAJA storage_info from', item.node.name, 'info:', info);
                 this._set_need_update.add(item);
                 this._update_status(item);
             }
@@ -706,9 +705,7 @@ class NodesMonitor extends EventEmitter {
         }
         dbg.log0('_load_from_store ...');
         return P.resolve()
-            .then(() => NodesStore.instance().find_nodes({
-                deleted: null
-            }))
+            .then(() => NodesStore.instance().find_nodes({ deleted: null }))
             .then(nodes => {
                 if (!this._started) return;
                 this._clear();

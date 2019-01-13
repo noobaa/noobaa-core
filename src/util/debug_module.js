@@ -7,7 +7,7 @@
   performing the actuall logic and calls to rotating file stream.
 */
 /* eslint-disable global-require */
-"use strict";
+'use strict';
 
 /*
  *
@@ -43,6 +43,12 @@ function _should_log_to_file() {
     if (global.document) return false;
     return true;
 }
+
+// override the default inspect options
+util.inspect.defaultOptions.depth = 10;
+util.inspect.defaultOptions.colors = true;
+util.inspect.defaultOptions.breakLength = Infinity;
+
 
 //Detect our context, node/atom/browser
 //Different context requires different handling, for example rotating file steam usage or console wrapping
@@ -213,7 +219,7 @@ class InternalDebugLogger {
 
 
         // if not logging to syslog add a file transport
-        if (!syslog) {
+        if (!syslog && syslog) { // TODO GUYM UNDO
             const suffix = DEV_MODE ? `_${process.argv[1].split('/').slice(-1)[0]}` : '';
             const filename_generator = (time, index) => (`noobaa${suffix}${index ? `.${index}.log.gz` : '.log'}`);
             this._log_file = rfs(filename_generator, {
@@ -452,12 +458,6 @@ function DebugLogger(mod) {
     }
 }
 
-/*
- * Populate the logX and logX_withbt functions automatically
- */
-var log_func_name = "log";
-var i;
-
 function log_builder(idx, options) {
 
     /**
@@ -478,9 +478,6 @@ function log_builder(idx, options) {
             }
         }
     };
-}
-for (i = 0; i < 5; ++i) {
-    DebugLogger.prototype[log_func_name + i] = log_builder(i, { throttled: false });
 }
 
 function log_bt_builder(idx) {
@@ -503,9 +500,6 @@ function log_bt_builder(idx) {
         }
     };
 }
-for (i = 0; i < 5; ++i) {
-    DebugLogger.prototype[log_func_name + i + "_withbt"] = log_bt_builder(i);
-}
 
 /*
  * Populate syslog levels logging functions. i.e warn/info/error ...
@@ -526,17 +520,22 @@ function log_syslog_builder(syslevel) {
     };
 }
 
-if (console_wrapper) {
-    for (i = 0; i < console_wrapper.syslog_levels.length; ++i) {
-        DebugLogger.prototype[console_wrapper.syslog_levels[i]] =
-            log_syslog_builder(console_wrapper.syslog_levels[i]);
-    }
-} else {
-    var syslog_levels = ["trace", "log", "info", "error", "warn"];
-    for (i = 0; i < syslog_levels.length; ++i) {
-        DebugLogger.prototype[syslog_levels[i]] = log_syslog_builder(syslog_levels[i]);
-    }
-}
+DebugLogger.prototype.error = log_syslog_builder('error');
+DebugLogger.prototype.warn = log_syslog_builder('warn');
+DebugLogger.prototype.info = log_syslog_builder('info');
+DebugLogger.prototype.log = log_syslog_builder('log');
+DebugLogger.prototype.trace = log_syslog_builder('trace');
+DebugLogger.prototype.log0 = log_builder(0, { throttled: false });
+DebugLogger.prototype.log1 = log_builder(1, { throttled: false });
+DebugLogger.prototype.log2 = log_builder(2, { throttled: false });
+DebugLogger.prototype.log3 = log_builder(3, { throttled: false });
+DebugLogger.prototype.log4 = log_builder(4, { throttled: false });
+DebugLogger.prototype.log0_withbt = log_bt_builder(0);
+DebugLogger.prototype.log1_withbt = log_bt_builder(1);
+DebugLogger.prototype.log2_withbt = log_bt_builder(2);
+DebugLogger.prototype.log3_withbt = log_bt_builder(3);
+DebugLogger.prototype.log4_withbt = log_bt_builder(4);
+
 
 DebugLogger.prototype.set_level = function(level, mod) {
     if (typeof mod === 'undefined') {

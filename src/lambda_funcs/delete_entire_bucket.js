@@ -4,7 +4,7 @@
 /* sample event:
 {
     "bucket": "images",
-    "are_you_sure": true,
+    "are_you_sure": true
 }
 */
 
@@ -16,7 +16,7 @@ module.exports.handler = async function(event, context, callback) {
         const sure = event.are_you_sure === true;
 
         let truncated = true;
-        let marker;
+        let key_marker;
         let version_id_marker;
         let count = 0;
 
@@ -24,20 +24,30 @@ module.exports.handler = async function(event, context, callback) {
 
             const res = await s3.listObjectVersions({
                 Bucket: event.bucket,
-                Marker: marker,
+                KeyMarker: key_marker,
                 VersionIdMarker: version_id_marker
             }).promise();
 
-            const objs = res.Contents;
+            const list = [];
+            if (res.Versions) {
+                for (const it of res.Versions) {
+                    list.push({ Key: it.Key, VersionId: it.VersionId });
+                }
+            }
+            if (res.DeleteMarkers) {
+                for (const it of res.DeleteMarkers) {
+                    list.push({ Key: it.Key, VersionId: it.VersionId });
+                }
+            }
             truncated = res.IsTruncated;
-            marker = res.NextMarker;
+            key_marker = res.NextKeyMarker;
             version_id_marker = res.NextVersionIdMarker;
-            count += objs.length;
+            count += list.length;
 
-            if (sure && objs.length) {
+            if (sure && list.length) {
                 await s3.deleteObjects({
                     Bucket: event.bucket,
-                    Delete: { Objects: objs.map(o => ({ Key: o.Key, VersionId: o.VersionId })) }
+                    Delete: { Objects: list }
                 }).promise();
             }
         }

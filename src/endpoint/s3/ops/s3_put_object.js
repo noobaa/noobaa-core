@@ -15,7 +15,7 @@ async function put_object(req, res) {
     const copy_source = s3_utils.parse_copy_source(req);
 
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
-        req.headers['x-amz-copy-source'] || '');
+        req.headers['x-amz-copy-source'] || '', sse_c_params);
 
     const reply = await req.object_sdk.upload_object({
         bucket: req.params.bucket,

@@ -115,7 +115,9 @@ function read_drives() {
 }
 
 function get_raw_storage() {
-    if (os.type() === 'Linux') {
+    // on containered environments the disk name is not consistent, just return the root mount size.
+    //later on we want to change it to return the size of the perstistent volume mount
+    if (os.type() === 'Linux' && process.env.PLATFORM !== 'docker') {
         return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
             .then(res => _.find(res, function(disk) {
                 let expected_name = 'sda';

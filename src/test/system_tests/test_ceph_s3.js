@@ -243,7 +243,7 @@ const S3_CEPH_TEST_BLACKLIST = [
     's3tests.functional.test_s3.test_stress_bucket_acls_changes',
     's3tests.functional.test_s3.test_versioned_object_acl',
     's3tests.functional.test_s3.test_versioned_object_acl_no_version_specified',
-    's3tests.functional.test_s3_website.check_can_test_website',
+    's3tests.functional.test_headers.test_object_create_bad_contentlength_mismatch_above',
     's3tests.fuzz.test.test_fuzzer.test_load_graph',
     's3tests.functional.test_s3_website',
 ];

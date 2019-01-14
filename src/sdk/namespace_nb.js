@@ -5,7 +5,7 @@ const _ = require('lodash');
 
 // const P = require('../util/promise');
 const blob_translator = require('./blob_translator');
-const S3Error = require('../endpoint/s3/s3_errors');
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 
 class NamespaceNB {
@@ -122,7 +122,7 @@ class NamespaceNB {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         const upload_id = params.obj_id;
         const object_id_regex = RegExp(/^[0-9a-fA-F]{24}$/);
-        if (!params.upload_id || !object_id_regex.test(upload_id)) throw new S3Error(S3Error.NoSuchUpload);
+        if (!upload_id || !object_id_regex.test(upload_id)) throw new S3Error(S3Error.NoSuchUpload);
         return object_sdk.rpc_client.object.abort_object_upload(params);
     }
 

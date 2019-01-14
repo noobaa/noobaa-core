@@ -48,7 +48,7 @@ function format_http_header_date(date) {
  * @param {String} str
  */
 function parse_http_header_date(str) {
-    return !str || str === '' ? NaN : Date.parse(str);
+    return str ? Date.parse(str) : NaN;
 }
 
 /**
@@ -59,7 +59,7 @@ function parse_http_header_date(str) {
  * @param {String} str
  */
 function parse_amz_date(str) {
-    if (!str || str === '') return NaN;
+    if (!str) return NaN;
     const iso = `${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6, 11)}:${str.slice(11, 13)}:${str.slice(13)}`;
     return Date.parse(iso);
 }

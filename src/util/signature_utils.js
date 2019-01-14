@@ -255,6 +255,9 @@ function make_auth_token_from_request(req) {
         if (req.headers.authorization.startsWith('AWS ')) {
             return _authenticate_header_s3(req);
         }
+        // In cases where some clients send a presigned url with their added on autorization headers
+        // We do not want to fail the request and attempt to authenticate it below
+        // If we do not have any algorithm or signatures in the request then we handle the request as annonymous
         dbg.warn('Unrecognized Authorization Header:', req.headers.authorization);
     }
     if (req.query['X-Amz-Algorithm'] === 'AWS4-HMAC-SHA256') {

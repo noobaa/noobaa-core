@@ -63,18 +63,18 @@ function parse_sse_c(req) {
     };
 }
 
-function parse_sse(req) {
-    const sse_enc = req.headers['x-amz-server-side-encryption'];
-    const sse_key = req.headers['x-amz-server-side-encryption-aws-kms-key-id'];
+// function parse_sse(req) {
+//     const sse_enc = req.headers['x-amz-server-side-encryption'];
+//     const sse_key = req.headers['x-amz-server-side-encryption-aws-kms-key-id'];
 
-    if (!sse_enc) return;
+//     if (!sse_enc) return;
 
-    return {
-        key_md5: _parse_sse_key_md5(sse_key_md5),
-        key: _parse_sse_key(sse_key),
-        sse_enc: _parse_sse_enc(sse_enc)
-    };
-}
+//     return {
+//         key_md5: _parse_sse_key_md5(sse_key_md5),
+//         key: _parse_sse_key(sse_key),
+//         sse_enc: _parse_sse_enc(sse_enc)
+//     };
+// }
 
 
 function _parse_sse_c_key_md5(md5) {
@@ -97,11 +97,11 @@ function _parse_sse_c_algo(sse_c_algo) {
     return sse_c_algo;
 }
 
-function _parse_sse_enc(sse_enc) {
-    // TODO: More suitable error and better check
-    if (sse_enc === '' || (sse_enc !== 'AES256' && sse_enc !== 'aws:kms')) throw new S3Error(S3Error.InvalidDigest);
-    return sse_enc;
-}
+// function _parse_sse_enc(sse_enc) {
+//     // TODO: More suitable error and better check
+//     if (sse_enc === '' || (sse_enc !== 'AES256' && sse_enc !== 'aws:kms')) throw new S3Error(S3Error.InvalidDigest);
+//     return sse_enc;
+// }
 
 function parse_content_length(req) {
     const size = Number(req.headers['content-length']);

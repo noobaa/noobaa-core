@@ -197,6 +197,7 @@ function check_headers(req, res) {
         time_utils.parse_amz_date(req.headers['x-amz-date'] || req.query['X-Amz-Date']) ||
         time_utils.parse_http_header_date(req.headers.date);
 
+    // In case of presigned urls we shouldn't fail on non provided time.
     if (req_time < 0 || (isNaN(req_time) && !req.query['Expires'])) {
         throw new S3Error(S3Error.AccessDenied);
     }

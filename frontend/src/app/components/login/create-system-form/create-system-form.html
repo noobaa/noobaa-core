@@ -54,20 +54,18 @@
                                 placeholder="e.g. XXXXXX-YYYYYY"
                                 ko.value="activationCode" />
 
-                            <button class="icon-btn no-outline"
+                            <button class="link alt-colors no-outline resend-btn"
                                 tabindex="-1"
                                 ko.tooltip="resendTooltip"
                                 ko.enable="email.isValid"
                                 ko.click="onResend"
                                 ko.event.mouseenter="onResendEnter"
                             >
-                                <svg-icon class="push-next"
-                                    params="name: 'envelope'"
-                                ></svg-icon>
+                                Resend
                             </button>
                         </div>
 
-                        <svg-icon class="spin push-prev-half"
+                        <svg-icon class="spin"
                             ko.visible="isActivationCodeSpinnerVisible"
                             params="name: 'in-progress'"
                         ></svg-icon>

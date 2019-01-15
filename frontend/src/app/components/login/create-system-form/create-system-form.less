@@ -48,10 +48,6 @@
         > input {
             padding-right: 4em;
         }
-
-        button {
-            margin-left: -4em;
-        }
     }
 
     .activation-code-remark {
@@ -63,7 +59,15 @@
         position: relative;
     }
 
-    .resend-button:disabled {
-        color: @color18;
+    .resend-btn {
+        line-height: 36px;
+        margin-left: -5em;
+        border-left: 1px solid #88898a;
+        padding-left: 11px;
+
+        &:disabled {
+            color: @color6;
+            opacity: .25;
+        }
     }
 }

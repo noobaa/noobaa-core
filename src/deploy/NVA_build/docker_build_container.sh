@@ -1,4 +1,4 @@
 #!/bin/bash
-export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 # docker build -f ./src/deploy/NVA_build/Server.Dockerfile -t nbimage --rm --squash ./ || exit 1 # squash is an experimental feature
+#docker build --build-arg noobaa_rpm=./noobaa.rpm --build-arg install_script=./src/deploy/rpm/install_noobaa.sh -f ./src/deploy/NVA_build/Server.Dockerfile -t nbimage --rm ./
 docker build -f ./src/deploy/NVA_build/Server.Dockerfile -t nbimage --rm ./ || exit 1

@@ -26,9 +26,12 @@ VOLUME ["/sys/fs/cgroup"]
 ################
 # NOOBAA SETUP #
 ################
+
+ARG noobaa_rpm=./noobaa.rpm
+ARG install_script=./install_noobaa.sh
 ENV container docker
-COPY ./noobaa.rpm /tmp/noobaa.rpm
-COPY ./install_noobaa.sh /tmp/install_noobaa.sh
+COPY ${noobaa_rpm} /tmp/noobaa.rpm
+COPY ${install_script} /tmp/install_noobaa.sh
 RUN chmod +x /tmp/install_noobaa.sh
 RUN /bin/bash -xc "/tmp/install_noobaa.sh"
 

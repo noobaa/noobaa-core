@@ -1,33 +1,22 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: noobaa-mng-service
+  name: noobaa-services
   labels:
     app: noobaa
 spec:
-  type: NodePort
-  ports:
-  - port: 8080
-    targetPort: 8080
-    name: mng
-  selector:
-    app: noobaa
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: noobaa-s3-service
-  labels:
-    app: noobaa
-spec:
-  type: NodePort
+# LoadBalancer service will alocate an external ip automatically on public cloud providers (aws\azure\gcp, etc.)
+# for on premise kuberenets clusters there are 3rd party solutions that provide the same functionality. e.g: metalLB (https://metallb.universe.tf)
+# metalLB installs a controller in the cluster that handles LoadBalancer services and allocates an external ip
+# without a controller handling LoadBalancer service, it will be handled as a NodePort (can be accessed through the node ip and a random port allocated by kubernetes)
+  type: LoadBalancer
   ports:
   - port: 80
-    targetPort: 80
     name: s3
   - port: 443
-    targetPort: 443
     name: s3-https
+  - port: 8080
+    name: mng
   selector:
     app: noobaa
 ---
@@ -36,7 +25,7 @@ kind: StatefulSet
 metadata:
   name: noobaa
 spec:
-  serviceName: noobaa-mng-service
+  serviceName: noobaa-services
   replicas: 1
   template:
     metadata:
@@ -54,7 +43,7 @@ spec:
             cpu: "4"
         # change image location before running
         # image: [image registry]/[image]
-        image: 172.20.80.59:5000/nbimage
+        image: dannyzaken/nbimage
         ports:
         - containerPort: 80
         - containerPort: 443

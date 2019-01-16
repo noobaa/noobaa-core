@@ -111,6 +111,8 @@ if exist "%SIGNTOOL_PATH%" (
     "%SIGNTOOL_PATH%" sign /v /s my /t http://timestamp.comodoca.com /a %FINAL_SETUP_FILE_NAME% || exit 1
 )
 
+md5sum %FINAL_SETUP_FILE_NAME% | awk '{print $1}' > %FINAL_SETUP_FILE_NAME%.md5
+
 echo "%FINAL_SETUP_FILE_NAME% installer available under build\windows"
 
 cd ..\..

@@ -98,6 +98,7 @@ verbose mkdir dist
 verbose cp ../../src/deploy/Linux/setup.sh ./dist/
 verbose mv noobaa-installer ./dist/noobaa-installer
 verbose ../../src/deploy/makeself/makeself.sh ./dist noobaa-setup-$current_package_version $current_package_version ./setup.sh
+md5sum noobaa-setup-$current_package_version | awk '{print $1}' > noobaa-setup-${current_package_version}.md5
 verbose popd
 
 echo "Done: build/linux/noobaa-setup-$current_package_version"

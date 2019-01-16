@@ -457,7 +457,7 @@ async function copy_new_code() {
     await fs_utils.full_dir_copy(NEW_VERSION_DIR, CORE_DIR);
 }
 
-// make sure that all the file which are requiered by the new version (.env, etc.) are in the new dir
+// make sure that all the file which are required by the new version (.env, etc.) are in the new dir
 async function prepare_new_dir() {
     await _build_dotenv();
     await _create_packages_md5();
@@ -472,7 +472,7 @@ async function _build_dotenv() {
         _.pick(old_env, DOTENV_VARS_FROM_OLD_VER),
     );
 
-    dbg.log0('UPGRADE: genertaing .env file for new version:', new_env);
+    dbg.log0('UPGRADE: generating .env file for new version:', new_env);
 
     await fs.writeFileAsync(`${NEW_VERSION_DIR}/.env`, dotenv.stringify(new_env));
 }
@@ -815,7 +815,7 @@ async function set_upgrade_info(new_upgrade_info) {
     try {
         const upgrade_data = JSON.stringify(new_upgrade_info);
         await fs.writeFileAsync(UPGRADE_INFO_FILE_PATH, upgrade_data);
-        dbg.log0('UPGRADE: upgrade info updated successfuly with upgrade_info =', new_upgrade_info);
+        dbg.log0('UPGRADE: upgrade info updated successfully with upgrade_info =', new_upgrade_info);
     } catch (err) {
         dbg.error(`got unexpected error when writing upgrade info file ${UPGRADE_INFO_FILE_PATH}`, err);
     }

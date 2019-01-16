@@ -255,6 +255,64 @@ const S3_CEPH_TEST_STEMS = [
     's3tests.functional.test_s3_website.',
     's3tests.tests.test_realistic.',
 ];
+const S3_CEPH_TEST_SIGV4 = [
+    'check_can_test_multiregion',
+    'test_bucket_create_bad_amz_date_after_today_aws4',
+    'test_bucket_create_bad_amz_date_before_epoch_aws4',
+    'test_bucket_create_bad_amz_date_before_today_aws4',
+    'test_bucket_create_bad_amz_date_empty_aws4',
+    'test_bucket_create_bad_amz_date_invalid_aws4',
+    'test_bucket_create_bad_amz_date_none_aws4',
+    'test_bucket_create_bad_amz_date_unreadable_aws4',
+    'test_bucket_create_bad_authorization_invalid_aws4',
+    'test_bucket_create_bad_date_after_today_aws4',
+    'test_bucket_create_bad_date_before_epoch_aws4',
+    'test_bucket_create_bad_date_before_today_aws4',
+    'test_bucket_create_bad_date_empty_aws4',
+    'test_bucket_create_bad_date_invalid_aws4',
+    'test_bucket_create_bad_date_none_aws4',
+    'test_bucket_create_bad_date_unreadable_aws4',
+    'test_bucket_create_bad_ua_empty_aws4',
+    'test_bucket_create_bad_ua_none_aws4',
+    'test_bucket_create_bad_ua_unreadable_aws4',
+    'test_object_create_bad_amz_date_after_end_aws4',
+    'test_object_create_bad_amz_date_after_today_aws4',
+    'test_object_create_bad_amz_date_before_epoch_aws4',
+    'test_object_create_bad_amz_date_before_today_aws4',
+    'test_object_create_bad_amz_date_empty_aws4',
+    'test_object_create_bad_amz_date_invalid_aws4',
+    'test_object_create_bad_amz_date_none_aws4',
+    'test_object_create_bad_amz_date_unreadable_aws4',
+    'test_object_create_bad_authorization_incorrect_aws4',
+    'test_object_create_bad_authorization_invalid_aws4',
+    'test_object_create_bad_contentlength_mismatch_below_aws4',
+    'test_object_create_bad_date_after_end_aws4',
+    'test_object_create_bad_date_after_today_aws4',
+    'test_object_create_bad_date_before_epoch_aws4',
+    'test_object_create_bad_date_before_today_aws4',
+    'test_object_create_bad_date_empty_aws4',
+    'test_object_create_bad_date_invalid_aws4',
+    'test_object_create_bad_date_none_aws4',
+    'test_object_create_bad_date_unreadable_aws4',
+    'test_object_create_bad_md5_invalid_garbage_aws4',
+    'test_object_create_bad_ua_empty_aws4',
+    'test_object_create_bad_ua_none_aws4',
+    'test_object_create_bad_ua_unreadable_aws4',
+    'test_object_create_missing_signed_custom_header_aws4',
+    'test_object_create_missing_signed_header_aws4',
+    'test_object_raw_get_x_amz_expires_not_expired',
+    'test_object_raw_get_x_amz_expires_out_max_range',
+    'test_object_raw_get_x_amz_expires_out_positive_range',
+    'test_object_raw_get_x_amz_expires_out_range_zero',
+    'test_region_bucket_create_master_access_remove_secondary',
+    'test_region_bucket_create_secondary_access_remove_master',
+    'test_region_copy_object',
+    'test_sse_kms_barb_transfer_13b',
+    'test_sse_kms_barb_transfer_1b',
+    'test_sse_kms_barb_transfer_1kb',
+    'test_sse_kms_barb_transfer_1MB'
+];
+
 const S3_CEPH_TEST_STEMS_REGEXP = new RegExp(`(${S3_CEPH_TEST_STEMS.join(')|(')})`);
 
 /*// s3tests.tests.test_realistic:TestFileValidator.test_new_file_is_valid
@@ -285,7 +343,11 @@ async function deploy_ceph() {
 }
 
 async function run_single_test(test) {
-    const base_cmd = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests`;
+    let ceph_args = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`;
+    if (S3_CEPH_TEST_SIGV4.includes(test)) {
+        ceph_args += ` S3_USE_SIGV4=true`;
+    }
+    const base_cmd = `${ceph_args} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests`;
     let res;
     let test_name;
     //Check if test should run
@@ -351,8 +413,8 @@ async function run_test() {
     try {
         await deploy_ceph();
     } catch (err) {
-        console.error('Failed deplying ceph tests', err);
-        throw new Error('Failed deplying ceph tests');
+        console.error('Failed deploying ceph tests', err);
+        throw new Error('Failed deploying ceph tests');
     }
 
     let system_info = await client.system.read_system();

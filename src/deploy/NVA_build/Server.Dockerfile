@@ -2,12 +2,6 @@ FROM centos:7
 
 MAINTAINER Jenia The Sloth <jeniawhite92@gmail.com>
 
-##############
-# BASH SETUP #
-##############
-RUN echo '. /etc/profile' >> ~/.bashrc
-
-
 #################
 # SYSTEMD SETUP #
 #################

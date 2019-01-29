@@ -8,29 +8,31 @@
     onValidateAsync: onValidateAsync,
     onSubmit: onSubmit
 ">
-    <editor params="label: 'Connection Name'">
-        <input type="text"
-            placeholder="Enter name"
-            ko.value="$form.connectionName",
-            ko.hasFocus="true"
-            ko.validationCss="$form.connectionName"
-        />
-        <validation-message params="field: $form.connectionName"></validation-message>
-    </editor>
+    <div class="column greedy pad">
+        <editor params="label: 'Connection Name'">
+            <input type="text"
+                placeholder="Enter name"
+                ko.value="$form.connectionName",
+                ko.hasFocus="true"
+                ko.validationCss="$form.connectionName"
+            />
+            <validation-message params="field: $form.connectionName"></validation-message>
+        </editor>
 
-    <editor params="label: 'Service'">
-        <dropdown params="
-            options: serviceOptions,
-            selected: $form.service,
-            disabled: $form.isValidating
-        "></dropdown>
-    </editor>
+        <editor params="label: 'Service'">
+            <dropdown params="
+                options: serviceOptions,
+                selected: $form.service,
+                disabled: $form.isValidating
+            "></dropdown>
+        </editor>
 
-    <!-- ko with: subTemplate -->
-    <!-- ko template: { html: $data, data: $parent } --><!-- /ko -->
-    <!-- /ko -->
+        <!-- ko with: subTemplate -->
+        <!-- ko template: { html: $data, data: $parent } --><!-- /ko -->
+        <!-- /ko -->
+    </div>
 
-    <div class="row content-middle push-prev">
+    <div class="row content-middle pad content-box">
         <div class="greedy">
             <p class="row content-middle error" ko.visible="globalError">
                 Somthing went wrong

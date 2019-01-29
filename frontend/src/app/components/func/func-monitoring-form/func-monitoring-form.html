@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row content-middle pad alt-bg">
+<div class="row content-middle pad card-shadow">
     <h2 class="heading3 greedy push-next">
         Function Statistics
     </h2>
@@ -18,13 +18,13 @@
         <div class="row push-both">
             <counter class="push-next" params="
                 label: 'Total Successes',
-                color: style['color12'],
+                color: 'rgb(var(--color21))',
                 value: totalFulfilled,
                 format: 'number'
             "></counter>
             <counter class="push-prev" params="
                 label: 'Total Errors',
-                color: style['color10'],
+                color: 'rgb(var(--color19))',
                 value: totalRejected,
                 format: 'number'
             "></counter>
@@ -44,19 +44,19 @@
             <div class="row content-middle greedy">
                 <counter class="push-next" params="
                     label: 'Precentile',
-                    color: style['color8'],
+                    color: 'rgb(var(--color6))',
                     value: '99th',
                     tween: false
                 "></counter>
                 <counter class="push-both" params="
                     label: 'Precentile',
-                    color: style['color16'],
+                    color: 'rgb(var(--color28))',
                     value: '90th',
                     tween: false
                 "></counter>
                 <counter class="push-prev" params="
                     label: 'Precentile',
-                    color: style['color6'],
+                    color: 'rgb(var(--color9))',
                     value: '50th',
                     tween: false
                 "></counter>

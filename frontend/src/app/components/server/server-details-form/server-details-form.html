@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="column">
-    <div class="row content-middle pad alt-bg">
+    <div class="row content-middle pad card-shadow">
         <h2 class="greedy heading3  push-next">
             Server Details
         </h2>
@@ -26,9 +26,9 @@
         </template>
     </property-sheet>
 </section>
-
+<hr>
 <section class="column server-monitor" ko.css.disabled="!isConnected()">
-    <h2 class="heading3 pad alt-bg">
+    <h2 class="heading3 pad card-shadow">
         Services Monitoring
     </h2>
 
@@ -44,7 +44,7 @@
             <span ko.visible="!$component.isConnected()">Not Available</span>
         </li>
 
-        <li class="row push-next" ko.with="serverTime">
+        <li class="row content-middle push-next" ko.with="serverTime">
             <svg-icon class="push-next"
                 params="name: icon().name"
                 ko.css="icon().css"
@@ -69,7 +69,7 @@
             </button>
         </li>
 
-        <li class="row push-next" ko.with="dnsServers">
+        <li class="row content-middle push-next" ko.with="dnsServers">
             <svg-icon class="push-next"
                 params="name: icon().name"
                 ko.css="icon().css"
@@ -95,7 +95,7 @@
             </button>
         </li>
 
-        <li class="row push-next" ko.with="dnsName">
+        <li class="row content-middle push-next" ko.with="dnsName">
             <svg-icon class="push-next"
                 params="name: icon().name"
                 ko.css="icon().css"
@@ -107,13 +107,13 @@
             <span class="push-both">|</span>
             <a class="link"
                 ko.attr.href="configurationHref"
-                ko.disable="!$component.isConnected()"
+                ko.css.disabled="!$component.isConnected()"
             >
                 Go to configuration
             </a>
         </li>
 
-        <li class="row push-next" ko.with="remoteSyslog">
+        <li class="row content-middle push-next" ko.with="remoteSyslog">
             <svg-icon class="push-next"
                 params="name: icon().name"
                 ko.css="icon().css"
@@ -138,13 +138,13 @@
             <span class="push-both">|</span>
             <a class="link"
                 ko.attr.href="configurationHref"
-                ko.disable="!$component.isConnected()"
+                ko.css.disabled="!$component.isConnected()"
             >
                 Go to configuration
             </a>
         </li>
 
-        <li class="row push-next" ko.with="phoneHome">
+        <li class="row content-middle push-next" ko.with="phoneHome">
             <svg-icon class="push-next"
                 params="name: icon().name"
                 ko.css="icon().css"
@@ -164,7 +164,7 @@
             <span class="push-both">|</span>
             <a class="link"
                 ko.attr.href="configurationHref"
-                ko.disable="!$component.isConnected()"
+                ko.css.disabled="!$component.isConnected()"
             >
                 Go to configuration
             </a>

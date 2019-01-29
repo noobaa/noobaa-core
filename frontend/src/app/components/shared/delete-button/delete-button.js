@@ -29,7 +29,7 @@ class DeleteButtonViewModel {
             if (this.isActive()) return;
             const naked = ko.unwrap(tooltip);
 
-            if (naked === null) {
+            if (naked == null) {
                 return {
                     align: 'end',
                     text: ko.unwrap(text)

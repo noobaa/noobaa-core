@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 breadcrumbs {
-    color: @color6;
+    color: rgb(var(--color8));
     font-size: @font-size4;
 
     nav {
@@ -9,7 +9,6 @@ breadcrumbs {
     }
 
     .crumb {
-        .no-outline();
         position: relative;
         display: block;
         margin-right: 2 * @gutter;
@@ -41,20 +40,11 @@ breadcrumbs {
             top: 4px;
             right: -5/4 * @gutter - 1px;
             border-width: @gutter/2 - 4px;
-            border-left-color: @color1;
+            border-left-color: rgb(var(--color2));
         }
 
         &::before {
-            border-left-color: @color8;
-        }
-    }
-
-    .seperator {
-        fill: @color8;
-        margin: 0 @gutter/2;
-
-        &:first-child {
-            display: none;
+            border-left-color: rgb(var(--color6));
         }
     }
 }

@@ -7,8 +7,8 @@ import moment from 'moment';
 import numeral from 'numeral';
 import { deepFreeze, equalItems } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { hexToRgb } from 'utils/color-utils';
-import style from 'style';
+import { colorToRgb, rgbToColor } from 'utils/color-utils';
+import themes from 'themes';
 import {
     requestLocation,
     fetchLambdaFuncUsageHistory,
@@ -46,18 +46,6 @@ const durationMeta = deepFreeze({
     }
 });
 
-const commonLineDatasetSettings = deepFreeze({
-    pointRadius: 0,
-    pointBorderWidth: 0,
-    pointHitRadius: 10,
-    pointBorderColor: hexToRgb(style['color6'], 0.2),
-    pointHoverBorderColor: 'transparent',
-    borderJoinStyle: 'round',
-    lineTension: 0,
-    fill: false,
-    backgroundColor: 'transparent'
-});
-
 function _formatMiliseconds(t) {
     return `${numeral(t).format(',')} ms`;
 }
@@ -80,7 +68,6 @@ function _reduceDataSets(slices) {
 }
 
 class FuncMonitoringFormViewModel extends ConnectableViewModel {
-    style = style;
     dataReady = ko.observable();
     formatMiliseconds = _formatMiliseconds;
     pathname = '';
@@ -181,16 +168,17 @@ class FuncMonitoringFormViewModel extends ConnectableViewModel {
 
     selectState(state, params) {
         const { funcName, funcVersion } = params;
-        const { lambdaUsageHistory, location } = state;
+        const { lambdaUsageHistory, location, session } = state;
         return [
             funcName,
             funcVersion,
             lambdaUsageHistory.data,
-            location
+            location,
+            themes[session.uiTheme]
         ];
     }
 
-    mapStateToProps(funcName, funcVersion, usageHistory, location) {
+    mapStateToProps(funcName, funcVersion, usageHistory, location, theme) {
         const { pathname, query, refreshCount } = location;
         const selectedDuration = query.duration || this.durationOptions[0].value;
         const fetchKey = [funcName, funcVersion, selectedDuration, refreshCount];
@@ -211,6 +199,17 @@ class FuncMonitoringFormViewModel extends ConnectableViewModel {
             const { tickFormat } = durationMeta[selectedDuration];
             const { stats, slices } = usageHistory;
             const datasets = _reduceDataSets(slices);
+            const commonLineDatasetSettings = {
+                pointRadius: 3,
+                pointBorderWidth: 4,
+                pointHitRadius: 10,
+                pointBorderColor: colorToRgb(...rgbToColor(theme.color10), .2),
+                pointHoverBorderColor: 'transparent',
+                borderJoinStyle: 'round',
+                lineTension: 0,
+                fill: false,
+                backgroundColor: 'transparent'
+            };
 
             ko.assignToProps(this, {
                 dataReady: false,
@@ -229,20 +228,20 @@ class FuncMonitoringFormViewModel extends ConnectableViewModel {
                         datasets:[
                             {
                                 ...commonLineDatasetSettings,
-                                pointBackgroundColor: style['color8'],
-                                borderColor: style['color8'],
+                                pointBackgroundColor: theme.color6,
+                                borderColor: theme.color6,
                                 data: datasets.pre99
                             },
                             {
                                 ...commonLineDatasetSettings,
-                                pointBackgroundColor: style['color16'],
-                                borderColor: style['color16'],
+                                pointBackgroundColor: theme.color28,
+                                borderColor: theme.color28,
                                 data: datasets.pre90
                             },
                             {
                                 ...commonLineDatasetSettings,
-                                pointBackgroundColor: style['color6'],
-                                borderColor: style['color6'],
+                                pointBackgroundColor: theme.color9,
+                                borderColor: theme.color9,
                                 data: datasets.pre50
                             }
                         ]
@@ -259,11 +258,11 @@ class FuncMonitoringFormViewModel extends ConnectableViewModel {
                         }`),
                         datasets: [
                             {
-                                backgroundColor: style['color12'],
+                                backgroundColor: theme.color21,
                                 data: datasets.fulfilled
                             },
                             {
-                                backgroundColor: style['color10'],
+                                backgroundColor: theme.color19,
                                 data: datasets.rejected
                             }
                         ]

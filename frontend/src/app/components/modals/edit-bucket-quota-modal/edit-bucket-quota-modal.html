@@ -6,50 +6,53 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <editor params="label: 'Bucket Quota'">
-        <toggle-switch params="
-            value: $form.enabled,
-            onLabel: 'Enabled',
-            offLabel: 'Disabled',
-            hasFocus: true
-        "></toggle-switch>
-    </editor>
+    <div class="column greedy pad">
+        <editor params="label: 'Bucket Quota'">
+            <toggle-switch params="
+                value: $form.enabled,
+                onLabel: 'Enabled',
+                offLabel: 'Disabled',
+                hasFocus: true
+            "></toggle-switch>
+        </editor>
 
-    <editor params="label: 'Set Limit', disabled: !$form.enabled()">
-        <div class="row">
-            <input type="number" min="1"
-                class="push-next"
-                ko.enable="$form.enabled"
-                ko.value="$form.size"
-                ko.validationCss="$form.size"
-                ko.hasFocus="true"
-            />
-            <dropdown class="size-unit" params="
-                options: unitOptions,
-                disabled: !$form.enabled(),
-                selected: $form.unit
-            "></dropdown>
-        </div>
-        <validation-message params="field: $form.size"></validation-message>
-    </editor>
+        <editor params="label: 'Set Limit', disabled: !$form.enabled()">
+            <div class="row">
+                <input type="number" min="1"
+                    class="push-next"
+                    ko.enable="$form.enabled"
+                    ko.value="$form.size"
+                    ko.validationCss="$form.size"
+                    ko.hasFocus="true"
+                />
+                <dropdown class="size-unit" params="
+                    options: unitOptions,
+                    disabled: !$form.enabled(),
+                    selected: $form.unit
+                "></dropdown>
+            </div>
+            <validation-message params="field: $form.size"></validation-message>
+        </editor>
 
-    <div class="greedy push-prev">
-        <bar class="push-prev align-start" ko.css.disabled="!$form.enabled()" params="
-            values: barValues,
-            teeth: 5,
-            limits: 'size',
-            markers: markers,
-            width: 500,
-            minRatio: 0
-        "></bar>
-
-        <chart-legend class="legend-row"
-            params="items: barValues, format: 'size'"
+        <bar class="storage-bar bar-flip-markers push-both"
             ko.css.disabled="!$form.enabled()"
+            params="
+                values: bar.values,
+                markers: bar.markers,
+                limits: true,
+                format: 'size'
+            "
+        ></bar>
+        <chart-legend class="legend-row push-prev-half"
+            ko.css.disabled="!$form.enabled()"
+            params="
+                items: bar.values,
+                format: 'size'
+            "
         ></chart-legend>
     </div>
 
-    <div class="row content-middle">
+    <div class="row content-middle pad content-box">
         <p class="remark greedy row push-next">
             <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
             When a quota is not set the bucket will utilize all its available resources.

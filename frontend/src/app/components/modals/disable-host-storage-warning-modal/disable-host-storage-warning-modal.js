@@ -1,28 +1,44 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './disable-host-storage-warning-modal.html';
-import Observer from 'observer';
-import { action$ } from 'state';
-import { toggleHostServices, openEditHostStorageDrivesModal } from 'action-creators';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
+import {
+    closeModal,
+    toggleHostServices,
+    openEditHostStorageDrivesModal
+} from 'action-creators';
 
-class DisableHostStorageWarningModalViewModel extends Observer {
-    constructor({ onClose, host, isLastService }) {
-        super();
+class DisableHostStorageWarningModalViewModel extends ConnectableViewModel {
+    host = '';
+    isLastService = ko.observable();
 
-        this.close = onClose;
-        this.host = ko.unwrap(host);
-        this.isLastService = ko.unwrap(isLastService);
+    selectState(_, params) {
+        return [
+            params.host,
+            params.isLastService
+        ];
+    }
+
+    mapStateToProps(host, isLastService) {
+        ko.assignToProps(this, {
+            host,
+            isLastService
+        });
     }
 
     onApprove() {
-        this.close();
-        action$.next(toggleHostServices(this.host, { storage: false }));
+        this.dispatch(
+            closeModal(),
+            toggleHostServices(this.host, { storage: false })
+        );
     }
 
     onBack() {
-        this.close();
-        action$.next(openEditHostStorageDrivesModal(this.host, this.isLastService));
+        this.dispatch(
+            closeModal(),
+            openEditHostStorageDrivesModal(this.host, this.isLastService)
+        );
     }
 }
 

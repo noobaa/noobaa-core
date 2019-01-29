@@ -1,34 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './accounts-panel.html';
-import Observer from 'observer';
-import { state$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { get } from 'rx-extensions';
 import  { realizeUri } from 'utils/browser-utils';
 
-class AccountsPanelViewModel extends Observer {
-    constructor() {
-        super();
+class AccountsPanelViewModel extends ConnectableViewModel {
+    baseRoute = ko.observable();
+    selectedTab = ko.observable();
 
-        this.baseRoute = '';
-        this.selectedTab = ko.observable();
-
-        this.observe(
-            state$.pipe(get('location')),
-            this.onLocation
-        );
+    selectState(state) {
+        return [
+            state.location
+        ];
     }
 
-    onLocation({ route, params }) {
-        const { system, tab = 'accounts' } = params;
+    mapStateToProps(location) {
+        const { system, tab = 'accounts' } = location.params;
 
-        this.baseRoute = realizeUri(route, { system }, {}, true);
-        this.selectedTab(tab);
+        ko.assignToProps(this, {
+            baseRoute: realizeUri(location.route, { system }, {}, true),
+            selectedTab: tab
+        });
     }
 
     tabHref(tab) {
-        return realizeUri(this.baseRoute, { tab });
+        const route = this.baseRoute();
+        return route ? realizeUri(route, { tab }) : '';
     }
 }
 

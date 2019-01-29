@@ -6,13 +6,13 @@ resource-associated-account-list {
     .accounts-list {
         overflow: auto;
 
-        li {
-            border-bottom: 1px solid @color15;
+        li + li {
+            border-top: 1px solid rgb(var(--color16));
         }
     }
 
     .empty-message {
         font-size: @font-size4;
-        color: @color7;
+        color: rgb(var(--color10));
     }
 }

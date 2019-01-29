@@ -7,56 +7,58 @@
     onValidateSubmit: values => onValidate(values, existingTriggers),
     onSubmit: onSubmit
 ">
-    <p>Triggers will automatically invoke the selected function.</p>
+    <div class="column greedy hpad pad-top">
+        <p>Triggers will automatically invoke the selected function.</p>
 
-    <editor params="label: 'Function'">
-        <dropdown params="
-                filter: true,
-                actions: funcActions,
-                options: funcOptions,
-                selected: $form.func,
-                placeholder: 'Choose Function',
-                hasFocus: true
-            "
-            ko.validationCss="$form.func"
-        ></dropdown>
-        <validation-message params="field: $form.func"></validation-message>
-    </editor>
+        <editor params="label: 'Function'">
+            <dropdown params="
+                    filter: true,
+                    actions: funcActions,
+                    options: funcOptions,
+                    selected: $form.func,
+                    placeholder: 'Choose Function',
+                    hasFocus: true
+                "
+                ko.validationCss="$form.func"
+            ></dropdown>
+            <validation-message params="field: $form.func"></validation-message>
+        </editor>
 
-    <editor params="label: 'Event Type'">
-        <dropdown params="
-                options: eventOptions,
-                selected: $form.event,
-                placeholder: 'Choose Event'
-            "
-            ko.validationCss="$form.event"
-        ></dropdown>
-        <validation-message params="field: $form.event"></validation-message>
-    </editor>
+        <editor params="label: 'Event Type'">
+            <dropdown params="
+                    options: eventOptions,
+                    selected: $form.event,
+                    placeholder: 'Choose Event'
+                "
+                ko.validationCss="$form.event"
+            ></dropdown>
+            <validation-message params="field: $form.event"></validation-message>
+        </editor>
 
-    <editor params="label: 'Prefix'">
-        <input type="text"
-            placeholder="e.g. Images/"
-            ko.value="$form.prefix"
-            ko.validationCss="$form.prefix"
-        />
-        <p class="hint">optional</p>
-    </editor>
+        <editor params="label: 'Prefix'">
+            <input type="text"
+                placeholder="e.g. Images/"
+                ko.value="$form.prefix"
+                ko.validationCss="$form.prefix"
+            />
+            <p class="hint">optional</p>
+        </editor>
 
-    <editor params="label: 'Suffix'">
-        <input type="text"
-            placeholder="e.g. .jpg"
-            ko.value="$form.suffix"
-            ko.validationCss="$form.suffix"
-        />
-        <p class="hint">optional</p>
-    </editor>
+        <editor params="label: 'Suffix'">
+            <input type="text"
+                placeholder="e.g. .jpg"
+                ko.value="$form.suffix"
+                ko.validationCss="$form.suffix"
+            />
+            <p class="hint">optional</p>
+        </editor>
 
-    <editor params="label: 'Trigger Active'">
-        <toggle-switch params="value: $form.active"></toggle-switch>
-    </editor>
+        <editor params="label: 'Trigger Active'">
+            <toggle-switch params="value: $form.active"></toggle-switch>
+        </editor>
+    </div>
 
-    <div class="row content-middle">
+    <div class="row content-middle pad content-box">
         <div class="row content-middle greedy push-next remark">
             <!-- ko if: $form.errors().global -->
             <svg-icon class="error icon-small push-next-half" params="name: 'problem'"></svg-icon>

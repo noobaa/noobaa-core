@@ -3,13 +3,6 @@
 import template from './counter.html';
 import ko from 'knockout';
 import { getFormatter } from 'utils/chart-utils';
-import style from 'style';
-
-function _getColor(color) {
-    return color[0] === '@' ?
-        style[color.slice(1)] :
-        color;
-}
 
 class CounterViewModel  {
     constructor(params) {
@@ -23,7 +16,7 @@ class CounterViewModel  {
 
         this.label = label;
         this.color = ko.pureComputed(() =>
-            _getColor(ko.unwrap(color))
+            ko.unwrap(color)
         );
         this.value = ko.pureComputed(() =>
             formatter(pureValue())

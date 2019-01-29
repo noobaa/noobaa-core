@@ -1,6 +1,23 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<canvas ko.event.mousemove="onMouse"
-    ko.event.mouseleave="onMouseLeave"
-    ko.canvas="canvasParams"
-></canvas>
+ <svg viewBox="0 0 168 168">
+    <g class="content-wrapper">
+        <circle class="outline"/>
+        <g class="segments" ko.foreach="segments">
+            <g>
+                <path class="outer-seg"
+                    ko.attr.d="d"
+                    ko.attr.stroke="stroke"
+                />
+                <path class="inner-seg"
+                    ko.attr.d="d"
+                    ko.attr.stroke="stroke"
+                />
+                <text class="pri-text">{{formattedValue}}</text>
+                <text class="sec-text">{{label}}</text>
+            </g>
+        </g>
+        <text class="pri-text">{{sumValue}}</text>
+        <text class="sec-text">{{sumLabel}}</text>
+    </g>
+</svg>

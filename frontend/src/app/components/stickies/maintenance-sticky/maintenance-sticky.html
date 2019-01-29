@@ -1,16 +1,18 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="sticky" ko.css.active="isActive">
-    <div class="sticky-content row content-middle">
-        <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+<section class="sticky sticky-warning" ko.css.active="isActive">
+    <p class="sticky-content row content-middle">
+        <svg-icon class="icon-small push-next-half"
+            params="name: 'problem'"
+        ></svg-icon>
         System is in maintenance mode and will not perform data rebuilds
         <vr></vr>
         <span class="greedy">
             Time left
             {{formattedTimeLeft}}
         </span>
-        <button class="link alt-colors" ko.click="onTurnMaintenanceOff">
+        <button class="sticky-action" ko.click="onTurnMaintenanceOff">
             Turn maintenance off
         </button>
-    </div>
+    </p>
 </section>

@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<button class="icon-btn no-outline column content-middle"
+<button class="icon-btn column content-middle no-focus-ring"
     tabindex="-1"
     ko.tooltip="{ text: 'Upload transactions', position: 'after' }"
     ko.click="onClick"
@@ -8,7 +8,10 @@
     ko.attr="{ 'data-count': uploadCount }"
 >
     <svg-icon params="name: 'upload'"></svg-icon>
-    <bar params="values: uploadBarValues"></bar>
+    <progress-bar class="push-both-half" params="
+        progress: uploadProgress
+    "></bar>
+
     <span class="anim shrink-in"
         ko.visible="animatedCount"
         ko.event.animationend="onUploadAnimationEnd"

@@ -4,47 +4,44 @@ modal-manager {
     .modals-backdrop {
         display: block;
         z-index: 999;
-        background-color: @shadow-color;
+        background-color: rgba(var(--shadow1));
     }
 
     .modal-heading {
-        margin: -@gutter;
-        margin-bottom: @gutter;
         padding: 0 @gutter;
         line-height: 3 * @gutter;
         text-align: left;
-        border-bottom: 1px solid @color8;
+        border-bottom: 1px solid rgb(var(--color6));
+        font-weight: @font-light;
 
         svg-icon {
             margin-right: @gutter/2;
         }
 
         &.info {
-            border-color: @color16;
+            border-color: rgb(var(--color22));
         }
 
         &.success  {
-            border-color: @color12;
+            border-color: rgb(var(--color21));
         }
 
         &.warning {
-            border-color: @color11;
+            border-color: rgb(var(--color20));
         }
 
         &.error {
-            border-color: @color10;
+            border-color: rgb(var(--color19));
         }
     }
 
     .modal {
         display: none;
-        background: @color2;
-        box-shadow: 0 0 20px @black;
-        padding: @gutter;
         width: 610px;
         height: 455px;
         transition: all 250ms ease-in-out;
         outline: none;
+        background-color: rgb(var(--color5));
 
         &:last-child {
             display: flex;
@@ -57,23 +54,23 @@ modal-manager {
 
         &.modal-medium {
             width: 610px;
-            height: 540px;
+            height: 560px;
         }
 
         &.modal-large {
             width: 750px;
-            height: 540px;
+            height: 560px;
         }
 
         &.modal-xlarge {
             width: 900px;
-            height: 540px;
+            height: 560px;
         }
 
         &.modal-auto-height {
             width: 900px;
             height: 80%;
-            min-height: 540px;
+            min-height: 560px;
         }
     }
 

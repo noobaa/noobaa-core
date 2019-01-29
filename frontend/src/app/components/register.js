@@ -109,6 +109,9 @@ import bucketPlacementSummaryModal from './modals/bucket-placement-summary-modal
 import keepUsingInternalStorageModal from './modals/keep-using-internal-storage-modal/keep-using-internal-storage-modal';
 import addResourcesModal from './modals/add-resources-modal/add-resources-modal';
 import createEmptyPoolModal from './modals/create-empty-pool-modal/create-empty-pool-modal';
+import regenerateAccountCredentialsModal from './modals/regenerate-account-credentials-modal/regenerate-account-credentials-modal';
+import editTierDataPlacementModal from './modals/edit-tier-data-placement-modal/edit-tier-data-placement-modal';
+import addTierModal from './modals/add-tier-modal/add-tier-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -117,7 +120,9 @@ import createEmptyPoolModal from './modals/create-empty-pool-modal/create-empty-
 import overviewPanel from './overview/overview-panel/overview-panel';
 import bucketsOverview from './overview/buckets-overview/buckets-overview';
 import resourceOverview from './overview/resource-overview/resource-overview';
-import systemHealth from './overview/system-health/system-health';
+import storageOverview from './overview/storage-overview/storage-overview';
+import clusterOverview from './overview/cluster-overview/cluster-overview';
+import alertsOverview from './overview/alerts-overview/alerts-overview';
 /** INJECT:overview.import **/
 
 // -------------------------------
@@ -126,6 +131,8 @@ import systemHealth from './overview/system-health/system-health';
 import bucketsPanel from './buckets/buckets-panel/buckets-panel';
 import bucketsTable from './buckets/buckets-table/buckets-table';
 import namespaceBucketsTable from './buckets/namespace-buckets-table/namespace-buckets-table';
+import bucketsSummary from './buckets/buckets-summary/buckets-summary';
+/** INJECT:bucket.import **/
 
 // -------------------------------
 // Bucket page components
@@ -141,8 +148,6 @@ import bucketS3AccessPolicyForm from './bucket/bucket-s3-access-policy-form/buck
 import bucketTriggersForm from './bucket/bucket-triggers-form/bucket-triggers-form';
 import bucketDataPlacementForm from './bucket/bucket-data-placement-form/bucket-data-placement-form';
 import tierDataPlacementPolicyForm from './bucket/tier-data-placement-policy-form/tier-data-placement-policy-form';
-import editTierDataPlacementModal from './bucket/edit-tier-data-placement-modal/edit-tier-data-placement-modal';
-import addTierModal from './bucket/add-tier-modal/add-tier-modal';
 /** INJECT:bucket.import **/
 
 // -------------------------------
@@ -170,6 +175,7 @@ import resourcesPanel from './resources/resources-panel/resources-panel';
 import poolsTable from './resources/pools-table/pools-table';
 import cloudResourcesTable from './resources/cloud-resources-table/cloud-resources-table';
 import namespaceResourcesTable from './resources/namespace-resources-table/namespace-resources-table';
+import resourcesSummary from './resources/resources-summary/resources-summary';
 /** INJECT:resources.import **/
 
 // -------------------------------
@@ -229,7 +235,6 @@ import accountsTable from './accounts/accounts-table/accounts-table';
 import accountPanel from './account/account-panel/account-panel';
 import accountDetailsForm from './account/account-details-form/account-details-form';
 import accountS3AccessForm from './account/account-s3-access-form/account-s3-access-form';
-import regenerateAccountCredentialsModal from './account/regenerate-account-credentials-modal/regenerate-account-credentials-modal';
 import accountConnectionsTable from './account/account-connections-table/account-connections-table';
 /** INJECT:account.import **/
 
@@ -264,7 +269,6 @@ import funcsTable from './funcs/funcs-table/funcs-table';
 import funcPanel from './func/func-panel/func-panel';
 import funcSummary from './func/func-summary/func-summary';
 import funcConfigForm from './func/func-config-form/func-config-form';
-import funcMonitoring from './func/func-monitoring/func-monitoring';
 import funcCodeForm from './func/func-code-form/func-code-form';
 import funcMonitoringForm from './func/func-monitoring-form/func-monitoring-form';
 import funcTriggersForm from './func/func-triggers-form/func-triggers-form';
@@ -293,13 +297,11 @@ import alertsPane from './admin/alerts-pane/alerts-pane';
 // Shared components
 // -------------------------------
 import svgIcon from './shared/svg-icon/svg-icon';
-import modal from './shared/modal/modal';
 import dropdown from './shared/dropdown/dropdown';
 import radioBtn from './shared/radio-btn/radio-btn';
 import radioGroup from './shared/radio-group/radio-group';
 import checkbox from './shared/checkbox/checkbox';
 import bar from './shared/bar/bar';
-import progressBar from './shared/progress-bar/progress-bar';
 import rangeIndicator from './shared/range-indicator/range-indicator';
 import stepper from './shared/stepper/stepper';
 import multiselect from './shared/multiselect/multiselect';
@@ -318,7 +320,6 @@ import dataTable from './shared/data-table/data-table';
 import timezoneChooser from './shared/timezone-chooser/timezone-chooser';
 import dateTimeChooser from './shared/date-time-chooser/date-time-chooser';
 import pieChart from './shared/pie-chart/pie-chart';
-import barChart from './shared/bar-chart/bar-chart';
 import chartLegend from './shared/chart-legend/chart-legend';
 import copyToClipboardButton from './shared/copy-to-clipboard-button/copy-to-clipboard-button';
 import passwordField from './shared/password-field/password-field';
@@ -349,6 +350,7 @@ import resourcesSelectionTable from './shared/resources-selection-table/resource
 import placementPolicyToggle from './shared/placement-policy-toggle/placement-policy-toggle';
 import tagList from './shared/tag-list/tag-list';
 import moreInfoIcon from './shared/more-info-icon/more-info-icon';
+import progressBar from './shared/progress-bar/progress-bar';
 /** INJECT:shared.import **/
 
 // Register the components with knockout component container.
@@ -466,17 +468,23 @@ export default function register(ko, services) {
         keepUsingInternalStorageModal,
         addResourcesModal,
         createEmptyPoolModal,
+        regenerateAccountCredentialsModal,
+        editTierDataPlacementModal,
+        addTierModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
         bucketsOverview,
         resourceOverview,
-        systemHealth,
+        storageOverview,
+        clusterOverview,
+        alertsOverview,
         /** INJECT:overview.list **/
 
         bucketsPanel,
         bucketsTable,
         namespaceBucketsTable,
+        bucketsSummary,
         /** INJECT:buckets.list **/
 
         bucketPanel,
@@ -490,8 +498,6 @@ export default function register(ko, services) {
         bucketTriggersForm,
         bucketDataPlacementForm,
         tierDataPlacementPolicyForm,
-        editTierDataPlacementModal,
-        addTierModal,
         /** INJECT:bucket.list **/
 
         namespaceBucketPanel,
@@ -510,6 +516,7 @@ export default function register(ko, services) {
         poolsTable,
         cloudResourcesTable,
         namespaceResourcesTable,
+        resourcesSummary,
         /** INJECT:resources.list **/
 
         poolPanel,
@@ -551,7 +558,6 @@ export default function register(ko, services) {
         accountPanel,
         accountDetailsForm,
         accountS3AccessForm,
-        regenerateAccountCredentialsModal,
         accountConnectionsTable,
         /** INJECT:account.list **/
 
@@ -574,7 +580,6 @@ export default function register(ko, services) {
         funcPanel,
         funcSummary,
         funcConfigForm,
-        funcMonitoring,
         funcCodeForm,
         funcTriggersForm,
         funcMonitoringForm,
@@ -594,13 +599,11 @@ export default function register(ko, services) {
         /** INJECT:admin.list **/
 
         svgIcon,
-        modal,
         dropdown,
         radioBtn,
         radioGroup,
         checkbox,
         bar,
-        progressBar,
         rangeIndicator,
         stepper,
         multiselect,
@@ -619,7 +622,6 @@ export default function register(ko, services) {
         timezoneChooser,
         dateTimeChooser,
         pieChart,
-        barChart,
         chartLegend,
         copyToClipboardButton,
         passwordField,
@@ -650,6 +652,7 @@ export default function register(ko, services) {
         placementPolicyToggle,
         tagList,
         moreInfoIcon,
+        progressBar,
         /** INJECT:shared.list **/
 
         // An empty component used for app/data loading periods

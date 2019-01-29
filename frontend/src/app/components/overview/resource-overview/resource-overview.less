@@ -3,19 +3,16 @@
 resource-overview {
     display: block;
 
-    .resource-icon {
-        margin-bottom: @gutter/2;
+    svg-icon.circled-icon {
+        border-color: rgb(var(--color6));
+        fill: rgb(var(--color6));
     }
 
-    .nodes-pool-icon {
-        fill: @color8;
-    }
+    .resources-chart {
+        width: calc(100% - 1px);
 
-    .nodes-legend .legend-caption {
-        font-size: @font-size3;
-    }
-
-    .nodes-chart {
-        margin: auto;
+        .empty-message {
+            font-size: @font-size3;
+        }
     }
 }

@@ -8,35 +8,33 @@
 
 .placeholder(@color) {
     &::-webkit-input-placeholder {
-       color: @color;
+        font-weight: @font-light;
+        color: @color;
     }
 
     &:-moz-placeholder { /* Firefox 18- */
-       color: @color;
+        font-weight: @font-light;
+        color: @color;
     }
 
     ::-moz-placeholder {  /* Firefox 19+ */
-       color: @color;
+        font-weight: @font-light;
+        color: @color;
     }
 
     :-ms-input-placeholder {
-       color: @color;
+        font-weight: @font-light;
+        color: @color;
     }
 
     &::placholder {
+        font-weight: @font-light;
         color: @color;
     }
 
     &.placeholder {
+        font-weight: @font-light;
         color: @color;
-    }
-}
-
-.no-validation-highlight() {
-    border: 1px solid @color7;
-
-    &:focus {
-        border: 1px solid @color14;
     }
 }
 
@@ -71,23 +69,23 @@
 
 .input {
     @width: 274px;
-    .placeholder(@color7);
+    .placeholder(rgb(var(--color10)));
 
     display: inline-block;
     width: @width;
     height: 42px;
     line-height: 40px;
-    border: 1px solid @color7;
+    border: 1px solid rgb(var(--color10));
     background: none;
     font-family: @font-family1;
     font-size: @font-size3;
-    font-weight: @font-light;
+    font-weight: @font-regular;
     padding: 0 @gutter;
-    color: @color6;
-    /*    margin: -3px 0;*/
+    color: rgb(var(--color9));
 
     &:disabled, &.disabled {
-        color: @color7;
+        border-color: rgb(var(--color18));
+        color: var(--color18);
         opacity: .3;
     }
 
@@ -95,21 +93,20 @@
         outline: none;
 
         &:not(.disabled) {
-            border-color: @color14;
+            border-color: rgb(var(--color6));
         }
     }
 
-    &.invalid, &:focus.invalid, &.focus.invalid {
-        border-color: @color10;
+    &.invalid,
+    &:focus.invalid,
+    &.focus.invalid {
+        border-color: rgb(var(--color19));
     }
 
-    &.warned, &:focus.warned, &.focus.warned {
-        border-color: @color11;
-    }
-
-    &.no-validation-highlight.invalid,
-    &.no-validation-highlight input.invalid {
-        .no-validation-highlight();
+    &.warned,
+    &:focus.warned,
+    &.focus.warned {
+        border-color: rgb(var(--color20));
     }
 }
 
@@ -144,35 +141,38 @@ textarea {
 }
 
 .focused(@offset: -1px) {
-    outline: @outline;
+    outline: 1px dashed rgb(var(--color10));
     outline-offset: @offset;
 }
 
 .icon-btn {
-    .ripple(@color6);
-
     display: inline-block;
     border: none;
     background: none;
-    padding: 0;
+    padding: @gutter/8;
     cursor: @cursor-pointer;
     font-family: @font-family1;
+    border-radius: 50%;
 
     /*
     Transition removed because of webkit bug, see the following stackoverflow:
     http://stackoverflow.com/questions/12502234/how-to-prevent-webkit-text-rendering-change-during-css-transition
     transition: all 250ms ease-out;
     */
+    &:focus:not(:active):not(.no-focus-ring) {
+        background: rgba(var(--color6), .15);
+        box-shadow: 0px 0px 4px 7px rgba(var(--color6), .15);
+    }
 
     > svg-icon {
-        fill: @color6;
+        fill: rgb(var(--color9));
     }
 
     &:hover:not(:disabled) {
         transform: scale(1.3, 1.3);
 
         > svg-icon {
-            fill: @color8;
+            fill: rgb(var(--color6));
         }
     }
 
@@ -180,7 +180,7 @@ textarea {
         cursor: not-allowed;
 
         > svg-icon {
-            fill: @color15;
+            fill: rgb(var(--color18));
         }
     }
 }
@@ -197,7 +197,7 @@ textarea {
 }
 
 .btn {
-    .ripple(@color17);
+    .ripple(rgb(var(--color6)));
     @height: 40px;
 
     font-family: @font-family1;
@@ -207,45 +207,57 @@ textarea {
     padding: 0 @gutter;
     line-height: @height;
     font-size: @font-size3;
-    font-weight: @font-light;
-    color: @color8;
+    font-weight: @font-regular;
+    color: rgb(var(--color6));
     text-align: center;
     text-transform: capitalize;
-    border: 1px solid @color8;
+    border: 1px solid rgb(var(--color6));
     cursor: @cursor-pointer;
-    background-color: fadeout(@color8, 85%);
-    transition: all 350ms ease-out;
+    background-color: rgba(var(--color6), .1);
     border-radius: 0;
-
+    transition: all 350ms ease-out;
 
     &:disabled, &.disabled{
-        .no-outline();
-
-        opacity: .3;
-        color: @color8;
+        opacity: .4;
         cursor: @cursor-not-allowed;
         transition: unset;
+        z-index: 0;
+        color: rgb(var(--color6));
     }
 
     &:hover:not(:disabled):not(.disabled) {
-        color: @color6;
-        background-color: @color8;
+        color: rgb(var(--color8));
+        background-color: rgba(var(--color6), 1);
     }
 
+    &:active:not(:disabled):not(.disabled) {
+        color: rgb(var(--color8));
+        border-color: transparent;
+        background-color: rgb(var(--color7));
+    }
+
+    &:focus {
+        background-color: rgba(var(--color6), .25);
+    }
 
     &.alt-colors {
-        color: @color6;
-        border-color: @color6;
-        background-color: fadeout(@color6, 90%);
+        .ripple(rgb(var(--color15)));
 
-        &:hover:not(:disabled):not(.disabled) {
-            color: @color15;
-            background-color: @color6;
+        color: rgb(var(--color9));
+        border-color: rgb(var(--color9));
+        background-color: rgba(var(--color9), .1);
+
+        &:not(:disabled):not(.disabled) {
+            &:focus {
+                background-color: rgba(var(--color9), .25);
+            }
+
+            &:hover {
+                color: rgb(var(--color15));
+                background-color: rgb(var(--color9));
+            }
         }
 
-        &:focus {
-            outline-color: @color1;
-        }
     }
 }
 
@@ -253,32 +265,44 @@ textarea {
     font-family: @font-family1;
     font-size: @font-size2;
     font-weight: @font-light;
-    color: @color9;
+    color: rgb(var(--color11));
     border: none;
     background: none;
     text-decoration: none;
     display: inline;
     padding: 0;
 
+    &:disabled, &.disabled {
+        cursor: default;
+        pointer-events: none;
+        color: rgb(var(--color18));
+    }
+
+    &:focus:not(:active):not(.no-focus-ring) {
+        background: rgba(var(--color11), .15);
+        box-shadow: 0px 0px 4px 2px rgba(var(--color11), .15);
+    }
+
     a&[href], button& {
         cursor: @cursor-pointer;
 
-        &:not(:disabled):hover {
+        &:not(:disabled):not(.disabled):hover {
             text-decoration: underline;
         }
     }
 
+    button& {
+        height: 1.1em;
+    }
+
     &.alt-colors {
-        color: @color6;
-    }
+        color: rgb(var(--color9));
+        font-weight: @font-regular;
 
-    &:disabled, &.disabled {
-        cursor: default;
-        color: @color15;
-    }
-
-    &:focus {
-        .focused(3px);
+        &:focus:not(:active):not(.no-focus-ring) {
+            background: rgba(var(--color9), .15);
+            box-shadow: 0px 0px 4px 2px rgba(var(--color9), .15);
+        }
     }
 }
 

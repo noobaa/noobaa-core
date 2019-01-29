@@ -6,20 +6,10 @@ import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { toBytes, formatSize } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import ko from 'knockout';
-import style from 'style';
 import numeral from 'numeral';
+import themes from 'themes';
 import { requestLocation } from 'action-creators';
-import { hexToRgb } from 'utils/color-utils';
-
-const colors = deepFreeze([
-    style['color14'],
-    style['color16'],
-    style['color6'],
-    style['color11'],
-    style['color12'],
-    style['color19'],
-    style['color9']
-]);
+import { rgbToColor, colorToRgb } from 'utils/color-utils';
 
 const viewOptions = deepFreeze([
     {
@@ -34,7 +24,7 @@ const viewOptions = deepFreeze([
 
 const compareRadius = createCompareFunc(bubble => bubble.r, -1);
 
-function getBubblesForBuckets(buckets) {
+function _getBubblesForBuckets(buckets) {
     return buckets.map(bucket => ({
         label: bucket.name,
         x: bucket.io.readCount,
@@ -43,7 +33,7 @@ function getBubblesForBuckets(buckets) {
     }));
 }
 
-function getBubblesForDataTypes(buckets) {
+function _getBubblesForDataTypes(buckets) {
     const bubbles = {};
     for (const { statsByDataType } of buckets) {
         for (const [dataType, stats] of Object.entries(statsByDataType)) {
@@ -66,12 +56,20 @@ function getBubblesForDataTypes(buckets) {
 }
 
 
-function _prepareDatasets(view, buckets, colors) {
-    const maxCount = colors.length;
+function _prepareDatasets(view, buckets, theme) {
+    const colors = [
+        theme.color6,
+        theme.color28,
+        theme.color29,
+        theme.color20,
+        theme.color21,
+        theme.color9
+    ];
 
+    const maxCount = colors.length;
     let bubbles = view === 'BUCKETS' ?
-        getBubblesForBuckets(buckets) :
-        getBubblesForDataTypes(buckets);
+        _getBubblesForBuckets(buckets) :
+        _getBubblesForDataTypes(buckets);
 
     bubbles = bubbles.sort(compareRadius);
     if (bubbles.length > maxCount) {
@@ -94,7 +92,7 @@ function _prepareDatasets(view, buckets, colors) {
 
     return bubbles.map((bubble, i) => ({
         label: bubble.label,
-        backgroundColor: hexToRgb(colors[i], 0.3),
+        backgroundColor: colorToRgb(...rgbToColor(colors[i]), 0.3),
         borderColor: colors[i],
         borderWidth: 2,
         dataSize: bubble.r,
@@ -174,11 +172,12 @@ class DataBreakdownFormViewModel extends ConnectableViewModel {
     selectState(state) {
         return [
             state.buckets,
-            state.location
+            state.location,
+            themes[state.session.uiTheme]
         ];
     }
 
-    mapStateToProps(buckets, location) {
+    mapStateToProps(buckets, location, theme) {
         const { view = 'BUCKETS' } = location.query;
 
         if (!buckets) {
@@ -194,7 +193,7 @@ class DataBreakdownFormViewModel extends ConnectableViewModel {
             const datasets = _prepareDatasets(
                 view,
                 bucketList,
-                colors
+                theme
             );
 
             const legend = datasets.map(dataset => ({

@@ -1,16 +1,21 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<p class="highlight push-next-half">
-    Copy and send the following information to the account owner or connect an application:
-</p>
+<div class="column greedy pad">
+    <p class="highlight push-next-half">
+        Copy and send the following information to the account owner or connect an application:
+    </p>
 
-<div class="alt-bg pad row content-start greedy push-next">
-    <pre class="greedy message" ko.html="message"></pre>
-    <copy-to-clipboard-button params="value: message"></copy-to-clipboard-button>
+    <div class="content-box pad row content-start greedy">
+        <pre class="greedy message" ko.html="message"></pre>
+        <copy-to-clipboard-button params="value: message"></copy-to-clipboard-button>
+    </div>
 </div>
 
-<button class="btn align-end"
-    ko.click="onDone"
->
-    Done
-</button>
+<div class="content-box pad column content-end">
+    <button class="btn align-end"
+        ko.click="onDone"
+    >
+        Done
+    </button>
+
+</div>

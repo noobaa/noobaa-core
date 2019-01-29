@@ -6,193 +6,195 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <div class="row content-middle">
-        <h2 class="heading3 greedy push-next">Choose Resiliency Type</h2>
-        <button class="link"
-            type="button"
-            ko.click="onToggleMode"
-            ko.text="toggleModeBtnText"
-        ></button>
+    <div class="column greedy pad">
+        <div class="row content-middle">
+            <h2 class="heading3 greedy push-next">Choose Resiliency Type</h2>
+            <button class="link"
+                type="button"
+                ko.click="onToggleMode"
+                ko.text="toggleModeBtnText"
+            ></button>
+        </div>
+
+        <section class="column push-next">
+            <div class="row content-middle">
+                <radio-btn params="
+                    label: 'Replication',
+                    value: 'REPLICATION',
+                    group: 'dataResiliency',
+                    selected: $form.resiliencyType,
+                    hasFocus: true
+                "></radio-btn>
+                <span class="push-both-half">|</span>
+                Full copies of stored objects parts.
+            </div>
+            <div class="column pad-left">
+                <div class="row content-middle push-next" ko.expand="$form.advancedMode">
+                    <span class="push-next"
+                        ko.css.disabled="isReplicationDisabled"
+                    >
+                        Number of Replicas:
+                    </span>
+                    <div class="column">
+                        <input type="number"
+                            min="1"
+                            max="32"
+                            ko.value="$form.replicas"
+                            ko.disable="isReplicationDisabled"
+                            ko.validationCss="$form.replicas"
+                        />
+                        <div class="validation-message-wrapper">
+                            <validation-message params="field: $form.replicas">
+                            </validation-message>
+                        </div>
+                    </div>
+                </div>
+                <div class="content-box pad-half hpad row no-wrap">
+                    <p class="greedy column remark">
+                        <span class="highlight push-next-half">{{repCopies}}</span>
+                        Copies
+                    </p>
+                    <vr class="push-both-half"></vr>
+                    <p class="greedy column remark">
+                        <span class="highlight push-next-half">{{repStorageOverhead}}</span>
+                        Storage Overhead
+                    </p>
+                    <vr class="push-both-half"></vr>
+                    <p class="greedy column remark" ko.with="repFailureTolerance">
+                        <span class="highlight row content-middle push-next-half" ko.css="css">
+                            {{text}}
+                            <svg-icon class="icon-small push-prev-half"
+                                ko.tooltip="tooltip"
+                                ko.visible="tooltip"
+                                params="name: 'problem'"
+                            ></svg-icon>
+                        </span>
+                        Failure Tolerance
+                    </p>
+                    <vr class="push-both-half"></vr>
+                    <p class="greedy column remark" ko.with="repRequiredDrives">
+                        <span class="highlight row content-middle push-next-half" ko.css="css">
+                            {{text}}
+                            <svg-icon class="icon-small push-prev-half"
+                                ko.tooltip="tooltip"
+                                ko.visible="tooltip"
+                                params="name: 'problem'"
+                            ></svg-icon>
+                        </span>
+                        Minimum Required Drives
+                    </p>
+                    <vr class="push-both-half"></vr>
+                    <p class="greedy column remark">
+                       <span class="highlight push-next-half">{{repRebuildEffort}}</span>
+                        Rebuild Time Effort
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section class="column greedy">
+            <div class="row content-middle">
+                <radio-btn params="
+                    label: 'Erasure Coding',
+                    value: 'ERASURE_CODING',
+                    group: 'dataResiliency',
+                    selected: $form.resiliencyType
+                "></radio-btn>
+                <span class="push-both-half">|</span>
+                Data is broken into fragments and encoded with redundant data pieces.
+            </div>
+            <div class="column pad-left">
+                <div class="row push-next" ko.expand="$form.advancedMode">
+                    <div class="row content-middle push-next"
+                        ko.css.disabled="isErasureCodingDisabled"
+                    >
+                        <span class="push-next">Data:</span>
+                        <div class="column">
+                            <input type="number"
+                                min="1"
+                                max="32"
+                                ko.value="$form.dataFrags"
+                                ko.disable="isErasureCodingDisabled"
+                                ko.validationCss="$form.dataFrags"
+                            />
+                            <div class="validation-message-wrapper">
+                                <validation-message params="field: $form.dataFrags">
+                                </validation-message>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row content-middle push-prev"
+                        ko.css.disabled="isErasureCodingDisabled"
+                    >
+                        <span class="push-next">Parity:</span>
+                        <div class="column">
+                            <input type="number"
+                                min="1"
+                                max="32"
+                                ko.value="$form.parityFrags"
+                                ko.disable="isErasureCodingDisabled"
+                                ko.validationCss="$form.parityFrags"
+                            />
+                            <div class="validation-message-wrapper">
+                                <validation-message params="field: $form.parityFrags">
+                                </validation-message>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="content-box pad-half hpad row no-wrap">
+                    <p class="greedy column remark">
+                        <span class="highlight push-next-half">{{ecDisribution}}</span>
+                        Data + Parity
+                    </p>
+                    <vr class="push-both-half"></vr>
+                    <p class="greedy column remark">
+                        <span class="highlight push-next-half">{{ecStorageOverhead}}</span>
+                        Storage Overhead
+                    </p>
+                    <vr class="push-both-half"></vr>
+                    <p class="greedy column remark" ko.with="ecFailureTolerance">
+                        <span class="highlight row content-middle push-next-half" ko.css="css">
+                            {{text}}
+                            <svg-icon class="icon-small push-prev-half"
+                                ko.tooltip="tooltip"
+                                ko.visible="tooltip"
+                                params="name: 'problem'"
+                            ></svg-icon>
+                        </span>
+                        Failure Tolerance
+                    </p>
+                    <vr class="push-both-half"></vr>
+                    <p class="greedy column remark" ko.with="ecRequiredDrives">
+                        <span class="highlight row content-middle push-next-half" ko.css="css">
+                            {{text}}
+                            <svg-icon class="icon-small push-prev-half"
+                                ko.tooltip="tooltip"
+                                ko.visible="tooltip"
+                                params="name: 'problem'"
+                            ></svg-icon>
+                        </span>
+                        Minimum Required Drives
+                    </p>
+                    <vr class="push-both-half"></vr>
+                    <p class="greedy column remark" ko.with="ecRebuildEffort">
+                       <span class="highlight row content-middle push-next-half" ko.css="css">
+                            {{text}}
+                            <svg-icon
+                                class="icon-small push-prev-half"
+                                ko.tooltip="tooltip"
+                                ko.visible="tooltip"
+                                params="name: 'problem'"
+                            ></svg-icon>
+                        </span>
+                        Rebuild Time Effort
+                    </p>
+                </div>
+            </div>
+        </section>
     </div>
 
-    <section class="column push-next">
-        <div class="row content-middle">
-            <radio-btn params="
-                label: 'Replication',
-                value: 'REPLICATION',
-                group: 'dataResiliency',
-                selected: $form.resiliencyType,
-                hasFocus: true
-            "></radio-btn>
-            <span class="push-both-half">|</span>
-            Full copies of stored objects parts.
-        </div>
-        <div class="column pad-left">
-            <div class="row content-middle push-next" ko.expand="$form.advancedMode">
-                <span class="push-next"
-                    ko.css.disabled="isReplicationDisabled"
-                >
-                    Number of Replicas:
-                </span>
-                <div class="column">
-                    <input type="number"
-                        min="1"
-                        max="32"
-                        ko.value="$form.replicas"
-                        ko.disable="isReplicationDisabled"
-                        ko.validationCss="$form.replicas"
-                    />
-                    <div class="validation-message-wrapper">
-                        <validation-message params="field: $form.replicas">
-                        </validation-message>
-                    </div>
-                </div>
-            </div>
-            <div class="alt-bg pad row no-wrap">
-                <p class="greedy column remark">
-                    <span class="highlight push-next-half">{{repCopies}}</span>
-                    Copies
-                </p>
-                <vr></vr>
-                <p class="greedy column remark">
-                    <span class="highlight push-next-half">{{repStorageOverhead}}</span>
-                    Storage Overhead
-                </p>
-                <vr></vr>
-                <p class="greedy column remark" ko.with="repFailureTolerance">
-                    <span class="highlight row content-middle push-next-half" ko.css="css">
-                        {{text}}
-                        <svg-icon class="icon-small push-prev-half"
-                            ko.tooltip="tooltip"
-                            ko.visible="tooltip"
-                            params="name: 'problem'"
-                        ></svg-icon>
-                    </span>
-                    Failure Tolerance
-                </p>
-                <vr></vr>
-                <p class="greedy column remark" ko.with="repRequiredDrives">
-                    <span class="highlight row content-middle push-next-half" ko.css="css">
-                        {{text}}
-                        <svg-icon class="icon-small push-prev-half"
-                            ko.tooltip="tooltip"
-                            ko.visible="tooltip"
-                            params="name: 'problem'"
-                        ></svg-icon>
-                    </span>
-                    Minimum Required Drives
-                </p>
-                <vr></vr>
-                <p class="greedy column remark">
-                   <span class="highlight push-next-half">{{repRebuildEffort}}</span>
-                    Rebuild Time Effort
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <section class="column greedy push-next">
-        <div class="row content-middle">
-            <radio-btn params="
-                label: 'Erasure Coding',
-                value: 'ERASURE_CODING',
-                group: 'dataResiliency',
-                selected: $form.resiliencyType
-            "></radio-btn>
-            <span class="push-both-half">|</span>
-            Data is broken into fragments and encoded with redundant data pieces.
-        </div>
-        <div class="column pad-left">
-            <div class="row push-next" ko.expand="$form.advancedMode">
-                <div class="row content-middle push-next"
-                    ko.css.disabled="isErasureCodingDisabled"
-                >
-                    <span class="push-next">Data:</span>
-                    <div class="column">
-                        <input type="number"
-                            min="1"
-                            max="32"
-                            ko.value="$form.dataFrags"
-                            ko.disable="isErasureCodingDisabled"
-                            ko.validationCss="$form.dataFrags"
-                        />
-                        <div class="validation-message-wrapper">
-                            <validation-message params="field: $form.dataFrags">
-                            </validation-message>
-                        </div>
-                    </div>
-                </div>
-                <div class="row content-middle push-prev"
-                    ko.css.disabled="isErasureCodingDisabled"
-                >
-                    <span class="push-next">Parity:</span>
-                    <div class="column">
-                        <input type="number"
-                            min="1"
-                            max="32"
-                            ko.value="$form.parityFrags"
-                            ko.disable="isErasureCodingDisabled"
-                            ko.validationCss="$form.parityFrags"
-                        />
-                        <div class="validation-message-wrapper">
-                            <validation-message params="field: $form.parityFrags">
-                            </validation-message>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="alt-bg pad row no-wrap">
-                <p class="greedy column remark">
-                    <span class="highlight push-next-half">{{ecDisribution}}</span>
-                    Data + Parity
-                </p>
-                <vr></vr>
-                <p class="greedy column remark">
-                    <span class="highlight push-next-half">{{ecStorageOverhead}}</span>
-                    Storage Overhead
-                </p>
-                <vr></vr>
-                <p class="greedy column remark" ko.with="ecFailureTolerance">
-                    <span class="highlight row content-middle push-next-half" ko.css="css">
-                        {{text}}
-                        <svg-icon class="icon-small push-prev-half"
-                            ko.tooltip="tooltip"
-                            ko.visible="tooltip"
-                            params="name: 'problem'"
-                        ></svg-icon>
-                    </span>
-                    Failure Tolerance
-                </p>
-                <vr></vr>
-                <p class="greedy column remark" ko.with="ecRequiredDrives">
-                    <span class="highlight row content-middle push-next-half" ko.css="css">
-                        {{text}}
-                        <svg-icon class="icon-small push-prev-half"
-                            ko.tooltip="tooltip"
-                            ko.visible="tooltip"
-                            params="name: 'problem'"
-                        ></svg-icon>
-                    </span>
-                    Minimum Required Drives
-                </p>
-                <vr></vr>
-                <p class="greedy column remark" ko.with="ecRebuildEffort">
-                   <span class="highlight row content-middle push-next-half" ko.css="css">
-                        {{text}}
-                        <svg-icon
-                            class="icon-small push-prev-half"
-                            ko.tooltip="tooltip"
-                            ko.visible="tooltip"
-                            params="name: 'problem'"
-                        ></svg-icon>
-                    </span>
-                    Rebuild Time Effort
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <div class="row content-middle">
+    <div class="row content-middle pad content-box">
         <div class="row remark push-next greedy">
             <svg-icon class="icon-small align-start push-next-half" params="name: 'notif-info'"></svg-icon>
             <p>

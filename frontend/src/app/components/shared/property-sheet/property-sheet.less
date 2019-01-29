@@ -19,7 +19,11 @@ property-sheet {
     }
 
     .prop-name {
-        font-weight: @font-thin;
         width: 156px;
+        color: rgb(var(--color9));
+    }
+
+    .prop-name.disabled {
+        .disabled();
     }
 }

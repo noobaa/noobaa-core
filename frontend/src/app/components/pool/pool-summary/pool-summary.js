@@ -1,8 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pool-summary.html';
-import Observer from 'observer';
-import { state$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { isNumber } from 'utils/core-utils';
@@ -10,12 +9,73 @@ import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { unassignedRegionText, getHostPoolStateIcon } from 'utils/resource-utils';
 import { getActivityName, getActivityListTooltip } from 'utils/host-utils';
-import { get } from 'rx-extensions';
-import style from 'style';
 import moment from 'moment';
 
-class PoolSummaryViewModel extends Observer {
-    poolLoaded = ko.observable(false);
+function _mapStateAndStatus(pool) {
+    const { hostCount, storageNodeCount, region } = pool;
+
+    return {
+        state: getHostPoolStateIcon(pool),
+        hostCount: numeral(hostCount).format('0,0'),
+        driveCount: numeral(storageNodeCount).format('0,0'),
+        region: region || unassignedRegionText
+    };
+}
+
+function _mapStorageAndUsage(pool) {
+    const { free, unavailableFree, used, usedOther, reserved } = pool.storage;
+    return {
+        availableCapacity: toBytes(free),
+        unavailableCapacity: toBytes(unavailableFree),
+        usedByNoobaaCapacity: toBytes(used),
+        usedByOthersCapacity: toBytes(usedOther),
+        reservedCapacity: toBytes(reserved)
+    };
+}
+
+function _mapFirstActivity(pool) {
+    const { hostCount, list } = pool.activities;
+    if (list.length > 0) {
+        const { kind, nodeCount, progress, eta } = list[0] || {};
+        const activityText = `${getActivityName(kind)} ${stringifyAmount('drive', nodeCount)}`;
+        const etaText =  isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
+        return {
+            hasActivities: true,
+            activitiesTitle: `${stringifyAmount('Node', hostCount)} in Process`,
+            activityText: activityText,
+            activityProgress: progress,
+            activityEta: etaText
+        };
+
+    } else {
+        return {
+            hasActivities: false,
+            activitiesTitle: 'No Activities',
+            activityText: 'Pool has no activity'
+        };
+    }
+}
+
+function _mapAdditionalActivities(pool) {
+    const { list } = pool.activities;
+    const additionalActivities = list.slice(1);
+    if (additionalActivities.length > 0) {
+        const message = `${stringifyAmount('More activity', additionalActivities.length)} running`;
+        return {
+            hasAdditionalActivities: true,
+            additionalActivitiesMessage: message,
+            additionalActivitiesTooltip: getActivityListTooltip(additionalActivities)
+        };
+
+    } else {
+        return {
+            hasAdditionalActivities: false
+        };
+    }
+}
+
+class PoolSummaryViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
 
     // State observables.
     state = ko.observable({});
@@ -33,31 +93,31 @@ class PoolSummaryViewModel extends Observer {
     pieValues = [
         {
             label: 'Available',
-            color: style['color5'],
+            color: 'rgb(var(--color18))',
             value: this.availableCapacity,
             tooltip: 'The total aggregated storage from installed nodes in this pool, does not include any offline or deactivated node'
         },
         {
             label: 'Unavailable Capacity',
-            color: style['color17'],
+            color: 'rgb(var(--color30))',
             value: this.unavailableCapacity,
             tooltip: 'The total aggregated storage from offline nodes or excluded drives in this pool'
         },
         {
             label: 'NooBaa Usage',
-            color: style['color13'],
+            color: 'rgb(var(--color6))',
             value: this.usedByNoobaaCapacity,
             tooltip: 'The actual storage utilization of this pool by the buckets connected to it'
         },
         {
             label: 'Other Usage',
-            color: style['color14'],
+            color: 'rgb(var(--color7))',
             value: this.usedByOthersCapacity,
             tooltip: 'The machines utilization by OS, local files etc'
         },
         {
             label: 'Reserved',
-            color: style['color7'],
+            color: 'rgb(var(--color31))',
             value: this.reservedCapacity,
             tooltip: 'NooBaa reserves 10GB from each storage node to avoid a complete utilization of the local storage on the machine'
         }
@@ -67,95 +127,33 @@ class PoolSummaryViewModel extends Observer {
     hasActivities = ko.observable();
     activitiesTitle = ko.observable();
     activityText = ko.observable();
-    activityDone = ko.observable();
-    activityLeft = ko.observable();
-    activityPrecentage = ko.observable();
+    activityProgress = ko.observable();
     activityEta = ko.observable();
     hasAdditionalActivities = ko.observable();
     additionalActivitiesMessage = ko.observable();
     additionalActivitiesTooltip = ko.observable();
-    activityBar = {
-        values: [
-            {
-                value: this.activityDone,
-                color: style['color8']
-            },
-            {
-                value: this.activityLeft,
-                color: style['color15']
-            }
-        ],
-        marker: {
-            placement: this.activityDone,
-            label: this.activityPrecentage
-        }
-    };
 
-    constructor({ poolName }) {
-        super();
-
-        this.observe(
-            state$.pipe(get('hostPools', ko.unwrap(poolName))),
-            this.onPool
-        );
+    selectState(state, params) {
+        const { hostPools } = state;
+        return [
+            hostPools && hostPools[params.poolName]
+        ];
     }
 
-    onPool(pool) {
-        if (!pool) return;
-        const { hostCount, storageNodeCount, region, storage, activities } = pool;
-
-        { // Update pool state, counters and region.
-            this.state(getHostPoolStateIcon(pool));
-            this.hostCount(numeral(hostCount).format('0,0'));
-            this.driveCount(numeral(storageNodeCount).format('0,0'));
-            this.region(region || unassignedRegionText);
+    mapStateToProps(pool) {
+        if (!pool) {
+            ko.assignToProps(this, {
+                dataReady: false
+            });
+        } else  {
+            ko.assignToProps(this, {
+                dataReady: true,
+                ..._mapStateAndStatus(pool),
+                ..._mapStorageAndUsage(pool),
+                ..._mapFirstActivity(pool),
+                ..._mapAdditionalActivities(pool)
+            });
         }
-
-        { // Update pool storage and usage
-            const { free, unavailableFree, used, usedOther, reserved } = storage;
-            this.availableCapacity(toBytes(free));
-            this.unavailableCapacity(toBytes(unavailableFree));
-            this.usedByNoobaaCapacity(toBytes(used));
-            this.usedByOthersCapacity(toBytes(usedOther));
-            this.reservedCapacity(toBytes(reserved));
-        }
-
-        { // Update pool data activity summary
-            const { hostCount, list } = activities;
-            if (list.length > 0) {
-                const { kind, nodeCount, progress, eta } = list[0] || {};
-                const activityText = `${getActivityName(kind)} ${stringifyAmount('drive', nodeCount)}`;
-                const etaText =  isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
-
-                this.hasActivities(true);
-                this.activitiesTitle(`${stringifyAmount('Node', hostCount)} in Process`);
-                this.activityText(activityText);
-                this.activityDone(progress);
-                this.activityLeft(1 - progress);
-                this.activityPrecentage(numeral(progress).format('%'));
-                this.activityEta(etaText);
-
-                const additionalActivities = list.slice(1);
-                if (additionalActivities.length > 0) {
-                    const message = `${stringifyAmount('More activity', additionalActivities.length)} running`;
-
-                    this.hasAdditionalActivities(true);
-                    this.additionalActivitiesMessage(message);
-                    this.additionalActivitiesTooltip(getActivityListTooltip(additionalActivities));
-
-                } else {
-                    this.hasAdditionalActivities(false);
-                }
-
-            } else {
-                this.hasActivities(false);
-                this.activitiesTitle('No Activities');
-                this.activityText('Pool has no activity');
-            }
-        }
-
-        // Mark the pool as loaded
-        this.poolLoaded(true);
     }
 }
 

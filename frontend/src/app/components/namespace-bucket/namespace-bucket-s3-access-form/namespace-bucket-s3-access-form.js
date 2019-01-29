@@ -1,15 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './namespace-bucket-s3-access-form.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import AccountRowViewModel from './account-row';
 import { deepFreeze, createCompareFunc } from 'utils/core-utils';
-import { state$, action$ } from 'state';
 import { realizeUri } from 'utils/browser-utils';
-import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
-import { requestLocation, openBucketS3AccessModal } from 'action-creators';
+import {
+    requestLocation,
+    openBucketS3AccessModal,
+    openS3AccessDetailsModal
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -24,71 +25,99 @@ const columns = deepFreeze([
     }
 ]);
 
-class NamespaceBucketS3AccessFormViewModel extends Observer {
+class AccountRowViewModel {
+    name = {
+        text: ko.observable(),
+        href: ko.observable()
+    };
+    credentialsDetails = {
+        text: 'View',
+        click: this.onShowDetails.bind(this)
+    };
+    accessDetails = null;
+
+    constructor({ table }) {
+        this.table = table;
+    }
+
+    onShowDetails() {
+        this.table.onShowAccessDetails(this.accessDetails);
+    }
+}
+
+class NamespaceBucketS3AccessFormViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
     columns = columns;
     bucketName = '';
     pathname = '';
     accounts = ko.observable();
-    accountsLoaded = ko.observable();
     sorting = ko.observable();
     accountCount = ko.observable();
-    rows = ko.observableArray();
+    rows = ko.observableArray()
+        .ofType(AccountRowViewModel, { table: this });
 
-    constructor({ bucket }) {
-        super();
-
-        this.bucketName = ko.unwrap(bucket);
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'accounts',
-                    'location'
-                )
-            ),
-            this.onState
-        );
+    selectState(state, params) {
+        return [
+            params.bucket,
+            state.accounts,
+            state.location
+        ];
     }
 
-    onState([accounts, location]) {
+    mapStateToProps(bucketName, accounts, location) {
         if (!accounts) {
-            this.accountsLoaded(false);
-            this.accountCount(0);
-            return;
-        }
-
-        const { sortBy = 'name', order = 1 } = location.query;
-        const { compareKey } = columns.find(column => column.name === sortBy) || columns[0];
-        const compareOp = createCompareFunc(compareKey, order);
-        const accountList = Object.values(accounts);
-        const filteredAccounts = accountList
-            .filter(account => account.allowedBuckets.includes(this.bucketName));
-        const rowParams = {
-            baseRoute: realizeUri(routes.account, { system: location.params.system }, {}, true)
-        };
-
-        const rows = filteredAccounts
-            .sort(compareOp)
-            .map((account, i) => {
-                const row = this.rows.get(i) || new AccountRowViewModel(rowParams);
-                row.onState(account, location.hostname);
-                return row;
+            ko.assignToProps(this, {
+                dataReady: false,
+                bucketName,
+                accountCount: 0
             });
 
-        this.rows(rows);
-        this.sorting({ sortBy, order: Number(order) });
-        this.accountCount(filteredAccounts.length);
-        this.pathname = location.pathname;
-        this.accountsLoaded(true);
+        } else {
+            const { sortBy = 'name', order = 1 } = location.query;
+            const { compareKey } = columns.find(column => column.name === sortBy) || columns[0];
+            const baseRoute = realizeUri(routes.account, { system: location.params.system }, {}, true);
+            const filteredAccounts = Object.values(accounts)
+                .filter(account => account.allowedBuckets.includes(this.bucketName));
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                bucketName,
+                accountCount: filteredAccounts.length,
+                sorting: { sortBy, order: Number(order) },
+                pathname: location.pathname,
+                rows: filteredAccounts
+                    .sort(createCompareFunc(compareKey, order))
+                    .map(account => ({
+                        name: {
+                            text: account.name,
+                            href: realizeUri(baseRoute, { account: account.name })
+                        },
+                        accessDetails: {
+                            endpoint: location.hostname,
+                            ...account.accessKeys
+                        }
+                    }))
+            });
+        }
     }
 
     onSort(sorting) {
         const query = ko.deepUnwrap(sorting);
         const url = realizeUri(this.pathname, {}, query);
-        action$.next(requestLocation(url));
+        this.dispatch(requestLocation(url));
     }
 
     onEditS3Access() {
-        action$.next(openBucketS3AccessModal(this.bucketName));
+        this.dispatch(openBucketS3AccessModal(this.bucketName));
+    }
+
+    onShowAccessDetails(accessDetails) {
+        const { endpoint, accessKey, secretKey } = accessDetails;
+        this.dispatch(openS3AccessDetailsModal(
+            endpoint,
+            accessKey,
+            secretKey
+        ));
     }
 }
 

@@ -8,18 +8,18 @@
     onValidateAsync: onValidateAsync,
     onSubmit: onSubmit
 ">
-    <p class="push-next">
-        Before updating the following fields, go to the linux installer or local DNS server and change the server IP. Once done, fill the following fields:
-    </p>
-    <section class="greedy">
-        <editor class="push-prev" params="
+    <section class="column greedy pad">
+        <p class="push-next">
+            Before updating the following fields, go to the linux installer or local DNS server and change the server IP. Once done, fill the following fields:
+        </p>
+        <editor params="
             label: 'Old Server IP'
         ">
             <input disabled type="text"
                 ko.value="oldAddress"
             />
         </editor>
-        <editor class="push-next" params="
+        <editor params="
             label: 'New Server IP'
         ">
             <div class="row">
@@ -34,12 +34,14 @@
             <validation-message params="field: $form.newAddress"></validation-message>
         </editor>
     </section>
-    <div class="row content-middle align-end">
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
-            Cancel
-        </button>
-        <button class="btn" ko.shakeOnClick="!$form.isValid()">
-            Update
-        </button>
+    <div class="column content-box pad">
+        <div class="row content-middle align-end">
+            <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+                Cancel
+            </button>
+            <button class="btn" ko.shakeOnClick="!$form.isValid()">
+                Update
+            </button>
+        </div>
     </div>
 </managed-form>

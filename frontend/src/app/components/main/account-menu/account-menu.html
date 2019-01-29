@@ -4,7 +4,7 @@
     ko.globalEvent.click="onGlobalClick"
     ko.css.open="isOpen"
 ">
-    <div class="menu-header row hpad content-middle no-outline text-left cursor-pointer">
+    <div class="menu-header row hpad content-middle text-left cursor-pointer">
         <span class="push-next user-email no-wrap">
             {{accountName}}
         </span>
@@ -14,21 +14,21 @@
     <ul class="menu-items list-no-style">
         <hr />
         <li>
-            <a class="menu-item highlight"
+            <a class="menu-item"
                 ko.attr.href="accountPageHref"
             >
                 My Account
             </a>
         </li>
         <li>
-            <a class="menu-item highlight"
+            <a class="menu-item"
                 ko.attr.href="supportEmailHref"
             >
                 Contact Us
             </a>
         </li>
         <li>
-            <a class="menu-item highlight"
+            <a class="menu-item"
                 target="_blank"
                 ko.attr.href="helpDeskHref"
             >
@@ -37,8 +37,17 @@
         </li>
         <hr>
         <li>
+            <button class="menu-item theme-switch"
+                ko.click="onSwitchTheme"
+            >
+                <span>{{switchThemeText}}</span>
+            </button>
+
+        </li>
+        <hr>
+        <li>
             <!-- workaround using target black to allow the link to resolve even so the upper div loses the focus -->
-            <a class="menu-item highlight"
+            <a class="menu-item"
                 href="javascript:void(0)"
                 ko.click="onSignOut"
             >

@@ -1,24 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 .overview-panel {
-    .content-box {
+    .content-wrapper {
         .bounded();
         height: 100%;
         max-width: 1150px;
-        max-height: 568px;
-
-        > .column {
-            min-width: 33%;
-            padding: 0 @gutter/2;
-
-            &:first-child {
-                padding-left: 0;
-            }
-
-            &:last-child {
-                padding-right: 0;
-            }
-        }
+        max-height: 630px;
     }
 
     .overview-btn {
@@ -26,10 +13,4 @@
         width :100%;
         padding: @gutter/2;
     }
-
-    hr {
-        border-width: 2px;
-    }
-
-
 }

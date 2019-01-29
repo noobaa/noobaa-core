@@ -44,13 +44,18 @@ export default function(action$, { api, localStorage, sessionStorage }) {
 
             api.options.auth_token = token;
             return of(true).pipe(
-                mergeMap(() => api.auth.read_auth()),
-                map(sessionInfo => {
+                mergeMap(async () => {
+                    const sessionInfo = await api.auth.read_auth();
+                    const account = await api.account.read_account({ email: sessionInfo.account.email });
+                    const uiTheme = account.preferences.ui_theme.toLowerCase();
+                    return { sessionInfo: sessionInfo, uiTheme  };
+                }),
+                map(({ sessionInfo, uiTheme }) => {
                     if (!sessionInfo.account) {
                         throw _createUnauthorizedException('Account not found');
                     }
 
-                    return completeRestoreSession(token, sessionInfo, persistent);
+                    return completeRestoreSession(token, sessionInfo, persistent, uiTheme);
                 }),
                 retryWhen(errors => errors.pipe(
                     scan((count, err) => {

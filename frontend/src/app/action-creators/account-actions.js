@@ -28,7 +28,8 @@ import {
     FAIL_DELETE_EXTERNAL_CONNECTION,
     REGENERATE_ACCOUNT_CREDENTIALS,
     COMPLETE_REGENERATE_ACCOUNT_CREDENTIALS,
-    FAIL_REGENERATE_ACCOUNT_CREDENTIALS
+    FAIL_REGENERATE_ACCOUNT_CREDENTIALS,
+    UPDATE_ACCOUNT_UI_THEME
 } from 'action-types';
 
 export function createAccount(
@@ -260,5 +261,12 @@ export function failRegenerateAccountCredentials(accountName, error) {
     return {
         type: FAIL_REGENERATE_ACCOUNT_CREDENTIALS,
         payload: { accountName, error }
+    };
+}
+
+export function updateAccountUITheme(accountName, theme) {
+    return {
+        type: UPDATE_ACCOUNT_UI_THEME,
+        payload: { accountName, theme }
     };
 }

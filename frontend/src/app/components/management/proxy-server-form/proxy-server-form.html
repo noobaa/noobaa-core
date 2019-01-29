@@ -10,7 +10,9 @@
             </h2>
             <p ko.visible="!isExpanded()">
                 Server address:
-                <span class="text-tech" ko.text="address"></span>
+                <span ko.css="address.css"
+                    ko.text="address.text"
+                ></span>
             </p>
             <p ko.visible="isExpanded">
                 If the appliance is not directly connected to the Internet you may need to configure an HTTP proxy to reach external resources and servers

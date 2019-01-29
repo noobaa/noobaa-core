@@ -9,26 +9,24 @@
     <prefered-browsers-sticky></prefered-browsers-sticky>
 </section>
 
-<div class="content-wrapper column greedy">
-    <header class="main-header push-next">
-        <a class="link no-outline logo" ko.attr.href="logoHref">
-            <svg-icon params="name: 'logo'"></svg-icon>
+<div class="content-wrapper row greedy">
+    <div class="column main-nav">
+        <a class="logo" ko.attr.href="logoHref">
+            <svg-icon class="icon-medium" params="name: 'logo'"></svg-icon>
         </a>
+        <side-nav class="greedy" params="items: navItems, selected: area"></side-nav>
+        <uploads-indicator ko.visible="isUploadButtonVisible"></uploads-indicator>
+    </div>
 
-        <breadcrumbs class="greedy push-both" params="crumbs: breadcrumbs">
-        </breadcrumbs>
-        <commands-bar class="push-next"></commands-bar>
-        <account-menu></account-menu>
-    </header>
-
-    <div class="row greedy push-next">
-        <div class="column main-nav">
-            <side-nav class="greedy" params="items: navItems, selected: area"></side-nav>
-            <uploads-indicator ko.visible="isUploadButtonVisible"></uploads-indicator>
-        </div>
-
+    <div class="column greedy">
+        <header class="row content-middle main-header push-next">
+            <breadcrumbs class="greedy push-both" params="crumbs: breadcrumbs">
+            </breadcrumbs>
+            <commands-bar class="push-next"></commands-bar>
+            <account-menu></account-menu>
+        </header>
         <!-- ko if: panel -->
-        <main class="column greedy bounded"
+        <main class="column align-stretch greedy bounded push-next-half"
             ko.component="panel"
             ko.css="panel"
         ></main>

@@ -9,16 +9,17 @@ object-summary {
         min-height: inherit;
     }
 
+    .size-chart {
+        width: 168px;
+        height: 168px;
+    }
+
     .summary  {
         opacity: 0;
 
         &.visible {
             opacity: 1;
             transition: opacity 250ms ease-out;
-        }
-
-        .size-not-avail {
-            font-size: @font-size4;
         }
     }
 }

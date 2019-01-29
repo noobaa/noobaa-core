@@ -7,9 +7,6 @@ notification-box {
         position: fixed;
         bottom: @gutter/2;
         left: @gutter/2;
-        border: 1px solid fadeout(@color7, 15%);
-        background-color: fadeout(@color1, 15%);
-        color: white;
         font-size: @font-size3;
         transform: translateY(120%);
         transition: all 500ms ease-out;
@@ -17,15 +14,34 @@ notification-box {
         width: 400px;
         height: @height;
         overflow-y: hidden;
+        border: 1px solid black;
+        font-weight: @font-regular;
+        background-color: rgba(var(--color15), .85);
 
         &:hover {
-            border-color: @color7;
-            background-color: @color1;
+            background-color: rgba(var(--color15), 1);
         }
 
         &.visible {
             transform: translateY(0);
         }
+
+        &.info-borders {
+            border-color: rgba(var(--color22), .85);
+        }
+
+        &.success-borders {
+            border-color: rgba(var(--color21), .85);
+        }
+
+        &.warning-borders {
+            border-color: rgba(var(--color20), .85);
+        }
+
+        &.error-borders {
+            border-color: rgba(var(--color19), .85);
+        }
+
     }
 
     .notif {

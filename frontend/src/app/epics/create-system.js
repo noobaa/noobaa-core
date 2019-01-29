@@ -5,6 +5,7 @@ import { ofType } from 'rx-extensions';
 import { mapErrorObject } from 'utils/state-utils';
 import { CREATE_SYSTEM } from 'action-types';
 import { completeCreateSystem, failCreateSystem } from 'action-creators';
+import { defaultTheme } from 'config';
 
 export default function(action$, { api }) {
     return action$.pipe(
@@ -29,7 +30,7 @@ export default function(action$, { api }) {
                     time_config: timeConfig
                 });
 
-                return completeCreateSystem(systemName, ownerEmail, token);
+                return completeCreateSystem(systemName, ownerEmail, token, defaultTheme);
 
             } catch (error) {
                 return failCreateSystem(mapErrorObject(error));

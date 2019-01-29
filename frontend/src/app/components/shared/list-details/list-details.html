@@ -4,7 +4,7 @@
     ko.visible="loading"
 ></loading-indicator>
 
-<section class="row no-overflow ld-wrapper"
+<section class="row ld-wrapper"
     ko.css.ld-expanded="selected"
     ko.visible="!ko.unwrap(loading)"
 >
@@ -12,7 +12,7 @@
         ko.foreach="rows"
     >
         <li class="row content-middle border-bottom ld-row"
-            ko.css.ld-row-selected="$component.selected.eq($data)"
+            ko.css.ld-row-selected="$component.isSelected($data)"
             ko.click="item => $component.onToggleItem(item)"
         >
             <div class="no-wrap greedy push-next" ko.template="{
@@ -20,7 +20,7 @@
                 data: $parents[1],
                 let: { $item: $data }
             }"></div>
-            <button class="link alt-colors no-outline ld-details-btn">
+            <button class="link alt-colors ld-details-btn">
                 {{$component.buttonLabel}}
             </button>
         </li>
@@ -29,6 +29,6 @@
     <div class="column ld-details-pane" ko.template="{
         html: $component.detailsTemplate,
         data: $parent,
-        let: { $item: selected }
+        let: { $itemId: selected }
     }"></div>
 </section>

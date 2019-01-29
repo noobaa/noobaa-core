@@ -13,11 +13,11 @@
             <h2 class="heading3 greedy">{{tierDisplayName}}</h2>
             <p class="row content-middle">
                 Policy Type: {{placementType}}
-                <vr class="vr-light push-both-half"></vr>
+                <vr class="push-both-half"></vr>
                 Node Pools: {{hostPoolCount}}
-                <vr class="vr-light push-both-half"></vr>
+                <vr class="push-both-half"></vr>
                 Cloud Resources: {{cloudResourceCount}}
-                <vr class="vr-light push-both-half"></vr>
+                <vr class="push-both-half"></vr>
                 Available Capacity: {{capacity}}
             </p>
         </div>
@@ -36,7 +36,7 @@
     </div>
     <div class="column hpad" ko.expand="isExpanded">
         <div class="hpad push-prev">
-            <data-table class="placement-table alt-bg" params="
+            <data-table class="content-box placement-table" params="
                 columns: columns,
                 data: rows,
                 emptyMessage: emptyMessage

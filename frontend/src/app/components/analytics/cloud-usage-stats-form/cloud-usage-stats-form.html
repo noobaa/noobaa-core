@@ -1,5 +1,5 @@
 <!-- Copyright (C) 2016 NooBaa -->
-<div class="alt-bg hpad pad row content-middle">
+<div class="card-shadow hpad pad row content-middle">
      <dropdown class="push-next" params="
         multiselect: true,
         options: serviceOptions,
@@ -12,7 +12,7 @@
         selected: ko.pc(selectedDuration, onSelectDuration, $component),
         disabled: !dataReady(),
     "></dropdown>
-    <svg-icon class="spin"
+    <svg-icon class="spin match-theme"
         params="name: 'in-progress'"
         ko.visible="!dataReady()"
     ></svg-icon>
@@ -35,13 +35,13 @@
             <counter class="push-next" params="
                 label: 'Total Reads',
                 value: totalReads,
-                color: '@color14',
+                color: 'rgb(var(--color6)',
                 format: 'number'
             "></counter>
             <counter class="push-prev" params="
                 label: 'Total Writes',
                 value: totalWrites,
-                color: '@color16',
+                color: 'rgb(var(--color28)',
                 format: 'number'
             "></counter>
         </div>
@@ -55,7 +55,7 @@
         <counter class="push-next" params="
             label: 'Total Egress',
             value: totalEgress,
-            color: '@color14',
+            color: 'rgb(var(--color6)',
             format: 'size'
         "></counter>
         <chartjs class="push-prev"  params="

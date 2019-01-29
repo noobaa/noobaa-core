@@ -16,24 +16,25 @@
         onCancel: onCancel,
         renderControls: false
     ">
-        <section class="column greedy push-prev">
-            <p class="push-next">
-                A Namespace bucket can be used for data display, the data will reside in
-                it's original source and will not be encrypted or replicated
-            </p>
-            <editor class="greedy" params="label: 'Bucket Name'">
-                <input type="text"
-                    class="push-next-half"
-                    ko.textInput="ko.pc($form.bucketName, onBucketNameThrottled)"
-                    ko.validationCss="$form.bucketName"
-                    ko.hasFocus="true"
-                />
-                <ul class="restriction-list" ko.foreach="nameRestrictionList">
-                    <li ko.text="label" ko.css="css"></li>
-                </ul>
-            </editor>
-
-            <div class="row content-middle">
+        <section class="column greedy">
+            <div class="column greedy pad">
+                <p class="push-next">
+                    A Namespace bucket can be used for data display, the data will reside in
+                    it's original source and will not be encrypted or replicated
+                </p>
+                <editor class="greedy" params="label: 'Bucket Name'">
+                    <input type="text"
+                        class="push-next-half"
+                        ko.textInput="ko.pc($form.bucketName, onBucketNameThrottled)"
+                        ko.validationCss="$form.bucketName"
+                        ko.hasFocus="true"
+                    />
+                    <ul class="restriction-list" ko.foreach="nameRestrictionList">
+                        <li ko.text="label" ko.css="css"></li>
+                    </ul>
+                </editor>
+            </div>
+            <div class="row content-middle pad content-box">
                 <p class="remark greedy push-next">
                     <svg-icon class="icon-small valign-bottom"
                         params="name: 'notif-info'"
@@ -44,19 +45,17 @@
             </div>
         </section>
 
-        <section class="column greedy push-prev">
-            <div class="column greedy push-next">
+        <section class="column greedy">
+            <div class="column greedy pad">
                 <h2 class="heading3">Read Policy</h2>
                 <p class="push-next-half">This namespace bucket will read its data from the selected namespace resources</p>
-                <data-table class="greedy resource-table" params="
+                <data-table class="greedy content-box resource-table" params="
                     columns: readPolicyTableColumns,
                     data: readPolicyRows
                 "></data-table>
                 <validation-message params="field: $form.readPolicy"></validation-message>
-            </div>
 
-            <div class="greedy">
-                <h2 class="heading3">Write Policy</h2>
+                <h2 class="heading3 push-prev">Write Policy</h2>
                 <p>This namespace bucket will write its data to the selected namespace resource</p>
                 <editor params="
                     label: 'Namespace Resource',
@@ -72,7 +71,7 @@
                     <validation-message params="field: $form.writePolicy"></validation-message>
                 </editor>
             </div>
-            <div class="row content-middle">
+            <div class="row content-middle pad content-box">
                 <p class="remark greedy push-next">
                     <svg-icon class="icon-small valign-bottom"
                         params="name: 'notif-info'"

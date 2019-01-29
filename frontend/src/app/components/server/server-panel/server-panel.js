@@ -7,6 +7,8 @@ import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, countBy } from 'utils/core-utils';
 import { lastSegment } from 'utils/string-utils';
 import ko from 'knockout';
+import * as routes from 'routes';
+import { requestLocation } from 'action-creators';
 
 const issuesToTabs = deepFreeze({
     debugMode: 'diagnostics',
@@ -54,18 +56,31 @@ class ServerPanelViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const issues = summarizeServerIssues(server, version, minRequirements);
-            ko.assignToProps(this, {
-                dataReady: true,
-                system,
-                baseRoute: realizeUri(route, { system, server: serverName }, {}, true),
-                selectedTab: tab,
-                serverSecret: server.secret,
-                issueCounters: countBy(
-                    Object.keys(issues),
-                    key => issuesToTabs[key]
-                )
-            });
+            // Protect against hostname changes
+            const actualServerName = `${server.hostname}-${server.secret}`;
+            if (serverName === actualServerName) {
+                const issues = summarizeServerIssues(server, version, minRequirements);
+                ko.assignToProps(this, {
+                    dataReady: true,
+                    system,
+                    baseRoute: realizeUri(route, { system, server: serverName }, {}, true),
+                    selectedTab: tab,
+                    serverSecret: server.secret,
+                    issueCounters: countBy(
+                        Object.keys(issues),
+                        key => issuesToTabs[key]
+                    )
+                });
+
+            } else {
+                const serverUrl = realizeUri(
+                    routes.server,
+                    { system, server: actualServerName },
+                    location.query
+                );
+
+                this.dispatch(requestLocation(serverUrl));
+            }
         }
     }
 

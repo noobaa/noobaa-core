@@ -4,7 +4,7 @@
     name: formName,
     fields: formFields
 ">
-    <div class="alt-bg hpad pad-top column">
+    <div class="card-shadow hpad pad-top column">
         <div class="column">
             <h2 class="heading3">NooBaa S3 Accounts R/W</h2>
             <p>States how connected applications utilizes the system resources</p>
@@ -24,7 +24,7 @@
                 selected: $form.selectedDuration,
                 disabled: !dataReady(),
             "></dropdown>
-            <svg-icon class="spin"
+            <svg-icon class="spin match-theme"
                 params="name: 'in-progress'"
                 ko.visible="!dataReady()"
             ></svg-icon>
@@ -35,13 +35,13 @@
         <counter class="push-next" params="
             label: 'Total Data Reads',
             value: totalReads,
-            color: '@color14',
+            color: 'rgb(var(--color6))',
             format: 'size'
         "></counter>
         <counter class="push-prev" params="
             label: 'Total Data Writes',
             value: totalWrites,
-            color: '@color16',
+            color: 'rgb(var(--color28))',
             format: 'size'
         "></counter>
     </div>

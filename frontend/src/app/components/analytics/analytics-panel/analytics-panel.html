@@ -27,6 +27,7 @@
         <!-- ko if: selectedTab.eq('utilization') -->
         <div class="tab column selected fade-in">
             <analytics-resource-distribution-form></analytics-resource-distribution-form>
+            <hr>
             <objects-distribution-form></objects-distribution-form>
         </div>
         <!-- /ko -->
@@ -34,6 +35,7 @@
         <!-- ko if: selectedTab.eq('traffic') -->
         <div class="tab column selected fade-in">
             <bucket-usage-form></bucket-usage-form>
+            <hr>
             <account-usage-form></account-usage-form>
         </div>
         <!-- /ko -->

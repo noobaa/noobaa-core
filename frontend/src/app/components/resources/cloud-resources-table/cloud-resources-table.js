@@ -1,16 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './cloud-resources-table.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import CloudResourceRowViewModel from './cloud-resource-row';
-import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, throttle, createCompareFunc, groupBy } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { includesIgnoreCase } from 'utils/string-utils';
+import { includesIgnoreCase, stringifyAmount } from 'utils/string-utils';
+import { formatSize } from 'utils/size-utils';
 import { inputThrottle, paginationPageSize } from 'config';
-import { action$, state$ } from 'state';
-import { getMany } from 'rx-extensions';
 import { openAddCloudResourceModal, requestLocation, deleteResource } from 'action-creators';
+import * as routes from 'routes';
+import {
+    unassignedRegionText,
+    getCloudResourceStateIcon,
+    getCloudResourceTypeIcon
+} from 'utils/resource-utils';
 
 const columns = deepFreeze([
     {
@@ -71,32 +75,27 @@ const resourceTypeOptions = [
     {
         value: 'AWS',
         label: 'AWS S3',
-        icon: 'aws-s3-dark',
-        selectedIcon: 'aws-s3-colored'
+        icon: 'aws-s3-dark'
     },
     {
         value: 'AZURE',
         label: 'Azure Blob',
-        icon: 'azure-dark',
-        selectedIcon: 'azure-colored'
+        icon: 'azure-dark'
     },
     {
         value: 'GOOGLE',
         label: 'Google Cloud',
-        icon: 'google-cloud-dark',
-        selectedIcon: 'google-cloud-colored'
+        icon: 'google-cloud-dark'
     },
     {
         value: 'S3_COMPATIBLE',
         label: 'S3 Compatible',
-        icon: 'cloud-dark',
-        selectedIcon: 'cloud-colored'
+        icon: 'cloud-dark'
     },
     {
         value: 'FLASHBLADE',
         label: 'Pure FlashBlade',
-        icon: 'google-cloud-dark', //NBNB
-        selectedIcon: 'google-cloud-colored' //NBNB
+        icon: 'google-cloud-dark' //NBNB
     }
 ];
 
@@ -114,10 +113,95 @@ function _matchFilters(resource, typeFilter, textFilter) {
     );
 }
 
-class CloudResourcesTableViewModel extends Observer {
+function _mapResourceToRow(resource, selectedForDelete, system, lockingAccounts) {
+    const {
+        name,
+        region = unassignedRegionText,
+        usedBy,
+        target,
+        undeletable,
+        storage
+    } = resource;
+
+    const bucketCount = usedBy.length;
+
+    return {
+        state: getCloudResourceStateIcon(resource),
+        type: getCloudResourceTypeIcon(resource),
+        name: {
+            text: name,
+            href: realizeUri(routes.cloudResource, { system, resource: name })
+        },
+        region: {
+            text: region,
+            tooltip: region
+        },
+        buckets: {
+            text: stringifyAmount('bucket', bucketCount),
+            tooltip: bucketCount > 0 ? {
+                template: 'linkList',
+                text: usedBy.map(bucket => ({
+                    text: bucket,
+                    href: realizeUri(routes.bucket, { system, bucket })
+                }))
+            } :null
+        },
+        usage: formatSize(storage.used),
+        cloudBucket: target,
+        deleteButton: {
+            id: name,
+            active: selectedForDelete === name,
+            disabled: Boolean(undeletable),
+            tooltip: {
+                text: {
+                    subject: 'resource',
+                    reason: undeletable,
+                    accounts: lockingAccounts
+                }
+            }
+        }
+    };
+}
+
+class RowViewModel {
+    state = ko.observable();
+    type = ko.observable();
+    name = ko.observable();
+    region = ko.observable();
+    buckets = ko.observable();
+    usage = ko.observable();
+    cloudBucket = ko.observable();
+    deleteButton = {
+        id: ko.observable(),
+        text: 'Delete resource',
+        active: ko.observable(),
+        tooltip: {
+            template: 'deleteResource',
+            text: ko.observable()
+        },
+        disabled: ko.observable(),
+        onToggle: id => this.onToggle(id),
+        onDelete: id => this.onDelete(id)
+    };
+
+    constructor({ table }) {
+        this.table = table;
+    }
+
+    onToggle(id) {
+        this.table.onSelectForDelete(id);
+    }
+
+    onDelete(id) {
+        this.table.onDelete(id);
+    }
+}
+
+class CloudResourcesTableViewModel extends ConnectableViewModel {
     columns = columns;
     pageSize = paginationPageSize;
     resourceTypeOptions = resourceTypeOptions;
+    pathname = '';
     resourcesLoaded = ko.observable();
     rows = ko.observableArray();
     filter = ko.observable();
@@ -127,67 +211,78 @@ class CloudResourcesTableViewModel extends Observer {
     page = ko.observable();
     resourceCount = ko.observable();
     emptyMessage = ko.observable();
-    onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
-    rowParams = {
-        onSelectForDelete: this.onSelectForDelete.bind(this),
-        onDelete: this.onDeleteCloudResource.bind(this)
-    };
+    rows = ko.observableArray()
+        .ofType(RowViewModel, { table: this });
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'cloudResources',
-                    'location'
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.cloudResources,
+            state.accounts,
+            state.location
+        ];
     }
 
-    onState([cloudResources, location]) {
-        if (!cloudResources) {
-            this.resourcesLoaded(false);
-            return;
-        }
-
-        const { params, query, pathname } = location;
-        const { tab = 'pools' } = params;
-        if (tab !== 'cloud') return;
-
-        const { filter = '', sortBy = 'name', order = 1, page = 0, selectedForDelete, typeFilter = 'ALL' } = query;
-        const { compareKey } = columns.find(column => column.name === sortBy);
-        const cloudResourceList = Object.values(cloudResources);
-        const pageStart = Number(page) * this.pageSize;
-        const nameFilter = filter.trim().toLowerCase();
-        const filteredRows = cloudResourceList
-            .filter(resource => _matchFilters(resource, typeFilter, nameFilter));
-        const emptyMessage =
-            (filteredRows.length > 0 && 'The current filter does not match any cloud resource') ||
-            (typeFilter === 'ALL' && 'System does not contain any cloud resources') ||
-            `System does not contain any ${resourceTypeOptions.find(t => t.value == typeFilter).label} resources`;
-
-        const rows = filteredRows
-            .sort(createCompareFunc(compareKey, Number(order)))
-            .slice(pageStart, pageStart + this.pageSize)
-            .map((resource, i) => {
-                const row = this.rows.get(i) || new CloudResourceRowViewModel(this.rowParams);
-                row.onState(resource, params.system, selectedForDelete);
-                return row;
+    mapStateToProps(cloudResources, accounts, location) {
+        const { tab = 'cloud' } = location.params;
+        if (tab !== 'cloud' || !cloudResources || !accounts) {
+            ko.assignToProps(this, {
+                resourcesLoaded: false
             });
 
-        this.pathname = pathname;
-        this.filter(filter);
-        this.typeFilter(typeFilter);
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
-        this.resourceCount(filteredRows.length);
-        this.selectedForDelete = selectedForDelete;
-        this.rows(rows);
-        this.emptyMessage(emptyMessage);
-        this.resourcesLoaded(true);
+        } else {
+            const { params, query, pathname } = location;
+            const { filter = '', sortBy = 'name', selectedForDelete, typeFilter = 'ALL' } = query;
+            const order = Number(query.order || 1);
+            const page = Number(query.page || 0);
+            const { compareKey } = columns.find(column => column.name === sortBy);
+            const cloudResourceList = Object.values(cloudResources);
+            const pageStart = page * this.pageSize;
+            const nameFilter = filter.trim().toLowerCase();
+
+            const accountsByUsingResource = groupBy(
+                Object.values(accounts),
+                account => account.defaultResource,
+                account => {
+                    const name = account.name;
+                    const href = realizeUri(routes.account, {
+                        system: params.system,
+                        account: name
+                    });
+                    return { name, href };
+                }
+            );
+
+            const filteredRows = cloudResourceList
+                .filter(resource => _matchFilters(resource, typeFilter, nameFilter));
+
+            const rows = filteredRows
+                .sort(createCompareFunc(compareKey, order))
+                .slice(pageStart, pageStart + this.pageSize)
+                .map(resource => _mapResourceToRow(
+                    resource,
+                    selectedForDelete,
+                    params.system,
+                    accountsByUsingResource[resource.name]
+                ));
+
+            const emptyMessage =
+                (filteredRows.length > 0 && 'The current filter does not match any cloud resource') ||
+                (typeFilter === 'ALL' && 'System does not contain any cloud resources') ||
+                `System does not contain any ${resourceTypeOptions.find(t => t.value == typeFilter).label} resources`;
+
+            ko.assignToProps(this, {
+                resourcesLoaded: true,
+                pathname,
+                filter,
+                typeFilter,
+                page,
+                sorting: { sortBy, order },
+                resourceCount: filteredRows.length,
+                selectedForDelete: selectedForDelete,
+                rows,
+                emptyMessage
+            });
+        }
     }
 
     onTypeFilter(type) {
@@ -199,13 +294,13 @@ class CloudResourcesTableViewModel extends Observer {
     }
 
 
-    onFilter(filter) {
+    onFilter = throttle(filter => {
         this._query({
             filter: filter,
             page: 0,
             selectedForDelete: null
         });
-    }
+    }, inputThrottle)
 
     onSort(sorting) {
         this._query({
@@ -227,11 +322,11 @@ class CloudResourcesTableViewModel extends Observer {
     }
 
     onAddCloudResource() {
-        action$.next(openAddCloudResourceModal());
+        this.dispatch(openAddCloudResourceModal());
     }
 
     onDeleteCloudResource(name) {
-        action$.next(deleteResource(name));
+        this.dispatch(deleteResource(name));
     }
 
     _query(params) {
@@ -253,7 +348,7 @@ class CloudResourcesTableViewModel extends Observer {
             selectedForDelete: selectedForDelete || undefined
         };
 
-        action$.next(requestLocation(
+        this.dispatch(requestLocation(
             realizeUri(this.pathname, {}, query)
         ));
     }

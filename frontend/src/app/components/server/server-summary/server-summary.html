@@ -7,8 +7,8 @@
 </div>
 
 <section class="summary greedy row" ko.css.visible="dataReady">
-    <section class="c4 column pad borders">
-        <div class="row greedy content-middle"
+    <section class="c4 column card">
+        <div class="row hpad greedy content-middle"
             ko.with="status"
         >
             <svg-icon class="push-next"
@@ -18,7 +18,7 @@
             <span class="highlight">{{text}}</span>
         </div>
         <hr>
-        <div class="row greedy content-middle"
+        <div class="row hpad greedy content-middle"
             ko.with="issues"
         >
             <svg-icon class="push-next"
@@ -31,17 +31,18 @@
     </section>
 
     <section class="c4 column push-both">
-        <h3 class="heading3">
+        <h3 class="heading3 push-next">
             Average utilization over last minute:
         </h3>
-        <bar-chart params="
-            options: bars.options,
-            values: bars.values
-        "></bar-chart>
+        <chartjs class="utilization-chart align-middle" params="
+            type: 'bar',
+            options: chart.options,
+            data: chart.data
+        "></chartjs>
     </section>
 
-    <section class="c4 column pad borders">
-        <h3 class="heading3">
+    <section class="c4 column card">
+        <h3 class="heading3 hpad pad-half">
             No Server Activities
         </h3>
         <hr>
